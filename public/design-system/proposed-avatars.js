@@ -128,8 +128,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="avatars-h"><a href="#avatars">Avatars and portraits</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the circle in six sizes, initials, photo, icon, presence, the who's-around stack, the photo tile</span></header>
-<p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>An avatar is always a circle</b>, in sizes <b>20, 24, 32, 40, 64</b> (and <b>96</b>, for editing a profile picture only). <b>Presence</b> is a 7px dot with a 2px ring, never colour alone. <b>A photo in a card is a tile, not an avatar</b>: an image with <code>--radius-medium</code> at 72, 52 or 96px. Stylesheet: <code>proposed-avatars.css</code>, every rule under <code>.ds-proposed</code>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#avatars-anatomy">Anatomy</a><a href="#avatars-sizes">Sizes and fills</a><a href="#avatars-presence">Presence</a><a href="#avatars-stack">Stack</a><a href="#avatars-tiles">Photo tiles</a><a href="#avatars-use">In use</a><a href="#avatars-widths">Widths</a><a href="#avatars-rules">Usage rules</a><a href="#avatars-map">Today to proposed</a><a href="#avatars-contrast">Contrast</a><a href="#avatars-tokens">Tokens</a><a href="#avatars-markup">Markup contract</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> <b>An avatar is always a circle</b>, in sizes <b>20, 24, 32, 40, 64</b> (and <b>96</b>, for editing a profile picture only). <b>Presence</b> is a 7px dot with a 2px ring, never colour alone. <b>A photo in a card is a tile, not an avatar</b>: an image with <code>--radius-medium</code> at 72, 52 or 96px. Stylesheet: <code>proposed-avatars.css</code>, every rule under <code>.ds-proposed</code>.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#avatars-anatomy">Anatomy</a><a href="#avatars-sizes">Sizes and fills</a><a href="#avatars-presence">Presence</a><a href="#avatars-stack">Stack</a><a href="#avatars-tiles">Photo tiles</a><a href="#avatars-use">In use</a><a href="#avatars-widths">Widths</a><a href="#avatars-rules">Usage rules</a><a href="#avatars-map">Today to proposed</a><a href="#avatars-contrast">Contrast</a><a href="#avatars-tokens">Tokens</a><a href="#avatars-markup">Markup contract</a><a href="#avatars-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="avatars-anatomy">Anatomy</h4>
 ${dim([
@@ -223,6 +223,14 @@ ${code(`<!-- an avatar by a name: decorative -->
 <span class="sdk-photo sdk-photo-72"><img src="/people/ana.jpg" alt="Ana Berg">
   <span class="sdk-presence" data-state="online" role="img" aria-label="Online" title="Online"></span></span>`)}
 <p class="ds-desc"><b>Names kept.</b> New classes only; the present avatar classes are replaced where they are drawn (the people chip's <code>.sdk-chip-avatar</code> stays the Chips family's). Set <code>--av-surface</code> and <code>--av-ring</code> on the card an avatar sits in, so the fill and the rings follow it.</p>
+
+<h4 class="ds-h4" id="avatars-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["Initials","Snapped to the type scale; the second initial is hidden at 20 and 24px."],
+    ["The stack \"+N\"","A micro count, digits only."],
+    ["Presence","The online dot uses <code>--ok-mark</code> (3 to 1 in all three themes, both modes)."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + AV_CSS }, o || {}));

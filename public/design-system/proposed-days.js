@@ -154,8 +154,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="days-h"><a href="#days">Day cards and day chips</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the Planner's day card, its date block and labels, the day chip, the days-between count</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch the same day.</b> (1) The day card is a Card from the approved Cards family: a hairline, no shadow, the card step on the panel step, the large corner, 12px of padding. (2) Its head is one row: a date block, the title and summary, the labels, a count and the "..." menu. (3) The date block is a neutral inner fill with the day number in Figtree 600 at 22px and the weekday at 11px in capitals; it is not a solid accent block. (4) The phase wash on the head is dropped: the phase shows as a Chips status label in its tint. (5) The current day is the neutral selected fill with a "Today" status label when it is today: no accent border, no glow. (6) The day chip is a small neutral chip: current is the selected fill, in the trip is a dot (not a coloured border), today is a small dot, hover is a quiet fill, and it no longer lifts. The date picker's today and chosen day are in the Calendar cells family.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#days-anatomy">Anatomy</a><a href="#days-states">Day card states</a><a href="#days-phases">Phase labels</a><a href="#days-chips">Day chip</a><a href="#days-strip">Strip and gap</a><a href="#days-context">In context</a><a href="#days-phone">On a phone</a><a href="#days-contrast">Contrast</a><a href="#days-map">Today to proposed</a><a href="#days-alias">Aliases</a><a href="#days-tokens">Tokens</a><a href="#days-contract">Markup</a><a href="#days-decide">What Thomas chooses</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> (1) The day card is a Card from the approved Cards family: a hairline, no shadow, the card step on the panel step, the large corner, 12px of padding. (2) Its head is one row: a date block, the title and summary, the labels, a count and the "..." menu. (3) The date block is a neutral inner fill with the day number in Figtree 600 at 22px and the weekday at 11px in capitals; it is not a solid accent block. (4) The phase wash on the head is dropped: the phase shows as a Chips status label in its tint. (5) The current day is the neutral selected fill with a "Today" status label when it is today: no accent border, no glow. (6) The day chip is a small neutral chip: current is the selected fill, in the trip is a dot (not a coloured border), today is a small dot, hover is a quiet fill, and it no longer lifts. The date picker's today and chosen day are in the Calendar cells family.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#days-anatomy">Anatomy</a><a href="#days-states">Day card states</a><a href="#days-phases">Phase labels</a><a href="#days-chips">Day chip</a><a href="#days-strip">Strip and gap</a><a href="#days-context">In context</a><a href="#days-phone">On a phone</a><a href="#days-contrast">Contrast</a><a href="#days-map">Today to proposed</a><a href="#days-alias">Aliases</a><a href="#days-tokens">Tokens</a><a href="#days-contract">Markup</a><a href="#days-decided">What Thomas chooses</a></nav>
 
 <h4 class="ds-h4" id="days-anatomy">Anatomy</h4>
 <div data-slot="anatomy"></div>
@@ -252,16 +252,17 @@ ${dim([
     ['In the trip', '<code>.sdk-daychip-dot</code> in the chip, with the words in its <code>aria-label</code>.'],
   ])}
 
-<h4 class="ds-h4" id="days-decide">What Thomas chooses</h4>
-${tbl(['Chosen here', 'Why', 'Other way'], [
-    ['"Current" gets the selected fill; "today" gets only the word', 'In the Planner the day in view and today are different things; the brief gives the fill to the current day and the word to today.', 'Fill for today as well.'],
-    ['The date block is the text at 8% over the card, not a surface step', 'In today\'s theme the card and the field are the same colour, so a step would not show.', 'A step token once the Colour family separates them.'],
-    ['The day number is Figtree 600 at 22px (the 22 step, but not Fraunces)', 'Digits stay in the interface font; 22px is the headline step.', 'Fraunces for the number.'],
-    ['The date block corner is <code>--radius-small</code>', 'A row inside a card is small.', 'Medium.'],
-    ['The phase label has the phase\'s own icon', 'The itinerary plan decided phases carry their icon on the caps.', 'Words only.'],
-    ['The in-trip dot is 7px (the Chips dot); the today dot is 4px', 'Two dots, two places: corner and under the number.', 'One dot.'],
-    ['The day chip is 40px high (44px on a phone), not the Chips choice chip\'s 30px', 'It stacks a weekday over a number.', 'A 30px chip with the number only.'],
-    ['The <code>.gapcount</code> is drawn here, not in the Calendar family', 'It lives in the Planner, between day cards.', 'Draw it with the Calendar.'],
+<h4 class="ds-h4" id="days-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["\"Current\" gets the selected fill; \"today\" gets only the word","In the Planner the day in view and today are different things; the brief gives the fill to the current day and the word to today."],
+    ["The date block is the text at 8% over the card, not a surface step","In today's theme the card and the field are the same colour, so a step would not show."],
+    ["The day number is Figtree 600 at 22px (the 22 step, but not Fraunces)","Digits stay in the interface font; 22px is the headline step."],
+    ["The date block corner is <code>--radius-small</code>","A row inside a card is small."],
+    ["The phase label has the phase's own icon","The itinerary plan decided phases carry their icon on the caps."],
+    ["The in-trip dot is 7px (the Chips dot); the today dot is 4px","Two dots, two places: corner and under the number."],
+    ["The day chip is 40px high (44px on a phone), not the Chips choice chip's 30px","It stacks a weekday over a number."],
+    ["The <code>.gapcount</code> is drawn here, not in the Calendar family","It lives in the Planner, between day cards."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

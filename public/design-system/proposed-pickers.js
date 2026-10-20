@@ -124,8 +124,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="pickers-h"><a href="#pickers">Pickers</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">kind, currency, icon, colour and background pickers: one trigger, one flyout</span></header>
-<p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One trigger</b> for every picker: the approved field look, with the picker's trailing icon inside. <b>One flyout</b>: the approved Menus surface (a list or a popover), and on a phone the Menus bottom sheet for a long list. <b>One colour picker</b> where there are three looks today. The date picker's grid belongs to the Menus family (drawn there); only its trigger, the date field, is in the table below. The background picker is a Dialog (880 wide, from the Dialogs family, drawn by another builder); its content is drawn here. Stylesheet: <code>proposed-pickers.css</code>, every rule under <code>.ds-proposed</code>; the flyouts use <code>proposed-menus.css</code>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#pickers-anatomy">Anatomy</a><a href="#pickers-triggers">Triggers</a><a href="#pickers-flyouts">Flyouts</a><a href="#pickers-sheet">On a phone</a><a href="#pickers-bg">Background</a><a href="#pickers-form">In a form</a><a href="#pickers-widths">Widths</a><a href="#pickers-rules">Usage rules</a><a href="#pickers-map">Today to proposed</a><a href="#pickers-tokens">Tokens</a><a href="#pickers-markup">Markup contract</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> <b>One trigger</b> for every picker: the approved field look, with the picker's trailing icon inside. <b>One flyout</b>: the approved Menus surface (a list or a popover), and on a phone the Menus bottom sheet for a long list. <b>One colour picker</b> where there are three looks today. The date picker's grid belongs to the Menus family (drawn there); only its trigger, the date field, is in the table below. The background picker is a Dialog (880 wide, from the Dialogs family, drawn by another builder); its content is drawn here. Stylesheet: <code>proposed-pickers.css</code>, every rule under <code>.ds-proposed</code>; the flyouts use <code>proposed-menus.css</code>.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#pickers-anatomy">Anatomy</a><a href="#pickers-triggers">Triggers</a><a href="#pickers-flyouts">Flyouts</a><a href="#pickers-sheet">On a phone</a><a href="#pickers-bg">Background</a><a href="#pickers-form">In a form</a><a href="#pickers-widths">Widths</a><a href="#pickers-rules">Usage rules</a><a href="#pickers-map">Today to proposed</a><a href="#pickers-tokens">Tokens</a><a href="#pickers-markup">Markup contract</a><a href="#pickers-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="pickers-anatomy">Anatomy</h4>
 ${dim([
@@ -235,6 +235,13 @@ ${code(`<!-- the trigger -->
 <!-- a background tile, in the Dialog -->
 <button type="button" class="sdk-tile" aria-pressed="true"><span class="sdk-tile-img" style="--img: linear-gradient(135deg, #1f2a44, #c8873a)"></span><span>Paris at night</span><i class="fa-solid fa-check sdk-tile-check" aria-hidden="true"></i></button>`)}
 <p class="ds-desc"><b>Names kept.</b> <code>.sdk-kind-field</code> is an alias of the trigger; <code>.sdk-kind-list</code>, <code>.sdk-kind-option</code> and <code>.sdk-menu-sheet</code> are the Menus family's. <code>.icon-grid</code>, <code>.bgpick-tile</code> and <code>.look-dot</code> have no alias: their markup changes.</p>
+
+<h4 class="ds-h4" id="pickers-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["Swatches","Rounded squares with a check on a neutral disc."],
+    ["The 16-colour palette","Is data, not design."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + PK_CSS }, o || {}));

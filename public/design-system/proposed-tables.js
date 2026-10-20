@@ -168,8 +168,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="tables-h"><a href="#tables">Tables and Manage lists</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the table (roles, files, Set up), and the Manage lists: module rows, plan and AI service cards, member tiles</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch the same day.</b> (1) One small table: a header of 12px, weight 600, capitals, <code>--text-dim</code>, with a hairline under it and no accent colour; cells 8px by 10px; a hairline under each row; hover is the quiet fill; a group row is a neutral fill with the group's name; a selected row is the selected fill; numbers are right-aligned with tabular figures; the header sticks; on a phone the table scrolls sideways in its own box and keeps its first column. (2) The lists in Manage (<code>.list-row</code>, plan rows, AI service rows, module list items, member rows) are the approved Cards and rows: nothing new is drawn for them but one composed Manage page. (3) A member tile that is online has a 7px dot with a 2px ring, not a coloured border; a member toggle is the selected fill when on and 45% strength when off. (4) The hard-coded <code>#b8503f</code> of an invalid icon field becomes the Fields error; the environment banner's outline becomes the Banner, which the Toasts family draws at the same time.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#tables-anatomy">Anatomy</a><a href="#tables-states">Table states</a><a href="#tables-empty">Empty and loading</a><a href="#tables-sticky">Sticky header</a><a href="#tables-phone">On a phone</a><a href="#tables-manage">A Manage page</a><a href="#tables-members">Members</a><a href="#tables-replaced">Replaced</a><a href="#tables-contrast">Contrast</a><a href="#tables-map">Today to proposed</a><a href="#tables-alias">Aliases</a><a href="#tables-tokens">Tokens</a><a href="#tables-contract">Markup</a><a href="#tables-decide">What Thomas chooses</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> (1) One small table: a header of 12px, weight 600, capitals, <code>--text-dim</code>, with a hairline under it and no accent colour; cells 8px by 10px; a hairline under each row; hover is the quiet fill; a group row is a neutral fill with the group's name; a selected row is the selected fill; numbers are right-aligned with tabular figures; the header sticks; on a phone the table scrolls sideways in its own box and keeps its first column. (2) The lists in Manage (<code>.list-row</code>, plan rows, AI service rows, module list items, member rows) are the approved Cards and rows: nothing new is drawn for them but one composed Manage page. (3) A member tile that is online has a 7px dot with a 2px ring, not a coloured border; a member toggle is the selected fill when on and 45% strength when off. (4) The hard-coded <code>#b8503f</code> of an invalid icon field becomes the Fields error; the environment banner's outline becomes the Banner, which the Toasts family draws at the same time.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#tables-anatomy">Anatomy</a><a href="#tables-states">Table states</a><a href="#tables-empty">Empty and loading</a><a href="#tables-sticky">Sticky header</a><a href="#tables-phone">On a phone</a><a href="#tables-manage">A Manage page</a><a href="#tables-members">Members</a><a href="#tables-replaced">Replaced</a><a href="#tables-contrast">Contrast</a><a href="#tables-map">Today to proposed</a><a href="#tables-alias">Aliases</a><a href="#tables-tokens">Tokens</a><a href="#tables-contract">Markup</a><a href="#tables-decided">What Thomas chooses</a></nav>
 
 <h4 class="ds-h4" id="tables-anatomy">Anatomy</h4>
 ${dim([
@@ -265,14 +265,15 @@ ${dim([
     ['Loading', '<code>aria-busy="true"</code> on the table and a <code>.sdk-sr-only</code> status line.'],
   ])}
 
-<h4 class="ds-h4" id="tables-decide">What Thomas chooses</h4>
-${tbl(['Chosen here', 'Why', 'Other way'], [
-    ['A selected row is the accent at 28% over the surface, made opaque, not the translucent <code>--selected-bg</code>', 'A sticky first column must hide what scrolls under it, so every fill is opaque. The colour is the same.', 'The translucent token and a transparent sticky column.'],
-    ['Header cells left-aligned; ticks and role columns centred; numbers right', 'The roles table is a grid of ticks; the files table is text and numbers.', 'Everything left.'],
-    ['The group row has capitals (12px, weight 600) in the text colour', 'The same type as the Cards group header, but on a neutral fill.', 'Sentence case.'],
-    ['The off member toggle stays at 45% strength', 'The brief keeps it. Text at 45% does not reach 4.5 to 1; the name is on the tile and the state is in <code>aria-pressed</code>.', 'A label "Off" on the tile.'],
-    ['A table row does not open anything by default', 'Where it does, give the row <code>tabindex="0"</code>; it takes the 2px outline.', 'A whole-row link, as the Cards\' <code>.sdk-open</code>.'],
-    ['Manage lists add no new component', 'They are the Cards rows and cards; only the member tile is new.', 'A separate Manage list look.'],
+<h4 class="ds-h4" id="tables-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["A selected row is the accent at 28% over the surface, made opaque, not the translucent <code>--selected-bg</code>","A sticky first column must hide what scrolls under it, so every fill is opaque. The colour is the same."],
+    ["Header cells left-aligned; ticks and role columns centred; numbers right","The roles table is a grid of ticks; the files table is text and numbers."],
+    ["The group row has capitals (12px, weight 600) in the text colour","The same type as the Cards group header, but on a neutral fill."],
+    ["The off member toggle stays at 45% strength","The brief keeps it. Text at 45% does not reach 4.5 to 1; the name is on the tile and the state is in <code>aria-pressed</code>."],
+    ["A table row does not open anything by default","Where it does, give the row <code>tabindex=\"0\"</code>; it takes the 2px outline."],
+    ["Manage lists add no new component","They are the Cards rows and cards; only the member tile is new."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

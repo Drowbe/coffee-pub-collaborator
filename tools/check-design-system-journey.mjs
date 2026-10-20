@@ -223,6 +223,6 @@ const probe = async () => {
   const blk = document.getElementById('journey');
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Journey family is not marked Approved');
   if (document.getElementById('u-status-strip-phases-and-countdown')) bad('Status strip, phases and countdown is still listed as Not yet decided');
-  if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent) || !/caps and rail/i.test(blk.textContent)) bad('the Journey family lacks its Today to proposed, Chosen while drawing or caps and rail section');
+  if (!blk || !/Decided 2026-10-21/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent) || !/caps and rail/i.test(blk.textContent)) bad('the Journey family lacks its Today to proposed, Decided 2026-10-21 or caps and rail section');
   return JSON.stringify(out);
 };

@@ -167,8 +167,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="states-h"><a href="#states">Empty, loading and error states</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one empty block, one skeleton, one spinner; the error is the empty block with a Retry</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> One <code>.sdk-empty</code> block (a 24px icon, a 16px heading, dim text, an optional Primary or Quiet button) with a compact line for lists. One <code>.sdk-skel</code> skeleton in row, card and text-line shapes with <b>one</b> shimmer, off when the person asks for less motion. One 16px spinner (12px and 20px sizes) for buttons and inline waits. <b>The rule: a skeleton for a first load that takes over 300ms; a spinner otherwise.</b> An error is the same empty block with a Retry button, plus the field error line <code>.sdk-form-error</code>. The error colour is the readable danger mix (danger 70% into the text colour); the raw <code>#e07a5f</code> of the Stream module goes. The "Loading..." text in about 30 places becomes the spinner or a skeleton.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#states-empty">Empty</a><a href="#states-line">Compact line</a><a href="#states-skel">Skeleton</a><a href="#states-spin">Spinner</a><a href="#states-error">Error</a><a href="#states-rule">The rule, live</a><a href="#states-panel">In a panel</a><a href="#states-alias">Aliases</a><a href="#states-today">Today to proposed</a><a href="#states-contrast">Contrast</a><a href="#states-tokens">Tokens</a><a href="#states-markup">Markup contract</a><a href="#states-widths">Widths</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> One <code>.sdk-empty</code> block (a 24px icon, a 16px heading, dim text, an optional Primary or Quiet button) with a compact line for lists. One <code>.sdk-skel</code> skeleton in row, card and text-line shapes with <b>one</b> shimmer, off when the person asks for less motion. One 16px spinner (12px and 20px sizes) for buttons and inline waits. <b>The rule: a skeleton for a first load that takes over 300ms; a spinner otherwise.</b> An error is the same empty block with a Retry button, plus the field error line <code>.sdk-form-error</code>. The error colour is the readable danger mix (danger 70% into the text colour); the raw <code>#e07a5f</code> of the Stream module goes. The "Loading..." text in about 30 places becomes the spinner or a skeleton.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#states-empty">Empty</a><a href="#states-line">Compact line</a><a href="#states-skel">Skeleton</a><a href="#states-spin">Spinner</a><a href="#states-error">Error</a><a href="#states-rule">The rule, live</a><a href="#states-panel">In a panel</a><a href="#states-alias">Aliases</a><a href="#states-today">Today to proposed</a><a href="#states-contrast">Contrast</a><a href="#states-tokens">Tokens</a><a href="#states-markup">Markup contract</a><a href="#states-widths">Widths</a><a href="#states-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="states-empty">Empty</h4>
 <p class="ds-desc">Text only, no box (the Cards family draws it so). A 24px icon in <code>--text-dim</code>, a 16px heading in <code>--text</code> (weight 600), one or two lines of dim text, and at most one button: <b>Primary</b> when there is one next step ("Add a place"), <b>Quiet</b> when it is a way out ("Clear the filter"), none when there is nothing to do. The heading says what is missing; the text says what to do. Sentence case.</p>
@@ -253,6 +253,12 @@ ${code(`<!-- empty: the icon, the heading, the text, at most one button; the err
 
 <h4 class="ds-h4" id="states-widths">Widths</h4>
 <div data-slot="widths"></div>
+
+<h4 class="ds-h4" id="states-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["One empty state and one loading skeleton","<code>.sdk-skel</code> is owned here; Tables draws its loading bars with it."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + ST_CSS }, o || {}));

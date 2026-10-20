@@ -152,8 +152,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="modulechrome-h"><a href="#modulechrome">Module window: title bar, toolbar and status line</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">three bands, in a docked, a floating and a popped-out module; the Chat header</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch.</b> (1) Three bands with tokens: title bar <code>--module-header-h</code> 34px (42px on a phone), toolbar <code>--toolbar-h</code> 34px, status line <code>--status-bar-h</code> 24px. (2) The title bar is the only tinted band: the module's tint is a 10% wash and a tinted icon. The toolbar takes the field step (<code>--bg-input</code>), not <code>--shade</code>. (3) Buttons in a band are the approved Quiet small buttons (30px); selected is <code>--selected-bg</code>. The 26px round <code>.tb-btn</code> with its solid accent "on", <code>.msg-btn</code> (13px) and <code>.mod-add</code> are retired. (4) Chat's header is this title bar. (5) A floating module is a window: <code>--shadow-2</code> and a grab cursor. (6) The status line is a hairline, 12px muted words separated by dots; an item with <code>chip: true</code> is a Chips status label.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#modulechrome-anatomy">Anatomy</a><a href="#modulechrome-windows">Docked, floating, popped out</a><a href="#modulechrome-tints">Tints</a><a href="#modulechrome-buttons">Title bar buttons</a><a href="#modulechrome-toolbar">Toolbar</a><a href="#modulechrome-status">Status line</a><a href="#modulechrome-chat">Chat header</a><a href="#modulechrome-phone">On a phone</a><a href="#modulechrome-contrast">Contrast</a><a href="#modulechrome-map">Today to proposed</a><a href="#modulechrome-alias">Aliases</a><a href="#modulechrome-tokens">Tokens</a><a href="#modulechrome-contract">Markup</a><a href="#modulechrome-widths">Widths</a><a href="#modulechrome-chosen">Chosen while drawing</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> (1) Three bands with tokens: title bar <code>--module-header-h</code> 34px (42px on a phone), toolbar <code>--toolbar-h</code> 34px, status line <code>--status-bar-h</code> 24px. (2) The title bar is the only tinted band: the module's tint is a 10% wash and a tinted icon. The toolbar takes the field step (<code>--bg-input</code>), not <code>--shade</code>. (3) Buttons in a band are the approved Quiet small buttons (30px); selected is <code>--selected-bg</code>. The 26px round <code>.tb-btn</code> with its solid accent "on", <code>.msg-btn</code> (13px) and <code>.mod-add</code> are retired. (4) Chat's header is this title bar. (5) A floating module is a window: <code>--shadow-2</code> and a grab cursor. (6) The status line is a hairline, 12px muted words separated by dots; an item with <code>chip: true</code> is a Chips status label.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#modulechrome-anatomy">Anatomy</a><a href="#modulechrome-windows">Docked, floating, popped out</a><a href="#modulechrome-tints">Tints</a><a href="#modulechrome-buttons">Title bar buttons</a><a href="#modulechrome-toolbar">Toolbar</a><a href="#modulechrome-status">Status line</a><a href="#modulechrome-chat">Chat header</a><a href="#modulechrome-phone">On a phone</a><a href="#modulechrome-contrast">Contrast</a><a href="#modulechrome-map">Today to proposed</a><a href="#modulechrome-alias">Aliases</a><a href="#modulechrome-tokens">Tokens</a><a href="#modulechrome-contract">Markup</a><a href="#modulechrome-widths">Widths</a><a href="#modulechrome-decided">Chosen while drawing</a></nav>
 
 <h4 class="ds-h4" id="modulechrome-anatomy">Anatomy and surface steps</h4>
 <div data-slot="anatomy"></div>
@@ -261,15 +261,15 @@ ${dim([
 <h4 class="ds-h4" id="modulechrome-widths">Widths</h4>
 <div data-slot="widths"></div>
 
-<h4 class="ds-h4" id="modulechrome-chosen">Chosen while drawing</h4>
-<p class="ds-desc">Thomas decides each of these; each has another way.</p>
-${tbl(['Chosen', 'Why', 'Other way'], [
-    ['The toolbar is <code>--bg-input</code>, one step below the window', 'The brief says the field and inner step, not <code>--shade</code>. In today\'s theme the card and the input are the same colour, so it separates as the Colour family does.', 'The window\'s own step with only the hairline.'],
-    ['The status label in the line is 20px, not the Chips 24px', 'A 24px chip would fill a 24px line, hairline included. Fills, words and corner are the Chips status label\'s.', 'Make the line 32px when it holds a chip, or draw no chip there.'],
-    ['The toolbar search is 30px, 13px words (16px on a phone)', 'A 38px field does not fit a 34px band. Fields has no compact variant; this is the real need it waited for.', 'A toolbar of 44px, or no search in it.'],
-    ['The tinted icon is the readable mix (<code>--tint</code> 62% into <code>--text</code>), not the raw tint', 'The raw tint fails 3 to 1 for some tints on the wash; the Cards icon chip uses the same mix.', 'The raw tint.'],
-    ['The home-indicator inset is added only in a popped-out window', 'A docked or floating module never reaches the screen\'s bottom edge on a phone (the tab bar is below it).', 'Add it to every status line.'],
-    ['Docked windows keep a hairline and the large corner; popped-out has neither', 'The edge is the window\'s.', 'A hairline on the popped-out page too.'],
+<h4 class="ds-h4" id="modulechrome-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["The toolbar is <code>--bg-input</code>, one step below the window","The brief says the field and inner step, not <code>--shade</code>. In today's theme the card and the input are the same colour, so it separates as the Colour family does."],
+    ["The status label in the line is 20px, not the Chips 24px","A 24px chip would fill a 24px line, hairline included. Fills, words and corner are the Chips status label's."],
+    ["The toolbar search is 30px, 13px words (16px on a phone)","A 38px field does not fit a 34px band. Fields has no compact variant; this is the real need it waited for."],
+    ["The tinted icon is the readable mix (<code>--tint</code> 62% into <code>--text</code>), not the raw tint","The raw tint fails 3 to 1 for some tints on the wash; the Cards icon chip uses the same mix."],
+    ["The home-indicator inset is added only in a popped-out window","A docked or floating module never reaches the screen's bottom edge on a phone (the tab bar is below it)."],
+    ["Docked windows keep a hairline and the large corner; popped-out has neither","The edge is the window's."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

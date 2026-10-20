@@ -190,6 +190,6 @@ const probe = async () => {
   const blk = document.getElementById('modulechrome');
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Module window family is not marked Approved');
   if (document.getElementById('u-module-window-title-toolbar-and-status')) bad('Module window: title, toolbar and status is still listed as Not yet decided');
-  if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Module window family lacks its Today to proposed or Chosen while drawing section');
+  if (!blk || !/Decided 2026-10-21/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Module window family lacks its Today to proposed or Decided 2026-10-21 section');
   return JSON.stringify(out);
 };

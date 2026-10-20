@@ -86,6 +86,21 @@ export const colourProbe = async () => {
   const near = (a, b, tol) => Math.abs(a.r - b.r) <= tol && Math.abs(a.g - b.g) <= tol && Math.abs(a.b - b.b) <= tol;
   const val = (id) => st.vals[id];
 
+  // Calming Teal, light (decided 2026-10-21: keep the teal): the auto-picked text on the teal fill and the teal as text reach 4.5 to 1, worked out from the theme's own
+  // colours and checked again here; the accent as a mark is shown as the warning (under 3 to 1), not hidden.
+  { const T = C.themes.teal.light; const tb = D.getElementById('cx-teal-table'); if (!D.getElementById('colour-teal') || !tb) bad('the Colour family has no Calming Teal, light section');
+    else {
+      const num = (k) => parseFloat((tb.querySelector('[data-teal="' + k + '"]') || { textContent: 'NaN' }).textContent);
+      const acc = rgb(T.accent); const pg = rgb(T.bg); const pn = rgb(T.bgSection);
+      const onFill = Math.max(ratioOf(rgb('#ffffff'), acc), ratioOf(rgb('#0a0a0a'), acc));
+      if (Math.abs(num('on') - onFill) > 0.01 || onFill < 4.5) bad('the text on the teal fill is shown as ' + num('on') + ', worked out ' + onFill.toFixed(2) + ' (needs 4.5)');
+      if (num('text') < 4.5) bad('the teal as text is shown at ' + num('text') + ', under 4.5');
+      if (!(num('mix') > 0 && num('mix') <= 100)) bad('the teal-as-text mix is not shown');
+      const mark = ratioOf(acc, pg);
+      if (Math.abs(num('page') - mark) > 0.01 || mark >= 3) bad('the accent on the page is shown as ' + num('page') + ', worked out ' + mark.toFixed(2) + ' (expected under 3)');
+      if (T.accent !== '#0dc9ca') bad('the Calming Teal accent changed (' + T.accent + '); the decision is to keep it');
+      if (!/Accent on page \(bars, rings\)/.test((tb.nextElementSibling || tb).textContent)) bad('the teal accent is not flagged with the theme editor warning');
+    } }
   // the board lists every role once, with a computed colour; base and derived are told apart
   const sws = [...board.querySelectorAll('.cb-sw')];
   if (sws.length !== R.length) bad(`the board has ${sws.length} swatches for ${R.length} roles`);

@@ -171,8 +171,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="tooltips-h"><a href="#tooltips">Tooltips</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">a small inverse label that names an icon-only control or a tab</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> A new component. A small label in the <b>inverse</b> of the page (the text colour as the fill, the page colour as the text: dark on light, light on dark), 12px, <code>--radius-small</code>, 240px at most, 4px by 8px of padding, <code>--shadow-2</code>. It shows after <b>500ms of hover</b> and <b>at once on keyboard focus</b>; Escape hides it; it has <code>role="tooltip"</code> and the control gets <code>aria-describedby</code>. <b>Never on touch hover:</b> on a touch screen the label shows on a long press, or is in the menu. The arrow is optional. It sits on top and flips below when the top is clipped. <b>Applied first to icon-only controls and tabs</b>, which need both an accessible name and the tooltip. The other 321 native <code>title</code> hints stay native for now.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#tooltips-anatomy">Anatomy</a><a href="#tooltips-states">States</a><a href="#tooltips-place">Placement</a><a href="#tooltips-trunc">Truncated text</a><a href="#tooltips-tool">In a toolbar</a><a href="#tooltips-phone">On a phone</a><a href="#tooltips-today">Today to proposed</a><a href="#tooltips-contrast">Contrast</a><a href="#tooltips-tokens">Tokens</a><a href="#tooltips-markup">Markup contract</a><a href="#tooltips-widths">Widths</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> A new component. A small label in the <b>inverse</b> of the page (the text colour as the fill, the page colour as the text: dark on light, light on dark), 12px, <code>--radius-small</code>, 240px at most, 4px by 8px of padding, <code>--shadow-2</code>. It shows after <b>500ms of hover</b> and <b>at once on keyboard focus</b>; Escape hides it; it has <code>role="tooltip"</code> and the control gets <code>aria-describedby</code>. <b>Never on touch hover:</b> on a touch screen the label shows on a long press, or is in the menu. The arrow is optional. It sits on top and flips below when the top is clipped. <b>Applied first to icon-only controls and tabs</b>, which need both an accessible name and the tooltip. The other 321 native <code>title</code> hints stay native for now.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#tooltips-anatomy">Anatomy</a><a href="#tooltips-states">States</a><a href="#tooltips-place">Placement</a><a href="#tooltips-trunc">Truncated text</a><a href="#tooltips-tool">In a toolbar</a><a href="#tooltips-phone">On a phone</a><a href="#tooltips-today">Today to proposed</a><a href="#tooltips-contrast">Contrast</a><a href="#tooltips-tokens">Tokens</a><a href="#tooltips-markup">Markup contract</a><a href="#tooltips-widths">Widths</a><a href="#tooltips-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="tooltips-anatomy">Anatomy</h4>
 <div data-slot="zoom"></div>
@@ -237,6 +237,12 @@ ${code(`<!-- the control: an accessible name AND the tooltip text (the same word
 
 <h4 class="ds-h4" id="tooltips-widths">Widths</h4>
 <div data-slot="widths"></div>
+
+<h4 class="ds-h4" id="tooltips-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["One tooltip look","Replaces the browser's. Nothing was chosen beyond the drawing."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + TP_CSS }, o || {}));

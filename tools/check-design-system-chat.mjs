@@ -200,6 +200,6 @@ const probe = async () => {
   const blk = document.getElementById('chat');
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Chat family is not marked Approved');
   if (document.getElementById('u-messages-chat-and-ai-cards')) bad('Messages, chat and AI cards is still listed as Not yet decided');
-  if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Chat family lacks its Today to proposed or Chosen while drawing section');
+  if (!blk || !/Decided 2026-10-21/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Chat family lacks its Today to proposed or Decided 2026-10-21 section');
   return JSON.stringify(out);
 };

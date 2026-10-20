@@ -106,8 +106,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="choices-h"><a href="#choices">Choice rows</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the tick box and radio row, the boxed row, the switch row, the poll option, the segmented choice</span></header>
-<p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One whole-row choice row</b>: the approved 16px tick box or radio on the left, the label, an optional description. 32px high (44px on a phone), hover a quiet fill, <b>checked is the neutral selected fill</b>, focus the 2px outline inside the row. A <b>boxed</b> row only where every option has a description. The <b>switch row</b> for on and off settings. The <b>segmented choice</b> for two to four short options is the Tabs family's joined switch. People chips are in the Chips family. Stylesheet: <code>proposed-choices.css</code>, every rule under <code>.ds-proposed</code>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#choices-anatomy">Anatomy</a><a href="#choices-states">States</a><a href="#choices-segmented">Segmented</a><a href="#choices-use">In use</a><a href="#choices-widths">Widths</a><a href="#choices-rules">Usage rules</a><a href="#choices-map">Today to proposed</a><a href="#choices-contrast">Contrast</a><a href="#choices-tokens">Tokens</a><a href="#choices-markup">Markup contract</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> <b>One whole-row choice row</b>: the approved 16px tick box or radio on the left, the label, an optional description. 32px high (44px on a phone), hover a quiet fill, <b>checked is the neutral selected fill</b>, focus the 2px outline inside the row. A <b>boxed</b> row only where every option has a description. The <b>switch row</b> for on and off settings. The <b>segmented choice</b> for two to four short options is the Tabs family's joined switch. People chips are in the Chips family. Stylesheet: <code>proposed-choices.css</code>, every rule under <code>.ds-proposed</code>.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#choices-anatomy">Anatomy</a><a href="#choices-states">States</a><a href="#choices-segmented">Segmented</a><a href="#choices-use">In use</a><a href="#choices-widths">Widths</a><a href="#choices-rules">Usage rules</a><a href="#choices-map">Today to proposed</a><a href="#choices-contrast">Contrast</a><a href="#choices-tokens">Tokens</a><a href="#choices-markup">Markup contract</a><a href="#choices-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="choices-anatomy">Anatomy</h4>
 ${dim([
@@ -202,6 +202,13 @@ ${code(`<!-- a choice row: the label wraps the input and the words -->
   <button type="button" class="sdk-tab" aria-pressed="true"><span class="sdk-tab-word">Per person</span></button>
   <button type="button" class="sdk-tab" aria-pressed="false"><span class="sdk-tab-word">For the group</span></button></div>`)}
 <p class="ds-desc"><b>Names kept.</b> <code>.check</code> and <code>.template-option</code> take the look (aliases); <code>.sdk-check</code> is the Fields family's row and keeps its approved look until adoption; <code>.sdk-choice</code> is the wrapper of the Tabs joined switch.</p>
+
+<h4 class="ds-h4" id="choices-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["The segmented choice","Folds into the Tabs joined switch."],
+    ["<code>.sdk-check</code>","Is not restyled; it becomes the choice row when it is adopted."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + CR_CSS }, o || {}));

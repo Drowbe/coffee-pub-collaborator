@@ -208,8 +208,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="chat-h"><a href="#chat">Chat: message and composer</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the message, its parts and cards, the composer, the format bar, the status line</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch.</b> Two new components. <b>Message</b>: others a 5% text fill, your own a 10% accent fill; a 22px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#chat-conversation">Conversation</a><a href="#chat-parts">Message parts</a><a href="#chat-composer">Composer</a><a href="#chat-live">Live composer</a><a href="#chat-statusline">Status line</a><a href="#chat-unread">Unread</a><a href="#chat-phone">On a phone</a><a href="#chat-contrast">Contrast</a><a href="#chat-map">Today to proposed</a><a href="#chat-alias">Aliases</a><a href="#chat-tokens">Tokens</a><a href="#chat-contract">Markup</a><a href="#chat-widths">Widths</a><a href="#chat-chosen">Chosen while drawing</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Two new components. <b>Message</b>: others a 5% text fill, your own a 10% accent fill; a 22px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#chat-conversation">Conversation</a><a href="#chat-parts">Message parts</a><a href="#chat-composer">Composer</a><a href="#chat-live">Live composer</a><a href="#chat-statusline">Status line</a><a href="#chat-unread">Unread</a><a href="#chat-phone">On a phone</a><a href="#chat-contrast">Contrast</a><a href="#chat-map">Today to proposed</a><a href="#chat-alias">Aliases</a><a href="#chat-tokens">Tokens</a><a href="#chat-contract">Markup</a><a href="#chat-widths">Widths</a><a href="#chat-decided">Chosen while drawing</a></nav>
 
 <h4 class="ds-h4" id="chat-conversation">A conversation</h4>
 <p class="ds-desc">Own and others, a tinted AI message with its object card, a quote, a link box, reactions. The Chat header is the Module window's title bar.</p>
@@ -320,16 +320,16 @@ ${dim([
 <h4 class="ds-h4" id="chat-widths">Widths</h4>
 <div data-slot="widths"></div>
 
-<h4 class="ds-h4" id="chat-chosen">Chosen while drawing</h4>
-<p class="ds-desc">Thomas decides each of these; each has another way.</p>
-${tbl(['Chosen', 'Why', 'Other way'], [
-    ['Body 14px, meta 11 and 12 (today 13px)', 'The type scale\'s default UI and body size; a chat is read, so it takes the body size.', 'Keep 13px (dense UI).'],
-    ['The portrait is 22px, a page-local copy', 'The Avatars family is built at the same time and decides the size.', 'Whatever Avatars sets.'],
-    ['The "..." is always visible; the hover slot adds react, reply and keep', 'The "..." is the one action that works on a phone. The slot takes no room.', 'Put the "..." in the slot too.'],
-    ['A reaction is a Chips tag (24px) with a count; yours is the selected fill', 'Tags are 24px and may be pressed; the choice chip (30px) is large for a line of messages.', 'A 30px choice chip.'],
-    ['The quote is a fill of <code>--text</code> at 7%, with 12px words', 'One surface step in, quieter than the message.', 'The card fill (<code>--bg-card</code>).'],
-    ['The format bar is above the field and the command menu opens above it', 'It is where they are today.', 'The bar below the field.'],
-    ['Enter sends on a phone too', 'The field says "send" on the keyboard (<code>enterkeyhint</code>); a new line is Shift+Enter or the keyboard\'s own.', 'A Send button on a phone only.'],
+<h4 class="ds-h4" id="chat-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["Body 14px, meta 11 and 12 (today 13px)","The type scale's default UI and body size; a chat is read, so it takes the body size."],
+    ["The portrait is 22px, a page-local copy","The Avatars family is built at the same time and decides the size."],
+    ["The \"...\" is always visible; the hover slot adds react, reply and keep","The \"...\" is the one action that works on a phone. The slot takes no room."],
+    ["A reaction is a Chips tag (24px) with a count; yours is the selected fill","Tags are 24px and may be pressed; the choice chip (30px) is large for a line of messages."],
+    ["The quote is a fill of <code>--text</code> at 7%, with 12px words","One surface step in, quieter than the message."],
+    ["The format bar is above the field and the command menu opens above it","It is where they are today."],
+    ["Enter sends on a phone too","The field says \"send\" on the keyboard (<code>enterkeyhint</code>); a new line is Shift+Enter or the keyboard's own."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

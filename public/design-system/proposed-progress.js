@@ -129,8 +129,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     const OK = okTable();
     block.innerHTML = `<header><h3 id="progress-h"><a href="#progress">Progress bars and meters</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one track, a small track, budget, AI and poll meters, a shimmer, the microphone level</span></header>
-<p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One track</b>: 8px, fully round, <code>--border</code>, with an accent fill and a label with the value in text (never colour alone); a <b>6px small track</b> for toolbars and uploads. Every bar is <code>role="progressbar"</code> with <code>aria-valuenow</code>, <code>-min</code>, <code>-max</code> and a name. Budget, the AI meter and poll options are the same bar with their own fills. The call's microphone level is its own pattern. Stylesheet: <code>proposed-progress.css</code>, every rule under <code>.ds-proposed</code>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#progress-anatomy">Anatomy</a><a href="#progress-tracks">Tracks</a><a href="#progress-meters">Meters</a><a href="#progress-use">In use</a><a href="#progress-widths">Widths</a><a href="#progress-rules">Usage rules</a><a href="#progress-map">Today to proposed</a><a href="#progress-okmark">Ok as a mark</a><a href="#progress-contrast">Contrast</a><a href="#progress-tokens">Tokens</a><a href="#progress-markup">Markup contract</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> <b>One track</b>: 8px, fully round, <code>--border</code>, with an accent fill and a label with the value in text (never colour alone); a <b>6px small track</b> for toolbars and uploads. Every bar is <code>role="progressbar"</code> with <code>aria-valuenow</code>, <code>-min</code>, <code>-max</code> and a name. Budget, the AI meter and poll options are the same bar with their own fills. The call's microphone level is its own pattern. Stylesheet: <code>proposed-progress.css</code>, every rule under <code>.ds-proposed</code>.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#progress-anatomy">Anatomy</a><a href="#progress-tracks">Tracks</a><a href="#progress-meters">Meters</a><a href="#progress-use">In use</a><a href="#progress-widths">Widths</a><a href="#progress-rules">Usage rules</a><a href="#progress-map">Today to proposed</a><a href="#progress-okmark">Ok as a mark</a><a href="#progress-contrast">Contrast</a><a href="#progress-tokens">Tokens</a><a href="#progress-markup">Markup contract</a><a href="#progress-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="progress-anatomy">Anatomy</h4>
 ${dim([
@@ -227,6 +227,13 @@ ${code(`<!-- a bar with its label and value -->
 <!-- the microphone level -->
 <span class="sdk-mic" role="progressbar" aria-label="Microphone level" aria-valuenow="3" aria-valuemin="0" aria-valuemax="5" aria-valuetext="Medium"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span>`)}
 <p class="ds-desc"><b>Names kept.</b> <code>.tb-progress</code>, <code>.tb-progress-fill</code>, <code>.ai-meter</code> (and <code>.warn</code>), <code>.upload .bar</code> take the look with no markup change; Budget's <code>.bar</code> keeps its name in the module (it is not aliased globally, because other modules use <code>.bar</code> for a toolbar). The shimmer is the Foundations family's one shared <code>shimmer</code> keyframe (and its 1.4s); each example frame carries a copy because frames are separate documents.</p>
+
+<h4 class="ds-h4" id="progress-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["<code>role=\"progressbar\"</code>","Every bar has it, including the microphone level."],
+    ["Ok as a mark","The microphone bars use <code>--ok-mark</code>, the ok colour mixed toward the text colour so a mark reaches 3 to 1 (see \"Ok as a mark\")."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + PG_CSS }, o || {}));

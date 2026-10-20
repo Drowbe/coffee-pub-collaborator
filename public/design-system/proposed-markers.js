@@ -132,8 +132,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="markers-h"><a href="#markers">Markers</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the Planner's marker in three forms: line chip, day row, day tag</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch the same day.</b> The three forms come from the itinerary plan's decision 2 (a moment on the line, a block in a day, a tag on a day), and the look from the approved Chips and Cards families. (1) <b>Line chip</b>: the Chips tag, 24px, with the marker's tint fill, its icon in a small icon chip, and its words; it replaces the pill with the 1.5px coloured border and the hatch. (2) <b>Day row</b>: the Cards row with the marker's icon in a tint chip, lighter than a booking. (3) <b>Day tag</b>: the Chips tag with the tint fill and 12px words; it loses its 1px coloured border and its capitals. The marker's colour carries meaning on the icon chip and the tint fill, and every form has its words. No form has a coloured border, a hatch, a stripe or a shadow, and none takes a phase colour. The colour is the person's own (the marker type's setting, set as <code>--marker</code>).</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#markers-forms">The three forms</a><a href="#markers-legend">Legend</a><a href="#markers-planner">In the Planner</a><a href="#markers-calendar">In the Calendar</a><a href="#markers-phone">On a phone</a><a href="#markers-contrast">Contrast</a><a href="#markers-map">Today to proposed</a><a href="#markers-alias">Aliases</a><a href="#markers-tokens">Tokens</a><a href="#markers-contract">Markup</a><a href="#markers-decide">What Thomas chooses</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> The three forms come from the itinerary plan's decision 2 (a moment on the line, a block in a day, a tag on a day), and the look from the approved Chips and Cards families. (1) <b>Line chip</b>: the Chips tag, 24px, with the marker's tint fill, its icon in a small icon chip, and its words; it replaces the pill with the 1.5px coloured border and the hatch. (2) <b>Day row</b>: the Cards row with the marker's icon in a tint chip, lighter than a booking. (3) <b>Day tag</b>: the Chips tag with the tint fill and 12px words; it loses its 1px coloured border and its capitals. The marker's colour carries meaning on the icon chip and the tint fill, and every form has its words. No form has a coloured border, a hatch, a stripe or a shadow, and none takes a phase colour. The colour is the person's own (the marker type's setting, set as <code>--marker</code>).</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#markers-forms">The three forms</a><a href="#markers-legend">Legend</a><a href="#markers-planner">In the Planner</a><a href="#markers-calendar">In the Calendar</a><a href="#markers-phone">On a phone</a><a href="#markers-contrast">Contrast</a><a href="#markers-map">Today to proposed</a><a href="#markers-alias">Aliases</a><a href="#markers-tokens">Tokens</a><a href="#markers-contract">Markup</a><a href="#markers-decided">What Thomas chooses</a></nav>
 
 <h4 class="ds-h4" id="markers-forms">The three forms</h4>
 ${dim([
@@ -202,14 +202,15 @@ ${code(`<div class="sdk-mk-spine">
 </div>
 <button class="sdk-mk-tag" style="--marker: #14b8a6"><i class="fa-solid fa-suitcase-rolling"></i><span class="sdk-mk-label">Travel day</span></button>`)}
 
-<h4 class="ds-h4" id="markers-decide">What Thomas chooses</h4>
-${tbl(['Chosen here', 'Why', 'Other way'], [
-    ['The words of a tag and a chip are always <code>--text</code>; only the icon takes the marker\'s colour', 'The colour is the person\'s own and may be pale; the words must stay readable.', 'Mix the colour into the words, as the Chips tag does (4.5 to 1 is then not promised).'],
-    ['A line chip is the Chips tag with a small icon chip; a day tag has the plain glyph', 'Two 24px tags would look the same. The chip on the line reads as a bookmark.', 'The same tag for both.'],
-    ['The line chip is pressed to open its menu (no "..." button)', 'Chips are small; the day tag does the same today.', 'A "..." after the chip.'],
-    ['The icon chip is 20px in the chip and 28px in a row', 'A row is 38px high.', 'One size.'],
-    ['The demo colours are the theme tints', 'The page uses tokens only; the real colour is a setting.', 'Show the default hex values.'],
-    ['The Calendar\'s markers are not changed', 'They are the kept exception (Thomas, 2026-10-18) and are not the Planner\'s markers.', 'Bring them to the same look.'],
+<h4 class="ds-h4" id="markers-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["The words of a tag and a chip are always <code>--text</code>; only the icon takes the marker's colour","The colour is the person's own and may be pale; the words must stay readable."],
+    ["A line chip is the Chips tag with a small icon chip; a day tag has the plain glyph","Two 24px tags would look the same. The chip on the line reads as a bookmark."],
+    ["The line chip is pressed to open its menu (no \"...\" button)","Chips are small; the day tag does the same today."],
+    ["The icon chip is 20px in the chip and 28px in a row","A row is 38px high."],
+    ["The demo colours are the theme tints","The page uses tokens only; the real colour is a setting."],
+    ["The Calendar's markers are not changed","They are the kept exception (Thomas, 2026-10-18) and are not the Planner's markers."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

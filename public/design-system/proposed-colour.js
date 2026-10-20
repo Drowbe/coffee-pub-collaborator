@@ -518,6 +518,23 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     return JSON.stringify(out, null, 2);
   }
 
+  // ---- Calming Teal, light (decided 2026-10-21: keep the teal): what the automatic picks give, and the warning the theme editor will show ----
+  function tealHtml() {
+    const t = THEMES.teal.light; const acc = fromHex(t.accent); const page = fromHex(t.bg); const panel = fromHex(t.bgSection); const text = fromHex(t.text);
+    const on = pickOn(acc); const asText = pickText(acc, text, [page, panel], 0);
+    const onPage = ratio(acc, page); const onPanel = ratio(acc, panel);
+    const sw = (bg, fg, label) => `<span style="display:inline-block;padding:2px 10px;border-radius:var(--radius-small);background:${bg};color:${fg};font-weight:600">${label}</span>`;
+    const R2 = (n) => n.toFixed(2);
+    return {
+      on, asText, onPage, onPanel,
+      html: `<table class="ds-table" id="cx-teal-table"><tbody>
+<tr><td><b>Text on a teal fill</b></td><td>${sw(t.accent, on.hex, 'Add')} <code>${on.hex}</code>, picked automatically (white or near-black, whichever reads better): <b data-teal="on">${R2(on.ratio)} : 1</b> on <code>${t.accent}</code>, needs 4.5. The theme file's own text on accent, <code>${t.onAccent}</code>, is ${R2(ratio(fromHex(t.onAccent), acc))} : 1 on it and fails; the pick replaces it.</td></tr>
+<tr><td><b>Teal as text</b> (links)</td><td>${sw(t.bg, asText.hex, 'Open the plan')} <code>${asText.hex}</code>: the teal mixed <b data-teal="mix">${asText.p}%</b> into the text colour, the least that reaches <b data-teal="text">${R2(asText.ratio)} : 1</b> on the page and the panel, needs 4.5. The plain teal is ${R2(Math.min(onPage, onPanel))} : 1 as text.</td></tr>
+<tr><td><b>Teal as a mark</b> (a bar, a ring)</td><td>The accent itself, <code>${t.accent}</code>: <b data-teal="page">${R2(onPage)} : 1</b> on the page and ${R2(onPanel)} : 1 on a panel, under the 3 : 1 a mark aims at. The teal is kept; this is the warning the theme editor will show for it:</td></tr></tbody></table>
+<div class="cp-warn"><ul><li><span><b>Accent on page (bars, rings)</b>: ${R2(onPage)} : 1, needs 3</span></li></ul></div>`,
+    };
+  }
+
   // ---- building the section ----
   function render(api) {
     const block = api.mk('section', 'ds-block ds-spec');
@@ -541,6 +558,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       </div>
     </div>
   </div>
+  <h4 class="ds-h4" id="colour-teal">Calming Teal, light (decided 2026-10-21: keep the teal)</h4>
+  <p class="cx-note">The teal accent is kept as it is. What the automatic picks give for it in the light mode, worked out here from the theme's colours (pick Calming Teal and Light above to see the whole board):</p>
+  ${tealHtml().html}
   <h4 class="ds-h4">Today and proposed</h4>
   <p class="cx-note">The five tokens that colour the most unrelated things today. Left: one token, many jobs. Right: the same things, each with its own role.</p>
   <div class="cs" id="cs">${stripHtml()}</div>

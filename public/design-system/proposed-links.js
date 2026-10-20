@@ -155,8 +155,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="links-h"><a href="#links">Links</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">link text, links in running text, standalone links, the link button, the external link icon</span></header>
-<p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One colour for link text</b> (the Colour family's <code>--text-link</code>: the accent as text, picked automatically so it reaches 4.5 to 1 on the page and on a panel in every theme and mode). <b>Two looks</b>: a link in running text is always underlined, a standalone link is underlined on hover and focus only. <b>One link button</b>, replacing four look-alikes. Link chips are Chips tags, link buttons that look like buttons are Buttons. Nothing here styles a bare <code>a</code>. Stylesheet: <code>proposed-links.css</code>, every rule under <code>.ds-proposed</code>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#links-anatomy">Anatomy</a><a href="#links-states">States</a><a href="#links-text">In running text</a><a href="#links-not">Not a link</a><a href="#links-context">In use</a><a href="#links-widths">Widths</a><a href="#links-rules">Usage rules</a><a href="#links-map">Today to proposed</a><a href="#links-contrast">Contrast</a><a href="#links-tokens">Tokens</a><a href="#links-markup">Markup contract</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> <b>One colour for link text</b> (the Colour family's <code>--text-link</code>: the accent as text, picked automatically so it reaches 4.5 to 1 on the page and on a panel in every theme and mode). <b>Two looks</b>: a link in running text is always underlined, a standalone link is underlined on hover and focus only. <b>One link button</b>, replacing four look-alikes. Link chips are Chips tags, link buttons that look like buttons are Buttons. Nothing here styles a bare <code>a</code>. Stylesheet: <code>proposed-links.css</code>, every rule under <code>.ds-proposed</code>.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#links-anatomy">Anatomy</a><a href="#links-states">States</a><a href="#links-text">In running text</a><a href="#links-not">Not a link</a><a href="#links-context">In use</a><a href="#links-widths">Widths</a><a href="#links-rules">Usage rules</a><a href="#links-map">Today to proposed</a><a href="#links-contrast">Contrast</a><a href="#links-tokens">Tokens</a><a href="#links-markup">Markup contract</a><a href="#links-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="links-anatomy">Anatomy</h4>
 ${dim([
@@ -246,6 +246,12 @@ ${code(`<!-- in a sentence -->
 <!-- a reference to an object: a Chips tag, 24px -->
 <a class="sdk-chip-tag" href="#option-b">Option B</a>`)}
 <p class="ds-desc"><b>Names kept.</b> <code>.setup-link</code>, <code>.linklike</code>, <code>.layout-replace-it</code> and <code>.link .open</code> are aliases of the standalone link and the link button, so those four need no markup edit to take the look. <code>.visually-hidden</code> is the product's own class.</p>
+
+<h4 class="ds-h4" id="links-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["Tag links","<code>.tag.ref</code> and the Calendar's <code>.links</code> become Chips tag links (a markup change)."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + LK_CSS, onload: autoLink }, o || {}));

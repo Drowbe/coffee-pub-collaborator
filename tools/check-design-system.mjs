@@ -302,6 +302,9 @@ async function browse(cdp, label, url, scenarios, shots) {
       const notToday = JSON.parse(await ev(`JSON.stringify((window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => !/Today only/.test(n)))`));
       if (notToday.length) problems.push(`${where}: listed as not decided but not marked Today only: ${notToday.join(', ')}`);
       const proposedChips = JSON.parse(await ev(`JSON.stringify(document.querySelectorAll('.ds-st-proposed').length)`));
+      // Every drawn family is decided (2026-10-21): none still asks Thomas to decide, and each carries its "Decided 2026-10-21" note.
+      const leftovers = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('.ds-block')].filter((b) => !b.classList.contains('ds-undecided')).flatMap((b) => [/Chosen while drawing|For Thomas to decide|What Thomas chooses|Thomas decides each|Chosen for Thomas|Your call|Proposed 2026|Not yet decided/.test(b.textContent) ? b.id + ': wording that asks for a decision' : null, /Decided 2026-10-21|Decided 2026-10-19/.test(b.textContent) ? null : b.id + ': no Decided note']).filter(Boolean))`));
+      for (const x of leftovers) problems.push(`${where}: ${x}`);
       if (proposedChips) problems.push(`${where}: ${proposedChips} family status chip(s) still say Proposed`);
       if (page.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
     } else if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);

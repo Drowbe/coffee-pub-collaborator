@@ -15,7 +15,7 @@
  * or brand icon outside the three "wrong" examples, a colour role that is not its token; a breakpoint ruler whose active band is not the one for the frame's
  * width, a device that does not change layout at 390, 700, 900 and 1200 (phone, tablet, tablet, wide), a bar height that is not 44, 34 (42 on a phone), 34, 24 and
  * 54 plus the safe area; a frame that scrolls sideways, text under 11px, a one-sided edge in a colour, a gradient other than the shimmer line, a radius or a
- * colour written out in the stylesheet, a frame missing, the family not marked Approved, the "Chosen for Thomas to confirm" list missing, or the undecided list
+ * colour written out in the stylesheet, a frame missing, the family not marked Approved, the "Decided 2026-10-21" list missing, or the undecided list
  * still holding a bare Tokens or Icons.
  */
 export const id = 'foundations';
@@ -56,7 +56,7 @@ export function staticChecks({ fail, css, js }) {
   // Solid only: three wrong examples, nothing else.
   const wrong = [...js.matchAll(/<i class="fa-(regular|brands)[^>]*>/g)];
   if (wrong.length !== 3 || wrong.some((m) => !/pm-fd-wrong/.test(m[0]))) fail('proposed-foundations.js: a regular or brand icon outside the three "wrong" examples');
-  if (!/Chosen for Thomas to confirm/.test(js)) fail('proposed-foundations.js: no "Chosen for Thomas to confirm" list');
+  if (!/Decided 2026-10-21/.test(js)) fail('proposed-foundations.js: no "Decided 2026-10-21" list');
 }
 
 export async function browserChecks(b) {
@@ -259,7 +259,7 @@ const probe = async () => {
   // The page: Proposed, the list of choices, the undecided list.
   const blk = document.getElementById('foundations');
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Foundations family is not marked Approved');
-  if (!blk || !/Chosen for Thomas to confirm/.test(blk.textContent)) bad('the Foundations family has no list of what was chosen for Thomas to confirm');
+  if (!blk || !/Decided 2026-10-21/.test(blk.textContent)) bad('the Foundations family has no Decided 2026-10-21 list');
   if (!blk || !/Today to proposed/.test(blk.textContent) || !/Aliases and migration/.test(blk.textContent) || !/Tokens/.test(blk.textContent)) bad('the Foundations family lacks the Today to proposed, aliases or tokens sections');
   if (document.getElementById('u-tokens') || document.getElementById('u-icons')) bad('Tokens or Icons is still listed bare as Not yet decided');
   if (!/259 icons|259/.test(blk ? blk.textContent : '')) bad('the Icons section does not say where the 259 icons are');

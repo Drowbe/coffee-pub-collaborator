@@ -174,6 +174,6 @@ const probe = async () => {
   const blk = document.getElementById('tabbar');
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Tab bar family is not marked Approved');
   if (document.getElementById('u-phone-bottom-bar-icon-over-label')) bad('Phone bottom bar (icon over label) is still listed as Not yet decided');
-  if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Tab bar family lacks its Today to proposed or Chosen while drawing section');
+  if (!blk || !/Decided 2026-10-21/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Tab bar family lacks its Today to proposed or Decided 2026-10-21 section');
   return JSON.stringify(out);
 };

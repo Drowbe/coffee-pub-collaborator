@@ -247,8 +247,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="toasts-h"><a href="#toasts">Toasts and banners</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">a toast that floats and goes away, a banner that stays: four kinds, no coloured bar</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> A <b>toast</b> is a neutral card (the card step, a hairline, <code>--shadow-2</code>, <code>--radius-medium</code>, 340px wide) with a status icon chip, a title, a line of text, an optional Undo and a close. It shows top right on a desktop and at the bottom on a phone, three at most, and goes by itself: a note after 4.5 s, a notice after 9 s, an invite after 60 s; hover or focus waits the clock. A <b>banner</b> is the status tint with an icon, text and, if it does not block, a close; inline or full width; info, ok, warn or danger. <b>Neither has a coloured bar or outline.</b> Maps' floating pill folds into the toast; the bell's notice rows stay rows (the Menus family). The status roles are page-local copies of the Colour family's.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#toasts-anatomy">Anatomy</a><a href="#toasts-kinds">Kinds</a><a href="#toasts-forms">Note, notice, invite</a><a href="#toasts-states">States</a><a href="#toasts-stack">The stack</a><a href="#toasts-try">Try it</a><a href="#toasts-banner">Banners</a><a href="#toasts-position">Position</a><a href="#toasts-ctx">In context</a><a href="#toasts-alias">Aliases</a><a href="#toasts-today">Today to proposed</a><a href="#toasts-contrast">Contrast</a><a href="#toasts-tokens">Tokens</a><a href="#toasts-markup">Markup contract</a><a href="#toasts-widths">Widths</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> A <b>toast</b> is a neutral card (the card step, a hairline, <code>--shadow-2</code>, <code>--radius-medium</code>, 340px wide) with a status icon chip, a title, a line of text, an optional Undo and a close. It shows top right on a desktop and at the bottom on a phone, three at most, and goes by itself: a note after 4.5 s, a notice after 9 s, an invite after 60 s; hover or focus waits the clock. A <b>banner</b> is the status tint with an icon, text and, if it does not block, a close; inline or full width; info, ok, warn or danger. <b>Neither has a coloured bar or outline.</b> Maps' floating pill folds into the toast; the bell's notice rows stay rows (the Menus family). The status roles are page-local copies of the Colour family's.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#toasts-anatomy">Anatomy</a><a href="#toasts-kinds">Kinds</a><a href="#toasts-forms">Note, notice, invite</a><a href="#toasts-states">States</a><a href="#toasts-stack">The stack</a><a href="#toasts-try">Try it</a><a href="#toasts-banner">Banners</a><a href="#toasts-position">Position</a><a href="#toasts-ctx">In context</a><a href="#toasts-alias">Aliases</a><a href="#toasts-today">Today to proposed</a><a href="#toasts-contrast">Contrast</a><a href="#toasts-tokens">Tokens</a><a href="#toasts-markup">Markup contract</a><a href="#toasts-widths">Widths</a><a href="#toasts-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="toasts-anatomy">Anatomy</h4>
 <div data-slot="zoom"></div>
@@ -361,6 +361,14 @@ ${code(`<!-- the stack: one per page, in the top layer; role per toast -->
 <h4 class="ds-h4" id="toasts-widths">Widths</h4>
 <p class="ds-desc">The same page at 390, 700 and 1280 wide: the stack moves from top right to the bottom at 640 and below; the banners and the toast never run off the page.</p>
 <div data-slot="widths"></div>
+
+<h4 class="ds-h4" id="toasts-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","What"], [
+    ["Status text","Mixes danger 70%, ok 40%, warn and info 60% into the text colour."],
+    ["Order","The newest toast sits nearest the screen edge; on a phone it is 8px in from each side."],
+    ["<code>.option-help</code>","Becomes a banner only when it has <code>data-kind</code>."],
+  ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + TB_CSS }, o || {}));

@@ -208,8 +208,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="calendar-h"><a href="#calendar">Calendar cells</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the month, week and picker cell; the event chip; the hour row; the kept bar</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch the same day.</b> One cell look for the Calendar's month and week and the date picker's grid. (1) Hover is the quiet neutral fill, never an accent border. (2) Today is the neutral selected fill at half strength, the same as the date picker's today in Menus. (3) The chosen day is solid accent with <code>--on-accent</code> text: the approved exception for a single chosen value. (4) A range is the quiet fill. (5) Outside the month is 55% opacity. (6) Focus is the outline mechanism of Fields, Tabs and Cards. (7) An event in a cell is the Chips family's small tag: the event's tone at 22%, readable text, 11px, a small corner. (8) Calendar's agenda rows and the chips of other calendars and markers keep their 3px bar, flagged "Exception, kept". (9) The "now" line of the hour grid and the link marker on a day lose their accent border and ring; each is the neutral selected fill and a word. The hard-coded <code>#c0574a</code> fallback goes. The Planner's day gap count (<code>.gapcount</code>) is drawn with the Days family.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#calendar-anatomy">Anatomy</a><a href="#calendar-states">Cell states</a><a href="#calendar-month">Month</a><a href="#calendar-week">Week</a><a href="#calendar-compact">Compact</a><a href="#calendar-agenda">Agenda and the kept bar</a><a href="#calendar-hours">Day view</a><a href="#calendar-picker">Date picker</a><a href="#calendar-phone">On a phone</a><a href="#calendar-contrast">Contrast</a><a href="#calendar-map">Today to proposed</a><a href="#calendar-alias">Aliases</a><a href="#calendar-tokens">Tokens</a><a href="#calendar-contract">Markup</a><a href="#calendar-decide">What Thomas chooses</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> One cell look for the Calendar's month and week and the date picker's grid. (1) Hover is the quiet neutral fill, never an accent border. (2) Today is the neutral selected fill at half strength, the same as the date picker's today in Menus. (3) The chosen day is solid accent with <code>--on-accent</code> text: the approved exception for a single chosen value. (4) A range is the quiet fill. (5) Outside the month is 55% opacity. (6) Focus is the outline mechanism of Fields, Tabs and Cards. (7) An event in a cell is the Chips family's small tag: the event's tone at 22%, readable text, 11px, a small corner. (8) Calendar's agenda rows and the chips of other calendars and markers keep their 3px bar, flagged "Exception, kept". (9) The "now" line of the hour grid and the link marker on a day lose their accent border and ring; each is the neutral selected fill and a word. The hard-coded <code>#c0574a</code> fallback goes. The Planner's day gap count (<code>.gapcount</code>) is drawn with the Days family.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#calendar-anatomy">Anatomy</a><a href="#calendar-states">Cell states</a><a href="#calendar-month">Month</a><a href="#calendar-week">Week</a><a href="#calendar-compact">Compact</a><a href="#calendar-agenda">Agenda and the kept bar</a><a href="#calendar-hours">Day view</a><a href="#calendar-picker">Date picker</a><a href="#calendar-phone">On a phone</a><a href="#calendar-contrast">Contrast</a><a href="#calendar-map">Today to proposed</a><a href="#calendar-alias">Aliases</a><a href="#calendar-tokens">Tokens</a><a href="#calendar-contract">Markup</a><a href="#calendar-decided">What Thomas chooses</a></nav>
 
 <h4 class="ds-h4" id="calendar-anatomy">Anatomy</h4>
 ${dim([
@@ -309,15 +309,16 @@ ${dim([
     ['The exception', '<code>.sdk-bar-kept</code> on a Calendar agenda row or chip of another calendar or a marker. Nowhere else.'],
   ])}
 
-<h4 class="ds-h4" id="calendar-decide">What Thomas chooses</h4>
-${tbl(['Chosen here', 'Why', 'Other way'], [
-    ['The event chip is 18px high, not the Chips tag\'s 24px', 'A 74px cell holds two or three chips; 24px holds one.', 'Keep 24px and show one chip and "+n more".'],
-    ['Today is the accent at 14% over the cell, not the translucent <code>--selected-bg</code> at half alpha', 'The cell keeps its card fill underneath; the result is the same colour as the picker\'s today over its popover.', 'A translucent fill over the panel.'],
-    ['The link marker (was <code>.day.pick</code>) is the full selected fill with the word "Linked"', 'The brief asks for the neutral selected fill and a text marker; the word is mine.', 'Another word, or the half-strength fill.'],
-    ['"Now" is a status label with a clock and the selected fill', 'Colour must not be the only cue.', 'The fill alone.'],
-    ['Other calendars\' chips are not italic', 'Italics are not bundled.', 'Bundle an italic.'],
-    ['The compact month\'s dots: ours accent, other calendars dim, markers in their tint', 'A 1.5px ring is a coloured edge.', 'One dot colour.'],
-    ['The phase wash on a Calendar day is not drawn or changed', 'The plan keeps it (decision 8). How it sits with the half-strength today is Thomas\'s call.', 'Draw a phase label in the cell.'],
+<h4 class="ds-h4" id="calendar-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["The event chip is 18px high, not the Chips tag's 24px","A 74px cell holds two or three chips; 24px holds one."],
+    ["Today is the accent at 14% over the cell, not the translucent <code>--selected-bg</code> at half alpha","The cell keeps its card fill underneath; the result is the same colour as the picker's today over its popover."],
+    ["The link marker (was <code>.day.pick</code>) is the full selected fill with the word \"Linked\"","The brief asks for the neutral selected fill and a text marker; the word is mine."],
+    ["\"Now\" is a status label with a clock and the selected fill","Colour must not be the only cue."],
+    ["Other calendars' chips are not italic","Italics are not bundled."],
+    ["The compact month's dots: ours accent, other calendars dim, markers in their tint","A 1.5px ring is a coloured edge."],
+    ["The phase wash on a Calendar day is not drawn or changed","The plan keeps it (decision 8). How it sits with the half-strength today is Thomas's call."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

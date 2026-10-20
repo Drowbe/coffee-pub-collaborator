@@ -407,8 +407,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="foundations-h"><a href="#foundations">Foundations: spacing, elevation, motion, icons and layout</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the scales every other family measures with; radius stays as it is</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> Six parts, each a handful of tokens. (1) <b>Spacing</b>: a strict 4px scale, <code>--space-0</code> (2px) and <code>--space-1</code> to <code>--space-9</code> (4 to 48); 6px and 10px are not on it. (2) <b>Elevation</b>: three shadows, one scrim (black at 55%), and named layers from content to debug. (3) <b>Radius</b>: the five tokens as they are, with a role for each. (4) <b>Motion</b>: 120ms and 200ms, one easing, two shared keyframes and one reduced-motion rule. (5) <b>Icons</b>: five sizes tied to the type steps, solid only. (6) <b>Layout</b>: breakpoints 640, 900 and 1200, and the heights and widths of the page. Every value is a token on this page only (all under <code>.ds-proposed</code>); the product is untouched. The names I chose are listed at the end for Thomas to confirm.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#foundations-spacing">Spacing</a><a href="#foundations-elevation">Elevation</a><a href="#foundations-layers">Layers</a><a href="#foundations-radius">Radius</a><a href="#foundations-motion">Motion</a><a href="#foundations-icons">Icons</a><a href="#foundations-layout">Layout</a><a href="#foundations-widths">Widths</a><a href="#foundations-map">Today to proposed</a><a href="#foundations-alias">Aliases and migration</a><a href="#foundations-tokens">Tokens</a><a href="#foundations-choices">Chosen for Thomas to confirm</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Six parts, each a handful of tokens. (1) <b>Spacing</b>: a strict 4px scale, <code>--space-0</code> (2px) and <code>--space-1</code> to <code>--space-9</code> (4 to 48); 6px and 10px are not on it. (2) <b>Elevation</b>: three shadows, one scrim (black at 55%), and named layers from content to debug. (3) <b>Radius</b>: the five tokens as they are, with a role for each. (4) <b>Motion</b>: 120ms and 200ms, one easing, two shared keyframes and one reduced-motion rule. (5) <b>Icons</b>: five sizes tied to the type steps, solid only. (6) <b>Layout</b>: breakpoints 640, 900 and 1200, and the heights and widths of the page. Every value is a token on this page only (all under <code>.ds-proposed</code>); the product is untouched. The names I chose are listed at the end for Thomas to confirm.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#foundations-spacing">Spacing</a><a href="#foundations-elevation">Elevation</a><a href="#foundations-layers">Layers</a><a href="#foundations-radius">Radius</a><a href="#foundations-motion">Motion</a><a href="#foundations-icons">Icons</a><a href="#foundations-layout">Layout</a><a href="#foundations-widths">Widths</a><a href="#foundations-map">Today to proposed</a><a href="#foundations-alias">Aliases and migration</a><a href="#foundations-tokens">Tokens</a><a href="#foundations-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="foundations-spacing">Spacing</h4>
 <p class="ds-desc">Ten steps, each drawn at its real width (the grey track is 48px). The names count steps, not pixels: <code>--space-3</code> is 12px. <code>--space-0</code> is a hairline step for a nudge; it is never a gap between boxes.</p>
@@ -589,24 +589,23 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--page-pad</code>, <code>--measure-reading</code>, <code>--page-max</code>', '16 (12 on a phone), 720, 1200px', 'Page padding and widths.'],
   ])}
 
-<h4 class="ds-h4" id="foundations-choices">Chosen for Thomas to confirm</h4>
-<p class="ds-desc">These were not in the brief, or the brief left them open. Each is one line to change.</p>
-${tbl(['Chosen', 'Why', 'Other way'], [
-    ['Names count steps: <code>--space-3</code> is 12px, <code>--space-0</code> is 2px', 'Short, and the same shape as <code>--radius-*</code>. They differ from the older plan table, where <code>--space-3</code> was 6.', 'Name them by pixels: <code>--space-12</code>.'],
-    ['A row\'s horizontal 10 is written <code>--space-2</code> + <code>--space-0</code>', 'Keeps the Cards decision (8 by 10) while 10 stays off the scale.', 'Row padding 8 by 8, or 8 by 12.'],
-    ['The panel is 16 (decided 2026-10-21); Menus\' 14px popover padding is not touched', 'A popover is not a panel; its padding stays with the Menus family.', 'Panel 12.'],
-    ['<code>--shadow-3</code> is <code>0 8px 30px</code>, black 50% dark and the text colour at 18% light; <code>--shadow-1</code> in light is the text colour at 12%', 'Same size as the most common dialog shadow today (7 uses), smaller than the 16/48 one.', 'A smaller shadow, or the light values at 14% like the menu.'],
-    ['<code>--scrim</code> is 55% in light mode too', 'Your "one scrim". Menus drew 35% in light; it now follows this.', 'Keep 35% for light.'],
-    ['A menu (26) is below a dialog (40); a menu opened from inside a dialog uses the popover layer', 'So the list never hides behind the dialog it was opened from. It is the SDK\'s job to pick the layer.', 'Raise the menu above the dialog.'],
-    ['The background picker (1000) goes to the dialog layer; 10000 (host.css:1154) goes to the popover layer', 'The first covers the page; the second is a floating list.', 'Decide each when it moves.'],
-    ['<code>--ease-out</code> is <code>cubic-bezier(0.2, 0, 0, 1)</code>', 'A soft landing, close to the browser\'s ease-out but a little quicker to start.', 'The browser\'s own <code>ease-out</code>.'],
-    ['The reduced-motion rule uses 0.01ms, not <code>none</code>', 'The end events still fire, so nothing waits for an animation that never ends.', '<code>animation: none; transition: none</code>.'],
-    ['<code>--icon-12</code>, <code>-14</code> and <code>-16</code> are the type steps themselves', 'An icon beside text then changes with the text step.', 'Plain pixels.'],
-    ['<code>--radius-min</code> is for the inside of a control only', 'The brief named four roles; this was the fifth token.', 'Retire it into small.'],
-    ['Three breakpoints make four ranges: phone, tablet (to 900), desktop (901 to 1199), wide (1200 up)', 'The brief names three widths.', 'Fold desktop into wide.'],
-    ['The Spotlight view takes a solid icon picked at migration (drawn here as fa-expand)', 'A brand mark is not a feature icon.', 'Name the icon now.'],
-  ])}
-`;
+<h4 class="ds-h4" id="foundations-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["Names count steps: <code>--space-3</code> is 12px, <code>--space-0</code> is 2px","Short, and the same shape as <code>--radius-*</code>. They differ from the older plan table, where <code>--space-3</code> was 6."],
+    ["A row's horizontal 10 is written <code>--space-2</code> + <code>--space-0</code>","Keeps the Cards decision (8 by 10) while 10 stays off the scale."],
+    ["The panel is 16 (decided 2026-10-21); Menus' 14px popover padding is not touched","A popover is not a panel; its padding stays with the Menus family."],
+    ["<code>--shadow-3</code> is <code>0 8px 30px</code>, black 50% dark and the text colour at 18% light; <code>--shadow-1</code> in light is the text colour at 12%","Same size as the most common dialog shadow today (7 uses), smaller than the 16/48 one."],
+    ["<code>--scrim</code> is 55% in light mode too","Your \"one scrim\". Menus drew 35% in light; it now follows this."],
+    ["A menu (26) is below a dialog (40); a menu opened from inside a dialog uses the popover layer","So the list never hides behind the dialog it was opened from. It is the SDK's job to pick the layer."],
+    ["The background picker (1000) goes to the dialog layer; 10000 (host.css:1154) goes to the popover layer","The first covers the page; the second is a floating list."],
+    ["<code>--ease-out</code> is <code>cubic-bezier(0.2, 0, 0, 1)</code>","A soft landing, close to the browser's ease-out but a little quicker to start."],
+    ["The reduced-motion rule uses 0.01ms, not <code>none</code>","The end events still fire, so nothing waits for an animation that never ends."],
+    ["<code>--icon-12</code>, <code>-14</code> and <code>-16</code> are the type steps themselves","An icon beside text then changes with the text step."],
+    ["<code>--radius-min</code> is for the inside of a control only","The brief named four roles; this was the fifth token."],
+    ["Three breakpoints make four ranges: phone, tablet (to 900), desktop (901 to 1199), wide (1200 up)","The brief names three widths."],
+    ["The Spotlight view takes a solid icon picked at migration (drawn here as fa-expand)","A brand mark is not a feature icon."],
+  ])}`;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + FD_CSS }, o || {}));
     slot('space').appendChild(F(spaceBody(), 'Foundations, spacing scale'));

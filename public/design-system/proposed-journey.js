@@ -167,8 +167,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="journey-h"><a href="#journey">Journey bar: status strip, phases and countdown</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the strip, its chips, the journey bar, the Set up band, the Planner's caps and rail</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch; he also approved replacing the phase band's 4px coloured top edge and the current band's coloured ring with fills.</b> (1) The strip is 44px (a slim 28px line on a phone) with the journey as a 2px line along the foot on a phone. (2) Every chip in the header is 28px high and a Chips look: the phase chip, the countdown (a 22% accent fill, the number 16px weight 600, not 800), the facts and the attention pill (the count is a count badge). (3) The journey bar's bands are 24px with a hairline and the medium corner, a tint fill by state: past 12%, ahead 22%, current the neutral selected fill with its name in the accent mix and the text "Now"; off is a dashed neutral hairline. (4) The today pin is a 28px round pin in the micro count's fill, with its label as its name. (5) The phase tag is the Chips tag and "Now" the Chips status label. (6) The Set up band keeps its content with fills only. (7) The Planner's caps and rail are drawn as a proposal.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#journey-strips">The strip at 1280, 700 and 390</a><a href="#journey-states">Band states</a><a href="#journey-chips">Header chips</a><a href="#journey-setup">Set up band</a><a href="#journey-plan">Caps and rail</a><a href="#journey-tags">Phase tags</a><a href="#journey-contrast">Contrast</a><a href="#journey-map">Today to proposed</a><a href="#journey-alias">Aliases</a><a href="#journey-tokens">Tokens</a><a href="#journey-contract">Markup</a><a href="#journey-chosen">Chosen while drawing</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> (1) The strip is 44px (a slim 28px line on a phone) with the journey as a 2px line along the foot on a phone. (2) Every chip in the header is 28px high and a Chips look: the phase chip, the countdown (a 22% accent fill, the number 16px weight 600, not 800), the facts and the attention pill (the count is a count badge). (3) The journey bar's bands are 24px with a hairline and the medium corner, a tint fill by state: past 12%, ahead 22%, current the neutral selected fill with its name in the accent mix and the text "Now"; off is a dashed neutral hairline. (4) The today pin is a 28px round pin in the micro count's fill, with its label as its name. (5) The phase tag is the Chips tag and "Now" the Chips status label. (6) The Set up band keeps its content with fills only. (7) The Planner's caps and rail are drawn as a proposal.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#journey-strips">The strip at 1280, 700 and 390</a><a href="#journey-states">Band states</a><a href="#journey-chips">Header chips</a><a href="#journey-setup">Set up band</a><a href="#journey-plan">Caps and rail</a><a href="#journey-tags">Phase tags</a><a href="#journey-contrast">Contrast</a><a href="#journey-map">Today to proposed</a><a href="#journey-alias">Aliases</a><a href="#journey-tokens">Tokens</a><a href="#journey-contract">Markup</a><a href="#journey-decided">Chosen while drawing</a></nav>
 
 <h4 class="ds-h4" id="journey-strips">The strip at 1280, 700 and 390</h4>
 <p class="ds-desc">Things give way in the existing order as the line narrows: the facts (one by one, all gone at 760px), the names in the bands (below 760px), the days to go, then the end of the sentence. On a phone it is the slim line.</p>
@@ -266,17 +266,17 @@ ${dim([
     ['Narrow', '640px and below: the slim 28px line (the CSS does it; the markup is the same). Below 760px the names and the facts are hidden by the CSS; the script still drops facts one by one from the end as the line fills.'],
   ])}
 
-<h4 class="ds-h4" id="journey-chosen">Chosen while drawing</h4>
-<p class="ds-desc">Thomas decides each of these; each has another way.</p>
-${tbl(['Chosen', 'Why', 'Other way'], [
-    ['The header chip is 28px, not the Chips 24px or 30px', 'The brief gave 28px; it is not on the Chips scale (tag 24, choice 30).', '30px, the choice chip height.'],
-    ['The attention pill is a warn (gold) tone, not accent or neutral', 'It means something needs action. The countdown is already the accent.', 'Neutral, or the accent fill.'],
-    ['On a phone the journey is a 2px line made of the bands; on a desktop it is the 24px bands, with no separate line', 'A 24px band does not fit a 28px line. It is how the slim line works today.', 'A 2px progress line on the desktop too.'],
-    ['The journey line\'s bands keep their tints at 28% and 55%', 'A 2px line needs a stronger fill than a 24px band to be seen.', 'The same 12% and 22%.'],
-    ['The current band name is weight 600 with "Now"', 'The selected fill alone is quiet; the word makes it certain.', 'The fill only.'],
-    ['The Set up band names are weight 500, the main phase 600', 'The 700 weight folds into 600 (Typography); the main phase stays heavier.', 'A "Main" tag on it.'],
-    ['The caps are 32px high at least and wrap; the end cap is paler', 'The plan says a cap wraps and is never clipped; the end is the lesser of the pair.', 'The same fill for both.'],
-    ['The rail is 6px, one block down the days, in the tint at 38%', 'The plan says 6px at most, one fill so no seam can show.', 'The tint at 22%, like a band.'],
+<h4 class="ds-h4" id="journey-decided">Decided 2026-10-21</h4>
+<p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
+${tbl(["Decided as drawn","Why"], [
+    ["The header chip is 30px (the Chips choice-chip size), not 28px","It keeps to the Chips scale (tag 24, choice 30) and fits the 44px strip. The phone's slim line keeps 22px chips as drawn."],
+    ["The attention pill is a warn (gold) tone, not accent or neutral","It means something needs action. The countdown is already the accent."],
+    ["On a phone the journey is a 2px line made of the bands; on a desktop it is the 24px bands, with no separate line","A 24px band does not fit a 28px line. It is how the slim line works today."],
+    ["The journey line's bands keep their tints at 28% and 55%","A 2px line needs a stronger fill than a 24px band to be seen."],
+    ["The current band name is weight 600 with \"Now\"","The selected fill alone is quiet; the word makes it certain."],
+    ["The Set up band names are weight 500, the main phase 600","The 700 weight folds into 600 (Typography); the main phase stays heavier."],
+    ["The caps are 32px high at least and wrap; the end cap is paler","The plan says a cap wraps and is never clipped; the end is the lesser of the pair."],
+    ["The rail is 6px, one block down the days, in the tint at 38%","The plan says 6px at most, one fill so no seam can show."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

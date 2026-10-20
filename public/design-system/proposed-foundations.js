@@ -594,7 +594,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
 ${tbl(['Chosen', 'Why', 'Other way'], [
     ['Names count steps: <code>--space-3</code> is 12px, <code>--space-0</code> is 2px', 'Short, and the same shape as <code>--radius-*</code>. They differ from the older plan table, where <code>--space-3</code> was 6.', 'Name them by pixels: <code>--space-12</code>.'],
     ['A row\'s horizontal 10 is written <code>--space-2</code> + <code>--space-0</code>', 'Keeps the Cards decision (8 by 10) while 10 stays off the scale.', 'Row padding 8 by 8, or 8 by 12.'],
-    ['The panel is 16 here; Menus\' 14px popover padding is not touched', '14 settles per component.', 'Panel 12.'],
+    ['The panel is 16 (decided 2026-10-21); Menus\' 14px popover padding is not touched', 'A popover is not a panel; its padding stays with the Menus family.', 'Panel 12.'],
     ['<code>--shadow-3</code> is <code>0 8px 30px</code>, black 50% dark and the text colour at 18% light; <code>--shadow-1</code> in light is the text colour at 12%', 'Same size as the most common dialog shadow today (7 uses), smaller than the 16/48 one.', 'A smaller shadow, or the light values at 14% like the menu.'],
     ['<code>--scrim</code> is 55% in light mode too', 'Your "one scrim". Menus drew 35% in light; it now follows this.', 'Keep 35% for light.'],
     ['A menu (26) is below a dialog (40); a menu opened from inside a dialog uses the popover layer', 'So the list never hides behind the dialog it was opened from. It is the SDK\'s job to pick the layer.', 'Raise the menu above the dialog.'],

@@ -109,7 +109,7 @@
 }
 
 .ds-proposed .sdk-presence[data-state="online"] {
-  background: var(--ok);
+  background: var(--ok-mark);
 }
 
 .ds-proposed .sdk-presence[data-state="away"] {

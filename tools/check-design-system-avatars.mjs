@@ -38,7 +38,7 @@ export async function browserChecks(b) {
       const d = f.iframe.contentDocument; const w = d.defaultView; const cs = (e, p) => w.getComputedStyle(e, p); const t = f.iframe.title;
       const tok = (prop, expr) => { const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style[prop] = expr; host.appendChild(p); const c = w.getComputedStyle(p)[prop]; p.remove(); return c; };
       const round = tok('borderTopLeftRadius', 'var(--radius-round)'); const med = tok('borderTopLeftRadius', 'var(--radius-medium)');
-      const panel = tok('backgroundColor', 'var(--bg-section)'); const okc = tok('backgroundColor', 'var(--ok)'); const dimc = tok('backgroundColor', 'var(--text-dim)');
+      const panel = tok('backgroundColor', 'var(--bg-section)'); const okc = tok('backgroundColor', 'var(--ok-mark)'); const dimc = tok('backgroundColor', 'var(--text-dim)');
       const fill = tok('backgroundColor', 'color-mix(in srgb, var(--text) 14%, var(--bg-section))');
       for (const e of d.querySelectorAll('.sdk-avatar')) { out.n += 1; const r = e.getBoundingClientRect(); const c = cs(e);
         const sizeCls = [...e.classList].find((x) => /^sdk-avatar-(20|24|40|64|96)$/.test(x)); const px = sizeCls ? parseInt(sizeCls.split('-')[2], 10) : 32;
@@ -55,7 +55,7 @@ export async function browserChecks(b) {
         if (dot) { const dr = dot.getBoundingClientRect(); const dc = cs(dot);
           if (!near(dr.width, 7) || !near(dr.height, 7)) bad(t + ': a presence dot is ' + dr.width + ' by ' + dr.height + 'px, expected 7');
           const ring = dc.boxShadow; if (!/\\b2px\\b/.test(ring) || ring.indexOf(panel) < 0) bad(t + ': the presence dot has no 2px ring in the panel colour (' + ring + ')');
-          const st = dot.dataset.state; if (dc.backgroundColor !== (st === 'online' ? okc : dimc)) bad(t + ': the ' + st + ' dot is not ' + (st === 'online' ? '--ok' : '--text-dim'));
+          const st = dot.dataset.state; if (dc.backgroundColor !== (st === 'online' ? okc : dimc)) bad(t + ': the ' + st + ' dot is not ' + (st === 'online' ? '--ok-mark' : '--text-dim'));
           if (!dot.getAttribute('title') || !dot.getAttribute('aria-label')) bad(t + ': a presence dot has no title or aria-label');
           const cx = dr.left + dr.width / 2 - (r.left + r.width / 2); const cy = dr.top + dr.height / 2 - (r.top + r.height / 2); const dist = Math.hypot(cx, cy);
           if (cx <= 0 || cy <= 0 || Math.abs(dist - px / 2) > 1.5) bad(t + ': the presence dot is not on the circle\\'s lower right edge (' + dist.toFixed(1) + ' from the centre of a ' + px + 'px avatar)'); } }

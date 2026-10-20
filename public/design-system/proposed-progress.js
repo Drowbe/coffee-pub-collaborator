@@ -74,7 +74,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ['Fill (--accent) on the page', '--accent', '--bg', 3],
     ['Danger fill (--danger) on the track', '--danger', '--border', 3],
     ['Danger fill (--danger) on the page', '--danger', '--bg', 3],
-    ['Microphone bars (--ok) on the page', '--ok', '--bg', 3],
+    ['Microphone bars (--ok-mark) on the page', '--ok-mark', '--bg', 3],
+    ['Microphone bars (--ok-mark) on a panel', '--ok-mark', '--bg-section', 3],
+    ['Microphone bars (--ok-mark) on a card', '--ok-mark', '--bg-card', 3],
     ['Unlit microphone bar and track (--border) on the page', '--border', '--bg', 1.2],
   ];
   const contrastBody = () => `<div class="ds-proposed"><table class="pm-ct"><thead><tr><th>Pair</th><th>Colours</th><th>Ratio</th><th>Looked for</th><th></th></tr></thead><tbody>${CT_ROWS.map((r) => `<tr data-fg="${r[1]}" data-bg="${r[2]}" data-min="${r[3]}"><td>${r[0]}</td><td><code>${r[1]}</code> on <code>${r[2]}</code></td><td class="pm-n" data-out="r"></td><td class="pm-n">${r[3]}:1</td><td data-out="p"></td></tr>`).join('')}</tbody></table></div>`;
@@ -96,15 +98,39 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     new MutationObserver(() => requestAnimationFrame(go)).observe(doc.documentElement, { attributes: true, attributeFilter: ['data-theme-mode'] });
   };
 
+  // ---- ok as a mark (decided 2026-10-21): the numbers, worked out here from the three shipped themes' colours (server/store.js) ----
+  const OKM = { ok: '#6fae6b', pct: 70, themes: [
+    ['Strong Coffee', { light: ['#faf6f1', '#f1e9df', '#2b2119'], dark: ['#1a1410', '#241c16', '#f1e6d8'] }],
+    ['Calming Teal', { light: ['#ffffff', '#f7f9fa', '#333333'], dark: ['#111a1b', '#182325', '#e4eeee'] }],
+    ['Burnt Orange', { light: ['#ffffff', '#f7f7f7', '#333333'], dark: ['#1a1512', '#241d19', '#eee8e3'] }],
+  ] };
+  const okTable = () => {
+    const rgb = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+    const mixc = (a, p, b) => a.map((v, i) => Math.round(v * p / 100 + b[i] * (100 - p) / 100));
+    const lum = (c) => { const f = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]; };
+    const ratio = (a, b) => { const x = lum(a); const y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const hex = (c) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+    const rows = []; let worst = 99;
+    for (const [name, modes] of OKM.themes) for (const mode of ['light', 'dark']) {
+      const [pg, pn, tx] = modes[mode].map(rgb); const card = mixc(pn, 92, tx); const ok = rgb(OKM.ok);
+      const mark = mode === 'light' ? mixc(ok, OKM.pct, tx) : ok;
+      const f = (c) => [pg, pn, card].map((s) => ratio(c, s));
+      const plain = f(ok); const m = f(mark); worst = Math.min(worst, ...m);
+      rows.push([`${name}, ${mode}`, `<code>${hex(mark)}</code>${mode === 'light' ? '' : ' (the plain ok)'}`, plain.map((r) => r.toFixed(2)).join(' / '), m.map((r) => r.toFixed(2) + (r >= 3 ? '' : ' (below 3)')).join(' / ')]);
+    }
+    return { rows, worst };
+  };
+
   function renderProgress(api) {
     const { mk, h } = api;
     const block = mk('section', 'ds-block ds-spec');
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
+    const OK = okTable();
     block.innerHTML = `<header><h3 id="progress-h"><a href="#progress">Progress bars and meters</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one track, a small track, budget, AI and poll meters, a shimmer, the microphone level</span></header>
 <p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One track</b>: 8px, fully round, <code>--border</code>, with an accent fill and a label with the value in text (never colour alone); a <b>6px small track</b> for toolbars and uploads. Every bar is <code>role="progressbar"</code> with <code>aria-valuenow</code>, <code>-min</code>, <code>-max</code> and a name. Budget, the AI meter and poll options are the same bar with their own fills. The call's microphone level is its own pattern. Stylesheet: <code>proposed-progress.css</code>, every rule under <code>.ds-proposed</code>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#progress-anatomy">Anatomy</a><a href="#progress-tracks">Tracks</a><a href="#progress-meters">Meters</a><a href="#progress-use">In use</a><a href="#progress-widths">Widths</a><a href="#progress-rules">Usage rules</a><a href="#progress-map">Today to proposed</a><a href="#progress-contrast">Contrast</a><a href="#progress-tokens">Tokens</a><a href="#progress-markup">Markup contract</a></nav>
+<nav class="ds-toc" aria-label="In this family"><a href="#progress-anatomy">Anatomy</a><a href="#progress-tracks">Tracks</a><a href="#progress-meters">Meters</a><a href="#progress-use">In use</a><a href="#progress-widths">Widths</a><a href="#progress-rules">Usage rules</a><a href="#progress-map">Today to proposed</a><a href="#progress-okmark">Ok as a mark</a><a href="#progress-contrast">Contrast</a><a href="#progress-tokens">Tokens</a><a href="#progress-markup">Markup contract</a></nav>
 
 <h4 class="ds-h4" id="progress-anatomy">Anatomy</h4>
 ${dim([
@@ -153,10 +179,15 @@ ${tbl(['Today', 'Where', 'Proposed'], [
     ['<code>.ai-meter</code> (8px, <code>--bg-card</code> with a 1px <code>--border</code>), <code>.warn</code> danger', 'the AI settings', 'The track (the 1px border goes); <code>.warn</code> keeps its name; adds the words "Almost full". The only bar with aria today; it keeps it.'],
     ['<code>.bar</code> (10px, <code>--text</code> at 12% on transparent; spent and planned fills; a danger fill by colour)', 'Budget', 'The 8px track; planned at 35%; over is the danger fill with "Over" in words. Role and name added.'],
     ['<code>.opt .fill</code> (accent at 24%, behind the row)', 'Polls', 'The poll option fill (aliased as <code>.sdk-progress-behind</code>); the percent stays text; the fill gets the role and a name.'],
-    ['<code>.meter</code> in the call buttons (vertical bars, raw <code>rgba(111,174,107,.55)</code>)', 'the call', 'The microphone level (<code>.sdk-mic</code>), lit in <code>--ok</code>.'],
+    ['<code>.meter</code> in the call buttons (vertical bars, raw <code>rgba(111,174,107,.55)</code>)', 'the call', 'The microphone level (<code>.sdk-mic</code>), lit in <code>--ok-mark</code>.'],
     ['Three track heights (6, 8, 10px) and three track colours (<code>--bg-card</code> with a border, <code>--bg-card</code> without, <code>--text</code> at 12%)', 'above', 'Two heights (8, 6), one colour (<code>--border</code>).'],
     ['The status strip fill (32% accent)', 'the Status strip', 'Unchanged; stays in the Status strip family.'],
   ])}
+
+<h4 class="ds-h4" id="progress-okmark">Ok as a mark (decided 2026-10-21)</h4>
+<p class="ds-desc">The ok status colour as a mark (a bar, a presence dot, an icon: not text) is <b>2.2 to 2.6 to 1</b> on the light page, panel and card, under the 3 to 1 a mark aims at. So there is one more token, <code>--ok-mark</code>: <b>the ok colour 70% mixed toward the text colour</b> (<code>color-mix(in srgb, var(--ok) 70%, var(--text))</code>) in the light mode, the least that reaches 3 to 1 on the page, the panel and the card in all three shipped themes (71% is the exact limit, on Strong Coffee's card). In the dark mode the plain ok already passes, so <code>--ok-mark</code> is the plain ok there and the dark mode is unchanged. It is used by the microphone bars here, the Avatars presence dot, the Tables member dot and the Chips dot of an ok tone. A fill with words on it (a toast, a status label) is not a mark and keeps the plain ok. Ratios against the page / the panel / the card, worked out by this page from the three themes' colours:</p>
+${tbl(['Theme and mode', 'The mark', 'Plain ok: page / panel / card', 'The mark: page / panel / card'], OK.rows)}
+<p class="ds-desc" data-okworst="${OK.worst.toFixed(2)}">The lowest of the eighteen ratios of the mark is <b>${OK.worst.toFixed(2)} to 1</b>.</p>
 
 <h4 class="ds-h4" id="progress-contrast">Contrast</h4>
 <p class="ds-desc">Worked out by this page, in the mode on show. The value text needs 4.5 to 1. The fill and the microphone bars are not the only signal (the value is in words), so they are measured against 3 to 1 as the look the system aims at; the last row is the track itself, which only needs to be seen against the page.</p>
@@ -167,7 +198,7 @@ ${tbl(['Token', 'Use here', ''], [
     ['<code>--pg-h</code>', 'The track: 8px; 6px on the small one.', 'new'],
     ['<code>--pg-track</code>, <code>--pg-fill</code>', '<code>--border</code> and <code>--accent</code>.', 'new (aliases)'],
     ['<code>--pg-planned</code>, <code>--pg-behind</code>', 'The accent at 35% (planned) and 24% (a poll option).', 'new'],
-    ['<code>--pg-over</code>, <code>--pg-ok</code>', 'The danger and ok status fills: <code>--danger</code>, <code>--ok</code>.', 'new (aliases)'],
+    ['<code>--pg-over</code>, <code>--pg-ok</code>', 'The danger status fill (<code>--danger</code>) and the ok mark (<code>--ok-mark</code>).', 'new (aliases)'],
     ['<code>--pg-shine</code>', 'The light stripe of the shimmer.', 'new'],
     ['<code>--pct</code> (data)', 'The width of a fill, passed by the consumer.', 'data'],
     ['<code>--radius-round</code>', 'Tracks, fills and microphone bars. Allowed for these.', 'exists'],

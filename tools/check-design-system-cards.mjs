@@ -120,6 +120,11 @@ const cardsProbe = async () => {
     const d = get('Cards, left bar replacements'); for (const r of d.querySelectorAll('.sdk-bar-kept')) barOk(r, 'Cards exception row'); const r = d.querySelector('.sdk-bar-kept'); if (r) { const p = cs(r, '::before'); if (p.width !== '3px') bad(`the Calendar bar is ${p.width}, expected 3px`); if (cs(r).borderLeftWidth !== '1px' || cs(r).borderLeftColor !== tok(d, 'var(--border)')) bad('the Calendar row has a coloured or heavy edge, not the hairline');
       if (!/Exception, kept/.test(d.body.textContent)) bad('the Calendar exception is not flagged "Exception, kept" in its frame'); } }
   // Surface steps, corners and the hairline, on the real components.
+  // Paddings (decided 2026-10-21, on the spacing scale): panel 16 at every width, card 12, row 8 by 10 (8 + 2), Home card 20.
+  { const d = get('Cards, nested rows'); const pn = d.querySelector('.sdk-panel'), cd = d.querySelector('.sdk-card'), rw = d.querySelector('.sdk-panel > .pm-cd-two > div > .sdk-list > .sdk-row') || d.querySelector('.sdk-row');
+    if (cs(pn).paddingTop !== '16px' || cs(pn).paddingLeft !== '16px') bad(`the panel padding is ${cs(pn).paddingTop} ${cs(pn).paddingLeft}, expected 16px at every width`);
+    if (cs(cd).paddingTop !== '12px' || cs(cd).paddingLeft !== '12px') bad(`the card padding is ${cs(cd).paddingTop} ${cs(cd).paddingLeft}, expected 12px`);
+    if (cs(rw).paddingTop !== '8px' || cs(rw).paddingLeft !== '10px') bad(`the row padding is ${cs(rw).paddingTop} ${cs(rw).paddingLeft}, expected 8px 10px`); }
   { const d = get('Cards, nested rows'); const panel = d.querySelector('.sdk-panel'); const card = d.querySelector('.sdk-card'); const inner = card.querySelector('.sdk-row'); const onPanel = d.querySelector('.sdk-panel > .pm-cd-two > div > .sdk-list > .sdk-row');
     const border = tok(d, 'var(--border)');
     if (cs(panel).backgroundColor !== bgTok(d, '--bg-section')) bad(`the panel is ${cs(panel).backgroundColor}, not --bg-section`);

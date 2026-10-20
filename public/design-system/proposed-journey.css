@@ -2,7 +2,7 @@
    Drawn in the Proposed page only: every rule is under .ds-proposed, so the product is untouched.
 
    The strip (.sdk-strip, alias .status-strip) is the header's second row: 44px on a desktop, a slim 28px line on a phone (--status-strip-h, --status-strip-slim-h).
-     Header chips are ONE height, 28px (--jr-chip-h): the phase chip, the countdown, the fact chips and the attention pill. They are Chips family looks: a neutral
+     Header chips are ONE height, 30px (--jr-chip-h; the Chips choice-chip size, decided 2026-10-21; the phone's slim line keeps 22px): the phase chip, the countdown, the fact chips and the attention pill. They are Chips family looks: a neutral
      fill or a tone fill, the small corner, no edge; the count in the attention pill is a count badge. The countdown is a 22% accent fill; its number is 16px weight 600
      (not 800). A chip you can press has the quiet hover fill and the Fields-and-Tabs focus (a 2px outline inside the box).
    The journey bar (.sdk-journey, its bands .sdk-band, alias .status-band) is 24px high; each band is a fill of its phase's tint, by state:
@@ -18,7 +18,7 @@
 .ds-proposed {
   --status-strip-h: 44px;
   --status-strip-slim-h: 28px;
-  --jr-chip-h: 28px;
+  --jr-chip-h: 30px;
   --jr-band-h: 24px;
   --jr-pin: 28px;
   --jr-line: 2px;
@@ -56,7 +56,7 @@
 
 .ds-proposed :is(.sdk-strip-said, .status-said) { display: flex; flex: 0 1 auto; align-items: center; height: 100%; min-width: 0; }
 
-/* ---- the header chips: one height, 28px ---- */
+/* ---- the header chips: one height, 30px (22px on the phone's slim line) ---- */
 .ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count) {
   position: relative;
   display: inline-flex;

@@ -112,4 +112,30 @@ export async function browserChecks(b) {
     return JSON.stringify([...new Set(out)].slice(0, 12)); })()`));
   for (const x of small) problems.push(`${where}: text under 11px: ${x}`);
   await ev('window.__ds.setFont("proposed")');
+  // The wordmark (decided 2026-10-21): Figtree 600 at 16px below 640px wide, Fraunces 600 at 18px from 641px up; a long name is cut with an ellipsis.
+  await new Promise((r) => setTimeout(r, 600));
+  const wm = JSON.parse(await ev(`(async () => {
+    const out = { problems: [], n: 0 }; const bad = (m) => out.problems.push(m);
+    const F = window.__ds.frames;
+    for (const title of ['Wordmark', 'Headline, in context']) {
+      const f = F.find((x) => x.iframe.title === title); if (!f) { bad('no frame ' + title); continue; }
+      const d = f.iframe.contentDocument; const w = f.iframe.contentWindow; await d.fonts.ready;
+      const narrow = w.innerWidth <= 640;
+      for (const el of d.querySelectorAll('.topbar .brand-name')) {
+        out.n += 1; const c = w.getComputedStyle(el); const fam = c.fontFamily.split(',')[0].replace(/"/g, '').trim(); const long = el.textContent.length > 20;
+        if (d.documentElement.getAttribute('data-font') === 'proposed' || d.querySelector('.ds-proposed').dataset.font === 'proposed') {
+          if (fam !== (narrow ? 'Figtree' : 'Fraunces')) bad(title + ' (' + w.innerWidth + 'px wide): the wordmark is set in ' + fam + ', expected ' + (narrow ? 'Figtree' : 'Fraunces'));
+          if (c.fontSize !== (narrow ? '16px' : '18px')) bad(title + ' (' + w.innerWidth + 'px wide): the wordmark is ' + c.fontSize + ', expected ' + (narrow ? '16px' : '18px'));
+          if (c.fontWeight !== '600') bad(title + ': the wordmark weight is ' + c.fontWeight + ', expected 600');
+        }
+        const bar = el.closest('.topbar').getBoundingClientRect(); const r = el.getBoundingClientRect();
+        if (r.right > bar.right + 0.5) bad(title + ': the wordmark runs out of its bar');
+        if (el.scrollWidth > el.clientWidth + 0.5) { if (!long) bad(title + ': the short name "' + el.textContent + '" is cut'); else if (c.textOverflow !== 'ellipsis' || c.whiteSpace !== 'nowrap') bad(title + ': a long name is cut without an ellipsis'); }
+        else if (long && title === 'Wordmark' && narrow) bad(title + ': the long name is not cut at ' + w.innerWidth + 'px');
+        if (r.height > 40) bad(title + ': the wordmark wraps (' + r.height + 'px high)');
+      }
+    }
+    if (out.n < 3) bad('only ' + out.n + ' wordmarks drawn');
+    return JSON.stringify(out); })()`));
+  for (const x of [...new Set(wm.problems)]) problems.push(`${where}: ${x}`);
 }

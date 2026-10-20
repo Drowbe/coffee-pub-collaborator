@@ -20,7 +20,7 @@
   --tbl-cell-x: 10px;
   /* Muted text on a hovered or grouped row: a little stronger, because the plain muted colour is under 4.5 to 1 there in the light mode. */
   --tbl-dim: color-mix(in srgb, var(--text-dim) 55%, var(--text));
-  --tbl-ok: color-mix(in srgb, var(--ok) 65%, var(--text));
+  --tbl-ok: var(--ok-mark);
 }
 
 /* ---- the scroll box ---- */

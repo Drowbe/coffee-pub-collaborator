@@ -240,7 +240,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <div data-slot="anatomy"></div>
 ${dim([
     ['1 Surface', 'A 1px <code>--border</code> hairline, no shadow, no gradient. Panel and card <code>--radius-large</code>; a row on a panel <code>--radius-medium</code>; a row inside a card <code>--radius-small</code>.'],
-    ['2 Padding', 'Row 8px by 10px. Card 12px. Panel 14px (16px wider than a phone). Home\'s space card 20px, its own larger variant.'],
+    ['2 Padding', 'Row 8px by 10px (the 10 is 8 + 2 on the spacing scale). Card 12px. Panel 16px at every width (decided 2026-10-21; it was 14px on a phone). Home\'s space card 20px, its own larger variant.'],
     ['3 Spacing', 'One rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups.'],
     ['4 Icon chip', 'Optional. 32px in a card, 28px in a row; <code>--radius-small</code>. The category tint is a quiet fill behind the icon and the icon itself; nothing else is coloured.'],
     ['5 Title and lines', 'Title 14px, weight 600 in a card; weight 500 in a row. Sub line 12px <code>--text-dim</code>. Body 13px. A row\'s title is cut with an ellipsis; a card\'s wraps.'],
@@ -338,7 +338,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--border</code>', 'the theme\'s', 'The one hairline (a divider uses it on one side).'],
     ['<code>--selected-bg</code>', 'the theme\'s', 'A selected card or row.'],
     ['<code>--radius-large</code> <code>--radius-medium</code> <code>--radius-small</code>', '11px, 7px, 5px', 'Card and panel; a row on a panel; a row in a card and the icon chip.'],
-    ['<code>--card-pad</code> <code>--panel-pad</code> <code>--home-pad</code>', '12px, 14px (16px wider than a phone), 20px', 'Padding. Proposed tokens.'],
+    ['<code>--card-pad</code> <code>--panel-pad</code> <code>--home-pad</code>', '12px, 16px, 20px', 'Padding. Proposed tokens.'],
     ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 10px', 'A row\'s padding. Proposed tokens.'],
     ['<code>--gap-in</code> <code>--gap-group</code>', '8px, 16px', 'The one spacing rule. Proposed tokens.'],
     ['<code>--ls-label</code>', '0.04em', 'Group header letter spacing. Proposed token.'],
@@ -385,7 +385,7 @@ ${dim([
 <p class="ds-desc">Thomas approved these on 2026-10-19 and said "we can start with this" about the radii and the paddings, so those two may be tuned later without reopening the family.</p>
 ${tbl(['Decided 2026-10-19', 'Why', 'Other way, if tuned later'], [
     ['Radii: card and panel large, a row on a panel medium, a row in a card small', 'Each box inside another has a smaller corner, so the corners stay concentric.', 'Make the card medium and the row small everywhere.'],
-    ['Padding: card 12, panel 14 and 16, row 8 by 10, Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
+    ['Padding: card 12, panel 16, row 8 by 10 (8 + 2), Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
     ['Group header: 12px, weight 600, muted, upper case, 0.04em, with a hairline under it', 'The most common of the three today, and the divider is part of the decision.', 'Sentence case with no letter spacing; no hairline.'],
     ['The ghost add slot is a dashed neutral hairline with no fill', 'The add variant keeps its dashed edge, quiet like the rest.', 'A solid hairline.'],
   ])}

@@ -133,7 +133,7 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
     }
     for (const m of css.matchAll(/(border(?:-[a-z]+)*)\s*:\s*([^;}]+)/g)) {
       const name = m[1]; const v = m[2].trim();
-      if (/radius/.test(name)) { if (!/^var\(--radius-(min|small|medium|large|round)\)$/.test(v)) fail(`${s.file}: ${name}: ${v} is not a radius token`); continue; }
+      if (/radius/.test(name)) { const head = css.slice(0, m.index); const selector = head.slice(head.lastIndexOf('}') + 1, head.lastIndexOf('{')); /* a square corner (0) is allowed only on the end cap of a kept bar and its box (decided 2026-10-21) */ if (v === '0' && /sdk-bar-kept/.test(selector)) continue; if (!/^var\(--radius-(min|small|medium|large|round)\)$/.test(v)) fail(`${s.file}: ${name}: ${v} is not a radius token`); continue; }
       if (/(#[0-9a-f]{3,8}\b|rgb|hsl|color-mix|--accent|--danger|--ok|--tint)/i.test(v)) {
         // A field's focus and error are states that colour the whole edge (Thomas, 2026-10-17); a side of an edge (a strip) is never allowed.
         const before = css.slice(0, m.index); const sel = before.slice(Math.max(before.lastIndexOf('}'), 0), before.lastIndexOf('{'));

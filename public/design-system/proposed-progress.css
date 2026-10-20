@@ -20,7 +20,7 @@
   --pg-planned: color-mix(in srgb, var(--accent) 35%, transparent);
   --pg-behind: color-mix(in srgb, var(--accent) 24%, transparent);
   --pg-over: var(--danger);
-  --pg-ok: var(--ok);
+  --pg-ok: var(--ok-mark);
   --pg-shine: color-mix(in srgb, var(--accent) 40%, var(--bg-card));
 }
 

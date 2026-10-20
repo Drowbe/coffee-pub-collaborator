@@ -228,6 +228,8 @@
 .ds-proposed [data-tone="neutral"] { --chip-tone: var(--text-dim); }
 .ds-proposed .pill.warn { --chip-tone: var(--warn); }
 .ds-proposed :is(.badge-ok) { --chip-tone: var(--ok); }
+/* The dot of an ok tone is a mark: the ok mark (3 to 1), not the plain ok (2.5 to 1 in the light mode). */
+.ds-proposed :is([data-tone="ok"], .badge-ok) .sdk-chip-dot { background: var(--ok-mark); }
 .ds-proposed :is(.phase-tag-now) { --chip-tone: var(--accent); }
 .ds-proposed :is(.phase-tag-main) { --chip-tone: var(--tint-blue); }
 

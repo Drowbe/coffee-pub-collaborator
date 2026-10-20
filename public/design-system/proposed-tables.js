@@ -118,7 +118,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ['Hairline on the panel', '--border', ['--bg-section'], 1],
     ['Member name on a tile', '--text', ['--bg-card'], 4.5],
     ['Member name on an "on" tile', '--text', ['--bg-card', '--selected-bg'], 4.5],
-    ['Online dot against its tile (non-text)', 'color-mix(in srgb, var(--ok) 65%, var(--text))', ['--bg-card'], 3],
+    ['Online dot (--ok-mark) against its tile (non-text)', '--ok-mark', ['--bg-card'], 3],
   ];
   const contrastBody = () => wrap(`<table class="pm-tb-ct"><thead><tr><th>Pair</th><th>Ratio</th><th>Needs</th><th></th></tr></thead><tbody>${CT_ROWS.map((r) => `<tr data-fg="${h(r[1])}" data-bgs="${h(JSON.stringify(r[2]))}" data-min="${r[3]}"><td>${r[0]}</td><td data-out="r"></td><td>${r[3] === 1 ? 'info' : r[3] + ':1'}</td><td data-out="p"></td></tr>`).join('')}</tbody></table>`);
   const measureContrast = (doc) => {
@@ -219,7 +219,7 @@ ${tbl(['Today', 'Proposed'], [
     ['<code>.list-row</code>: a boxed row (a hairline, <code>--radius-medium</code>) in Manage lists, plain module rows elsewhere', 'One row: the Cards row. On a panel it keeps the hairline; inside a card it drops it.'],
     ['<code>.plan-row</code> and <code>.ai-service</code>: a hairline card with a 12px by 14px padding, a grid of fields', 'The Cards family\'s card (12px padding), with the "..." slot; fields stay the Fields family\'s.'],
     ['Module list items with a switch row', 'A Cards row with the Fields switch at its end, and the "..." menu.'],
-    ['<code>.member.online</code>: a green-mixed border (<code>--ok</code> 50% into the hairline)', 'A 7px <code>--ok</code> dot with a 2px ring (<code>.sdk-member-dot</code>); the border stays the hairline.'],
+    ['<code>.member.online</code>: a green-mixed border (<code>--ok</code> 50% into the hairline)', 'A 7px <code>--ok-mark</code> dot (the ok colour as a mark, 3 to 1; see Progress) with a 2px ring (<code>.sdk-member-dot</code>); the border stays the hairline.'],
     ['<code>.member-toggle.online</code>: an accent border and a 1px accent ring; off at 45% strength', 'On is <code>--selected-bg</code>; off stays 45% strength, back to full on hover.'],
     ['<code>.icon-row .icon-html.invalid</code>: <code>border-color: #b8503f</code>', 'The Fields error (<code>aria-invalid</code>, the danger edge and an error line). No hex.'],
     ['<code>.env-banner</code>: a 1px danger outline and a 12% danger fill', 'The Banner (the Toasts family).'],

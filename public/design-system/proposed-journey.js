@@ -67,7 +67,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ${CAP('The countdown: a 22% accent fill; the number 16px weight 600')}<div class="pm-jr-head"><div class="pm-jr-row">${count(12, 'days to Trip')}${count(1, 'day to Trip')}<button type="button" class="sdk-strip-chip sdk-strip-count"><span class="sdk-strip-count-words">Trip starts today</span></button>${count(12, 'days to Trip', { state: 'hover' })}${count(12, 'days to Trip', { state: 'focus' })}</div></div>
     ${CAP('Facts: an icon and words; one with progress fills from the left')}<div class="pm-jr-head"><div class="pm-jr-row">${fact('wallet', '0% of budget', 0)}${fact('wallet', '62% of budget', 62)}${fact('wallet', 'Budget used', 100)}${fact('plane', '2 flights booked')}${fact('bed', 'Hotel: 3 nights', null, { state: 'hover' })}${fact('bed', 'Hotel: 3 nights', null, { state: 'focus' })}</div></div>
     ${CAP('The attention pill: a tone fill, the count a count badge (99+ at most)')}<div class="pm-jr-head"><div class="pm-jr-row">${attn(1, 'needs action')}${attn(3)}${attn(12)}${attn('99+')}${attn(3, 'need action', { open: true })}${attn(3, 'need action', { state: 'hover' })}${attn(3, 'need action', { state: 'focus' })}</div></div>
-    <p class="pm-jr-note">Every chip in the header is 28px high. They are Chips looks: a neutral fill (the header text at 8%), the countdown\'s accent fill, the pill\'s tone fill; the small corner; no edge. Pressed or open is the neutral selected fill with the accent-mix words; focus is a 2px outline inside the chip.</p>
+    <p class="pm-jr-note">Every chip in the header is 30px high (the Chips choice-chip size; the phone's slim line keeps 22px chips). They are Chips looks: a neutral fill (the header text at 8%), the countdown\'s accent fill, the pill\'s tone fill; the small corner; no edge. Pressed or open is the neutral selected fill with the accent-mix words; focus is a 2px outline inside the chip.</p>
   </div>`);
 
   const phaseBand = (p, o = {}) => `<li class="sdk-phase-band${o.lit ? ' lit' : ''}" data-state="${p.s}" data-tint="${p.t}"${p.main ? ' data-main="1"' : ''} style="flex:${p.d}" tabindex="0"><span class="sdk-phase-band-label">${p.n}</span><span class="sdk-phase-band-span">${p.span || ''}</span>${p.s === 'current' ? '<span class="sdk-phase-band-now">Now</span>' : ''}</li>`;
@@ -175,7 +175,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <div data-slot="strips"></div>
 ${dim([
     ['1 Strip', '44px (<code>--status-strip-h</code>) on the header surface (<code>--header-bg</code>, words <code>--header-text</code>), 12px of padding, 12px between its parts, a 1px hairline on top. A phone: 28px (<code>--status-strip-slim-h</code>).'],
-    ['2 Header chip', '28px, 13px words weight 500, <code>--radius-small</code>, a transparent 1px edge, 10px of padding, 6px between icon and words. Neutral fill: the header text at 8%; hover 14%; pressed 20%.'],
+    ['2 Header chip', '30px, 13px words weight 500, <code>--radius-small</code>, a transparent 1px edge, 10px of padding, 6px between icon and words. Neutral fill: the header text at 8%; hover 14%; pressed 20%.'],
     ['3 Phase chip', 'A 10px dot in the phase\'s tint (8px on a phone), then the sentence. It opens the phase sheet. The words stay its name; the dot never stands alone for meaning.'],
     ['4 Countdown', '<code>--accent</code> at 22%; the number 16px weight 600, the words 13px, on one baseline. Gone on a phone.'],
     ['5 Facts', 'Up to three; an icon and words; the budget fills from the left (accent at 22%) as wide as its share. Gone below 760px.'],
@@ -206,13 +206,13 @@ ${dim([
 
 <h4 class="ds-h4" id="journey-map">Today to proposed</h4>
 ${tbl(['Today', 'Proposed'], [
-    ['<code>.phase-chip</code> (30px, in the strip)', '<code>.sdk-strip-phase</code>: 28px, a Chips look.'],
+    ['<code>.phase-chip</code> (30px, in the strip)', '<code>.sdk-strip-phase</code>: 30px, a Chips look.'],
     ['<code>.status-band</code> fills 12%, 22% and 50% (current), a hairline', 'Past 12%, ahead 22%, current the neutral selected fill (<code>--selected-bg</code>) with the accent-mix name and "Now". The 50% fill goes.'],
     ['<code>.phase-band</code> (Set up, 58px): a 4px coloured top edge and an inset 2px accent ring on the current band', 'The same fills as the strip; no edge, no ring. The current band is the selected fill with "Now".'],
     ['<code>.phase-tag</code> in two looks (the 10px upper-case <code>.phase-band-now</code> and a 12px tag)', 'The Chips tag, and "Now" as the Chips status label. The 10px upper-case type is retired.'],
-    ['<code>.status-togo</code>: 28px, an accent 22% fill, the number at 1.25 times the nav size in weight 800', 'The same fill; the number 16px weight 600 (the type scale and weights).'],
-    ['<code>.status-fact</code>: 28px, an 8% fill, a neutral edge', 'The same size and fill; the edge is transparent (a Chips look).'],
-    ['<code>.attention-count</code>: 24px, round, solid accent, weight 700', 'A 28px tone chip with a count badge in it (99+ at most). Not solid, not round.'],
+    ['<code>.status-togo</code>: 28px (today), an accent 22% fill, the number at 1.25 times the nav size in weight 800', '30px, the same fill; the number 16px weight 600 (the type scale and weights).'],
+    ['<code>.status-fact</code>: 28px (today), an 8% fill, a neutral edge', '30px, the same fill; the edge is transparent (a Chips look).'],
+    ['<code>.attention-count</code>: 24px, round, solid accent, weight 700', 'A 30px tone chip with a count badge in it (99+ at most). Not solid, not round.'],
     ['<code>.status-today</code>: 28px, the tint fill, the header colour as the number', '28px, the micro count\'s fill and <code>--on-accent</code>, with its label as its name.'],
     ['<code>.phase-today</code>: a 2px dashed <code>border-left</code>', 'A 2px dashed neutral line drawn as a block (not an edge).'],
     ['The phone\'s slim line with a 2px bar along its foot', 'Kept: 28px with the 2px journey line and a dot at today.'],
@@ -231,7 +231,7 @@ ${tbl(['Component', 'New name', 'Older names that take the same rules'], [
 <h4 class="ds-h4" id="journey-tokens">Tokens</h4>
 ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--status-strip-h</code> <code>--status-strip-slim-h</code>', '44px, 28px', 'The strip. Same as today.'],
-    ['<code>--jr-chip-h</code>', '28px', 'Every chip in the header. Proposed token.'],
+    ['<code>--jr-chip-h</code>', '30px', 'Every chip in the header (22px on the phone\'s slim line). Proposed token.'],
     ['<code>--jr-band-h</code> <code>--jr-pin</code> <code>--jr-line</code> <code>--jr-phase-h</code> <code>--jr-rail</code>', '24px, 28px, 2px, 58px, 6px', 'The journey bar band, the pin, the phone line, the Set up band and the rail. Proposed tokens.'],
     ['<code>--jr-past</code> <code>--jr-ahead</code> <code>--jr-count</code> <code>--jr-fact</code>', '12%, 22%, 22%, 8%', 'The band fills, the countdown fill, the fact fill. Proposed tokens (the values are today\'s).'],
     ['<code>--header-bg</code> <code>--header-text</code> <code>--selected-bg</code> <code>--micro-fill</code> <code>--warn</code> <code>--tint-*</code> <code>--border</code>', 'the theme\'s, and the Chips family\'s', 'The strip, the current band, the pin, the attention tone, the tints, the hairlines.'],

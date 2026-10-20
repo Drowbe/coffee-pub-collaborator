@@ -25,3 +25,11 @@
 @media (max-width: 640px) {
   .ds-proposed { --btn-h: 44px; }
 }
+
+/* The ok colour used as a MARK (a bar, a presence dot, an icon: not text and not a fill with text on it), decided 2026-10-21 (C2). The plain ok
+   status fill is 2.2 to 2.6 to 1 on the light page, panel and card, so a mark needs more. In the light mode it is the ok colour 70% mixed toward the
+   text colour: the least that reaches 3 to 1 on the page, the panel and the card in all three shipped themes (the Progress family shows the numbers).
+   In the dark mode the plain ok already passes (4.9 to 1 and up), so the mark is the plain ok. Used by the Progress microphone bars, the Avatars
+   presence dot, the Tables member dot and the Chips dot of an ok tone. */
+.ds-proposed { --ok-mark: var(--ok); }
+.ds-proposed:is(:root[data-theme-mode="light"] *) { --ok-mark: color-mix(in srgb, var(--ok) 70%, var(--text)); }

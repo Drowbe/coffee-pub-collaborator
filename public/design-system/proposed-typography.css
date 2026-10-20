@@ -69,11 +69,20 @@
   font-family: var(--font-ui);
 }
 
+/* The wordmark, the environment's name in the top bar (decided 2026-10-21): Figtree 600 at 16px below 640px wide, Fraunces 600 at 18px from 641px up.
+   A long name is cut with an ellipsis (it never wraps and never pushes the bar). The width is the width of the frame or the window. */
+.ds-proposed .topbar .brand-home { min-width: 0; }
+.ds-proposed .topbar .brand-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed[data-font="proposed"] .topbar .brand-name { font-family: var(--font-ui); font-weight: var(--weight-strong); font-size: var(--text-16); }
+@media (min-width: 641px) {
+  .ds-proposed[data-font="proposed"] .topbar .brand-name { font-family: var(--font-display); font-size: var(--text-18); }
+}
+
 /* Where the headline font applies: big words only. Not the small capital labels (.space-list-title, .panel h3, .popover h3), not buttons, fields,
    tabs, menus, the nav text, nor the 14px module title bar (.mod-title). In Today's fonts --font-display is the system stack, so nothing changes. */
-.ds-proposed :is(.head, h1, .space-choice-name, .topbar .brand-name, .module-head :is(h1, h2), .away-head, .recall-countdown, .setup-head h2, .phase-sheet-head h2) {
+.ds-proposed :is(.head, h1, .space-choice-name, .module-head :is(h1, h2), .away-head, .recall-countdown, .setup-head h2, .phase-sheet-head h2) {
   font-family: var(--font-display);
 }
-.ds-proposed[data-font="proposed"] :is(.head, h1, .space-choice-name, .topbar .brand-name, .module-head :is(h1, h2), .away-head, .recall-countdown, .setup-head h2, .phase-sheet-head h2) {
+.ds-proposed[data-font="proposed"] :is(.head, h1, .space-choice-name, .module-head :is(h1, h2), .away-head, .recall-countdown, .setup-head h2, .phase-sheet-head h2) {
   font-weight: var(--weight-strong);
 }

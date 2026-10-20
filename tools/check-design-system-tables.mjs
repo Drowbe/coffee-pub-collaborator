@@ -119,7 +119,7 @@ const tablesProbe = async () => {
   // Members.
   { const d = get('Tables, members'); const border = tok(d, 'var(--border)'); const tiles = [...d.querySelectorAll('.sdk-member')]; const online = d.querySelector('.sdk-member .sdk-member-dot'); const dot = cs(online);
     if (dot.width !== '7px' || dot.height !== '7px' || dot.borderTopWidth !== '2px' || dot.borderTopColor !== tok(d, 'var(--bg-card)')) bad(`the online dot is ${dot.width} with a ${dot.borderTopWidth} ring in ${dot.borderTopColor}, expected 7px with a 2px --bg-card ring`);
-    if (dot.backgroundColor !== bg(d, 'color-mix(in srgb, var(--ok) 65%, var(--text))')) bad('the online dot is not --ok mixed into the text'); if (!online.parentElement.querySelector('.sdk-sr-only')) bad('the online dot has no word for a screen reader');
+    if (dot.backgroundColor !== bg(d, 'var(--ok-mark)')) bad('the online dot is not --ok-mark'); if (!online.parentElement.querySelector('.sdk-sr-only')) bad('the online dot has no word for a screen reader');
     for (const t of tiles) if (cs(t).borderTopColor !== border) bad('a member tile has a coloured border');
     const toggles = tiles.filter((t) => t.classList.contains('sdk-member-toggle')); const on = toggles.find((t) => t.classList.contains('is-on') && !t.classList.contains('ds-force-focus')); const off = toggles.find((t) => !t.classList.contains('is-on') && !t.classList.contains('ds-force-hover'));
     if (cs(on).backgroundColor !== bg(d, 'var(--selected-bg)')) bad('a toggle that is on is not the selected fill'); if (cs(off).opacity !== '0.45') bad(`a toggle that is off is at ${cs(off).opacity}, not 0.45`);

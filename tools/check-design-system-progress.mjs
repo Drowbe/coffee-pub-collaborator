@@ -23,6 +23,9 @@ export function staticChecks({ fail, css, js, DS }) {
   if (!/animation:\s*shimmer\s+1\.4s/.test(css)) fail('proposed-progress.css: the shimmer is not 1.4s');
   if (!/--pg-h:\s*8px/.test(css) || !/--pg-h:\s*6px/.test(css)) fail('proposed-progress.css: the track heights are not 8px and 6px');
   if (!/status: 'approved'/.test(js)) fail('proposed-progress.js: the family is not marked Approved');
+  const shared = fs.readFileSync(path.join(DS, 'proposed.css'), 'utf8');
+  if (!/--ok-mark:\s*var\(--ok\)/.test(shared) || !/data-theme-mode="light"\] \*\)\s*\{\s*--ok-mark:\s*color-mix\(in srgb, var\(--ok\) 70%, var\(--text\)\)/.test(shared)) fail('proposed.css: --ok-mark is not the plain ok in the dark mode and the ok colour 70% into the text in the light mode');
+  if (/background:\s*var\(--ok\)/.test(css + fs.readFileSync(path.join(DS, 'proposed-avatars.css'), 'utf8'))) fail('an ok bar or presence dot uses the plain --ok (use --ok-mark)');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   if (/'Progress bars and meters'/.test(pj)) fail("proposed.js: the undecided list still names 'Progress bars and meters'");
 }
@@ -38,7 +41,7 @@ export async function browserChecks(b) {
     for (const f of F.filter((x) => /^Progress/.test(x.iframe.title) && !/contrast/.test(x.iframe.title))) {
       const d = f.iframe.contentDocument; const w = d.defaultView; const cs = (e, p) => w.getComputedStyle(e, p); const t = f.iframe.title;
       const tok = (prop, expr) => { const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style[prop] = expr; host.appendChild(p); const c = w.getComputedStyle(p)[prop]; p.remove(); return c; };
-      const border = tok('backgroundColor', 'var(--border)'); const accent = tok('backgroundColor', 'var(--accent)'); const danger = tok('backgroundColor', 'var(--danger)'); const ok = tok('backgroundColor', 'var(--ok)'); const round = tok('borderTopLeftRadius', 'var(--radius-round)');
+      const border = tok('backgroundColor', 'var(--border)'); const accent = tok('backgroundColor', 'var(--accent)'); const danger = tok('backgroundColor', 'var(--danger)'); const ok = tok('backgroundColor', 'var(--ok-mark)'); const round = tok('borderTopLeftRadius', 'var(--radius-round)');
       // every bar: a role, a name, its numbers
       for (const e of d.querySelectorAll('[role="progressbar"]')) { out.bars += 1;
         if (!(e.getAttribute('aria-label') || e.getAttribute('aria-labelledby'))) bad(t + ': a bar has no name');
@@ -69,9 +72,28 @@ export async function browserChecks(b) {
       // the microphone
       for (const e of d.querySelectorAll('.sdk-mic')) { const bars = [...e.children]; if (bars.length !== 5) bad(t + ': a microphone level has ' + bars.length + ' bars');
         bars.forEach((s, i) => { const c = cs(s); if (parseFloat(c.width) !== 3) bad(t + ': a microphone bar is ' + c.width + ' wide'); if (parseFloat(c.height) !== [4, 7, 10, 13, 16][i]) bad(t + ': microphone bar ' + (i + 1) + ' is ' + c.height + ' high');
-          const lit = s.classList.contains('on'); if (c.backgroundColor !== (lit ? ok : border)) bad(t + ': a ' + (lit ? 'lit' : 'unlit') + ' microphone bar is not ' + (lit ? '--ok' : '--border')); }); }
+          const lit = s.classList.contains('on'); if (c.backgroundColor !== (lit ? ok : border)) bad(t + ': a ' + (lit ? 'lit' : 'unlit') + ' microphone bar is not ' + (lit ? '--ok-mark' : '--border')); }); }
     }
     if (out.bars < 20) bad('only ' + out.bars + ' bars drawn');
     return JSON.stringify(out); })()`));
   for (const x of [...new Set(probe.problems)]) problems.push(`${where}: ${x}`);
+  // Ok as a mark (decided 2026-10-21): --ok-mark reaches 3 to 1 on the page, the panel and the card in the mode on show; the page's own table of the three themes
+  // says the same (lowest ratio at least 3); in the light mode it is the ok colour 70% into the text, in the dark mode the plain ok.
+  const okm = JSON.parse(await ev(`(() => {
+    const out = { problems: [] }; const bad = (m) => out.problems.push(m);
+    const f = window.__ds.frames.find((x) => x.iframe.title === 'Progress, tracks'); if (!f) { bad('no Progress, tracks frame'); return JSON.stringify(out); }
+    const d = f.iframe.contentDocument; const host = d.querySelector('.ds-proposed'); const cv = d.createElement('canvas'); cv.width = 1; cv.height = 1; const g = cv.getContext('2d', { willReadFrequently: true });
+    const px = (c) => { g.clearRect(0, 0, 1, 1); g.fillStyle = '#000'; g.fillStyle = c; g.fillRect(0, 0, 1, 1); const q = g.getImageData(0, 0, 1, 1).data; return [q[0], q[1], q[2]]; };
+    const tok = (expr) => { const p = d.createElement('span'); p.style.color = expr; host.appendChild(p); const c = f.iframe.contentWindow.getComputedStyle(p).color; p.remove(); return px(c); };
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const ratio = (a, b) => { const x = lum(a); const y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const mark = tok('var(--ok-mark)'); const light = d.documentElement.dataset.themeMode === 'light';
+    const want = light ? tok('color-mix(in srgb, var(--ok) 70%, var(--text))') : tok('var(--ok)');
+    if (mark.join() !== want.join()) bad('--ok-mark is not ' + (light ? 'the ok colour 70% into the text' : 'the plain ok') + ' (' + mark + ' against ' + want + ')');
+    for (const s of ['var(--bg)', 'var(--bg-section)', 'var(--bg-card)']) { const r = ratio(mark, tok(s)); out[s] = r.toFixed(2); if (r < 3) bad('--ok-mark on ' + s + ' is ' + r.toFixed(2) + ' to 1, under 3'); }
+    const w = document.querySelector('#progress [data-okworst]'); if (!w) bad('the Progress family has no "Ok as a mark" numbers'); else if (parseFloat(w.dataset.okworst) < 3) bad('the Progress "Ok as a mark" table has a ratio under 3 (' + w.dataset.okworst + ')');
+    if (!document.getElementById('progress-okmark')) bad('the Progress family has no "Ok as a mark" section');
+    return JSON.stringify(out); })()`));
+  for (const x of [...new Set(okm.problems)]) problems.push(`${where}: ${x}`);
 }

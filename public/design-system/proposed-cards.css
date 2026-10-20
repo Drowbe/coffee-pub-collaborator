@@ -6,7 +6,7 @@
                   from what it sits on; a row inside a card drops its own edge (it keeps a transparent 1px, so the box is the same size).
    Corners        panel and card --radius-large, a row on a panel --radius-medium, a row inside a card --radius-small. (Proposed; Thomas decides.)
    Spacing        one rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups.
-                  Padding: row 8px 10px, card 12px, panel 14px (16px wider than a phone), the Home space card 20px (its own larger variant).
+                  Padding (decided 2026-10-21, on the spacing scale): row 8px by 10px (10 is 8 + 2), card 12px, panel 16px at every width, the Home space card 20px (its own larger variant).
    Phone          a row is 44px high (38px wider); a hit area is 44px (the tick, the "..." button).
    Focus          a 2px --accent outline drawn over the 1px hairline, inside the box (offset -2px): the Fields and Tabs mechanism, equal on all
                   four sides at any display scale.
@@ -21,7 +21,7 @@
 
 .ds-proposed {
   --card-pad: 12px;
-  --panel-pad: 14px;
+  --panel-pad: 16px;
   --home-pad: 20px;
   --row-pad-y: 8px;
   --row-pad-x: 10px;
@@ -34,10 +34,6 @@
   /* Proposed token: --shadow-1, a card lifted while it is dragged (the plan's elevation scale). Black, so it darkens whatever is behind. */
   --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
   --t-ink: var(--text);
-}
-
-@media (min-width: 641px) {
-  .ds-proposed { --panel-pad: 16px; }
 }
 
 @media (max-width: 640px) {

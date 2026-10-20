@@ -90,8 +90,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ['Initials on the default fill', '--text', '--bg-section', 4.5],
     ['Icon (--text-dim) on the default fill', '--text-dim', '--bg-section', 3],
     ['Away dot (--text-dim) on the panel ring', '--text-dim', '--bg-section', 3],
-    ['Online dot (--ok) on the panel ring', '--ok', '--bg-section', 3],
-    ['Online dot (--ok) on the page ring', '--ok', '--bg', 3],
+    ['Online dot (--ok-mark) on the panel ring', '--ok-mark', '--bg-section', 3],
+    ['Online dot (--ok-mark) on the page ring', '--ok-mark', '--bg', 3],
+    ['Online dot (--ok-mark) on a card ring', '--ok-mark', '--bg-card', 3],
   ];
   const contrastBody = () => `<div class="ds-proposed"><table class="pm-ct"><thead><tr><th>Pair</th><th>Colours</th><th>Ratio</th><th>Looked for</th><th></th></tr></thead><tbody>${CT_ROWS.map((r) => `<tr data-fg="${r[1]}" data-bg="${r[2]}" data-min="${r[3]}"><td>${r[0]}</td><td><code>${r[1]}</code> on <code>${r[2]}</code></td><td class="pm-n" data-out="r"></td><td class="pm-n">${r[3]}:1</td><td data-out="p"></td></tr>`).join('')}</tbody></table>
     <p class="pm-sub" style="margin:12px 0 4px">The letters of a tinted avatar (the tone 40% into the text, on the tone 18% into the panel), measured on the avatars in the sizes frame:</p>
@@ -137,7 +138,7 @@ ${dim([
     ['3 Fill', 'The text colour at 14% over the surface the avatar sits on (<code>--av-surface</code>, the panel by default), or the person\'s tint: the tone at 18% into the surface with the letters the tone pulled 40% toward the text.'],
     ['4 Photo', '<code>object-fit: cover</code>, clipped to the circle. If it fails to load, the initials show; with no name, the icon.'],
     ['5 Fallback icon', '<code>fa-user</code> at half the diameter in <code>--text-dim</code>, for a guest or a person without a name. Today the Stream module falls back to the raw <code>#1a1410</code>; here it is the surface and this icon.'],
-    ['6 Presence', 'A 7px dot (<code>--av-dot</code>) with a 2px ring in the surface colour (<code>--av-ring</code>), centred on the circle\'s edge at the lower right. Online is the ok status fill (<code>--ok</code>); away is <code>--text-dim</code>; offline has no dot. It is never colour alone: the dot has <code>title</code> and <code>aria-label</code> ("Online"), and in a list the word is written.'],
+    ['6 Presence', 'A 7px dot (<code>--av-dot</code>) with a 2px ring in the surface colour (<code>--av-ring</code>), centred on the circle\'s edge at the lower right. Online is the ok colour as a mark (<code>--ok-mark</code>: the ok status fill, mixed 30% toward the text in the light mode so the dot reaches 3 to 1; the numbers are in Progress); away is <code>--text-dim</code>; offline has no dot. It is never colour alone: the dot has <code>title</code> and <code>aria-label</code> ("Online"), and in a list the word is written.'],
     ['7 Who\'s around', 'A stack with an 8px overlap, each circle ringed in the surface colour. When more people are around than fit, the rest are a <b>micro count</b> (the Chips family\'s 14px badge, 9px number) at the end of the stack over the last circle\'s lower right; the number only, and "and 3 more" in words for a screen reader.'],
     ['8 Photo tile', 'A Home member tile (72px), the chat link image (72px, 52px when narrow) and the profile picture slot (96px) are <b>images in a card, not avatars</b>: <code>--radius-medium</code>, <code>object-fit: cover</code>. The Home tile\'s green-mixed "online" border becomes the presence dot, 8px in from the lower right.'],
   ])}
@@ -183,7 +184,7 @@ ${tbl(['Today', 'Where', 'Proposed'], [
     ['72px and 52px chat link image, a circle in chat but a round-rect on Home', 'chat links', 'The photo tile, 72px and 52px (a tile with a corner, never a circle).'],
     ['Profile picture slot 96px', 'the profile', 'The photo tile, 96px; the 96px avatar is for the picture being edited.'],
     ['Initials 11px and 12px, weight 700 and 600', 'avatars and chips', 'The type scale: 11px at 20 and 24, 13, 16, 28 and 40px above; weight 600.'],
-    ['"Online" is a green colour only (<code>.member.online</code>, <code>.dot.online</code>, <code>.member-toggle.online</code>)', 'Home, the member list', 'A 7px dot in <code>--ok</code> with a title and an aria-label; in lists the word.'],
+    ['"Online" is a green colour only (<code>.member.online</code>, <code>.dot.online</code>, <code>.member-toggle.online</code>)', 'Home, the member list', 'A 7px dot in <code>--ok-mark</code> with a title and an aria-label; in lists the word.'],
     ['Stream avatar fallback: the raw <code>#1a1410</code> background', 'Stream', 'The surface fill and <code>fa-user</code>.'],
   ])}
 
@@ -198,7 +199,7 @@ ${tbl(['Token', 'Use here', ''], [
     ['<code>--av-fill</code>', 'The text at 14% over the surface.', 'new'],
     ['<code>--av-dot</code>, <code>--av-ring-w</code>, <code>--av-overlap</code>', 'The presence dot 7px, its ring 2px, the stack overlap -8px.', 'new'],
     ['<code>--tone</code> (data)', 'A person\'s tint, from <code>data-tint</code>.', 'data'],
-    ['<code>--ok</code>, <code>--text-dim</code>', 'Online and away.', 'exists'],
+    ['<code>--ok-mark</code>, <code>--text-dim</code>', 'Online and away.', 'exists'],
     ['<code>--radius-round</code>, <code>--radius-medium</code>', 'The circle; the photo tile.', 'exists'],
   ])}
 

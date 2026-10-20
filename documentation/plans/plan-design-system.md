@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides the design of every component and how strict the rules are; experience-design, which builds the shared stylesheet, the page and each component's move onto it; server-development, which builds the page's route, the usage scan and the check; quality-assurance, which measures each move against its screenshots; content-manager, which writes the design pages and the rule text once Thomas approves it.
 
-**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. Later the same day, after seeing the first-look page, Thomas changed how the components are decided: one family at a time, in chat, with a proposal on the review page before anything moves into `system.css`. The button family is decided (see Component decisions); fields and forms are next. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust". Added later the same day: he wants to see the system as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"; this adds a review copy (step 6b) and a review gate before any component changes.
+**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. Later the same day, after seeing the first-look page, Thomas changed how the components are decided: one family at a time, in chat, with a proposal on the review page before anything moves into `system.css`. The button family is decided (see Component decisions); fields and forms are next. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust". Added later the same day: he wants to see the system as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"; this adds a review copy (step 6b) and a review gate before any component changes. 2026-10-20: 26 families are drawn; a migration plan to move the product onto them is proposed below and waits for his approval, with a one-page approval sheet in [plan-design-system-approval](plan-design-system-approval.md).
 
 ## What it is today
 
@@ -537,7 +537,186 @@ Each step a try build, small, checked on its own. Modules get a patch bump only 
 | 29 | Documentation: content-manager rewrites [design-theme](../designsystem/design-theme.md) as the system's reference pointing at the page, the SDK page and `CONTRACT.md`; Thomas or the project manager puts the rule text from (d) into `CLAUDE.md` and the agent files | content-manager, project-manager | no |
 | To be placed | The Prototype page (decided 2026-10-16, see Decisions): whole screens drawn from the proposed components as they would appear in the product (panels, forms, chat, the call bar, the Planner), so components are judged in context. Built after a few families are approved | to be placed | no |
 
+**Superseded 2026-10-20.** Steps 2 and 7 are re-scoped and steps 8 to 29 are replaced by the migration plan below ("Migration plan (2026-10-20)"). The table above stays as the record of the earlier order. Steps 1 to 6b are done.
+
 Steps 9 to 13 (buttons, fields and forms, tabs, cards and rows, menus) and 15 (chips and badges) each start with Thomas deciding that family in chat and signing off its proposal on the review page, in the order he set. Steps 9 to 17 do not depend on one another once he has done so; 18 to 27 follow the component steps they need. Each of steps 8 to 17 ends with a republished review copy and its before and after screenshots, and the real route is built into an image only when Thomas is happy with a stage.
+
+## Migration plan (2026-10-20)
+
+**Status:** proposed, for Thomas to approve. Written after 26 families were drawn on the Proposed page (`public/design-system/proposed-*.js`). Thomas's reason, 2026-10-20: the process is taking far too long. Nothing here decides a design; every look is the one drawn, and the choices still waiting for him are in [plan-design-system-approval](plan-design-system-approval.md).
+
+**What changed from the old step list.** Steps 1 to 6b stay as they are, done. The old step 2 asked for `system.css` and it is not in the repository (`public/sdk/system.css` does not exist), so it is redone as step 2 below, with the tokens now drawn. The old step 7 (the check) keeps its number and now also holds five token checks. The old steps 8 (candidates) and the review gate are done by the Proposed page. The old steps 9 to 17 are re-ordered into steps 12 to 22 and the families drawn since are added (steps 18 to 35). The old module-by-module steps 18 to 27 and the pages step 28 are gone: a family step moves every file it touches, modules and pages alike, and step 36 sweeps what is left. The old step 29 is step 38. The Prototype page is step 39, optional.
+
+### The method, the same in every family step
+
+1. Copy the family's block from `proposed-<id>.css` into its reserved slot in `system.css`, without the `.ds-proposed` prefix.
+2. Delete the old rules for that family's classes from `style.css`, `host.css`, the `UI_CSS` string in `host.js` and the module stylesheets. Every old token stays as an alias of a new role (step 2), so nothing else breaks.
+3. Change markup only where the family's "Today to proposed" table says so. Class names, ids, routes and stored keys stay.
+4. Put the family's sizes, weights, spacing, radii, shadows, layers, motion, icon sizes and media queries on tokens, and lower the counts for the files touched in the allow-lists of the checks from step 7.
+5. Bump the patch version of every module whose files changed. It must be higher than the version installed in Thomas's environment, or Manage will not install it (`check-module-versions` holds it).
+6. Run `npm run check` and `npm run shots:compare`. The builder names every screen that differs and says if the table below expected it. A difference that is not expected is a defect and the step does not ship.
+
+A try build per step: one builder, one pass or the passes listed, its own checks, pushed at once, merged on its own.
+
+### (a) The baseline
+
+`npm run shots` writes the baseline to `tools/.shots/baseline` (125 screens from `tools/shots-screens.json`: light and dark; 1280, 700 and 390 for the core screens, 1280 and 390 for the state screens). It is gitignored and the container is ephemeral, so:
+
+- **At the start of every session**, before the first edit and on the last merged commit, run `npm run shots`. Never take it after editing.
+- After the step, run `npm run shots:compare`. It names each differing screen and writes difference images to `tools/.shots/diff`.
+- If a session restarts in a new container, the baseline is gone. Check out the last merged commit in a second worktree, run `npm run shots` there, then compare. Baseline and compare must run in the same container image (same Chromium and fonts), as the tool's header says.
+- How long 125 screens take was not measured for this plan. The builder should report it so the plan can say.
+
+### The steps
+
+Passes: one pass is one builder run. Risk: low, medium, or **larger model** for layout and canvas, migrations, layers and security (the project manager's rule).
+
+| Step | What | Touches | Passes | Risk |
+|---|---|---|---|---|
+| 1 to 6b | Done: shots tool, Today page, Proposed page, icon browser, review copy | | done | |
+| 2 | `system.css`: new tokens (spacing, elevation, layers, scrim, motion with the reduced-motion rule, icon sizes, type scale, breakpoints noted), every old token as an alias, an empty reserved slot per family. Linked first by every app page; inlined before `host.css` in the module route; fetched by `module-host.js`; the popped-out call window clones it | `public/sdk/system.css`, every `public/*.html`, `server/index.js` (about line 7849), `public/module-host.js`, the call window code | 2 | **larger model** (cascade order, in-page modules strip `:root`) |
+| 7 | The checks, each with an allow-list at today's counts (see (e)), plus `check-system.mjs` as in (d) | `tools/check-*.mjs`, `tools/check-*-allow.json`, `package.json` | 2 | low |
+| 8 | Colour, server: `theme-css.js` writes the new roles; `store.js` accepts optional status bases (ok, warn, danger, info); theme file `formatVersion` 2 (reads 1 and 2; a version 1 theme gets derived status colours); text on accent and on status fills picked automatically (dark or white, whichever is 4.5 to 1 or better) | `server/theme-css.js`, `server/store.js`, `server/theme-file.js`, `server/file-format.js`, `public/sdk/system.css` | 2 | **larger model** (migration; stored themes must load unchanged) |
+| 9 | Colour, editor: status pickers and contrast warnings in the admin theme editor | `public/admin.js`, `public/admin.html` | 1 | low |
+| 10 | Fonts, bundled: Figtree and Fraunces woff2 and their licence texts, served by our server, `@font-face` with the metric-matched fallbacks, the type scale tokens. No family applied yet | `public/assets/` fonts, `system.css`, `server/index.js` if a header is needed | 1 | low |
+| 11 | Fonts, switched on: `--font-ui` on the pages, inputs and modules; Fraunces on display text only (landing title, page titles, the environment name in the top bar, space names on Home cards) | `system.css`, `style.css`, `host.css`, `landing.css` | 2 | **larger model** (every screen's text metrics) |
+| 12 | Buttons: four roles, 38, 44 and 30px, soft red Danger, one square icon button (`.action-btn`, `.sdk-more`, `.icon-btn`, `.sdk-field-btn`, `.msg-btn`, close) | `style.css`, `host.css`, `host.js` `UI_CSS`, `landing.css`; modules budget, maps, places, research, travel, todo, polls, stream | 3 | medium; the call's circles stay and need a real call |
+| 13 | Fields and forms: field edge, focus ring, "(optional)", tick box, radio, switch 36 by 20, search; the remaining module moves of [plan-form-standard](plan-form-standard.md). Two builders: 13a app pages, 13b modules | `style.css`, `host.css`, module `editor-card` copies; modules budget, calendar, places, polls, research, todo, travel | 3 | medium |
+| 14 | Tabs: separate rounded tabs, neutral selected fill, scroll overflow; `.sdk-choice` folds into the joined switch; Polls' `.seg` becomes `host.ui.viewSwitch` | `host.js`, `host.css`, `style.css` (`.layout-tabs`, `.setup-tabs`, `.subtabs`), `destination.css`; module polls | 1 | low |
+| 15 | Chips and badges: 24 and 30px, small corners, neutral selected fill, count badges, retired caps tags, the `#e0b25a` pill on a token | `style.css`, module chips in calendar, places, research, budget, travel | 2 | medium |
+| 16 | Cards and rows: one hairline surface, quiet hover and selected fills, tinted gradient cards flattened, menu slot, 44px rows on a phone | `style.css` (`.card`, `.tile`, `.panel`), `travel-lib-cards.css` (336 rules), research, places, calendar rows | 3 | **larger model** (the Planner's cards are layout) |
+| 17 | Menus: the menu surface and `--shadow-2`; `.host-menu`, `.modules-menu`, `.chat-command-menu`, `.popover` share it; the Planner's `.menu` becomes `host.menu.show`; the `host.css` layer 10000 moves to the popover layer | `host.js` `UI_CSS`, `style.css`, `host.css`, `host-menu.js`; module travel | 2 | medium (layers) |
+| 18 | Dialogs: editor window, kind picker, background picker (layer 1000 to the dialog layer), aside overlay, Set up and Phases sheets; scrim 55%; the layout sheet 360 to 560 | `host.css` editor and kind blocks, `style.css`, `background-picker.js`, `layouts.js` | 3 | **larger model** (layers, overlays on the canvas) |
+| 19 | The styled confirm, as its own step: a promise-returning `host.ui.confirm` and an app-page twin, then the 42 `confirm(` calls move to it (`admin.js` 15, `profile.js` 12, `space.js` 4, `host-templates.js` 3, `module-config.js` 2, `module-settings.js` 2, one each in `chat-input.js`, `flight-schedule.js`, `host.js`, `modules/stream/src/stream.js`). Two builders: the helper first, then two sets of files | those files, `public/sdk/host.js` | 2 | **larger model** (a blocking call becomes async; each flow is checked) |
+| 20 | Toasts and banners: toast, banner kinds, the conflict bars (Places, Research, the Planner), `.env-banner`, `.bell-notice`, Maps' `.banner`, `.option-help` with `data-kind`; toasts newest nearest the edge | `style.css`, `host.js`, module css in places, research, travel, maps | 2 | low |
+| 21 | Tooltips | `host.js` or `style.css`, wherever `title` is replaced | 1 | low |
+| 22 | Empty, loading, error: the `.state`, `.empty`, `.skel` copies (4 + 3 + 4) and the app's `.canvas-empty` family; one `.sdk-skel` | module css in budget, maps, places, research, travel, calendar, polls, todo; `style.css` | 2 | low |
+| 23 | Links: `.tag.ref` and Calendar `.links` become Chips tag links (markup change) | `style.css`, calendar | 1 | low |
+| 24 | Pickers: date picker, kind picker list, currency list, palette (16 colours as data) | `host.css` `datepicker`, `host.js` | 2 | medium |
+| 25 | Progress and meters: every bar gets `role="progressbar"` | `style.css`, module css, `host.js` | 1 | low |
+| 26 | Avatars: initials on the type scale, the stack count | `style.css`, `dashboard.js`, chat | 1 | low |
+| 27 | Choice rows: `.sdk-check` becomes the choice row | `host.css` form block, `style.css` | 1 | low |
+| 28 | Module window: titlebar, toolbar surface `--bg-input`, status chip 20px, toolbar search 30px, tinted icons | `module-host.js`, `host.css`, `host.js`, `style.css` | 3 | **larger model** (the canvas) |
+| 29 | Chat: body 14px, `--msg-meta`, the "..." always visible, reactions as tags, the attention pill, tint fill instead of the left edge | `style.css` chat block, `chat-input.js` | 3 | **larger model** (layout, long lists) |
+| 30 | Journey bar (the status strip and phase chip) | `style.css` `status-strip` block | 1 | medium |
+| 31 | Phone tab bar: 45px tabs, 20px icons, folded tabs in a popover, the Join icon | `style.css`, `space.js` | 2 | **larger model**; the phone and the call need a real device |
+| 32 | Calendar cell: 18px event chips, current day and today, "Linked", the outside and other-calendar chips | `modules/calendar/src/calendar.css` | 2 | **larger model** (grid layout) |
+| 33 | Markers | `calendar.css`, `travel-lib-cards.css` | 1 | medium |
+| 34 | Day cards: the 40px (44px phone) chip, the gap count, the Planner's day cards | `travel-lib-cards.css`, `calendar.css` | 2 | **larger model** |
+| 35 | Tables | budget, research, places css | 2 | medium |
+| 36 | The sweep: every raw value left in files no family claimed (host console, landing, diag, call toolbar, destination, MapLibre notes), then every allow-list at zero or at a recorded exception | all remaining files | 2 | medium |
+| 37 | The design system page (see (f)): its examples render with `system.css`; the scoped `proposed-*.css` copies and the Today page go | `public/design-system/` | 3 | medium |
+| 38 | Documentation (see (g)); once after step 11, once at the end | `documentation/` | 2 + 2 | low |
+| 39 | Optional: the Prototype page (see below) | `public/design-system/` | 3 | low |
+
+### What a person sees, which screens differ, and what guards it
+
+"Screens" are the families in `tools/shots-screens.json` (the number is the count of screens). A family step that touches a screen not named here is a defect.
+
+| Step | Visible change | Screens expected to differ | Guard |
+|---|---|---|---|
+| 2 | None | None: all 125 identical | `check-design-system-foundations`; the shots |
+| 7 | None | None | each rule fails on a planted fixture |
+| 8 | None, except text on accent or a status fill where today's pairing fails 4.5 to 1 | None, or only those fills | `check-theme`, `check-themes`, a version 1 file and a version 2 file both load |
+| 9 | Theme editor gains status pickers and warnings | Manage pages (10) | `check-theme`; walked on a local server |
+| 10 | None | None | a check that the font files and licence texts exist and no third-party font URL is used |
+| 11 | Every text changes shape and width | All 125; Thomas looks at a sample of each family | `check-design-system-typography`; read for truncation at 390 |
+| 12 | Button roles, heights, soft red Danger, icon button | Most of them: Forms (24), Manage (10), Planner (17), Places, Research, Budget, Maps, Home, Menus, call controls | `check-buttons` reads `system.css`; `check-design-system-buttons`; new rule: no `.btn` restyle in a module |
+| 13 | Field edge, focus ring, switch, search | Forms and editor windows (24), Manage (10), Profile and Set up tabs (12), module editors | `check-forms`, `npm run check:forms` |
+| 14 | Tab shape and selected fill | Profile and Set up tabs (12), Polls (3), Planner, Calendar toolbars | `check-switches`, `check-nav` |
+| 15 | Chip sizes and fills | Chips and badges (2), Calendar (5), Planner, Places, Research | `check-design-system-chips`, `check-radius` |
+| 16 | Flat cards, hairline, no gradient | Home cards (2), Planner (17), Places, Research, Manage | `check-design-system-cards` |
+| 17 | One menu surface | Menus (21), Planner | `check-host-menu`, `check-design-system-menus` |
+| 18 | Dialog surface, wider layout sheet, scrim | Forms and editor windows (24), Menus (sheets) | `check-design-system-dialogs`, `check-module-window` |
+| 19 | The browser's confirm box becomes the product's own | None in the shots (a confirm opens on a click); the state screens that open one need a new row each | a check that no `window.confirm` or bare `confirm(` is left; each flow walked on a local server |
+| 20 | Banners and toasts | Banners, toasts and notices (1), Places, Research, Planner, Maps | `check-design-system-toasts`, `check-module-notices` |
+| 21 | Tooltips | None in the shots (hover) | `check-design-system-tooltips` |
+| 22 | Empty and loading states | Empty and loading states (8) | `check-design-system-states` |
+| 23 to 27 | Link, picker, bar, avatar and choice looks | Few: Calendar (5), Planner, Home, Manage, Forms | the family checks |
+| 28 | Module window chrome | Every module screen (Planner 17, Places, Budget, Polls, Research, Maps, Calendar, Assistant, Stream) | `check-module-window`, `check-module-chrome` |
+| 29 | Message fills, reactions | Messages and AI cards (2), the space page (2) | `check-design-system-chat`, `check-chat-page` |
+| 30 | The bar | Status strip and phases (1), space page | `check-design-system-journey` |
+| 31 | The phone bar | Space page at 390 (2) | `check-design-system-tabbar`; needs a real phone |
+| 32 to 35 | Calendar, markers, day cards, tables | Calendar (5), Planner (17), Budget (3), Research (3) | the family checks, `check-markers` |
+| 36 | None expected | None, or the files Thomas names | all five token checks at zero |
+| 37, 38, 39 | None in the product | None | `check-design-system` |
+
+### (b) to (c): colour, `system.css`, fonts
+
+- **Loading.** `system.css` is linked first on app pages, inlined before `host.css` in module pages and fetched by `module-host.js`, as in (b) above. Tokens reach a module in a shadow root by inheriting from the app page, so both must load it.
+- **Aliases.** Each old token (`--bg-card`, `--danger-text` and the rest) is defined in `system.css` as an alias of a new role. A family migrates by deleting its old rules, never by renaming a token in many places. Aliases stay until step 36 and are removed only after a release's warning (see Open questions 3).
+- **Fonts.** Step 10 only adds files and `@font-face`, so it changes nothing. Step 11 switches them on. The type scale replaces size and weight declarations family by family (method, point 4). Figtree has no italics bundled; italic text falls back to the browser's slant until Thomas decides (Open question 8).
+- **Fraunces weight** (600 or 700) is still to be chosen on the page and blocks step 11.
+- **Sandboxed module frames.** Whether a frame with an opaque origin can load a font from our server (a cross-origin header may be needed) is not known; step 10's builder checks it and reports before step 11 starts.
+
+### (e) The checks that keep the system honest
+
+All static, in `npm run check`, built like `check-radius`: a JSON allow-list per file with a count that may only fall, and a recorded exception (with reason and owner) for a data colour, MapLibre, the map pin, Stream's keyed page and the phase band edge. `tools/check-design-system.mjs` stays (it opens a real browser, about five minutes, so it is run for a family step, not in `npm run check`). All six are written in step 7 at today's counts, and each family step lowers them.
+
+| Check | Fails on |
+|---|---|
+| `check-no-raw-colours` | a hex, `rgb()`, `hsl()` or named colour outside `system.css` and the exceptions; inline `style=""` colours |
+| `check-spacing` | a `padding`, `margin`, `gap` or inset in pixels that is not a spacing token, `0`, `auto` or `calc(-1 * var(--space-n))` |
+| `check-type-scale` | a `font-size` or `font-weight` that is not a type token; the micro count is the one exception |
+| `check-icons` | an icon name not in `icons.json`; a style other than solid; an icon size that is not an icon token |
+| `check-breakpoints` | a media query width other than 640, 900 or 1200 |
+| `check-system` | as in (d); also a z-index, `box-shadow` or `transition` that is not a token (suggested; Thomas may fold this into the others) |
+| `check-design-system-sync` | while a family exists twice (`proposed-<id>.css` and its block in `system.css`), the two differ once the `.ds-proposed` prefix is removed; goes at step 37 |
+
+### (f) What to delete at the end
+
+- Step 37: the Today inventory page and the `todayOnly` lists in the family checks; the `.ds-proposed` copies of each family's CSS, once the page's frames load `system.css`; the "undecided" list in `proposed.js`. If Thomas agrees, the Proposed page, renamed, is the design system page at `/design-system`. A tag in git keeps Today for anyone who wants it.
+- Step 36: the old `host.css` and `style.css` blocks that `system.css` replaced, and any alias nobody uses.
+- Never deleted without a release's warning: an alias that an uploaded module may use.
+
+### (g) Documentation (content-manager)
+
+Under try builds there is no documentation per step. Two passes: after step 11 (tokens, colour, fonts, theme file version 2: `documentation/designsystem/design-theme.md`, the architecture document's theme and module-page sections, the API document's theme file format, the theme editor's user guide) and at step 38 (one page per family under `documentation/designsystem/`, the rule text from (d) for `CLAUDE.md` and the agent files, the SDK page, `CONTRACT.md` for modules). `npm run docs:build` builds the wiki pages for review. Publishing the wiki waits for Thomas.
+
+### (h) What can run as two builders at once
+
+Pairs that share no file, read from the file lists above (not tried):
+
+- Steps 7, 8 and 10 (checks, theme server, fonts): different files.
+- Step 13a and 13b (app pages and modules); step 19's two halves once the helper exists.
+- After step 13: step 14 (tabs) with step 15 (chips); step 17 (menus) with step 22 (empty states); step 24 (pickers) with step 25 (progress).
+- Steps 30 (journey bar) and 31 (phone bar) with step 35 (tables): different parts of `style.css` and different modules.
+- Steps 32, 33 and 34 share the Calendar and Planner css and run one after another. Steps 12, 16, 18, 28 and 29 touch the most shared files and run alone.
+- Step 39 can run beside anything: it touches only `public/design-system/`.
+
+All of them edit `system.css` and `style.css`. Each family has its own reserved slot, so edits sit in separate places and git merges them; the second to merge may need a trivial rebase.
+
+### (i) Effort, and what only Thomas can do
+
+The step passes add up to about 60 builder passes with the documentation passes, plus about one in four needing a second pass after Thomas or QA looks, so 60 to 75. These are counts from the file lists, not measured. Wall-clock time is not estimated.
+
+Between the steps, only Thomas can:
+
+- After step 8 and 9: open a light and a dark theme and judge the status colours and the contrast warnings.
+- After step 11: look at the fonts in Safari and on an iPhone (the tool uses Chromium only).
+- After step 12: look at the buttons and, in a real call, the call's circles. After step 31: the phone bar and the Join button on a real phone, in a real call. No real call can be made in the container.
+- After step 19: use two or three of the destructive flows he knows (delete a space, erase, discard).
+- After each batch below: look at the screenshots that changed.
+
+**Batches for his looking** (suggestion): A steps 2 to 11; B steps 12 to 17; C steps 18 to 22; D steps 23 to 27; E steps 28 to 31; F steps 32 to 35; G steps 36 to 38. A step merges when its own checks and the screenshot list pass, without waiting for him; he looks at the batch.
+
+### The Prototype page (step 39, optional)
+
+Whole screens drawn from the approved components. It pays off if Thomas wants to judge combinations before they reach the product, for example the 28px header chips beside the chips scale, or a Module window with Chat and the Phone tab bar together. It does not pay if the migrated screens in the shots show the same thing a few steps later, which is the case from batch B on. Suggestion: build it only if the approval sheet turns up combinations he cannot judge alone; it can run beside anything (3 passes).
+
+### Open questions for the migration
+
+1. **How often Thomas looks.** After every step, or after each batch (suggested)?
+2. **The page.** Does the Proposed page become `/design-system` and Today retire at step 37 (suggested)?
+3. **Old token aliases.** Keep them until a release has warned uploaded modules (suggested), or remove them at step 36?
+4. **Allow-lists.** A count per file that can only fall (suggested), or a fixed list of files not yet moved, as `check-forms` does?
+5. **Theme file version 2.** A server older than this build reads a version 2 theme as "newer" and refuses it. Acceptable (suggested)?
+6. **Form standard.** Does step 13 absorb the remaining steps of plan-form-standard (suggested)?
+7. **Breakpoints in modules.** Modules answer to their own width (`.app.narrow`), not the window. Do they keep that and use the three widths only as container queries, or follow the four ranges?
+8. **Italics.** Not bundled. Does italic text stay, fall back, or get bundled?
+9. **Fraunces weight**, 600 or 700. Blocks step 11.
+10. **Check strictness.** Question 5 under "What is not decided" applies to the checks in step 7.
+
 
 ## Verify
 

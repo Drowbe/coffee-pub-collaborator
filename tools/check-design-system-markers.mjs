@@ -37,6 +37,16 @@ const markersProbe = async () => {
   const TITLES = F.map((x) => x.iframe.title).filter((t) => /^Markers, /.test(t) && !/contrast/.test(t));
   if (TITLES.length < 5) bad(`the Markers family has only ${TITLES.length} frames`);
   const cs = (e, p) => getComputedStyle(e, p);
+  // The end cap (decided 2026-10-21): a straight 3px block the full height of its box, square corners, and the box square on the bar side only.
+  const barOk = (el, nm) => {
+    const c = cs(el); const b = cs(el, '::before'); const r = el.getBoundingClientRect(); const px = parseFloat;
+    if (b.width !== '3px') bad(`${nm}: the end cap is ${b.width} wide, expected 3px`);
+    if (Math.abs(px(b.height) - r.height) > 0.5 || px(b.top) !== -px(c.borderTopWidth) || px(b.bottom) !== -px(c.borderBottomWidth) || px(b.left) !== -px(c.borderLeftWidth)) bad(`${nm}: the end cap (${b.height} high, top ${b.top}, left ${b.left}) is not the full height of its ${r.height}px box`);
+    for (const k of ['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight']) if (b['border' + k + 'Radius'] !== '0px') bad(`${nm}: the end cap has a rounded corner (${k})`);
+    if (c.borderTopLeftRadius !== '0px' || c.borderBottomLeftRadius !== '0px') bad(`${nm}: the box is rounded on the bar side (${c.borderTopLeftRadius} ${c.borderBottomLeftRadius})`);
+    if (c.borderTopRightRadius === '0px' || c.borderBottomRightRadius === '0px') bad(`${nm}: the box lost its radius on the other side`);
+    if (c.boxShadow !== 'none') bad(`${nm}: a shadow on a box with an end cap`);
+  };
   const tok = (d, expr, prop) => { const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style[prop || 'color'] = expr; host.appendChild(p); const c = getComputedStyle(p)[prop || 'color']; p.remove(); return c; };
   const rad = (d, n) => tok(d, `var(${n})`, 'borderTopLeftRadius');
   const phone = (d) => d.defaultView.innerWidth <= 640;
@@ -98,7 +108,7 @@ const markersProbe = async () => {
       const hit = d.elementFromPoint(r.left + r.width / 2, r.top - 8); if (!hit || !hit.closest(sel)) bad(`a press 8px above a phone ${sel} does not reach it`); }
     const row = d.querySelector('.sdk-mk-row'); if (row.getBoundingClientRect().height < 43.4) bad('a phone day row is under 44px'); }
   // The Calendar frame: the bar is the declared exception, flagged.
-  { const d = get('Markers, in the Calendar'); if (!/Exception, kept/.test(d.body.textContent)) bad('the Markers Calendar frame does not flag the exception'); if (!d.querySelector('.sdk-bar-kept')) bad('the Markers Calendar frame shows no kept bar'); }
+  { const d = get('Markers, in the Calendar'); if (!/Exception, kept/.test(d.body.textContent)) bad('the Markers Calendar frame does not flag the exception'); if (!d.querySelector('.sdk-bar-kept')) bad('the Markers Calendar frame shows no kept bar'); for (const e of d.querySelectorAll('.sdk-bar-kept')) barOk(e, 'Markers kept bar'); }
   const blk = document.getElementById('markers');
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Markers family is not marked Approved');
   if (!/Today to proposed/.test(blk ? blk.textContent : '') || !/markerpill/.test(blk ? blk.textContent : '')) bad('the Markers family has no "Today to proposed" table naming .markerpill');

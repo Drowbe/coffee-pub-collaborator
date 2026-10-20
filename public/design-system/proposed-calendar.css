@@ -187,7 +187,7 @@
 .ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: color-mix(in srgb, var(--text) 22%, var(--accent)); color: var(--on-accent); }
 
 /* The exception, kept: a chip of another calendar or a marker, with the 3px bar (.sdk-bar-kept, from the Cards family). The fill is quiet and neutral. */
-.ds-proposed .sdk-cal-event.sdk-bar-kept { --bar-bleed: 0px; border-width: 0; padding-left: 9px; background: color-mix(in srgb, var(--text-dim) 12%, var(--cal-surface, var(--bg-card))); color: var(--cal-dim); }
+.ds-proposed .sdk-cal-event.sdk-bar-kept { --bar-bleed: 0px; border-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 9px; background: color-mix(in srgb, var(--text-dim) 12%, var(--cal-surface, var(--bg-card))); color: var(--cal-dim); }
 .ds-proposed .sdk-cal-event.sdk-bar-kept:hover { background: color-mix(in srgb, var(--text-dim) 22%, var(--cal-surface, var(--bg-card))); color: var(--text); }
 .ds-proposed .sdk-cal-event.sdk-bar-kept.is-marker { color: var(--text); }
 .ds-proposed .sdk-cal-event.sdk-bar-kept.is-past { opacity: 0.55; }

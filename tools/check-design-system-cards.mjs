@@ -25,6 +25,9 @@ export function staticChecks({ fail, css, js, defined, DS }) {
   if (!/--shadow-1:\s*0 2px 8px rgba\(0, 0, 0, 0\.28\)/.test(css)) fail('proposed-cards.css: --shadow-1 is not 0 2px 8px, black at 28% (smaller than the menus --shadow-2, 0 4px 12px)');
   if ((css.match(/rgba?\(/g) || []).length !== 1) fail('proposed-cards.css: a colour written out other than the one --shadow-1 black');
   const bars = css.match(/\.sdk-bar-kept/g) || [];
+  if (!/\.sdk-bar-kept\s*\{[^}]*border-top-left-radius:\s*0;[^}]*border-bottom-left-radius:\s*0/.test(css)) fail('proposed-cards.css: the kept bar box is not square on the bar side');
+  if (/\.sdk-bar-kept\s*\{[^}]*overflow/.test(css)) fail('proposed-cards.css: the kept bar box hides its overflow (the corner would clip the bar)');
+  if (!/\.sdk-bar-kept::before\s*\{[^}]*width:\s*3px;[^}]*border-radius:\s*0/.test(css)) fail('proposed-cards.css: the kept bar is not a square 3px block');
   if (bars.length !== 2) fail(`proposed-cards.css: .sdk-bar-kept is in ${bars.length} rules, expected 2 (the padding and the bar)`);
   if ((js.match(/bar: true/g) || []).length !== 3) fail('proposed-cards.js: the Calendar bar is used other than on the three exception rows');
   for (const c of ['sdk-panel', 'sdk-card', 'sdk-row', 'sdk-group-head', 'sdk-empty', 'sdk-card-head', 'sdk-card-icon', 'sdk-card-title', 'sdk-card-sub', 'sdk-card-body', 'sdk-card-foot',
@@ -76,6 +79,16 @@ const cardsProbe = async () => {
   const bgTok = (d, n) => tok(d, `var(${n})`, 'backgroundColor');
   const rTok = (d, n) => tok(d, `var(${n})`, 'borderTopLeftRadius');
   const cs = (e, p) => getComputedStyle(e, p);
+  // The end cap (decided 2026-10-21): a straight 3px block the full height of its box, square corners, and the box square on the bar side only.
+  const barOk = (el, nm) => {
+    const c = cs(el); const b = cs(el, '::before'); const r = el.getBoundingClientRect(); const px = parseFloat;
+    if (b.width !== '3px') bad(`${nm}: the end cap is ${b.width} wide, expected 3px`);
+    if (Math.abs(px(b.height) - r.height) > 0.5 || px(b.top) !== -px(c.borderTopWidth) || px(b.bottom) !== -px(c.borderBottomWidth) || px(b.left) !== -px(c.borderLeftWidth)) bad(`${nm}: the end cap (${b.height} high, top ${b.top}, left ${b.left}) is not the full height of its ${r.height}px box`);
+    for (const k of ['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight']) if (b['border' + k + 'Radius'] !== '0px') bad(`${nm}: the end cap has a rounded corner (${k})`);
+    if (c.borderTopLeftRadius !== '0px' || c.borderBottomLeftRadius !== '0px') bad(`${nm}: the box is rounded on the bar side (${c.borderTopLeftRadius} ${c.borderBottomLeftRadius})`);
+    if (c.borderTopRightRadius === '0px' || c.borderBottomRightRadius === '0px') bad(`${nm}: the box lost its radius on the other side`);
+    if (c.boxShadow !== 'none') bad(`${nm}: a shadow on a box with an end cap`);
+  };
   const phone = (d) => d.defaultView.innerWidth <= 640;
   await wait(100);
   // Every box of every frame: no gradient, no shadow at rest, no coloured one-sided border.
@@ -104,7 +117,7 @@ const cardsProbe = async () => {
   // The exception: three rows, one frame, a 3px block, the same hairline and corner as any row.
   { let n = 0; for (const t of TITLES) { const d = get(t); const k = d.querySelectorAll('.sdk-bar-kept').length; if (k && t !== 'Cards, left bar replacements') bad(`${t}: the Calendar bar is used outside its frame`); n += k; }
     if (n !== 3) bad(`the Calendar exception shows ${n} rows, expected 3`);
-    const d = get('Cards, left bar replacements'); const r = d.querySelector('.sdk-bar-kept'); if (r) { const p = cs(r, '::before'); if (p.width !== '3px') bad(`the Calendar bar is ${p.width}, expected 3px`); if (cs(r).borderLeftWidth !== '1px' || cs(r).borderLeftColor !== tok(d, 'var(--border)')) bad('the Calendar row has a coloured or heavy edge, not the hairline');
+    const d = get('Cards, left bar replacements'); for (const r of d.querySelectorAll('.sdk-bar-kept')) barOk(r, 'Cards exception row'); const r = d.querySelector('.sdk-bar-kept'); if (r) { const p = cs(r, '::before'); if (p.width !== '3px') bad(`the Calendar bar is ${p.width}, expected 3px`); if (cs(r).borderLeftWidth !== '1px' || cs(r).borderLeftColor !== tok(d, 'var(--border)')) bad('the Calendar row has a coloured or heavy edge, not the hairline');
       if (!/Exception, kept/.test(d.body.textContent)) bad('the Calendar exception is not flagged "Exception, kept" in its frame'); } }
   // Surface steps, corners and the hairline, on the real components.
   { const d = get('Cards, nested rows'); const panel = d.querySelector('.sdk-panel'); const card = d.querySelector('.sdk-card'); const inner = card.querySelector('.sdk-row'); const onPanel = d.querySelector('.sdk-panel > .pm-cd-two > div > .sdk-list > .sdk-row');

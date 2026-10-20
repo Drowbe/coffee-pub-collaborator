@@ -63,12 +63,22 @@ const calendarProbe = async () => {
   const TITLES = F.map((x) => x.iframe.title).filter((t) => /^Calendar, /.test(t) && !/contrast/.test(t));
   if (TITLES.length < 9) bad(`the Calendar family has only ${TITLES.length} frames`);
   const cs = (e, p) => getComputedStyle(e, p);
+  // The end cap (decided 2026-10-21): a straight 3px block the full height of its box, square corners, and the box square on the bar side only.
+  const barOk = (el, nm) => {
+    const c = cs(el); const b = cs(el, '::before'); const r = el.getBoundingClientRect(); const px = parseFloat;
+    if (b.width !== '3px') bad(`${nm}: the end cap is ${b.width} wide, expected 3px`);
+    if (Math.abs(px(b.height) - r.height) > 0.5 || px(b.top) !== -px(c.borderTopWidth) || px(b.bottom) !== -px(c.borderBottomWidth) || px(b.left) !== -px(c.borderLeftWidth)) bad(`${nm}: the end cap (${b.height} high, top ${b.top}, left ${b.left}) is not the full height of its ${r.height}px box`);
+    for (const k of ['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight']) if (b['border' + k + 'Radius'] !== '0px') bad(`${nm}: the end cap has a rounded corner (${k})`);
+    if (c.borderTopLeftRadius !== '0px' || c.borderBottomLeftRadius !== '0px') bad(`${nm}: the box is rounded on the bar side (${c.borderTopLeftRadius} ${c.borderBottomLeftRadius})`);
+    if (c.borderTopRightRadius === '0px' || c.borderBottomRightRadius === '0px') bad(`${nm}: the box lost its radius on the other side`);
+    if (c.boxShadow !== 'none') bad(`${nm}: a shadow on a box with an end cap`);
+  };
   const tok = (d, expr, prop) => { const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style[prop || 'color'] = expr; host.appendChild(p); const c = getComputedStyle(p)[prop || 'color']; p.remove(); return c; };
   const bg = (d, expr) => tok(d, expr, 'backgroundColor');
   const rad = (d, n) => tok(d, `var(${n})`, 'borderTopLeftRadius');
   await wait(100);
   // Every box: no gradient; a one-sided coloured edge or a thin coloured block only on the declared exception.
-  let bars = 0;
+  let bars = 0; let caps = 0;
   for (const t of TITLES) {
     const d = get(t); if (!d) { bad(`no frame ${t}`); continue; }
     if (d.documentElement.scrollWidth > d.documentElement.clientWidth + 1) bad(`${t}: scrolls sideways`);
@@ -79,11 +89,12 @@ const calendarProbe = async () => {
       const shown = ['Top', 'Right', 'Bottom', 'Left'].map((s) => ({ w: c['border' + s + 'Width'], col: c['border' + s + 'Color'], st: c['border' + s + 'Style'] })).filter((s) => !(s.st === 'none' || s.w === '0px'));
       if (shown.length && shown.length < 4) for (const s of shown) if (s.col !== border) bad(`${nm}: a coloured one-sided border (${s.col})`);
       if (c.boxShadow !== 'none' && /inset/.test(c.boxShadow)) bad(`${nm}: an inset shadow (a bar)`);
-      if (el.classList.contains('sdk-bar-kept')) bars += 1;
+      if (el.classList.contains('sdk-bar-kept')) { bars += 1; if (!el.closest('.sdk-cal-compact')) { barOk(el, nm); caps += 1; } }
       for (const ps of ['::before', '::after']) { const p = cs(el, ps); if (p.content === 'none' || p.position !== 'absolute') continue;
         if (!el.matches('.sdk-bar-kept') && /^(\d(\.\d+)?)px$/.test(p.width) && parseFloat(p.width) <= 4 && p.backgroundColor !== 'rgba(0, 0, 0, 0)' && !/checkbox|radio/.test(el.type || '')) bad(`${nm}: a thin coloured block (${p.width}) outside the Calendar exception`); }
     }
   }
+  if (caps < 8) bad(`only ${caps} end caps were measured (the agenda rows and the chips)`);
   if (bars < 8) bad(`the Calendar exception shows ${bars} bars; expected the three agenda rows and the chips`);
   { const d = get('Calendar, agenda and the kept bar'); if (!/Exception, kept/.test(d.body.textContent)) bad('the Calendar exception is not flagged "Exception, kept"');
     const r = d.querySelector('.sdk-row.sdk-bar-kept'); if (cs(r, '::before').width !== '3px') bad(`the Calendar bar is ${cs(r, '::before').width}, expected 3px`); if (cs(r).borderLeftWidth !== '1px' || cs(r).borderLeftColor !== tok(d, 'var(--border)')) bad('the kept agenda row has a coloured or heavy edge');

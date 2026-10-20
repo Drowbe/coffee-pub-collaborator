@@ -81,7 +81,10 @@ const toastsProbe = async (ctx) => {
     const durs = live().map((e) => e.dataset.duration); for (const want of ['4500', '9000', '60000']) if (!durs.includes(want)) bad(`the demo has no toast of ${want} ms`);
     if (live().length !== 3 || T.queue.length !== 1) bad(`a fourth toast does not wait (${live().length} showing, ${T.queue.length} waiting)`);
     if (live().some((e) => e.dataset.kind === 'danger')) bad('the waiting danger toast showed early');
-    await wait(450); // the note (180ms) and the notice (360ms) are over; the invite waits
+    // The note (180ms) is over and its place is free 200ms later (the leave), so the waiting danger toast is placed at about 380ms; the notice goes at 360ms; the invite waits.
+    // A busy page (hundreds of frames) can run a timer late, so wait for the real condition, up to 4s, instead of a fixed 450ms.
+    for (let i = 0; i < 40 && !T.stack.querySelector('[role="alert"]'); i += 1) await wait(100);
+    await wait(100);
     if (live().some((e) => e.dataset.duration === '4500')) bad('a note is not dismissed after its time');
     if (!T.stack.querySelector('[role="alert"]')) bad('the danger toast did not come in when a place was free, or has no role=alert');
     // Pause on hover and on focus.

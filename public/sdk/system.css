@@ -216,3 +216,296 @@
 @font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap; ascent-override: 100.9%; descent-override: 22.4%; line-gap-override: 0%;
   src: url(/fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
 @font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }
+
+/* ================= Tabs and view switches (design system step 14) =================
+   tabs:start -- one component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
+   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Chat's Discussion | Assistant, Travel's
+   ways to get there). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
+   Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-joined (the view switch: tabs 2px apart, never scrolls, icons only
+   when narrow via .tb-tabs-compact), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's "..."), + .sdk-tabs-small
+   (30px). The product's own wrapper names are the same component: .tb-tabs (joined, small), .layout-tabs (bar, small),
+   .subtabs (a strip; small in a page bar) and .setup-tabs (a strip).
+   Tabs: .sdk-tab, or the product's .tb-tab .subtab .setup-tab and, in a wrapper only, .core-link; parts .sdk-tab-glyph, .sdk-tab-word,
+   .sdk-tab-badge, .sdk-tab-dot; .sdk-tab-icon is an icon-only square.
+   Selected: aria-selected (a tab list), aria-pressed (a switch), aria-current="page" (a place), or .on / .active.
+   Rest: no fill, no edge. Selected: --fill-selected with --text-selected. No accent solid, no underline, no coloured edge.
+   Sizes: 38px (--btn-h when it is defined; 44px on a phone), small 30px (on a phone its look stays 30px and its hit area is 44px). */
+:root {
+  --tab-h-small: 30px; /* also a top bar place outside a strip (.core-link in public/style.css) */
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
+  --tab-h: var(--btn-h, 38px);
+  --tab-pad-x: var(--space-3);
+  --tab-font: var(--text-14);
+  --tab-icon: var(--icon-16);
+  --tab-icon-dy: 1px; /* a 16px glyph's ink sits about 1px above its box's middle in a 38px tab (measured by ink) */
+  --tab-gap: var(--space-2);
+  --tabs-gap: var(--space-2);
+  --tab-ink: var(--text-primary);
+  --tab-fg: var(--text-muted);
+  --tab-sel: var(--text-selected);
+}
+
+@media (max-width: 640px) {
+  :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) { --tab-h: var(--btn-h, 44px); --tab-icon-dy: 0px; }
+}
+
+/* On the header bar (the top bar, a page bar) the tabs wear the bar's text colours. */
+:is(.sdk-tabs-bar, .topbar, .subnav) :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs),
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs):is(.sdk-tabs-bar, .layout-tabs) {
+  --tab-ink: var(--text-bar);
+  --tab-fg: var(--icon-bar);
+  --tab-sel: color-mix(in srgb, var(--accent-fill) 55%, var(--text-bar));
+}
+
+/* Small tabs: 30px, a little tighter. */
+:is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
+  --tab-h: var(--tab-h-small);
+  --tab-font: var(--text-13);
+  --tab-icon: var(--icon-14);
+  --tab-icon-dy: 0px;
+  --tab-gap: var(--space-1);
+  --tabs-gap: var(--space-1);
+}
+
+/* The wrapper. A strip scrolls sideways; the script that selects a tab scrolls it into view. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
+  display: flex;
+  align-items: center;
+  gap: var(--tabs-gap);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--space-5);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)::-webkit-scrollbar { display: none; }
+
+/* The joined switch and the bar's tabs do not scroll: the switch goes to icons, the bar folds into "...". */
+:is(.sdk-tabs-joined, .tb-tabs, .sdk-tabs-bar, .layout-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
+  display: inline-flex;
+  flex: none;
+  overflow: visible;
+}
+
+:is(.sdk-tabs-joined, .tb-tabs):is(.sdk-tabs, .tb-tabs) { --tabs-gap: var(--space-0); }
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)[hidden] { display: none; }
+
+/* The tab. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tab-gap);
+  box-sizing: border-box;
+  width: auto;
+  height: var(--tab-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--tab-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--tab-fg);
+  font: inherit;
+  font-size: var(--tab-font);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-ui);
+  letter-spacing: normal;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  opacity: 1;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+/* The bar keeps the nav type (--nav-font-*), as the buttons in it do. */
+:is(.sdk-tabs-bar, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link),
+.page-bar :is(.sdk-tabs, .subtabs) > :is(.sdk-tab, .subtab) {
+  font-size: var(--nav-font-size, var(--text-13));
+  font-weight: var(--nav-font-weight, var(--weight-strong));
+  letter-spacing: var(--nav-letter-spacing, normal);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)[hidden] { display: none; }
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):hover {
+  background: color-mix(in srgb, var(--tab-ink) 10%, transparent);
+  color: var(--tab-ink);
+  text-decoration: none;
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):active {
+  background: color-mix(in srgb, var(--tab-ink) 16%, transparent);
+  color: var(--tab-ink);
+}
+
+/* Focus: 2px accent over the 1px edge, inside the box (a strip scrolls and so cuts anything outside it). */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Selected: the selected fill, the readable accent mix for the text. Never an edge, a bar or an underline. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current) {
+  background: var(--fill-selected);
+  color: var(--tab-sel);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current):hover {
+  background: color-mix(in srgb, var(--accent-fill) 38%, transparent);
+  color: var(--tab-sel);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current):active {
+  background: color-mix(in srgb, var(--accent-fill) 46%, transparent);
+}
+
+/* The "..." while its menu is open wears the hover fill. */
+:is(.sdk-tabs, .layout-tabs) > .layout-tabs-more[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--tab-ink) 10%, transparent);
+  color: var(--tab-ink);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* On the selected fill the plain accent is under 3 to 1 in light mode, so a selected tab's focus outline and dot take the text's mix. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current):focus-visible {
+  outline-color: var(--tab-sel);
+}
+
+/* The "..." of a bar: an icon, a little narrower. */
+:is(.sdk-tabs, .layout-tabs) > .layout-tabs-more { padding: 0 var(--space-2); }
+
+/* Parts: icon, word, count, dot. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-glyph, .tb-tab-glyph) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  position: relative;
+  top: var(--tab-icon-dy);
+  width: var(--tab-icon);
+  height: var(--tab-icon);
+  margin: 0;
+  font-size: var(--tab-icon);
+  line-height: var(--leading-ui);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-glyph, .tb-tab-glyph) svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+/* Icon only: a square, the same height. A tab with a glyph in a compact switch is icon only. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) {
+  width: var(--tab-h);
+  padding: 0;
+}
+
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab) > :is(.sdk-tab-glyph, .tb-tab-glyph) ~ :is(.sdk-tab-word, .tb-tab-word) {
+  display: none;
+}
+
+/* The count after the label: a small neutral pill. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--tab-ink) 14%, transparent);
+  color: var(--tab-ink);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-ui);
+  vertical-align: baseline;
+  text-align: center;
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count)[hidden] { display: none; }
+
+/* Green count: something to act on (a module update). */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > .badge.badge-ok {
+  background: var(--status-ok-fill);
+  color: var(--status-ok-on-fill);
+}
+
+/* A change not saved yet (Set up) or news (Chat's Assistant): a 7px dot after the label. */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent-fill);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot)[hidden] { display: none; }
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+  background: var(--tab-sel);
+}
+
+/* On an icon-only tab the count and the dot sit on the icon's corner, so the tab stays square. The count is the micro count
+   (14px, 9px numbers, 3px in, the accent fill). */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: var(--text-9);
+  background: color-mix(in srgb, var(--accent-fill) 88%, var(--text-primary));
+  color: var(--text-on-accent);
+}
+
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+/* On a phone a small tab keeps its 30px look and gets a 44px target: a strip of them is 44px high and the hit area fills it. */
+@media (max-width: 640px) {
+  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-joined, .sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: 7px; }
+  :is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)::after { content: ""; position: absolute; inset: -8px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) { transition: none; }
+}
+/* tabs:end */

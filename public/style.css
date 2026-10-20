@@ -568,13 +568,9 @@ a:hover {
   cursor: pointer;
 }
 
-.topbar > .nav-left > button.core-link[aria-current="page"] {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
 .topbar > .nav-left > button.core-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 /* In a space the one bar (plan-one-bar.md, decision 1, step 7): the space's name with the switcher's caret as one
@@ -711,30 +707,32 @@ a:hover {
 /* A button keeps its own colours. */
 .nav-text:where(:not(.btn)),
 .core-link {
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  color: var(--icon-bar);
 }
 
 .core-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   width: auto;
-  height: 30px;
-  padding: 0 10px;
+  height: var(--tab-h-small);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-small);
   white-space: nowrap;
 }
 
+/* A place outside a tab strip (Calendar, Map, the space's name) wears the tabs' states: a quiet fill on hover, the selected
+   fill and the accent mix while its page is open (brand.js marks it aria-current). Inside a strip the Tabs rules in
+   public/sdk/system.css say it. */
 .core-link:hover {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+  color: var(--text-bar);
+  background: color-mix(in srgb, var(--text-bar) 10%, transparent);
   text-decoration: none;
 }
 
-/* A destination's entry while its page is open (Calendar, Map: brand.js marks it aria-current). */
 .core-link[aria-current="page"] {
-  color: var(--header-text);
-  background: var(--selected-bg);
+  color: color-mix(in srgb, var(--accent-fill) 55%, var(--text-bar));
+  background: var(--fill-selected);
 }
 
 /* The host console (admin.<base domain>, public/host.html): the primary nav's left zone only -- the console is the
@@ -1096,8 +1094,9 @@ body.host-console .grow {
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
-     .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. .sdk-choice one of a few, a segmented row, the chosen one a
-                   fill. .sdk-people people as chips (a tick box or a radio each). .sdk-form-error a refusal that is not one field's. */
+     .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
+                   .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
+                   .sdk-form-error a refusal that is not one field's. */
 :root {
   --field-h: 38px;
   --field-pad-x: 10px;
@@ -1445,44 +1444,6 @@ body.host-console .grow {
   min-height: 44px;
 }
 
-.sdk-choice {
-  display: inline-flex;
-  box-sizing: border-box;
-  height: var(--field-h);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-}
-
-.sdk-choice > :is(label, button) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--field-font);
-  cursor: pointer;
-}
-
-.sdk-choice > :is(label, button):hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-choice > :is(label:has(input:checked), [aria-pressed="true"], .on) {
-  background: var(--selected-bg);
-}
-
-.sdk-choice input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
 .sdk-people {
   display: flex;
   flex-wrap: wrap;
@@ -1512,14 +1473,9 @@ body.host-console .grow {
 }
 
 .sdk-people > label:has(input:focus-visible),
-.sdk-choice > label:has(input:focus-visible),
 .sdk-check:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-.sdk-choice > label:has(input:focus-visible) {
-  outline-offset: -2px;
 }
 
 .sdk-form-error {
@@ -2483,51 +2439,11 @@ body.in-space .subnav {
   text-overflow: ellipsis;
 }
 
-/* A page's tabs (#subtabs: Manage, Profile, a space's settings) in its bar, in the look of the top bar's places: they
-   scroll sideways in their own strip when they do not fit (.subtabs below), on a phone too, and never fold. */
+/* A page's tabs (#subtabs: Manage, Profile, a space's settings) in its bar: the Tabs component (public/sdk/system.css), small and in the
+   bar's colours. They scroll sideways in their own strip when they do not fit, on a phone too, and never fold. */
 .subnav.page-bar .nav-left > .subtabs {
   flex: 0 1 auto;
   min-width: 0;
-  gap: 2px;
-  border-bottom: 0;
-}
-
-.page-bar .subtab {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  margin: 0;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
-  /* The nav text, by its tokens (the tabs are in each page's own markup, not the registry's). */
-  font-family: inherit;
-  font-size: var(--nav-font-size);
-  font-weight: var(--nav-font-weight);
-  letter-spacing: var(--nav-letter-spacing);
-  line-height: var(--nav-line-height);
-}
-
-.page-bar .subtab[hidden] {
-  display: none;
-}
-
-.page-bar .subtab:hover {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-}
-
-.page-bar .subtab.active {
-  margin: 0;
-  color: var(--header-text);
-  background: var(--selected-bg);
-}
-
-.page-bar .subtab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px; /* inside the strip, which scrolls and so cuts anything outside it */
 }
 
 /* On a phone the anchor names the page, so the bar holds only its controls; a bar with none shown is not drawn. */
@@ -2924,43 +2840,12 @@ input.switch:disabled {
    after the last one left; the "..." wears the current mark while the tab shown is in it. Not on a phone. */
 .topbar > .nav-left > .layout-tabs {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
 }
 
 .topbar > .nav-left > .layout-tabs[hidden],
 .layout-tabs > .layout-tab-out,
 .layout-tabs > .layout-tabs-more[hidden] {
   display: none;
-}
-
-.layout-tabs > button.core-link {
-  flex: none;
-  border: 0;
-  background: none;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.layout-tabs > button.core-link[aria-current="page"],
-.layout-tabs > .layout-tabs-more.layout-tabs-more-current {
-  color: var(--header-text);
-  background: var(--selected-bg);
-}
-
-.layout-tabs > .layout-tabs-more[aria-expanded="true"] {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-}
-
-.layout-tabs > button.core-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.layout-tabs > .layout-tabs-more {
-  padding: 0 8px;
 }
 
 /* A load from a tab that left something out says so here, under the tab, for 6 seconds (a screen reader hears it from
@@ -2995,32 +2880,9 @@ input.switch:disabled {
   }
 }
 
-/* A page's tabs in the top bar (page-tabs.js, #262: Manage's #subtabs): the layout tabs' place and look (.layout-tabs and
-   .core-link above), so the page's own .subtab rules (the strip's look in the page) do not reach them here. Not a
-   strip that scrolls: what does not fit goes into its "...". On a phone they are entries in the header's menu. */
-.topbar > .nav-left > .page-tabs {
-  overflow: visible;
-  border-bottom: 0;
-}
-
-.topbar > .nav-left > .page-tabs > .subtab {
-  padding: 0 12px; /* on the spacing scale (check-spacing); the layout tabs' own 10px is a recorded stray */
-  border-radius: var(--radius-small);
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
-  font-size: var(--nav-font-size);
-  font-weight: var(--nav-font-weight);
-  letter-spacing: var(--nav-letter-spacing);
-  line-height: var(--nav-line-height);
-}
-
-.topbar > .nav-left > .page-tabs > .subtab:hover {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-}
-
-.topbar > .nav-left > .page-tabs > .subtab[hidden] {
-  display: none;
-}
+/* A page's tabs in the top bar (page-tabs.js, #262: Manage's #subtabs) are the layout tabs' component (.layout-tabs and .core-link
+   in public/sdk/system.css). Not a strip that scrolls: what does not fit goes into its "...". On a phone they are entries in the
+   header's menu. */
 
 /* With its tabs in the top bar, a page's second row is for navigation inside a tab only: not drawn while it has nothing
    to show, at any width. */
@@ -3213,22 +3075,6 @@ body.in-space .topbar {
   }
 }
 
-/* The same count bubble inline on a tab (Manage's Modules tab when an update is waiting). */
-.subtab .badge {
-  display: inline-block;
-  min-width: 16px;
-  height: 16px;
-  margin-left: 6px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  vertical-align: 1px;
-}
 
 .icon-link .badge {
   position: absolute;
@@ -4709,36 +4555,6 @@ a.crumb-here:hover {
 #messages[data-view="discussion"] > [data-in="assistant"],
 #messages[data-view="assistant"] > :not([data-in="assistant"]):not([data-in="both"]):not(.chat-view-empty) {
   display: none;
-}
-
-/* The Discussion's count and the Assistant's dot, on the view's own tab. */
-.chat-view-count {
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
-}
-
-.chat-view-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-}
-
-.tb-tab.on .chat-view-count {
-  background: var(--on-accent);
-  color: var(--accent);
-}
-
-.tb-tab.on .chat-view-dot {
-  background: var(--on-accent);
 }
 
 .chat-view-empty {
@@ -6308,33 +6124,6 @@ span.message-vis {
   margin: 0;
 }
 
-.subtabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.subtab {
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: var(--radius-small) var(--radius-small) 0 0;
-  color: var(--text-dim);
-  padding: 8px 16px;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.subtab:hover {
-  color: var(--text);
-}
-
-.subtab.active {
-  background: var(--selected-bg);
-  color: var(--accent);
-}
-
 .admin .panel {
   margin-top: 0;
 }
@@ -7177,74 +6966,6 @@ body.conference-window {
   margin: 6px 0;
   background: var(--border);
 }
-
-/* view-switch:start -- the view switch: a row of choices (.tb-tab) in a .tb-tabs, each an icon (.tb-tab-glyph, a Font
-   Awesome <i> or an inline SVG) and a word (.tb-tab-word). host.ui.viewSwitch draws it (in a module's toolbar, or in
-   the module's own page), and the host's pages use it as it is (Chat's Private | Shared, a destination's switches).
-   When the words do not fit the switch's container (its width, not the window's), the shared fit (hostSwitch.fit in
-   public/sdk/host.js) adds .tb-tabs-compact: a choice with an icon shows only its icon, its word kept as its tooltip
-   and accessible name; a choice without one keeps its word. These rules are word for word the same in
-   public/style.css and public/sdk/host.css; tools/check-switches.mjs keeps them so and keeps a module from sizing the
-   switch itself. */
-.tb-tabs {
-  display: inline-flex;
-  flex: none;
-}
-
-.tb-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.tb-tab-icon,
-.tb-tabs-compact .tb-tab:has(> .tb-tab-glyph) {
-  padding-inline: 8px;
-}
-
-.tb-tab-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25em;
-}
-
-.tb-tab-glyph svg {
-  width: 1em;
-  height: 1em;
-  fill: currentColor;
-}
-
-.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word {
-  display: none;
-}
-
-.tb-tab:first-child {
-  border-radius: var(--radius-small) 0 0 var(--radius-small);
-}
-
-.tb-tab:last-child {
-  border-radius: 0 var(--radius-small) var(--radius-small) 0;
-}
-
-.tb-tab:not(:first-child) {
-  margin-left: -1px;
-}
-
-.tb-tab.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-/* view-switch:end */
 
 .tb-progress {
   position: relative;
@@ -9150,15 +8871,6 @@ body.module-page .module-status {
 .env-template > .row:first-child { align-items: flex-end; }
 .env-template-pick { flex: 1 1 12rem; min-width: 0; max-width: 20rem; }
 .env-template-pick select { width: 100%; min-width: 0; }
-/* A row of tabs (Manage, a space's settings, the host console) wider than the page: it scrolls inside itself, by touch or
-   drag, as a module's toolbar does, rather than pushing the page sideways. The tab chosen is scrolled into view. */
-.subtabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.subtabs::-webkit-scrollbar { display: none; }
-.subtab { flex: none; white-space: nowrap; }
-@media (max-width: 760px) {
-  .subtab { padding: 8px 12px; }
-}
-
 /* Manage > Template: template files (addendum 2), and the offer's reactions and icons. */
 .template-files { margin-top: 14px; }
 .template-files .list-row { flex-wrap: wrap; }
@@ -11034,67 +10746,15 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   white-space: nowrap;
 }
 
-/* The tabs: one row under the title, sitting on the head's bottom edge; it scrolls sideways when it does not fit. */
+/* The tabs: one row under the title (the Tabs component, public/sdk/system.css), sitting on the head's bottom edge; it scrolls
+   sideways when it does not fit. */
 .setup-tabs {
   flex: 1 1 100%;
-  display: flex;
-  gap: 2px;
-  min-width: 0;
-  margin: 4px -16px -10px;
-  padding: 0 10px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
+  margin: 0 -16px -10px;
+  padding: 0 var(--space-3) var(--space-1);
 }
 
-.setup-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.setup-tab {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 8px 7px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.setup-tab:hover {
-  color: var(--text);
-}
-
-.setup-tab[aria-selected="true"] {
-  background: var(--selected-bg);
-  border-radius: var(--radius-small);
-  color: var(--text);
-}
-
-.setup-tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-/* Unsaved changes on this tab (said to a screen reader by the hidden words beside it). */
-.setup-tab-dot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-}
-
-.setup-tab-dot[hidden] {
-  display: none;
-}
+/* Unsaved changes on this tab: the tab's dot (public/sdk/system.css), said to a screen reader by the hidden words beside it. */
 
 .setup-tab-content[hidden] {
   display: none;
@@ -11679,12 +11339,6 @@ h4.setup-subheading {
   .setup-field select {
     min-height: 44px;
     font-size: 16px; /* a phone does not zoom */
-  }
-
-  .setup-tab {
-    min-height: 44px;
-    padding-left: 12px;
-    padding-right: 12px;
   }
 
   .setup-icon-grid button {

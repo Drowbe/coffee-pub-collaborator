@@ -171,74 +171,6 @@ a {
 }
 /* action-btn:end */
 
-/* view-switch:start -- the view switch: a row of choices (.tb-tab) in a .tb-tabs, each an icon (.tb-tab-glyph, a Font
-   Awesome <i> or an inline SVG) and a word (.tb-tab-word). host.ui.viewSwitch draws it (in a module's toolbar, or in
-   the module's own page), and the host's pages use it as it is (Chat's Private | Shared, a destination's switches).
-   When the words do not fit the switch's container (its width, not the window's), the shared fit (hostSwitch.fit in
-   public/sdk/host.js) adds .tb-tabs-compact: a choice with an icon shows only its icon, its word kept as its tooltip
-   and accessible name; a choice without one keeps its word. These rules are word for word the same in
-   public/style.css and public/sdk/host.css; tools/check-switches.mjs keeps them so and keeps a module from sizing the
-   switch itself. */
-.tb-tabs {
-  display: inline-flex;
-  flex: none;
-}
-
-.tb-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.tb-tab-icon,
-.tb-tabs-compact .tb-tab:has(> .tb-tab-glyph) {
-  padding-inline: 8px;
-}
-
-.tb-tab-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25em;
-}
-
-.tb-tab-glyph svg {
-  width: 1em;
-  height: 1em;
-  fill: currentColor;
-}
-
-.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word {
-  display: none;
-}
-
-.tb-tab:first-child {
-  border-radius: var(--radius-small) 0 0 var(--radius-small);
-}
-
-.tb-tab:last-child {
-  border-radius: 0 var(--radius-small) var(--radius-small) 0;
-}
-
-.tb-tab:not(:first-child) {
-  margin-left: -1px;
-}
-
-.tb-tab.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-/* view-switch:end */
-
 input,
 textarea,
 select {
@@ -296,8 +228,9 @@ select:focus {
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
-     .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. .sdk-choice one of a few, a segmented row, the chosen one a
-                   fill. .sdk-people people as chips (a tick box or a radio each). .sdk-form-error a refusal that is not one field's. */
+     .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
+                   .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
+                   .sdk-form-error a refusal that is not one field's. */
 :root {
   --field-h: 38px;
   --field-pad-x: 10px;
@@ -645,44 +578,6 @@ select:focus {
   min-height: 44px;
 }
 
-.sdk-choice {
-  display: inline-flex;
-  box-sizing: border-box;
-  height: var(--field-h);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-}
-
-.sdk-choice > :is(label, button) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--field-font);
-  cursor: pointer;
-}
-
-.sdk-choice > :is(label, button):hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-choice > :is(label:has(input:checked), [aria-pressed="true"], .on) {
-  background: var(--selected-bg);
-}
-
-.sdk-choice input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
 .sdk-people {
   display: flex;
   flex-wrap: wrap;
@@ -712,14 +607,9 @@ select:focus {
 }
 
 .sdk-people > label:has(input:focus-visible),
-.sdk-choice > label:has(input:focus-visible),
 .sdk-check:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-.sdk-choice > label:has(input:focus-visible) {
-  outline-offset: -2px;
 }
 
 .sdk-form-error {

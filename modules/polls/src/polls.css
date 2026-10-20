@@ -8,11 +8,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .nav h2 { margin: 0 6px 0 0; font-size: 17px; }
-.seg { display: inline-flex; }
-.seg .btn:first-child { border-radius: var(--radius-small) 0 0 var(--radius-small); }
-.seg .btn:last-child { border-radius: 0 var(--radius-small) var(--radius-small) 0; }
-.seg .btn:not(:first-child) { margin-left: -1px; }
-.seg .btn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .error { margin: 0; color: var(--danger); }
 .error.ok { color: var(--accent); }

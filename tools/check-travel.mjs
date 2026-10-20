@@ -1825,7 +1825,7 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   // Money is the amount with the currency as its unit; Paid by and Whose is it are chips.
   assert.ok(html.includes('<span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal"') && html.includes('<span class="sdk-unit" data-slot="currency">'), 'the amounts are text with the currency as their unit');
   assert.ok(html.includes('<div class="sdk-people" id="f-paidBy">') && html.includes('<div class="sdk-people" id="f-owners">'), 'Paid by and Whose is it are people chips');
-  assert.ok(html.includes('<span class="sdk-choice" id="f-travelMode"'), 'the ways to get there are a choice');
+  assert.ok(html.includes('<span class="sdk-tabs sdk-tabs-joined" id="f-travelMode"'), 'the ways to get there are a choice');
   assert.ok(js.includes("fieldError('f-title', 'Give it a title.')") && html.includes('<span class="sdk-error" id="f-title-error"></span>'), 'a missing title is said under the field');
 });
 

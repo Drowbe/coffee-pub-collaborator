@@ -160,7 +160,7 @@ function measure() {
   const controls = [...form.querySelectorAll('input:not([type=hidden]), select, textarea')].filter(vis);
   for (const c of controls) {
     const field = c.closest('.sdk-field');
-    const check = c.closest('.sdk-check, .sdk-choice, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
+    const check = c.closest('.sdk-check, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
     if (!field && !check) { add('field', nm(c), 'is not inside a .sdk-field or .sdk-check'); continue; }
     const named = (c.labels && [...c.labels].some((l) => l.textContent.trim())) || c.getAttribute('aria-label') || c.getAttribute('aria-labelledby') || (field && field.querySelector('.sdk-label')?.textContent.trim() && field.tagName === 'LABEL');
     if (!named) add('label', nm(c), 'has no label');

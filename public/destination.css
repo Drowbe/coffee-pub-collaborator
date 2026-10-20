@@ -37,21 +37,6 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   padding: 3px 0;
 }
 
-/* The view switch: host.ui.viewSwitch's tabs, in the header's colours. */
-.dest-views .tb-tab {
-  color: color-mix(in srgb, var(--header-text) 75%, transparent);
-}
-
-.dest-views .tb-tab:hover {
-  color: var(--header-text);
-}
-
-.dest-views .tb-tab.on {
-  color: var(--on-accent);
-}
-
-.dest-views .tb-tab:focus-visible,
-.dest-side-head .tb-tab:focus-visible,
 .dest-tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;

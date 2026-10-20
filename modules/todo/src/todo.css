@@ -73,7 +73,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 
 /* As the Calendar destination's panel: Open / Done / All in the page (it has no toolbar row; host.ui.viewSwitch draws
    it with `element`, in the SDK's view-switch look), and each task's place. */
-.show .tb-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app.part { padding: 8px; }
 .task .text .ri { margin-right: 5px; }
 .editor-card select { width: 100%; color: var(--text); }

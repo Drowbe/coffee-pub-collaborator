@@ -3,13 +3,18 @@
    under .ds-proposed, so the product is untouched. It is a phone bar (640px and below); a wider window has the top bar and the tabs of the Tabs family.
 
    Bar     54px high (--tabbar-h) plus the home-indicator inset (--safe-b, from env(safe-area-inset-bottom)); the bar surface role, --header-bg; one 1px --border
-           hairline on top; 4px of padding around the tabs; the tabs 2px apart.
+           hairline on top; 4px of padding around the tabs; the tabs 4px apart.
+   Icon box  every tab's icon sits in the same fixed 24 by 24 box (--tabbar-box), the 20px glyph centred in it. The box is the one thing a count or a dot is placed
+           against, so a count is in the same place on every tab whatever the glyph's shape. The box overlaps 2px above and below into the tab's padding: the icon is 20px
+           high in the layout, 4px above the label.
    Tab     flex 1, at least 56px (--tabbar-min; today's three minimums, 56, 48 and 60, become one); a 20px icon (--tabbar-icon) over an 11px label, 4px apart
            (today 3px); a 45px-high target (the bar less its padding), 44px or more; the corner --radius-small.
    Rest    the label and icon in the header text mixed 25% toward the header (readable at 11px); hover a quiet 10% fill; pressed 16%.
    Current the quiet neutral selected fill (--selected-bg) with the label and icon in the accent mix (accent 55% into the header text), never accent words on a bare
            background. Weight stays 500, so no tab changes width.
-   Badge   the micro count (14px, 9px numbers) at the icon's corner, 3px in from the top and the right of the icon's box (the Chips micro count); a dot where a number is not useful.
+   Badge   the micro count (14px, 9px numbers; .sdk-badge-micro, not redefined here) anchored to the icon box's top right corner: its top edge 4px above the box and its
+           right edge 6px beyond it (--tabbar-badge-top, --tabbar-badge-right), the same on every tab. A two-digit count grows left; the cap is 99+. The badge ends 10px
+           below the box top, 14px above the label. A dot (7px) is centred where the badge's centre is (1px above the box top, 3px beyond the right edge).
    Focus   the Fields-and-Tabs mechanism: a 2px accent outline drawn inside the tab (offset -2px), equal on all four sides at any display scale.
    Fold    tabs that do not fit fold into a "..." tab at the end, which opens the Menus popover above the bar; the current tab always keeps its place in the bar;
            a pinned tab (Join, Online, Leave) never folds.
@@ -21,6 +26,11 @@
   --tabbar-min: 56px;
   --tabbar-icon: 20px;
   --tabbar-gap: 4px;
+  --tabbar-box: 24px;
+  --tabbar-badge-top: -4px;
+  --tabbar-badge-right: -6px;
+  --tabbar-dot-top: -1px;
+  --tabbar-dot-right: -3px;
   --tabbar-fg: color-mix(in srgb, var(--header-text) 75%, var(--header-bg));
   --tabbar-now: color-mix(in srgb, var(--accent) 55%, var(--header-text));
   --tabbar-leave: color-mix(in srgb, var(--danger) 70%, var(--header-text));
@@ -34,7 +44,7 @@
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-  gap: 2px;
+  gap: 4px;
   flex: none;
   box-sizing: border-box;
   height: calc(var(--tabbar-h) + var(--safe-b, 0px));
@@ -65,7 +75,7 @@
   min-width: var(--tabbar-min);
   min-height: 0;
   margin: 0;
-  padding: 5px 2px 3px; /* a label's ink sits high in its line: the extra pixel above puts the icon and label's weight on the middle of the tab */
+  padding: 5px 0 3px; /* equal on the left and the right (none); a label's ink sits high in its line, so the extra pixel above puts the icon and label's weight on the middle of the tab */
   border: 1px solid transparent;
   border-radius: var(--radius-small);
   background: transparent;
@@ -87,15 +97,17 @@
 }
 .ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab)[hidden] { display: none; }
 
-/* The icon over the label. The glyph box is 36 by 20: the icon is 20px, the box leaves room for the corner count. */
+/* The icon over the label. The icon box is 24 by 24 on every tab, the 20px glyph centred in it; a count or a dot is placed against this box and nothing else.
+   The box's 2px above and below the icon overlap the tab's padding (negative margin), so the icon is 20px high in the layout. */
 .ds-proposed :is(.sdk-tabbar-glyph) {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 36px;
-  height: var(--tabbar-icon);
+  width: var(--tabbar-box);
+  height: var(--tabbar-box);
+  margin: calc((var(--tabbar-icon) - var(--tabbar-box)) / 2) 0;
   color: var(--tab-glyph, currentColor);
   font-size: var(--tabbar-icon);
   line-height: 1;
@@ -103,7 +115,10 @@
 .ds-proposed :is(.sdk-tabbar-glyph) > i { display: block; font-size: var(--tabbar-icon); line-height: 1; }
 .ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) > i { display: block; flex: none; width: auto; height: var(--tabbar-icon); font-size: var(--tabbar-icon); line-height: 1; }
 .ds-proposed :is(.sdk-tabbar-label) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) > span:not(.sdk-tabbar-glyph):not(.sdk-badge-micro):not(.sdk-dot) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) > span:not(.sdk-tabbar-glyph):not(.sdk-badge-micro):not(.badge):not(.sdk-dot) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Today's space bar draws a small switch before each module (::before); the phone bar has none. */
+.ds-proposed .subnav-modules .modules-menu-item::before { content: none; display: none; }
 
 /* States: a fill each; no edge, no underline. */
 .ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):hover { background: color-mix(in srgb, var(--header-text) 10%, transparent); color: var(--header-text); }
@@ -125,8 +140,9 @@
 .ds-proposed .sdk-tabbar-tab[data-role="join"] { --tab-glyph: var(--tabbar-join); }
 .ds-proposed .sdk-tabbar-tab[data-role="leave"] { --tab-fg: var(--tabbar-leave); }
 
-/* A count in the icon's corner is the Chips micro count (14px, 9px, 3px in); a dot is the Chips dot. */
-.ds-proposed :is(.sdk-tabbar-glyph) > :is(.sdk-badge-micro, .badge) { position: absolute; top: 3px; right: 3px; }
+/* A count at the icon box's top right corner is the Chips micro count (14px, 9px; defined in Chips, only placed here); a dot is the Chips dot. The same offsets on every tab. */
+.ds-proposed :is(.sdk-tabbar-glyph) > :is(.sdk-badge-micro, .badge) { position: absolute; top: var(--tabbar-badge-top); right: var(--tabbar-badge-right); left: auto; }
+.ds-proposed :is(.sdk-tabbar-glyph) > .sdk-dot.sdk-dot-corner { position: absolute; top: var(--tabbar-dot-top); right: var(--tabbar-dot-right); left: auto; }
 
 /* The fold: the "..." tab and its menu (the Menus popover), drawn above the bar. */
 .ds-proposed .sdk-tabbar-menu { position: absolute; right: 4px; bottom: calc(100% + 4px); z-index: var(--z-menu); max-height: 280px; }
@@ -137,8 +153,8 @@
 /* The old tab's count (.badge) is the micro count at the corner of the tab. */
 .ds-proposed .subnav-modules .modules-menu-item > .badge {
   position: absolute;
-  top: 3px;
-  right: calc(50% - 22px);
+  top: -1px; /* the icon box starts 3px below the tab's padding edge (5px padding, less the box's 2px overlap): -4px from the box's top */
+  right: calc(50% - 18px); /* 6px beyond the box's right edge, which is 12px right of the tab's middle */
   display: inline-flex;
   align-items: center;
   justify-content: center;

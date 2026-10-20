@@ -30,12 +30,13 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 
   const wrap = (inner) => `<div class="ds-proposed">${inner}</div>`;
   const CAP = (s) => `<span class="pm-tb-cap">${s}</span>`;
-  const MODS = [['Conference', 'video'], ['Chat', 'comments'], ['To-do', 'list-check'], ['Planner', 'route'], ['Maps', 'map'], ['Budget', 'wallet'], ['Notes', 'note-sticky']];
+  // The space's modules in its order, Chat first when Chat is on. Conference is not here: the call is reached by the pinned call item at the right end of the bar.
+  const MODS = [['Chat', 'comments'], ['To-do', 'list-check'], ['Planner', 'route'], ['Maps', 'map'], ['Budget', 'wallet'], ['Notes', 'note-sticky'], ['Polls', 'square-poll-vertical'], ['Calendar', 'calendar-days']];
 
   // A tab. o: label, icon, cur, state (hover | active | focus), badge, dot, role, dis, pin, name.
   const tab = (o) => `<button type="button" class="sdk-tabbar-tab${o.state ? ' ds-force-' + o.state : ''}"${o.cur ? ' aria-current="page"' : ''}${o.role ? ` data-role="${o.role}"` : ''}${o.pin ? ' data-pin="1"' : ''}${o.dis ? ' disabled' : ''}${o.badge || o.dot || o.name ? ` aria-label="${h(o.name || (o.label + (o.badge ? ', ' + o.badge + ' new' : ', new')))}"` : ''}><span class="sdk-tabbar-glyph">${fa(o.icon)}${o.badge ? `<span class="sdk-badge-micro" aria-hidden="true">${o.badge}</span>` : ''}${o.dot ? '<span class="sdk-dot sdk-dot-corner" aria-hidden="true"></span>' : ''}</span><span class="sdk-tabbar-label">${o.label}</span></button>`;
   const bar = (tabs, o = {}) => `<nav class="sdk-tabbar"${o.fold ? ' data-fold="1"' : ''} aria-label="${o.label || 'Space'}"${o.style ? ` style="${o.style}"` : ''}>${tabs.map((t) => tab(t)).join('')}</nav>`;
-  const mods = (n, o = {}) => MODS.slice(0, n).map(([label, icon], i) => ({ label, icon, cur: i === (o.cur == null ? 1 : o.cur), badge: o.badges && i === 1 ? 3 : o.badges && i === 2 ? 12 : 0, dot: o.badges && i === 3 }));
+  const mods = (n, o = {}) => MODS.slice(0, n).map(([label, icon], i) => ({ label, icon, cur: i === (o.cur == null ? 0 : o.cur), badge: o.badges && i === 0 ? 3 : o.badges && i === 1 ? 12 : 0, dot: o.badges && i === 3 }));
 
   // ---- the fold: what fitSecondary does in the product. The tabs that do not fit go into a "..." tab; the current tab keeps its place; a pinned tab never folds. ----
   const fit = (nav) => {
@@ -45,7 +46,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     if (more) more.hidden = true;
     if (menu) menu.remove();
     const c = getComputedStyle(nav); const inner = nav.clientWidth - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight);
-    const slots = Math.floor((inner + 2) / 58);
+    const slots = Math.floor((inner + 4) / 60);
     if (tabs.length <= slots) return;
     const pinned = tabs.filter((t) => t.dataset.pin); const free = tabs.filter((t) => !t.dataset.pin);
     const room = Math.max(1, slots - pinned.length - 1);
@@ -84,22 +85,23 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // ---- frame bodies ----
   const anatomyBody = () => wrap(`<div class="pm-tb-ruler"><div class="pm-tb-phone" style="height:300px"><div class="pm-tb-top">Paris in spring</div><div class="pm-tb-body"><div class="sdk-panel">The module is here.</div></div>${bar(mods(5, { badges: true }), { style: '--safe-b:34px' })}</div>
     <ul class="pm-tb-legend"><li><b>1 Bar</b> 54px, plus the home-indicator inset (34px here). The bar surface (<code>--header-bg</code>), one 1px hairline on top, 4px of padding.</li>
-      <li><b>2 Tab</b> flex 1, at least 56px wide, 45px high (a 44px target or more). An icon, 20px, over an 11px label, 4px apart.</li>
+      <li><b>2 Tab</b> flex 1, at least 56px wide, 45px high (a 44px target or more). An icon, 20px, in a 24 by 24 icon box (the same on every tab), over an 11px label, 4px apart.</li>
       <li><b>3 Current</b> the quiet selected fill (<code>--selected-bg</code>), the label and icon in the accent mix. Not accent words on a bare background.</li>
-      <li><b>4 Badge</b> the micro count in the icon's corner, 3px in; a dot where a number is not useful.</li>
-      <li><b>5 Fold</b> what does not fit goes into a "..." tab; the current tab always keeps its place.</li></ul></div>`);
+      <li><b>4 Badge</b> the micro count at the icon box's top right corner: 4px above the box, 6px past its right edge, the same on every tab. Two digits grow left; 99+ is the most. A dot where a number is not useful, at the same corner.</li>
+      <li><b>5 Fold</b> what does not fit goes into a "..." tab; the current tab always keeps its place; the pinned call item (Join, Online, Leave) never folds. Chat, the first module, is the tab chosen when the space opens. Conference is not a tab on the phone; the call is the pinned item at the right end.</li></ul></div>`);
 
   const widthBody = () => wrap(`${CAP('3 tabs')}<div class="pm-tb-bleed">${bar(mods(3), { label: 'Destination' })}</div>
-    ${CAP('5 tabs, a count, a dot')}<div class="pm-tb-bleed">${bar(mods(5, { badges: true }).map((t, i) => Object.assign(t, i === 4 ? { dot: true } : {})), { label: 'Space', fold: true })}</div>
-    ${CAP('7 tabs: what does not fit folds into "..."')}<div class="pm-tb-bleed">${bar(mods(7, { badges: true, cur: 5 }), { label: 'Space', fold: true })}</div>
-    <p class="pm-tb-note">Press "..." to open the folded tabs. The current tab (Budget) was the seventh; it stays in the bar.</p>`);
+    ${CAP('5 tabs, a count, a dot')}<div class="pm-tb-bleed">${bar(mods(5, { badges: true }), { label: 'Space', fold: true })}</div>
+    ${CAP('7 tabs: what does not fit folds into "..."')}<div class="pm-tb-bleed">${bar(mods(7, { badges: true, cur: 6 }), { label: 'Space', fold: true })}</div>
+    <p class="pm-tb-note">Press "..." to open the folded tabs. The current tab (Polls) was the seventh; it stays in the bar. The first tab, Chat, is the one chosen when the space opens; Conference is not a tab on the phone, the pinned call item (Join, then Online and Leave) is at the right end of the bar and never folds.</p>`);
 
   const FORCE = ['', 'hover', 'active', 'focus', '', ''];
   const statesBody = () => wrap(`${CAP('Rest, hover, pressed, focus, current, disabled')}<div class="pm-tb-bleed">${bar(['Rest', 'Hover', 'Pressed', 'Focus', 'Current', 'Disabled'].map((l, i) => ({ label: l, icon: ['circle', 'hand-pointer', 'hand', 'keyboard', 'square', 'ban'][i], state: FORCE[i], cur: i === 4, dis: i === 5 })), { label: 'States' })}</div>
     ${CAP('Current: hovered, focused, pressed')}<div class="pm-tb-bleed">${bar([{ label: 'Chat', icon: 'comments', cur: true, state: 'hover' }, { label: 'To-do', icon: 'list-check' }, { label: 'Maps', icon: 'map' }], { label: 'Current, hovered' })}${bar([{ label: 'Chat', icon: 'comments' }, { label: 'To-do', icon: 'list-check', cur: true, state: 'focus' }, { label: 'Maps', icon: 'map' }], { label: 'Current, focused' })}${bar([{ label: 'Chat', icon: 'comments' }, { label: 'To-do', icon: 'list-check' }, { label: 'Maps', icon: 'map', cur: true, state: 'active' }], { label: 'Current, pressed' })}</div>
-    ${CAP('Badges: a count, 12, 99+ and a dot')}<div class="pm-tb-bleed">${bar([{ label: 'Chat', icon: 'comments', badge: 3 }, { label: 'To-do', icon: 'list-check', badge: 12 }, { label: 'Planner', icon: 'route', badge: '99+' }, { label: 'Maps', icon: 'map', dot: true }, { label: 'Budget', icon: 'wallet', cur: true, badge: 2 }], { label: 'Badges' })}</div>`);
+    ${CAP('Badges: a count, 12, 99+ and a dot')}<div class="pm-tb-bleed">${bar([{ label: 'Chat', icon: 'comments', badge: 3 }, { label: 'To-do', icon: 'list-check', badge: 12 }, { label: 'Planner', icon: 'route', badge: '99+' }, { label: 'Maps', icon: 'map', dot: true }, { label: 'Budget', icon: 'wallet', cur: true, badge: 2 }], { label: 'Badges' })}</div>
+    ${CAP('The same icon with 1, 3, 12, 99+ and a dot: the count is in the same place on every tab')}<div class="pm-tb-bleed">${bar([{ label: 'One', icon: 'comments', badge: 1 }, { label: 'Three', icon: 'comments', badge: 3 }, { label: 'Twelve', icon: 'comments', badge: 12 }, { label: 'Many', icon: 'comments', badge: '99+' }, { label: 'Dot', icon: 'comments', dot: true }], { label: 'Same icon' })}</div>`);
 
-  const spaceBody = () => wrap(`${CAP('The space bar: module tabs, Join (the ok colour), Online with its count, Leave (never folds)')}<div class="pm-tb-bleed">${bar(MODS.slice(0, 4).map(([label, icon], i) => ({ label, icon, cur: i === 1, badge: i === 1 ? 3 : 0 })).concat([{ label: 'Join', icon: 'phone', role: 'join', pin: true }, { label: 'Online', icon: 'user-group', badge: 4, pin: true, name: 'Online, 4 here' }, { label: 'Leave', icon: 'right-from-bracket', role: 'leave', pin: true }]), { label: 'Space', fold: true })}</div>
+  const spaceBody = () => wrap(`${CAP('The space bar: the modules, then the pinned call item at the right end: Join (the ok colour), Online with its count, Leave (never fold)')}<div class="pm-tb-bleed">${bar(MODS.slice(0, 4).map(([label, icon], i) => ({ label, icon, cur: i === 0, badge: i === 0 ? 3 : 0 })).concat([{ label: 'Join', icon: 'phone', role: 'join', pin: true }, { label: 'Online', icon: 'user-group', badge: 4, pin: true, name: 'Online, 4 here' }, { label: 'Leave', icon: 'right-from-bracket', role: 'leave', pin: true }]), { label: 'Space', fold: true })}</div>
     ${CAP('In the call: no Join; Online and Leave stay')}<div class="pm-tb-bleed">${bar(MODS.slice(0, 6).map(([label, icon], i) => ({ label, icon, cur: i === 0 })).concat([{ label: 'Online', icon: 'user-group', badge: 4, pin: true, name: 'Online, 4 here' }, { label: 'Leave', icon: 'right-from-bracket', role: 'leave', pin: true }]), { label: 'Space', fold: true })}</div>
     ${CAP('An aside: Rejoin call before the "..."')}<div class="pm-tb-bleed">${bar([{ label: 'Chat', icon: 'comments', cur: true }, { label: 'Notes', icon: 'note-sticky' }, { label: 'Rejoin', icon: 'phone', role: 'join', pin: true }, { label: 'Leave', icon: 'right-from-bracket', role: 'leave', pin: true }], { label: 'Aside' })}</div>
     <p class="pm-tb-note">Join, Online, Rejoin and Leave are pinned: they never fold. The module tabs share what is left; with Join showing, two tabs fit and the rest are under "...". There is one least width for every tab (56px), so Join no longer narrows the others.</p>`);
@@ -113,7 +115,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ${bar(mods(5, { badges: true }), { style: '--safe-b:34px' })}</div></div>
     <p class="pm-tb-note">The bar sits at the foot of the phone under the page; the 34px under the tabs is the home-indicator inset, set here by hand (a phone supplies it).</p>`);
 
-  const aliasBody = () => wrap(`${CAP('Today\'s space bar markup, no edit')}<div class="pm-tb-bleed"><nav class="subnav subnav-modules" aria-label="Space"><button type="button" class="modules-menu-item on">${fa('video')}<span>Conference</span></button><button type="button" class="modules-menu-item">${fa('comments')}<span>Chat</span><span class="badge">3</span></button><button type="button" class="modules-menu-item">${fa('list-check')}<span>To-do</span></button><button type="button" class="modules-menu-item">${fa('map')}<span>Maps</span></button></nav></div>
+  const aliasBody = () => wrap(`${CAP('Today\'s space bar markup, no edit')}<div class="pm-tb-bleed"><nav class="subnav subnav-modules" aria-label="Space"><button type="button" class="modules-menu-item on">${fa('comments')}<span>Chat</span><span class="badge">3</span></button><button type="button" class="modules-menu-item">${fa('list-check')}<span>To-do</span></button><button type="button" class="modules-menu-item">${fa('map')}<span>Maps</span></button></nav></div>
     ${CAP('Today\'s destination bar markup')}<div class="pm-tb-bleed"><div class="dest-tabs" role="tablist"><button type="button" class="dest-tab" aria-current="page">${fa('house')}<span>Overview</span></button><button type="button" class="dest-tab">${fa('route')}<span>Plan</span></button><button type="button" class="dest-tab">${fa('map')}<span>Map</span></button></div></div>`);
 
   const CT_ROWS = [
@@ -165,14 +167,14 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="tabbar-h"><a href="#tabbar">Phone bottom bar (icon over label)</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one tab bar for the space bar and the destination bar, 640px and below</span></header>
-<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> (1) One component for the space bar (<code>.subnav .modules-menu-item</code>) and the destination bar (<code>.dest-tab</code>). (2) The bar is 54px plus the safe-area inset, on the bar surface (<code>--header-bg</code>), with a 1px hairline on top. (3) A tab is flex 1 with a 56px least width, a 20px icon over an 11px label, 4px apart, and a target of 44px or more. (4) The current tab is the quiet neutral selected fill with the label in the accent mix, not accent words on a bare background. (5) A badge is the micro count at the icon's corner, 3px in. (6) Tabs that do not fit fold into a "..." tab (a menu) and the current tab keeps its place. (7) Focus is a 2px outline inside the tab. (8) The Join icon uses the ok status token.</p>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> (1) One component for the space bar (<code>.subnav .modules-menu-item</code>) and the destination bar (<code>.dest-tab</code>). (2) The bar is 54px plus the safe-area inset, on the bar surface (<code>--header-bg</code>), with a 1px hairline on top. (3) A tab is flex 1 with a 56px least width, a 20px icon in a fixed 24 by 24 icon box over an 11px label, 4px apart, and a target of 44px or more. (4) The current tab is the quiet neutral selected fill with the label in the accent mix, not accent words on a bare background. (5) A badge is the micro count anchored to the icon box's top right corner (4px above, 6px past), the same on every tab. (5b) Conference is not a tab on the phone: the call is the pinned call item at the right end, and the first module tab (Chat) is the default. (6) Tabs that do not fit fold into a "..." tab (a menu) and the current tab keeps its place. (7) Focus is a 2px outline inside the tab. (8) The Join icon uses the ok status token.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#tabbar-anatomy">Anatomy</a><a href="#tabbar-widths">At 390 and 320</a><a href="#tabbar-states">States and badges</a><a href="#tabbar-space">Space bar: Join, Online, Leave</a><a href="#tabbar-dest">Destination bar</a><a href="#tabbar-context">In context</a><a href="#tabbar-contrast">Contrast</a><a href="#tabbar-map">Today to proposed</a><a href="#tabbar-alias">Aliases</a><a href="#tabbar-tokens">Tokens</a><a href="#tabbar-contract">Markup</a><a href="#tabbar-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="tabbar-anatomy">Anatomy</h4>
 <div data-slot="anatomy"></div>
 
 <h4 class="ds-h4" id="tabbar-widths">At 390 and 320, with 3, 5 and 7 tabs</h4>
-<p class="ds-desc">The bar is full width. Three tabs share it equally; at least 56px each. Seven tabs do not fit at either width, so what does not fit folds into "...". Press "..." and the folded tabs open in the Menus popover above the bar.</p>
+<p class="ds-desc">The bar is full width. Three tabs share it equally; at least 56px each. The tabs are the space's modules in its order, Chat first; the call is the pinned item at the right end, not a tab. Seven tabs do not fit at either width, so what does not fit folds into "...". Press "..." and the folded tabs open in the Menus popover above the bar.</p>
 <div data-slot="widths"></div>
 
 <h4 class="ds-h4" id="tabbar-states">States and badges</h4>
@@ -197,7 +199,8 @@ ${tbl(['Today', 'Proposed'], [
     ['Tab least widths: 56px (the space bar), 48px (Online and Join) and 60px (the destination bar)', 'One: 56px, <code>--tabbar-min</code>.'],
     ['Inactive colour: the header text at 65% (the destination bar) against the dim colour (the space bar)', 'One: the header text 25% toward the header, readable at 11px.'],
     ['Icon 18px over an 11px label, 3px apart', 'Icon 20px over an 11px label, 4px apart.'],
-    ['A badge: <code>.badge</code> placed by hand (top 2px, left 6px past the middle)', 'The micro count at the icon\'s corner, 3px in; a dot where no number is useful.'],
+    ['The space bar lists Conference first, and it is the tab chosen first', 'Conference is not a tab on the phone: the call is the pinned call item at the right end (Join, then Online and Leave in a call); the first module tab (Chat) is the default.'],
+    ['A badge: <code>.badge</code> placed by hand (top 2px, left 6px past the middle), so it sat in a different place on each icon', 'The micro count at the icon box\'s top right corner (4px above, 6px past), the same on every tab; a dot at the same corner where no number is useful.'],
     ['Tabs that do not fit: the bar shrinks Join\'s neighbours (40px), or a tab runs under Online', 'They fold into a "..." tab; the current tab keeps its place; Join, Online and Leave never fold.'],
     ['Focus: the browser\'s outline on one bar and the accent ring on the other', 'A 2px outline inside the tab, the Fields and Tabs mechanism.'],
     ['Bar: 54px with the inset, the header colour, a 1px hairline (two copies)', 'One bar: the same numbers, written once.'],
@@ -216,7 +219,8 @@ ${tbl(['Component', 'New name', 'Older names that take the same rules'], [
 <h4 class="ds-h4" id="tabbar-tokens">Tokens</h4>
 ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--tabbar-h</code>', '54px', 'The bar, without the inset. Same name and value as today (<code>--tabbar-h</code>).'],
-    ['<code>--tabbar-min</code> <code>--tabbar-icon</code> <code>--tabbar-gap</code>', '56px, 20px, 4px', 'The least tab width, the icon, the space between icon and label. Proposed tokens.'],
+    ['<code>--tabbar-min</code> <code>--tabbar-icon</code> <code>--tabbar-gap</code> <code>--tabbar-box</code>', '56px, 20px, 4px, 24px', 'The least tab width, the icon, the space between icon and label, and the icon box a count is placed against. Proposed tokens.'],
+    ['<code>--tabbar-badge-top</code> <code>--tabbar-badge-right</code> <code>--tabbar-dot-top</code> <code>--tabbar-dot-right</code>', '-4px, -6px, -1px, -3px', 'Where a count and a dot sit against the icon box\'s top right corner (the same on every tab; the dot is centred where the count is).'],
     ['<code>--safe-b</code>', '<code>env(safe-area-inset-bottom)</code>', 'The home-indicator inset under the tabs. Proposed token (also used by the Module window).'],
     ['<code>--header-bg</code> <code>--header-text</code> <code>--selected-bg</code> <code>--micro-fill</code> <code>--ok</code> <code>--border</code>', 'the theme\'s, and the Chips family\'s', 'The bar, the words, the current fill, the count, the Join icon, the hairline.'],
   ])}
@@ -224,7 +228,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
 <h4 class="ds-h4" id="tabbar-contract">Markup</h4>
 ${code(`<nav class="sdk-tabbar" aria-label="Space">
   <button type="button" class="sdk-tabbar-tab" aria-current="page">
-    <span class="sdk-tabbar-glyph"><i class="fa-solid fa-comments"></i><span class="sdk-badge-micro" aria-hidden="true">3</span></span>
+    <span class="sdk-tabbar-glyph"><i class="fa-solid fa-comments"></i><span class="sdk-badge-micro" aria-hidden="true">3</span></span> <!-- the glyph is the 24 by 24 icon box -->
     <span class="sdk-tabbar-label">Chat</span>
   </button>
   <button type="button" class="sdk-tabbar-tab" data-role="join" data-pin="1">...Join...</button>   <!-- pinned: never folds -->
@@ -234,7 +238,7 @@ ${code(`<nav class="sdk-tabbar" aria-label="Space">
 ${dim([
     ['Current', '<code>aria-current="page"</code> (a place) or <code>aria-selected="true"</code> (a tab list); today\'s <code>.on</code> is kept.'],
     ['Name', 'A tab with a count or dot has an <code>aria-label</code> that starts with its label ("Chat, 3 new"). The count is <code>aria-hidden</code>.'],
-    ['Fold', 'Tabs that do not fit are <code>hidden</code> and listed in the "..." menu in the same order; <code>data-pin</code> keeps Join, Online, Rejoin and Leave in the bar. The least width is 56px; the number of slots is the bar\'s width less its padding, over 58px.'],
+    ['Fold', 'Tabs that do not fit are <code>hidden</code> and listed in the "..." menu in the same order; <code>data-pin</code> keeps Join, Online, Rejoin and Leave in the bar. The least width is 56px; the number of slots is the bar\'s width less its padding, plus the 4px gap, over 60px.'],
     ['Inset', 'The bar adds <code>env(safe-area-inset-bottom)</code> as padding and height.'],
   ])}
 
@@ -242,7 +246,8 @@ ${dim([
 <p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
 ${tbl(["Decided as drawn","Why"], [
     ["The icon is 20px (the brief asked \"16/20: use 20?\")","20px reads over an 11px label at arm's length, and the target is 45px high either way."],
-    ["The badge sits in the corner of a 36 by 20 icon box, overlapping the icon's top right","The micro count's 3px inset is from the box it sits in; the icon box is the natural one."],
+    ["The badge is anchored to a fixed 24 by 24 icon box: 4px above it and 6px past its right edge","Placed against each glyph's shape, counts sat in different places (Thomas, 2026-10-21). One box, one offset, on every tab."],
+    ["Conference is not a tab on the phone; the call is the pinned call item at the right end; the default tab is the first module (Chat)","Conference first and chosen was the wrong default for a tabletop space (Thomas, 2026-10-21). Join, Online and Leave never fold."],
     ["The inactive colour is the header text 25% toward the header","At 11px it must reach 4.5 to 1 (the 65% header text does not)."],
     ["The tab is 45px high: the bar less 4px of padding above and below and the hairline","It keeps the 54px bar and a target over 44px."],
     ["The folded tabs open in a Menus popover above the bar, right aligned","It is the one menu look."],

@@ -6,7 +6,7 @@
  * Fails on: a bar that is not 54px plus its inset on the bar surface (--header-bg) with one 1px --border hairline on top, a tab narrower than 56px or lower than 44px, a tab
  * whose icon is not 20px over an 11px label 4px apart, a current tab that is not --selected-bg with the accent-mix label (or is accent words on a bare background), a hover or
  * pressed tab that does not change its fill, a focus that is not a 2px accent outline inside the tab (the same on all four sides at 1.25x and 1.5x), a disabled tab not at half
- * strength, a badge that is not the 14px micro count with 9px numbers 3px in from the top and the right of the icon's box, a Join icon that is not --ok, Leave words that are not
+ * strength, a icon box that is not 24 by 24 with the glyph centred, a count or dot that is not at the same place against the icon box on every tab (count 4px above and 6px past the top right corner, dot 1px above and 3px past, within 0.5px), a count within 2px of its label, Conference as the first tab or a first tab that is not current, a badge that is not the 14px micro count with 9px numbers, a Join icon that is not --ok, Leave words that are not
  * the readable red, a bar that overflows or squeezes a tab under 56px instead of folding, a fold that does not put the tabs that do not fit into a "..." tab with a menu above the bar
  * (the current tab kept in the bar, the pinned tabs kept, a pick that selects), a label more than 1px off the middle of its tab, a coloured one-sided edge or a thin coloured
  * block, a weight other than 400, 500 and 600 or text under 11px (the micro count excepted), a contrast pair under its minimum, an alias that does not look like the new name, a frame
@@ -108,13 +108,13 @@ const probe = async () => {
         if (tc.fontSize !== '11px' || tc.fontWeight !== '500') bad(`${t}: a tab label is ${tc.fontSize} weight ${tc.fontWeight}, expected 11px 500`);
         const gl = tb.querySelector('.sdk-tabbar-glyph, :scope > i'); const ic = gl && (gl.matches('i') ? gl : gl.querySelector('i')); const lb = tb.querySelector('.sdk-tabbar-label') || tb.querySelector(':scope > span:not(.badge):not(.sdk-badge-micro)');
         if (!ic || cs(ic).fontSize !== '20px') bad(`${t}: a tab icon is not 20px`);
-        if (ic && lb) { const gap = lb.getBoundingClientRect().top - (gl.matches('i') ? gl : gl).getBoundingClientRect().bottom; if (!near(gap, 4, 1.2)) bad(`${t}: the icon and the label are ${gap}px apart, expected 4`); }
+        if (ic && lb) { const gap = lb.getBoundingClientRect().top - ic.getBoundingClientRect().bottom; if (!near(gap, 4, 1.2)) bad(`${t}: the icon and the label are ${gap}px apart, expected 4`); }
         if ((tb.hasAttribute('aria-current') || tb.classList.contains('on')) && !/ds-force/.test(tb.className)) { if (tc.backgroundColor !== bg(d, 'var(--selected-bg)')) bad(`${t}: the current tab is ${tc.backgroundColor}, not --selected-bg`); if (tc.color !== tok(d, NOW)) bad(`${t}: the current tab's label is not the accent mix`); if (tc.color === tok(d, 'var(--accent)') || tc.backgroundColor === 'rgba(0, 0, 0, 0)') bad(`${t}: the current tab is accent words on a bare background`); } }
       const cur = ts.filter((x) => x.hasAttribute('aria-current') || x.classList.contains('on')); if (cur.length > 1) bad(`${t}: a bar has ${cur.length} current tabs`); } }
   // ---- the widths: 3, 5 and 7 tabs, at 390 and 320 ----
   for (const w of [390, 320]) { const d = get(`Tab bar at ${w}`); if (d.defaultView.innerWidth !== w) bad(`Tab bar at ${w} is ${d.defaultView.innerWidth} wide`);
     const [b3, b5, b7] = [...d.querySelectorAll('.sdk-tabbar')]; const t3 = tabs(b3); if (t3.length !== 3 || !near(t3[0].getBoundingClientRect().width, t3[2].getBoundingClientRect().width, 1)) bad(`Tab bar at ${w}: three tabs do not share the bar equally`);
-    const slots = Math.floor(((w) - 8 + 2) / 58); const want5 = 5 <= slots ? 5 : slots; const t5 = tabs(b5); if (t5.length !== (5 <= slots ? 5 : slots)) bad(`Tab bar at ${w}: the five-tab bar shows ${t5.length} tabs, expected ${want5}`);
+    const slots = Math.floor(((w) - 8 + 4) / 60); const want5 = 5 <= slots ? 5 : slots; const t5 = tabs(b5); if (t5.length !== (5 <= slots ? 5 : slots)) bad(`Tab bar at ${w}: the five-tab bar shows ${t5.length} tabs, expected ${want5}`);
     const t7 = tabs(b7); const more = b7.querySelector(':scope > .sdk-tabbar-more'); if (!more || !vis(more)) bad(`Tab bar at ${w}: seven tabs do not fold into a "..." tab`);
     else { if (t7.length !== slots) bad(`Tab bar at ${w}: the seven-tab bar shows ${t7.length} tabs with the "..." (expected ${slots})`); const budget = b7.querySelector(':scope > .sdk-tabbar-tab[aria-current="page"]'); if (!budget || !vis(budget)) bad(`Tab bar at ${w}: the current tab was folded away`);
       if (!more.hasAttribute('aria-haspopup') || more.getAttribute('aria-expanded') !== 'false') bad('the "..." tab is not a menu button');
@@ -127,11 +127,33 @@ const probe = async () => {
         const pickedLabel = items[0].querySelector('.sdk-menu-label').textContent; items[0].click();
         const now = b7.querySelector(':scope > .sdk-tabbar-tab[aria-current="page"]'); if (!now || now.querySelector('.sdk-tabbar-label').textContent !== pickedLabel || !vis(now)) bad(`Tab bar at ${w}: picking a folded tab does not select it and keep it in the bar`);
         if (!b7.querySelector(':scope > .sdk-tabbar-menu').hidden) bad('picking a folded tab does not close the menu'); } }
-    // badges, in the 5-tab bar
-    const glyphs = [...b5.querySelectorAll('.sdk-tabbar-glyph')]; for (const gl of glyphs) { const m = gl.querySelector('.sdk-badge-micro'); if (!m) continue; const gr = gl.getBoundingClientRect(); const r = m.getBoundingClientRect(); const c = cs(m);
-      if (!near(r.width < 14 ? 14 : r.height, 14) || !near(r.height, 14) || c.fontSize !== '9px') bad(`Tab bar at ${w}: a micro count is ${r.height}px high at ${c.fontSize}, expected 14px and 9px`); if (!near(r.top - gr.top, 3, 0.8) || !near(gr.right - r.right, 3, 0.8)) bad(`Tab bar at ${w}: a micro count is ${r.top - gr.top} from the top and ${gr.right - r.right} from the right of the icon box, expected 3 and 3`);
-      if (!near(gr.width, 36) || !near(gr.height, 20)) bad(`Tab bar at ${w}: the icon box is ${gr.width} by ${gr.height}, expected 36 by 20`); if (!/^[\w -]+, [\d+]+ new$/.test(gl.closest('.sdk-tabbar-tab').getAttribute('aria-label') || '')) bad('a tab with a count has no name with the count'); }
-    const dots = b5.querySelectorAll('.sdk-dot'); if (!dots.length || !near(dots[0].getBoundingClientRect().width, 7)) bad(`Tab bar at ${w}: the dot is not 7px`); }
+    // badges, in the 5-tab bar: the icon box is 24 by 24, the micro count is 14px with 9px numbers
+    const glyphs = [...b5.querySelectorAll('.sdk-tabbar-glyph')]; for (const gl of glyphs) { const gr = gl.getBoundingClientRect(); const m = gl.querySelector('.sdk-badge-micro');
+      if (!near(gr.width, 24) || !near(gr.height, 24)) bad(`Tab bar at ${w}: the icon box is ${gr.width} by ${gr.height}, expected 24 by 24`);
+      const ir = gl.querySelector('i').getBoundingClientRect(); if (!near(ir.left + ir.width / 2, gr.left + 12, 0.6) || !near(ir.top + ir.height / 2, gr.top + 12, 0.6)) bad(`Tab bar at ${w}: the icon is not centred in its box`);
+      if (!m) continue; const r = m.getBoundingClientRect(); const c = cs(m);
+      if (!near(r.height, 14) || c.fontSize !== '9px') bad(`Tab bar at ${w}: a micro count is ${r.height}px high at ${c.fontSize}, expected 14px and 9px`);
+      if (!/^[\w -]+, [\d+]+ new$/.test(gl.closest('.sdk-tabbar-tab').getAttribute('aria-label') || '')) bad('a tab with a count has no name with the count'); }
+    const dots = b5.querySelectorAll('.sdk-dot'); if (!dots.length || !near(dots[0].getBoundingClientRect().width, 7)) bad(`Tab bar at ${w}: the dot is not 7px`);
+    // the first tab is a module (Chat) and is the current one; Conference is not a tab
+    { const f = tabs(b5)[0]; if (f.querySelector('.sdk-tabbar-label').textContent !== 'Chat' || f.getAttribute('aria-current') !== 'page') bad(`Tab bar at ${w}: the first tab is not Chat, chosen`); for (const bb of [b3, b5, b7]) if (/Conference/.test(bb.textContent)) bad(`Tab bar at ${w}: Conference is a tab on the phone bar`); }
+    }
+  // ---- one place for every count and dot, on every bar in the family (light and dark, 390 and 320 are the run's own scenarios; 320 is drawn too) ----
+  { const offs = []; const seen = [];
+    for (const t of TITLES) { const d = get(t); if (/contrast/.test(t)) continue;
+      for (const gl of d.querySelectorAll('.sdk-tabbar-tab:not([hidden]) > .sdk-tabbar-glyph')) { const gr = gl.getBoundingClientRect(); if (gr.width === 0) continue;
+        for (const [sel, kind] of [['.sdk-badge-micro', 'count'], ['.sdk-dot', 'dot']]) { const m = gl.querySelector(sel); if (!m) continue; const r = m.getBoundingClientRect();
+          offs.push({ kind, t, right: r.right - gr.right, top: r.top - gr.top, w: r.width }); } } }
+    for (const kind of ['count', 'dot']) { const of = offs.filter((o) => o.kind === kind); if (of.length < 3) { bad(`only ${of.length} ${kind}s drawn in the Tab bar frames`); continue; }
+      const spread = (k) => Math.max(...of.map((o) => o[k])) - Math.min(...of.map((o) => o[k]));
+      if (spread('top') > 0.5) bad(`the ${kind} top offset from the icon box differs by ${spread('top').toFixed(2)}px across tabs`);
+      if (kind === 'dot' && spread('right') > 0.5) bad(`the dot right offset from the icon box differs by ${spread('right').toFixed(2)}px across tabs`);
+      // a count is anchored by its right edge: the same whatever the digits (1, 3, 12, 99+)
+      if (kind === 'count' && spread('right') > 0.5) bad(`the count right offset from the icon box differs by ${spread('right').toFixed(2)}px across tabs (two digits must grow left)`);
+      const o0 = of[0]; const want = kind === 'count' ? [-4, 6] : [-1, 3]; if (!near(o0.top, want[0], 0.5) || !near(o0.right, want[1], 0.5)) bad(`the ${kind} is ${o0.top} from the icon box top and ${o0.right} past its right edge, expected ${want[0]} and ${want[1]}`); }
+    if (!offs.some((o) => o.kind === 'count' && o.w > 20)) bad('no 99+ count is drawn in the Tab bar frames'); }
+  // a count never touches the label below it
+  for (const t of TITLES) { const d = get(t); if (/contrast/.test(t)) continue; for (const tb of d.querySelectorAll('.sdk-tabbar-tab:not([hidden])')) { const m = tb.querySelector('.sdk-badge-micro, .sdk-dot'); const lb = tb.querySelector('.sdk-tabbar-label'); if (m && lb && m.getBoundingClientRect().bottom > lb.getBoundingClientRect().top - 2) bad(`${t}: a count is within 2px of the label`); } }
   // ---- states and badges ----
   { const d = get('Tab bar, states'); const bars = [...d.querySelectorAll('.sdk-tabbar')]; const [rest, hov, prs, foc, cur, dis] = tabs(bars[0]); const rf = bg(d, 'color-mix(in srgb, var(--header-text) 10%, transparent)');
     if (cs(rest).backgroundColor !== 'rgba(0, 0, 0, 0)' || cs(rest).color !== tok(d, 'color-mix(in srgb, var(--header-text) 75%, var(--header-bg))')) bad('a tab at rest is not the quiet colour on no fill');
@@ -141,7 +163,7 @@ const probe = async () => {
     const curH = tabs(bars[1])[0]; const curF = tabs(bars[2])[1]; const curP = tabs(bars[3])[2]; if (cs(curH).backgroundColor === cs(cur).backgroundColor) bad('a current tab, hovered, does not change its fill'); if (cs(curP).backgroundColor === cs(curH).backgroundColor) bad('a current tab, pressed, looks like hovered'); if (cs(curF).outlineColor !== tok(d, 'color-mix(in srgb, var(--accent) 55%, var(--header-text))') || cs(curF).outlineOffset !== '-2px') bad('the current tab focus is not the accent mix outline inside the tab');
     const badges = [...bars[4].querySelectorAll('.sdk-badge-micro')]; if (badges.length < 3 || !/99\+/.test(bars[4].textContent)) bad('the badges frame does not show a count, 12, 99+'); if (!bars[4].querySelector('.sdk-dot')) bad('the badges frame has no dot'); }
   // ---- the space bar: Join, Online, Leave ----
-  { const d = get('Tab bar, space bar'); const [b1, b2, b3] = [...d.querySelectorAll('.sdk-tabbar')]; const t1 = tabs(b1); const labels = t1.map((x) => x.querySelector('.sdk-tabbar-label').textContent);
+  { const d = get('Tab bar, space bar'); const [b1, b2, b3] = [...d.querySelectorAll('.sdk-tabbar')]; const t1 = tabs(b1); if (t1[0].querySelector('.sdk-tabbar-label').textContent === 'Conference') bad('Conference is the first tab of the space bar'); if (t1[0].getAttribute('aria-current') !== 'page') bad('the first tab of the space bar is not the current one'); const labels = t1.map((x) => x.querySelector('.sdk-tabbar-label').textContent);
     for (const l of ['Join', 'Online', 'Leave']) if (!labels.includes(l)) bad(`the space bar lost "${l}" (pinned tabs never fold)`); if (labels[labels.length - 1] !== 'Leave') bad('Leave is not the last tab'); if (!b1.querySelector(':scope > .sdk-tabbar-more') || !vis(b1.querySelector(':scope > .sdk-tabbar-more'))) bad('the space bar with Join does not fold into "..."');
     const join = t1.find((x) => x.dataset.role === 'join'); if (cs(join.querySelector('.sdk-tabbar-glyph')).color !== tok(d, 'color-mix(in srgb, var(--ok) 70%, var(--header-text))')) bad('the Join icon is not the ok status colour');
     const leave = t1.find((x) => x.dataset.role === 'leave'); if (cs(leave).color !== tok(d, 'color-mix(in srgb, var(--danger) 70%, var(--header-text))')) bad('Leave is not the readable red');
@@ -156,7 +178,8 @@ const probe = async () => {
   { const d = get('Tab bar, aliases'); const sb = d.querySelector('.subnav-modules'); const db = d.querySelector('.dest-tabs'); for (const bar of [sb, db]) { if (!near(bar.getBoundingClientRect().height, 54)) bad(`${bar.className} is not the bar height`); if (cs(bar).backgroundColor !== bg(d, 'var(--header-bg)')) bad(`${bar.className} is not the bar surface`); }
     const on = sb.querySelector('.modules-menu-item.on'); if (cs(on).backgroundColor !== bg(d, 'var(--selected-bg)') || cs(on).color !== tok(d, NOW)) bad('.modules-menu-item.on is not the current look'); const cur = db.querySelector('.dest-tab[aria-current]'); if (cs(cur).backgroundColor !== bg(d, 'var(--selected-bg)') || cs(cur).color !== tok(d, NOW)) bad('.dest-tab[aria-current] is not the current look (it is accent words today)');
     for (const t of [...sb.querySelectorAll('.modules-menu-item'), ...db.querySelectorAll('.dest-tab')]) { const r = t.getBoundingClientRect(); if (r.width < 55.4 || r.height < 43.4 || cs(t).minWidth !== '56px') bad(`${t.className} is under 56 by 44 or its least width is not 56px`); if (cs(t.querySelector('i')).fontSize !== '20px') bad(`${t.className} icon is not 20px`); }
-    const bd = sb.querySelector('.badge'); const br = bd.getBoundingClientRect(); const tr = bd.parentElement.getBoundingClientRect(); if (!near(br.height, 14) || cs(bd).fontSize !== '9px' || !near(br.top - tr.top, 4, 1.2)) bad('.badge in a tab is not the micro count'); }
+    const bd = sb.querySelector('.badge'); const br = bd.getBoundingClientRect(); const tr = bd.parentElement.getBoundingClientRect(); if (!near(br.height, 14) || cs(bd).fontSize !== '9px' || !near(br.top - tr.top, -0, 1.2)) bad('.badge in a tab is not the micro count');
+    { const ic = bd.parentElement.querySelector('i').getBoundingClientRect(); const ibRight = ic.left + ic.width / 2 + 12; const ibTop = ic.top - 2; if (!near(br.right - ibRight, 6, 0.8) || !near(br.top - ibTop, -4, 0.8)) bad('.badge in a tab is not at the icon box corner (' + (br.right - ibRight) + ', ' + (br.top - ibTop) + ', badge top ' + br.top + ', tab top ' + tr.top + ', icon top ' + ic.top + ', icon h ' + ic.height + ', tab h ' + tr.height + ', badge sib ' + [...bd.parentElement.children].map((x) => x.tagName + '.' + x.className + ':' + x.getBoundingClientRect().top).join('|') + ')'); } }
   // ---- the whole family: weights, sizes, edges ----
   for (const t of TITLES) { const d = get(t); if (/contrast/.test(t)) continue; const border = tok(d, 'var(--border)');
     for (const el of d.querySelectorAll('body *')) { if (el.closest('svg') || el.closest('.pm-tb-note') || el.closest('.pm-tb-legend')) continue; const c = cs(el);

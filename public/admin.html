@@ -57,6 +57,32 @@
       </form>
 
       <div id="users" class="users"></div>
+
+      <!-- Sign-up and invites (moved from the Environment tab, #261). -->
+      <div class="panel" id="signup-panel">
+      <h2>Sign-up</h2>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="save-registration" type="button">Save</button>
+        <span class="status" id="registration-status"></span>
+      </div>
+      <p class="hint" data-fill>Or invite someone straight into specific {spaces} without opening sign-up to everyone:</p>
+      <div class="row">
+        <span class="field-label" data-fill>{Spaces}</span>
+        <div class="member-checks" id="invite-spaces"></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="make-invite" type="button">Generate invite link</button>
+        <span class="status" id="invite-status"></span>
+      </div>
+      <div class="row" id="invite-link-row" hidden>
+        <code class="key link" id="invite-link"></code>
+        <button class="btn btn-small" id="invite-copy" type="button">Copy</button>
+        <span class="hint">Expires in 7 days, works once.</span>
+      </div>
+      </div>
     </section>
 
     <section class="tab-stack" id="tab-theme" hidden>
@@ -363,147 +389,141 @@
     </section>
 
     <section class="tab-stack" id="tab-environment">
-      <!-- The environment on a host with several: its plan, what it has used, and the two things an owner may ask of the host. -->
-      <div class="panel" id="env-panel" hidden>
-        <div class="section-head">
-          <h2 data-fill>{Environment}</h2>
-          <span class="pill" id="env-plan-pill"></span>
-          <span class="status" id="env-status"></span>
+      <!-- The Environment tab's parts (#261), each its own stack; the strip goes in the page bar's row, the navigation
+           inside this tab (admin.js, page-tabs.js rowTabs). A part's hash (#localization, #stream, #conference) opens it;
+           #environment is the first. Only the interface moved: every field keeps its id, its setting and its own Save. -->
+      <nav class="subtabs" id="env-subtabs">
+        <button class="subtab active" type="button" data-env-part="general" data-fill>{Environment}</button>
+        <button class="subtab" type="button" data-env-part="localization">Localization</button>
+        <button class="subtab" type="button" data-env-part="stream">Stream</button>
+        <button class="subtab" type="button" data-env-part="conference">Conference</button>
+      </nav>
+      <div class="tab-stack" id="env-part-general" data-env-part="general">
+        <!-- The environment on a host with several: its plan, what it has used, and the two things an owner may ask of the host. -->
+        <div class="panel" id="env-panel" hidden>
+          <div class="section-head">
+            <h2 data-fill>{Environment}</h2>
+            <span class="pill" id="env-plan-pill"></span>
+            <span class="status" id="env-status"></span>
+          </div>
+          <p class="hint env-banner" id="env-banner" hidden></p>
+          <p class="hint" id="env-hint"></p>
+          <dl class="env-caps" id="env-caps"></dl>
+          <div class="row">
+            <a class="btn btn-primary" id="env-upgrade" target="_blank" rel="noopener" hidden>Upgrade</a>
+            <button class="btn" id="env-export" type="button">Download a copy</button>
+            <button class="btn btn-danger" id="env-delete" type="button">Ask for deletion</button>
+            <button class="btn" id="env-delete-cancel" type="button" hidden>Withdraw the deletion request</button>
+          </div>
+          <form class="row" id="env-delete-form" hidden>
+            <input id="env-delete-reason" type="text" maxlength="200" placeholder="Why, in a few words (optional)">
+            <button class="btn btn-danger btn-small" type="submit">Send the request</button>
+            <button class="btn btn-small" type="button" id="env-delete-back">Never mind</button>
+          </form>
         </div>
-        <p class="hint env-banner" id="env-banner" hidden></p>
-        <p class="hint" id="env-hint"></p>
-        <dl class="env-caps" id="env-caps"></dl>
+        <div class="panel">
+        <h2>Name and icon</h2>
+        <p class="hint">The icon and name show in the header, the browser tab and on the sign-in page.</p>
+        <div class="brand-row">
+          <div class="site-images">
+            <div class="slot" data-site="icon" data-slot-name="{Environment} icon">
+              <div class="slot-pick-wrap">
+                <label class="slot-pick icon-size" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
+                <button class="slot-remove" data-action="site-clear" type="button" title="Remove" aria-label="Remove">&times;</button>
+              </div>
+            </div>
+          </div>
+          <div class="fields grow">
+            <label>Name<input id="set-environment-name" type="text" maxlength="60"></label>
+          </div>
+        </div>
+        <p class="hint">The home icon, the words and the <span data-word="module"></span> names are on the <a href="#template">Template</a> tab.</p>
         <div class="row">
-          <a class="btn btn-primary" id="env-upgrade" target="_blank" rel="noopener" hidden>Upgrade</a>
-          <button class="btn" id="env-export" type="button">Download a copy</button>
-          <button class="btn btn-danger" id="env-delete" type="button">Ask for deletion</button>
-          <button class="btn" id="env-delete-cancel" type="button" hidden>Withdraw the deletion request</button>
+          <button class="btn btn-primary" id="save-settings" type="button">Save</button>
+          <span class="status" id="settings-status"></span>
         </div>
-        <form class="row" id="env-delete-form" hidden>
-          <input id="env-delete-reason" type="text" maxlength="200" placeholder="Why, in a few words (optional)">
-          <button class="btn btn-danger btn-small" type="submit">Send the request</button>
-          <button class="btn btn-small" type="button" id="env-delete-back">Never mind</button>
-        </form>
-      </div>
-      <div class="panel">
-      <h2>Name and icon</h2>
-      <p class="hint">The icon and name show in the header, the browser tab and on the sign-in page.</p>
-      <div class="brand-row">
-        <div class="site-images">
-          <div class="slot" data-site="icon" data-slot-name="{Environment} icon">
-            <div class="slot-pick-wrap">
-              <label class="slot-pick icon-size" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
-              <button class="slot-remove" data-action="site-clear" type="button" title="Remove" aria-label="Remove">&times;</button>
+        </div>
+
+        <div class="panel">
+        <h2>Sign-in page</h2>
+        <p class="hint">A picture behind the sign-in box, and a note under the password field.</p>
+        <div class="brand-row stretch">
+          <div class="site-images">
+            <div class="slot" data-site="background" data-slot-name="Sign-in background">
+              <div class="slot-pick-wrap">
+                <label class="slot-pick wide" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
+                <button class="slot-remove" data-action="site-clear" type="button" title="Remove" aria-label="Remove">&times;</button>
+              </div>
+              <button class="btn btn-small slot-library" type="button" data-action="site-library">Choose from the library</button>
+            </div>
+          </div>
+          <div class="fields grow">
+            <label class="wide"><textarea id="set-login-text" rows="3" maxlength="1000" aria-label="Text on the sign-in page" placeholder="A note under the password field"></textarea></label>
+            <div class="wide" id="set-mfa-row">
+              <label class="check"><input type="checkbox" id="set-mfa-required"> Require two-step sign-in for everyone</label>
+              <p class="hint">Off: anyone may set up an authenticator app on their profile, and is then asked for its code. On: everyone must, from their next sign-in.</p>
             </div>
           </div>
         </div>
-        <div class="fields grow">
-          <label>Name<input id="set-environment-name" type="text" maxlength="60"></label>
+        <div class="row">
+          <button class="btn btn-primary" id="save-login" type="button">Save</button>
+          <span class="status" id="login-status"></span>
+        </div>
         </div>
       </div>
-      <p class="hint">The home icon, the words and the <span data-word="module"></span> names are on the <a href="#template">Template</a> tab.</p>
-      <div class="row">
-        <button class="btn btn-primary" id="save-settings" type="button">Save</button>
-        <span class="status" id="settings-status"></span>
-      </div>
-      </div>
 
-      <div class="panel">
-      <h2>Language, time and money</h2>
-      <p class="hint" data-fill>How this {environment} and every {module} show these. Times are on a 12-hour clock unless you choose 24-hour; amounts are shown in this currency unless a trip names its own.</p>
-      <div class="fields">
-        <label>Language<select id="set-language"><option value="en">English</option></select></label>
-        <label>Clock<select id="set-clock"><option value="12">12-hour (10:30 PM)</option><option value="24">24-hour (22:30)</option></select></label>
-        <label>Currency<select id="set-currency"></select></label>
-      </div>
-      <p class="hint">More languages come with translations. Showing a trip's own currency with a conversion beside it needs a source of exchange rates, which is not set up yet.</p>
-      <div class="row">
-        <button class="btn btn-primary" id="save-locale" type="button">Save</button>
-        <span class="status" id="locale-status"></span>
-      </div>
-      </div>
-
-      <div class="panel">
-      <h2>Call features</h2>
-      <p class="hint" data-fill>Turn any of these off for the whole {environment}. All on by default. Portrait size is how large a picture sits in the conference tile when the camera is off. 100 is as tall as the tile. Coffee Pub Studio's participant box uses this same size.</p>
-      <div class="fields">
-        <label>Maximum call quality<select id="set-max-quality"><option value="360">360p</option><option value="540">540p</option><option value="720">720p</option></select></label>
-        <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
-      </div>
-      <div class="checks">
-        <label class="check"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
-        <label class="check" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
-        <label class="check"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
-        <label class="check"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
-        <label class="check" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
-      </div>
-      <div class="row">
-        <button class="btn btn-primary" id="save-features" type="button">Save</button>
-        <span class="status" id="features-status"></span>
-      </div>
-      </div>
-
-      <div class="panel">
-      <h2>Sign-in page</h2>
-      <p class="hint">A picture behind the sign-in box, and a note under the password field.</p>
-      <div class="brand-row stretch">
-        <div class="site-images">
-          <div class="slot" data-site="background" data-slot-name="Sign-in background">
-            <div class="slot-pick-wrap">
-              <label class="slot-pick wide" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
-              <button class="slot-remove" data-action="site-clear" type="button" title="Remove" aria-label="Remove">&times;</button>
-            </div>
-            <button class="btn btn-small slot-library" type="button" data-action="site-library">Choose from the library</button>
-          </div>
+      <div class="tab-stack" id="env-part-localization" data-env-part="localization" hidden>
+        <div class="panel">
+        <h2>Language, time and money</h2>
+        <p class="hint" data-fill>How this {environment} and every {module} show these. Times are on a 12-hour clock unless you choose 24-hour; amounts are shown in this currency unless a trip names its own.</p>
+        <div class="fields">
+          <label>Language<select id="set-language"><option value="en">English</option></select></label>
+          <label>Clock<select id="set-clock"><option value="12">12-hour (10:30 PM)</option><option value="24">24-hour (22:30)</option></select></label>
+          <label>Currency<select id="set-currency"></select></label>
         </div>
-        <div class="fields grow">
-          <label class="wide"><textarea id="set-login-text" rows="3" maxlength="1000" aria-label="Text on the sign-in page" placeholder="A note under the password field"></textarea></label>
-          <div class="wide" id="set-mfa-row">
-            <label class="check"><input type="checkbox" id="set-mfa-required"> Require two-step sign-in for everyone</label>
-            <p class="hint">Off: anyone may set up an authenticator app on their profile, and is then asked for its code. On: everyone must, from their next sign-in.</p>
-          </div>
+        <p class="hint">More languages come with translations. Showing a trip's own currency with a conversion beside it needs a source of exchange rates, which is not set up yet.</p>
+        <div class="row">
+          <button class="btn btn-primary" id="save-locale" type="button">Save</button>
+          <span class="status" id="locale-status"></span>
+        </div>
         </div>
       </div>
-      <div class="row">
-        <button class="btn btn-primary" id="save-login" type="button">Save</button>
-        <span class="status" id="login-status"></span>
-      </div>
+
+      <div class="tab-stack" id="env-part-stream" data-env-part="stream" hidden>
+        <div class="panel">
+        <h2>Access key</h2>
+        <p class="hint"><strong>Optional.</strong> Only needed to show people in OBS or in Coffee Pub Studio; nothing else uses it.</p>
+        <p class="hint" data-fill>A page opened without a sign-in (the Stream {module}'s views for OBS) carries this <strong>access key</strong> in its link instead, and Coffee Pub Studio fetches it by itself when you sign in there. The Stream {module}'s own page builds the links. Regenerating it makes every existing link stop working; Studio re-points its sources on its next sync.</p>
+        <div class="row">
+          <code class="key" id="stream-key">••••••••</code>
+          <button class="btn" id="stream-show" type="button">Show</button>
+          <button class="btn" id="stream-copy" type="button">Copy</button>
+          <button class="btn btn-danger" id="stream-regen" type="button">Regenerate</button>
+        </div>
+        </div>
       </div>
 
-      <div class="panel">
-      <h2>Sign-up</h2>
-      <div class="row">
-        <label class="check"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
-      </div>
-      <div class="row">
-        <button class="btn btn-primary" id="save-registration" type="button">Save</button>
-        <span class="status" id="registration-status"></span>
-      </div>
-      <p class="hint" data-fill>Or invite someone straight into specific {spaces} without opening sign-up to everyone:</p>
-      <div class="row">
-        <span class="field-label" data-fill>{Spaces}</span>
-        <div class="member-checks" id="invite-spaces"></div>
-      </div>
-      <div class="row">
-        <button class="btn btn-primary" id="make-invite" type="button">Generate invite link</button>
-        <span class="status" id="invite-status"></span>
-      </div>
-      <div class="row" id="invite-link-row" hidden>
-        <code class="key link" id="invite-link"></code>
-        <button class="btn btn-small" id="invite-copy" type="button">Copy</button>
-        <span class="hint">Expires in 7 days, works once.</span>
-      </div>
-      </div>
-
-      <div class="panel">
-      <h2>Access key</h2>
-      <p class="hint" data-fill>A page opened without a sign-in (the Stream {module}'s views for OBS) carries this <strong>access key</strong> in its link instead, and Coffee Pub Studio fetches it by itself when you sign in there. The Stream {module}'s own page builds the links. Regenerating it makes every existing link stop working; Studio re-points its sources on its next sync.</p>
-      <div class="row">
-        <code class="key" id="stream-key">••••••••</code>
-        <button class="btn" id="stream-show" type="button">Show</button>
-        <button class="btn" id="stream-copy" type="button">Copy</button>
-        <button class="btn btn-danger" id="stream-regen" type="button">Regenerate</button>
-      </div>
+      <div class="tab-stack" id="env-part-conference" data-env-part="conference" hidden>
+        <div class="panel">
+        <h2>Call features</h2>
+        <p class="hint" data-fill>The conference is built in, not {a module}, so its settings for the whole {environment} are here. Turn it on or off on the <a href="#modules">{Modules}</a> tab.</p>
+        <p class="hint" data-fill>Turn any of these off for the whole {environment}. All on by default. Portrait size is how large a picture sits in the conference tile when the camera is off. 100 is as tall as the tile. Coffee Pub Studio's participant box uses this same size.</p>
+        <div class="fields">
+          <label>Maximum call quality<select id="set-max-quality"><option value="360">360p</option><option value="540">540p</option><option value="720">720p</option></select></label>
+          <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
+        </div>
+        <div class="checks">
+          <label class="check"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
+          <label class="check" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
+          <label class="check"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
+          <label class="check"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
+          <label class="check" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="save-features" type="button">Save</button>
+          <span class="status" id="features-status"></span>
+        </div>
+        </div>
       </div>
     </section>
   </main>

@@ -5,6 +5,8 @@ import { wireFlightSchedule } from '/flight-schedule.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { fileText } from '/file-text.js';
+import { rowTabs } from '/page-tabs.js';
+import { nav } from '/nav-bar.js';
 
 const $ = (id) => document.getElementById(id);
 const userCards = new Map(); // key -> the user's card element
@@ -110,17 +112,18 @@ const TABS = ['environment', 'template', 'theme', 'spaces', 'roles', 'users', 'm
 const OLD_TABS = { settings: 'environment', server: 'environment', rooms: 'spaces' };
 // Old names of sections that moved to the Template tab (addendum 2; Reactions and Icons came from Theme): a link to one opens the tab at it.
 const OLD_SECTIONS = { words: 'words-panel', 'home-icon': 'home-icon-section', reactions: 'reactions-section', icons: 'icons-section' };
-function selectTab(name) {
-  if (OLD_TABS[name]) name = OLD_TABS[name];
-  // A link to a section (an element's id, such as #words-panel or a module's row on the Template tab) opens its tab at it.
-  const at = !TABS.includes(name) && name ? $(OLD_SECTIONS[name] || name) : null;
-  const inTab = at && at.closest('section[id^="tab-"]');
-  if (inTab) name = inTab.id.slice(4);
-  const tab = TABS.includes(name) ? name : 'environment';
-  for (const t of TABS) $(`tab-${t}`).hidden = tab !== t;
-  for (const b of document.querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
-  // A strip wider than the page scrolls inside itself (style.css): bring the chosen tab into it, the page left as it is.
-  const strip = $('subtabs');
+// The Environment tab's parts (#261): its first (the plan, the name and icon, the sign-in page), Localization, Stream
+// and Conference, each a stack of its own, chosen in the page bar's row (#env-subtabs). A part's own hash opens it
+// (#localization, #stream, #conference); #environment is the first part.
+const ENV_PARTS = ['general', 'localization', 'stream', 'conference'];
+let envPart = 'general';
+function showEnvPart(part) {
+  envPart = ENV_PARTS.includes(part) ? part : 'general';
+  for (const el of document.querySelectorAll('#tab-environment > [data-env-part]')) el.hidden = el.dataset.envPart !== envPart;
+  for (const b of $('env-subtabs').querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.envPart === envPart);
+}
+// A strip wider than the page scrolls inside itself (style.css): bring the chosen tab into it, the page left as it is.
+function scrollToChosen(strip) {
   const on = strip.querySelector('.subtab.active');
   if (on && strip.scrollWidth > strip.clientWidth) {
     const t = on.getBoundingClientRect();
@@ -128,7 +131,31 @@ function selectTab(name) {
     if (t.left < s.left) strip.scrollLeft += t.left - s.left;
     else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
   }
-  if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
+}
+let tabNow = 'environment';
+function selectTab(name) {
+  if (OLD_TABS[name]) name = OLD_TABS[name];
+  let part = 'general';
+  if (ENV_PARTS.includes(name) && name !== 'general') {
+    part = name;
+    name = 'environment';
+  }
+  // A link to a section (an element's id, such as #words-panel or a module's row on the Template tab) opens its tab at it.
+  const at = !TABS.includes(name) && name ? $(OLD_SECTIONS[name] || name) : null;
+  const inTab = at && at.closest('section[id^="tab-"]');
+  if (inTab) name = inTab.id.slice(4);
+  const inPart = at && at.closest('#tab-environment > [data-env-part]');
+  if (inPart) part = inPart.dataset.envPart;
+  const tab = TABS.includes(name) ? name : 'environment';
+  tabNow = tab;
+  for (const t of TABS) $(`tab-${t}`).hidden = tab !== t;
+  for (const b of $('subtabs').querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
+  if (tab === 'environment') showEnvPart(part);
+  nav.draw('secondary'); // the page bar's row holds the Environment tab's parts only while it is shown
+  if (tab === 'environment') requestAnimationFrame(() => scrollToChosen($('env-subtabs')));
+  scrollToChosen($('subtabs'));
+  const hash = tab === 'environment' && envPart !== 'general' ? envPart : tab;
+  if (location.hash !== `#${hash}`) history.replaceState(null, '', `#${hash}`);
   // Who has a calendar feed changes on their own Profile, so the Users tab asks again each time it opens.
   if (tab === 'users' && users.length) loadFeeds().then(renderUsers);
   if (inTab) {
@@ -141,6 +168,10 @@ function selectTab(name) {
 $('subtabs').addEventListener('click', (event) => {
   const b = event.target.closest('.subtab');
   if (b) selectTab(b.dataset.tab);
+});
+$('env-subtabs').addEventListener('click', (event) => {
+  const b = event.target.closest('.subtab');
+  if (b) selectTab(b.dataset.envPart === 'general' ? 'environment' : b.dataset.envPart);
 });
 window.addEventListener('hashchange', () => selectTab(location.hash.slice(1)));
 // A section drawn later (a module's row on the Template tab) is opened again once the page has drawn it (init).
@@ -2202,6 +2233,9 @@ async function init() {
   // The tabs in the top bar (#262), as a space's layout tabs are; the page bar's row is left for navigation inside a tab.
   $('subtabs').toggleAttribute('data-top-bar', true);
   renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the page bar (plan-two-zone-nav.md), its tabs in the top bar
+  // The page bar's row: the Environment tab's parts, while that tab is shown (#261).
+  rowTabs({ strip: $('env-subtabs'), label: `${word('environment', { cap: true })} settings`, visible: () => tabNow === 'environment' });
+  requestAnimationFrame(() => scrollToChosen($('env-subtabs'))); // a link to a part: its tab in view in the row
   await loadBranding();
   buildHomeIconGrid(); // after the branding: the choices are its icon list
   wireOverlayBack(word('space', { many: true, cap: true }));

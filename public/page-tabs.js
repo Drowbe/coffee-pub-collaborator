@@ -137,3 +137,26 @@ export function topBarTabs({ strip, label = '' }) {
   menu();
   return { strip, more };
 }
+
+// Navigation inside a tab (#262: the second row is reserved for it): a strip of the page's own `.subtab` buttons in
+// the page bar's row (the secondary bar, renderPageBar()), in the page bar's tab look, scrolling sideways when it does
+// not fit (style.css), never folding. `visible` says when the row holds it (Manage: while its tab is shown); a row with
+// nothing to show is not drawn. The tab shown (`.active`) wears aria-current="page"; the strip is a <nav> landmark
+// named `label`. The page wires its own clicks. Gives the strip.
+export function rowTabs({ strip, label = '', visible = true }) {
+  if (!strip) return null;
+  const view = strip.ownerDocument.defaultView || window;
+  strip.classList.add('page-bar-control');
+  if (label) strip.setAttribute('aria-label', label);
+  const mark = () => {
+    for (const t of strip.querySelectorAll(':scope > .subtab')) {
+      const on = t.classList.contains('active');
+      if (on && t.getAttribute('aria-current') !== 'page') t.setAttribute('aria-current', 'page');
+      else if (!on && t.hasAttribute('aria-current')) t.removeAttribute('aria-current');
+    }
+  };
+  new view.MutationObserver(mark).observe(strip, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  mark();
+  nav.register({ id: strip.id || 'page-row-tabs', bar: 'secondary', zone: 'left', group: 'page', order: 2, fold: false, element: strip, visible });
+  return strip;
+}

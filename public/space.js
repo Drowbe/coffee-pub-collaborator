@@ -1157,7 +1157,7 @@ call
 const joinCallButton = document.createElement('button');
 joinCallButton.type = 'button';
 joinCallButton.id = 'join-call';
-joinCallButton.className = 'btn btn-small btn-accent join-call nav-text'; // the nav text's type, the accent button's colours
+joinCallButton.className = 'btn btn-small btn-primary join-call nav-text'; // the nav text's type, the accent button's colours
 joinCallButton.setAttribute('aria-label', 'Start call');
 joinCallButton.title = 'Start a call from this chat';
 joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
@@ -3825,7 +3825,7 @@ function renderMarkup(text) {
 function iconButton(icon, title, onClick) {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'msg-btn';
+  b.className = 'sdk-icon-btn btn-quiet btn-small';
   b.title = title;
   b.setAttribute('aria-label', title);
   b.innerHTML = `<i class="fa-solid fa-${icon} fa-fw" aria-hidden="true"></i>`;
@@ -4002,7 +4002,7 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   el.repaintVis = (v) => { state = v === 'private' ? 'private' : 'public'; el.dataset.vis = state; paintVis(); };
   const more = document.createElement('button');
   more.type = 'button';
-  more.className = 'sdk-more';
+  more.className = 'sdk-icon-btn btn-quiet btn-small';
   more.title = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
@@ -4201,7 +4201,7 @@ function linkKeepEl(entry, look) {
   if (!chatLinkKeeper?.may || !entry.stored || !chatIdOk(entry.id)) return null;
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'msg-btn chat-link-keep';
+  b.className = 'sdk-icon-btn btn-quiet btn-small chat-link-keep';
   b.textContent = 'Keep';
   b.title = `Keep this link in ${look.name}`;
   b.addEventListener('click', () => keepLink(entry, b));

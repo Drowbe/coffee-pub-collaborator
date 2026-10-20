@@ -401,12 +401,6 @@
 .sdk-menu-category .sdk-menu-label { flex: 1; }
 .sdk-menu-category.open { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .sdk-menu-category.open .sdk-menu-caret, .sdk-menu-category:hover .sdk-menu-caret, .sdk-menu-category:focus-visible .sdk-menu-caret { border-color: var(--text); }
-.sdk-more { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); cursor: pointer; flex: none; box-sizing: border-box; font: inherit; line-height: 1; }
-.sdk-more:hover, .sdk-more:focus-visible { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); outline: none; }
-.sdk-more .ic, .sdk-more i, .sdk-more svg { display: block; margin: 0; }
-.sdk-more svg { width: 1em; height: 1em; fill: currentColor; }
-.sdk-more i { width: 1em; text-align: center; }
-.narrow .sdk-more { width: 40px; height: 40px; }
 `;
 
   // A currency list for a <select> (host.ui.currencySelect, and Manage's Currency, which loads this file for it): the common
@@ -639,7 +633,7 @@
       c.className = 'sdk-editor-corner';
       const b = doc.createElement('button');
       b.type = 'button';
-      b.className = 'sdk-editor-close';
+      b.className = 'sdk-icon-btn btn-quiet btn-small sdk-editor-close';
       b.setAttribute('aria-label', 'Close');
       b.title = 'Close';
       b.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.05 1.64 8 6.59l4.95-4.95 1.41 1.41L9.41 8l4.95 4.95-1.41 1.41L8 9.41l-4.95 4.95-1.41-1.41L6.59 8 1.64 3.05z"/></svg>';
@@ -673,7 +667,7 @@
       row.setAttribute('aria-labelledby', text.id);
       const keep = doc.createElement('button');
       keep.type = 'button';
-      keep.className = 'btn';
+      keep.className = 'btn btn-quiet';
       keep.dataset.editor = 'keep';
       keep.textContent = 'Keep editing';
       keep.addEventListener('click', () => keepEditing());
@@ -1884,7 +1878,7 @@
         const mkBtn = (title, d) => {
           const b = document.createElement('button');
           b.type = 'button';
-          b.className = inForm ? 'sdk-field-btn' : 'sdk-dp-btn';
+          b.className = inForm ? 'sdk-icon-btn' : 'sdk-icon-btn btn-small';
           b.title = title;
           b.setAttribute('aria-label', title);
           b.innerHTML = icon(d);
@@ -2091,7 +2085,7 @@
         ensureUiStyles();
         const btn = el && el.nodeType === 1 ? el : document.createElement('button');
         btn.type = 'button';
-        btn.classList.add('sdk-more');
+        btn.classList.add('sdk-icon-btn', 'btn-quiet', 'btn-small');
         const label = String((o && o.label) || btn.getAttribute('aria-label') || 'More');
         if (!btn.getAttribute('aria-label')) btn.setAttribute('aria-label', label);
         if (!btn.title) btn.title = label;

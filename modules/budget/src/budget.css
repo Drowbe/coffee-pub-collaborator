@@ -25,7 +25,6 @@ body { margin: 0; overflow: hidden; }
 .tile-title { margin: 0 0 8px; color: var(--text-dim); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .target-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .target-head .tile-title { margin: 0; }
-.target-head .btn { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; font-size: 12px; }
 .big { margin: 6px 0 8px; font-size: 24px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
 .big .of { color: var(--text-dim); font-size: 14px; font-weight: 400; }
 .big.over { color: var(--danger); }
@@ -100,7 +99,6 @@ body { margin: 0; overflow: hidden; }
 .amounts { display: grid; justify-items: end; gap: 1px; }
 .amount { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .planned { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
-.row-menu { min-width: 36px; min-height: 36px; margin-right: 2px; }
 .paid-mark { color: var(--ok); }
 
 /* ---- settle up ---- */
@@ -120,7 +118,6 @@ body { margin: 0; overflow: hidden; }
 .state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-dim); }
 .state h2 { color: var(--text); }
 .state .ic { font-size: 28px; color: var(--accent); }
-.state .btn { display: inline-flex; align-items: center; gap: 6px; }
 
 /* ---- the cost: the editor window. #editor is a <dialog> the SDK draws (host.ui.editor): the box, its padding, the backdrop
    and the sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. ---- */
@@ -142,6 +139,5 @@ body { margin: 0; overflow: hidden; }
 .app.narrow .big { font-size: 22px; }
 .app.narrow .chip-btn { min-height: 34px; }
 .app.narrow .cost-main { grid-template-columns: 28px minmax(0, 1fr) auto; padding: 10px 2px 10px 10px; }
-.app.narrow .row-menu { min-width: 40px; min-height: 44px; }
 /* the editor window is a sheet on a phone (the window's width, not the module's): 16 px fields, so iOS does not zoom */
 @media (max-width: 640px) { .editor-card input, .editor-card textarea, .editor-card select, .find input { font-size: 16px; } }

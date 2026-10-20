@@ -55,8 +55,8 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 // The buttons at the end of a module's header: the "..." (an installed module's: its own Clear, then Dock as a panel or
 // Open as a window, and Open in its own window; Thomas, 2026-10-13: those left the titlebar for the "..."), and Close.
 // A module has no snap switch of its own: the Layout menu's Snap to grid is the one (Thomas, 2026-10-13).
-const MORE_HTML = '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
-const CLOSE_HTML = '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
+const MORE_HTML = '<button class="sdk-icon-btn btn-quiet btn-small" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
+const CLOSE_HTML = '<button class="sdk-icon-btn btn-quiet btn-small" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
 
 // `onNote(text)`: a short line for the Layout menu's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
 // Layout menu opened (space.js reads its layouts again as it opens). `menuItems()`: the page's own entries for the
@@ -779,7 +779,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // are not offered, it is not shown (.mod-more-ways).
   const moduleHeader = (m) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace('class="sdk-icon-btn btn-quiet btn-small"', 'class="sdk-icon-btn btn-quiet btn-small mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
 
   // The status bar at the bottom of the module's own window or column (host.status.set; module-host.js fills it), a
   // labelled region hidden until the module sets something.

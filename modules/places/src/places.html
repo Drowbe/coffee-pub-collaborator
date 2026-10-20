@@ -60,7 +60,7 @@
       <div class="pos-field">
         <label>Position<input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="hint" id="f-point-note"></span></label>
         <!-- shown only while a map is open beside: tucks the dialog away, the map waits for a click, the dialog comes back with the spot -->
-        <button class="btn btn-icon pick-point" type="button" id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"><span class="ic" data-icon="crosshairs"></span></button>
+        <button class="sdk-icon-btn pick-point" type="button" id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"><span class="ic" data-icon="crosshairs"></span></button>
       </div>
       <div class="field"><span class="hint" id="f-status-label">Visit</span><div class="status-row" id="f-status" role="group" aria-labelledby="f-status-label"></div></div>
       <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea></label>
@@ -76,7 +76,7 @@
       <p class="error" id="f-error" hidden></p>
       <div class="editor-buttons sdk-editor-actions">
         <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
       </div>
@@ -108,7 +108,7 @@
         <span class="links" data-slot="links"></span>
       </div>
     </div>
-    <button class="item-menu sdk-more" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
+    <button class="item-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
   </article>
 </template>
 <!-- find a place: the heading ("Results for", the text) and the rows; a row is a result with a Save button -->
@@ -123,10 +123,10 @@
 <!-- a space a place is marked into, on its row (only the viewer's own spaces are named) -->
 <template id="tpl-mark"><span class="space-mark"><span class="ic" data-icon="users"></span><span data-slot="name"></span></span></template>
 <!-- asked before a change of ticks takes the place away from people -->
-<template id="tpl-narrow"><div class="conflict-bar narrow-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="keep-shared">Keep it shared</button><button class="btn btn-danger" type="button" data-action="take-away">Take it away</button></div></template>
+<template id="tpl-narrow"><div class="conflict-bar narrow-bar" role="alert"><span data-slot="text"></span><button class="btn btn-small" type="button" data-action="keep-shared">Keep it shared</button><button class="btn btn-small btn-danger" type="button" data-action="take-away">Take it away</button></div></template>
 <template id="tpl-owner"><span class="owner"></span></template>
 <template id="tpl-link"><span class="link"><span class="ic" data-icon=""></span> <b data-slot="kind"></b> <span data-slot="title"></span></span></template>
-<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="use-theirs">Use theirs</button><button class="btn" type="button" data-action="keep-mine">Keep mine</button></div></template>
+<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn btn-small" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <template id="tpl-readonly"><div class="readonly"><dl><dt>Type</dt><dd data-slot="type"></dd><dt>Visit</dt><dd data-slot="status"></dd><dt>Address</dt><dd data-slot="address"></dd><dt>Position</dt><dd data-slot="point"></dd><dt>Whose</dt><dd data-slot="owners"></dd></dl><p data-slot="notes"></p></div></template>
 
 <template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>

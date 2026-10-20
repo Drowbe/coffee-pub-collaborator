@@ -72,7 +72,6 @@ body { margin: 0; overflow: hidden; }
 .editor-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .editor-buttons .grow { flex: 1; }
 .editor-links { display: flex; flex-wrap: wrap; gap: 6px; }
-.editor-links .btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .used-by { display: flex; flex-direction: column; gap: 4px; }
 .used-by-title { color: var(--text-dim); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .readonly dd, .readonly p { margin: 0; overflow-wrap: anywhere; }
@@ -80,7 +79,6 @@ body { margin: 0; overflow: hidden; }
 .readonly dt { color: var(--text-dim); font-size: 12px; }
 .conflict-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-medium); font-size: 12px; }
 .conflict-bar span { flex: 1 1 100%; }
-.conflict-bar .btn { padding: 2px 8px; font-size: 12px; }
 
 /* ---- states ---- */
 .state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-dim); }
@@ -108,12 +106,10 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- as the Map destination's panel: no header or bar; Add a place on top, search results above the list ---- */
 .part-head { display: flex; gap: 8px; }
-.part-head .btn { display: inline-flex; align-items: center; gap: 6px; }
 .scope-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; color: var(--text-dim); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scope-mark .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .place-row.selected { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 30%, var(--bg-card)), color-mix(in srgb, var(--accent) 22%, var(--bg-card))); }
 .find-more { margin: 14px 0 0; text-align: center; }
-.find-more .btn { display: inline-flex; align-items: center; gap: 6px; }
 .app.part .found { position: relative; left: auto; right: auto; bottom: auto; flex: none; max-height: 45%; box-shadow: none; }
 .app.part .state { margin-top: 4vh; }
 
@@ -133,12 +129,10 @@ body { margin: 0; overflow: hidden; }
 .found-row .source { margin: 1px 0 0; display: flex; align-items: center; gap: 5px; color: var(--text-dim); font-size: 11px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .found-row .source:empty { display: none; }
 .found-row .source::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: var(--radius-round); background: var(--accent); }
-.found-row .btn { min-height: 30px; }
 .found-state { padding: 16px; text-align: center; color: var(--text-dim); font-size: 13px; }
 .found-credit { padding: 4px 14px 8px; color: var(--text-dim); font-size: 10px; text-align: right; }
 
 .app.narrow .found { left: 8px; right: 8px; max-height: 65%; }
-.app.narrow .found-row .btn { min-height: 36px; }
 
 /* The Position field with its target button (shown while a map is open): the button sits on the input's line. */
 .pos-field { display: flex; align-items: flex-start; gap: 8px; }

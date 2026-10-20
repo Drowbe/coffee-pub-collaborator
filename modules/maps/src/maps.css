@@ -37,7 +37,6 @@ body { margin: 0; overflow: hidden; }
 
 /* the notice under the tools: adding a place, a warning */
 .banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: var(--radius-round); background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
-.banner .btn { padding: 2px 10px; font-size: 12px; }
 
 /* ---- the map library's own controls, restyled with the tokens ---- */
 .maplibregl-ctrl-group { border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); overflow: hidden; }
@@ -94,8 +93,6 @@ body { margin: 0; overflow: hidden; }
 .pin.draft { --pin: var(--bg-section); --pin-text: var(--accent); }
 .pin.draft .pin-body { border-style: dashed; border-color: var(--accent); }
 
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font: inherit; cursor: pointer; }
-.icon-btn:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 
 /* ---- the editor for a place: a dialog over the module ---- */
 .editor { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 70%, transparent); }
@@ -122,7 +119,6 @@ body { margin: 0; overflow: hidden; }
 
 .app.narrow .map-area { position: absolute; inset: 0; }
 
-.app.narrow .icon-btn { width: 40px; height: 40px; }
 
 .app.narrow .maplibregl-ctrl-group button { width: 40px; height: 40px; }
 
@@ -137,7 +133,6 @@ body { margin: 0; overflow: hidden; }
 .app.narrow .banner { bottom: 44px; }
 
 .state p + p { margin-top: 12px; }
-.state a.btn { text-decoration: none; }
 
 /* the loading skeleton fills the map, with no padding around it */
 .state:has(> .skel) { padding: 0; }
@@ -168,10 +163,8 @@ body { margin: 0; overflow: hidden; }
 .callout-source .open-link:hover, .callout-source .open-link:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); outline: none; }
 .callout-close { position: absolute; top: 8px; right: 8px; }
 .callout-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-.callout-actions .btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .callout-actions .primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .app.narrow .callout-box { left: 8px; right: 8px; bottom: 30px; width: auto; }
-.app.narrow .callout-actions .btn { min-height: 40px; }
 @keyframes callout-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .callout { animation: none; } }
 

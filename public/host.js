@@ -408,14 +408,14 @@ $('environments').addEventListener('change', (e) => {
   restoreFiles.set(slug, file);
   b.textContent = 'Replace its data?';
   b.title = `Replace everything in ${slug} with ${file.name}`;
-  b.classList.add('danger');
+  b.classList.add('btn-danger');
   b.focus();
   setTimeout(() => {
     if (restoreFiles.get(slug) !== file) return; // already restored, or another zip chosen since
     restoreFiles.delete(slug);
     b.textContent = 'Restore backup';
     b.title = '';
-    b.classList.remove('danger');
+    b.classList.remove('btn-danger');
   }, 8000);
 });
 $('environments').addEventListener('change', (e) => {

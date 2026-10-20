@@ -65,7 +65,7 @@
       <p class="error" id="f-error" hidden></p>
       <div class="editor-buttons sdk-editor-actions">
         <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Remove</button>
       </div>
@@ -78,7 +78,7 @@
 
 <template id="tpl-chip-tag"><button class="rs-chip tag on" type="button" title="Stop filtering by this tag"><span data-slot="label"></span><span class="x" aria-hidden="true">&times;</span></button></template>
 <!-- someone changed the object while it is open (as in Places) -->
-<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="use-theirs">Use theirs</button><button class="btn" type="button" data-action="keep-mine">Keep mine</button></div></template>
+<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn btn-small" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <!-- a source of an answer, and anything else that points at another object: a small pill; .gone when the object is no longer there -->
 <template id="tpl-source"><span class="link"><span data-slot="label"></span></span></template>
 <!-- where a card is used: one pill per group of linkers (all the plans that use it, all the tasks), with the linker module's icon. One linker: its kind and title; several: "2 plans". The title attribute lists them. A "+N" pill when there are more groups than fit. -->
@@ -91,7 +91,7 @@
 <template id="tpl-card">
   <article class="rcard" tabindex="0">
     <img class="thumb" data-slot="thumb" alt="" hidden>
-    <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="edit sdk-more" type="button" data-action="edit" aria-label="Edit"><span class="ic" data-icon="pen"></span></button><button class="menu sdk-more" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
+    <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="edit sdk-icon-btn btn-quiet btn-small" type="button" data-action="edit" aria-label="Edit"><span class="ic" data-icon="pen"></span></button><button class="menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
     <div class="site" data-slot="site-wrap"><span class="ic" data-icon="globe"></span><span data-slot="site"></span></div>
     <div class="excerpt" data-slot="excerpt"></div>
     <div class="tags" data-slot="tags"></div>

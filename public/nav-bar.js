@@ -635,7 +635,7 @@ function attachFold(bar, el) {
   const more = doc.createElement('button');
   more.type = 'button';
   more.id = bar === 'secondary' ? 'subnav-more' : 'topbar-more';
-  more.className = 'sdk-more nav-more'; // the same "..." as a module's bars (host.ui.moreButton, module-host.js)
+  more.className = 'sdk-icon-btn btn-quiet btn-small nav-more'; // the same "..." as a module's bars (host.ui.moreButton, module-host.js)
   more.title = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');

@@ -1284,7 +1284,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     row.className = 'chat-object-keeprow';
     const keep = document.createElement('button');
     keep.type = 'button';
-    keep.className = 'msg-btn chat-object-keep';
+    keep.className = 'sdk-icon-btn btn-quiet btn-small chat-object-keep';
     keep.textContent = 'Keep';
     const where = document.createElement('span');
     where.className = 'chat-object-place';
@@ -1335,7 +1335,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       }
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'msg-btn chat-object-place-btn';
+      btn.className = 'sdk-icon-btn btn-quiet btn-small chat-object-place-btn';
       btn.setAttribute('aria-haspopup', 'menu');
       btn.setAttribute('aria-label', `Keep in ${t.moduleName}: choose another place`);
       btn.title = 'Choose where';

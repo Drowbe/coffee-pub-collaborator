@@ -768,11 +768,11 @@ export function sameSiteOpener() {
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };
 
-// The host's "..." (same look as host.ui.moreButton / .sdk-more inside a module).
+// The host's "..." (same look as host.ui.moreButton / .sdk-icon-btn inside a module).
 function drawMoreButton(doc, extraClass, onClick) {
   const more = doc.createElement('button');
   more.type = 'button';
-  more.className = extraClass ? `sdk-more ${extraClass}` : 'sdk-more';
+  more.className = extraClass ? `sdk-icon-btn btn-quiet btn-small ${extraClass}` : 'sdk-icon-btn btn-quiet btn-small';
   more.title = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
@@ -1003,7 +1003,7 @@ export function createAddSlot(add, send) {
     if (!addButton) {
       addButton = doc.createElement('button');
       addButton.type = 'button';
-      addButton.className = 'sdk-more mod-add';
+      addButton.className = 'sdk-icon-btn btn-quiet btn-small mod-add';
       const i = doc.createElement('i');
       i.className = 'fa-solid fa-plus fa-fw';
       i.setAttribute('aria-hidden', 'true');
@@ -1772,7 +1772,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       for (const item of shown) {
         const b = doc.createElement('button');
         b.type = 'button';
-        b.className = `msg-btn${item.on ? ' on' : ''}`;
+        b.className = `sdk-icon-btn btn-quiet btn-small${item.on ? ' on' : ''}`;
         b.title = item.title;
         b.setAttribute('aria-label', item.title || item.id);
         b.setAttribute('aria-pressed', String(item.on));
@@ -1914,7 +1914,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         }
         const b = doc.createElement('button');
         b.type = 'button';
-        b.className = `tb-btn${item.primary ? ' primary' : ''}${item.on ? ' on' : ''}`;
+        b.className = `btn btn-small ${item.primary ? 'btn-primary' : 'btn-quiet'}${item.on ? ' on' : ''}`;
         b.disabled = item.disabled;
         b.dataset.tbKey = toolbarKey('btn', item.id);
         if (item.on !== null) b.setAttribute('aria-pressed', String(item.on));

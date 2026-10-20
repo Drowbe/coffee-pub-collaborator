@@ -13,8 +13,6 @@ body { margin: 0; overflow: hidden; }
 .msg { padding: 16px; color: var(--text-dim); }
 .error { margin: 0; color: var(--danger); }
 .rs { position: relative; }
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font: inherit; cursor: pointer; }
-.icon-btn:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 .rs-search > .ic { font-size: 13px; }
 .rcard .ic svg { width: 1em; height: 1em; }
 /* the card the model writes inside its answer: drawn inline, kept only when the person keeps or drags it */
@@ -149,10 +147,8 @@ body { margin: 0; overflow: hidden; }
 .editor-card[data-kind="answer"] [data-kinds]:not([data-kinds~="answer"]) { display: none; }
 .conflict-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-medium); font-size: 12px; }
 .conflict-bar span { flex: 1 1 100%; }
-.conflict-bar .btn { padding: 2px 8px; font-size: 12px; }
 .with-button { display: flex; gap: 6px; align-items: stretch; }
 .with-button input { flex: 1; min-width: 0; }
-.with-button .btn { flex: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 /* a photo whose file is gone: the picture 404s, so the crop shows a quiet placeholder */
 .rcard .thumb.missing { object-fit: none; display: flex; }
 .rcard .thumb.missing { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-dim) 10%, transparent) 0 8px, transparent 8px 16px), color-mix(in srgb, var(--tone) 12%, var(--bg-card)); }

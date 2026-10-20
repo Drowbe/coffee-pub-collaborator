@@ -24,7 +24,7 @@
       <div class="tile target" id="target-tile">
         <div class="target-head">
           <h2 class="tile-title" data-slot="target-title">Target</h2>
-          <button class="btn" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
+          <button class="btn btn-small" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
         </div>
         <p class="big" data-slot="big"></p>
         <div class="bar" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="bar-expected" id="bar-expected"></span><span class="bar-spent" id="bar-spent"></span></div>
@@ -99,7 +99,7 @@
       <p class="error" id="f-error" role="alert" hidden></p>
       <div class="editor-buttons sdk-editor-actions" id="f-actions">
         <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
       </div>
@@ -116,7 +116,7 @@
       <p class="error" id="t-error" role="alert" hidden></p>
       <div class="editor-buttons sdk-editor-actions">
         <button class="btn btn-primary" type="submit" id="t-save">Save</button>
-        <button class="btn" type="button" id="t-cancel">Cancel</button>
+        <button class="btn btn-quiet" type="button" id="t-cancel">Cancel</button>
       </div>
     </form>
   </dialog>
@@ -142,7 +142,7 @@
         <span class="planned" data-slot="planned"></span>
       </span>
     </button>
-    <button class="row-menu sdk-more" type="button" data-action="menu" aria-label="Cost menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
+    <button class="row-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Cost menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
   </article>
 </template>
 

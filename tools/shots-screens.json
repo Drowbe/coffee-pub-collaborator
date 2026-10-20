@@ -1449,7 +1449,7 @@
    "wait": "button.status-fact[data-module=budget]",
    "steps": [
     {
-     "click": "button.sdk-icon-btn.chat-object-place-btn"
+     "click": "button.btn.chat-object-place-btn"
     }
    ],
    "call": true,

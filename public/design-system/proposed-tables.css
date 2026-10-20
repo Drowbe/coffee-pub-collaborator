@@ -128,11 +128,12 @@
 /* The empty row and the loading row. */
 .ds-proposed .sdk-table-empty > td { padding: 24px 16px; color: var(--text-dim); text-align: center; background: var(--tbl-surface); }
 .ds-proposed .sdk-table tbody tr.sdk-table-empty:hover > td { background: var(--tbl-surface); }
-.ds-proposed .sdk-skel { display: block; height: 12px; margin: 3px 0; max-width: 100%; border-radius: var(--radius-min); background: color-mix(in srgb, var(--text) 10%, transparent); }
+/* The bars are the States family's skeleton (.sdk-skel .sdk-skel-line, one shimmer, defined once in proposed-states.css); the table only spaces them. */
+.ds-proposed .sdk-table-skel .sdk-skel { margin: 3px 0; max-width: 100%; }
 .ds-proposed .sdk-table tbody tr.sdk-table-skel:hover > td { background: var(--tbl-surface); }
-.ds-proposed .sdk-skel.is-short { width: 40%; }
-.ds-proposed .sdk-skel.is-mid { width: 70%; }
-.ds-proposed .sdk-skel.is-num { width: 36px; margin-left: auto; }
+.ds-proposed .sdk-table-skel .is-short { --w: 40%; }
+.ds-proposed .sdk-table-skel .is-mid { --w: 70%; }
+.ds-proposed .sdk-table-skel .is-num { --w: 36px; margin-left: auto; }
 .ds-proposed .sdk-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* A phone: the first column stays while the rest scrolls; the tick column keeps a 44px target. */

@@ -41,6 +41,9 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 
 .ds-block { margin: 0 0 28px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-section); }
 .ds-block[hidden] { display: none; }
+/* A Proposed family that has not drawn yet (it draws when opened or scrolled near): its heading and a loading line. */
+.ds-pending { min-height: 560px; }
+.ds-loading { height: 160px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-medium); background: var(--bg); color: var(--text-dim); font-size: 13px; }
 .ds-block > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
 .ds-block h3 { margin: 0; font-size: 18px; }
 .ds-block h3 a { color: inherit; }

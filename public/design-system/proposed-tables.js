@@ -51,8 +51,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const emptyBody = () => wrap(`<div class="sdk-panel"><div class="pm-tb-two">
     <div>${CAP('Empty')}<div class="sdk-table-wrap"><table class="sdk-table" aria-label="Files"><thead><tr>${th('Name')}${th('Type')}${th('Size', { cls: 'num' })}</tr></thead><tbody><tr class="sdk-table-empty"><td colspan="3">No files yet.</td></tr></tbody></table></div></div>
     <div>${CAP('Loading: skeleton rows')}<div class="sdk-table-wrap"><table class="sdk-table" aria-label="Files" aria-busy="true"><thead><tr>${th('Name')}${th('Type')}${th('Size', { cls: 'num' })}</tr></thead><tbody>
-      ${[0, 1, 2].map(() => `<tr class="sdk-table-skel"><td><span class="sdk-skel is-mid"></span></td><td><span class="sdk-skel is-short"></span></td><td class="num"><span class="sdk-skel is-num"></span></td></tr>`).join('')}</tbody></table><span class="sdk-sr-only" role="status">Loading files</span></div>
-      <p class="pm-tb-note">The rows keep their height and hairlines; each bar is the text colour at 10%. The table is <code>aria-busy</code> and a hidden line says "Loading files".</p></div></div></div>`);
+      ${[0, 1, 2].map(() => `<tr class="sdk-table-skel"><td><span class="sdk-skel sdk-skel-line is-mid"></span></td><td><span class="sdk-skel sdk-skel-line is-short"></span></td><td class="num"><span class="sdk-skel sdk-skel-line is-num"></span></td></tr>`).join('')}</tbody></table><span class="sdk-sr-only" role="status">Loading files</span></div>
+      <p class="pm-tb-note">The rows keep their height and hairlines; each bar is the States skeleton line (12px, one shimmer). The table is <code>aria-busy</code> and a hidden line says "Loading files".</p></div></div></div>`);
 
   const stickyBody = () => wrap(`<div class="sdk-panel">${CAP('Sticky header in a scrolling table (scroll the box)')}${filesTable({ tall: true, rows: FILES.concat(FILES).concat(FILES).map((r, i) => [r[0] + (i > 3 ? ' ' + (i + 1) : ''), r[1], r[2], r[3]]) })}</div>`);
 

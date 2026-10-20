@@ -264,6 +264,11 @@ async function browse(cdp, label, url, scenarios, shots) {
     for (let i = 0; i < 400; i += 1) { await new Promise((r) => setTimeout(r, 150)); if (await ev('!!(window.__dsStats && window.__dsStats.ready)')) { ok = true; break; } }
     const where = `${label} ${sc.width} ${sc.mode}`;
     if (!ok) { problems.push(`${where}: the page did not finish drawing`); continue; }
+    // The Proposed page draws a family when it is opened or scrolled near; the checks measure every family, so draw them all first.
+    if (sc.proposed) {
+      if (await ev("typeof window.DS_PROPOSED.renderAll") !== 'function') problems.push(`${where}: the page has no window.DS_PROPOSED.renderAll`);
+      else await ev('window.DS_PROPOSED.renderAll().then(() => true)');
+    }
     await new Promise((r) => setTimeout(r, 500));
     last = await ev('JSON.stringify({ ...window.__dsStats, errors: window.__dsStats.errors.slice(0, 5) })');
     const s = JSON.parse(last);
@@ -271,13 +276,14 @@ async function browse(cdp, label, url, scenarios, shots) {
     if (s.loaded !== s.frames) problems.push(`${where}: ${s.loaded} of ${s.frames} example frames loaded`);
     if (sc.proposed) {
       // Only the proposal is on the page, its rules reach its frames, and a forced state really renders.
-      if (s.families < 1 || s.undecided < 15) problems.push(`${where}: too little drawn (${s.families} decided, ${s.undecided} still to decide)`);
-      const page = JSON.parse(await ev(`JSON.stringify({ today: typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined', undecidedLinks: document.querySelectorAll('.ds-undecided a').length })`));
+      if (s.families < 1 || s.undecided < 1) problems.push(`${where}: too little drawn (${s.families} decided, ${s.undecided} still to decide)`);
+      const page = JSON.parse(await ev(`JSON.stringify({ today: typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined', undecidedLinks: document.querySelectorAll('.ds-undecided a').length, drawnAlsoUndecided: (window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => window.DS_PROPOSED.families.some((f) => f.name.toLowerCase() === n.toLowerCase() || f.id === n.toLowerCase())) })`));
       // Each family's own checks, in the order of tools/check-design-system-families.json. They share the page, so each leaves the switches as it found them.
       const b = { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours };
       for (const m of checks) if (m.browserChecks) await m.browserChecks(b);
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       if (page.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
+      if (page.drawnAlsoUndecided.length) problems.push(`${where}: named both as a drawn family and as still to decide: ${page.drawnAlsoUndecided.join(', ')}`);
       if (page.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
     } else if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);
     const sideways = await ev('document.documentElement.scrollWidth - document.documentElement.clientWidth');

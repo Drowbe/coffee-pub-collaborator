@@ -376,7 +376,7 @@ ${dim([
 <div data-slot="surface"></div>
 ${tbl(['', 'Dark', 'Light', 'Note'], [
     ['<code>--shadow-2</code> (<b>Decided 2026-10-19</b>)', '<code>0 4px 12px rgba(0, 0, 0, 0.40)</code>', '<code>0 4px 12px</code> of <code>--text</code> at 14%', 'The one shadow of what floats: a menu, a flyout, a popover, the list under a field. Thomas asked that it not be too large, so it is smaller and tighter than today\'s <code>0 8px 24px</code> (it reaches 16px below a menu, not 32px). Measured at 1280: in the light mode the darkest shadow pixel under a menu is 1.21 to 1 against the page behind (1.34 over a section); in the dark mode it is 1.05 to 1 and the 1px hairline (1.39 to 1) does the separating. <code>--shadow-1</code> (a card while dragged) is <code>0 2px 8px</code>, smaller than this one. Windows and dialogs get their own <code>--shadow-3</code> with the Dialogs family. The bottom sheet has no shadow: the scrim separates it.'],
-    ['<code>--scrim</code> (<b>Decided 2026-10-19</b>)', '<code>rgba(0, 0, 0, 0.55)</code>', '<code>rgba(0, 0, 0, 0.35)</code>', 'The backdrop behind the bottom sheet. The Dialogs family will use the same token.'],
+    ['<code>--scrim</code> (<b>Decided 2026-10-19</b>)', '<code>rgba(0, 0, 0, 0.55)</code>', '<code>rgba(0, 0, 0, 0.55)</code> (the same in light: the token is Foundations\'s)', 'The backdrop behind the bottom sheet. Dialogs and sheets use the same token.'],
     ['<code>--z-menu</code>', '26', '26', 'The one layer for menus, flyouts, popovers and the sheet with its scrim. It exists today. The other layers in use (9999, 30, 40, 60, 7, 20) go.'],
   ])}
 
@@ -501,7 +501,7 @@ ${tbl(['Today has', 'Now'], [
 <h4 class="ds-h4" id="menus-tokens">Tokens</h4>
 ${tbl(['Token', 'Use here', ''], [
     ['<code>--shadow-2</code>', 'The one shadow of what floats. Dark <code>0 4px 12px rgba(0, 0, 0, 0.40)</code>; light <code>0 4px 12px</code> of <code>--text</code> at 14%.', 'new'],
-    ['<code>--scrim</code>', 'The backdrop of the sheet: black at 55% (dark) or 35% (light).', 'new'],
+    ['<code>--scrim</code>', 'The backdrop of the sheet: black at 55% in both modes (the Foundations token).', 'new'],
     ['<code>--menu-pad</code>, <code>--menu-w-min</code>, <code>--menu-w-max</code>', '4px; 180px; 320px.', 'new'],
     ['<code>--menu-item-h</code>, <code>--menu-font</code>', '32px (44px at 640px and narrower, and with <code>.narrow</code>); 14px.', 'new'],
     ['<code>--menu-hover</code>, <code>--menu-press</code>', 'The quiet fills: <code>--text</code> at 10% and 16%, mixed with transparent.', 'new'],

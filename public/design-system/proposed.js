@@ -239,14 +239,50 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     for (const b of $$('.ds-block')) b.hidden = Boolean(q) && !b.dataset.name.includes(q);
     for (const n of navItems) { const t = D.getElementById(n.id); n.li.hidden = Boolean(q) && (t ? t.hidden : !n.name.includes(q)); }
   }
-  // #buttons, and the older #proposed/buttons, scroll to that block or heading.
+  // #buttons, and the older #proposed/buttons, draw that family if it is not drawn yet, then scroll to its block or heading.
+  // The block grows when its frames load, so the scroll is made again once they have.
   function route(first) {
     const id = decodeURIComponent(location.hash.slice(1)).replace(/^proposed\//, '');
+    const fam = id && byId.get(id);
+    if (fam) draw(fam);
     const t = id && (D.getElementById(id) || D.getElementById('p-' + id));
     for (const n of navItems) { const a = $('a', n.li); if (n.id === id) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); }
-    if (t) { t.scrollIntoView(); return; }
+    if (t) {
+      t.scrollIntoView();
+      if (fam && fam.ready) return fam.ready.then(() => { if (decodeURIComponent(location.hash.slice(1)).replace(/^proposed\//, '') === id) (D.getElementById(id) || t).scrollIntoView(); });
+      return null;
+    }
     if (!first) window.scrollTo(0, 0);
+    return null;
   }
+
+  // ---- drawing on demand: a family draws its frames only when it is selected (nav or #hash) or scrolled near; until then its block is
+  // a heading and a loading line. window.DS_PROPOSED.renderAll() draws every family (the checks measure them all) and resolves when every
+  // frame has loaded. ----
+  const byId = new Map(); // family id -> { p, holder, block, ready }
+  let api = null;
+  function draw(fam) {
+    if (fam.block) return fam.ready;
+    const p = fam.p;
+    const before = frameReady.length;
+    let b;
+    try { b = p.render(api); } catch (e) { stats.errors.push('render ' + p.id + ': ' + (e && e.stack || e)); b = mk('section', 'ds-block'); b.innerHTML = `<header><h3>${h(p.name)}</h3></header><p class="ds-desc">This family failed to draw.</p>`; }
+    b.id = p.id; b.classList.add('ds-block'); b.dataset.name = fam.holder.dataset.name; b.hidden = fam.holder.hidden;
+    fam.holder.replaceWith(b);
+    fam.block = b;
+    if (fam.observer) { fam.observer.unobserve(fam.holder); fam.observer = null; }
+    fam.ready = Promise.all(frameReady.slice(before));
+    return fam.ready;
+  }
+  async function renderAll() {
+    for (const fam of byId.values()) draw(fam);
+    // frames added by a draw while we wait are waited for too
+    let n = -1;
+    while (n !== frameReady.length) { n = frameReady.length; await Promise.all(frameReady); }
+    return stats.frames;
+  }
+  window.DS_PROPOSED.renderAll = renderAll;
+  window.DS_PROPOSED.draw = (id) => { const f = byId.get(id); return f ? draw(f) : null; };
 
   async function init() {
     await loadFamilies();
@@ -261,14 +297,16 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     sec.id = 'top';
     sec.innerHTML = `<h2>Design system: proposed</h2><p class="ds-lead">The system as Thomas has decided it, one family at a time. Only decided components are drawn, as specs, from the proposed rules (<code>proposed.css</code>, all under <code>.ds-proposed</code>, so the product is untouched). A family not yet decided is listed by name only. ${chip('approved')} decided, ${chip('proposed')} drawn and waiting for a decision, ${chip('undecided')} not yet decided. What exists today is on its own page: <a href="index.html">Today's inventory</a>.</p>`;
     content.appendChild(sec);
-    const api = { mk, h, makeFrame, mode: () => mode };
+    api = { mk, h, makeFrame, mode: () => mode };
     sec.appendChild(mk('h3', 'ds-group', 'Decided'));
     const ulF = decided.some((p) => p.navGroup) ? navGroup(decided.find((p) => p.navGroup).navGroup) : null;
     const ul = navGroup('Decided');
     for (const p of decided) {
-      const b = p.render(api);
-      b.id = p.id; b.classList.add('ds-block'); b.dataset.name = (p.name + ' ' + p.id + ' ' + (p.words || '')).toLowerCase();
-      sec.appendChild(b);
+      const holder = mk('section', 'ds-block ds-pending');
+      holder.id = p.id; holder.dataset.name = (p.name + ' ' + p.id + ' ' + (p.words || '')).toLowerCase();
+      holder.innerHTML = `<header><h3>${h(p.name)}</h3>${chip(p.status)}</header><div class="ds-loading" role="status"><span>Loading...</span></div>`;
+      sec.appendChild(holder);
+      byId.set(p.id, { p, holder, block: null, ready: null, observer: null });
       navItem(p.navGroup ? ulF : ul, p.name, p.id, p.status, p.name + ' ' + p.id + ' ' + (p.words || ''));
     }
     sec.appendChild(mk('h3', 'ds-group', 'Still to decide'));
@@ -284,9 +322,26 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
         navItem(gul, name, id, 'undecided', name + ' ' + g.group);
       }
     }
-    await Promise.all(frameReady);
-    $('#ds-status').textContent = `${stats.families} decided ${stats.families === 1 ? 'family' : 'families'}, ${stats.undecided} still to decide, ${stats.frames} example frames.`;
-    route(true);
+    // The family in the address (if any) draws first and is scrolled to; then the ones near the screen draw as it scrolls.
+    const first = decodeURIComponent(location.hash.slice(1)).replace(/^proposed\//, '');
+    const target = route(true);
+    const watch = () => {
+      if (!window.IntersectionObserver) { renderAll(); return; }
+      const io = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const fam = [...byId.values()].find((f) => f.holder === e.target);
+          if (fam) draw(fam);
+        }
+      }, { rootMargin: '1200px 0px' });
+      for (const fam of byId.values()) if (!fam.block) { fam.observer = io; io.observe(fam.holder); }
+    };
+    if (first && byId.has(first)) await target;
+    watch();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    let n = -1;
+    while (n !== frameReady.length) { n = frameReady.length; await Promise.all(frameReady); }
+    $('#ds-status').textContent = `${stats.families} decided ${stats.families === 1 ? 'family' : 'families'}, ${stats.undecided} still to decide. A family draws its example frames when you open it or scroll near it.`;
     stats.ready = true;
   }
 

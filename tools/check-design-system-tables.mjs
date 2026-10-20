@@ -25,6 +25,7 @@ export function staticChecks({ fail, css, js, defined }) {
   if (/var\(--accent\)/.test(header.split('}')[0])) fail('proposed-tables.css: the table header uses the accent colour');
   const group = /\.sdk-table-group[^{]*\{[^}]*\}/.exec(css);
   if (!group || /--accent/.test(group[0])) fail('proposed-tables.css: the group row uses the accent colour');
+  if (/(^|[\s,}])\.ds-proposed\s+\.sdk-skel\s*[{,.]/.test(css)) fail('proposed-tables.css: it styles .sdk-skel itself; the skeleton belongs to the States family (scope table spacing under .sdk-table-skel)');
   if (!/position:\s*sticky/.test(css)) fail('proposed-tables.css: no sticky header');
   if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-tables.js: the family is not marked Proposed');
   for (const c of ['sdk-table', 'sdk-table-wrap', 'sdk-table-group', 'sdk-table-empty', 'sdk-table-check', 'sdk-sort', 'sdk-skel', 'sdk-member', 'sdk-member-pic', 'sdk-member-name', 'sdk-member-dot', 'sdk-member-toggle', 'sdk-members',
@@ -54,7 +55,7 @@ const tablesProbe = async () => {
     const border = tok(d, 'var(--border)'); const accent = tok(d, 'var(--accent)');
     for (const el of d.querySelectorAll('.ds-proposed *')) {
       const c = cs(el); const nm = `${t}: ${el.className || el.tagName}`;
-      if (/gradient/.test(c.backgroundImage)) bad(`${nm}: a gradient`);
+      if (/gradient/.test(c.backgroundImage) && !el.classList.contains('sdk-skel')) bad(`${nm}: a gradient`); // the one gradient is the States skeleton's shimmer
       const sides = ['Top', 'Right', 'Bottom', 'Left'].map((s) => ({ w: c['border' + s + 'Width'], col: c['border' + s + 'Color'], st: c['border' + s + 'Style'] })).filter((s) => !(s.st === 'none' || s.w === '0px'));
       if (sides.length && sides.length < 4) for (const s of sides) if (s.col !== border) bad(`${nm}: a coloured one-sided border (${s.col})`);
       if (el.matches('th') && c.color === accent) bad(`${nm}: a header in the accent colour`);
@@ -94,7 +95,7 @@ const tablesProbe = async () => {
   // Empty and loading.
   { const d = get('Tables, empty and loading'); const e = d.querySelector('.sdk-table-empty td'); if (!e || e.getAttribute('colspan') !== '3' || cs(e).textAlign !== 'center' || cs(e).color !== tok(d, 'var(--text-dim)')) bad('the empty row is not one centred muted cell');
     const l = d.querySelector('table[aria-busy="true"]'); if (!l) bad('the loading table is not aria-busy'); else { if (l.querySelectorAll('.sdk-skel').length < 6) bad('the loading rows have too few bars'); if (!d.querySelector('[role="status"]') || !/Loading/.test(d.querySelector('[role="status"]').textContent)) bad('the loading table has no status line');
-      const bar = cs(l.querySelector('.sdk-skel')); if (bar.backgroundColor !== bg(d, 'color-mix(in srgb, var(--text) 10%, transparent)')) bad('a loading bar is not the text colour at 10%');
+      const bar = cs(l.querySelector('.sdk-skel')); if (bar.backgroundColor !== bg(d, 'var(--skel-base)')) bad('a loading bar is not the States skeleton colour (--skel-base)'); if (!/sdk-shimmer/.test(bar.animationName)) bad('a loading bar does not shimmer with the States keyframe'); if (parseFloat(bar.height) !== 12) bad(`a loading bar is ${bar.height} high; the States skeleton line is 12px`);
       const rowH = l.querySelector('tbody tr').getBoundingClientRect().height; if (rowH < 33) bad(`a loading row is ${rowH}px high; it should keep the height of a row`); } }
   // Sticky header: scroll the box and the header stays.
   { const d = get('Tables, sticky header'); const wrap = d.querySelector('.sdk-table-wrap'); if (cs(wrap).overflowY !== 'auto') bad('the sticky example does not scroll'); wrap.scrollTop = 100; await wait(80);

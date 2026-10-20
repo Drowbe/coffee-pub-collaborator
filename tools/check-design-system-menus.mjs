@@ -175,7 +175,7 @@ const menusProbe = async () => {
     if (cs.borderTopLeftRadius !== '11px' || cs.borderTopRightRadius !== '11px' || cs.borderBottomLeftRadius !== '0px') bad(`the sheet corners are ${cs.borderTopLeftRadius} ${cs.borderBottomLeftRadius}, not large on top and square below`);
     if (cs.boxShadow !== 'none') bad('the sheet has a shadow of its own');
     if (cs.backgroundColor !== bgTok(d, 'var(--bg-card)')) bad('the sheet is not --bg-card');
-    const sc2 = d.querySelector('.sdk-menu-scrim'); if (!sc2 || getComputedStyle(sc2).backgroundColor !== bgTok(d, 'var(--scrim)')) bad('the scrim is not --scrim');
+    const sc2 = d.querySelector('.sdk-menu-scrim'); if (!sc2 || getComputedStyle(sc2).backgroundColor !== bgTok(d, 'var(--scrim)')) bad('the scrim is not --scrim'); else if (getComputedStyle(sc2).backgroundColor !== 'rgba(0, 0, 0, 0.55)') bad(`the scrim is ${getComputedStyle(sc2).backgroundColor}, not black at 55% in both modes (the Foundations token)`);
     if (!d.querySelector('.sdk-menu-grip') || !d.querySelector('.sdk-menu-sheet .sdk-search input')) bad('the sheet has no handle or no search field');
     const rows = d.querySelectorAll('.sdk-menu-sheet .sdk-kind-option'); if (rows.length < 9) bad(`the sheet shows only ${rows.length} rows`);
     const r = sh.getBoundingClientRect(); const wr = d.defaultView.innerWidth; if (r.width < wr - 1) bad(`the sheet is ${r.width}px in a ${wr}px frame`);

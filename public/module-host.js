@@ -2202,10 +2202,11 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (!res.ok) throw new Error(`${url} ${res.status}`);
       return res.text();
     };
-    const [sdkCss, css, body] = await Promise.all([text('/sdk/host.css'), text(`${base}?part=css`), text(`${base}?part=body`)]);
+    const [sdkCss, systemCss, css, body] = await Promise.all([text('/sdk/host.css'), text('/sdk/system.css'), text(`${base}?part=css`), text(`${base}?part=body`)]);
     const root = container.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
-    style.textContent = scopeCss(sdkCss) + '\n' + scopeCss(css);
+    // system.css after host.css, as the app's pages load it (the design system's tokens and roles; nothing reads them yet).
+    style.textContent = scopeCss(sdkCss) + '\n' + scopeCss(systemCss) + '\n' + scopeCss(css);
     root.appendChild(style);
     const tpl = document.createElement('template');
     tpl.innerHTML = body;

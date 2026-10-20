@@ -1,0 +1,216 @@
+/* system.css -- the design system's shared stylesheet (documentation/plans/plan-design-system.md, "Migration plan", step 2 and step 10).
+   contract: 1
+
+   STATE: tokens, colour roles and font faces only. NOTHING in the product reads them yet, so loading this file changes no pixel.
+   Later steps move one component family at a time onto these names. No element rules, no component rules, no `body` or `input`.
+
+   Loaded by every app page AFTER style.css and theme.css (so it can only add names, never beat a rule), and by in-page modules
+   through module-host.js (their `:root` blocks are dropped there; the tokens reach a shadow root by inheriting from the page).
+   This file never redefines an existing token. Already defined elsewhere and kept there: --radius-min/small/medium/large/round
+   (style.css and host.css; check-radius), --z-menu (26) and --toolbar-h (34px) (style.css).
+
+   Colour roles are written in terms of TODAY's tokens (--bg, --bg-section, --bg-card, --bg-input, --text, --text-dim, --border,
+   --accent, --on-accent and the rest), so each role resolves to the value the product draws today for that job, in every theme and
+   both modes. Where nothing equivalent exists today (warn, info, tooltip, scrim, disabled) the role takes the Colour family's
+   proposed formula (proposed-colour.js). A later step (theme-css.js, step 8) will write the base roles and these lines will be
+   reversed. Hard-coded colours are not allowed in this file except the keywords black, white and transparent used in mixes
+   (tools/check-system-css.mjs).
+
+   Breakpoints. A media query cannot read a custom property, so the three widths are written out wherever they are used:
+     BREAKPOINTS: 640 900 1200
+   (phone/narrow up to 640, tablet up to 900, wide from 1200). The custom properties --bp-narrow, --bp-medium and --bp-wide below
+   record them for documentation and for the check; do not write var(--bp-*) inside @media. */
+
+:root {
+  /* ---- Spacing: a strict 4px scale; --space-0 is the 2px hairline step ---- */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+
+  /* ---- Type: nine sizes, three weights, leading and tracking ---- */
+  --text-9: 9px; /* the one exception to "nothing under 11px": a number in a 14px corner badge */
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-18: 18px;
+  --text-22: 22px;
+  --text-28: 28px;
+  --text-40: 40px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --leading-body: 1.45;
+  --leading-ui: 1;
+  --leading-display: 1.15;
+  --leading-title: 1.2;
+  --leading-section: 1.25;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-caps: 0.06em;
+
+  /* ---- Fonts: defined, NOT applied (no font-family in the product reads these yet). The faces are at the foot of this file. ---- */
+  --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-ui: "Figtree", "Figtree Fallback", var(--font-system);
+  --font-display: "Fraunces", "Fraunces Fallback", "Figtree", "Figtree Fallback", var(--font-system);
+
+  /* ---- Elevation: three shadows and one scrim (black in dark; the text colour at a low strength in light, below) ---- */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-3: 0 8px 30px rgba(0, 0, 0, 0.50);
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  /* ---- Layers between blocks (content inside a block uses 0 to 9). --z-menu (26) is defined in style.css. ---- */
+  --z-content: 0;
+  --z-bar: 20;
+  --z-window: 25;
+  --z-float: var(--z-window);
+  --z-page: 30;
+  --z-dialog: 40;
+  --z-popover: 50;
+  --z-toast: 60;
+  --z-debug: 100;
+
+  /* ---- Motion ---- */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Icon sizes (the first three are the type steps of the same number) ---- */
+  --icon-12: var(--text-12);
+  --icon-14: var(--text-14);
+  --icon-16: var(--text-16);
+  --icon-20: 20px;
+  --icon-24: 24px;
+
+  /* ---- Breakpoints, documented (see the comment at the top: not usable in @media) ---- */
+  --bp-narrow: 640px;
+  --bp-medium: 900px;
+  --bp-wide: 1200px;
+
+  /* ---- Layout. --toolbar-h (34px) is defined in style.css. ---- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --topbar-h: 44px;
+  --page-pad: 16px;
+  --measure-reading: 720px;
+  --page-max: 1200px;
+  --module-head-h: 34px;
+  --status-h: 24px;
+  --bottom-bar-h: 54px;
+  --bottom-bar-total: calc(var(--bottom-bar-h) + var(--safe-bottom));
+
+  /* ================= Colour roles, in terms of today's tokens ================= */
+
+  /* Surfaces */
+  --surface-page: var(--bg);
+  --surface-panel: var(--bg-section);
+  --surface-card: var(--bg-card);
+  --surface-field: var(--bg-input);
+  --surface-menu: var(--bg-card); /* .host-menu and .sdk-menu draw --bg-card today */
+  --surface-popover: var(--surface-menu);
+  --surface-toast: var(--bg-section); /* .toast */
+  --surface-tooltip: var(--text); /* new: the inverse of the page */
+  --surface-chat-message: color-mix(in srgb, var(--text) 5%, transparent); /* .message */
+  --surface-chat-own: color-mix(in srgb, var(--accent) 10%, transparent); /* .message.own */
+  --surface-titlebar: var(--bg-section); /* .mod-header draws no fill of its own; it sits on the module's panel */
+  --surface-toolbar: var(--shade); /* .mod-toolbar */
+  --surface-bar-top: var(--nav-primary-bg);
+  --surface-bar-nav: var(--nav-secondary-bg);
+  --surface-bar-brand: var(--nav-brand-bg);
+  --surface-bar-right: var(--nav-right-bg);
+  --surface-canvas: var(--bg);
+  --surface-track: var(--bg-section); /* the scrollbar track */
+
+  /* Text and icons */
+  --text-primary: var(--text);
+  --text-muted: var(--text-dim);
+  --text-disabled: color-mix(in srgb, var(--text-dim) 55%, transparent); /* new: the proposed formula */
+  --text-bar: var(--header-text);
+  --text-on-accent: var(--on-accent);
+  --text-accent: var(--accent); /* a link is the accent today */
+  --text-link: var(--accent);
+  --text-selected: var(--text); /* a selected tab or row keeps the body text on its fill today */
+  --text-tooltip: var(--bg); /* new */
+  --icon-default: var(--icon, var(--text-dim));
+  --icon-bar: var(--icon, var(--header-text));
+
+  /* Edges */
+  --edge-hairline: var(--border);
+  --edge-field: var(--border); /* an input draws 1px --border today */
+  --edge-bar: var(--border);
+  --edge-menu: var(--border);
+  --scrollbar-thumb: var(--border);
+
+  /* Interaction */
+  --accent-fill: var(--accent);
+  --accent-fill-hover: var(--accent-hover);
+  --fill-hover: color-mix(in srgb, var(--accent) 14%, transparent); /* the menu item hover */
+  --fill-selected: var(--selected-bg);
+  --fill-today: color-mix(in srgb, var(--accent) 14%, transparent); /* the proposed formula */
+  --fill-secondary: var(--secondary);
+  --fill-secondary-hover: var(--secondary-hover);
+  --focus-ring: var(--accent);
+  --overlay-scrim: color-mix(in srgb, var(--bg) 70%, transparent); /* new: the proposed formula */
+  --shadow-color: color-mix(in srgb, black 35%, transparent);
+
+  /* Status. Danger and OK are today's --danger and --ok. Warn and Info are the gold and blue category tints, which are exactly the
+     proposed defaults in both modes (#d9a93c and #94680a; #6aa6e8 and #2a62b0). */
+  --status-danger-fill: var(--danger);
+  --status-danger-text: var(--danger-text);
+  --status-danger-tint: color-mix(in srgb, var(--status-danger-fill) 12%, transparent);
+  --status-danger-on-fill: var(--on-danger);
+  --status-ok-fill: var(--ok);
+  --status-ok-text: var(--ok);
+  --status-ok-tint: color-mix(in srgb, var(--status-ok-fill) 12%, transparent);
+  --status-ok-on-fill: var(--on-danger); /* "the glyph on a solid --danger or --ok button" */
+  --status-warn-fill: var(--tint-gold);
+  --status-warn-text: color-mix(in srgb, var(--status-warn-fill) 70%, var(--text)); /* the fill with 30% text colour */
+  --status-warn-tint: color-mix(in srgb, var(--status-warn-fill) 12%, transparent);
+  --status-warn-on-fill: var(--bg);
+  --status-info-fill: var(--tint-blue);
+  --status-info-text: color-mix(in srgb, var(--status-info-fill) 70%, var(--text));
+  --status-info-tint: color-mix(in srgb, var(--status-info-fill) 12%, transparent);
+  --status-info-on-fill: var(--bg);
+}
+
+/* Light mode: the shadows are the text colour at a low strength, so one is never a black smudge on a pale page. The same two selectors
+   the tints use in style.css (the stylesheet's light set, or the environment's light default with no pick). */
+:root[data-theme-mode="light"],
+:root[data-mode-shown="light"]:not([data-theme-mode="dark"]) {
+  --shadow-1: 0 2px 8px color-mix(in srgb, var(--text) 12%, transparent);
+  --shadow-2: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
+  --shadow-3: 0 8px 30px color-mix(in srgb, var(--text) 18%, transparent);
+  --shadow-color: color-mix(in srgb, black 15%, transparent);
+}
+
+@media (max-width: 640px) {
+  :root { --page-pad: 12px; --module-head-h: 42px; }
+}
+
+/* ================= Font faces (bundled, self-hosted; defined, not applied) =================
+   Nothing is fetched until text is drawn in the family (no font-family reads them yet), and then only the file that holds the letters in
+   use (unicode-range). The files and their licences are in /fonts/<family>/. Each family has the bundled face with metric overrides
+   (so a line's box is the same in every browser) and a "<Family> Fallback" system face scaled to the same width so the page does not
+   jump when the font arrives. Derivation: the Typography family on the proposed page. */
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; ascent-override: 95%; descent-override: 24%; line-gap-override: 0%;
+  src: url(/fonts/figtree/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; ascent-override: 95%; descent-override: 24%; line-gap-override: 0%;
+  src: url(/fonts/figtree/latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Figtree Fallback"; font-weight: 100 599; src: local("Arial"), local("Helvetica"), local("Liberation Sans"); size-adjust: 100.59%; ascent-override: 94.44%; descent-override: 23.86%; line-gap-override: 0%; }
+@font-face { font-family: "Figtree Fallback"; font-weight: 600 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 95.67%; ascent-override: 99.3%; descent-override: 25.09%; line-gap-override: 0%; }
+
+/* Fraunces: headlines only, weight 600. */
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap; ascent-override: 100.9%; descent-override: 22.4%; line-gap-override: 0%;
+  src: url(/fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }

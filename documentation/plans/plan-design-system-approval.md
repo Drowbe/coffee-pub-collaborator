@@ -10,10 +10,10 @@
 - **C5.** Header chips are 30px, not 28, the choice-chip size.
 - **C8.** Panel padding is 16px, on the 4px scale; this replaces the earlier 14px. Card 12, row 8 by 10 (8 plus 2).
 - **Fraunces headline weight** is 600.
-- **The page.** The Proposed page becomes the design system page at `/design-system` in the product. The Today inventory is retired when the migration ends and stays available until the last step.
-- **Calendar end caps.** The approved left-bar exception for agenda rows (`.item`, `.item.ext`, `.item.marker`) and chips (`.chip.ext`, `.chip.marker`) is drawn as a straight, square-ended 3px block, not curved or clipped by the corner radius, and the side it sits on has square corners (the other corners keep their radius). Thomas: "I do not want them rounded like this as that looks sloppy." The Calendar draws the bar today as an inset box-shadow that follows the radius, so the Calendar step of the migration (step 32, and the markers and day cards steps) must draw it straight.
+- **The page.** The Proposed page becomes the design system page at `/design-system` in the product. The Today inventory is retired when the build-out ends and stays available until the last step.
+- **Calendar end caps.** The approved left-bar exception for agenda rows (`.item`, `.item.ext`, `.item.marker`) and chips (`.chip.ext`, `.chip.marker`) is drawn as a straight, square-ended 3px block, not curved or clipped by the corner radius, and the side it sits on has square corners (the other corners keep their radius). Thomas: "I do not want them rounded like this as that looks sloppy." The Calendar draws the bar today as an inset box-shadow that follows the radius, so the Calendar step of the build-out (step 32, and the markers and day cards steps) must draw it straight.
 
-Written before approval: the sheet below was prepared 2026-10-20 for the morning, because the process was taking too long. The builders made the choices below while drawing. The plan to move the product onto the system is the "Migration plan (2026-10-20)" in [plan-design-system](plan-design-system.md); its ten open questions are answered there, two settled and eight still open.
+Written before approval: the sheet below was prepared 2026-10-20 for the morning, because the process was taking too long. The builders made the choices below while drawing. The plan to move the product onto the system is the "Build-out plan (2026-10-20, revised 2026-10-21)" in [plan-design-system](plan-design-system.md); its open questions are all answered there (2026-10-21).
 
 Every item has a code (B3c, C4) so he can answer in one line at the end.
 
@@ -99,7 +99,7 @@ Under each family: what it is, then the choices made while drawing.
 
 **B15 Calendar cell.**
 - B15a Event chips are 18px inside cells, not the 24px tag. Recommended: approve as drawn.
-- B15b Other-calendar chips are not italic, because italics are not bundled. Recommended: approve as drawn.
+- B15b Other-calendar chips are not italic, because italics are dropped everywhere (decided 2026-10-21). Recommended: approve as drawn.
 - B15c "Linked" is the word for a day opened by a link. Recommended: approve as drawn.
 - B15d The current day is the selected fill; today is a label only. Recommended: approve as drawn.
 
@@ -122,7 +122,7 @@ Under each family: what it is, then the choices made while drawing.
 - **C1 Two skeletons.** Tables and Empty states both define `.sdk-skel`. Being fixed. Recommended: do not approve either family until the fix is in.
 - **C2 Low contrast of ok green in light mode.** Ok bars 2.46:1, the ok dot 2.20 to 2.46:1. Recommended: a darker ok mix for non-text uses, so bars and dots reach 3:1. This changes the Progress and Avatars drawings.
 - **C3 The wordmark.** The Fraunces 18px wordmark truncates at 390 ("Coffe..."). Recommended: do not approve at 18px at 390; options are a smaller size, a shorter form, or sans there. Yours to choose.
-- **C4 Calming Teal.** Its light accent is 2.05:1 on the page and the light OK fill is 2.64:1 against the page. Recommended: do not approve Calming Teal's light mode as it is; the contrast warnings in the theme editor (migration step 9) will flag it.
+- **C4 Calming Teal.** Its light accent is 2.05:1 on the page and the light OK fill is 2.64:1 against the page. Recommended: do not approve Calming Teal's light mode as it is; the contrast warnings in the theme editor (build-out step 9) will flag it.
 - **C5 Header chips.** 28px, between the Chips scale's 24 and 30. Recommended: move them to 30, or to 24, rather than add a size. Yours to choose.
 - **C6 Spacing names.** The drawn scale (`--space-3` is 12px) disagrees with the older plan table (`--space-3` is 6px). Recommended: approve the drawn scale and retire the old table. Builders must not use the old numbers.
 - **C7 The Proposed page.** It draws about 25 families and is heavy; it is being made to render each family on demand. Not a design decision; no action unless it is still slow.

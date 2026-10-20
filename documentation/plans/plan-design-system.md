@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides the design of every component and how strict the rules are; experience-design, which builds the shared stylesheet, the page and each component's move onto it; server-development, which builds the page's route, the usage scan and the check; quality-assurance, which measures each move against its screenshots; content-manager, which writes the design pages and the rule text once Thomas approves it.
 
-**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. Later the same day, after seeing the first-look page, Thomas changed how the components are decided: one family at a time, in chat, with a proposal on the review page before anything moves into `system.css`. The button family is decided (see Component decisions); fields and forms are next. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust". Added later the same day: he wants to see the system as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"; this adds a review copy (step 6b) and a review gate before any component changes. 2026-10-20: 26 families are drawn; a migration plan to move the product onto them is proposed below and waits for his approval, with a one-page approval sheet in [plan-design-system-approval](plan-design-system-approval.md).
+**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. Later the same day, after seeing the first-look page, Thomas changed how the components are decided: one family at a time, in chat, with a proposal on the review page before anything moves into `system.css`. The button family is decided (see Component decisions); fields and forms are next. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust". Added later the same day: he wants to see the system as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"; this adds a review copy (step 6b) and a review gate before any component changes. 2026-10-20: 26 families are drawn; a build-out plan to move the product onto them is below, approved to start 2026-10-21 and revised the same day after Thomas said "we have not released this product yet. There is not "migration" or "legacy" or whatever needed", with a one-page approval sheet in [plan-design-system-approval](plan-design-system-approval.md).
 
 ## What it is today
 
@@ -83,13 +83,13 @@ Decided 2026-10-15, taking the recommendation in each case:
 - **The first deliverable is the page showing today's components unchanged** (Thomas, 2026-10-15). Then each component is redesigned one at a time, after his review on the page. Reason: building the page and redesigning at once mixes two kinds of change and makes before and after impossible to compare.
 - **The page is `/design-system`, for any signed-in member and up** (members, moderators, owners, admins), in the environment's own theme, and linked from the host console (Thomas, 2026-10-15). Reason: the people who build and use modules, including uploaded ones, can see it, and it does not show the environment's theme and words to strangers.
 - **One shared `public/sdk/system.css`, loaded everywhere** (Thomas, 2026-10-15). App pages link it; module pages get it inlined by the server, as they get `host.css` today. Changing a component there updates every consumer with no module version bump. Reason: a change is made once, and it is what "consumers get changes for free" needs.
-- **Keep today's class names; new components use the `sdk-` prefix** (Thomas, 2026-10-15). `.btn`, `.action-btn`, `.tb-tab`, `.card` and the `sdk-*` classes are registered as they are; membership in the system is the registry, not the prefix. Reason: nothing a module or a saved page uses is renamed. A product prefix is ruled out by the identifier rule in `CLAUDE.md`.
+- **Keep today's class names; new components use the `sdk-` prefix** (Thomas, 2026-10-15). `.btn`, `.action-btn`, `.tb-tab`, `.card` and the `sdk-*` classes are registered as they are; membership in the system is the registry, not the prefix. Kept because Thomas decided it; the compatibility reason given then (nothing a module or a saved page uses is renamed) was withdrawn on 2026-10-21, when he said the product is not released. A product prefix is ruled out by the identifier rule in `CLAUDE.md`.
 
 Decided 2026-10-15, later the same day:
 
 - **Thomas sees the design system as it is built, without an image build each time** (Thomas, 2026-10-15: he wants to SEE it as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"). Reason: building into an image before he has looked spends effort on looks he may change. Three parts follow.
   - **A review copy.** From the first step that has a page (steps 3 to 6) onward, the project manager publishes the page as a private static web page, so he can look at each stage with no build or deploy. See (f).
-  - **A review gate.** Before any component is consolidated or redesigned (steps 9 onward), Thomas looks at that component in the review copy. Nothing is migrated onto a changed look until he has said so on the page. Before and after screenshots from the step 1 tool are published beside each stage, so he sees whether anything changed.
+  - **A review gate.** Before any component is consolidated or redesigned (steps 9 onward), Thomas looks at that component in the review copy. Nothing is moved onto a changed look until he has said so on the page. Before and after screenshots from the step 1 tool are published beside each stage, so he sees whether anything changed.
   - **The real `/design-system` route still ships.** It is built into an image only when Thomas is happy with a stage.
 
 Decided 2026-10-15, after the first-look page:
@@ -115,7 +115,7 @@ One table per family, dated. Each row is Thomas's decision; for the buttons he t
 | Danger | A soft red fill (`--danger-bg`) with text in the darker mix of `--danger` into `--text` (about 5 to 1 contrast in light mode). Solid red (`--danger` with `--on-danger`) only for a final confirm. | Danger is shown by a fill and text colour, not an outline (see the border rules). A destructive action that is not final should not shout. |
 | Icon-only buttons | One component: square, `--radius-small` corners, in the same two sizes. It replaces the action, more, icon, field, close and message buttons (`.action-btn`, `.sdk-more`, `.icon-btn`, `.sdk-field-btn`, close buttons, `.msg-btn`). | Six looks for one thing. |
 | Call controls | They stay circles (`--radius-round`). | The call's toolbar is its own pattern; only checkable in a real call. |
-| Class names | Today's are kept and redefined once: `.btn`, `.btn-primary`, `.btn-danger`, `.btn-small`, `.sdk-btn`. Added: `.btn-quiet` and one icon-button name (chosen when the proposal is built, named by kind). | Nothing a module or a saved page uses is renamed; consumers get the change with no code change. |
+| Class names | Today's are kept and redefined once: `.btn`, `.btn-primary`, `.btn-danger`, `.btn-small`, `.sdk-btn`. Added: `.btn-quiet` and one icon-button name (chosen when the proposal is built, named by kind). | Names kept as Thomas decided; the compatibility reason is withdrawn (2026-10-21); consumers get the change with no code change. |
 
 Thomas decided this on 2026-10-18: today's `--danger-text` is the pale red of dark mode and fails contrast on a light page, so Danger buttons and error text (see Fields and forms) use the same readable colour, the darker mix of `--danger` into `--text`.
 
@@ -129,7 +129,7 @@ Thomas's decisions on the Typography family of the Proposed page (commits f18d7a
 - **UI font: Figtree.** SIL OFL, variable, weights 300 to 900, Latin only; Cyrillic and Greek fall back.
 - **Headline font: Fraunces.** SIL OFL, variable, Latin only. For display text only: the landing title, page titles, the environment name in the top bar, and space names on Home cards. Everything else stays Figtree; small labels and the 14px docked title bar stay sans.
 - **Still to decide:** weights and the size scale. Today the product uses 17 pixel sizes and the weights 400, 500, 600, 650, 700 and 800.
-- **Open points:** italics are not bundled. A per-template headline font is a possible later decision, not decided. Fraunces at 17 to 18px is to be checked in context.
+- **Open points:** italics are dropped everywhere (decided 2026-10-21): no italic text anywhere, and a quote uses the bar or quotation marks. A per-template headline font is a possible later decision, not decided. Fraunces at 17 to 18px is to be checked in context.
 
 ### Fields and forms (decided 2026-10-18)
 
@@ -277,7 +277,17 @@ Thomas approved all 18 drawn families as drawn: Foundations, Dialogs and sheets,
 - **C8.** Panel padding is 16px, on the 4px scale. This supersedes the 14px in "Cards, panels and rows" above. Card 12, row 8 by 10 (8 plus 2).
 - **Fraunces headline weight** is 600.
 - **Calendar end caps.** The approved left-bar exception for agenda rows (`.item`, `.item.ext`, `.item.marker`) and chips (`.chip.ext`, `.chip.marker`) is a straight, square-ended 3px block, not curved or clipped by the corner radius, and the side it sits on has square corners (the other corners keep their radius). Thomas: "I do not want them rounded like this as that looks sloppy." The Calendar draws it today as an inset box-shadow that follows the radius, so step 32 and the markers and day cards steps draw it straight.
-- **The page.** The Proposed page becomes the design system page at `/design-system` in the product; the Today inventory is retired when the migration ends and stays until the last step.
+- **The page.** The Proposed page becomes the design system page at `/design-system` in the product; the Today inventory is retired when the build-out ends and stays until the last step.
+
+### Settings decisions (2026-10-21)
+
+Thomas decided these about Manage on 2026-10-21. They are not design-system steps and are not placed in the build order above; they are recorded here, the nearest plan, so they are not lost. The Fields step (13) touches the same pages and should know them.
+
+- **Conference's call features** live in Manage > Modules > Conference only. They leave Manage > Environment.
+- **The shared Save and Cancel bar is not applied now.** It is revisited after the design system.
+- **The first sub-tab of Manage > Environment is renamed "General".**
+- **The hosted plan and usage panel stays at the top of that tab.**
+- **The AI service gets a tab on Manage > Modules, like every other module.** Its settings, today on its own AI Configuration page, move into the tab. The AI service is the server-wide provider, model, key and usage setup shared by the Assistant, Chat's AI and Research; it is not part of the Assistant module.
 
 ## (a) The system
 
@@ -302,7 +312,7 @@ All tokens are custom properties on `:root` in the system stylesheet (below). Co
 | Layers | `--z-canvas`, `--z-bar`, `--z-menu` (exists, 26), `--z-sheet`, `--z-window`, `--z-toast` | 28 values |
 | Motion | `--motion-fast` 0.08s (a press), `--motion-base` 0.15s (hover, fill), `--motion-slow` 0.25s (a sheet, a callout), `--ease-out`; every animation stops under `prefers-reduced-motion` | 26 values |
 | Density and size | `--control-h-sm` 30px, `--control-h` 38px (`--bar-control-h`, `--field-h`, `--action-btn-h`), `--control-h-touch` 44px; `--action-icon-ratio`; on a phone (640px and below) a control is at least 44px | exist under three names |
-| Breakpoints (documented, not tokens, since a media query cannot read one) | phone at 640px and below, the one width a page or module responds to; a module responds to its own width with `.app.narrow` or a container query, never to the window | 10 widths in use |
+| Breakpoints (documented, not tokens, since a media query cannot read one) | three widths, 640, 900 and 1200px (decided 2026-10-21). A module keeps its own width and answers it with container queries, using the three widths as steps (`.app.narrow` becomes a container query); a page outside a module answers the window with media queries at the same three widths | 10 widths in use |
 
 **Borders and dividers, by role.** Thomas has not forbidden borders. Each role has one look:
 
@@ -339,7 +349,7 @@ A component is a CSS class family plus a small markup contract, written once in 
 9. **Content**: the words (sentence case, a verb on a button, the names in `CLAUDE.md`), length limits, icon or no icon.
 10. **Tokens it uses**, read from the stylesheet.
 11. **Consumers**: every page and module that uses it, found by a scan.
-12. **Status**: stable, new, deprecated (with what replaces it), or exception.
+12. **Status**: stable, new or exception.
 
 The first list of components, from the audit: button, icon button, action button, field and the form classes, tick box and choice, toggle, date picker, kind picker, currency list, view switch, tabs, menu, more button, popover, editor window, sheet, action bar and action row, card, row, chip (filter, status, people), badge (count), banner (info, warning, danger), inline notice (the conflict bar), toast, error line, empty state, loading skeleton, message, status line (`host.status.set`), tooltip (the `title` today), and the heading styles.
 
@@ -379,15 +389,9 @@ Compositions of components, shown with real content and the markup to copy. Each
 
 **Data colours.** Where a colour is data, not design (a kind's colour, a phase's tint, a marker type's colour an owner chose), the consumer passes it as a custom property the component reads (`--kind-color`, `--tint`, `--tone`), never as a declaration. This is how the kind picker works today.
 
-**When a component's look changes**, only `system.css` changes. Every consumer updates on its next load. Module versions do not move, because the module's own files did not change. (A module's own CSS does need a patch bump whenever it changes, and the version must be higher than the one installed in Thomas's environment, or Manage will not install the new files.)
+**When a component's look changes**, only `system.css` changes. Every consumer updates on its next load. Module versions do not move, because the module's own files did not change. (A module's own CSS does need a patch bump whenever it changes, so that Manage installs the updated bundled module in Thomas's own test environment.)
 
-**When a component's markup contract changes** (a class renamed, a part added that consumers must write):
-
-1. Contracts change by addition. A new variant or part is optional; old markup keeps working.
-2. A breaking change keeps the old class as an alias in `system.css`, marked `/* deprecated: <id>, use <new> */`, and the registry entry says `deprecated` with `replacedBy` and the date. The page shows the old and new side by side.
-3. The check fails a bundled page or module that still uses a deprecated class once its replacement has shipped, so the bundled code moves in the same build or the next.
-4. The alias is removed when no bundled consumer uses it and at least one minor release has shipped with the deprecation in the CHANGELOG and the modules' `CONTRACT.md`, so uploaded modules have a release's warning.
-5. `system.css` carries a contract number in its first comment and in the registry (`"system": 1`), raised on each removal, and shown on the page. No module declares it; it is for people reading a CHANGELOG.
+**When a component's markup contract changes** (a class renamed, a part added that consumers must write): the change is made once, in `system.css`, the registry and the bundled pages and modules together, in the same build. No old class is kept as an alias, there is no deprecation period and no warning release for uploaded modules (Thomas, 2026-10-21: the product is not released). `system.css` carries a contract number in its first comment and in the registry (`"system": 1`), raised on a change to a markup contract, and shown on the page. No module declares it; it is for people reading a CHANGELOG.
 
 ## (c) The webpage
 
@@ -410,7 +414,7 @@ Compositions of components, shown with real content and the markup to copy. Each
 
 **What the page shows.**
 
-- **Every component**: its live examples, every variant and every state, small, regular and touch; its anatomy; the snippet to copy; usage and content rules; a11y notes; the tokens it uses; its consumers; its status marker (stable, new, deprecated, exception); its changelog.
+- **Every component**: its live examples, every variant and every state, small, regular and touch; its anatomy; the snippet to copy; usage and content rules; a11y notes; the tokens it uses; its consumers; its status marker (stable, new, exception); its changelog.
 - **Forced states.** The page reads `system.css` through the CSS object model and, for each rule with `:hover`, `:focus-visible` or `:active`, adds a copy that matches `[data-force~="hover"]` (and so on) inside the demo area. A forced hover is therefore the real hover rule, never a second copy that could drift. Disabled, selected, loading and error are attributes, so they are set directly.
 - **Light and dark, and three widths.** Each example can render in a small same-origin frame of the page's own example route (`/design-system/frame`), which sets its own `data-theme-mode` and has its own width, so media queries and the theme's light and dark sets behave as they do for real: light beside dark, and 390px, 700px and 1280px (scaled to fit).
 - **Tokens**: swatches of every colour in the current theme and mode, the surface levels stacked, the tints, the type scale as text, spacing as bars, radii as boxes, elevation as cards, motion as a play button; and the contrast ratio of each text and icon token on each surface, worked out in the page from the computed colours (WCAG 2), with the ones under 4.5 to 1 marked.
@@ -449,7 +453,7 @@ Decided 2026-10-15 (see Decisions). The review copy is the page, published so Th
 1. **Only system components are used.** A page or module draws UI with registered components and patterns, and writes only its own layout.
 2. **A missing component is added first**, in this order: Thomas agrees it is needed; the spec (anatomy, variants, states, sizes, a11y, usage) is written into its registry file as `new`; its CSS goes into `system.css` and its helper, if any, into `host.js`; its examples render on the page; then the page or module uses it. Each is a try build like any other.
 3. **An exception is discussed with Thomas first.** If he agrees, it is recorded in `exceptions.json` (what, the file, the reason, an owner, the date, his words), shown on the page, and allowed by the check for that file only. An exception with no reason or owner fails the check. Today's known ones go in at once: MapLibre's controls, the map pin's teardrop, Stream's keyed page for OBS, the phase band's top edge.
-4. **Who changes a component.** Thomas decides every design change, on the page (the review copy first, see (f)): he looks at the component, says what changes, and signs off the before and after. Nothing is migrated onto a changed look until he has said so there. experience-design builds it in `system.css`; server-development builds checks and routes; nobody restyles a component anywhere else.
+4. **Who changes a component.** Thomas decides every design change, on the page (the review copy first, see (f)): he looks at the component, says what changes, and signs off the before and after. Nothing is moved onto a changed look until he has said so there. experience-design builds it in `system.css`; server-development builds checks and routes; nobody restyles a component anywhere else.
 5. **How builders and QA are told.** Proposed wording; Thomas or the project manager edits these files, not this plan.
 
 **Proposed rule for `CLAUDE.md`, under Rules:**
@@ -458,7 +462,7 @@ Decided 2026-10-15 (see Decisions). The review copy is the page, published so Th
 
 **Proposed text for `.claude/agents/experience-design.md`:**
 
-> Before you draw anything, find it on `/design-system`. Use the component's markup exactly as its snippet shows. If what you need is not there, stop and say so in your report: name the component you would add and why. Do not restyle a component in a page or module stylesheet, and do not add a class that looks like one. A component change goes only in `public/sdk/system.css`, with its registry entry, example and changelog line, and only when Thomas has decided it. A migration step keeps the look exactly; take the before and after screenshots and say whether they match.
+> Before you draw anything, find it on `/design-system`. Use the component's markup exactly as its snippet shows. If what you need is not there, stop and say so in your report: name the component you would add and why. Do not restyle a component in a page or module stylesheet, and do not add a class that looks like one. A component change goes only in `public/sdk/system.css`, with its registry entry, example and changelog line, and only when Thomas has decided it. A family step applies exactly the look Thomas approved; take the before and after screenshots and say whether the differences are the approved ones.
 
 **Proposed text for `.claude/agents/quality-assurance.md`:**
 
@@ -480,25 +484,25 @@ Fails:
 2. **No restyling.** A rule outside `system.css` whose selector names a registered component class, and declares anything outside the layout list in (b), fails with the component's name, the property and the rule text. (This is `check-forms` rule 10, made general.) A data colour passed as a custom property is not a declaration of colour.
 3. **No borrowed names.** A page or module defines no class that starts with the system's prefix (`sdk-`) and no class with a registered component's name (`.btn`, `.chip`, `.menu`).
 4. **No unknown system classes.** Markup or a script that uses an `sdk-` class not in the registry fails (a typo, or a component someone invented without adding it).
-5. **No deprecated class** in a bundled page or module once its replacement has shipped.
-6. **No inline visual style.** `style=""` or `.style.<property> =` setting a colour, background, border, radius, shadow, padding, font size or weight in markup, templates or scripts (custom properties, and positions and sizes set by drag and layout code, are allowed).
-7. **One stylesheet.** `system.css` exists and is linked by every app page and inlined into module pages; no word-for-word copy of a block remains elsewhere.
+
+5. **No inline visual style.** `style=""` or `.style.<property> =` setting a colour, background, border, radius, shadow, padding, font size or weight in markup, templates or scripts (custom properties, and positions and sizes set by drag and layout code, are allowed).
+6. **One stylesheet.** `system.css` exists and is linked by every app page and inlined into module pages; no word-for-word copy of a block remains elsewhere.
 
 Reports, never fails:
 
-8. **Things that look like components.** A local class whose name holds a component word (`btn`, `button`, `chip`, `pill`, `badge`, `tab`, `menu`, `toast`, `banner`, `card`, `empty`, `skel`, `error`) and which declares visual properties. Listed per file with a count, so the migration can be tracked; a name list is too blunt to fail on.
+7. **Things that look like components.** A local class whose name holds a component word (`btn`, `button`, `chip`, `pill`, `badge`, `tab`, `menu`, `toast`, `banner`, `card`, `empty`, `skel`, `error`) and which declares visual properties. Listed per file with a count, so the migration can be tracked; a name list is too blunt to fail on.
 
-**The "not yet" list.** Like `check-forms`, the check holds a list of the pages and modules not yet moved. Rules 2, 3 and 6 apply only to files off the list; rules 1, 4, 5 and 7 apply everywhere from the first build. Each migration step removes its own file, so drift cannot return to a file once it has moved. The last step empties the list.
+**The "not yet" list.** Like `check-forms`, the check holds a list of the pages and modules not yet moved. Rules 2, 3 and 5 apply only to files off the list; rules 1, 4 and 6 apply everywhere from the first build. Each migration step removes its own file, so drift cannot return to a file once it has moved. The last step empties the list. (Superseded for the step 7 checks on 2026-10-21 by a count per file that can only fall; see the build-out plan.)
 
 **How it sits with the other checks.** `check-radius`, `check-nav` and `check-module-window` keep their own rules, which become rules about `system.css` once every component lives there. `check-buttons`, `check-switches` and the copy rule of `check-forms` become rule 7 and are folded in. `check-forms` keeps its form-specific rules (fields in rows, no nine-choice lists) and `npm run check:forms` stays as it is.
 
-## (e) Migration
+## (e) The order
 
-The first deliverable is the page with today's components exactly as they are (decided 2026-10-15). Then each component is consolidated, one at a time, and only after Thomas has looked at it on the page, in the review copy (f), and said so. The real route is built into an image only when he is happy with a stage.
+The first deliverable is the page with today's components exactly as they are (decided 2026-10-15). Then each component is moved onto its drawn look, one family at a time, after Thomas has looked at it on the page, in the review copy (f), and said so. The real route is built into an image only when he is happy with a stage.
 
-**How the form standard and the radius tokens fold in.** The form standard is the first finished component family: its block moves into `system.css` unchanged, its classes are registered, and its remaining steps (Places to Manage) continue as planned, each also removing the module from this check's "not yet" list. The radius tokens become the radii group of the tokens and `check-radius` keeps enforcing them.
+**How the form standard and the radius tokens fold in.** The form standard is the first finished component family: its block moves into `system.css`, its classes are registered, and its remaining steps (Places to Manage) are absorbed by the Fields step of the build-out plan (decided 2026-10-21), each also lowering the module's counts in the checks. The radius tokens become the radii group of the tokens and `check-radius` keeps enforcing them.
 
-**The order.** Pieces behind the complaints first, then module by module. Each step is a try build: one builder, its own checks, pushed at once, and a patch bump of any module whose files change (higher than the version installed in Thomas's environment). A step that consolidates several looks into one starts with Thomas choosing the look on the page.
+**The order.** Pieces behind the complaints first, then module by module (superseded by the build-out plan's family order). Each step is a try build: one builder, its own checks, pushed at once, and a patch bump of any module whose files change. A step that consolidates several looks into one starts with Thomas choosing the look on the page.
 
 ## The contract
 
@@ -550,23 +554,25 @@ Each step a try build, small, checked on its own. Modules get a patch bump only 
 | 29 | Documentation: content-manager rewrites [design-theme](../designsystem/design-theme.md) as the system's reference pointing at the page, the SDK page and `CONTRACT.md`; Thomas or the project manager puts the rule text from (d) into `CLAUDE.md` and the agent files | content-manager, project-manager | no |
 | To be placed | The Prototype page (decided 2026-10-16, see Decisions): whole screens drawn from the proposed components as they would appear in the product (panels, forms, chat, the call bar, the Planner), so components are judged in context. Built after a few families are approved | to be placed | no |
 
-**Superseded 2026-10-20.** Steps 2 and 7 are re-scoped and steps 8 to 29 are replaced by the migration plan below ("Migration plan (2026-10-20)"). The table above stays as the record of the earlier order. Steps 1 to 6b are done.
+**Superseded 2026-10-20.** Steps 2 and 7 are re-scoped and steps 8 to 29 are replaced by the build-out plan below ("Build-out plan (2026-10-20, revised 2026-10-21)"). The table above stays as the record of the earlier order. Steps 1 to 6b are done.
 
 Steps 9 to 13 (buttons, fields and forms, tabs, cards and rows, menus) and 15 (chips and badges) each start with Thomas deciding that family in chat and signing off its proposal on the review page, in the order he set. Steps 9 to 17 do not depend on one another once he has done so; 18 to 27 follow the component steps they need. Each of steps 8 to 17 ends with a republished review copy and its before and after screenshots, and the real route is built into an image only when Thomas is happy with a stage.
 
-## Migration plan (2026-10-20)
+## Build-out plan (2026-10-20, revised 2026-10-21)
 
-**Status:** approved to start 2026-10-21. Steps 2, 7 and 10 are built (see the table). Written after 26 families were drawn on the Proposed page (`public/design-system/proposed-*.js`). Thomas's reason, 2026-10-20: the process is taking far too long. Nothing here decides a design; every look is the one drawn, and the choices still waiting for him are in [plan-design-system-approval](plan-design-system-approval.md).
+**Status:** approved to start 2026-10-21; revised the same day. Steps 2, 7 and 10 are built (see the table). Written after 26 families were drawn on the Proposed page (`public/design-system/proposed-*.js`). Thomas's reason, 2026-10-20: the process is taking far too long. Nothing here decides a design; every look is the one drawn, and the choices still waiting for him are in [plan-design-system-approval](plan-design-system-approval.md). Thomas, 2026-10-21: "we have not released this product yet. There is not "migration" or "legacy" or whatever needed." The product is moved onto the design system; nothing is kept for an installed base, because there is none.
+
+**What changed on 2026-10-21.** The section was called the migration plan. Every compatibility concept is gone: old tokens are not kept as aliases (they are renamed to the new roles in the files each step touches and their definitions deleted when the last consumer moves); there is one theme file format, updated in place, with no `formatVersion` 2 and no older-format reader (step 8); no old id, hash, route or stored key is kept alive; there is no deprecation period and no warning release for uploaded modules; the module version bump remains only so Manage installs an updated bundled module in Thomas's own test environment. In the table, step 10 is folded into step 2 (both built together), step 8 drops from two passes to one and from the larger model to medium, step 36 also deletes the old token definitions, and the question about aliases and the theme file version are gone. The remaining 31 steps (8, 9, 11 to 39) are the same in number; two are smaller. The batches for Thomas's looks are kept.
 
 **What changed from the old step list.** Steps 1 to 6b stay as they are, done. The old step 2 asked for `system.css` and it is not in the repository (`public/sdk/system.css` does not exist), so it is redone as step 2 below, with the tokens now drawn. The old step 7 (the check) keeps its number and now also holds five token checks. The old steps 8 (candidates) and the review gate are done by the Proposed page. The old steps 9 to 17 are re-ordered into steps 12 to 22 and the families drawn since are added (steps 18 to 35). The old module-by-module steps 18 to 27 and the pages step 28 are gone: a family step moves every file it touches, modules and pages alike, and step 36 sweeps what is left. The old step 29 is step 38. The Prototype page is step 39, optional.
 
 ### The method, the same in every family step
 
 1. Copy the family's block from `proposed-<id>.css` into its reserved slot in `system.css`, without the `.ds-proposed` prefix.
-2. Delete the old rules for that family's classes from `style.css`, `host.css`, the `UI_CSS` string in `host.js` and the module stylesheets. Every old token stays as an alias of a new role (step 2), so nothing else breaks.
-3. Change markup only where the family's "Today to proposed" table says so. Class names, ids, routes and stored keys stay.
-4. Put the family's sizes, weights, spacing, radii, shadows, layers, motion, icon sizes and media queries on tokens, and lower the counts for the files touched in the allow-lists of the checks from step 7.
-5. Bump the patch version of every module whose files changed. It must be higher than the version installed in Thomas's environment, or Manage will not install it (`check-module-versions` holds it).
+2. Delete the old rules for that family's classes from `style.css`, `host.css`, the `UI_CSS` string in `host.js` and the module stylesheets.
+3. Change markup where the family's "Today to proposed" table says so. A class, id or route is renamed only where Thomas decided it; nothing is kept alive for its own sake, because the product is unreleased.
+4. In every file the step touches, rename the old token names to the new roles, and put the family's sizes, weights, spacing, radii, shadows, layers, motion, icon sizes and media queries on tokens. Lower the counts for the files touched in the allow-lists of the checks from step 7. The old token definitions stay only while an unmoved file still reads them and are deleted when the last consumer moves (step 36).
+5. Bump the patch version of every module whose files changed. Only so that Manage will install the updated bundled module in Thomas's own test environment: it must be higher than the version installed there (`check-module-versions` holds it).
 6. Run `npm run check` and `npm run shots:compare`. The builder names every screen that differs and says if the table below expected it. A difference that is not expected is a defect and the step does not ship.
 
 A try build per step: one builder, one pass or the passes listed, its own checks, pushed at once, merged on its own.
@@ -587,11 +593,11 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 | Step | What | Touches | Passes | Risk |
 |---|---|---|---|---|
 | 1 to 6b | Done: shots tool, Today page, Proposed page, icon browser, review copy | | done | |
-| 2 (built: `public/sdk/system.css`, `public/fonts`, `check-system-css`; commits 102b5dd and 813e6cb) | `system.css`: new tokens (spacing, elevation, layers, scrim, motion with the reduced-motion rule, icon sizes, type scale, breakpoints noted), every old token as an alias, an empty reserved slot per family. Linked first by every app page; inlined before `host.css` in the module route; fetched by `module-host.js`; the popped-out call window clones it | `public/sdk/system.css`, every `public/*.html`, `server/index.js` (about line 7849), `public/module-host.js`, the call window code | 2 | **larger model** (cascade order, in-page modules strip `:root`) |
+| 2 (built: `public/sdk/system.css`, `public/fonts`, `check-system-css`; commits 102b5dd and 813e6cb) | `system.css`: new tokens (spacing, elevation, layers, scrim, motion with the reduced-motion rule, icon sizes, type scale, breakpoints noted), the new roles written in terms of today's tokens as a starting point (replaced family by family, see (b) to (c)), an empty reserved slot per family. Linked first by every app page; inlined before `host.css` in the module route; fetched by `module-host.js`; the popped-out call window clones it | `public/sdk/system.css`, every `public/*.html`, `server/index.js` (about line 7849), `public/module-host.js`, the call window code | 2 | **larger model** (cascade order, in-page modules strip `:root`) |
 | 7 (built: the six drift guards; commits a3251ad, 5d9e1ac) | The checks, each with an allow-list at today's counts (see (e)), plus `check-system.mjs` as in (d) | `tools/check-*.mjs`, `tools/check-*-allow.json`, `package.json` | 2 | low |
-| 8 | Colour, server: `theme-css.js` writes the new roles; `store.js` accepts optional status bases (ok, warn, danger, info); theme file `formatVersion` 2 (reads 1 and 2; a version 1 theme gets derived status colours); text on accent and on status fills picked automatically (dark or white, whichever is 4.5 to 1 or better) | `server/theme-css.js`, `server/store.js`, `server/theme-file.js`, `server/file-format.js`, `public/sdk/system.css` | 2 | **larger model** (migration; stored themes must load unchanged) |
+| 8 | Colour, server: `theme-css.js` writes the new roles directly; `store.js` accepts optional status bases (ok, warn, danger, info); one theme file format, updated in place (no `formatVersion` 2, no reader for an older format); the 3 shipped themes updated; text on accent and on status fills picked automatically (dark or white, whichever is 4.5 to 1 or better) | `server/theme-css.js`, `server/store.js`, `server/theme-file.js`, `server/file-format.js`, the 3 shipped themes, `public/sdk/system.css` | 1 (was 2: no older-format reader, no load of stored old themes) | medium |
 | 9 | Colour, editor: status pickers and contrast warnings in the admin theme editor | `public/admin.js`, `public/admin.html` | 1 | low |
-| 10 (built with step 2: `public/fonts`; commits 102b5dd and 813e6cb) | Fonts, bundled: Figtree and Fraunces woff2 and their licence texts, served by our server, `@font-face` with the metric-matched fallbacks, the type scale tokens. No family applied yet | `public/assets/` fonts, `system.css`, `server/index.js` if a header is needed | 1 | low |
+| 10 | Folded into step 2 (built together, commits 102b5dd and 813e6cb): Figtree and Fraunces woff2 and their licence texts in `public/fonts`, `@font-face` with the metric-matched fallbacks, the type scale tokens. No family applied yet | `public/fonts`, `system.css` | done | |
 | 11 | Fonts, switched on: `--font-ui` on the pages, inputs and modules; Fraunces on display text only (landing title, page titles, the environment name in the top bar, space names on Home cards) | `system.css`, `style.css`, `host.css`, `landing.css` | 2 | **larger model** (every screen's text metrics) |
 | 12 | Buttons: four roles, 38, 44 and 30px, soft red Danger, one square icon button (`.action-btn`, `.sdk-more`, `.icon-btn`, `.sdk-field-btn`, `.msg-btn`, close) | `style.css`, `host.css`, `host.js` `UI_CSS`, `landing.css`; modules budget, maps, places, research, travel, todo, polls, stream | 3 | medium; the call's circles stay and need a real call |
 | 13 | Fields and forms: field edge, focus ring, "(optional)", tick box, radio, switch 36 by 20, search; the remaining module moves of [plan-form-standard](plan-form-standard.md). Two builders: 13a app pages, 13b modules | `style.css`, `host.css`, module `editor-card` copies; modules budget, calendar, places, polls, research, todo, travel | 3 | medium |
@@ -617,7 +623,7 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 | 33 | Markers | `calendar.css`, `travel-lib-cards.css` | 1 | medium |
 | 34 | Day cards: the 40px (44px phone) chip, the gap count, the Planner's day cards | `travel-lib-cards.css`, `calendar.css` | 2 | **larger model** |
 | 35 | Tables | budget, research, places css | 2 | medium |
-| 36 | The sweep: every raw value left in files no family claimed (host console, landing, diag, call toolbar, destination, MapLibre notes), then every allow-list at zero or at a recorded exception | all remaining files | 2 | medium |
+| 36 | The sweep: every raw value left in files no family claimed (host console, landing, diag, call toolbar, destination, MapLibre notes); the old token definitions deleted; every allow-list at zero or at a recorded exception; the heuristic checks start to fail | all remaining files | 2 | medium |
 | 37 | The design system page (see (f)): its examples render with `system.css`; the scoped `proposed-*.css` copies and the Today page go | `public/design-system/` | 3 | medium |
 | 38 | Documentation (see (g)); once after step 11, once at the end | `documentation/` | 2 + 2 | low |
 | 39 | Optional: the Prototype page (see below) | `public/design-system/` | 3 | low |
@@ -630,7 +636,7 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 |---|---|---|---|
 | 2 | None | None: all 125 identical | `check-design-system-foundations`; the shots |
 | 7 | None | None | each rule fails on a planted fixture |
-| 8 | None, except text on accent or a status fill where today's pairing fails 4.5 to 1 | None, or only those fills | `check-theme`, `check-themes`, a version 1 file and a version 2 file both load |
+| 8 | None, except text on accent or a status fill where today's pairing fails 4.5 to 1 | None, or only those fills | `check-theme`, `check-themes`; the 3 shipped themes load in the one format |
 | 9 | Theme editor gains status pickers and warnings | Manage pages (10) | `check-theme`; walked on a local server |
 | 10 | None | None | a check that the font files and licence texts exist and no third-party font URL is used |
 | 11 | Every text changes shape and width | All 125; Thomas looks at a sample of each family | `check-design-system-typography`; read for truncation at 390 |
@@ -657,14 +663,14 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 ### (b) to (c): colour, `system.css`, fonts
 
 - **Loading.** `system.css` is linked first on app pages, inlined before `host.css` in module pages and fetched by `module-host.js`, as in (b) above. Tokens reach a module in a shadow root by inheriting from the app page, so both must load it.
-- **Aliases.** Each old token (`--bg-card`, `--danger-text` and the rest) is defined in `system.css` as an alias of a new role. A family migrates by deleting its old rules, never by renaming a token in many places. Aliases stay until step 36 and are removed only after a release's warning (see Open questions 3).
-- **Fonts.** Step 10 only adds files and `@font-face`, so it changes nothing. Step 11 switches them on. The type scale replaces size and weight declarations family by family (method, point 4). Figtree has no italics bundled; italic text falls back to the browser's slant until Thomas decides (Open question 8).
-- **Fraunces weight** (600 or 700) is still to be chosen on the page and blocks step 11.
+- **Old tokens.** `system.css` today defines the new roles in terms of today's tokens (`--bg-card`, `--danger-text` and the rest). The build-out replaces the old tokens by the new roles directly, family by family: a sweep renames old names to new ones in the files each step touches, and the old token definitions are deleted when the last consumer moves (step 36). There is no alias layer, no deprecation period and no warning release for uploaded modules. An old definition stays only while an unmoved file still reads it.
+- **Fonts.** Step 10 only added files and `@font-face`. Step 11 switches them on. The type scale replaces size and weight declarations family by family (method, point 4). There is no italic text anywhere (decided 2026-10-21), so no italic face is bundled and none is needed.
+- **Fraunces weight** is 600 (decided 2026-10-21); it no longer blocks step 11.
 - **Sandboxed module frames.** Whether a frame with an opaque origin can load a font from our server (a cross-origin header may be needed) is not known; step 10's builder checks it and reports before step 11 starts.
 
 ### (e) The checks that keep the system honest
 
-All static, in `npm run check`, built like `check-radius`: a JSON allow-list per file with a count that may only fall, and a recorded exception (with reason and owner) for a data colour, MapLibre, the map pin, Stream's keyed page and the phase band edge. `tools/check-design-system.mjs` stays (it opens a real browser, about five minutes, so it is run for a family step, not in `npm run check`). All six are written in step 7 at today's counts, and each family step lowers them.
+All static, in `npm run check`, built like `check-radius`: a JSON allow-list per file with a count that can only fall (decided 2026-10-21); a new raw colour fails the build, and the heuristic checks warn until the last step (step 36), when they fail too. Each also has a recorded exception (with reason and owner) for a data colour, MapLibre, the map pin, Stream's keyed page and the phase band edge. `tools/check-design-system.mjs` stays (it opens a real browser, about five minutes, so it is run for a family step, not in `npm run check`). All six are written in step 7 at today's counts, and each family step lowers them.
 
 | Check | Fails on |
 |---|---|
@@ -679,12 +685,12 @@ All static, in `npm run check`, built like `check-radius`: a JSON allow-list per
 ### (f) What to delete at the end
 
 - Step 37: the Today inventory page and the `todayOnly` lists in the family checks; the `.ds-proposed` copies of each family's CSS, once the page's frames load `system.css`; the "undecided" list in `proposed.js`. If Thomas agrees, the Proposed page, renamed, is the design system page at `/design-system`. A tag in git keeps Today for anyone who wants it.
-- Step 36: the old `host.css` and `style.css` blocks that `system.css` replaced, and any alias nobody uses.
-- Never deleted without a release's warning: an alias that an uploaded module may use.
+- Step 36: the old `host.css` and `style.css` blocks that `system.css` replaced, and the old token definitions, deleted when the last consumer has moved.
+- No alias layer, no deprecation period and no warning release are kept: the product is unreleased.
 
 ### (g) Documentation (content-manager)
 
-Under try builds there is no documentation per step. Two passes: after step 11 (tokens, colour, fonts, theme file version 2: `documentation/designsystem/design-theme.md`, the architecture document's theme and module-page sections, the API document's theme file format, the theme editor's user guide) and at step 38 (one page per family under `documentation/designsystem/`, the rule text from (d) for `CLAUDE.md` and the agent files, the SDK page, `CONTRACT.md` for modules). `npm run docs:build` builds the wiki pages for review. Publishing the wiki waits for Thomas.
+Under try builds there is no documentation per step. Two passes: after step 11 (tokens, colour, fonts, the theme file format: `documentation/designsystem/design-theme.md`, the architecture document's theme and module-page sections, the API document's theme file format, the theme editor's user guide) and at step 38 (one page per family under `documentation/designsystem/`, the rule text from (d) for `CLAUDE.md` and the agent files, the SDK page, `CONTRACT.md` for modules). `npm run docs:build` builds the wiki pages for review. Publishing the wiki waits for Thomas.
 
 ### (h) What can run as two builders at once
 
@@ -711,31 +717,30 @@ Between the steps, only Thomas can:
 - After step 19: use two or three of the destructive flows he knows (delete a space, erase, discard).
 - After each batch below: look at the screenshots that changed.
 
-**Batches for his looking** (suggestion): A steps 2 to 11; B steps 12 to 17; C steps 18 to 22; D steps 23 to 27; E steps 28 to 31; F steps 32 to 35; G steps 36 to 38. A step merges when its own checks and the screenshot list pass, without waiting for him; he looks at the batch.
+**Batches for his looking** (decided 2026-10-21: he looks after each batch, not each step): A steps 2 to 11; B steps 12 to 17; C steps 18 to 22; D steps 23 to 27; E steps 28 to 31; F steps 32 to 35; G steps 36 to 38. A step merges when its own checks and the screenshot list pass, without waiting for him; he looks at the batch.
 
 ### The Prototype page (step 39, optional)
 
 Whole screens drawn from the approved components. It pays off if Thomas wants to judge combinations before they reach the product, for example the 28px header chips beside the chips scale, or a Module window with Chat and the Phone tab bar together. It does not pay if the migrated screens in the shots show the same thing a few steps later, which is the case from batch B on. Suggestion: build it only if the approval sheet turns up combinations he cannot judge alone; it can run beside anything (3 passes).
 
-### Open questions for the migration
+### Answers, 2026-10-21
 
-Answered by Thomas, 2026-10-21:
+Thomas's answers to the open questions of the earlier plan, and the instruction that changed the plan: "we have not released this product yet. There is not "migration" or "legacy" or whatever needed."
 
-2. **The page.** The Proposed page becomes `/design-system` and Today retires when the migration ends, at step 37 (it stays available until then).
-9. **Fraunces weight.** 600. Step 11 is no longer blocked by it.
-
-Also settled, though not one of the ten: panel padding is 16px (see "Foundations and 17 more families").
+- **The page.** The Proposed page becomes `/design-system` and Today retires when the build-out ends, at step 37 (it stays available until then).
+- **Fraunces weight.** 600.
+- **How often Thomas looks.** After each batch, not each step.
+- **Drift checks.** A count per file that can only fall. A new raw colour fails the build; the heuristic checks warn until the last step.
+- **Form standard.** The Fields step (13) absorbs the remaining steps of [plan-form-standard](plan-form-standard.md): one move over the same files.
+- **Breakpoints.** A module keeps its own width and answers it with container queries, using 640, 900 and 1200 as the steps. Pages outside modules use media queries at the same three widths.
+- **Italics.** Dropped everywhere. No italic text anywhere; a quote uses the bar or quotation marks.
+- **Old token names.** Moot: there are no aliases at all.
+- **Theme file version.** Moot: there is one format.
+- **Panel padding.** 16px (see "Foundations and 17 more families").
 
 ### Still open for Thomas
 
-1. **How often Thomas looks.** After every step, or after each batch. Recommendation: after each batch, which is fewer interruptions and the shots show the same thing.
-3. **Old token aliases.** Keep them until a release has warned uploaded modules, or remove them at step 36. Recommendation: keep them until a release has warned, so no uploaded module breaks.
-4. **Allow-lists.** A count per file that can only fall, or a fixed list of files not yet moved, as `check-forms` does. Recommendation: a count per file that can only fall; it catches new drift inside a file that is half moved.
-5. **Theme file version 2.** A server older than this build reads a version 2 theme as "newer" and refuses it. Recommendation: accept this; an older server refusing a newer file is safer than misreading it.
-6. **Form standard.** Does step 13 absorb the remaining steps of plan-form-standard. Recommendation: yes, one move instead of two over the same files.
-7. **Breakpoints in modules.** Modules answer to their own width (`.app.narrow`), not the window. They keep that and use the three widths only as container queries, or follow the four ranges. Recommendation: keep their own width with container queries, because a module's width depends on the canvas layout, not the window.
-8. **Italics.** Not bundled. Does italic text stay, fall back, or get bundled. Recommendation: fall back to the browser's slanted face, and bundle only if a screen looks wrong.
-10. **Check strictness.** Question 5 under "What is not decided" applies to the checks in step 7. Recommendation: fail the build on a new raw value; warn on the rest until step 36.
+None. Every question the plan held is answered above. Question 6 and 7 under "What is not decided" are older and do not block the build.
 
 ## Verify
 
@@ -750,11 +755,10 @@ Also settled, though not one of the ten: panel padding is 16px (see "Foundations
 
 ## Risks
 
-- **Restyling unasked.** A move must keep today's look exactly. Every step compares shots with the baseline; any difference not decided by Thomas is a defect, and the step does not ship.
+- **Restyling unasked.** A step changes only the looks Thomas approved. Every step compares shots with the baseline; any difference that is not an approved look is a defect, and the step does not ship.
 - **Cascade order.** `system.css` loads before `style.css`, while today the blocks sit in the middle of `style.css`. A rule earlier in `style.css` that the block used to override would now win. Step 2 lists every selector in `style.css` that matches a moved class and resolves each before shipping; the shots catch what the list misses.
 - **In-page modules strip `:root`.** `module-host.js`'s `scopeCss` removes `:root { ... }` blocks, so tokens in `system.css` reach an in-page module only by inheriting from the app page, which also loads `system.css`. Fine while both load it; the step 2 shots of a composite confirm it.
-- **Uploaded modules** use `.btn` and the form classes; removing an alias breaks them. The deprecation rules in (b) give them a release's warning.
-- **Module versions.** A module's own CSS change installs only if its version is above the one installed in Thomas's environment; every module step bumps and `check-module-versions` holds it.
+- **Module versions.** Needed only so that an updated bundled module installs in Thomas's own test environment: its version must be higher than the one installed there, or Manage will not install the new files. `check-module-versions` holds it. There is no other installed base (the product is unreleased, 2026-10-21).
 - **A bigger inline stylesheet** in every module frame (system plus base). `host.css` is about 1,200 lines today; watch the size, and if it grows past what is comfortable, serve it by link where the frame allows.
 - **The page as a second source.** It must render from the same stylesheet and registry, never hold copies; the forced-state and frame designs in (c) are there for that.
 - **False positives in the check.** Only rules that need no judgement fail; the heuristic only reports.
@@ -776,8 +780,8 @@ Not decided; each is for Thomas to confirm or change.
 
 ## What is not decided
 
-Questions 1 to 4 were decided on 2026-10-15 and are under Decisions. The three below are open and none blocks the build; they can wait for the review after step 8. Question 5 matters when step 7 is built; until Thomas answers, step 7 follows the recommendation.
+Questions 1 to 4 were decided on 2026-10-15 and are under Decisions. Question 5 was answered on 2026-10-21 (below). Questions 6 and 7 are open and neither blocks the build; they can wait for the review after step 8.
 
-5. **How strictly the check blocks.** Recommended: rules 1 to 7 fail, with the "not yet" list; the component-looking heuristic only reports. Alternative: everything fails at once from step 7, which would fail today's code everywhere until it moves.
+5. **How strictly the check blocks.** Answered 2026-10-21: each check holds a count per file that can only fall; a new raw colour fails the build; the heuristic checks warn until the last step, when they fail too. This replaces the "not yet" list for the step 7 checks (see "Still open" and "Answers, 2026-10-21" in the build-out plan). The component-looking heuristic (rule 7 of `check-system`) only reports.
 6. **The coloured edges.** Which of the six in the audit Thomas meant by the edge bar he disliked, and what each becomes. Recommended: decide each on the page in the review after step 8, with today's and a fill version side by side; nothing changes before then.
 7. **Its own folder or package later.** Recommended: no; it stays in `public/design-system/` and `public/sdk/system.css` until there is a consumer outside this repository.

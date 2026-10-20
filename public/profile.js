@@ -520,14 +520,14 @@ const readWhen = (readAt) => (readAt ? `last read ${timeAgo(readAt)}` : 'not rea
 const lastRead = (readAt) => { const t = readWhen(readAt); return `${t[0].toUpperCase()}${t.slice(1)}.`; };
 
 // A reason the server sends, as a line: when it ends "Turn it on in <Module>'s configuration." (an owner's), the module's
-// name is the link to its Configure page, where the switch is.
+// name is the link to its tab on Manage > Modules, where the switch is.
 function reasonInto(el, reason, module = feed && feed.module) {
   el.textContent = '';
   if (!reason) return;
   const tail = module ? `Turn it on in ${module.name}'s configuration.` : '';
   if (!tail || !reason.endsWith(tail)) { el.textContent = reason; return; }
   const a = document.createElement('a');
-  a.href = `/module-config.html?id=${encodeURIComponent(module.id)}`;
+  a.href = `/admin#modules/${encodeURIComponent(module.id)}`;
   a.textContent = module.name;
   el.append(reason.slice(0, -tail.length), 'Turn it on in ', a, "'s configuration.");
 }
@@ -1169,7 +1169,7 @@ $('delete-btn').addEventListener('click', () => run(async () => {
 // Each module that is on here and has settings of your own gets a tab with them: the Calendar's are on its Calendars tab,
 // any other module's on a tab of its own after it, named as this environment shows the module. Its address is the
 // module's id (#research), or module-<id> when that is one of the page's own tabs.
-const OWN_TABS = ['profile', 'conference', 'spaces', 'calendars', 'calendar'];
+const OWN_TABS = ['profile', 'conference', 'spaces', 'calendars'];
 const calendarModule = () => personModules.find((m) => m.id === ((feed && feed.module && feed.module.id) || 'calendar')) || null;
 const moduleTabName = (id) => (OWN_TABS.includes(id) ? `module-${id}` : id);
 
@@ -1204,13 +1204,12 @@ function buildModuleTabs() {
 }
 
 // Profile / Conference / Spaces / Calendars and the modules' tabs, remembered in the address -- same pattern as
-// admin.html's tabs. #rooms, the old name, still opens Spaces; #calendar opens Calendars. #calendars&space=<id> (the
+// admin.html's tabs. #calendars&space=<id> (the
 // Calendar's menu in a space, plan-space-calendars.md decision 10) opens Calendars on that space's row. A tab not shown
 // (a module that is off, the conference off) opens Profile.
 function selectTab(name) {
   const [asked, ...rest] = String(name || '').split('&');
-  const tabOf = (name) => (name === 'spaces' || name === 'rooms' ? 'spaces' : name === 'calendar' ? 'calendars' : name || 'profile');
-  const wanted = tabOf(asked);
+  const wanted = asked || 'profile';
   const button = [...document.querySelectorAll('#subtabs > .subtab')].find((b) => b.dataset.tab === wanted);
   const tab = button && !button.hidden ? wanted : 'profile';
   for (const stack of document.querySelectorAll('main > .tab-stack')) stack.hidden = stack.id !== `tab-${tab}`;

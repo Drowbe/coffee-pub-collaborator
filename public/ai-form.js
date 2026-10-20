@@ -1,11 +1,10 @@
-// The AI service's form, shared by two pages that carry the same fields (the same ids): the AI service's tab on Manage >
-// Modules (admin.html, #modules/ai, where the choice is the host's managed service or a custom one) and the host
-// console's Managed AI panel (the one service the host offers every environment). The person picks a company by name
+// The AI service's setup on its tab on Manage > Modules (admin.html, #modules/ai): the host's managed service or a custom
+// one of this environment's own. The person picks a company by name
 // and the server knows its address; the models are listed from the company's own list, not typed. The key is
 // write-only: the page is told only whether one is set, and a typed key replaces it.
 //
 // mountAiForm({ get, put, models, source, cap, usage, onSave }): `get`, `put` and `models` are the API paths; `source`
-// draws the managed/custom choice (Manage's tab), `cap` the monthly allowance, `usage` this month's use; `onSave` is
+// draws the managed/custom choice, `cap` the monthly allowance, `usage` this month's use; `onSave` is
 // called after a save the server took.
 import { api, fill, word } from '/brand.js';
 
@@ -136,7 +135,6 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     $('ai-key').value = '';
     syncAiPanel();
     loadAiModels();
-    syncAiEnable();
     if (!usage) return;
     const limit = (used && used.monthlyTokens) || 0;
     const off = managedChosen() ? !offered().some((s) => s.provider === managedProvider()) : ai.provider === 'none';
@@ -150,27 +148,11 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     $('ai-usage-text').textContent = Number((used && used.tokens) || 0).toLocaleString() + ' tokens in ' + Number((used && used.calls) || 0).toLocaleString() + ' calls' + (limit ? ', ' + pct + '% of the ' + limit.toLocaleString() + ' allowance' : ', no limit set') + (tasks ? '. By task: ' + tasks + '.' : '.');
   }
 
-  // The state pill (the host console's): an environment's is turned on with its switch on Manage > Modules. `enabled` comes from the server.
-  function syncAiEnable() {
-    const pill = $('ai-state');
-    if (!pill) return;
-    const saved = managedChosen() ? offered().some((s) => s.provider === managedProvider()) : aiState.provider !== 'none' && aiState.model;
-    // The host's own form has no enable step: its service is offered or not. An environment's says whether it is enabled.
-    if (!source && aiState.enabled === undefined) {
-      pill.textContent = saved ? 'Offered' : 'Not offered';
-      pill.classList.toggle('on', Boolean(saved));
-      return;
-    }
-    const on = Boolean(saved && (aiState.enabled === undefined ? true : aiState.enabled));
-    pill.textContent = on ? 'Enabled' : saved ? 'Disabled' : 'Off';
-    pill.classList.toggle('on', on);
-  }
-
   async function loadAi() {
     try { showAi(await api('GET', get)); } catch { $('ai-panel').hidden = true; }
   }
 
-  if (source) $('ai-source').addEventListener('change', () => { syncAiPanel(); loadAiModels(); syncAiEnable(); });
+  if (source) $('ai-source').addEventListener('change', () => { syncAiPanel(); loadAiModels(); });
   $('ai-provider').addEventListener('change', () => { aiManual = false; $('ai-model-select').replaceChildren(); syncAiPanel(); loadAiModels(); });
   $('ai-address').addEventListener('change', loadAiModels);
   $('ai-workspace').addEventListener('change', loadAiModels);

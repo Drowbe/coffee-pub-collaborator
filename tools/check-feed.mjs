@@ -285,8 +285,8 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.ok(profileJs.includes("api('DELETE', spaceId ? `/api/me/spaces/${encodeURIComponent(spaceId)}/feed` : '/api/me/feed')"), 'one Turn off for both');
   assert.doesNotMatch(profileJs, /api\('GET', '\/api\/me\/feed'\)/, 'the tab is read in one (GET /api/me/calendars)');
   assert.doesNotMatch(profileJs, /(localStorage|sessionStorage|history\.(push|replace)State)[^\n]*feedUrl/, 'the address is not kept beyond the page');
-  // The reasons are drawn in place (never a hidden section), and an owner's "Turn it on in <Module>'s configuration." links the module's Configure page.
-  assert.match(profileJs, /a\.href = `\/module-config\.html\?id=\$\{encodeURIComponent\(module\.id\)\}`;/, 'the reason links the Configure page');
+  // The reasons are drawn in place (never a hidden section), and an owner's "Turn it on in <Module>'s configuration." links the module's tab on Manage > Modules.
+  assert.match(profileJs, /a\.href = `\/admin#modules\/\$\{encodeURIComponent\(module\.id\)\}`;/, 'the reason links the module\'s tab');
   assert.match(profileJs, /\$\('feed-why'\)\.hidden = !whyAll;/);
   assert.match(profileJs, /parts\.reason\.hidden = !why;/);
   // QA of step 5: a kept address that does not work always names its cause (the row's reason, else the section's), never

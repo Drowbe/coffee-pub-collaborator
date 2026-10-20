@@ -110,8 +110,6 @@ function imgUrl(key, slot) {
 
 // Environment / Template / Theme / Spaces / Roles / Users / Modules / About tabs, remembered in the address
 const TABS = ['environment', 'template', 'theme', 'spaces', 'roles', 'users', 'modules', 'about'];
-// Old names of sections that moved to the Template tab (addendum 2; Reactions and Icons came from Theme): a link to one opens the tab at it.
-const OLD_SECTIONS = { words: 'words-panel', 'home-icon': 'home-icon-section', reactions: 'reactions-section', icons: 'icons-section' };
 // The Environment tab's parts (#261): General (the plan, the name and icon, the sign-in page), Localization and Stream,
 // each a stack of its own, chosen in the page bar's row (#env-subtabs). The address names the part shown: #general,
 // #localization, #stream (#environment, the tab's own name, opens General).
@@ -166,7 +164,7 @@ function selectTab(name) {
     name = 'modules';
   }
   // A link to a section (an element's id, such as #words-panel or a module's row on the Template tab) opens its tab at it.
-  const at = !TABS.includes(name) && name ? $(OLD_SECTIONS[name] || name) : null;
+  const at = !TABS.includes(name) && name ? $(name) : null;
   const inTab = at && at.closest('section[id^="tab-"]');
   if (inTab) name = inTab.id.slice(4);
   const inPart = at && at.closest('#tab-environment > [data-env-part]');
@@ -1490,8 +1488,8 @@ setInterval(() => { if (!document.hidden && !$('tab-modules').hidden) loadActivi
 
 // The AI service: server-wide (the one service, model and key the Assistant, Chat's AI and Research share), not one
 // module's setting. Like a module it has an entry on the Configuration tab with its switch, and a tab of its own
-// (#modules/ai): the same entry, then its setup, the form the host console uses too (/ai-form.js). The tab is always
-// there, since the service is set up there before it can be turned on.
+// (#modules/ai): the same entry, then its setup (/ai-form.js). The tab is always there, since the service is set up
+// there before it can be turned on.
 const AI_NAMES = { openai: 'OpenAI', anthropic: 'Anthropic', compatible: 'Other (OpenAI-compatible)' };
 let aiCard = { saved: false, on: false, provider: 'none', model: '', usage: {}, dependents: [] };
 // Whether there is anything to show at all (false only when its API call fails, e.g. not an admin): no entry, no tab.

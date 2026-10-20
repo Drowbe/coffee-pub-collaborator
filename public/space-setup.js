@@ -48,8 +48,7 @@ export function setupTabs({ owner = false, moderator = false, phases = true, mod
   const tabs = owner ? OWNER_TABS : moderator ? MODERATOR_TABS : [];
   return tabs.filter((t) => (t !== 'phases' || phases) && (t !== 'modules' || modules));
 }
-// The tab an address fragment asks for, else the first the person may see (an unknown fragment is never an error). The
-// old settings page's #space, #members and #modules are the same ids, so its links land on the same tabs.
+// The tab an address fragment asks for, else the first the person may see (an unknown fragment is never an error).
 export function pickTab(tabs, hash = '') {
   const id = String(hash || '').replace(/^#/, '');
   return tabs.includes(id) ? id : tabs[0] || null;

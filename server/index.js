@@ -7857,7 +7857,7 @@ app.get('/m/:id/:version/*path', (req, res) => {
   let html = fs.readFileSync(file, 'utf8');
   if (!html.includes('/sdk/host.js')) {
     const sdk = fs.readFileSync(path.join(publicDir, 'sdk', 'host.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
-    const css = /<meta[^>]+name=["']sdk-base["'][^>]+content=["']none["']/i.test(html) ? '' : fs.readFileSync(path.join(publicDir, 'sdk', 'host.css'), 'utf8');
+    const css = /<meta[^>]+name=["']sdk-base["'][^>]+content=["']none["']/i.test(html) ? '' : ['system.css', 'host.css'].map((f) => fs.readFileSync(path.join(publicDir, 'sdk', f), 'utf8')).join('\n'); // system.css first: the shared pieces (switches, buttons), host.css on top
     const inject = `${css ? `<style id="sdk-base">${css}</style>` : ''}<script id="sdk-script">${sdk}</script>`;
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + inject) : inject + html;
   }

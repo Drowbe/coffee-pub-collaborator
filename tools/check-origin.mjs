@@ -192,6 +192,20 @@ try {
       assert.ok(r.cookies.some((c) => c.startsWith('app_session=')), 'signed in');
     }
   });
+  await test('a module frame page inlines the shared styles (system.css) and the SDK styles (host.css), unless it opts out', async () => {
+    const sys = fs.readFileSync(new URL('../public/sdk/system.css', import.meta.url), 'utf8');
+    const hostCss = fs.readFileSync(new URL('../public/sdk/host.css', import.meta.url), 'utf8');
+    const list = await call('GET', 'aaa', '/api/modules', { headers: { cookie: ownerCookie } });
+    const entry = (list.json.modules || []).find((m) => m.id === 'stream');
+    assert.ok(entry, `the stream module is listed: ${list.text.slice(0, 120)}`);
+    const r = await call('GET', 'aaa', `/m/stream/${entry.version}/${entry.surfaces.page.entry}`, { headers: { cookie: ownerCookie, accept: 'text/html' } });
+    assert.equal(r.status, 200, r.text.slice(0, 120));
+    const style = /<style id="sdk-base">([\s\S]*?)<\/style>/.exec(r.text);
+    assert.ok(style, 'the base style block is there');
+    assert.ok(style[1].includes(sys.slice(0, 200)) && style[1].includes(hostCss.slice(-200)), 'both stylesheets are inlined');
+    assert.ok(style[1].indexOf(sys.slice(0, 200)) < style[1].indexOf(hostCss.slice(-200)), 'system.css comes first');
+  });
+
   await test('/fonts: served on the bare base domain, a subdomain and the console; font files (and /fa/webfonts) send a wildcard CORS header, nothing else does', async () => {
     for (const sub of ['', 'aaa', 'admin']) {
       const r = await call('GET', sub, '/fonts/figtree/latin.woff2');

@@ -107,7 +107,7 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- states that replace the map ---- */
 .state { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; color: var(--text-dim); background: var(--bg); }
-.state h2 { margin: 0; color: var(--text); }
+.state h2 { margin: 0; color: var(--text); font-size: var(--text-18); }
 .state p { margin: 0; max-width: 420px; }
 .state .ic { font-size: var(--text-28); color: var(--accent); margin-bottom: 4px; }
 .skel { width: 100%; height: 100%; background: linear-gradient(90deg, var(--bg-section), color-mix(in srgb, var(--bg-section) 82%, var(--text)), var(--bg-section)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }

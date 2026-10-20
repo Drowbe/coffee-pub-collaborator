@@ -76,7 +76,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
    the window, its padding, its close button and its backdrop; the form is a plain column in it. */
 .editor-card { display: flex; flex-direction: column; gap: 10px; }
-.editor-card h3 { margin: 0; padding-right: 36px; }
+.editor-card h3 { margin: 0; padding-right: 36px; font-size: var(--text-18); }
 .editor-card label { display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--text-12); }
 .editor-card label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: var(--text-14); }
 .editor-card input[type=text], .editor-card input[type=date], .editor-card input[type=time], .editor-card textarea, .editor-card select { width: 100%; color: var(--text); }

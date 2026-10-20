@@ -9277,7 +9277,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 }
 
 .status-togo-days {
-  font-size: calc(var(--nav-font-size) * 1.25);
+  font-size: var(--text-16);
   font-weight: var(--weight-strong);
   line-height: 26px;
 }

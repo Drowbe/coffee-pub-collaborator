@@ -37,7 +37,7 @@ export async function browserChecks(b) {
       const d = dd(title); const w = d.defaultView; const cs = (e, p) => w.getComputedStyle(e, p); const want = forced || (w.innerWidth <= 640 ? 44 : 32);
       const tok = (prop, expr) => { const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style[prop] = expr; host.appendChild(p); const c = w.getComputedStyle(p)[prop]; p.remove(); return c; };
       const selBg = tok('backgroundColor', 'var(--selected-bg)'); const hov = tok('backgroundColor', 'var(--menu-hover)'); const clear = 'rgba(0, 0, 0, 0)'; const acc = tok('color', 'var(--accent)'); const dim = tok('color', 'var(--text-dim)'); const medium = tok('borderTopLeftRadius', 'var(--radius-medium)');
-      const rows = [...d.querySelectorAll('.pm-row')]; if (rows.length !== 7) bad(title + ': expected 7 rows of kinds, found ' + rows.length);
+      const rows = [...d.querySelectorAll('.pm-row')]; const wantRows = forced ? 3 : 7; if (rows.length !== wantRows) bad(title + ': expected ' + wantRows + ' rows of kinds, found ' + rows.length);
       rows.forEach((r, k) => { const nm = r.querySelector('.pm-role').textContent; const cells = [...r.querySelectorAll('.dsf-state')];
         cells.forEach((c, s) => { const lab = c.querySelector('.sdk-choice-row'); const inp = lab.querySelector('input'); out.rows += 1; const st = ['Rest', 'Hover', 'Focus', 'Checked', 'Checked hover', 'Disabled', 'Disabled checked'][s]; const sw = inp.classList.contains('sdk-switch'); const where2 = title + ': ' + nm + ', ' + st;
           const h = lab.getBoundingClientRect().height; const hasDesc = !!lab.querySelector('.sdk-choice-desc'); const boxed = lab.classList.contains('sdk-choice-boxed');
@@ -72,7 +72,7 @@ export async function browserChecks(b) {
     { const d = dd('Choice rows, in use'); if (d.querySelectorAll('.sdk-choice-boxed').length < 3 || [...d.querySelectorAll('.sdk-choice-boxed')].some((e) => !e.querySelector('.sdk-choice-desc'))) bad('in use: the boxed rows are fewer than 3 or one has no description'); if (d.querySelectorAll('.sdk-choice-row:has(> input.sdk-switch)').length < 3) bad('in use: fewer than 3 switch rows'); }
     // contrast
     { const d = dd('Choice rows, contrast'); for (const tr of d.querySelectorAll('.pm-ct tbody tr')) if (tr.cells[4].textContent !== 'Passes') bad('contrast below its minimum: ' + tr.cells[0].textContent + ' (' + tr.cells[2].textContent + ')'); }
-    if (out.rows < 90) bad('only ' + out.rows + ' rows drawn');
+    if (out.rows < 60) bad('only ' + out.rows + ' rows drawn');
     return JSON.stringify(out); })()`));
   for (const x of [...new Set(probe.problems)]) problems.push(`${where}: ${x}`);
   // The focus outline of a row: the same on all four sides at 1.25x and 1.5x with a fractional scroll offset.

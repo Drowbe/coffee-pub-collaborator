@@ -66,7 +66,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const a = (s === 'Hover' ? ' class="ds-force-hover"' : s === 'Focus' ? ' class="ds-force-focus"' : '') + (s === 'Disabled' ? ' disabled' : '') + (s === 'Error' ? ' aria-invalid="true"' : '');
     return `<div class="sdk-group"><input type="date" aria-label="Day" value="2026-10-17"${a}><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar"${s === 'Disabled' ? ' disabled' : ''}>${fa('calendar')}</button></div>`;
   }
-  const pkMatrix = (h44) => `<div class="ds-proposed"${h44 ? ' data-field-h="44"' : ''}>${PK_KINDS.map((k) => `<div class="pm-row"><div class="pm-role">${k.n}</div><div class="dsf-states">${PK_STATES.map((s) => `<div class="dsf-state pm-pw"><small>${s}</small><div class="dsf-ex">${pkTrigger(k, s)}</div></div>`).join('')}</div></div>`).join('')}
+  const pkMatrix = (h44) => `<div class="ds-proposed"${h44 ? ' data-field-h="44"' : ''}>${(h44 ? PK_KINDS.filter((k) => k.id === "kind" || k.id === "col") : PK_KINDS).map((k) => `<div class="pm-row"><div class="pm-role">${k.n}</div><div class="dsf-states">${PK_STATES.map((s) => `<div class="dsf-state pm-pw"><small>${s}</small><div class="dsf-ex">${pkTrigger(k, s)}</div></div>`).join('')}</div></div>`).join('')}
     <div class="pm-row"><div class="pm-role">Date (Fields)</div><div class="dsf-states">${PK_STATES.map((s) => `<div class="dsf-state pm-pw"><small>${s}</small><div class="dsf-ex">${pkDate(s)}</div></div>`).join('')}</div></div></div>`;
 
   // ---- the flyouts ----
@@ -143,7 +143,7 @@ ${dim([
 <p class="ds-desc">Every trigger in every state, forced from the proposed rules. The date field (the Fields family's) is the last row, to show that it sits with the others.</p>
 <p class="ds-desc"><b>38px</b> (the default; 44px when the frame is 640px or narrower)</p>
 <div data-slot="m38"></div>
-<p class="ds-desc"><b>44px</b> (the phone height, forced here so it can be compared at any width)</p>
+<p class="ds-desc"><b>44px</b> (the phone height, forced here so it can be compared at any width; a few rows only. The width switch at the top, 390, shows every row at 44px)</p>
 <div data-slot="m44"></div>
 
 <h4 class="ds-h4" id="pickers-flyouts">Flyouts</h4>
@@ -163,7 +163,7 @@ ${dim([
 <div data-slot="form"></div>
 
 <h4 class="ds-h4" id="pickers-widths">Widths</h4>
-<p class="ds-desc">The same form at 390 (a phone, 44px), 700 and 1280.</p>
+<p class="ds-desc">The same form at 390 (a phone, 44px) and 1280.</p>
 <div data-slot="widths"></div>
 
 <h4 class="ds-h4" id="pickers-rules">Usage rules</h4>
@@ -245,7 +245,7 @@ ${code(`<!-- the trigger -->
     slot('bg').appendChild(F(bgBody(), 'Pickers, background dialog content'));
     slot('form').appendChild(F(formBody('pf'), 'Pickers, a form'));
     const ws = mk('div', '');
-    for (const w of [390, 700, 1280]) {
+    for (const w of [390, 1280]) {
       ws.appendChild(mk('p', 'ds-ctx', `${w} wide (fixed)`));
       ws.appendChild(F(formBody('w' + w), `Pickers at ${w}`, { pinWidth: w }));
     }

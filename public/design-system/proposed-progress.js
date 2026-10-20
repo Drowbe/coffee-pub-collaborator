@@ -204,7 +204,7 @@ ${code(`<!-- a bar with its label and value -->
     slot('use').appendChild(F(useBody(), 'Progress, in use'));
     slot('contrast').appendChild(F(contrastBody(), 'Progress, contrast', { onload: measureContrast }));
     const ws = mk('div', '');
-    for (const w of [390, 700, 1280]) {
+    for (const w of [390, 1280]) {
       ws.appendChild(mk('p', 'ds-ctx', `${w} wide (fixed)`));
       ws.appendChild(F(useBody(), `Progress at ${w}`, { pinWidth: w }));
     }

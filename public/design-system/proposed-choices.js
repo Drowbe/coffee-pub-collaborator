@@ -46,7 +46,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     { n: 'Boxed, with a description', o: { type: 'radio', cls: 'sdk-choice-boxed', label: 'Trip planner', desc: 'Days, places, a map and a budget.' } },
     { n: 'Poll option', o: { type: 'radio', cls: 'sdk-choice-poll', label: 'Trattoria', poll: 62 } },
   ];
-  const matrix = (h44) => `<div class="ds-proposed"${h44 ? ' data-field-h="44"' : ''}>${KINDS.map((k, i) => `<div class="pm-row"><div class="pm-role">${k.n}</div><div class="dsf-states">${ST.map((s, j) => `<div class="dsf-state pm-cw"><small>${s.n}</small><div class="dsf-ex">${row(Object.assign({}, k.o, { name: `r-${h44 ? 'b' : 'a'}-${i}-${j}`, on: s.on, dis: s.dis, force: s.c }))}</div></div>`).join('')}</div></div>`).join('')}</div>`;
+  const matrix = (h44) => `<div class="ds-proposed"${h44 ? ' data-field-h="44"' : ''}>${KINDS.map((k, i) => [k, i]).filter(([, i]) => !h44 || i === 0 || i === 3 || i === 5).map(([k, i]) => `<div class="pm-row"><div class="pm-role">${k.n}</div><div class="dsf-states">${ST.map((s, j) => `<div class="dsf-state pm-cw"><small>${s.n}</small><div class="dsf-ex">${row(Object.assign({}, k.o, { name: `r-${h44 ? 'b' : 'a'}-${i}-${j}`, on: s.on, dis: s.dis, force: s.c }))}</div></div>`).join('')}</div></div>`).join('')}</div>`;
 
   const seg = (opts, at, o = {}) => `<div class="sdk-tabs sdk-tabs-joined sdk-choice${o.small ? ' sdk-tabs-small' : ''}" role="group" aria-label="${o.label}">${opts.map((w, k) => `<button type="button" class="sdk-tab" aria-pressed="${k === at}"><span class="sdk-tab-word">${w}</span></button>`).join('')}</div>`;
   const segBody = () => `<div class="ds-proposed">
@@ -127,7 +127,7 @@ ${dim([
 <p class="ds-desc">Every row in every state, forced from the proposed rules. A switch row's "Checked" is on.</p>
 <p class="ds-desc"><b>32px</b> (the default; 44px when the frame is 640px or narrower)</p>
 <div data-slot="m32"></div>
-<p class="ds-desc"><b>44px</b> (the phone height, forced here so it can be compared at any width)</p>
+<p class="ds-desc"><b>44px</b> (the phone height, forced here so it can be compared at any width; a few rows only. The width switch at the top, 390, shows every row at 44px)</p>
 <div data-slot="m44"></div>
 
 <h4 class="ds-h4" id="choices-segmented">Segmented choice</h4>
@@ -211,7 +211,7 @@ ${code(`<!-- a choice row: the label wraps the input and the words -->
     slot('use').appendChild(F(useBody(), 'Choice rows, in use'));
     slot('contrast').appendChild(F(contrastBody(), 'Choice rows, contrast', { onload: measure }));
     const ws = mk('div', '');
-    for (const w of [390, 700, 1280]) {
+    for (const w of [390, 1280]) {
       ws.appendChild(mk('p', 'ds-ctx', `${w} wide (fixed)`));
       ws.appendChild(F(useBody(), `Choice rows at ${w}`, { pinWidth: w }));
     }

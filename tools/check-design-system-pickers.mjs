@@ -40,9 +40,9 @@ export async function browserChecks(b) {
     const tokOf = (d, prop, expr) => { const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style[prop] = expr; host.appendChild(p); const c = d.defaultView.getComputedStyle(p)[prop]; p.remove(); return c; };
     for (const [title, forced] of [['Pickers, triggers, all states', 0], ['Pickers, triggers, all states, 44px', 44]]) {
       const d = get(title); const w = frameFor(d); const cs = (x, p) => w.getComputedStyle(x, p); const want = forced || (w.innerWidth <= 640 ? 44 : 38);
-      const rows = [...d.querySelectorAll('.pm-row')]; if (rows.length !== 6) bad(title + ': expected 6 rows, found ' + rows.length);
+      const rows = [...d.querySelectorAll('.pm-row')]; const wantRows = forced ? 3 : 6; if (rows.length !== wantRows) bad(title + ': expected ' + wantRows + ' rows, found ' + rows.length);
       const cell = (r, s) => rows[r].querySelectorAll('.dsf-state')[s];
-      for (let r = 0; r < 5; r += 1) {
+      for (let r = 0; r < rows.length - 1; r += 1) {
         const nm = rows[r].querySelector('.pm-role').textContent;
         for (let s = 0; s < 7; s += 1) { const t = cell(r, s).querySelector('.sdk-picker'); if (!t) { bad(title + ': ' + nm + ' state ' + s + ' has no trigger'); continue; }
           const hgt = t.getBoundingClientRect().height; if (!near(hgt, want)) bad(title + ': the ' + nm + ' trigger (state ' + s + ') is ' + hgt + 'px, expected ' + want);
@@ -64,7 +64,7 @@ export async function browserChecks(b) {
         if (!ph.querySelector('.sdk-picker-ph')) bad(title + ': the ' + nm + ' placeholder is not .sdk-picker-ph');
         else if (cs(ph.querySelector('.sdk-picker-ph')).color !== tokOf(d, 'color', 'var(--text-dim)')) bad(title + ': the ' + nm + ' placeholder is not --text-dim');
       }
-      const dt = cell(5, 1).querySelector('input'); if (!near(dt.getBoundingClientRect().height, want)) bad(title + ': the date field is ' + dt.getBoundingClientRect().height + 'px, expected ' + want);
+      const dt = cell(rows.length - 1, 1).querySelector('input'); if (!near(dt.getBoundingClientRect().height, want)) bad(title + ': the date field is ' + dt.getBoundingClientRect().height + 'px, expected ' + want);
     }
     // the flyouts
     { const d = get('Pickers, flyouts'); const w = d.defaultView; const cs = (x) => w.getComputedStyle(x); const phone = w.innerWidth <= 640;

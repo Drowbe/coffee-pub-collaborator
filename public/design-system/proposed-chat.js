@@ -40,6 +40,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     <div class="sdk-message-head"><span class="sdk-message-who">${portrait(o)}<span class="sdk-message-name">${o.who}</span>${o.cmd ? `<span class="sdk-message-command">${o.cmd}</span>` : ''}<time class="sdk-message-time">${o.time || '10:41'}</time></span><span class="sdk-message-tools">${MORE}</span></div>
     ${o.actions ? ACTIONS : ''}<div class="sdk-message-body">${o.quote ? `<p class="sdk-message-quote">${o.quote}</p>` : ''}<div class="sdk-message-text">${o.text}</div>${o.extra || ''}${o.react ? react(o.react) : ''}</div></div>`;
 
+  // A list of messages on a real window (the messages are flat on it), so a frame counts its levels honestly.
+  const W = (inner) => `<div class="sdk-window sdk-window-docked"><div class="sdk-messages">${inner}</div></div>`;
   const OBJECT = `<div class="sdk-card" data-tint="orange"><div class="sdk-card-head"><span class="sdk-card-icon">${fa('utensils')}</span><div class="sdk-card-main"><p class="sdk-card-sub sdk-tint-text">Food</p><h4 class="sdk-card-title">Café Marly</h4><p class="sdk-card-sub">Paris, open until 11</p></div></div><p class="sdk-card-body">A terrace over the Louvre courtyard. Book ahead for Friday.</p><div class="sdk-card-foot"><button type="button" class="btn btn-small btn-primary">Keep</button><button type="button" class="btn btn-small">Details</button></div></div>`;
   const LINK = (photo) => `<div class="sdk-card sdk-linkbox">${photo ? `<span class="sdk-linkbox-photo" aria-hidden="true">${fa('image')}</span>` : `<span class="sdk-card-icon">${fa('link')}</span>`}<div class="sdk-linkbox-text"><a class="sdk-linkbox-title" href="#">Café Marly, Paris</a><p class="sdk-linkbox-desc">A terrace restaurant under the arcades of the Louvre, with a view of the pyramid and a short list of classics.</p><div class="sdk-linkbox-site">${fa('link')}<span>cafemarly.example</span></div></div><button type="button" class="btn btn-small btn-quiet sdk-linkbox-keep">Keep</button></div>`;
 
@@ -49,6 +51,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     msg({ who: 'Maps', icon: 'map', tint: 'blue', cmd: '/map', time: '10:43', text: '<p>I found three cafés near the hotel.</p>', extra: OBJECT }),
     msg({ who: 'Assistant', icon: 'wand-magic-sparkles', tint: 'gold', time: '10:44', quote: 'Where should we eat on Friday night?', text: '<p>Café Marly is open until 11 and has a terrace. Two other places are closer to the hotel:</p><ul><li>Le Grand Colbert, 6 minutes on foot</li><li>Chez Georges, 9 minutes</li></ul>' }),
     msg({ who: 'Sam', time: '10:45', text: '<p>This one looks good.</p>', extra: LINK(true) }),
+    msg({ who: 'You', own: true, time: '10:46', text: '<p>Booking it. Here is the place.</p>', extra: OBJECT }),
   ].join('');
 
   // ---- the composer ----
@@ -68,18 +71,20 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const conversationBody = () => wrap(`<div class="pm-ch-col">${chat({ style: 'height:800px' })}</div>`);
 
   const partsBody = () => wrap(`<div class="pm-ch-grid">
-    <div>${CAP('Others: a 5% text fill')}${msg({ who: 'Sam', text: '<p>Anyone checked the museum hours?</p>' })}</div>
-    <div>${CAP('Own: a 10% accent fill')}${msg({ who: 'You', own: true, text: '<p>Open until 9 on Fridays.</p>' })}</div>
-    <div>${CAP('Command or AI: the tint is on the portrait only')}${msg({ who: 'Maps', icon: 'map', tint: 'blue', cmd: '/map', text: '<p>I found three cafés near the hotel.</p>' })}</div>
-    <div>${CAP('The eight tints, on the portrait')}<div class="pm-ch-stack">${TINTS.map((t) => msg({ who: t[0].toUpperCase() + t.slice(1), icon: 'location-dot', tint: t, time: '10:40', text: '<p>The message is neutral.</p>' })).join('')}</div></div>
-    <div>${CAP('Long text, a link, code and a list')}${msg({ who: 'Assistant', icon: 'wand-magic-sparkles', tint: 'gold', text: '<p>The Louvre sells timed tickets at <a href="#">louvre.example</a>. A very long unbroken address such as https://www.example.com/a/very/long/path/that/keeps/going/and/going/until/it/must/wrap should wrap, not push the message wider.</p><p>Use <code>/roll 2d6</code> to roll dice.</p><ul><li>Tickets: 22 EUR</li><li>Audio guide: 5 EUR</li></ul><pre><code>1. Entry 9:30\n2. Lunch 12:30</code></pre>' })}</div>
-    <div>${CAP('Quote: a nested neutral fill, not a 2px rule')}${msg({ who: 'Assistant', icon: 'wand-magic-sparkles', tint: 'gold', quote: 'Where should we eat on Friday night, somewhere with a long name that fills the line?', text: '<p>Café Marly is open until 11.</p>' })}${msg({ who: 'Sam', text: '<blockquote>Open until 9 on Fridays.</blockquote><p>Good, then we can eat first.</p>' })}</div>
-    <div>${CAP('Reactions: Chips tags with a count')}${msg({ who: 'Sam', text: '<p>I booked the table for six.</p>', react: [[['&#128077;', 'Thumbs up'], 3, true], [['&#10084;&#65039;', 'Heart'], 1, false], [['&#127881;', 'Party'], 12, false]] })}</div>
-    <div>${CAP('Object card: the approved card')}${msg({ who: 'Maps', icon: 'map', tint: 'blue', cmd: '/map', text: '<p>Here is one.</p>', extra: OBJECT })}</div>
-    <div>${CAP('Link box with a photo tile')}${msg({ who: 'Sam', text: '<p>This looks good.</p>', extra: LINK(true) })}</div>
-    <div>${CAP('Link box with an icon')}${msg({ who: 'Sam', text: '<p>And the rules.</p>', extra: LINK(false) })}</div>
-    <div>${CAP('Hover or focus inside: the actions slot, top right')}${msg({ who: 'Sam', hover: true, actions: true, text: '<p>Hover, or tab into the message.</p>' })}</div>
-    <div>${CAP('Not hovered: the slot is hidden, the "..." stays')}${msg({ who: 'Sam', actions: true, text: '<p>At rest.</p>' })}</div>
+    <div>${CAP('Others: flat on the window, no box and no fill')}${W(msg({ who: 'Sam', text: '<p>Anyone checked the museum hours?</p>' }))}</div>
+    <div>${CAP('Own: the one boxed kind, a 10% accent fill')}${W(msg({ who: 'You', own: true, text: '<p>Open until 9 on Fridays.</p>' }))}</div>
+    <div>${CAP('Command or AI: flat, the tint is on the portrait only')}${W(msg({ who: 'Maps', icon: 'map', tint: 'blue', cmd: '/map', text: '<p>I found three cafés near the hotel.</p>' }))}</div>
+    <div>${CAP('The eight tints, on the portrait')}${W(TINTS.map((t) => msg({ who: t[0].toUpperCase() + t.slice(1), icon: 'location-dot', tint: t, time: '10:40', text: '<p>The message is neutral.</p>' })).join(''))}</div>
+    <div>${CAP('Long text, a link, code and a list')}${W(msg({ who: 'Assistant', icon: 'wand-magic-sparkles', tint: 'gold', text: '<p>The Louvre sells timed tickets at <a href="#">louvre.example</a>. A very long unbroken address such as https://www.example.com/a/very/long/path/that/keeps/going/and/going/until/it/must/wrap should wrap, not push the message wider.</p><p>Use <code>/roll 2d6</code> to roll dice.</p><ul><li>Tickets: 22 EUR</li><li>Audio guide: 5 EUR</li></ul><pre><code>1. Entry 9:30\n2. Lunch 12:30</code></pre>' }))}</div>
+    <div>${CAP('Quote: a nested neutral fill, not a 2px rule')}${W(msg({ who: 'Assistant', icon: 'wand-magic-sparkles', tint: 'gold', quote: 'Where should we eat on Friday night, somewhere with a long name that fills the line?', text: '<p>Café Marly is open until 11.</p>' }) + msg({ who: 'Sam', text: '<blockquote>Open until 9 on Fridays.</blockquote><p>Good, then we can eat first.</p>' }))}</div>
+    <div>${CAP('Reactions: Chips tags with a count')}${W(msg({ who: 'Sam', text: '<p>I booked the table for six.</p>', react: [[['&#128077;', 'Thumbs up'], 3, true], [['&#10084;&#65039;', 'Heart'], 1, false], [['&#127881;', 'Party'], 12, false]] }))}</div>
+    <div>${CAP('Object card in a flat message: medium corner')}${W(msg({ who: 'Maps', icon: 'map', tint: 'blue', cmd: '/map', text: '<p>Here is one.</p>', extra: OBJECT }))}</div>
+    <div>${CAP('Object card in your own message: small corner, two levels')}${W(msg({ who: 'You', own: true, text: '<p>Booking this one.</p>', extra: OBJECT }))}</div>
+    <div>${CAP('Link box with a photo tile')}${W(msg({ who: 'Sam', text: '<p>This looks good.</p>', extra: LINK(true) }))}</div>
+    <div>${CAP('Link box with an icon')}${W(msg({ who: 'Sam', text: '<p>And the rules.</p>', extra: LINK(false) }))}</div>
+    <div>${CAP('Link box in your own message: small corner')}${W(msg({ who: 'You', own: true, text: '<p>Here is the one I mean.</p>', extra: LINK(false) }))}</div>
+    <div>${CAP('Hover or focus inside: the actions slot, top right')}${W(msg({ who: 'Sam', hover: true, actions: true, text: '<p>Hover, or tab into the message.</p>' }))}</div>
+    <div>${CAP('Not hovered: the slot is hidden, the "..." stays')}${W(msg({ who: 'Sam', actions: true, text: '<p>At rest.</p>' }))}</div>
   </div>`);
 
   const composerBody = () => wrap(`<div class="pm-ch-grid" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr))">
@@ -109,25 +114,26 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     <div>${CAP('Chat button with unread (micro count), 99+')}<div class="sdk-window sdk-window-docked"><div class="sdk-toolbar"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Chat, 12 new">${fa('comments')}<span class="sdk-badge-micro" aria-hidden="true">12</span></button><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Chat, more than 99 new">${fa('comments')}<span class="sdk-badge-micro" aria-hidden="true">99+</span></button></div></div></div>
   </div>`);
 
-  const phoneBody = () => wrap(chat({ popout: true, style: 'height:640px;--safe-b:34px', composerOpts: { text: 'Dinner at 8?\nI can book the terrace.' } }));
+  // On a phone the levels are counted: the window, then your own message (a box), then the object card or link box in it: two at most. Others are flat.
+  const phoneBody = () => wrap(chat({ popout: true, style: 'height:820px;--safe-b:34px', messages: msg({ who: 'Maps', icon: 'map', tint: 'blue', cmd: '/map', time: '10:43', text: '<p>I found a café near the hotel.</p>', extra: OBJECT }) + msg({ who: 'You', own: true, time: '10:44', text: '<p>Booking it. Here is the place.</p>', extra: LINK(false) }), composerOpts: { text: 'Dinner at 8?\nI can book the terrace.' } }));
 
-  const aliasBody = () => wrap(`<div class="pm-ch-grid"><div>${CAP('Today\'s message markup, no edit')}<div class="pm-ch-stack">
+  const aliasBody = () => wrap(`<div class="pm-ch-grid"><div>${CAP('Today\'s message markup, no edit')}${W(`
       <div class="message"><div class="message-head"><span class="message-head-side"><span class="message-portrait">S</span><span class="message-name">Sam</span><span class="message-when">10:41</span></span><span class="message-head-side"><button type="button" class="sdk-more" aria-label="More">${fa('ellipsis-vertical')}</button></span></div><div class="message-body"><div class="text">Anyone checked the hours?</div></div></div>
       <div class="message own"><div class="message-head"><span class="message-head-side"><span class="message-portrait">Y</span><span class="message-name">You</span><span class="message-when">10:42</span></span></div><div class="message-body"><div class="text">Open until 9.</div></div></div>
-      <div class="message" data-tint="blue"><div class="message-head"><span class="message-head-side"><span class="message-portrait message-portrait-icon">${fa('map')}</span><span class="message-name">Maps</span><span class="message-command">/map</span></span></div><div class="message-body"><div class="message-quote">Where do we eat?</div><div class="text">Three cafés.</div><div class="chat-link" data-tint="green"><span class="chat-link-img">${fa('image')}</span><div class="chat-link-text"><span class="chat-link-title">Café Marly</span><span class="chat-link-desc">A terrace.</span></div></div></div></div></div></div>
+      <div class="message" data-tint="blue"><div class="message-head"><span class="message-head-side"><span class="message-portrait message-portrait-icon">${fa('map')}</span><span class="message-name">Maps</span><span class="message-command">/map</span></span></div><div class="message-body"><div class="message-quote">Where do we eat?</div><div class="text">Three cafés.</div><div class="chat-link" data-tint="green"><span class="chat-link-img">${fa('image')}</span><div class="chat-link-text"><span class="chat-link-title">Café Marly</span><span class="chat-link-desc">A terrace.</span></div></div></div></div>`)}</div>
     <div>${CAP('Today\'s composer markup')}<div class="chat-bar"><div class="chat-format-bar"><span class="chat-format-side"><button type="button" class="msg-btn" aria-label="Bold">${fa('bold')}</button><button type="button" class="msg-btn on" aria-label="Italic">${fa('italic')}</button></span><span class="chat-format-side"><button type="button" class="msg-btn" aria-label="Commands">${fa('square-poll-horizontal')}</button></span></div><textarea rows="1" placeholder="Send a message or type / for commands" aria-label="Message"></textarea></div>
       <div class="pm-ch-note">.chat-bar, .chat-format-bar and .msg-btn take the new look.</div></div></div>`);
 
   const CT_ROWS = [
-    ['Words on a message from others', '--text', ['--bg-section', 'color-mix(in srgb, var(--text) 5%, transparent)'], 4.5],
+    ['Words on a message from others (flat on the window)', '--text', ['--bg-section'], 4.5],
     ['Words on your own message', '--text', ['--bg-section', 'color-mix(in srgb, var(--accent) 10%, transparent)'], 4.5],
-    ['Time (11px) on a message from others', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-section', 'color-mix(in srgb, var(--text) 5%, transparent)'], 4.5],
+    ['Time (11px) on a message from others', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-section'], 4.5],
     ['Time (11px) on your own message', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-section', 'color-mix(in srgb, var(--accent) 10%, transparent)'], 4.5],
-    ['Quote words on its fill, in a message from others', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-section', 'color-mix(in srgb, var(--text) 5%, transparent)', 'color-mix(in srgb, var(--text) 7%, transparent)'], 4.5],
+    ['Quote words on its fill, in a message from others', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-section', 'color-mix(in srgb, var(--text) 7%, transparent)'], 4.5],
     ['Quote words on its fill, in your own message', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-section', 'color-mix(in srgb, var(--accent) 10%, transparent)', 'color-mix(in srgb, var(--text) 7%, transparent)'], 4.5],
-    ['A link in a message (the accent mix), from others', 'color-mix(in srgb, var(--accent) 55%, var(--text))', ['--bg-section', 'color-mix(in srgb, var(--text) 5%, transparent)'], 4.5],
+    ['A link in a message (the accent mix), from others', 'color-mix(in srgb, var(--accent) 55%, var(--text))', ['--bg-section'], 4.5],
     ['A link in your own message', 'color-mix(in srgb, var(--accent) 55%, var(--text))', ['--bg-section', 'color-mix(in srgb, var(--accent) 10%, transparent)'], 4.5],
-    ['A reaction you made: a deeper accent mix on the selected fill', 'color-mix(in srgb, var(--accent) 38%, var(--text))', ['--bg-section', 'color-mix(in srgb, var(--text) 5%, transparent)', '--selected-bg'], 4.5],
+    ['A reaction you made: a deeper accent mix on the selected fill', 'color-mix(in srgb, var(--accent) 38%, var(--text))', ['--bg-section', '--selected-bg'], 4.5],
     ['Words in the field', '--text', ['--bg-input'], 4.5],
     ['The placeholder (the hint) in the field', '--text-dim', ['--bg-input'], 4.5],
     ['A pressed format button: accent mix on the selected fill', 'color-mix(in srgb, var(--accent) 55%, var(--text))', ['--bg-section', '--selected-bg'], 4.5],
@@ -135,7 +141,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ['A problem sentence in the status line', 'color-mix(in srgb, var(--danger) 70%, var(--text))', ['--bg-section'], 4.5],
     ['Link box words on the card', '--text', ['--bg-card'], 4.5],
     ['Link box site line (11px muted) on the card', '--text-dim', ['--bg-card'], 4.5],
-    ['Hairline of the link box on the message', '--border', ['--bg-section', 'color-mix(in srgb, var(--text) 5%, transparent)'], 1],
+    ['Hairline of the link box on the window', '--border', ['--bg-section'], 1],
   ].concat(TINTS.map((t) => [`Portrait icon, ${t}, on its tint fill`, `color-mix(in srgb, var(--tint-${t}) 62%, var(--text))`, ['--bg-section', `color-mix(in srgb, var(--tint-${t}) 22%, var(--bg-section))`], 3]));
   const contrastBody = () => wrap(`<table class="pm-ch-ct"><thead><tr><th>Pair</th><th>Ratio</th><th>Needs</th><th></th></tr></thead><tbody>${CT_ROWS.map((r) => `<tr data-fg="${h(r[1])}" data-bgs="${h(JSON.stringify(r[2]))}" data-min="${r[3]}"><td>${r[0]}</td><td data-out="r"></td><td>${r[3] === 1 ? 'info' : r[3] + ':1'}</td><td data-out="p"></td></tr>`).join('')}</tbody></table>`);
   const measureContrast = (doc) => {
@@ -208,18 +214,20 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="chat-h"><a href="#chat">Chat: message and composer</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the message, its parts and cards, the composer, the format bar, the status line</span></header>
-<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Two new components. <b>Message</b>: others a 5% text fill, your own a 10% accent fill; a 22px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#chat-conversation">Conversation</a><a href="#chat-parts">Message parts</a><a href="#chat-composer">Composer</a><a href="#chat-live">Live composer</a><a href="#chat-statusline">Status line</a><a href="#chat-unread">Unread</a><a href="#chat-phone">On a phone</a><a href="#chat-contrast">Contrast</a><a href="#chat-map">Today to proposed</a><a href="#chat-alias">Aliases</a><a href="#chat-tokens">Tokens</a><a href="#chat-contract">Markup</a><a href="#chat-widths">Widths</a><a href="#chat-decided">Decided 2026-10-21</a></nav>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Two new components. <b>Message</b>: others are flat on the window (no box, no fill), your own a 10% accent fill, the one boxed message kind (redrawn 2026-10-21, see "Changed 2026-10-21"); a 22px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#chat-conversation">Conversation</a><a href="#chat-parts">Message parts</a><a href="#chat-composer">Composer</a><a href="#chat-live">Live composer</a><a href="#chat-statusline">Status line</a><a href="#chat-unread">Unread</a><a href="#chat-phone">On a phone</a><a href="#chat-contrast">Contrast</a><a href="#chat-map">Today to proposed</a><a href="#chat-alias">Aliases</a><a href="#chat-tokens">Tokens</a><a href="#chat-contract">Markup</a><a href="#chat-widths">Widths</a><a href="#chat-decided">Decided 2026-10-21</a><a href="#chat-nesting">Changed 2026-10-21: fewer boxes</a></nav>
 
 <h4 class="ds-h4" id="chat-conversation">A conversation</h4>
 <p class="ds-desc">Own and others, a tinted AI message with its object card, a quote, a link box, reactions. The Chat header is the Module window's title bar.</p>
 <div data-slot="conversation"></div>
 ${dim([
-    ['1 Message', 'A 5% <code>--text</code> fill (others), a 10% <code>--accent</code> fill (own); <code>--radius-medium</code>; padding 4px 8px 8px 12px. One fill for the whole message: the shaded head band is gone.'],
+    ['1 Message', 'Others: flat on the window, no box, no fill, no edge. Your own: the one boxed kind, a 10% <code>--accent</code> fill, <code>--radius-medium</code>, padding 4px 12px 12px (the 12 keeps a card inside it 12px from the edge). Messages are 8px apart (the list\'s gap, <code>--space-2</code>). The shaded head band is gone.'],
     ['2 Head', 'A 22px portrait (a page-local copy of the Avatars size), the name 12px weight 600, an optional command 11px 600, the time 11px muted, and at the end the "..." (the Quiet small icon button, 30px; today 24px). The head is 30px high.'],
     ['3 Body', '14px on 20px (the type scale); paragraphs 8px apart; code 13px; a link in the accent mix, underlined. Long words wrap.'],
     ['4 Tint', 'Only on the portrait: a 22% tint fill behind the icon and the icon in the readable mix. The message stays neutral.'],
     ['5 Quote', 'A nested neutral fill (<code>--text</code> 7% over the message), <code>--radius-small</code>, 12px. Not a 2px rule.'],
+    ['6b Cards in a message', 'The object card and the link box are the one box that may sit in a message. Their corner is one step under what they sit on: <code>--radius-medium</code> on the flat window (large), <code>--radius-small</code> inside your own message (medium). Same fill step as everywhere: <code>--bg-card</code>, with the hairline, never darker or rounder than the parent.'],
+    ['6c Levels', 'Window, then your own message (a box), then the object card or the quote: two surfaces nested inside the window, as the Foundations rule says. A message from someone else adds none. The portrait is a plain circle and the reactions are chips: controls, not levels. The composer is one field.'],
     ['6 Hover actions', 'A small slot at the top right, left of the "...": react, reply, keep. It floats (no width taken), shows on hover and when focus is inside, and is not drawn on a phone (640px and below), where the "..." menu holds the same.'],
   ])}
 
@@ -249,7 +257,7 @@ ${dim([
 
 <h4 class="ds-h4" id="chat-map">Today to proposed</h4>
 ${tbl(['Today', 'Proposed'], [
-    ['<code>.message</code> fills: 5% text, 10% accent for <code>.own</code>; a shaded head band (<code>.message-head</code>: 8% and 22% over <code>--bg</code>, with a rounded top)', 'The same two fills, kept, for the whole message. The head band is gone.'],
+    ['<code>.message</code> fills: 5% text, 10% accent for <code>.own</code>; a shaded head band (<code>.message-head</code>: 8% and 22% over <code>--bg</code>, with a rounded top)', 'Others lose the box: flat on the window. Your own keeps the 10% accent fill, for the whole message. The head band is gone.'],
     ['<code>.message[data-tint]</code>: a 3px coloured left edge and the tint on the portrait icon', 'The tint on the portrait only. No edge.'],
     ['<code>.message .chat-link</code>: a 3px left edge in the tint, an 8px 10px padding, a 72px picture', '<code>.sdk-linkbox</code>: a card (a 1px hairline, padding 12, no edge) with an icon or a photo tile, 72px and 52px on a phone.'],
     ['<code>.message-quote</code> and <code>.message .text blockquote</code>: a 2px left rule', 'A nested neutral fill with the small corner.'],
@@ -273,7 +281,7 @@ ${tbl(['Component', 'New name', 'Older names that take the same rules'], [
 
 <h4 class="ds-h4" id="chat-tokens">Tokens</h4>
 ${tbl(['Token', 'Value', 'Used for'], [
-    ['<code>--msg-fill</code> <code>--msg-fill-own</code>', '<code>--text</code> 5%, <code>--accent</code> 10%', 'The message fills. Proposed tokens (the values are today\'s).'],
+    ['<code>--msg-fill-own</code>', '<code>--accent</code> 10%', 'The fill of your own message, the one boxed kind. Proposed token (the value is today\'s). <code>--msg-fill</code> (the others\' 5%) is gone: they are flat.'],
     ['<code>--msg-quote-fill</code>', '<code>--text</code> 7%', 'The nested quote. Proposed token.'],
     ['<code>--msg-meta</code>', '<code>--text</code> 78% into <code>--text-dim</code>', 'The time and the command word: muted, but 4.5 to 1 on both message fills (plain <code>--text-dim</code> is 4.1 on them). Proposed token.'],
     ['<code>--msg-portrait</code>', '22px', 'The portrait in a message (until the Avatars family sets it). Proposed token.'],
@@ -330,6 +338,17 @@ ${tbl(["Decided as drawn","Why"], [
     ["The quote is a fill of <code>--text</code> at 7%, with 12px words","One surface step in, quieter than the message."],
     ["The format bar is above the field and the command menu opens above it","It is where they are today."],
     ["Enter sends on a phone too","The field says \"send\" on the keyboard (<code>enterkeyhint</code>); a new line is Shift+Enter or the keyboard's own."],
+  ])}
+
+<h4 class="ds-h4" id="chat-nesting">Changed 2026-10-21: fewer boxes</h4>
+<p class="ds-desc">Thomas, on this family: "we are starting to get too many boxes in boxes in boxes. Also be mindful that an inner border radius isn't different or bigger than the container it is in. Image 4 on a phone shows 4 levels of nesting." The levels were the frame panel, the chat window, a message box and the object card, with a portrait and buttons inside. The new rules are in Foundations, "Nesting and corners"; this is what they change here.</p>
+${tbl(["Was","Now","Rule"], [
+    ["Every message was a box (a 5% fill)","Messages from others are flat on the window: the portrait, the name and the time on the head line, the text below, 8px between messages. Your own message is the one boxed kind.","At most two surfaces nested in a window."],
+    ["The object card and the link box had the large corner inside a message with the medium corner","Medium on the flat window, small inside your own message.","A child's corner is never larger than its parent's."],
+    ["A card sat 8px from the bottom of a message while it has 12px of padding","Your own message has 12px of padding.","The space to the parent's edge is at least the child's padding."],
+    ["The portrait, the reactions and the buttons looked like more boxes","The portrait is a plain circle; reactions are chips; the buttons are controls. None counts as a level.","Controls are not levels, but their corners obey the corner rule."],
+    ["The tinted AI message","Unchanged: the tint on the portrait icon only, with a flat body.","One tint, on one small thing."],
+    ["On a phone: window, message box, card (and the page's frame panel)","Window, your own message, card: two. The phone frame draws this case.","Counted by the nesting check on every frame."],
   ])}
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);

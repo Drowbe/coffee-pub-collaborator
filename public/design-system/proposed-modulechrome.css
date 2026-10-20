@@ -11,7 +11,7 @@
      the title bar        the window's step; the module's tint is a 10% wash over it (the ONLY tinted band), with the tint on its icon
      the toolbar          --bg-input     the field and inner step, so it reads as a band under the title bar
      the status line      the window's step, a 1px --border hairline on top
-     the content          the window's step; a card in it steps to --bg-card
+     the content          the window's step; a card or a row in it steps to --bg-card, and they are 8px apart (rows in a list never touch)
    Buttons in a band are the approved Buttons: the Quiet small icon button (30px) and the Quiet small text button; selected is the neutral selected fill
    (--selected-bg). The 26px round .tb-btn pill with its solid accent "on" is retired (.tb-btn is an alias of Quiet small). .msg-btn (13px) and .mod-add
    are retired the same way: the "+" is an icon button.
@@ -55,6 +55,9 @@
 .ds-proposed .sdk-window-popout { --safe-b: env(safe-area-inset-bottom, 0px); }
 
 .ds-proposed .sdk-window-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-in, 8px); /* rows and cards in the content are 8px apart (the spacing rule: things in a list), never touching */
   flex: 1 1 auto;
   min-height: 0;
   padding: 12px;
@@ -62,6 +65,7 @@
   background: var(--bg-section);
   font-size: 14px;
 }
+.ds-proposed .sdk-window-content > * { flex: none; }
 
 /* ---- the title bar ---- */
 .ds-proposed :is(.sdk-titlebar, .mod-header, .module-floating-head, .chat-head) {

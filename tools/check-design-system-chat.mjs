@@ -2,7 +2,7 @@
  * check-design-system-chat.mjs -- the Chat family (the message and the composer) of the proposed design system page (public/design-system/proposed-chat.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
- * Fails on: a message fill that is not 5% text (others) or 10% accent (own), a message with any edge or a tint anywhere but the portrait (the 3px left bar is gone), a name
+ * Fails on: a message from others that has a box or a fill (it is flat on the window), your own message that is not the 10% accent fill with the medium corner and 12px of padding, an object card or link box with a corner that is not medium on the window and small in your own message, a message that is not 8px from the next, more than two surfaces nested in a window (the nesting check), a child corner larger than its parent's, a space to the parent's edge under the child's padding, a message fill that is not 10% accent (own), a message with any edge or a tint anywhere but the portrait (the 3px left bar is gone), a name
  * that is not 12px weight 600, a time that is not 11px, a body that is not 14px, a portrait that is not 22px, a quote with a rule instead of a nested fill, a reaction that
  * is not a 24px Chips tag (selected = --selected-bg), an object card or link box that is not the approved card (a 1px --border hairline on all four sides, no shadow,
  * padding 12; the link photo 72px, 52px on a phone), a hover slot that is shown at rest, a "..." that is not the 30px Quiet small icon button, a composer field that is not the
@@ -14,6 +14,7 @@
  * that scrolls sideways, the family not marked Approved, the undecided name still listed; in the stylesheet: a hex colour, a gradient, a colour written out, a shadow other
  * than none and --shadow-2, a side border other than the divider, a weight over 600, a font size under 11px, a name not defined.
  */
+import { checkNesting } from './check-design-system-nesting.mjs';
 export const id = 'chat';
 export const todayOnly = [];
 
@@ -28,7 +29,10 @@ export function staticChecks({ fail, css, js, defined }) {
   }
   for (const m of css.matchAll(/font-weight\s*:\s*(\d+)/g)) if (Number(m[1]) > 600) fail(`proposed-chat.css: font-weight ${m[1]} (the weights are 400, 500 and 600)`);
   for (const m of css.matchAll(/font-size\s*:\s*(\d+)px/g)) if (Number(m[1]) < 11) fail(`proposed-chat.css: font-size ${m[1]}px (nothing under 11px)`);
-  if (!/--msg-fill:\s*color-mix\(in srgb, var\(--text\) 5%, transparent\)/.test(css) || !/--msg-fill-own:\s*color-mix\(in srgb, var\(--accent\) 10%, transparent\)/.test(css)) fail('proposed-chat.css: the message fills are not 5% text and 10% accent');
+  if (/--msg-fill\s*:/.test(css)) fail('proposed-chat.css: --msg-fill is back (a message from others is flat: no fill)');
+  if (!/--msg-fill-own:\s*color-mix\(in srgb, var\(--accent\) 10%, transparent\)/.test(css)) fail('proposed-chat.css: the own message fill is not 10% accent');
+  if (!/:is\(\.sdk-message, \.message\)\s*\{[^}]*padding:\s*0;[^}]*background:\s*none;/.test(css)) fail('proposed-chat.css: the message is not flat (no padding, no fill) before .own');
+  if (!/\.own, \[data-own\]\)\s*\{[^}]*padding:\s*4px 12px 12px;[^}]*background:\s*var\(--msg-fill-own\)/.test(css)) fail('proposed-chat.css: your own message is not the box with 12px of padding and the accent fill');
   if (/\[data-tint\][^{]*\{[^}]*\b(border|background)\b/.test(css.replace(/:is\(\.sdk-message, \.message\)\[data-tint\] :is\(\.sdk-message-portrait[^{]*\{[^}]*\}/, ''))) fail('proposed-chat.css: a [data-tint] rule draws a border or a fill other than on the portrait');
   for (const c of ['sdk-messages', 'sdk-message', 'sdk-message-head', 'sdk-message-who', 'sdk-message-portrait', 'sdk-message-name', 'sdk-message-command', 'sdk-message-time', 'sdk-message-tools', 'sdk-message-actions', 'sdk-message-body',
     'sdk-message-text', 'sdk-message-quote', 'sdk-message-reactions', 'sdk-react-emoji', 'sdk-linkbox', 'sdk-linkbox-photo', 'sdk-linkbox-text', 'sdk-linkbox-title', 'sdk-linkbox-desc', 'sdk-linkbox-site', 'sdk-linkbox-keep',
@@ -44,6 +48,7 @@ export async function browserChecks(b) {
   const { ev, problems, where } = b;
   const cp = JSON.parse(await ev(`(${probe.toString()})()`));
   for (const x of cp.problems) problems.push(`${where}: ${x}`);
+  await checkNesting(b, /^Chat/);
 }
 
 // Measured in the page (runs in the browser).
@@ -63,10 +68,11 @@ const probe = async () => {
   // ---- the message ----
   { const d = get('Chat, message parts'); const ph = phone(d); const msgs = [...d.querySelectorAll('.sdk-message')];
     if (msgs.length < 20) bad(`the message frame shows only ${msgs.length} messages`);
-    const others = tok(d, 'color-mix(in srgb, var(--text) 5%, transparent)', 'backgroundColor'); const own = tok(d, 'color-mix(in srgb, var(--accent) 10%, transparent)', 'backgroundColor');
+    const others = 'rgba(0, 0, 0, 0)'; const own = tok(d, 'color-mix(in srgb, var(--accent) 10%, transparent)', 'backgroundColor');
     for (const m of msgs) {
       const c = cs(m); const isOwn = m.classList.contains('own');
-      if (c.backgroundColor !== (isOwn ? own : others)) bad(`a message is ${c.backgroundColor}, expected ${isOwn ? 'accent 10%' : 'text 5%'}`);
+      if (c.backgroundColor !== (isOwn ? own : others)) bad(`a message is ${c.backgroundColor}, expected ${isOwn ? 'accent 10%' : 'flat (no fill)'}`);
+      if (isOwn ? (c.paddingLeft !== '12px' || c.paddingRight !== '12px' || c.paddingBottom !== '12px') : (c.paddingLeft !== '0px' || c.paddingTop !== '0px')) bad(`a message has padding ${c.paddingTop} ${c.paddingRight} ${c.paddingBottom} ${c.paddingLeft} (own 4 12 12, others none)`);
       for (const s of NO_EDGE) if (c['border' + s + 'Width'] !== '0px') bad(`a message has a ${s.toLowerCase()} edge (the tint is on the portrait only)`);
       if (c.boxShadow !== 'none') bad('a message has a shadow');
       if (c.borderTopLeftRadius !== tok(d, 'var(--radius-medium)', 'borderTopLeftRadius')) bad('a message is not --radius-medium');
@@ -96,13 +102,15 @@ const probe = async () => {
     const cnt = d.querySelector('.sdk-message-reactions .sdk-badge'); if (!cnt || !near(cnt.getBoundingClientRect().height, 18)) bad('the reaction count is not the 18px Chips count');
     // The object card and the link box are the approved cards.
     const border = tok(d, 'var(--border)');
-    for (const el of [d.querySelector('.sdk-message-body > .sdk-card:not(.sdk-linkbox)'), ...d.querySelectorAll('.sdk-linkbox')]) {
+    for (const el of [...d.querySelectorAll('.sdk-message-body > .sdk-card:not(.sdk-linkbox)'), ...d.querySelectorAll('.sdk-linkbox')]) {
       const c = cs(el); const nm = el.classList.contains('sdk-linkbox') ? 'the link box' : 'the object card';
+      const inOwn = !!el.closest('.sdk-message.own'); const wantR = tok(d, inOwn ? 'var(--radius-small)' : 'var(--radius-medium)', 'borderTopLeftRadius');
+      if (c.borderTopLeftRadius !== wantR) bad(`${nm} has a ${c.borderTopLeftRadius} corner ${inOwn ? 'in your own message (small, one step under the message)' : 'on the flat window (medium)'}`);
       for (const s of NO_EDGE) if (c['border' + s + 'Width'] !== '1px' || c['border' + s + 'Color'] !== border) bad(`${nm} ${s.toLowerCase()} edge is ${c['border' + s + 'Width']} ${c['border' + s + 'Color']}, expected 1px --border`);
       if (c.boxShadow !== 'none' || c.paddingLeft !== '12px' || c.paddingTop !== '12px') bad(`${nm} is not the card (shadow ${c.boxShadow}, padding ${c.paddingLeft})`);
       if (c.backgroundColor !== bgTok(d, '--bg-card')) bad(`${nm} is not --bg-card`);
     }
-    const lb = d.querySelectorAll('.sdk-linkbox'); if (lb.length < 2) bad('the link boxes are missing'); const photo = d.querySelector('.sdk-linkbox-photo').getBoundingClientRect();
+    const lb = d.querySelectorAll('.sdk-linkbox'); if (lb.length < 3) bad('the link boxes are missing'); const photo = d.querySelector('.sdk-linkbox-photo').getBoundingClientRect();
     if (!near(photo.width, ph ? 52 : 72) || !near(photo.height, ph ? 52 : 72)) bad(`the link photo is ${photo.width} by ${photo.height}, expected ${ph ? 52 : 72}`);
     if (!lb[1].querySelector('.sdk-card-icon')) bad('the plain link box has no icon');
     // The hover slot.
@@ -110,6 +118,13 @@ const probe = async () => {
     else { const [shown, hidden] = slots; if (cs(shown).visibility !== 'visible' || cs(shown).opacity !== '1') bad('the hover slot is not shown on hover'); if (!ph && (cs(hidden).visibility !== 'hidden' || cs(hidden).opacity !== '0')) bad('the hover slot is shown at rest');
       if (!ph) { const m = shown.closest('.sdk-message').getBoundingClientRect(); const s = shown.getBoundingClientRect(); if (s.top - m.top > 4 || m.right - s.right < 30 || m.right - s.right > 44) bad(`the hover slot is not at the top right (top ${s.top - m.top}, right ${m.right - s.right})`); if (cs(shown).position !== 'absolute') bad('the hover slot takes room'); } }
   }
+  // ---- the conversation: flat messages, 8px apart, two levels at most ----
+  { const d = get('Chat, conversation'); const list = d.querySelector('.sdk-messages'); const ms = [...list.children];
+    if (ms.length < 6) bad(`the conversation shows ${ms.length} messages`);
+    for (let i = 0; i + 1 < ms.length; i += 1) { const g = ms[i + 1].getBoundingClientRect().top - ms[i].getBoundingClientRect().bottom; if (Math.abs(g - 8) > 0.6) bad(`messages ${i + 1} and ${i + 2} are ${g}px apart, expected 8`); }
+    const others = ms.filter((m) => !m.classList.contains('own')); for (const m of others) if (cs(m).backgroundColor !== 'rgba(0, 0, 0, 0)' || cs(m).borderTopWidth !== '0px') bad('a message from others has a box');
+    if (!ms.some((m) => m.classList.contains('own') && m.querySelector('.sdk-card'))) bad('the conversation has no card inside your own message (the two-level case)'); }
+  { const d = get('Chat, phone'); const own = d.querySelector('.sdk-message.own'); const kid = own && own.querySelector('.sdk-linkbox'); if (!kid) bad('the phone frame has no link box in your own message (window > own message > card: two levels)'); else if (!d.querySelector('.sdk-message:not(.own) .sdk-card')) bad('the phone frame has no object card on the flat window'); }
   // ---- the composer ----
   { const d = get('Chat, composer states'); const ph = phone(d); const comps = [...d.querySelectorAll('.sdk-composer')]; if (comps.length < 6) bad(`the composer frame shows only ${comps.length} composers`);
     const lh = ph ? 22 : 20; const padY = ph ? 10 : 8; const max = 5 * lh + 2 * padY + 2; const one = ph ? 44 : 38;
@@ -170,8 +185,8 @@ const probe = async () => {
   { const d = get('Chat, phone'); if (d.defaultView.innerWidth > 640) bad('the phone frame is wider than a phone'); const ta = d.querySelector('.sdk-composer textarea');
     if (!near(ta.getBoundingClientRect().height, 2 * 22 + 20 + 2, 1)) bad(`the phone field with two lines is ${ta.getBoundingClientRect().height}px, expected 66`); if (cs(ta).fontSize !== '16px') bad('the phone field words are not 16px'); }
   // ---- aliases ----
-  { const d = get('Chat, aliases'); const m = [...d.querySelectorAll('.message')]; const others = tok(d, 'color-mix(in srgb, var(--text) 5%, transparent)', 'backgroundColor'); const own = tok(d, 'color-mix(in srgb, var(--accent) 10%, transparent)', 'backgroundColor');
-    if (cs(m[0]).backgroundColor !== others || cs(m[1]).backgroundColor !== own) bad('.message and .message.own do not take the fills');
+  { const d = get('Chat, aliases'); const m = [...d.querySelectorAll('.message')]; const others = 'rgba(0, 0, 0, 0)'; const own = tok(d, 'color-mix(in srgb, var(--accent) 10%, transparent)', 'backgroundColor');
+    if (cs(m[0]).backgroundColor !== others || cs(m[1]).backgroundColor !== own) bad('.message is not flat, or .message.own does not take the accent fill');
     for (const el of m) for (const s of NO_EDGE) if (cs(el)['border' + s + 'Width'] !== '0px') bad('.message[data-tint] keeps a coloured edge');
     if (cs(m[0].querySelector('.message-head')).backgroundColor !== 'rgba(0, 0, 0, 0)' || cs(m[1].querySelector('.message-head')).backgroundColor !== 'rgba(0, 0, 0, 0)') bad('.message-head keeps its band');
     if (cs(m[0].querySelector('.message-name')).fontWeight !== '600') bad('.message-name is not weight 600'); if (!near(m[0].querySelector('.sdk-more').getBoundingClientRect().height, 30)) bad('the .sdk-more in a message head is not 30px');

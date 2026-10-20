@@ -386,8 +386,8 @@
 
 /* On a phone a small button keeps its look and gets a 44px target: the hit area grows past the box. */
 @media (max-width: 640px) {
-  .btn-small {
-    position: relative;
+  :where(.btn-small) {
+    position: relative; /* no weight: a rule that places a button (absolute, fixed) wins */
   }
 
   .btn-small::after {

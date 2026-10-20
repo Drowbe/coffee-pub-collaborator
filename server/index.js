@@ -2672,7 +2672,7 @@ if (BASE_DOMAIN) {
     // Font Awesome is asked for by every page including the console's own, but the icon set itself lives
     // outside hostRouter (mounted on `app`, below, since the bare base domain needs it too) -- let through to
     // there rather than into hostRouter, whose own catch-all would otherwise 404 it before it ever arrived.
-    if (host === `admin.${BASE_DOMAIN}`) return req.path.startsWith('/fa/') ? next() : hostRouter(req, res, next);
+    if (host === `admin.${BASE_DOMAIN}`) return (req.path.startsWith('/fa/') || req.path.startsWith('/fonts/')) ? next() : hostRouter(req, res, next);
     // The bare base domain: the product's own landing page (public/landing.html), never any one environment's
     // page -- no store is ever resolved here (see the "no environment" fallback in /theme.css and siteIcon
     // above). Only the handful of paths that page actually needs are let through; anything else is a plain 404,
@@ -2680,7 +2680,7 @@ if (BASE_DOMAIN) {
     if (host === BASE_DOMAIN) {
       if (req.path === '/') return res.sendFile(page('landing.html'));
       const BARE_BASE_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/signup'];
-      if (BARE_BASE_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/assets/images/brand/')) return next();
+      if (BARE_BASE_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
       return res.status(404).type('text').send('not found');
     }
     if (host.endsWith(`.${BASE_DOMAIN}`)) {
@@ -2994,7 +2994,12 @@ const faDir = path.dirname(require.resolve('@fortawesome/fontawesome-free/packag
 const faProDir = path.join(DATA_DIR, 'fontawesome-pro');
 const hasFaPro = fs.existsSync(path.join(faProDir, 'css'));
 app.use('/fa/css', express.static(path.join(faProDir, 'css'), { maxAge: '7d' }), express.static(path.join(faDir, 'css'), { maxAge: '7d' }));
-app.use('/fa/webfonts', express.static(path.join(faProDir, 'webfonts'), { maxAge: '30d' }), express.static(path.join(faDir, 'webfonts'), { maxAge: '30d' }));
+// Font files are fetched by sandboxed module frames too (no origin, so only a wildcard CORS header lets them load),
+// hence the header here and on the icon webfonts, and on no other route. The URLs are not content-hashed; the files
+// change only with a release, so 30 days.
+const fontHeaders = { maxAge: '30d', setHeaders: (res) => res.set('Access-Control-Allow-Origin', '*') };
+app.use('/fa/webfonts', express.static(path.join(faProDir, 'webfonts'), fontHeaders), express.static(path.join(faDir, 'webfonts'), fontHeaders));
+app.use('/fonts', express.static(path.join(publicDir, 'fonts'), fontHeaders));
 
 // Background blur's own dependencies, all self-hosted for the same reason
 // livekit-client is: nothing this page needs is fetched from a CDN at

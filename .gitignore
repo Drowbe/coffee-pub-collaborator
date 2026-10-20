@@ -7,3 +7,4 @@ dist/
 .claude/worktrees/
 .claude/launch.json
 /tools/.shots/
+/node_modules

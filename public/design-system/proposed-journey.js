@@ -69,7 +69,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       const pinFirstHalf = where === 'in' && pinX < x + w / 2;
       const tries = [];
       if (w >= 96) for (const wantNow of (cur && w >= 140 ? [true, false] : [false])) if (fullW + (wantNow ? nowW : 0) + 18 <= w) tries.push({ m: 'full', now: wantNow, lw: fullW + (wantNow ? nowW : 0), pad: 9, order: cur && pinFirstHalf ? ['end', 'start'] : ['start', 'end'] });
-      if (w >= 28 && ic) tries.push({ m: 'icon', now: false, lw: 11, pad: w < 44 ? 6 : 9, order: w < 56 ? ['center', 'start', 'end'] : ['start', 'end', 'center'] });
+      if (w >= 28 && ic) tries.push({ m: 'icon', now: false, lw: 11, pad: 6, order: w < 56 ? ['center', 'start', 'end'] : ['start', 'end', 'center'] });
       search: for (const c of tries) for (const al of c.order) {
         const l = al === 'start' ? x + c.pad : al === 'end' ? x + w - c.pad - c.lw : x + w / 2 - c.lw / 2;
         if (!hit(l, l + c.lw)) { mode = c.m; align = al; now = c.now; break search; }
@@ -195,8 +195,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 
   const statesBody = () => wrap(`<div class="pm-jr-list">
     ${CAP('Past 12%, current = the neutral selected fill with "Now" and a 2px progress line, ahead 22%, off (a phase with no dates) = a dashed neutral hairline at the end')}<div class="pm-jr-head">${journey({ offs: 1, phases: PHASES.concat([BUFFER]) })}</div>
-    ${CAP('Today before the first phase (lead): the pin stands in a 28px zone at the left end')}<div class="pm-jr-head">${journey({ today: '2026-09-27', phases: PHASES })}</div>
-    ${CAP('Today after the last phase (trail): the pin stands in a 28px zone at the right end')}<div class="pm-jr-head">${journey({ today: '2026-11-25', phases: PHASES })}</div>
+    ${CAP('Today before the first phase (lead): the pin stands in a 28px zone at the left end')}<div class="pm-jr-head">${journey({ today: '2026-08-25', phases: PHASES })}</div>
+    ${CAP('Today after the last phase (trail): the pin stands in a 28px zone at the right end')}<div class="pm-jr-head">${journey({ today: '2026-11-27', phases: PHASES })}</div>
     ${CAP('A band under the pointer or lit by its row in Set up: a stronger fill')}<div class="pm-jr-head">${journey({ lit: 2 })}</div>
     ${CAP('The eight tints, past (12%), current, ahead (22%) and ahead')}<div class="pm-jr-head" style="display:flex;flex-direction:column;gap:6px">${TINTS.map((t) => journey({ plain: true, today: '2026-10-14', label: t, phases: [P(t[0].toUpperCase() + t.slice(1), 'location-dot', t, '2026-10-01', '2026-10-10'), P('Current', 'location-dot', t, '2026-10-11', '2026-10-20'), P('Next', 'location-dot', t, '2026-10-21', '2026-10-30'), P('Later', 'location-dot', t, '2026-10-31', '2026-11-09')] })).join('')}</div>
   </div>`);
@@ -255,6 +255,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ['Today pin number on the micro fill', '--on-accent', ['color-mix(in srgb, var(--accent) 88%, var(--text))'], 4.5],
     ['Set up: label on the current band', 'color-mix(in srgb, var(--accent) 55%, var(--text))', ['--bg-card', '--selected-bg'], 4.5],
     ['Set up: the dates (11px) on the current band', 'color-mix(in srgb, var(--text) 78%, var(--text-dim))', ['--bg-card', '--selected-bg'], 4.5],
+    ['Date labels under the bar (11px)', '--jr-muted', ['--header-bg'], 4.5],
     ['Focus outline (accent) on the strip', '--accent', ['--header-bg'], 3],
   ].concat(...TINTS.map((t) => [
     [`Band name, ${t}, ahead (22%)`, '--header-text', ['--header-bg', `color-mix(in srgb, var(--tint-${t}) 22%, transparent)`], 4.5],

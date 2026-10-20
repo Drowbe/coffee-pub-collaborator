@@ -259,6 +259,7 @@
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track).trail > :is(.sdk-today, .status-today) { left: calc(100% - 1px); }
   /* The day grid on a phone: the same proportions as the 2px line, no ticks or dates, a 7px dot at today; a band is reached by a taller invisible area (its tooltip shows name and dates). */
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-strip-chip, .phase-chip, .attention-count) { z-index: 1; }
+  .ds-proposed :is(.sdk-strip, .status-strip):is(.sdk-strip, .status-strip):has(> :is(.sdk-journey, .status-track)[data-grid]) { height: var(--status-strip-slim-h); }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track)[data-grid] { --jr-bar-top: 0px; bottom: 3px; height: var(--jr-line); }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track)[data-grid] > :is(.sdk-band, .status-band) { top: 0; left: var(--x); width: var(--w); overflow: visible; }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track)[data-grid] > :is(.sdk-band, .status-band)::after { content: ""; position: absolute; left: 0; right: 0; top: -9px; bottom: -3px; }
@@ -276,8 +277,11 @@
   --jr-bar-top: 15px;
   --jr-tick: 4px;
 }
-.ds-proposed .sdk-strip:has(> :is(.sdk-journey, .status-track)[data-grid]) { height: var(--jr-strip-grid-h); }
-.ds-proposed :is(.sdk-journey, .status-track)[data-grid] { display: block; flex: 1 1 48px; align-self: stretch; height: calc(var(--jr-strip-grid-h) - 1px); cursor: default; }
+.ds-proposed :is(.sdk-strip, .status-strip):has(> :is(.sdk-journey, .status-track)[data-grid]) { height: var(--jr-strip-grid-h); }
+.ds-proposed :is(.sdk-journey, .status-track)[data-grid] > :is(.sdk-band, .status-band)[data-label="none"] { padding: 0; }
+/* The bar is the part of the strip that matters most: it asks for 360px and the phase chip's words (ellipsis) give way first. */
+.ds-proposed .sdk-strip:has(> :is(.sdk-journey, .status-track)[data-grid]) > :is(.sdk-strip-said, .status-said) { flex: 0 6 auto; }
+.ds-proposed :is(.sdk-journey, .status-track)[data-grid] { display: block; flex: 1 1 360px; min-width: 48px; align-self: stretch; height: calc(var(--jr-strip-grid-h) - 1px); cursor: default; }
 .ds-proposed :is(.sdk-journey, .status-track)[data-grid][data-plain] { --jr-bar-top: 0px; height: var(--jr-band-h); }
 .ds-proposed :is(.sdk-journey, .status-track)[data-grid] > :is(.sdk-band, .status-band) {
   position: absolute;

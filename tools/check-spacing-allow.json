@@ -1,0 +1,178 @@
+{
+  "about": "check-spacing: today's spacing values off the scale (0 1 2 4 8 12 16 20 24 32 40 48 px), per file and value. Counts may only fall; lower them with: node tools/check-spacing.mjs --update",
+  "counts": {
+    "modules/budget/src/budget.css": {
+      "3px": 2,
+      "6px": 14,
+      "10px": 19,
+      "14px": 3,
+      "30px": 1
+    },
+    "modules/calendar/src/calendar-widget.css": {
+      "-2.5px": 1,
+      "5px": 1,
+      "10px": 2
+    },
+    "modules/calendar/src/calendar.css": {
+      "3px": 2,
+      "5px": 2,
+      "6px": 9,
+      "7px": 5,
+      "10px": 7,
+      "13px": 1,
+      "36px": 1
+    },
+    "modules/maps/src/maps.css": {
+      "3px": 1,
+      "6px": 9,
+      "10px": 8,
+      "14px": 3,
+      "30px": 1
+    },
+    "modules/places/src/places.css": {
+      "3px": 3,
+      "5px": 2,
+      "6px": 20,
+      "7px": 4,
+      "10px": 7,
+      "14px": 5,
+      "30px": 1
+    },
+    "modules/polls/src/polls-widget.css": {
+      "5px": 1
+    },
+    "modules/polls/src/polls.css": {
+      "6px": 12,
+      "10px": 5,
+      "30px": 1
+    },
+    "modules/research/src/research.css": {
+      "3px": 1,
+      "5px": 3,
+      "6px": 17,
+      "7px": 1,
+      "10px": 13,
+      "14px": 4,
+      "30px": 1,
+      "74px": 1
+    },
+    "modules/stream/src/stream-keyed.css": {
+      "10px": 1
+    },
+    "modules/stream/src/stream.css": {
+      "6px": 4,
+      "10px": 4
+    },
+    "modules/todo/src/todo-widget.css": {
+      "5px": 1
+    },
+    "modules/todo/src/todo.css": {
+      "5px": 1,
+      "6px": 8,
+      "7px": 2,
+      "10px": 4,
+      "36px": 1
+    },
+    "modules/travel/src/travel-lib-cards.css": {
+      "-6px": 3,
+      "-14px": 2,
+      "-26px": 1,
+      "-28px": 1,
+      "-39px": 1,
+      "3px": 4,
+      "5px": 4,
+      "6px": 27,
+      "7px": 3,
+      "9px": 3,
+      "10px": 30,
+      "14px": 23,
+      "18px": 1,
+      "26px": 1,
+      "28px": 1,
+      "34px": 3
+    },
+    "modules/travel/src/travel-lib-editor.css": {
+      "6px": 1,
+      "10px": 2,
+      "36px": 1
+    },
+    "modules/travel/src/travel-widget.css": {
+      "5px": 1
+    },
+    "modules/travel/src/travel.css": {
+      "3px": 1,
+      "5px": 2,
+      "6px": 16,
+      "7px": 1,
+      "9px": 1,
+      "10px": 12,
+      "18px": 1
+    },
+    "public/destination.css": {
+      "3px": 2,
+      "6px": 1,
+      "10px": 1
+    },
+    "public/diag.css": {
+      "6px": 2,
+      "36px": 1,
+      "44px": 2
+    },
+    "public/landing.css": {
+      "-14px": 1,
+      "-36px": 1,
+      "6px": 2,
+      "9px": 1,
+      "10px": 7,
+      "14px": 2,
+      "18px": 5,
+      "22px": 4,
+      "28px": 2,
+      "36px": 1,
+      "56px": 1
+    },
+    "public/layout-debug.js": {
+      "6px": 1
+    },
+    "public/module-host.js": {
+      "3px": 1,
+      "9px": 1,
+      "10px": 1
+    },
+    "public/sdk/host.css": {
+      "3px": 3,
+      "5px": 3,
+      "6px": 9,
+      "9px": 1,
+      "10px": 3,
+      "14px": 1
+    },
+    "public/sdk/host.js": {
+      "6px": 2,
+      "7px": 1,
+      "10px": 2
+    },
+    "public/style.css": {
+      "-5px": 1,
+      "-6px": 1,
+      "-7px": 1,
+      "-10px": 4,
+      "-14px": 2,
+      "3px": 28,
+      "5px": 20,
+      "6px": 180,
+      "7px": 9,
+      "9px": 2,
+      "10px": 134,
+      "11px": 1,
+      "14px": 36,
+      "18px": 16,
+      "28px": 1,
+      "30px": 2,
+      "34px": 1,
+      "38px": 3,
+      "110px": 1,
+      "132px": 1
+    }
+  }
+}

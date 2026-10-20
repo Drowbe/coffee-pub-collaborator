@@ -1,0 +1,47 @@
+{
+  "about": "check-icons: today's non-solid Font Awesome classes (fa-regular, fa-brands ...) and icon font sizes other than 12 14 16 20 24 px, per file. Counts may only fall; lower them with: node tools/check-icons.mjs --update",
+  "counts": {
+    "modules/budget/src/budget.css": {
+      "size 28px": 1
+    },
+    "modules/maps/src/maps.css": {
+      "size 9px": 1,
+      "size 30px": 1
+    },
+    "modules/places/src/places.css": {
+      "size 28px": 1
+    },
+    "modules/research/src/research.css": {
+      "size 10px": 1,
+      "size 11px": 1,
+      "size 13px": 1,
+      "size 30px": 1
+    },
+    "modules/travel/src/travel-lib-cards.css": {
+      "size 11px": 1,
+      "size 13px": 1
+    },
+    "public/module.html": {
+      "fa-regular": 1
+    },
+    "public/sdk/host.css": {
+      "size 13px": 1
+    },
+    "public/space.html": {
+      "fa-brands": 1,
+      "fa-regular": 2
+    },
+    "public/space.js": {
+      "fa-brands": 1,
+      "fa-regular": 1
+    },
+    "public/style.css": {
+      "size 9px": 1,
+      "size 11px": 1,
+      "size 13px": 1,
+      "size 15px": 1,
+      "size 18px": 2,
+      "size 22px": 2
+    }
+  }
+}

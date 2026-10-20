@@ -1,0 +1,20 @@
+{
+  "about": "check-breakpoints: today's media-query widths other than 640 641 900 901 1200 1201 px, per file. Counts may only fall; lower them with: node tools/check-breakpoints.mjs --update",
+  "counts": {
+    "modules/stream/src/stream.css": {
+      "560px": 1
+    },
+    "public/destination.css": {
+      "820px": 2
+    },
+    "public/style.css": {
+      "480px": 3,
+      "560px": 2,
+      "600px": 4,
+      "760px": 6,
+      "761px": 1,
+      "820px": 2,
+      "1000px": 1
+    }
+  }
+}

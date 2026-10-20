@@ -1,0 +1,70 @@
+{
+  "about": "check-no-raw-colours: today's hard-coded colours outside the token blocks, per file. \"raw\" is a real colour to move onto a token; \"shadow-scrim\" is pure black or white used as a shadow or scrim (allowed for now). Counts may only fall; lower them with: node tools/check-no-raw-colours.mjs --update",
+  "counts": {
+    "modules/assistant/src/assistant.css": {
+      "raw": 1
+    },
+    "modules/calendar/src/calendar.css": {
+      "raw": 1
+    },
+    "modules/maps/src/maps.css": {
+      "shadow-scrim": 11
+    },
+    "modules/places/src/places.css": {
+      "shadow-scrim": 6
+    },
+    "modules/research/src/research.css": {
+      "shadow-scrim": 5
+    },
+    "modules/research/src/research.js": {
+      "raw": 1
+    },
+    "modules/stream/src/stream-keyed.css": {
+      "raw": 5,
+      "shadow-scrim": 2
+    },
+    "modules/stream/src/stream.css": {
+      "raw": 10
+    },
+    "modules/travel/src/travel-lib-cards.css": {
+      "shadow-scrim": 6
+    },
+    "modules/travel/src/travel.css": {
+      "shadow-scrim": 1
+    },
+    "modules/travel/src/travel.js": {
+      "raw": 12
+    },
+    "public/admin.js": {
+      "raw": 1
+    },
+    "public/diag.css": {
+      "raw": 8,
+      "shadow-scrim": 1
+    },
+    "public/landing.css": {
+      "raw": 1
+    },
+    "public/layout-debug.js": {
+      "raw": 2,
+      "shadow-scrim": 1
+    },
+    "public/module-host.js": {
+      "raw": 3,
+      "shadow-scrim": 2
+    },
+    "public/module-settings.js": {
+      "raw": 1
+    },
+    "public/sdk/host.css": {
+      "shadow-scrim": 4
+    },
+    "public/sdk/host.js": {
+      "shadow-scrim": 1
+    },
+    "public/style.css": {
+      "raw": 17,
+      "shadow-scrim": 39
+    }
+  }
+}

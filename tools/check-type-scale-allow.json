@@ -1,0 +1,75 @@
+{
+  "about": "check-type-scale: today's font sizes (not 9 11 12 13 14 16 18 22 28 40 px) and font weights (not 400 500 600 700), per file. Counts may only fall; lower them with: node tools/check-type-scale.mjs --update",
+  "counts": {
+    "modules/budget/src/budget.css": {
+      "size 15px": 1,
+      "size 17px": 1,
+      "size 24px": 1
+    },
+    "modules/calendar/src/calendar-widget.css": {
+      "size 10px": 1
+    },
+    "modules/calendar/src/calendar.css": {
+      "size 10px": 2,
+      "size 17px": 1
+    },
+    "modules/maps/src/maps.css": {
+      "size 17px": 1,
+      "size 30px": 1
+    },
+    "modules/places/src/places.css": {
+      "size 10px": 2,
+      "size 17px": 1
+    },
+    "modules/polls/src/polls.css": {
+      "size 10px": 1,
+      "size 15px": 1,
+      "size 17px": 1
+    },
+    "modules/research/src/research.css": {
+      "size 10px": 4,
+      "size 17px": 1,
+      "size 30px": 1,
+      "size 36px": 1
+    },
+    "modules/stream/src/stream.css": {
+      "size 17px": 1
+    },
+    "modules/todo/src/todo.css": {
+      "size 17px": 1
+    },
+    "modules/travel/src/travel-lib-cards.css": {
+      "size 10px": 7,
+      "size 15px": 2,
+      "size 20px": 4,
+      "size 26px": 2
+    },
+    "modules/travel/src/travel.css": {
+      "size 15px": 2,
+      "size 20px": 1
+    },
+    "public/diag.css": {
+      "size 15px": 1
+    },
+    "public/landing.css": {
+      "size 15px": 1,
+      "size 17px": 3,
+      "size 20px": 1,
+      "size 26px": 1
+    },
+    "public/sdk/host.css": {
+      "size 10px": 2
+    },
+    "public/style.css": {
+      "size 6px": 2,
+      "size 8px": 1,
+      "size 10px": 17,
+      "size 15px": 16,
+      "size 17px": 2,
+      "size 20px": 6,
+      "size 24px": 1,
+      "weight 650": 5,
+      "weight 800": 2
+    }
+  }
+}

@@ -26,6 +26,10 @@ let feedUrlFor = ''; // whose it is: 'everything', or a space's id
 let feedsAllowed = false; // an owner editing someone: whether the environment allows calendar feeds (settings.calendarFeeds)
 let external = null; // your own other calendars, from GET /api/me/external-calendars: { allowed, calendars: [{ id, name, host, readAt, error }] }
 let externalBusy = false; // a calendar is being read for Add (up to 15 seconds)
+let conferenceOn = true; // the conference is on in this environment (branding.conferenceEnabled): the Conference tab shows
+// The modules with settings of your own, each { id, name, icon }: only modules that are on in this environment (the
+// server lists only those, GET /api/module-settings/person). Each has a tab (#263); the Calendar's is Calendars.
+let personModules = [];
 
 // If this page is open as the overlay on top of an active call (same
 // pattern as closeProfileOverlay -- see brand.js/space.js), and it's my own
@@ -100,14 +104,19 @@ function render() {
   if (hasBg) $('background').src = imgUrl('background');
   $('background-slot').querySelector('.unset').hidden = hasBg;
   $('background-clear').hidden = !hasBg || !canImg('background');
+  // Background Style is on the Conference tab (#263), shown while the conference is on.
+  const styleThere = conferenceOn ? ', and used as their real call background too if Background Style on the Conference tab is set to Image Background' : '';
   $('background-hint').textContent = editing
-    ? `Shown behind ${user.displayName}'s portrait when their camera is off, and used as their real call background too if Background Style below is set to Image Background. Unset shows the plain color instead.`
-    : 'Shown behind your portrait when your camera is off, and used as your real call background too if Background Style below is set to Image Background. Leave it unset to use the plain color instead.';
+    ? `Shown behind ${user.displayName}'s portrait when their camera is off${styleThere}. Unset shows the plain color instead.`
+    : `Shown behind your portrait when your camera is off${styleThere.replace('their real', 'your real')}. Leave it unset to use the plain color instead.`;
 
-  // Someone's own mic and camera setup, not an admin's to adjust for them --
-  // only shown on your own profile.
-  $('section-call').hidden = editing;
-  $('call-prefs-hint').textContent = 'Your own mic and camera settings, applied automatically wherever you join a call from. Which device to use is separate -- that stays on this device, in the call itself.';
+  // The Conference tab (#263). Someone's own mic and camera setup is not an owner's to adjust for them: an owner opening
+  // someone's profile sees only their Background Style there.
+  document.querySelector('#subtabs > [data-tab="conference"]').hidden = !conferenceOn;
+  $('call-prefs-fields').hidden = editing;
+  $('call-prefs-hint').textContent = editing
+    ? `${user.displayName}'s call background. Their mic and camera settings are their own.`
+    : 'Your own mic and camera settings, applied automatically wherever you join a call from. Which device to use is separate -- that stays on this device, in the call itself.';
   if (!document.activeElement?.id?.startsWith('cp-')) {
     const cp = user.callPrefs;
     $('cp-gain').value = String(cp.gain);
@@ -648,8 +657,10 @@ function renderFeed(editing) {
 // Whether the Calendars tab is offered: the Calendar is on and an owner has turned on a switch (or you are an owner, who
 // is told where to), or you still hold an address or an other calendar. An owner editing someone: while the environment
 // allows addresses or they hold one. Not a guest's, who has no Profile.
+// It is also the Calendar module's tab (#263): shown too while the Calendar is on and has settings of your own.
 function calendarsTabShown() {
   if (editingKey) return !$('section-feed').hidden;
+  if (calendarModule()) return true;
   if (!feed) return Boolean(external && (external.calendars.length || external.allowed));
   const holds = feed.everything.on || feed.spaces.some((s) => s.address.on) || Boolean(external && external.calendars.length);
   const on = feed.module?.on && (feed.switches.addresses || feed.switches.otherCalendars || hasOwnerRights(user));
@@ -657,7 +668,16 @@ function calendarsTabShown() {
 }
 function renderCalendarsTab() {
   const shown = calendarsTabShown();
-  document.querySelector('[data-tab="calendars"]').hidden = !shown;
+  const tab = document.querySelector('#subtabs > [data-tab="calendars"]');
+  tab.hidden = !shown;
+  // Named and drawn as this environment shows the Calendar (its display name and icon), else as before.
+  const m = calendarModule();
+  const name = (m && m.name) || (feed && feed.module && feed.module.name) || 'Calendars';
+  if (tab.textContent !== name) tab.textContent = name;
+  const icon = (m && ICON_ID.test(m.icon || '') && m.icon) || 'calendar-days';
+  if (tab.dataset.icon !== icon) tab.dataset.icon = icon;
+  // The line about calendars coming in and going out only above those sections.
+  if (!editingKey) $('calendars-intro').hidden = $('section-external').hidden && $('section-feed').hidden;
   if (!shown && !$('tab-calendars').hidden) selectTab('profile');
 }
 
@@ -875,6 +895,8 @@ function renderExternal(editing) {
   const section = $('section-external');
   const calendars = (external && external.calendars) || [];
   section.hidden = editing || !external || !(external.allowed || calendars.length || external.why);
+  // The Calendars tab's opening line, only above its sections (the tab can hold the Calendar's settings alone, #263).
+  if (!editing) $('calendars-intro').hidden = section.hidden && $('section-feed').hidden;
   if (section.hidden) return;
   const place = environmentName || `this ${word('environment')}`;
   $('external-hint').textContent = `Their events show in your Calendar, only to you. In ${word('space', { a: true })}, you can share when you are busy, never what you are doing.`;
@@ -1143,18 +1165,56 @@ $('delete-btn').addEventListener('click', () => run(async () => {
   location.href = '/admin';
 }));
 
-// Profile / Calendars / Spaces tabs, remembered in the address -- same pattern as admin.html's tabs. #rooms, the old
-// name, still opens Spaces. #calendars&space=<id> (the Calendar's menu in a space, plan-space-calendars.md decision 10)
-// opens Calendars on that space's row.
+// --- a tab per module (#263) ---------------------------------------------------------------------------------------
+// Each module that is on here and has settings of your own gets a tab with them: the Calendar's are on its Calendars tab,
+// any other module's on a tab of its own after it, named as this environment shows the module. Its address is the
+// module's id (#research), or module-<id> when that is one of the page's own tabs.
+const OWN_TABS = ['profile', 'conference', 'spaces', 'calendars', 'calendar'];
+const calendarModule = () => personModules.find((m) => m.id === ((feed && feed.module && feed.module.id) || 'calendar')) || null;
+const moduleTabName = (id) => (OWN_TABS.includes(id) ? `module-${id}` : id);
+
+// Draws a module's settings into its tab's section (the section stays hidden when there is nothing to set).
+function fillModuleSettings(section, m) {
+  section.querySelector('[data-module-hint]').textContent = `How ${m.name} behaves for you.`;
+  const box = section.querySelector('[data-module-settings]');
+  return renderModuleSettings(box, { scope: 'person', only: m.id, heading: false }).then(() => { section.hidden = box.hidden; });
+}
+
+function buildModuleTabs() {
+  const strip = $('subtabs');
+  const calendar = calendarModule();
+  if (calendar) fillModuleSettings($('section-module-calendar'), calendar);
+  for (const m of personModules) {
+    if (m === calendar || !/^[a-z0-9-]{1,60}$/.test(m.id)) continue;
+    const tab = moduleTabName(m.id);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'subtab';
+    button.dataset.tab = tab;
+    button.dataset.icon = ICON_ID.test(m.icon || '') ? m.icon : 'puzzle-piece';
+    button.textContent = m.name;
+    // Before the strip's "..." (page-tabs.js), after the tabs already there.
+    strip.insertBefore(button, strip.querySelector(':scope > .layout-tabs-more'));
+    const stack = $('module-tab-template').content.firstElementChild.cloneNode(true);
+    stack.id = `tab-${tab}`;
+    stack.dataset.module = m.id;
+    document.querySelector('main').appendChild(stack);
+    fillModuleSettings(stack.querySelector('.module-own-settings'), m);
+  }
+}
+
+// Profile / Conference / Spaces / Calendars and the modules' tabs, remembered in the address -- same pattern as
+// admin.html's tabs. #rooms, the old name, still opens Spaces; #calendar opens Calendars. #calendars&space=<id> (the
+// Calendar's menu in a space, plan-space-calendars.md decision 10) opens Calendars on that space's row. A tab not shown
+// (a module that is off, the conference off) opens Profile.
 function selectTab(name) {
   const [asked, ...rest] = String(name || '').split('&');
-  const tabOf = (name) => (name === 'spaces' || name === 'rooms' ? 'spaces' : name === 'calendars' ? 'calendars' : 'profile');
+  const tabOf = (name) => (name === 'spaces' || name === 'rooms' ? 'spaces' : name === 'calendar' ? 'calendars' : name || 'profile');
   const wanted = tabOf(asked);
-  const tab = wanted === 'calendars' && document.querySelector('[data-tab="calendars"]').hidden ? 'profile' : wanted;
-  $('tab-profile').hidden = tab !== 'profile';
-  $('tab-calendars').hidden = tab !== 'calendars';
-  $('tab-spaces').hidden = tab !== 'spaces';
-  for (const b of document.querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
+  const button = [...document.querySelectorAll('#subtabs > .subtab')].find((b) => b.dataset.tab === wanted);
+  const tab = button && !button.hidden ? wanted : 'profile';
+  for (const stack of document.querySelectorAll('main > .tab-stack')) stack.hidden = stack.id !== `tab-${tab}`;
+  for (const b of document.querySelectorAll('#subtabs > .subtab')) b.classList.toggle('active', b.dataset.tab === tab);
   const spaceId = tab === 'calendars' ? new URLSearchParams(rest.join('&')).get('space') : null;
   const hash = spaceId ? `#calendars&space=${encodeURIComponent(spaceId)}` : `#${tab}`;
   if (location.hash !== hash) history.replaceState(null, '', hash);
@@ -1172,11 +1232,15 @@ window.addEventListener('hashchange', () => selectTab(location.hash.slice(1)));
 
 async function init() {
   renderTopbar();
-  // The page bar (plan-two-zone-nav.md): "Profile" and its tabs; someone else's profile, opened from Manage > Users, is
-  // named once loaded, with a Manage link first.
+  // The page bar (plan-two-zone-nav.md): "Profile", its tabs in the top bar (#263, as Manage's are, #262; no space
+  // switcher here), its row left for navigation inside a tab; someone else's profile, opened from Manage > Users, is
+  // named once loaded, with a Manage link in the row.
+  $('subtabs').toggleAttribute('data-top-bar', true);
   renderPageBar({ name: editingKey ? '' : 'Profile', icon: 'user', manage: editingKey ? '/admin#users' : '', controls: [$('subtabs')] });
+  if (editingKey) $('subtabs').setAttribute('aria-label', 'Profile');
   const branding = await loadBranding();
   environmentName = branding.environmentName || '';
+  conferenceOn = branding.conferenceEnabled !== false;
   // The stored value is already clamped server-side (see sanitizeCallPrefs)
   // -- this just keeps the picker from offering an option that would get
   // silently rounded back down the moment it's picked.
@@ -1189,7 +1253,7 @@ async function init() {
       me = mine.user;
       if (!hasOwnerRights(me)) { location.href = '/'; return; }
     }
-    const [, { spaces }] = await Promise.all([reload(), api('GET', '/api/spaces'), loadFeed(), loadExternal()]);
+    const [, { spaces }] = await Promise.all([reload(), api('GET', '/api/spaces'), loadFeed(), loadExternal(), loadPersonModules()]);
     spacesById = new Map(spaces.map((r) => [r.id, r]));
   } catch (err) {
     location.href = editingKey ? '/admin' : '/login?next=/profile';
@@ -1198,9 +1262,21 @@ async function init() {
   document.title = `${document.title.split(' - ')[0]} - ${user.displayName}`;
   // An owner editing someone: the page bar names them (its Manage link is the way back).
   if (editingKey) renderPageBar({ name: user.displayName, icon: 'user' });
+  // Your own modules' tabs (not when an owner is editing someone else's profile), before the address picks a tab.
+  buildModuleTabs();
   render();
   selectTab(location.hash.slice(1));
-  // Your own module settings (not when an admin is editing someone else's profile).
-  if (!editingKey) renderModuleSettings($('module-settings'), { scope: 'person' }).then(() => { $('section-module-settings').hidden = $('module-settings').hidden; });
+}
+
+// The modules on here with settings of your own (#263): only yours, never on someone else's profile. None when the
+// list cannot be read.
+async function loadPersonModules() {
+  if (editingKey) return;
+  try {
+    personModules = ((await api('GET', '/api/module-settings/person')).modules || []).filter((m) => m && (m.settings || []).length)
+      .map((m) => ({ id: String(m.id || ''), name: String(m.name || m.id || ''), icon: String(m.icon || '') }));
+  } catch {
+    personModules = [];
+  }
 }
 init();

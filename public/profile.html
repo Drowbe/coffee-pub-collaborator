@@ -19,10 +19,16 @@
   <header class="topbar"></header>
 
   <main class="admin">
+    <!-- Profile's tabs: profile.js marks them data-top-bar, so renderPageBar() puts them in the top bar (page-tabs.js, #262,
+         #263); the page bar's row is left for navigation inside a tab. data-icon is each tab's icon in the header's menu on
+         a phone. Calendars is the Calendar module's tab, named and given its icon by profile.js as the environment shows the
+         module; any other module with personal settings gets a tab of its own after it (profile.js, buildModuleTabs()), and a
+         module's tab shows only while the module is on. -->
     <nav class="subtabs" id="subtabs">
-      <button class="subtab active" data-tab="profile" type="button">Profile</button>
+      <button class="subtab active" data-tab="profile" type="button" data-icon="user">Profile</button>
+      <button class="subtab" data-tab="conference" type="button" data-icon="video" hidden>Conference</button>
+      <button class="subtab" data-tab="spaces" type="button" data-icon="door-open" data-fill>{Spaces}</button>
       <button class="subtab" data-tab="calendars" type="button" hidden>Calendars</button>
-      <button class="subtab" data-tab="spaces" type="button" data-fill>{Spaces}</button>
     </nav>
 
     <section class="tab-stack" id="tab-profile">
@@ -90,13 +96,6 @@
         <div class="row">
           <div class="slot" id="background-slot" data-slot-name="Background picture"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img id="background" alt=""><span class="unset">not set</span><input type="file" id="background-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" id="background-clear" type="button" title="Remove" aria-label="Remove">&times;</button></div><button class="btn btn-small slot-library" id="background-library" type="button">Choose from the library</button></div>
         </div>
-        <div class="fields">
-          <label class="wide">Background Style<select id="cp-background">
-            <option value="none">Off (real background)</option>
-            <option value="blur">Blur</option>
-            <option value="image">Image Background</option>
-          </select></label>
-        </div>
       </section>
 
       <section class="panel" id="section-images">
@@ -127,10 +126,24 @@
         </div>
 
       </section>
+    </section>
 
+    <!-- Conference (#263): the personal call settings, the personal counterpart of Manage > Environment > Conference. Shown
+         while the conference is on in this environment. An owner opening someone's profile sees only Background Style
+         (their own mic and camera setup is theirs). Each control saves as it changes, as before. -->
+    <section class="tab-stack" id="tab-conference" hidden>
       <section class="panel" id="section-call">
         <h2>Call Settings</h2>
         <p class="hint" id="call-prefs-hint"></p>
+        <h3>Background</h3>
+        <div class="fields">
+          <label class="wide">Background Style<select id="cp-background">
+            <option value="none">Off (real background)</option>
+            <option value="blur">Blur</option>
+            <option value="image">Image Background</option>
+          </select></label>
+        </div>
+        <p class="hint" id="call-background-hint">Image Background uses the picture under Background on the Profile tab.</p>
         <div id="call-prefs-fields">
           <h3>Microphone</h3>
           <div class="fields">
@@ -164,12 +177,6 @@
           <span class="status" id="call-prefs-status"></span>
         </div>
       </section>
-
-      <section class="panel" id="section-module-settings" hidden>
-        <h2 data-fill>{Module} settings</h2>
-        <p class="hint" data-fill>How each {module} behaves for you.</p>
-        <div id="module-settings"></div>
-      </section>
     </section>
 
     <!-- Calendars (plan-space-calendars.md, section 4): everything about a person's calendars in one place. Your own
@@ -177,6 +184,12 @@
          or an other calendar. An owner opening someone's profile sees each address on or off, with Turn off, never the
          address. Every section that cannot be used says why, in place. -->
     <section class="tab-stack" id="tab-calendars" hidden>
+      <!-- The Calendar's own settings for you (#263: they were Profile's {Module} settings section), shown while it has some. -->
+      <section class="panel module-own-settings" id="section-module-calendar" hidden>
+        <h2>Settings</h2>
+        <p class="hint" data-module-hint></p>
+        <div data-module-settings></div>
+      </section>
       <p class="hint calendars-intro" id="calendars-intro">Calendars coming in are only for you. Addresses going out let your calendar app show events from here.</p>
 
       <!-- 1. Your other calendars (plan-google-calendar.md, Part 2): their events show in the calendar, only to you. Each
@@ -257,6 +270,18 @@
       <div id="space-sections"></div>
     </section>
   </main>
+
+  <!-- A module's tab (#263): one per module with settings of your own while it is on, other than the Calendar (whose
+       settings are on its Calendars tab). profile.js gives it the id tab-<its tab> and the module's name. -->
+  <template id="module-tab-template">
+    <section class="tab-stack" hidden>
+      <section class="panel module-own-settings">
+        <h2>Settings</h2>
+        <p class="hint" data-module-hint></p>
+        <div data-module-settings></div>
+      </section>
+    </section>
+  </template>
 
   <!-- One space's address row (plan-space-calendars.md, section 1): its icon and name, on or off, Last read, the reason it
        can't be used, and its buttons. The address just made is #feed-made, moved into the row. -->

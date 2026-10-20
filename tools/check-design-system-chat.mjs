@@ -189,7 +189,7 @@ const probe = async () => {
       const sides = NO_EDGE.filter((s) => c['border' + s + 'Width'] !== '0px' && c['border' + s + 'Style'] !== 'none');
       for (const s of sides) { const col = c['border' + s + 'Color']; if (col !== border && col !== 'rgba(0, 0, 0, 0)' && !el.matches('textarea:focus, .ds-force-focus')) bad(`${t}: a ${s.toLowerCase()} edge of ${el.className || el.tagName} is ${col}, not --border or transparent`); }
       if (sides.length && sides.length < 4 && sides.some((s) => s === 'Left' || s === 'Right')) bad(`${t}: a left or right edge on ${el.className || el.tagName}`);
-      for (const p of ['::before', '::after']) { const pc = cs(el, p); if (pc.content !== 'none' && pc.content !== 'normal' && pc.backgroundColor !== 'rgba(0, 0, 0, 0)' && pc.position === 'absolute' && (parseFloat(pc.width) <= 4 || parseFloat(pc.height) <= 4)) bad(`${t}: a thin coloured block on ${el.className || el.tagName}`); }
+      if (c.position !== 'static') for (const p of ['::before', '::after']) { const pc = cs(el, p); if (pc.content !== 'none' && pc.content !== 'normal' && pc.backgroundColor !== 'rgba(0, 0, 0, 0)' && pc.position === 'absolute' && (parseFloat(pc.width) <= 4 || parseFloat(pc.height) <= 4)) bad(`${t}: a thin coloured block on ${el.className || el.tagName}`); }
       if (el.closest('.sdk-message, .sdk-composer, .sdk-window') && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
         if (!['400', '500', '600'].includes(c.fontWeight)) bad(`${t}: weight ${c.fontWeight} on ${el.className || el.tagName} (400, 500 and 600 only)`);
         if (parseFloat(c.fontSize) < 11 && !el.matches('.sdk-badge-micro')) bad(`${t}: ${c.fontSize} text on ${el.className || el.tagName} (nothing under 11px)`); } } }

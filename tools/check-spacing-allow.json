@@ -118,19 +118,6 @@
       "36px": 1,
       "44px": 2
     },
-    "public/landing.css": {
-      "-14px": 1,
-      "-36px": 1,
-      "6px": 2,
-      "9px": 1,
-      "10px": 7,
-      "14px": 2,
-      "18px": 5,
-      "22px": 4,
-      "28px": 2,
-      "36px": 1,
-      "56px": 1
-    },
     "public/layout-debug.js": {
       "6px": 1
     },

@@ -42,8 +42,8 @@
 .dmeta h2 { margin: 0; font-size: var(--text-16); }
 /* Add and the "..." side by side at the end of the day's header; the "..." is in the flow here, not pinned to the corner */
 .day-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-.day-actions .menu-btn { position: static; }
-.day-actions .day-add { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 3px 10px; }
+.day-actions .menu-btn { position: relative; }
+.day-actions .day-add { flex: none; }
 .day-summary { margin: 0; color: var(--text); font-size: var(--text-14); }
 .day-summary:empty { display: none; }
 .dmeta p { margin: 2px 0 0; color: var(--text-dim); font-size: var(--text-12); }

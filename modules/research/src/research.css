@@ -110,7 +110,7 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- the item menu trigger, the dialog, sources, states ---- */
 /* .menu is the card's own "..." trigger button (the menu itself is host.menu.show, drawn by the SDK). */
-.rcard .menu { position: static; min-width: 0; box-shadow: none; }
+.rcard .menu { position: relative; }
 .rs-body { position: relative; }
 /* #editor is a <dialog> the SDK draws as the editor window (host.ui.editor): the box, its padding, the backdrop and the
    sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. */

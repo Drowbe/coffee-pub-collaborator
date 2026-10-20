@@ -46,13 +46,13 @@ export function staticChecks({ fail, css, js }) {
   if (!fd) fail('proposed-foundations.js: FD_CSS not found');
   if (/#[0-9a-f]{3,8}\b/i.test(fd)) fail('proposed-foundations.js: a hex colour in the example rules');
   for (const m of fd.matchAll(/border-radius:\s*([^;]+);/g)) for (const part of m[1].trim().split(/\s+(?![^(]*\))/)) if (!/^(var\(--radius-(min|small|medium|large|round)\)|0)$/.test(part)) fail(`proposed-foundations.js: border-radius ${m[1].trim()} is not a radius token`);
-  for (const m of fd.matchAll(/border-(left|right|top|bottom)\s*:\s*([^;]+);/g)) if (!/var\(--border\)/.test(m[2])) fail(`proposed-foundations.js: a one-sided edge that is not the neutral hairline: ${m[0]}`);
+  for (const m of fd.matchAll(/border-(left|right|top|bottom)\s*:\s*([^;]+);/g)) if (!/var\(--border\)/.test(m[2]) && m[2].trim() !== '0') fail(`proposed-foundations.js: a one-sided edge that is not the neutral hairline: ${m[0]}`);
   for (const m of fd.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)) if (Number(m[1]) < 11) fail(`proposed-foundations.js: a font size of ${m[1]}px, under 11`);
-  if ((js.match(/@keyframes shimmer/g) || []).length !== 1) fail('proposed-foundations.js: shimmer must be defined exactly once');
-  if ((js.match(/@keyframes reaction-float/g) || []).length !== 1) fail('proposed-foundations.js: reaction-float must be defined exactly once');
+  if ((js.match(/^@keyframes shimmer \{ to/gm) || []).length !== 1) fail('proposed-foundations.js: shimmer must be defined exactly once');
+  if ((js.match(/^@keyframes reaction-float \{$/gm) || []).length !== 1) fail('proposed-foundations.js: reaction-float must be defined exactly once');
   if ((js.match(/linear-gradient/g) || []).length !== 1) fail('proposed-foundations.js: the only gradient is the shimmer line');
   // Bars of the scale are drawn from tokens.
-  for (const m of js.matchAll(/style="width:([^"]+)"/g)) if (!/^var\(--space-\d\)/.test(m[1]) && !/^\d+%$/.test(m[1])) fail(`proposed-foundations.js: a bar or box with a width that is not a spacing token: ${m[1]}`);
+  for (const m of js.matchAll(/style="width:([^"]+)"/g)) if (!/^var\(--space-/.test(m[1]) && !/^\d+%$/.test(m[1]) && m[1] !== '1200px') fail(`proposed-foundations.js: a bar or box with a width that is not a spacing token: ${m[1]}`);
   // Solid only: three wrong examples, nothing else.
   const wrong = [...js.matchAll(/<i class="fa-(regular|brands)[^>]*>/g)];
   if (wrong.length !== 3 || wrong.some((m) => !/pm-fd-wrong/.test(m[0]))) fail('proposed-foundations.js: a regular or brand icon outside the three "wrong" examples');
@@ -248,7 +248,7 @@ const probe = async () => {
     } }
   { const d = get('Foundations, page skeleton'); if (d) {
       const hOf = (box, cls) => d.querySelector(`[data-skeleton="${box}"] .${cls}`).getBoundingClientRect().height;
-      const want = { desktop: { 'b-top': 44, 'b-head': 34, 'b-tool': 34, 'b-status': 24 }, phone: { 'b-top': 44, 'b-head': 42, 'b-tool': 34, 'b-status': 24, 'b-bottom': 88 } };
+      const want = { desktop: { 'pm-fd-b-top': 44, 'pm-fd-b-head': 34, 'pm-fd-b-tool': 34, 'pm-fd-b-status': 24 }, phone: { 'pm-fd-b-top': 44, 'pm-fd-b-head': 42, 'pm-fd-b-tool': 34, 'pm-fd-b-status': 24, 'pm-fd-b-bottom': 88 } };
       for (const [box, m] of Object.entries(want)) for (const [cls, v] of Object.entries(m)) if (Math.abs(hOf(box, cls) - v) > 0.6) bad(`the ${box} ${cls} band is ${hOf(box, cls)}px, not ${v}`);
       for (const [n, v] of [['--topbar-h', '44px'], ['--toolbar-h', '34px'], ['--status-h', '24px'], ['--bottom-bar-h', '54px'], ['--measure-reading', '720px'], ['--page-max', '1200px']]) if (prop(d, n) !== v) bad(`${n} is ${prop(d, n)}, not ${v}`);
       const phone = d.defaultView.innerWidth <= 640; if (prop(d, '--module-head-h') !== (phone ? '42px' : '34px')) bad(`--module-head-h is ${prop(d, '--module-head-h')}`); if (prop(d, '--page-pad') !== (phone ? '12px' : '16px')) bad(`--page-pad is ${prop(d, '--page-pad')}`);

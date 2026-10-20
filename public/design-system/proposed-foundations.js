@@ -89,7 +89,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-fd-rbox { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 72px; padding: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; }
 .pm-fd-rbox b { font-size: 13px; }
 .pm-fd-rbox span { color: var(--text-dim); }
-.pm-fd-rbox.dot { align-items: center; width: 72px; justify-self: start; }
+.pm-fd-rbox.pm-fd-dot { align-items: center; width: 72px; justify-self: start; }
 
 /* motion */
 .pm-fd-demos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; align-items: start; }
@@ -153,17 +153,17 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-fd-skeleton { position: relative; box-sizing: border-box; display: grid; grid-template-columns: 1fr; border: 1px solid var(--border); border-radius: var(--radius-medium); overflow: hidden; background: var(--bg); font-size: 12px; }
 .pm-fd-band { box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
 .pm-fd-band span:last-child { color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.pm-fd-band.fill { height: 92px; justify-content: center; background: var(--bg-section); color: var(--text-dim); text-align: center; }
+.pm-fd-band.pm-fd-b-fill { height: 92px; justify-content: center; background: var(--bg-section); color: var(--text-dim); text-align: center; }
 .pm-fd-skeleton { --module-head-h: 34px; }
-.pm-fd-skeleton .b-top { height: var(--topbar-h); }
-.pm-fd-skeleton .b-head { height: var(--module-head-h); }
-.pm-fd-skeleton .b-tool { height: var(--toolbar-h); }
-.pm-fd-skeleton .b-status { height: var(--status-h); }
-.pm-fd-skeleton .b-bottom { height: var(--bottom-bar-total); align-items: flex-start; padding-top: 0; border-bottom: 0; }
-.pm-fd-skeleton .b-bottom .main { display: flex; align-items: center; justify-content: space-between; width: 100%; height: var(--bottom-bar-h); }
-.pm-fd-skeleton.phone { --safe-bottom: 34px; --module-head-h: 42px; --bottom-bar-total: calc(var(--bottom-bar-h) + var(--safe-bottom)); }
-.pm-fd-skeleton .b-safe-note { position: absolute; left: 0; right: 0; bottom: 0; height: var(--safe-bottom); display: flex; align-items: center; justify-content: center; border-top: 1px dashed var(--border); background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text-dim); font-size: 11px; }
-.pm-fd-skeleton.phone { padding-bottom: 0; }
+.pm-fd-skeleton .pm-fd-b-top { height: var(--topbar-h); }
+.pm-fd-skeleton .pm-fd-b-head { height: var(--module-head-h); }
+.pm-fd-skeleton .pm-fd-b-tool { height: var(--toolbar-h); }
+.pm-fd-skeleton .pm-fd-b-status { height: var(--status-h); }
+.pm-fd-skeleton .pm-fd-b-bottom { height: var(--bottom-bar-total); align-items: flex-start; padding-top: 0; border-bottom: 0; }
+.pm-fd-skeleton .pm-fd-b-bottom .pm-fd-b-main { display: flex; align-items: center; justify-content: space-between; width: 100%; height: var(--bottom-bar-h); }
+.pm-fd-skeleton.pm-fd-phone { --safe-bottom: 34px; --module-head-h: 42px; --bottom-bar-total: calc(var(--bottom-bar-h) + var(--safe-bottom)); }
+.pm-fd-skeleton .pm-fd-b-safe-note { position: absolute; left: 0; right: 0; bottom: 0; height: var(--safe-bottom); display: flex; align-items: center; justify-content: center; border-top: 1px dashed var(--border); background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text-dim); font-size: 11px; }
+.pm-fd-skeleton.pm-fd-phone { padding-bottom: 0; }
 .pm-fd-widths { display: grid; gap: 12px; }
 `;
 
@@ -254,7 +254,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const radiusBody = () => `<div class="ds-proposed"><div class="pm-fd-rgrid">${RADII.map(([t, px, k, use]) => `<div class="pm-fd-rbox" data-radius="${k}" style="border-radius:var(${t})"><b>${t}</b><span>${px}</span><span>${use}</span></div>`).join('')}</div></div>`;
   const rolesBody = () => `<div class="ds-proposed"><div class="pm-fd-rgrid">
     ${[['Menu or popover', 'medium'], ['Card or panel', 'large'], ['Row on a panel', 'medium'], ['Row inside a card', 'small'], ['Button, field, tab, chip', 'small']].map(([n, k]) => `<div class="pm-fd-rbox" data-role="${k}" style="border-radius:var(--radius-${k})"><b>${n}</b><span>--radius-${k}</span></div>`).join('')}
-    ${[['Count', 'round'], ['Dot', 'round'], ['Avatar', 'round'], ['Micro count', 'round']].map(([n, k]) => `<div class="pm-fd-rbox dot" data-role="${k}" style="border-radius:var(--radius-${k})"><span>${n}</span></div>`).join('')}
+    ${[['Count', 'round'], ['Dot', 'round'], ['Avatar', 'round'], ['Micro count', 'round']].map(([n, k]) => `<div class="pm-fd-rbox pm-fd-dot" data-role="${k}" style="border-radius:var(--radius-${k})"><span>${n}</span></div>`).join('')}
   </div></div>`;
 
   // ---- motion ----
@@ -364,19 +364,19 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   }
   const skeletonBody = () => `<div class="ds-proposed"><div class="pm-fd-skelwrap">
     <div><span class="pm-fd-cap">Wider than a phone</span><div class="pm-fd-skeleton" data-skeleton="desktop">
-      <div class="pm-fd-band b-top"><span>Top bar</span><span>44</span></div>
-      <div class="pm-fd-band b-head"><span>Module header</span><span>34</span></div>
-      <div class="pm-fd-band b-tool"><span>Toolbar</span><span>34</span></div>
-      <div class="pm-fd-band fill"><span>Canvas<br>padding 16, content up to 1200<br>reading text up to 720</span></div>
-      <div class="pm-fd-band b-status"><span>Status line</span><span>24</span></div>
+      <div class="pm-fd-band pm-fd-b-top"><span>Top bar</span><span>44</span></div>
+      <div class="pm-fd-band pm-fd-b-head"><span>Module header</span><span>34</span></div>
+      <div class="pm-fd-band pm-fd-b-tool"><span>Toolbar</span><span>34</span></div>
+      <div class="pm-fd-band pm-fd-b-fill"><span>Canvas<br>padding 16, content up to 1200<br>reading text up to 720</span></div>
+      <div class="pm-fd-band pm-fd-b-status"><span>Status line</span><span>24</span></div>
     </div></div>
-    <div><span class="pm-fd-cap">On a phone (640 and below)</span><div class="pm-fd-skeleton phone" data-skeleton="phone">
-      <div class="pm-fd-band b-top"><span>Top bar</span><span>44</span></div>
-      <div class="pm-fd-band b-head"><span>Module header</span><span>42</span></div>
-      <div class="pm-fd-band b-tool"><span>Toolbar</span><span>34</span></div>
-      <div class="pm-fd-band fill"><span>Canvas<br>padding 12</span></div>
-      <div class="pm-fd-band b-status"><span>Status line</span><span>24</span></div>
-      <div class="pm-fd-band b-bottom"><div class="main"><span>Bottom bar</span><span>54</span></div><div class="b-safe-note">+ safe area, 34 on a phone with a home bar</div></div>
+    <div><span class="pm-fd-cap">On a phone (640 and below)</span><div class="pm-fd-skeleton pm-fd-phone" data-skeleton="phone">
+      <div class="pm-fd-band pm-fd-b-top"><span>Top bar</span><span>44</span></div>
+      <div class="pm-fd-band pm-fd-b-head"><span>Module header</span><span>42</span></div>
+      <div class="pm-fd-band pm-fd-b-tool"><span>Toolbar</span><span>34</span></div>
+      <div class="pm-fd-band pm-fd-b-fill"><span>Canvas<br>padding 12</span></div>
+      <div class="pm-fd-band pm-fd-b-status"><span>Status line</span><span>24</span></div>
+      <div class="pm-fd-band pm-fd-b-bottom"><div class="pm-fd-b-main"><span>Bottom bar</span><span>54</span></div><div class="pm-fd-b-safe-note">+ safe area, 34 on a phone with a home bar</div></div>
     </div></div>
   </div></div>`;
 

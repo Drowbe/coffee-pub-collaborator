@@ -51,8 +51,10 @@ const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const r of rgbas) if (!approved.has(r)) fail(`system.css: ${r} is not an approved palette default`);
   const named = css.replace(/@font-face[^}]*\}/g, '').match(/:\s*(red|green|blue|gray|grey|orange|yellow|purple|pink|brown|cyan|magenta|navy|teal|gold)\b/gi);
   if (named) fail(`system.css: a named colour (${named[0]})`);
-  // No rule other than :root, the light-mode block, the phone block and the font faces: no element or component rules.
-  const heads = [...css.matchAll(/(^|\})(\s*)([^{}\s@][^{}]*)\{/g)].map((m) => m[3].trim());
+  // No rule other than :root, the light-mode block, the phone block and the font faces: no element or component rules, except
+  // inside a family's block, which sits between `/* <id>:start */` and `/* <id>:end */` (a family step moves its rules in there).
+  const outsideFamilies = raw.replace(/\/\* ([a-z]+):start \*\/[\s\S]*?\/\* \1:end \*\//g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const heads = [...outsideFamilies.matchAll(/(^|\})(\s*)([^{}\s@][^{}]*)\{/g)].map((m) => m[3].trim());
   for (const h of heads) {
     if (!/^:root(\[data-theme-mode="light"\],\s*:root\[data-mode-shown="light"\]:not\(\[data-theme-mode="dark"\]\))?$/.test(h) && h !== ':root') fail(`system.css: a rule outside :root: "${h}"`);
   }

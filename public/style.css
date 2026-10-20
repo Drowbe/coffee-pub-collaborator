@@ -67,9 +67,9 @@
   /* The shared bottom row itself: one line of those controls, with the padding around them and the bar's top
      border. A second toolbar uses this same height and sits in the column above, so it does not make this row taller. */
   --bar-h: calc(var(--bar-control-h) + 21px);
-  /* The action button (.action-btn below): a square icon button the height of the bottom row's controls, its icon a
+  /* The action button (for .fbtn below): a square the height of the bottom row's controls, its icon a
      fixed share of that height, so a smaller button (a compact call toolbar) keeps the same look. The ratio is the
-     call toolbar's own: a 20px icon in a 38px button. public/sdk/host.css has the same two tokens. */
+     call toolbar's own: a 20px icon in a 38px button. */
   --action-btn-h: var(--bar-control-h);
   --action-icon-ratio: calc(20 / 38);
   /* The one height a module's optional toolbar row (under the titlebar) has, wherever it appears. */
@@ -911,10 +911,6 @@ body.host-console .tag[data-status="suspended"] {
   opacity: 0.6;
 }
 
-body.host-console .btn.danger {
-  color: var(--danger-text);
-}
-
 body.host-console .grow {
   flex: 1;
 }
@@ -956,119 +952,8 @@ body.host-console .grow {
   flex-wrap: wrap;
 }
 
-.btn {
-  background: var(--secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  color: var(--secondary-text);
-  padding: 7px 12px;
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.08s;
-  white-space: nowrap; /* a whole button wraps to the next line rather than
-    its own label breaking across three -- see .links below, on a phone
-    narrow enough that the topbar's buttons don't all fit on one row */
-}
-
-.btn:hover {
-  background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-}
-
-.btn:active {
-  transform: translateY(1px);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-  pointer-events: none;
-}
-
-.btn.on {
-  background: var(--selected-bg);
-  color: var(--accent);
-}
-
-.btn.off {
-  border-color: var(--danger);
-  color: var(--danger-text);
-}
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-/* The accent look without .btn-primary's stretch -- for a small button that
-   sits beside a primary one (see the pop-out join on a space card). */
-.btn-accent {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.btn-accent:hover,
-.btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--primary-hover) 45%, transparent);
-}
-
-.btn-danger {
-  background: transparent;
-  border-color: var(--danger);
-  color: var(--danger-text);
-}
-
-/* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
-   chat's Send, a module's own bottom buttons). Its size is --action-btn-h and its icon
-   --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
-   rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
-   so and keeps a module from sizing the button itself. */
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  box-sizing: border-box;
-  width: var(--action-btn-h);
-  height: var(--action-btn-h);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.action-btn:hover {
-  background: var(--secondary-hover);
-  border-color: var(--accent);
-}
-
-.action-btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.action-btn.primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-/* action-btn:end */
+/* The call's round buttons (.fbtn) are the one thing here that is not a Buttons-family button (system.css): a circle, sized by
+   --action-btn-h with its icon --action-icon-ratio of that (a smaller one sets --action-btn-h only). Their rules are below. */
 
 /* form:start -- the form standard (documentation/plans/plan-form-standard.md): one look for every field of a form, so a
    module and an app page draw the same field. These rules are word for word the same in public/style.css and
@@ -1089,7 +974,7 @@ body.host-console .grow {
                    does not fit moves whole to the next line. .sdk-when is a row too.
      .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
      .sdk-group    the line inside a composite field: controls and buttons at --field-h, never wrapping. .sdk-unit a dim word after
-                   a control ("h", "min", "USD"). .sdk-field-btn a square --field-h icon button in that line. .sdk-btn a text button
+                   a control ("h", "min", "USD"). .sdk-icon-btn a square icon button in that line. .sdk-btn a text button
                    --field-h tall (a word like "Find", in a field's line or on its own); .sdk-btn.primary the main one, a fill.
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
@@ -1284,92 +1169,6 @@ body.host-console .grow {
   flex: none;
   color: var(--text-dim);
   font-size: var(--label-size);
-}
-
-.sdk-field-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: var(--field-h);
-  height: var(--field-h);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.sdk-field-btn:hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-field-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-field-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdk-field-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
-
-.sdk-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: var(--field-h);
-  margin: 0;
-  padding: 0 var(--field-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  font-size: var(--field-font);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.sdk-btn:hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-btn:active {
-  background: var(--secondary-hover);
-}
-
-.sdk-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdk-btn.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.sdk-btn.primary:hover,
-.sdk-btn.primary:active {
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
 }
 
 .sdk-pair {
@@ -1945,26 +1744,12 @@ body.in-space .page-scroll {
   margin-top: auto;
 }
 
-/* All three buttons in this row share one height regardless of their own
-   padding/font-size -- box-sizing keeps that padding inside the 40px
-   rather than adding to it, and centering the content covers the rest. */
-.space-choice-actions .btn {
-  height: 40px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
 .space-choice-actions .btn-primary {
   /* As wide as its label (the environment's enter word, up to 20 characters), growing into the rest of the row; only a
      label wider than the whole row ("Back to <space>" with a long name) is cut, and its title reads it in full. */
   flex: 1 0 auto; /* its label's own width, growing into the rest of the row */
   max-width: 100%;
   min-width: 0;
-  font-size: 16px;
-  padding: 0 16px;
 }
 
 /* The smaller buttons (link, pop-out, choose) stay together: when the main button's word needs the room they
@@ -2462,25 +2247,20 @@ body.in-space .subnav {
 }
 
 /* The top bar's "..." (#topbar-more, nav-bar.js): a header icon button, shown only while something is folded. */
-.topbar > .nav-right > .sdk-more {
-  width: 30px;
-  height: 30px;
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+.topbar > .nav-right > .sdk-icon-btn,
+.subnav .sdk-icon-btn {
+  --b-fg: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  --b-fg-h: var(--icon-hover);
+  --b-bg-h: color-mix(in srgb, var(--icon-hover) 14%, transparent);
 }
 
-.topbar > .nav-right > .sdk-more:hover,
-.topbar > .nav-right > .sdk-more:focus-visible,
-.topbar > .nav-right > .sdk-more[aria-expanded="true"] {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+.topbar > .nav-right > .sdk-icon-btn[aria-expanded="true"],
+.subnav .sdk-icon-btn[aria-expanded="true"] {
+  background: var(--b-bg-h);
+  color: var(--b-fg-h);
 }
 
-.topbar > .nav-right > .sdk-more:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.topbar > .nav-right > .sdk-more .badge {
+.topbar > .nav-right > .sdk-icon-btn .badge {
   position: absolute;
   top: -3px;
   right: -2px;
@@ -2558,27 +2338,14 @@ body.in-space .subnav {
   display: none;
 }
 
-/* The bar's "...": the shared More button (.sdk-more), in the header's colours and the bar's height. */
-.subnav .sdk-more {
+/* The bar's "...": the shared icon button (.sdk-icon-btn), in the header's colours (above) and the bar's height. */
+.subnav .sdk-icon-btn {
   position: relative;
+  --btn-h: 20px;
   width: 28px;
-  height: 20px;
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
 }
 
-.subnav .sdk-more:hover,
-.subnav .sdk-more:focus-visible,
-.subnav .sdk-more[aria-expanded="true"] {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-}
-
-.subnav .sdk-more:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.subnav .sdk-more .badge {
+.subnav .sdk-icon-btn .badge {
   position: absolute;
   top: -3px;
   right: -2px;
@@ -2756,23 +2523,10 @@ input.switch:disabled {
   display: none;
 }
 
-/* The space bar's Join the call (space.js, GitHub #165): a small button, the accent look (.btn-accent) of the
-   conference's own Join the call; the registry hides it while in the call. */
-.join-call {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px; /* its words are the nav text (.btn.nav-text, space.js) */
-}
-
+/* The space bar's Join the call (space.js, GitHub #165): a small Primary button, as the conference's own Join the call; its
+   words are the nav text (.btn.nav-text, space.js). The registry hides it while in the call. */
 .join-call[hidden] {
   display: none;
-}
-
-.join-call:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* In the chat: the right end of the Discussion | Assistant row, "turn this discussion into a call". */
@@ -3319,11 +3073,6 @@ button.whoami:focus-visible {
 }
 
 
-.join .btn-primary {
-  font-size: 16px;
-  padding: 10px 16px;
-}
-
 .tile .placeholder {
   position: absolute;
   inset: 0;
@@ -3556,11 +3305,6 @@ button.whoami:focus-visible {
   border-top: 1px solid var(--border);
 }
 
-.btn-small {
-  padding: 5px 10px;
-  font-size: 13px;
-}
-
 .key {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
@@ -3668,11 +3412,6 @@ button.whoami:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-a.btn {
-  text-decoration: none;
-  display: inline-block;
 }
 
 @media (max-width: 600px) {
@@ -4047,21 +3786,40 @@ a.crumb-here:hover {
   flex-shrink: 0;
 }
 
-/* A call control: an .action-btn (its size, icon and colours), with room for the mic's level meter. */
+/* A call control: a round button, with room for the mic's level meter. */
 .fbtn {
   position: relative;
   overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--action-btn-h);
+  height: var(--action-btn-h);
+  padding: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-round);
-  border-color: transparent;
+  background: var(--fill-secondary);
+  color: var(--text-on-secondary);
+  font: inherit;
+  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
+  line-height: 1;
+  cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 
+.fbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* The call's buttons, one look (Thomas, 2026-10-14: round, equal, quiet): a neutral round button; the strong accent
-   fill is the active or on one; a solid red End call. Hover, keyboard focus and a press each show. The size is the
-   action button's (--action-btn-h), never set here. */
+   fill is the active or on one; a solid red End call. Hover, keyboard focus and a press each show. The size is
+   --action-btn-h, never set outside the base rule above. */
 .fbtn:hover {
-  background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--fill-secondary-hover);
+  border-color: color-mix(in srgb, var(--accent-fill) 45%, transparent);
 }
 
 .fbtn:active {
@@ -4461,39 +4219,6 @@ a.crumb-here:hover {
   min-width: 0;
 }
 
-.msg-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 0;
-  color: var(--icon, var(--text-dim));
-  cursor: pointer;
-  padding: 4px 5px;
-  border-radius: var(--radius-min);
-  font-size: 13px;
-  line-height: 1;
-}
-
-.msg-btn:hover {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 12%, transparent);
-}
-
-.msg-btn.on {
-  color: var(--accent);
-}
-
-/* A button that cannot act now (a floating module's Dock while the window has no room for another column): still
-   focusable, its title says why. */
-.msg-btn[aria-disabled="true"],
-.msg-btn[aria-disabled="true"]:hover {
-  color: var(--text-dim);
-  background: none;
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .chat .messages {
   flex: 1;
   min-height: 0;
@@ -4634,11 +4359,6 @@ a.crumb-here:hover {
 
 span.message-vis {
   cursor: default;
-}
-
-.message-head .sdk-more {
-  width: 24px;
-  height: 24px;
 }
 
 .message-body {
@@ -4825,10 +4545,6 @@ span.message-vis {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.chat-format-bar .sdk-more {
-  flex: none;
-}
-
 .chat-import-row {
   display: flex;
   align-items: flex-start;
@@ -4886,9 +4602,10 @@ span.message-vis {
   display: flex;
 }
 
-.message.private-ai .msg-btn.kept,
-.message.private-ai .msg-btn.queued {
-  color: var(--accent);
+.message.private-ai .sdk-icon-btn.kept,
+.message.private-ai .sdk-icon-btn.queued {
+  --b-fg: var(--text-accent);
+  --b-fg-h: var(--text-accent);
 }
 
 .message .chat-object {
@@ -5123,10 +4840,6 @@ span.message-vis {
   flex: none; /* do not shrink; fitChatChrome hides buttons into "..." instead */
 }
 
-.chat-format-bar .msg-btn {
-  font-size: 13px;
-}
-
 /* Positions each popup relative to the button that opens it, not the bar
    as a whole -- see .chat-help-popup/.chat-emoji-popup below. */
 .chat-format-item {
@@ -5197,17 +4910,6 @@ span.message-vis {
   align-items: flex-end;
   gap: 6px;
   padding: 8px 10px 8px 8px; /* as the module bars beside it */
-}
-
-.chat form .msg-btn {
-  width: var(--bar-control-h);
-  height: var(--bar-control-h);
-  font-size: 16px;
-}
-
-.chat form .btn {
-  height: var(--bar-control-h);
-  min-width: var(--bar-control-h);
 }
 
 .chat textarea {
@@ -6574,7 +6276,7 @@ input[type="color"] {
 }
 
 /* A comfortable touch width for a module's titlebar buttons, the close button above all; the height is the shared header's. */
-.canvas.narrow .module-docked .mod-header .msg-btn {
+.canvas.narrow .module-docked .mod-header .sdk-icon-btn {
   min-width: 44px;
   align-self: stretch; /* as tall as the shared header, which sets the touch height */
 }
@@ -7000,80 +6702,6 @@ body.conference-window {
 .tb-slider input[type="range"] {
   width: 90px;
   accent-color: var(--accent);
-}
-
-.tb-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: none;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-round);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.tb-btn:hover,
-.tb-btn:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  outline: none;
-}
-
-.tb-btn:disabled {
-  color: var(--text-dim);
-  cursor: default;
-}
-
-.tb-btn.on,
-.tb-btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-/* The shared "..." button (same rules as .sdk-more in public/sdk/host.js): icon centered. */
-.sdk-more {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  flex: none;
-  box-sizing: border-box;
-  font: inherit;
-  line-height: 1;
-}
-.sdk-more:hover,
-.sdk-more:focus-visible {
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-  color: var(--text);
-  outline: none;
-}
-.sdk-more .ic,
-.sdk-more i,
-.sdk-more svg {
-  display: block;
-  margin: 0;
-}
-.sdk-more svg {
-  width: 1em;
-  height: 1em;
-  fill: currentColor;
-}
-.sdk-more i {
-  width: 1em;
-  text-align: center;
 }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
@@ -7619,10 +7247,6 @@ body.chat-window {
   min-width: 0;
 }
 
-.module-available .btn {
-  white-space: nowrap;
-}
-
 .module-available .module-needs {
   margin-top: 4px;
   color: var(--text);
@@ -7657,16 +7281,11 @@ body.chat-window {
 }
 
 .mod-header[data-tint] .mod-add {
-  color: var(--tint);
-}
-
-.mod-add:disabled {
-  opacity: 0.5;
-  cursor: default;
+  --b-fg: var(--tint);
+  --b-fg-h: var(--tint);
 }
 
 .mod-add:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -7689,7 +7308,8 @@ body.chat-window {
 /* A module on its own page or popped out (public/module.html): the "+" is in the page bar's right zone, or in the
    window's own titlebar; the status bar is the last thing on the page, so it keeps clear of the home indicator. */
 .page-bar-add[data-tint] .mod-add {
-  color: var(--tint);
+  --b-fg: var(--tint);
+  --b-fg-h: var(--tint);
 }
 
 body.module-page .module-status {
@@ -7710,12 +7330,12 @@ body.module-page .module-status {
     align-items: stretch;
   }
 
-  body.module-popout .module-titlebar .msg-btn {
+  body.module-popout .module-titlebar .sdk-icon-btn {
     align-self: stretch;
   }
 
   body.module-popout .module-titlebar .mod-add,
-  body.module-popout .module-titlebar .msg-btn,
+  body.module-popout .module-titlebar .sdk-icon-btn,
   .page-bar-add .mod-add {
     width: 44px;
     min-width: 44px;
@@ -8837,7 +8457,6 @@ body.module-page .module-status {
 /* A word, module name or icon that comes from the template, not the owner: said beside it. */
 .from-template { color: var(--text-dim); font-size: 12px; font-style: italic; }
 .home-icon-template { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
-.home-icon-template .btn[aria-pressed="true"] { background: var(--selected-bg); }
 .module-display-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
 
 /* Manage's Template tab (plan-environment-templates, addendum 2): the switch, the offer after it (shared with the host
@@ -9963,22 +9582,11 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   font-weight: 600;
 }
 
-.action-bar .btn:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
 .action-bar.busy {
   cursor: progress;
 }
 
 @media (max-width: 640px) {
-  .action-bar .btn {
-    min-height: 44px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
   .action-bar-buttons {
     flex: 1 1 100%;
   }
@@ -10645,14 +10253,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
     width: 100%;
     min-height: 44px;
     font-size: 16px; /* no zoom on a phone */
-  }
-
-  .phase-row-tools .btn,
-  .phase-row-off .btn,
-  .phase-first .btn {
-    min-height: 44px;
-    padding-left: 14px;
-    padding-right: 14px;
   }
 
   .phase-row-off {
@@ -11346,8 +10946,6 @@ h4.setup-subheading {
     height: 44px;
   }
 
-  .setup-link-row .btn,
-  .setup-confirm-buttons .btn,
   #setup-delete,
   .setup-members .switch-row,
   .space-setup .switch-row {
@@ -11356,9 +10954,6 @@ h4.setup-subheading {
 
   .setup-picture-pick,
   #setup-picture-remove,
-  .space-setup .phase-row-tools .btn,
-  .space-setup .phase-row-off .btn,
-  .space-setup .phase-first .btn,
   #setup-opens-with-layout-stop,
   .setup-choice {
     min-height: 44px;

@@ -41,9 +41,6 @@
   --tint-red: #e07a6e;
   --tint-orange: #e8964a;
   --tint-pink: #e58ab8;
-  /* The action button's size and its icon's share of it, the same as the page's own (public/style.css). */
-  --action-btn-h: 38px;
-  --action-icon-ratio: calc(20 / 38);
   /* The host's status bar under the module (host.status.set), the same as the page's own (public/style.css). */
   --status-bar-h: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -85,91 +82,6 @@ a {
   color: var(--text-dim);
 }
 
-.btn {
-  background: var(--secondary);
-  color: var(--secondary-text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  padding: 6px 12px;
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.btn:hover {
-  background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-}
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.btn-danger {
-  background: transparent;
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
-   chat's Send, a module's own bottom buttons). Its size is --action-btn-h and its icon
-   --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
-   rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
-   so and keeps a module from sizing the button itself. */
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  box-sizing: border-box;
-  width: var(--action-btn-h);
-  height: var(--action-btn-h);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.action-btn:hover {
-  background: var(--secondary-hover);
-  border-color: var(--accent);
-}
-
-.action-btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.action-btn.primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-/* action-btn:end */
 
 input,
 textarea,
@@ -223,7 +135,7 @@ select:focus {
                    does not fit moves whole to the next line. .sdk-when is a row too.
      .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
      .sdk-group    the line inside a composite field: controls and buttons at --field-h, never wrapping. .sdk-unit a dim word after
-                   a control ("h", "min", "USD"). .sdk-field-btn a square --field-h icon button in that line. .sdk-btn a text button
+                   a control ("h", "min", "USD"). .sdk-icon-btn a square icon button in that line. .sdk-btn a text button
                    --field-h tall (a word like "Find", in a field's line or on its own); .sdk-btn.primary the main one, a fill.
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
@@ -420,92 +332,6 @@ select:focus {
   font-size: var(--label-size);
 }
 
-.sdk-field-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: var(--field-h);
-  height: var(--field-h);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.sdk-field-btn:hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-field-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-field-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdk-field-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
-
-.sdk-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: var(--field-h);
-  margin: 0;
-  padding: 0 var(--field-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  font-size: var(--field-font);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.sdk-btn:hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-btn:active {
-  background: var(--secondary-hover);
-}
-
-.sdk-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdk-btn.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.sdk-btn.primary:hover,
-.sdk-btn.primary:active {
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
-}
-
 .sdk-pair {
   display: grid;
   grid-column: 1 / -1;
@@ -623,15 +449,13 @@ select:focus {
 /* form:end */
 
 /* datepicker:start -- the date picker (host.ui.datePicker): the month grid (.sdk-dp) and the field's button and weekday. In a
-   .sdk-form the field is a .sdk-group of the input, a .sdk-field-btn (the calendar) and, with the `list` option, a second
-   .sdk-field-btn (the list), and the weekday is the field's .sdk-hint; outside a .sdk-form the old look stays (a 30px button,
+   .sdk-form the field is a .sdk-group of the input, a .sdk-icon-btn (the calendar) and, with the `list` option, a second
+   .sdk-icon-btn (the list), and the weekday is the field's .sdk-hint; outside a .sdk-form the button is a small one (30px,
    the weekday line in .tv-dow-hint). Today in the month is a fill, never a border. These rules were in host.js. */
 .sdk-datefield { display: flex; gap: 4px; align-items: center; }
 .sdk-datefield input { flex: 1; min-width: 0; }
 .sdk-datefield input::-webkit-calendar-picker-indicator { display: none; }
 .sdk-form .sdk-datefield { gap: 8px; height: var(--field-h); }
-.sdk-dp-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--secondary); color: var(--secondary-text); cursor: pointer; }
-.sdk-dp-btn:hover { background: var(--secondary-hover); }
 .tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: 11px; font-weight: 600; }
 .sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
 .sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
@@ -701,38 +525,6 @@ select:focus {
   position: absolute;
   top: 4px;
   right: calc(8px - var(--sdk-editor-pad));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: var(--bg-section);
-  color: var(--text-dim);
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.sdk-editor-close:hover {
-  background: color-mix(in srgb, var(--text) 10%, var(--bg-section));
-  color: var(--text);
-}
-
-.sdk-editor-close:focus-visible {
-  color: var(--text);
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.sdk-editor-close svg,
-.sdk-editor-close i {
-  width: 16px;
-  height: 16px;
-  font-size: 16px;
-  fill: currentColor;
 }
 
 .sdk-editor-actions,
@@ -787,21 +579,14 @@ select:focus {
   }
 
   .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-close {
+    --btn-h: 44px;
     top: calc(2px + env(safe-area-inset-top, 0px));
-    width: 44px;
-    height: 44px;
   }
 
   .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-actions,
   .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-discard {
-    --action-btn-h: 44px;
     min-height: 44px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-actions .btn,
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-discard .btn {
-    min-height: 44px;
   }
 }
 
@@ -834,19 +619,12 @@ select:focus {
 }
 
 .sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-close {
+  --btn-h: 44px;
   top: 2px;
-  width: 44px;
-  height: 44px;
 }
 
 .sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-actions,
 .sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-discard {
-  --action-btn-h: 44px;
-  min-height: 44px;
-}
-
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-actions .btn,
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-discard .btn {
   min-height: 44px;
 }
 

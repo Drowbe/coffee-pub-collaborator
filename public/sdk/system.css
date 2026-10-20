@@ -89,6 +89,14 @@
   --icon-20: 20px;
   --icon-24: 24px;
 
+  /* ---- Buttons: the heights, spacing and type of every button (the Buttons block below) ---- */
+  --btn-h: 38px; /* 44px at 640px and narrower */
+  --btn-h-small: 30px;
+  --btn-gap: var(--space-2);
+  --btn-pad-x: var(--space-4);
+  --btn-font: var(--text-14);
+  --btn-icon: var(--icon-16);
+
   /* ---- Breakpoints, documented (see the comment at the top: not usable in @media) ---- */
   --bp-narrow: 640px;
   --bp-medium: 900px;
@@ -197,8 +205,206 @@
 }
 
 @media (max-width: 640px) {
-  :root { --page-pad: 12px; --module-head-h: 42px; }
+  :root { --page-pad: 12px; --module-head-h: 42px; --btn-h: 44px; }
 }
+
+/* ================= Buttons (family block; design system step 12) =================
+   Drawn on the design system page (proposed-buttons.js); the rules below are that file's, with the colour roles. Four roles:
+   Primary .btn-primary (the one main action), Secondary .btn (everything else, the default), Danger .btn-danger (soft red; .solid is
+   the solid red kept for a final confirm) and Quiet .btn-quiet (text only). Selected is .on or aria-pressed="true". Sizes: default
+   --btn-h (38px, 44px on a phone) and .btn-small (--btn-h-small, 30px, a 44px hit area on a phone). One icon-only button,
+   .sdk-icon-btn: a square, the same roles and sizes. .sdk-btn is the text button a form puts beside a field (.primary for the main
+   one). No state changes an edge colour: Secondary keeps its hairline, every other role has a clear edge, so all buttons keep one box.
+   The round call buttons (.fbtn, in style.css) are not part of these rules. tools/check-buttons.mjs holds them. */
+/* buttons:start */
+:is(.btn, .sdk-btn, .sdk-icon-btn) {
+  --b-bg: var(--fill-secondary);
+  --b-bg-h: var(--fill-secondary-hover);
+  --b-bg-a: color-mix(in srgb, var(--fill-secondary) 88%, var(--text-primary));
+  --b-fg: var(--text-on-secondary);
+  --b-fg-h: var(--text-on-secondary);
+  --b-bd: var(--edge-hairline);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  box-sizing: border-box;
+  height: var(--btn-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--btn-pad-x);
+  border: 1px solid var(--b-bd);
+  border-radius: var(--radius-small);
+  background: var(--b-bg);
+  color: var(--b-fg);
+  font: inherit;
+  font-size: var(--btn-font);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-ui);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  opacity: 1;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+/* Icon only: a square at the same height. The icon is a fixed size, so a small button keeps the look. */
+.sdk-icon-btn {
+  flex: none;
+  width: var(--btn-h);
+  padding: 0;
+  font-size: var(--btn-icon);
+}
+
+.sdk-btn {
+  flex: none;
+}
+
+.sdk-icon-btn :is(i, svg, .ic) {
+  display: block;
+  margin: 0;
+  line-height: var(--leading-ui);
+}
+
+.sdk-icon-btn svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+.sdk-icon-btn i {
+  width: 1em;
+  text-align: center;
+}
+
+:is(.btn, .sdk-btn) > :is(i, .ic) {
+  font-size: var(--btn-icon);
+  line-height: var(--leading-ui);
+}
+
+/* Small: dense rows and toolbars. */
+.btn-small {
+  --btn-h: var(--btn-h-small);
+  --btn-pad-x: var(--space-3);
+  --btn-font: var(--text-13);
+  --btn-icon: var(--icon-14);
+}
+
+/* A form on a phone, and the lifted editor on a phone, take the phone height at any page width. */
+.sdk-editor[data-lift="phone"] {
+  --btn-h: 44px;
+}
+
+/* States. Each is a fill; the edge never changes colour. */
+:is(.btn, .sdk-btn, .sdk-icon-btn):hover {
+  background: var(--b-bg-h);
+  color: var(--b-fg-h);
+  box-shadow: none;
+}
+
+:is(.btn, .sdk-btn, .sdk-icon-btn):active {
+  background: var(--b-bg-a);
+  color: var(--b-fg-h);
+  transform: none;
+}
+
+:is(.btn, .sdk-btn, .sdk-icon-btn):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+:is(.btn, .sdk-btn, .sdk-icon-btn):disabled,
+:is(.btn, .sdk-btn, .sdk-icon-btn)[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Loading: the label stays, a spinning icon goes in front (<i class="fa-solid fa-spinner fa-spin">), and it cannot be pressed. */
+:is(.btn, .sdk-btn, .sdk-icon-btn)[aria-busy="true"] {
+  cursor: progress;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* Roles. */
+.btn-primary,
+.sdk-btn.primary {
+  --b-bg: var(--accent-fill);
+  --b-bg-h: var(--accent-fill-hover);
+  --b-bg-a: color-mix(in srgb, black 14%, var(--accent-fill-hover));
+  --b-fg: var(--text-on-accent);
+  --b-fg-h: var(--text-on-accent);
+  --b-bd: transparent;
+}
+
+.btn-danger {
+  --b-bg: color-mix(in srgb, var(--status-danger-fill) 16%, transparent);
+  --b-bg-h: color-mix(in srgb, var(--status-danger-fill) 26%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--status-danger-fill) 34%, transparent);
+  --b-fg: var(--status-danger-text);
+  --b-fg-h: var(--status-danger-text);
+  --b-bd: transparent;
+}
+
+/* The solid red: only a final confirm (Delete for good, Leave). */
+.btn-danger.solid {
+  --b-bg: var(--status-danger-fill);
+  --b-bg-h: color-mix(in srgb, var(--status-danger-fill) 82%, white);
+  --b-bg-a: color-mix(in srgb, var(--status-danger-fill) 82%, black);
+  --b-fg: var(--status-danger-on-fill);
+  --b-fg-h: var(--status-danger-on-fill);
+}
+
+.btn-quiet {
+  --b-bg: transparent;
+  --b-bg-h: var(--fill-hover);
+  --b-bg-a: color-mix(in srgb, var(--text-primary) 16%, transparent);
+  --b-fg: var(--text-primary);
+  --b-fg-h: var(--text-primary);
+  --b-bd: transparent;
+}
+
+.sdk-icon-btn.btn-quiet {
+  --b-fg: var(--text-muted);
+}
+
+/* Selected, on, pressed: the selected fill, never an edge. */
+:is(.btn, .sdk-btn, .sdk-icon-btn):is(.on, [aria-pressed="true"]) {
+  --b-bg: var(--fill-selected);
+  --b-bg-h: color-mix(in srgb, var(--accent-fill) 38%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--accent-fill) 46%, transparent);
+  --b-fg: var(--text-selected);
+  --b-fg-h: var(--text-selected);
+  --b-bd: transparent;
+}
+
+/* On a phone a small button keeps its look and gets a 44px target: the hit area grows past the box. */
+@media (max-width: 640px) {
+  .btn-small {
+    position: relative;
+  }
+
+  .btn-small::after {
+    content: "";
+    position: absolute;
+    inset: -7px 0;
+  }
+
+  .sdk-icon-btn.btn-small::after {
+    inset: -7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.btn, .sdk-btn, .sdk-icon-btn) {
+    transition: none;
+  }
+}
+/* buttons:end */
 
 /* ================= Font faces (bundled, self-hosted; defined, not applied) =================
    Nothing is fetched until text is drawn in the family (no font-family reads them yet), and then only the file that holds the letters in

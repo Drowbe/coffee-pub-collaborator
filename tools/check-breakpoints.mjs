@@ -6,6 +6,7 @@
 // pixels at 16px to the em. It reads @media in the CSS files and in the CSS and window.matchMedia(...) strings inside the
 // .js files of public and modules/*/src; not public/design-system or MapLibre.
 //
+// Pages with their own palette (OWN_PALETTE in tools/lib/drift.mjs, today public/landing.css) are not read, and the check prints which; @font-face blocks are not read.
 // Today's strays are recorded per file and width in tools/check-breakpoints-allow.json. The check passes while no
 // count is higher, fails on a higher count or a new file or width, and says when a count has dropped.
 //   node tools/check-breakpoints.mjs                 the check

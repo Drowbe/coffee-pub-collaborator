@@ -245,7 +245,7 @@
    "id": "profile-profile",
    "family": "Profile tabs",
    "as": "mia",
-   "url": "/profile",
+   "url": "/profile#profile",
    "wait": ".subtab",
    "full": true,
    "tier": "core"
@@ -254,15 +254,8 @@
    "id": "profile-spaces",
    "family": "Profile tabs",
    "as": "mia",
-   "url": "/profile",
+   "url": "/profile#spaces",
    "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=spaces]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
    "full": true,
    "tier": "core"
   },

@@ -7,6 +7,7 @@
 // It reads public/*.css, public/sdk/*.css, modules/*/src/*.css and the CSS inside the .js files of public and
 // modules/*/src; not public/design-system or MapLibre.
 //
+// Pages with their own palette (OWN_PALETTE in tools/lib/drift.mjs, today public/landing.css) are not read, and the check prints which; @font-face blocks are not read.
 // Today's offenders are recorded per file in tools/check-type-scale-allow.json under keys like "size 15px" and
 // "weight 650". The check passes while no count is higher, fails on a higher count or a new file or key, and says when
 // a count has dropped.

@@ -171,7 +171,11 @@
 .ds-colour .cm-ban-ok { background: var(--status-ok-tint); color: var(--status-ok-text); }
 .ds-colour .cm-ban-warn { background: var(--status-warn-tint); color: var(--status-warn-text); }
 .ds-colour .cm-ban-info { background: var(--status-info-tint); color: var(--status-info-text); }
-.ds-colour .cm-ban-i { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); font-size: 11px; }
+.ds-colour .cm-ban-i { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); font-size: 12px; line-height: 1; }
+/* The glyph is a box of its own, 1em square, so the badge centres a box and not a line of text. The triangle's base is 32 of 512 units above the bottom of its box, and the browser rounds the font's ascent to a whole pixel, so the triangle is let down by what was measured (check-design-system-align.mjs, badgeInk). */
+.ds-colour .cm-ban-i i { display: block; flex: none; width: 1em; height: 1em; line-height: 1; text-align: center; }
+.ds-colour .cm-ban-i .fa-triangle-exclamation { transform: translateY(0.083em); }
+.ds-colour .cm-ban-i .fa-xmark { transform: translateY(0.04em); }
 .ds-colour .cm-ban-danger .cm-ban-i { background: var(--status-danger-fill); color: var(--status-danger-on-fill); }
 .ds-colour .cm-ban-ok .cm-ban-i { background: var(--status-ok-fill); color: var(--status-ok-on-fill); }
 .ds-colour .cm-ban-warn .cm-ban-i { background: var(--status-warn-fill); color: var(--status-warn-on-fill); }

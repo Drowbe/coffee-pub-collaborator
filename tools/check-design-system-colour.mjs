@@ -2,7 +2,7 @@
  * check-design-system-colour.mjs -- the Colour foundation of the proposed design system page (public/design-system/proposed-colour.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (files) and browserChecks (colourProbe, run in the browser, at each width and mode).
  *
- * Fails on: a rule in proposed-colour.css not under .ds-colour; a literal colour, a coloured border or an unknown variable in the rules of the
+ * Fails on: a status banner's round icon whose glyph is more than 0.5px off the middle of its badge on either axis (measured at 4x, with each of the triangle, circle-exclamation, circle-check, circle-info and xmark glyphs), a rule in proposed-colour.css not under .ds-colour; a literal colour, a coloured border or an unknown variable in the rules of the
  * mock screen (.cm-*), which may use only the proposed roles and the radius tokens; a mock part (data-roles) naming a role that does not exist,
  * or a role the mock's rules use that no part names (the highlight would miss it); a stylesheet or script missing from the snapshot, or
  * loaded by Today's page; in the browser: the board not listing every role once with its hex, a contrast number that does not match a
@@ -13,6 +13,7 @@
  * server/store.js.
  */
 import fs from 'node:fs';
+import { badgeInk } from './check-design-system-align.mjs';
 import path from 'node:path';
 
 export const id = 'colour';
@@ -21,9 +22,12 @@ export const todayOnly = [];
 
 export function staticChecks({ DS, snapNames, todayHtml, manifestText, fail }) { colourStatic({ DS, snapNames, todayHtml, manifestText, fail }); }
 
-export async function browserChecks({ ev, where, problems }) {
+export async function browserChecks(b) {
+  const { ev, where, problems, sc } = b;
   const cp = JSON.parse(await ev(`(${colourProbe.toString()})().then((r) => JSON.stringify(r))`));
   for (const x of cp.problems) problems.push(`${where}: Colour: ${x}`);
+  // The icon in each round status badge of the sample screen: its ink is in the middle, whatever the glyph.
+  await badgeInk(b, [{ frame: null, badge: '.cm-ban-i' }]);
 }
 
 export function colourStatic({ DS, snapNames, todayHtml, manifestText, fail }) {

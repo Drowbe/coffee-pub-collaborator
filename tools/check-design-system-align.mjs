@@ -122,3 +122,58 @@ const alignProbe = (specs) => {
   }
   return JSON.stringify(out);
 };
+
+/*
+ * badgeInk(b, specs) -- is the glyph in a badge in the middle of it, on both axes? Measured: the badge is screenshotted at 4x, and the middle of the
+ * pixels that differ from the badge's own fill (inside a disc just short of the badge's edge, so the corners of a round badge do not count) is
+ * compared with the middle of the badge. Fails when either axis is more than 0.5px off.
+ *   spec: { frame: 'title' | RegExp | null (null: the page itself, not a frame), badge: selector of the badge, glyphs: [...] }
+ * Each glyph name (triangle-exclamation, circle-exclamation, circle-check, circle-info, xmark) is put into the badge's <i> in turn, measured, and the
+ * badge put back, so a glyph of a different width is tried in every badge. The glyph as drawn is measured too. Sizes of the glyphs are not changed.
+ */
+import zlib from 'node:zlib';
+export const BADGE_GLYPHS = ['triangle-exclamation', 'circle-exclamation', 'circle-check', 'circle-info', 'xmark'];
+export function inkBox(buf, scale, only) { // only: { w, h } = judge just the top-left w x h pixels (a badge drawn in a bigger image)
+  let o = 8; let w; let h; let ct; const idat = [];
+  while (o < buf.length) { const l = buf.readUInt32BE(o); const t = buf.toString('ascii', o + 4, o + 8); const d = buf.subarray(o + 8, o + 8 + l); if (t === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; } if (t === 'IDAT') idat.push(d); o += 12 + l; }
+  const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const px = Buffer.alloc(h * st);
+  for (let y = 0; y < h; y += 1) { const f = raw[y * (st + 1)]; for (let x = 0; x < st; x += 1) { const v = raw[y * (st + 1) + 1 + x]; const a = x >= bpp ? px[y * st + x - bpp] : 0; const b = y ? px[(y - 1) * st + x] : 0; const c = x >= bpp && y ? px[(y - 1) * st + x - bpp] : 0; let r = v; if (f === 1) r += a; else if (f === 2) r += b; else if (f === 3) r += (a + b) >> 1; else if (f === 4) { const p = a + b - c; const pa = Math.abs(p - a); const pb = Math.abs(p - b); const pc = Math.abs(p - c); r += (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c; } px[y * st + x] = r & 255; } }
+  const sw = w; const g = (x, y) => [0, 1, 2].map((i) => px[(y * sw + x) * bpp + i]);
+  if (only) { w = Math.min(w, only.w); h = Math.min(h, only.h); }
+  const bg = g(Math.floor(w / 2), Math.round(2.5 * scale)); // the badge's own fill, just inside the top edge
+  const R = Math.min(w, h) / 2 * 0.86; let x0 = 1e9; let x1 = -1; let y0 = 1e9; let y1 = -1;
+  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
+    if (Math.hypot(x + 0.5 - w / 2, y + 0.5 - h / 2) > R) continue;
+    const p = g(x, y); if (Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) > 90) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  }
+  return x1 < 0 ? null : { dx: ((x0 + x1 + 1) / 2 - w / 2) / scale, dy: ((y0 + y1 + 1) / 2 - h / 2) / scale };
+}
+export async function badgeInk(b, specs) {
+  const { ev, cdp, sessionId, problems, where } = b;
+  for (const sp of specs) {
+    const frameSpec = sp.frame instanceof RegExp ? { re: sp.frame.source, flags: sp.frame.flags } : sp.frame === null ? { page: true } : { eq: sp.frame };
+    // Which badges are there (count), then one at a time.
+    const count = JSON.parse(await ev(`(() => { const sp = ${JSON.stringify(frameSpec)}; const docs = sp.page ? [document] : window.__ds.frames.filter((f) => sp.re ? new RegExp(sp.re, sp.flags).test(f.iframe.title) : f.iframe.title === sp.eq).map((f) => f.iframe.contentDocument); const hits = []; docs.forEach((d, di) => d && d.querySelectorAll(${JSON.stringify(sp.badge)}).forEach((el, ei) => { const r = el.getBoundingClientRect(); if (r.width && r.height && getComputedStyle(el).visibility !== 'hidden') hits.push([di, ei]); })); return JSON.stringify(hits); })()`));
+    if (!count.length) { problems.push(`${where}: badge ink: nothing matches ${sp.badge}`); continue; }
+    for (const [di, ei] of count) {
+      for (const glyph of [null, ...(sp.glyphs || BADGE_GLYPHS)]) {
+        const at = JSON.parse(await ev(`(async () => { const sp = ${JSON.stringify(frameSpec)}; const frames = sp.page ? [null] : window.__ds.frames.filter((f) => sp.re ? new RegExp(sp.re, sp.flags).test(f.iframe.title) : f.iframe.title === sp.eq);
+          const m = frames[${di}]; const d = m ? m.iframe.contentDocument : document; const el = d.querySelectorAll(${JSON.stringify(sp.badge)})[${ei}];
+          const i = el.querySelector('i'); if (!window.__badgeWas) window.__badgeWas = new Map();
+          if (${JSON.stringify(glyph)}) { if (!window.__badgeWas.has(i)) window.__badgeWas.set(i, i.className); i.className = 'fa-solid fa-' + ${JSON.stringify(glyph)}; } else if (window.__badgeWas.has(i)) { i.className = window.__badgeWas.get(i); }
+          el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120));
+          if (m) { m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; }
+          const off = () => { const r = el.getBoundingClientRect(); const fr = m ? m.iframe.getBoundingClientRect() : { left: 0, top: 0 }; return { x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }; };
+          let o = off(); const frac = o.y - Math.floor(o.y); if (frac > 0.01) { if (m) m.iframe.style.top = (1 - frac) + 'px'; else { document.body.style.position = 'relative'; document.body.style.top = (1 - frac) + 'px'; } await new Promise((r) => setTimeout(r, 120)); o = off(); }
+          return JSON.stringify({ ...o, name: (el.getAttribute('data-part') || el.className) + ' / ' + i.className.replace('fa-solid ', '') }); })()`));
+        const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
+        const c = inkBox(Buffer.from(shot.data, 'base64'), 4);
+        if (process.env.BADGE_DEBUG && c) console.error(`${where} ${at.name} dx=${c.dx.toFixed(2)} dy=${c.dy.toFixed(2)} w=${at.w}`); // BADGE_DEBUG=1 prints every reading
+        if (!c) problems.push(`${where}: badge ink: no glyph found in ${at.name}`);
+        else if (Math.abs(c.dx) > 0.5 || Math.abs(c.dy) > 0.5) problems.push(`${where}: the glyph in ${at.name} is off the middle of its ${Math.round(at.w)}px badge by ${c.dx.toFixed(2)}px across and ${c.dy.toFixed(2)}px down (0.5px allowed)`);
+      }
+      // put the badge back
+      await ev(`(() => { if (window.__badgeWas) { for (const [i, c] of window.__badgeWas) i.className = c; window.__badgeWas = null; } for (const f of (window.__ds ? window.__ds.frames : [])) { f.iframe.style.top = ''; f.iframe.style.position = ''; } document.body.style.top = ''; document.body.style.position = ''; })()`);
+    }
+  }
+}

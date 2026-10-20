@@ -2,7 +2,7 @@
  * check-design-system-toasts.mjs -- the Toasts and banners family of the proposed design system page (public/design-system/proposed-toasts.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
- * Fails on: a toast not 340px wide (at a wide frame), not the card surface (--bg-card) with the same 1px --border hairline on all four sides (no coloured left bar, no outline),
+ * Fails on: the glyph in a banner's round icon, a toast's icon tile or a toast's close more than 0.5px off the middle of its badge on either axis (measured at 4x; the banner and tile with each of the triangle, circle-exclamation, circle-check, circle-info and xmark glyphs), a toast not 340px wide (at a wide frame), not the card surface (--bg-card) with the same 1px --border hairline on all four sides (no coloured left bar, no outline),
  * --radius-medium and --shadow-2; four kinds that do not give four different chip tints; a danger toast without role="alert", or another kind without role="status"; a close that is not the
  * quiet 30px icon button; a stack of three that is not 8px apart; on a desktop a stack that is not 16px from the top and right, 340px wide; at 390 a stack that is not at the bottom, 8px
  * in from each side (the width minus 16px); in the live demo: the durations not 4500, 9000 and 60000 ms (note, notice, invite), a fourth toast not waiting (three at most),
@@ -12,7 +12,7 @@
  * Proposed, or its page naming Toasts and banners as not yet decided. In the stylesheet: a one-sided border, a hex colour, an inset shadow, a font under 11px, a coloured outline, a name
  * that is not defined.
  */
-import { alignRows } from './check-design-system-align.mjs';
+import { alignRows, badgeInk } from './check-design-system-align.mjs';
 
 export const id = 'toasts';
 export const todayOnly = ['sdk-dialog', 'sdk-dialog-layer', 'sdk-dp', 'ds-force-hover', 'sdk-tabs'];
@@ -40,6 +40,12 @@ export async function browserChecks(b) {
     { frame: 'Toasts, aliases', row: '.conflict-bar' },
     { frame: /^Toasts, (kinds|note notice invite)/, row: '.sdk-toast', skip: '.sdk-toast-actions' },
     { frame: 'Toasts, note notice invite', row: '.sdk-toast-actions', padding: false },
+  ]);
+  // The glyph in each icon badge (the round banner icon, the toast's tile) and in the close button: its ink is in the middle, whatever the glyph.
+  await badgeInk(b, [
+    { frame: /^Toasts, banner/, badge: '.sdk-banner-icon' },
+    { frame: 'Toasts, kinds', badge: '.sdk-toast-icon' },
+    { frame: 'Toasts, kinds', badge: '.sdk-toast .sdk-icon-btn', glyphs: ['xmark'] },
   ]);
 
 }

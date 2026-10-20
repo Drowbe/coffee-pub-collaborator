@@ -170,9 +170,16 @@
   border-radius: var(--radius-round);
   background: var(--k-fill);
   color: var(--k-on);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
 }
+/* The glyph is a box of its own, 1em square, so the badge centres a box and not a line of text. FA's glyphs do not all sit in the middle of their box
+   (the triangle's tip is at the top and its base 32 of 512 units above the bottom), and the browser rounds the font's ascent to a whole pixel, so each
+   badge lets the glyph down by the little that was measured at its size (tools/check-design-system-align.mjs, badgeInk: within 0.5px on both axes). */
+.ds-proposed :is(.sdk-banner-icon, .sdk-toast-icon) > i { display: block; flex: none; width: 1em; height: 1em; line-height: 1; text-align: center; }
+.ds-proposed .sdk-banner-icon > i { transform: translateY(0.04em); }
+.ds-proposed .sdk-banner-icon > .fa-triangle-exclamation { transform: translateY(0.083em); }
+.ds-proposed .sdk-toast-icon > .fa-triangle-exclamation { transform: translateY(0.031em); }
 .ds-proposed .sdk-banner-text { flex: 1 1 0; min-width: 0; padding: 6px 0; overflow-wrap: anywhere; }
 .ds-proposed .sdk-banner-text b { font-weight: 600; }
 /* The action is a Secondary small button (the Buttons family): a visible edge and fill, so it reads as a button. */

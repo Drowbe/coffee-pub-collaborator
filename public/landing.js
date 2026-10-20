@@ -2,6 +2,37 @@
 // host (GET /api/product, public), so the page never hard-codes a name while the name is still being chosen.
 const fill = (sel, text) => { for (const el of document.querySelectorAll(sel)) el.textContent = text; };
 
+// The walkthrough (See it in action): the screens crossfade by themselves in CSS, 10 seconds round. This only adds the
+// controls: Pause, and a button for each screen, which stops the animation and shows that screen. Without this script the
+// animation still runs; with reduced motion it starts still, on the first screen.
+(() => {
+  const box = document.getElementById('tour-box');
+  const bar = document.getElementById('tour-bar');
+  if (!box || !bar) return;
+  const frames = [...box.querySelectorAll('.tour-frame')];
+  const tabs = [...bar.querySelectorAll('[data-frame]')];
+  const toggle = document.getElementById('tour-toggle');
+  bar.hidden = false;
+  const show = (n) => {
+    box.classList.remove('paused');
+    box.classList.add('manual');
+    toggle.textContent = 'Play';
+    frames.forEach((f, i) => f.classList.toggle('on', i === n));
+    tabs.forEach((t, i) => (i === n ? t.setAttribute('aria-current', 'true') : t.removeAttribute('aria-current')));
+  };
+  for (const t of tabs) t.addEventListener('click', () => show(Number(t.dataset.frame)));
+  toggle.addEventListener('click', () => {
+    if (box.classList.contains('manual')) { // back to the animation
+      box.classList.remove('manual');
+      toggle.textContent = 'Pause';
+      tabs.forEach((t) => t.removeAttribute('aria-current'));
+      return;
+    }
+    const paused = box.classList.toggle('paused');
+    toggle.textContent = paused ? 'Play' : 'Pause';
+  });
+})();
+
 let product = { name: 'Coffee Pub', contact: null, baseDomain: '', version: '' };
 try {
   const res = await fetch('/api/product');

@@ -2743,7 +2743,7 @@ const NOT_FRAMED = { 'Content-Security-Policy': "frame-ancestors 'none'", 'X-Fra
 const FRAMED_HERE = { 'Content-Security-Policy': "frame-ancestors 'self'", 'X-Frame-Options': 'SAMEORIGIN' };
 const FRAMED_HERE_PATHS = new Set([
   '/profile', '/admin', '/login', '/login/verify', '/login/enrol', '/register',
-  '/profile.html', '/admin.html', '/ai-config.html', '/module-config.html', '/login.html', '/login-step.html', '/register.html', '/module.html', '/destination.html',
+  '/profile.html', '/admin.html', '/module-config.html', '/login.html', '/login-step.html', '/register.html', '/module.html', '/destination.html',
   ...destinations.DESTINATIONS.map((d) => d.path),
 ]);
 app.use((req, res, next) => {

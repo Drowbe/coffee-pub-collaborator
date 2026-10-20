@@ -453,7 +453,7 @@ try {
       assert.equal(r.headers.get('x-frame-options'), 'SAMEORIGIN', `${url} is framed by this site only (old browsers)`);
     };
     for (const url of ['/calendar', `/calendar?space=${keep}`, '/profile', '/modules/dest-dates', `/modules/dest-dates?space=${keep}`, `/modules/dest-dates?space=${keep}&guest=${encodeURIComponent(guest)}`]) await sameSite(url, aliceT);
-    for (const url of ['/admin', '/profile/x', '/admin.html', '/ai-config.html', '/module-config.html?id=dest-dates', '/profile.html', '/module.html', '/destination.html', '/map']) await sameSite(url, admin, [200, 302, 404]);
+    for (const url of ['/admin', '/profile/x', '/admin.html', '/module-config.html?id=dest-dates', '/profile.html', '/module.html', '/destination.html', '/map']) await sameSite(url, admin, [200, 302, 404]);
     for (const url of ['/login', '/login/verify', '/login/enrol', '/register', '/login.html', '/invite/abc']) await sameSite(url, null);
     // Left alone: a module's own files (they say frame-ancestors 'self' in their own sandbox policy), the access key's
     // pages, and anything else.

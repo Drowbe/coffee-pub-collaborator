@@ -1859,7 +1859,7 @@ test('the anchor: nothing wider than a phone, the page\'s name as a plain label 
   assert.deepEqual(pageAnchor({ phone: true, name: ' Calendar ', icon: 'calendar-days' }), { label: 'Calendar', icon: 'calendar-days', title: 'Calendar', current: 'page' });
   assert.equal(pageAnchor({ phone: true, name: '' }), null, 'no name yet: nothing');
   const read = (f) => fs.readFileSync(path.join(ROOT, 'public', f), 'utf8');
-  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-setup.js', 'ai-config.js', 'module-config.js', 'module.js', 'host.js']) {
+  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-setup.js', 'module-config.js', 'module.js', 'host.js']) {
     const src = read(f);
     assert.ok(!/crumbLink\(/.test(src), `${f} calls no crumbLink()`);
     assert.ok(!/setTopbarLocation\(/.test(src), `${f} sets no segment`);
@@ -1898,7 +1898,7 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   // The space-settings page bar is gone on purpose: the Set up panel opens inside the space page, under its bar, so it
   // draws no page bar and no #subtabs of its own (its tabs are .setup-tab).
   assert.ok(!/renderPageBar|id="subtabs"/.test(read('space-setup.js')), 'the Set up panel draws no page bar');
-  assert.match(read('ai-config.js'), /renderPageBar\(\{ name: 'AI configuration'[^\n]*manage: '\/admin#modules' \}\)/);
+  assert.ok(!fs.existsSync(path.join(ROOT, 'public', 'ai-config.js')), 'the AI service is set up on its tab on Manage > Modules, not a page of its own');
   assert.match(read('module-config.js'), /renderPageBar\(\{ manage: '\/admin#modules' \}\)/);
   assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: mod\.name, icon: mod\.icon \}\)/);
   assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: title \|\| mod\.name, icon: mod\.icon \}\)/);

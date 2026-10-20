@@ -8,6 +8,7 @@ import { fileText } from '/file-text.js';
 import { rowTabs } from '/page-tabs.js';
 import { moduleConfigMarkup, drawModuleConfig } from '/module-config.js';
 import { nav } from '/nav-bar.js';
+import { mountAiForm } from '/ai-form.js';
 
 const $ = (id) => document.getElementById(id);
 const userCards = new Map(); // key -> the user's card element
@@ -134,7 +135,8 @@ function showModulePart(part) {
   modulePart = !known || known.includes(part) ? part : 'config';
   $('module-part-config').hidden = modulePart !== 'config';
   $('env-part-conference').hidden = modulePart !== 'conference';
-  $('module-part-module').hidden = modulePart === 'config' || modulePart === 'conference';
+  $('module-part-ai').hidden = modulePart !== 'ai';
+  $('module-part-module').hidden = ['config', 'conference', 'ai'].includes(modulePart);
   for (const b of $('module-subtabs').querySelectorAll('.subtab')) {
     const on = b.dataset.modulePart === modulePart;
     b.classList.toggle('active', on);
@@ -1163,6 +1165,7 @@ async function loadModules() {
   builtinModules = data.builtin || [];
   bundledModules = data.bundled || [];
   modulesLoaded = true;
+  await loadAi(); // the AI service's entry and tab come from it
   renderModuleTabs();
   renderModules();
   // The tab shown again from the list as it is now; a module's tab that has gone (turned off or uninstalled) leaves
@@ -1176,7 +1179,6 @@ async function loadModules() {
   renderModuleNames();
   renderTemplateNote();
   loadActivity();
-  loadAi();
   // Say on the tab itself when an update is waiting, so it is seen without opening it.
   const updates = bundledModules.filter((b) => b.update).length;
   const fresh = bundledModules.filter((b) => !b.installed).length;
@@ -1199,8 +1201,8 @@ async function loadModules() {
   }
 }
 
-// What a module needs turned on first, as HTML: the AI service (with the way to its page), or another module.
-const needsText = (r) => (r === 'ai' ? '<a href="/ai-config.html">the AI service</a> enabled' : `${escapeHtml(shownNameOf(r))} installed and turned on`);
+// What a module needs turned on first, as HTML: the AI service (with the way to its tab), or another module.
+const needsText = (r) => (r === 'ai' ? '<a href="#modules/ai">the AI service</a> enabled' : `${escapeHtml(shownNameOf(r))} installed and turned on`);
 
 // What a bundled module still needs before it can be turned on (Maps needs Places): said in its row of the list, so the
 // admin installs those first instead of meeting a disabled Approve button afterwards.
@@ -1490,18 +1492,56 @@ async function loadActivity() {
 }
 setInterval(() => { if (!document.hidden && !$('tab-modules').hidden) loadActivity(); }, 15000);
 
-// The AI service: a summary card here (which service and model, and this month's use); the setup is its own page, /ai-config.html.
-let aiCard = { saved: false, on: false, dependents: [] };
-// Whether the AI service card has anything to show at all (false only when its API call fails, e.g. not an admin);
-// separate from moduleFilter, which decides whether it is worth showing under the current filter.
-let aiAvailable = true;
-function syncAiVisibility() {
-  const worth = moduleFilter === 'updates' ? false : moduleFilter === 'available' ? aiCard.saved && !aiCard.on : true;
-  $('ai-panel').hidden = !aiAvailable || !worth;
+// The AI service: server-wide (the one service, model and key the Assistant, Chat's AI and Research share), not one
+// module's setting. Like a module it has an entry on the Configuration tab with its switch, and a tab of its own
+// (#modules/ai): the same entry, then its setup, the form the host console uses too (/ai-form.js). The tab is always
+// there, since the service is set up there before it can be turned on.
+const AI_NAMES = { openai: 'OpenAI', anthropic: 'Anthropic', compatible: 'Other (OpenAI-compatible)' };
+let aiCard = { saved: false, on: false, provider: 'none', model: '', usage: {}, dependents: [] };
+// Whether there is anything to show at all (false only when its API call fails, e.g. not an admin): no entry, no tab.
+let aiAvailable = false;
+async function loadAi() {
+  try {
+    const { ai, usage, dependents } = await api('GET', '/api/ai');
+    // The service in use: the host's managed one or this environment's own (ai.provider is only the latter).
+    const custom = ai.source !== 'managed';
+    const provider = custom && ai.provider === 'openai' && ai.address && !/api\.openai\.com/.test(ai.address) ? 'compatible' : ai.active.provider;
+    const saved = provider !== 'none';
+    aiCard = { saved, on: saved && ai.enabled !== false, provider, model: ai.active.model, usage: usage || {}, dependents: dependents || [] };
+    aiAvailable = true;
+  } catch {
+    aiAvailable = false;
+  }
 }
-// Turned on and off here, with its switch (#264), like every module; the setup is on its own page.
-$('ai-toggle').addEventListener('change', async () => {
-  const input = $('ai-toggle');
+function aiSummary() {
+  if (!aiCard.saved) return 'Not set up.';
+  if (!aiCard.on) return 'Set up, and switched off.';
+  const used = aiCard.usage;
+  return `${AI_NAMES[aiCard.provider] || aiCard.provider}, ${aiCard.model || 'no model chosen'}. ${Number(used.tokens || 0).toLocaleString()} tokens this month${used.monthlyTokens ? ` of ${used.monthlyTokens.toLocaleString()}` : ''}.`;
+}
+// Its entry: on the Configuration tab (`link`) its name opens its tab.
+function aiEntry({ link = false } = {}) {
+  const el = document.createElement('article');
+  el.className = 'panel module-card';
+  el.dataset.ai = '';
+  const setUp = link ? '<a href="#modules/ai">Set it up on its tab</a> first.' : 'Set it up below first.';
+  el.innerHTML = `
+    <div class="module-head">
+      <i class="fa-solid fa-wand-magic-sparkles fa-fw module-icon" aria-hidden="true"></i>
+      <div class="grow"><h2>${link ? '<a href="#modules/ai" title="Open the AI service\'s tab">AI service</a>' : 'AI service'} <span class="hint">built in</span></h2>
+        <div class="hint">${escapeHtml(aiSummary())}</div></div>
+      ${enabledSwitch({ id: 'ai', attr: 'data-ai-toggle', name: 'AI service', on: aiCard.on, disabled: !aiCard.saved })}
+    </div>
+    <p class="hint">Lets ${escapeHtml(word('module', { many: true }))} that ask for it summarise and answer questions about the ${escapeHtml(word('object', { many: true }))} a person selects, with one service, model and key for all of them.${aiCard.saved ? '' : ` ${setUp}`}</p>`;
+  return el;
+}
+// Its setup, loaded the first time its tab opens; a save draws the entry again (a service set up can be turned on).
+const aiForm = mountAiForm({ get: '/api/ai', put: '/api/ai', models: '/api/ai/models', source: true, cap: true, usage: true, onSave: () => loadModules() });
+let aiFormLoaded = false;
+// Turned on and off with its switch (#264), like every module.
+$('tab-modules').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-ai-toggle]');
+  if (!input) return;
   const name = AI_NAMES[aiCard.provider] || 'the service';
   let force = false;
   if (aiCard.on) {
@@ -1514,37 +1554,18 @@ $('ai-toggle').addEventListener('change', async () => {
     if (!window.confirm(msg)) { input.checked = true; return; }
   } else if (!window.confirm(`Enable AI?\n\nModules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`)) { input.checked = false; return; }
   input.disabled = true;
+  const status = () => (modulePart === 'ai' ? $('ai-status') : $('modules-status'));
   try {
     const wasOn = aiCard.on;
     await api('PUT', '/api/ai', { enabled: !wasOn, ...(force ? { force: true } : {}) });
-    await loadModules(); // refreshes both the module list (a forced cascade may have disabled some) and the AI card
-    say($('modules-status'), wasOn ? 'AI disabled' : 'AI enabled');
+    await loadModules(); // the list (a forced cascade may have turned some off) and the entry
+    say(status(), wasOn ? 'AI disabled' : 'AI enabled');
   } catch (err) {
     input.checked = aiCard.on;
     input.disabled = false;
-    say($('modules-status'), err.message, true);
+    say(status(), err.message, true);
   }
 });
-const AI_NAMES = { openai: 'OpenAI', anthropic: 'Anthropic', compatible: 'Other (OpenAI-compatible)' };
-async function loadAi() {
-  try {
-    const { ai, usage, dependents } = await api('GET', '/api/ai');
-    // The service in use: the host's managed one or this environment's own (ai.provider is only the latter).
-    const custom = ai.source !== 'managed';
-    const provider = custom && ai.provider === 'openai' && ai.address && !/api\.openai\.com/.test(ai.address) ? 'compatible' : ai.active.provider;
-    const saved = provider !== 'none';
-    const on = saved && ai.enabled !== false;
-    aiCard = { saved, on, provider, model: ai.active.model, dependents: dependents || [] };
-    $('ai-toggle').checked = on;
-    $('ai-toggle').disabled = !saved;
-    $('ai-toggle-hint').textContent = saved ? '' : 'Set up a service first (AI Configuration).';
-    $('ai-summary').textContent = on ? `${AI_NAMES[provider] || provider}, ${aiCard.model || 'no model chosen'}. ${on ? `${Number(usage.tokens || 0).toLocaleString()} tokens this month${usage.monthlyTokens ? ' of ' + usage.monthlyTokens.toLocaleString() : ''}.` : 'Set up, and switched off.'}` : saved ? 'Set up, and switched off.' : 'Not set up.';
-    aiAvailable = true;
-  } catch {
-    aiAvailable = false;
-  }
-  syncAiVisibility();
-}
 
 // Which modules the Configuration tab lists: all of them, those with an update waiting, those with settings, or those
 // that could be turned on (#264: installed and off, and the ones that ship with this server and are not installed yet).
@@ -1559,6 +1580,8 @@ const canTurnOn = (m) => !m.enabled && !m.outdated;
 const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : moduleFilter === 'configurable' ? isConfigurable(m) : moduleFilter === 'available' ? canTurnOn(m) : true;
 // The built-in modules each filter shows: every one under All; Conference under Configurable while it has its tab, and
 // under Available while it is off.
+// The AI service's entry under each filter: All and Configurable (it has its tab); Available while set up and off.
+const aiShownFor = (filter) => filter === 'all' || filter === 'configurable' || (filter === 'available' && aiCard.saved && !aiCard.on);
 const builtinsFor = (filter) => filter === 'all' ? builtinModules : filter === 'configurable' ? builtinModules.filter(builtinHasTab) : filter === 'available' ? builtinModules.filter((b) => b.switchable && !b.enabled) : [];
 function syncModuleFilters() {
   const updates = installedModules.filter((m) => hasUpdate(m.id)).length;
@@ -1569,14 +1592,15 @@ function syncModuleFilters() {
   }
   const all = $('module-filters').querySelector('[data-count="all"]');
   const up = $('module-filters').querySelector('[data-count="updates"]');
-  all.textContent = String(builtinModules.length + installedModules.length);
+  const ai = (filter) => (aiAvailable && aiShownFor(filter) ? 1 : 0);
+  all.textContent = String(builtinModules.length + ai('all') + installedModules.length);
   up.textContent = String(updates);
   up.hidden = !updates;
   greenCount(up, updates, `${updates} ${updates === 1 ? 'update' : 'updates'} available`);
   const conf = $('module-filters').querySelector('[data-count="configurable"]');
-  conf.textContent = String(installedModules.filter(isConfigurable).length + builtinsFor('configurable').length);
+  conf.textContent = String(installedModules.filter(isConfigurable).length + builtinsFor('configurable').length + ai('configurable'));
   const avail = $('module-filters').querySelector('[data-count="available"]');
-  const availableNow = bundledModules.filter((b) => !b.installed).length + installedModules.filter(canTurnOn).length + builtinsFor('available').length;
+  const availableNow = bundledModules.filter((b) => !b.installed).length + installedModules.filter(canTurnOn).length + builtinsFor('available').length + ai('available');
   avail.textContent = String(availableNow);
   greenCount(avail, availableNow, `${availableNow} available`);
 }
@@ -1596,9 +1620,10 @@ function renderModules() {
   const list = $('modules-list');
   list.textContent = '';
   syncModuleFilters();
-  // The AI service card is not a versioned module, so it has no update to offer; it does have its own
-  // configuration page, so it stays visible under Configurable.
-  syncAiVisibility();
+  // The AI service's entry: not a versioned module, so never under Updates; it has its tab, so it is under Configurable.
+  const aiRow = $('ai-row');
+  aiRow.hidden = !aiAvailable || !aiShownFor(moduleFilter);
+  aiRow.replaceChildren(...(aiRow.hidden ? [] : [aiEntry({ link: true })]));
   // The built-in modules first: not removable; Conference can be turned off, Chat is always on.
   const builtins = builtinsFor(moduleFilter);
   for (const b of builtins) list.appendChild(builtinCard(b, { link: true }));
@@ -1624,7 +1649,7 @@ function renderModules() {
         <button class="btn btn-primary" data-bundled-action="install" data-bundled-id="${escapeHtml(b.id)}" type="button" ${b.notInPlan ? `disabled title="Your plan does not include this ${escapeHtml(word('module'))}"` : ''}>Install</button>
       </div>`).join('')}`;
     list.appendChild(box);
-  } else if (moduleFilter === 'available' && !shown.length && !builtins.length) {
+  } else if (moduleFilter === 'available' && !shown.length && !builtins.length && $('ai-row').hidden) {
     const none = document.createElement('div');
     none.className = 'panel';
     none.innerHTML = '<p class="hint">Nothing new to install or turn on right now.</p>';
@@ -1768,17 +1793,18 @@ $('tab-modules').addEventListener('change', async (event) => {
   }
 });
 
-// The Modules tab's row (#264): Configuration, Conference while it is on (its settings are its call features), then
-// each installed module that is on, by the name it is shown as. Drawn again only when the list of tabs changes.
+// The Modules tab's row (#264): Configuration, Conference while it is on (its settings are its call features), the AI
+// service, then each installed module that is on, by the name it is shown as. Drawn again only when the list changes.
 const builtinHasTab = (b) => b.id === 'conference' && b.switchable && b.enabled;
 const moduleHasTab = (m) => m.enabled && !m.outdated;
 function moduleTabIds() {
-  return ['config', ...builtinModules.filter(builtinHasTab).map((b) => b.id), ...installedModules.filter(moduleHasTab).map((m) => m.id)];
+  return ['config', ...builtinModules.filter(builtinHasTab).map((b) => b.id), ...(aiAvailable ? ['ai'] : []), ...installedModules.filter(moduleHasTab).map((m) => m.id)];
 }
 let moduleTabsDrawn = '';
 function renderModuleTabs() {
   const strip = $('module-subtabs');
-  const want = [...builtinModules.filter(builtinHasTab), ...installedModules.filter(moduleHasTab)].map((m) => [m.id, shownName(m)]);
+  const named = (m) => [m.id, shownName(m)];
+  const want = [...builtinModules.filter(builtinHasTab).map(named), ...(aiAvailable ? [['ai', 'AI service']] : []), ...installedModules.filter(moduleHasTab).map(named)];
   const key = JSON.stringify(want);
   if (key === moduleTabsDrawn) return;
   moduleTabsDrawn = key;
@@ -1793,7 +1819,7 @@ function renderModuleTabs() {
   }
 }
 
-// The tab shown, drawn from the list as it is now: Conference's card, or an installed module's card, its settings and
+// The tab shown, drawn from the list as it is now: Conference's card, the AI service's, or an installed module's card, its settings and
 // the rest. The settings (module-config.html's markup) are drawn again only for another module, version or state, so
 // a refresh of the list never drops what someone is typing in them.
 let moduleConfigKey = '';
@@ -1803,6 +1829,11 @@ function drawModuleTab() {
   if (modulePart === 'conference') {
     const b = builtinModules.find((x) => x.id === 'conference');
     if (b) $('conference-card').replaceChildren(builtinCard(b));
+    return;
+  }
+  if (modulePart === 'ai') {
+    $('ai-tab-card').replaceChildren(aiEntry());
+    if (!aiFormLoaded) { aiFormLoaded = true; aiForm.load(); }
     return;
   }
   const m = installedModules.find((x) => x.id === modulePart);
@@ -2238,7 +2269,7 @@ function renderTemplateNote() {
     const name = escapeHtml(x.name || shownNameOf(x.id));
     // Installed and in every space, but off until what it needs is set up.
     if (installed) {
-      const missing = (installed.missing || []).map((r) => (r === 'ai' ? '<a href="/ai-config.html">the AI service</a>' : escapeHtml(shownNameOf(r))));
+      const missing = (installed.missing || []).map((r) => (r === 'ai' ? '<a href="#modules/ai">the AI service</a>' : escapeHtml(shownNameOf(r))));
       const then = missing.length ? `Once ${missing.join(' and ')} ${missing.length === 1 ? 'is' : 'are'} ready, turn it on under ${modulesLink}.` : `Once that is done, turn it on under ${modulesLink}.`;
       return item('circle-pause', `${name}: not on yet`, `${escapeHtml(sentence(x.why))} ${then}`);
     }

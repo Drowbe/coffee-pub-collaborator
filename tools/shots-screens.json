@@ -224,11 +224,11 @@
    "tier": "core"
   },
   {
-   "id": "manage-ai-config",
+   "id": "manage-ai-service",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/ai-config.html",
-   "wait": "body",
+   "url": "/admin#modules/ai",
+   "wait": "#module-part-ai:not([hidden])",
    "full": true,
    "tier": "core"
   },

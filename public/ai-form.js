@@ -1,11 +1,12 @@
-// The AI service's form, shared by two pages that carry the same fields (the same ids): an environment's AI
-// configuration page (/ai-config.html, where the choice is the host's managed service or a custom one) and the host
+// The AI service's form, shared by two pages that carry the same fields (the same ids): the AI service's tab on Manage >
+// Modules (admin.html, #modules/ai, where the choice is the host's managed service or a custom one) and the host
 // console's Managed AI panel (the one service the host offers every environment). The person picks a company by name
 // and the server knows its address; the models are listed from the company's own list, not typed. The key is
 // write-only: the page is told only whether one is set, and a typed key replaces it.
 //
-// mountAiForm({ get, put, models, source, cap, usage }): `get`, `put` and `models` are the API paths; `source` draws the
-// managed/custom choice (the environment's page), `cap` the monthly allowance, `usage` this month's use.
+// mountAiForm({ get, put, models, source, cap, usage, onSave }): `get`, `put` and `models` are the API paths; `source`
+// draws the managed/custom choice (Manage's tab), `cap` the monthly allowance, `usage` this month's use; `onSave` is
+// called after a save the server took.
 import { api, fill, word } from '/brand.js';
 
 const $ = (id) => document.getElementById(id);
@@ -23,7 +24,7 @@ const AI_NOTICES = {
 };
 const COMPANY = { openai: 'OpenAI', anthropic: 'Anthropic', compatible: 'another service', none: 'none' };
 
-export function mountAiForm({ get, put, models, source = false, cap = false, usage = false }) {
+export function mountAiForm({ get, put, models, source = false, cap = false, usage = false, onSave = null }) {
   let aiState = { provider: 'none', keySet: false, keyFromEnvironment: false, model: '', source: 'custom', managed: { available: false } };
   let aiKeyMode = 'keep'; // keep | replace | clear
   let aiManual = false; // typing the model's name because the list could not be had
@@ -149,7 +150,7 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     $('ai-usage-text').textContent = Number((used && used.tokens) || 0).toLocaleString() + ' tokens in ' + Number((used && used.calls) || 0).toLocaleString() + ' calls' + (limit ? ', ' + pct + '% of the ' + limit.toLocaleString() + ' allowance' : ', no limit set') + (tasks ? '. By task: ' + tasks + '.' : '.');
   }
 
-  // The state pill only: enabling is on the card of the Modules tab. `enabled` comes from the server.
+  // The state pill (the host console's): an environment's is turned on with its switch on Manage > Modules. `enabled` comes from the server.
   function syncAiEnable() {
     const pill = $('ai-state');
     if (!pill) return;
@@ -196,6 +197,7 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
       await api('PUT', put, body);
       await loadAi();
       say($('ai-status'), 'saved');
+      if (onSave) onSave();
     } catch (err) {
       say($('ai-status'), err.message, true);
     }

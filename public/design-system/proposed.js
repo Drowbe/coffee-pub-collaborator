@@ -48,9 +48,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // Families still to decide: names only, in the groups Today uses. Nothing is drawn for them.
   window.DS_PROPOSED.undecided = [
     { group: 'Controls', names: ['Links', 'Pickers: date, kind, currency', 'Choice rows and people chips', 'Editor window'] },
-    { group: 'Navigation', names: ['Phone bottom bar (icon over label)'] },
-    { group: 'Containers', names: ['Progress bars and meters', 'Module window: title, toolbar and status'] },
-    { group: 'Content', names: ['Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Map pins and map UI', 'Round buttons'] },
+    { group: 'Containers', names: ['Progress bars and meters'] },
+    { group: 'Content', names: ['Avatars and portraits', 'Map pins and map UI', 'Round buttons'] },
     { group: 'Other', names: ['Tokens (Today only: colour, type, spacing, elevation, motion, icons and layout are decided)', 'Icons (Today only: the sizes and rules are decided in Foundations)', 'Live SDK pieces'] },
   ];
 })();

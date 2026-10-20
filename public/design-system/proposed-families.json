@@ -16,6 +16,10 @@
     { "id": "dialogs", "js": "proposed-dialogs.js", "css": "proposed-dialogs.css" },
     { "id": "tooltips", "js": "proposed-tooltips.js", "css": "proposed-tooltips.css" },
     { "id": "states", "js": "proposed-states.js", "css": "proposed-states.css" },
-    { "id": "toasts", "js": "proposed-toasts.js", "css": "proposed-toasts.css" }
+    { "id": "toasts", "js": "proposed-toasts.js", "css": "proposed-toasts.css" },
+    { "id": "modulechrome", "js": "proposed-modulechrome.js", "css": "proposed-modulechrome.css" },
+    { "id": "chat", "js": "proposed-chat.js", "css": "proposed-chat.css" },
+    { "id": "journey", "js": "proposed-journey.js", "css": "proposed-journey.css" },
+    { "id": "tabbar", "js": "proposed-tabbar.js", "css": "proposed-tabbar.css" }
   ]
 }

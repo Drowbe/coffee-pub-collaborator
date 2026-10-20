@@ -1,0 +1,161 @@
+/* ==== Phone bottom bar: icon over label (PROPOSED 2026-10-20; the research recommendations Thomas approved as a batch, 2026-10-20) ====
+   One component for the space bar (.subnav-modules .modules-menu-item) and the destination bar (.dest-tabs .dest-tab). Drawn in the Proposed page only: every rule is
+   under .ds-proposed, so the product is untouched. It is a phone bar (640px and below); a wider window has the top bar and the tabs of the Tabs family.
+
+   Bar     54px high (--tabbar-h) plus the home-indicator inset (--safe-b, from env(safe-area-inset-bottom)); the bar surface role, --header-bg; one 1px --border
+           hairline on top; 4px of padding around the tabs; the tabs 2px apart.
+   Tab     flex 1, at least 56px (--tabbar-min; today's three minimums, 56, 48 and 60, become one); a 20px icon (--tabbar-icon) over an 11px label, 4px apart
+           (today 3px); a 45px-high target (the bar less its padding), 44px or more; the corner --radius-small.
+   Rest    the label and icon in the header text mixed 25% toward the header (readable at 11px); hover a quiet 10% fill; pressed 16%.
+   Current the quiet neutral selected fill (--selected-bg) with the label and icon in the accent mix (accent 55% into the header text), never accent words on a bare
+           background. Weight stays 500, so no tab changes width.
+   Badge   the micro count (14px, 9px numbers) at the icon's corner, 3px in from the top and the right of the icon's box (the Chips micro count); a dot where a number is not useful.
+   Focus   the Fields-and-Tabs mechanism: a 2px accent outline drawn inside the tab (offset -2px), equal on all four sides at any display scale.
+   Fold    tabs that do not fit fold into a "..." tab at the end, which opens the Menus popover above the bar; the current tab always keeps its place in the bar;
+           a pinned tab (Join, Online, Leave) never folds.
+   Join / Online / Leave  the space bar's own tabs: the Join icon uses the ok status token (--ok), Online carries its count, Leave's words are the readable red.
+   Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar, ring or underline. */
+
+.ds-proposed {
+  --tabbar-h: 54px;
+  --tabbar-min: 56px;
+  --tabbar-icon: 20px;
+  --tabbar-gap: 4px;
+  --tabbar-fg: color-mix(in srgb, var(--header-text) 75%, var(--header-bg));
+  --tabbar-now: color-mix(in srgb, var(--accent) 55%, var(--header-text));
+  --tabbar-leave: color-mix(in srgb, var(--danger) 70%, var(--header-text));
+  --tabbar-join: color-mix(in srgb, var(--ok) 70%, var(--header-text)); /* the ok status colour, pulled toward the text so the icon reaches 3 to 1 in both modes */
+}
+
+/* ---- the bar ---- */
+.ds-proposed :is(.sdk-tabbar, .subnav-modules, .dest-tabs) {
+  --t-ink: var(--header-text);
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 2px;
+  flex: none;
+  box-sizing: border-box;
+  height: calc(var(--tabbar-h) + var(--safe-b, 0px));
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 4px calc(4px + var(--safe-b, 0px));
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: var(--header-bg);
+  color: var(--header-text);
+  overflow: visible;
+}
+
+/* ---- the tab ---- */
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) {
+  --tab-fg: var(--tabbar-fg);
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tabbar-gap);
+  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  min-width: var(--tabbar-min);
+  min-height: 0;
+  margin: 0;
+  padding: 5px 2px 3px; /* a label's ink sits high in its line: the extra pixel above puts the icon and label's weight on the middle of the tab */
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--tab-fg);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 12px;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  outline: none;
+  opacity: 1;
+  transform: none;
+  overflow: visible;
+  transition: background 0.15s, color 0.15s;
+}
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab)[hidden] { display: none; }
+
+/* The icon over the label. The glyph box is 36 by 20: the icon is 20px, the box leaves room for the corner count. */
+.ds-proposed :is(.sdk-tabbar-glyph) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: var(--tabbar-icon);
+  color: var(--tab-glyph, currentColor);
+  font-size: var(--tabbar-icon);
+  line-height: 1;
+}
+.ds-proposed :is(.sdk-tabbar-glyph) > i { display: block; font-size: var(--tabbar-icon); line-height: 1; }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) > i { display: block; flex: none; width: auto; height: var(--tabbar-icon); font-size: var(--tabbar-icon); line-height: 1; }
+.ds-proposed :is(.sdk-tabbar-label) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) > span:not(.sdk-tabbar-glyph):not(.sdk-badge-micro):not(.sdk-dot) { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* States: a fill each; no edge, no underline. */
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):hover { background: color-mix(in srgb, var(--header-text) 10%, transparent); color: var(--header-text); }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):active { background: color-mix(in srgb, var(--header-text) 16%, transparent); color: var(--header-text); }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Current: the neutral selected fill; the label and the icon in the accent mix. */
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):is([aria-current="page"], [aria-current="true"], [aria-selected="true"], .on) {
+  background: var(--selected-bg);
+  color: var(--tabbar-now);
+}
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):is([aria-current="page"], [aria-current="true"], [aria-selected="true"], .on):hover { background: color-mix(in srgb, var(--accent) 38%, transparent); }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):is([aria-current="page"], [aria-current="true"], [aria-selected="true"], .on):active { background: color-mix(in srgb, var(--accent) 46%, transparent); }
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):is([aria-current="page"], [aria-current="true"], [aria-selected="true"], .on):focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 55%, var(--t-ink)); outline-offset: -2px; }
+
+.ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab):is(:disabled, [aria-disabled="true"]) { opacity: 0.5; cursor: default; pointer-events: none; }
+
+/* The space bar's own tabs. Join: the phone icon uses the ok status token. Leave: the readable red. */
+.ds-proposed .sdk-tabbar-tab[data-role="join"] { --tab-glyph: var(--tabbar-join); }
+.ds-proposed .sdk-tabbar-tab[data-role="leave"] { --tab-fg: var(--tabbar-leave); }
+
+/* A count in the icon's corner is the Chips micro count (14px, 9px, 3px in); a dot is the Chips dot. */
+.ds-proposed :is(.sdk-tabbar-glyph) > :is(.sdk-badge-micro, .badge) { position: absolute; top: 3px; right: 3px; }
+
+/* The fold: the "..." tab and its menu (the Menus popover), drawn above the bar. */
+.ds-proposed .sdk-tabbar-menu { position: absolute; right: 4px; bottom: calc(100% + 4px); z-index: var(--z-menu); max-height: 280px; }
+.ds-proposed .sdk-tabbar-menu .sdk-menu-hint { margin-left: auto; }
+
+.ds-proposed .sdk-tabbar-more[aria-expanded="true"] { background: var(--selected-bg); color: var(--tabbar-now); }
+
+/* The old tab's count (.badge) is the micro count at the corner of the tab. */
+.ds-proposed .subnav-modules .modules-menu-item > .badge {
+  position: absolute;
+  top: 3px;
+  right: calc(50% - 22px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0 3px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--micro-fill);
+  color: var(--on-accent);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-tabbar-tab, .subnav-modules .modules-menu-item, .dest-tab) { transition: none; }
+}

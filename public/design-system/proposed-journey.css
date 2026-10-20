@@ -1,0 +1,356 @@
+/* ==== Journey bar: the status strip, the phases and the countdown (PROPOSED 2026-10-20; the research recommendations Thomas approved as a batch, 2026-10-20) ====
+   Drawn in the Proposed page only: every rule is under .ds-proposed, so the product is untouched.
+
+   The strip (.sdk-strip, alias .status-strip) is the header's second row: 44px on a desktop, a slim 28px line on a phone (--status-strip-h, --status-strip-slim-h).
+     Header chips are ONE height, 28px (--jr-chip-h): the phase chip, the countdown, the fact chips and the attention pill. They are Chips family looks: a neutral
+     fill or a tone fill, the small corner, no edge; the count in the attention pill is a count badge. The countdown is a 22% accent fill; its number is 16px weight 600
+     (not 800). A chip you can press has the quiet hover fill and the Fields-and-Tabs focus (a 2px outline inside the box).
+   The journey bar (.sdk-journey, its bands .sdk-band, alias .status-band) is 24px high; each band is a fill of its phase's tint, by state:
+     past 12%, ahead 22%, current = the neutral selected fill (--selected-bg) with its name in the accent mix and the text marker "Now", off = a dashed neutral hairline.
+     The 4px coloured top edge and the coloured ring on the current band are gone; every band has the same 1px --border hairline and --radius-medium.
+   The today pin (.sdk-today, alias .status-today) is 28px, round, in the micro count's fill (the accent mix, --on-accent number), with its label ("Today") as its name.
+   On a phone the strip is 28px, the names, days and facts are gone, and the journey is a 2px line along its foot (.sdk-strip-line) with a small dot at today.
+   The Set up phase band (.sdk-phase-band, alias .phase-band) is 58px: the same fills, a text "Now", no edge strip, no ring; its today mark is a dashed neutral line.
+   The Planner's caps and rail (.sdk-phase, .sdk-cap, .sdk-rail; plan-itinerary-phases-markers.md) are drawn here as a proposal: a 6px rail and labelled caps, in tint fills.
+   Phase tags are the Chips tag; "Now" is the Chips status label.
+   Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or ring (the journey line is a progress meter, a block, not a border). */
+
+.ds-proposed {
+  --status-strip-h: 44px;
+  --status-strip-slim-h: 28px;
+  --jr-chip-h: 28px;
+  --jr-band-h: 24px;
+  --jr-pin: 28px;
+  --jr-line: 2px;
+  --jr-phase-h: 58px;
+  --jr-past: 12%;
+  --jr-ahead: 22%;
+  --jr-count: 22%;
+  --jr-fact: 8%;
+  --jr-rail: 6px;
+  --jr-now: color-mix(in srgb, var(--accent) 55%, var(--header-text));
+  --jr-muted: color-mix(in srgb, var(--header-text) 78%, var(--header-bg));
+}
+
+/* ---- the strip ---- */
+.ds-proposed :is(.sdk-strip, .status-strip) {
+  --t-ink: var(--header-text);
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  column-gap: 12px;
+  box-sizing: border-box;
+  height: var(--status-strip-h);
+  min-width: 0;
+  margin: 0;
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+  background: var(--header-bg);
+  color: var(--header-text);
+  font-size: 13px;
+  line-height: 1;
+  overflow: hidden;
+}
+.ds-proposed :is(.sdk-strip, .status-strip)[hidden] { display: none; }
+
+.ds-proposed :is(.sdk-strip-said, .status-said) { display: flex; flex: 0 1 auto; align-items: center; height: 100%; min-width: 0; }
+
+/* ---- the header chips: one height, 28px ---- */
+.ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex: none;
+  box-sizing: border-box;
+  height: var(--jr-chip-h);
+  min-height: 0;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--header-text) var(--jr-fact), transparent);
+  color: var(--header-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: none;
+  outline: none;
+  cursor: default;
+  transition: background 0.15s;
+}
+/* The old .phase-chip carries a tint fill in the Chips family (a tone rule of higher specificity); inside the strip it is the neutral header chip. */
+.ds-proposed :is(.sdk-strip, .status-strip) .phase-chip.phase-chip { background: color-mix(in srgb, var(--header-text) var(--jr-fact), transparent); color: var(--header-text); --chip-glyph: currentColor; }
+.ds-proposed :is(button, a, [role="button"]).sdk-strip-chip,
+.ds-proposed :is(.sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count) { cursor: pointer; }
+.ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count):hover { background: color-mix(in srgb, var(--header-text) 14%, transparent); }
+.ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count):active { background: color-mix(in srgb, var(--header-text) 20%, transparent); }
+.ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count):is([aria-expanded="true"], .on) { background: var(--selected-bg); color: var(--jr-now); }
+.ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed :is(.sdk-strip-chip, .sdk-strip .phase-chip, .status-strip .phase-chip, .status-togo, .status-strip .status-fact, .attention-count):is(:disabled, [aria-disabled="true"]) { opacity: 0.5; pointer-events: none; }
+
+.ds-proposed :is(.sdk-strip-chip, .status-togo, .status-strip .status-fact, .attention-count) > i { flex: none; width: 14px; font-size: 14px; line-height: 1; text-align: center; }
+
+/* The phase chip: the phase's dot, then the sentence. */
+.ds-proposed :is(.sdk-strip-phase, .sdk-strip .phase-chip, .status-strip .phase-chip):is(.sdk-strip-chip, .phase-chip) { flex: 0 1 auto; padding-left: 8px; }
+.ds-proposed :is(.sdk-strip-dot, .phase-dot) {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-round);
+  background: var(--tint, var(--accent));
+}
+.ds-proposed :is(.sdk-strip-sentence, .phase-chip-label) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The countdown: a 22% accent fill; the number 16px weight 600, the words 13px, on one baseline. */
+.ds-proposed :is(.sdk-strip-count, .status-togo):is(.sdk-strip-count, .status-togo) { align-items: baseline; gap: 6px; background: color-mix(in srgb, var(--accent) var(--jr-count), transparent); cursor: pointer; }
+.ds-proposed :is(.sdk-strip-count, .status-togo):is(.sdk-strip-count, .status-togo):hover { background: color-mix(in srgb, var(--accent) 32%, transparent); }
+.ds-proposed :is(.sdk-strip-count, .status-togo):is(.sdk-strip-count, .status-togo)[hidden] { display: none; }
+.ds-proposed :is(.sdk-strip-count-n, .status-togo-days) { font-size: 16px; font-weight: 600; line-height: 26px; }
+.ds-proposed :is(.sdk-strip-count-words, .status-togo-words) { font-size: 13px; font-weight: 500; line-height: 26px; }
+
+/* A fact: an icon and words; one with progress (the budget) fills from the left in the accent, as wide as its share. */
+.ds-proposed :is(.sdk-strip-facts, .status-facts) { display: flex; flex: none; align-items: center; gap: 8px; min-width: 0; height: 100%; }
+.ds-proposed :is(.sdk-strip-facts, .status-facts)[hidden], .ds-proposed :is(.sdk-strip-fact, .status-fact)[hidden] { display: none; }
+.ds-proposed :is(.sdk-strip-fact, .status-strip .status-fact) > :is(.sdk-strip-fact-fill, .status-fact-fill) {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--p, 0%);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  pointer-events: none;
+}
+.ds-proposed :is(.sdk-strip-fact, .status-strip .status-fact) > :is(i, .sdk-strip-fact-text, .status-fact-text) { position: relative; }
+.ds-proposed :is(.sdk-strip-fact-text, .status-fact-text) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* The attention pill: a tone fill (needs action), the count a count badge. It sits at the strip's right end. */
+.ds-proposed :is(.sdk-strip-attn, .attention-count):is(.sdk-strip-attn, .attention-count) {
+  --chip-tone: var(--warn, var(--tint-gold));
+  margin-left: auto;
+  padding: 0 8px 0 6px;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--chip-tone) 18%, var(--header-bg));
+  color: color-mix(in srgb, var(--chip-tone) 45%, var(--header-text));
+  font-weight: 600;
+  cursor: pointer;
+}
+.ds-proposed :is(.sdk-strip-attn, .attention-count):is(.sdk-strip-attn, .attention-count):hover { background: color-mix(in srgb, var(--chip-tone) 28%, var(--header-bg)); }
+.ds-proposed :is(.sdk-strip-attn, .attention-count):is(.sdk-strip-attn, .attention-count)[aria-expanded="true"] { background: color-mix(in srgb, var(--chip-tone) 34%, var(--header-bg)); }
+.ds-proposed .status-attention { position: static; inset: auto; margin-left: auto; display: flex; align-items: center; }
+
+/* ---- the journey bar ---- */
+.ds-proposed :is(.sdk-journey, .status-track) {
+  position: relative;
+  display: flex;
+  flex: 1 1 48px;
+  gap: 4px;
+  box-sizing: border-box;
+  min-width: 48px;
+  max-width: 880px;
+  height: var(--jr-band-h);
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+/* Today before the first phase or after the last: the pin at that end, the bands kept clear of it. */
+.ds-proposed :is(.sdk-journey, .status-track):is(.lead, .trail) { position: relative; }
+.ds-proposed :is(.sdk-journey, .status-track).lead { padding-left: 32px; }
+.ds-proposed :is(.sdk-journey, .status-track).trail { padding-right: 32px; }
+.ds-proposed :is(.sdk-journey, .status-track).lead > :is(.sdk-today, .status-today) { left: 14px; }
+.ds-proposed :is(.sdk-journey, .status-track).trail > :is(.sdk-today, .status-today) { left: calc(100% - 14px); }
+
+.ds-proposed :is(.sdk-band, .status-band) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: 4px;
+  height: var(--jr-band-h);
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--tint, var(--accent)) var(--jr-ahead), transparent);
+  color: var(--header-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ds-proposed :is(.sdk-band, .status-band)[data-state="past"], .ds-proposed .status-band.past { background: color-mix(in srgb, var(--tint, var(--accent)) var(--jr-past), transparent); }
+.ds-proposed :is(.sdk-band, .status-band)[data-state="ahead"] { background: color-mix(in srgb, var(--tint, var(--accent)) var(--jr-ahead), transparent); }
+/* The current band: the neutral selected fill, its name in the accent mix, and the text "Now". No edge, no ring. */
+.ds-proposed :is(.sdk-band, .status-band):is([data-state="current"], .current) { background: var(--selected-bg); color: var(--jr-now); font-weight: 600; }
+/* Off (a phase with no dates): a dashed neutral hairline, not coloured. */
+.ds-proposed :is(.sdk-band, .status-band):is([data-state="off"], .off) { flex: none; width: 14px; min-width: 14px; padding: 0; border: 1px dashed var(--border); background: none; }
+.ds-proposed :is(.sdk-band, .status-band):is([data-state="off"], .off) > * { display: none; }
+.ds-proposed :is(.sdk-band, .status-band):is(.lit, :hover):not([data-state="off"], .off) { background: color-mix(in srgb, var(--tint, var(--accent)) 32%, transparent); }
+.ds-proposed :is(.sdk-band, .status-band):is([data-state="current"], .current):is(.lit, :hover) { background: color-mix(in srgb, var(--accent) 38%, transparent); }
+
+.ds-proposed :is(.sdk-band-box, .status-band-box) { display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%; overflow: hidden; }
+.ds-proposed :is(.sdk-band-box, .status-band-box).end { justify-content: flex-end; }
+.ds-proposed :is(.sdk-band-name, .status-band-name) { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.ds-proposed :is(.sdk-band-icon, .status-band-icon) { flex: none; font-size: 11px; color: inherit; }
+/* The marker on the current band. A band under 140px has no room for the name and the marker beside the pin: the marker goes (the pin and the fill still say it). */
+.ds-proposed .sdk-band-now { flex: none; font-size: 11px; font-weight: 600; line-height: 1; color: var(--jr-now); }
+.ds-proposed :is(.sdk-band, .status-band) { container-type: inline-size; }
+@container (max-width: 139px) {
+  .ds-proposed .sdk-band-now { display: none; }
+}
+
+/* The today pin: the micro count's fill, 28px round, the day of the month, with a ring of the header's colour to part it from the band. */
+.ds-proposed :is(.sdk-today, .status-today) {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--jr-pin);
+  height: var(--jr-pin);
+  margin: -14px 0 0 -14px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--micro-fill, color-mix(in srgb, var(--accent) 88%, var(--text)));
+  box-shadow: 0 0 0 2px var(--header-bg);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.ds-proposed .status-today-day { color: inherit; }
+
+/* ---- narrow: the names go first, then the facts (at 760px); a phone gets the slim line ---- */
+@media (max-width: 760px) {
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band-name, .status-band-name, .sdk-band-icon, .status-band-icon, .sdk-band-now) { display: none; }
+  .ds-proposed :is(.sdk-strip-facts, .status-facts) { display: none; }
+}
+
+
+@media (max-width: 640px) {
+  .ds-proposed :is(.sdk-strip, .status-strip) { height: var(--status-strip-slim-h); padding: 0 12px var(--jr-line); column-gap: 8px; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-strip-count, .status-togo, .sdk-strip-facts, .status-facts) { display: none; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-strip-chip, .phase-chip, .attention-count) { height: 22px; font-size: 12px; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-strip-phase, .phase-chip) { flex: 1 1 auto; padding: 0 4px; background: none; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-strip-dot, .phase-dot) { width: 8px; height: 8px; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-strip-attn, .attention-count) { padding: 0 6px 0 4px; font-size: 11px; }
+  /* The journey bar is a 2px line along the strip's foot: its bands at the line's height, the pin a small dot. */
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track) { position: absolute; left: 0; right: 0; bottom: 0; flex: none; gap: 1px; min-width: 0; max-width: none; height: var(--jr-line); padding: 0; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track):is(.lead, .trail) { padding: 0; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band) { height: var(--jr-line); padding: 0; border: 0; border-radius: var(--radius-min); }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band) > * { display: none; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band) { background: color-mix(in srgb, var(--tint, var(--accent)) 55%, transparent); }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band)[data-state="past"], .ds-proposed .status-strip .status-band.past { background: color-mix(in srgb, var(--tint, var(--accent)) 28%, transparent); }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band):is([data-state="current"], .current) { background: var(--jr-now); }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band):is([data-state="off"], .off) { width: 6px; min-width: 6px; border: 0; background: color-mix(in srgb, var(--header-text) 22%, transparent); }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-today, .status-today) { --jr-pin: 8px; width: 8px; height: 8px; margin: -4px 0 0 -4px; font-size: 0; box-shadow: none; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track).lead > :is(.sdk-today, .status-today) { left: 1px; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track).trail > :is(.sdk-today, .status-today) { left: calc(100% - 1px); }
+}
+
+/* ---- the Set up phase band: 58px, the same fills ---- */
+.ds-proposed :is(.sdk-phase-strip, .phase-strip) { margin: 0; padding: 20px 0 4px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.ds-proposed :is(.sdk-phase-strip, .phase-strip)::-webkit-scrollbar { display: none; }
+.ds-proposed :is(.sdk-phase-bands, .phase-bands) {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: max-content;
+  height: var(--jr-phase-h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ds-proposed :is(.sdk-phase-band, .phase-band) {
+  --s: var(--bg-card);
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  min-width: 56px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--tint, var(--accent)) var(--jr-ahead), var(--s));
+  box-shadow: none;
+  color: var(--text);
+  cursor: pointer;
+  overflow: visible;
+  transition: background 0.15s;
+}
+.ds-proposed :is(.sdk-phase-band, .phase-band)[data-state="past"] { background: color-mix(in srgb, var(--tint, var(--accent)) var(--jr-past), var(--s)); }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is([data-state="current"], .current) { background: color-mix(in srgb, var(--selected-bg), var(--s)); }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is(.lit):not([data-state="off"], .off) { background: color-mix(in srgb, var(--tint, var(--accent)) 32%, var(--s)); }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is(:hover):not([data-state="off"], .off, [data-state="current"], .current) { background: color-mix(in srgb, var(--tint, var(--accent)) 32%, var(--s)); }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is(:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is([data-state="off"], .off) { flex: none; width: 14px; min-width: 14px; padding: 0; border: 1px dashed var(--border); background: none; }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is([data-state="off"], .off) > * { display: none; }
+.ds-proposed :is(.sdk-phase-band-label, .phase-band-label) { display: block; max-width: 100%; overflow: hidden; font-size: 13px; font-weight: 500; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed .phase-band.main .phase-band-label, .ds-proposed .sdk-phase-band[data-main] .sdk-phase-band-label { font-weight: 600; }
+.ds-proposed :is(.sdk-phase-band-span, .phase-band-span) { display: block; max-width: 100%; overflow: hidden; color: color-mix(in srgb, var(--text) 78%, var(--text-dim)); font-size: 11px; line-height: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed :is(.sdk-phase-band, .phase-band):is([data-state="current"], .current) :is(.sdk-phase-band-label, .phase-band-label) { color: color-mix(in srgb, var(--accent) 55%, var(--text)); font-weight: 600; }
+.ds-proposed :is(.sdk-phase-band-now, .phase-band-now) { font-size: 11px; font-weight: 600; line-height: 14px; color: color-mix(in srgb, var(--accent) 55%, var(--text)); text-transform: none; letter-spacing: normal; }
+
+/* Today in the Set up band: a dashed neutral line (a block, not an edge) and its word above. */
+.ds-proposed :is(.sdk-phase-today, .phase-today) {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--at);
+  width: 2px;
+  margin-left: -1px;
+  background: linear-gradient(var(--text) 50%, transparent 50%) 0 0 / 2px 6px repeat-y;
+  pointer-events: none;
+}
+.ds-proposed :is(.sdk-phase-today-word, .phase-today-word) { position: absolute; top: -20px; left: 1px; transform: translateX(-50%); color: var(--text); font-size: 11px; font-weight: 600; line-height: 14px; white-space: nowrap; }
+.ds-proposed :is(.sdk-phase-today, .phase-today).at-start .phase-today-word, .ds-proposed .sdk-phase-today.at-start .sdk-phase-today-word { left: 2px; transform: none; }
+
+/* ---- the Planner's caps and rail (a proposal; plan-itinerary-phases-markers.md) ---- */
+.ds-proposed .sdk-phase { --rail: color-mix(in srgb, var(--tint, var(--accent)) 38%, var(--bg-section)); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-proposed .sdk-phase + .sdk-phase { margin-top: 4px; }
+.ds-proposed .sdk-phase-days { position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 4px 0 4px 14px; }
+/* The rail: one 6px track in the phase's tint, drawn once down the side of the days (aria-hidden, no text). */
+.ds-proposed .sdk-rail { position: absolute; top: 0; bottom: 0; left: 0; width: var(--jr-rail); border-radius: var(--radius-round); background: var(--rail); }
+.ds-proposed .sdk-cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  box-sizing: border-box;
+  min-height: 32px;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 18%, var(--bg-section));
+  color: color-mix(in srgb, var(--tint, var(--accent)) 45%, var(--text));
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.ds-proposed .sdk-cap-end { background: color-mix(in srgb, var(--tint, var(--accent)) 12%, var(--bg-section)); font-weight: 500; }
+.ds-proposed .sdk-cap-icon { flex: none; width: 16px; font-size: 14px; line-height: 18px; text-align: center; }
+.ds-proposed .sdk-cap-meta { color: color-mix(in srgb, var(--tint, var(--accent)) 38%, var(--text)); font-weight: 500; }
+.ds-proposed .sdk-phase-gap { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 4px 0 4px 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-strip-chip, .status-togo, .attention-count, .sdk-phase-band, .phase-band) { transition: none; }
+}

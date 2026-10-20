@@ -510,7 +510,8 @@
   overflow: visible;
 }
 
-:is(.sdk-tabs-joined, .tb-tabs):is(.sdk-tabs, .tb-tabs) { --tabs-gap: var(--space-0); }
+/* The joined switch is tighter: 2px between tabs and 8px each side of a word, so a switch in a narrow toolbar keeps its words longer. */
+:is(.sdk-tabs-joined, .tb-tabs):is(.sdk-tabs, .tb-tabs) { --tabs-gap: var(--space-0); --tab-pad-x: var(--space-2); }
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)[hidden] { display: none; }
 

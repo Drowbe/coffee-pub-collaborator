@@ -83,7 +83,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   };
 
   // ---- frame bodies ----
-  const anatomyBody = () => wrap(`<div class="pm-tb-ruler"><div class="pm-tb-phone" style="height:300px"><div class="pm-tb-top">Paris in spring</div><div class="pm-tb-body"><div class="sdk-panel">The module is here.</div></div>${bar(mods(5, { badges: true }), { style: '--safe-b:34px' })}</div>
+  const anatomyBody = () => wrap(`<div class="pm-tb-ruler"><div class="pm-tb-phone" style="height:300px"><div class="pm-tb-top">Paris in spring</div><div class="pm-tb-body"><div class="sdk-panel">The module is here.</div></div>${bar(mods(5, { badges: true }), { style: '--safe-b:34px', fold: true })}</div>
     <ul class="pm-tb-legend"><li><b>1 Bar</b> 54px, plus the home-indicator inset (34px here). The bar surface (<code>--header-bg</code>), one 1px hairline on top, 4px of padding.</li>
       <li><b>2 Tab</b> flex 1, at least 56px wide, 45px high (a 44px target or more). An icon, 20px, in a 24 by 24 icon box (the same on every tab), over an 11px label, 4px apart.</li>
       <li><b>3 Current</b> the quiet selected fill (<code>--selected-bg</code>), the label and icon in the accent mix. Not accent words on a bare background.</li>

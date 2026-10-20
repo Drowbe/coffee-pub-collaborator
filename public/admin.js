@@ -110,14 +110,11 @@ function imgUrl(key, slot) {
 
 // Environment / Template / Theme / Spaces / Roles / Users / Modules / About tabs, remembered in the address
 const TABS = ['environment', 'template', 'theme', 'spaces', 'roles', 'users', 'modules', 'about'];
-// Their old names, from links and bookmarks: #settings and #server are the Environment tab, #rooms the Spaces tab.
-const OLD_TABS = { settings: 'environment', server: 'environment', rooms: 'spaces' };
 // Old names of sections that moved to the Template tab (addendum 2; Reactions and Icons came from Theme): a link to one opens the tab at it.
 const OLD_SECTIONS = { words: 'words-panel', 'home-icon': 'home-icon-section', reactions: 'reactions-section', icons: 'icons-section' };
-// The Environment tab's parts (#261): its first (the plan, the name and icon, the sign-in page), Localization and
-// Stream, each a stack of its own, chosen in the page bar's row (#env-subtabs). A part's own hash opens it
-// (#localization, #stream); #environment is the first part. Conference's part is its tab on Modules now (#264), and
-// #conference opens it there.
+// The Environment tab's parts (#261): General (the plan, the name and icon, the sign-in page), Localization and Stream,
+// each a stack of its own, chosen in the page bar's row (#env-subtabs). The address names the part shown: #general,
+// #localization, #stream (#environment, the tab's own name, opens General).
 const ENV_PARTS = ['general', 'localization', 'stream'];
 let envPart = 'general';
 function showEnvPart(part) {
@@ -156,9 +153,8 @@ function scrollToChosen(strip) {
 }
 let tabNow = 'environment';
 function selectTab(name) {
-  if (OLD_TABS[name]) name = OLD_TABS[name];
   let part = 'general';
-  if (ENV_PARTS.includes(name) && name !== 'general') {
+  if (ENV_PARTS.includes(name)) {
     part = name;
     name = 'environment';
   }
@@ -185,7 +181,7 @@ function selectTab(name) {
   if (tab === 'environment') requestAnimationFrame(() => scrollToChosen($('env-subtabs')));
   if (tab === 'modules') requestAnimationFrame(() => scrollToChosen($('module-subtabs')));
   scrollToChosen($('subtabs'));
-  const hash = tab === 'environment' && envPart !== 'general' ? envPart : tab === 'modules' && modulePart !== 'config' ? `modules/${encodeURIComponent(modulePart)}` : tab;
+  const hash = tab === 'environment' ? envPart : tab === 'modules' && modulePart !== 'config' ? `modules/${encodeURIComponent(modulePart)}` : tab;
   if (location.hash !== `#${hash}`) history.replaceState(null, '', `#${hash}`);
   // Who has a calendar feed changes on their own Profile, so the Users tab asks again each time it opens.
   if (tab === 'users' && users.length) loadFeeds().then(renderUsers);
@@ -202,7 +198,7 @@ $('subtabs').addEventListener('click', (event) => {
 });
 $('env-subtabs').addEventListener('click', (event) => {
   const b = event.target.closest('.subtab');
-  if (b) selectTab(b.dataset.envPart === 'general' ? 'environment' : b.dataset.envPart);
+  if (b) selectTab(b.dataset.envPart);
 });
 $('module-subtabs').addEventListener('click', (event) => {
   const b = event.target.closest('.subtab');
@@ -2503,7 +2499,7 @@ async function init() {
     await loadEnvironment();
     await loadTemplate();
     if (!environment.hosted) await flightSchedule.load(); // a hosted server's is the host console's: no section here
-    if (firstHash && !TABS.includes(firstHash) && !OLD_TABS[firstHash]) selectTab(firstHash); // a section drawn just now
+    if (firstHash && !TABS.includes(firstHash) && !ENV_PARTS.includes(firstHash)) selectTab(firstHash); // a section drawn just now
     setInterval(refreshLive, 5000);
   } catch (err) {
     location.href = '/login?next=/admin';

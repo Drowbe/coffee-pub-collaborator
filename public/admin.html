@@ -483,12 +483,11 @@
     </section>
 
     <section class="tab-stack" id="tab-environment">
-      <!-- The Environment tab's parts (#261), each its own stack; the strip goes in the page bar's row, the navigation
-           inside this tab (admin.js, page-tabs.js rowTabs). A part's hash (#localization, #stream) opens it; #environment
-           is the first. Only the interface moved: every field keeps its id, its setting and its own Save. Conference's
-           part moved to its tab on Modules (#264), and #conference opens it there. -->
+      <!-- The Environment tab's parts (#261): General, Localization and Stream, each its own stack; the strip goes in the
+           page bar's row, the navigation inside this tab (admin.js, page-tabs.js rowTabs). Each opens by its own hash:
+           #general, #localization, #stream. -->
       <nav class="subtabs" id="env-subtabs">
-        <button class="subtab active" type="button" data-env-part="general" data-fill>{Environment}</button>
+        <button class="subtab active" type="button" data-env-part="general">General</button>
         <button class="subtab" type="button" data-env-part="localization">Localization</button>
         <button class="subtab" type="button" data-env-part="stream">Stream</button>
       </nav>

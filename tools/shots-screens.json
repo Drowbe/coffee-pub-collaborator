@@ -155,7 +155,7 @@
    "id": "manage-environment",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin#environment",
+   "url": "/admin#general",
    "wait": "#tab-environment:not([hidden])",
    "full": true,
    "tier": "core"

@@ -188,7 +188,12 @@ if (!/size-adjust:\s*100\.59%/.test(css) || !/size-adjust:\s*95\.67%/.test(css) 
   const rootBlock = /:root\s*\{([^}]*)\}/.exec(style)?.[1] || '';
   if (!/font-family:\s*var\(--font-ui\)/.test(rootBlock)) fail('public/style.css: the page font (:root) is not var(--font-ui)');
   if (!/font-family:\s*var\(--font-display\)/.test(style)) fail('public/style.css: no display text reads var(--font-display)');
-  for (const f of ['public/sdk/host.css', 'public/landing.css']) if (!/var\(--font-ui\b/.test(read(f))) fail(`${f} does not read --font-ui`);
+  if (!/var\(--font-ui\b/.test(read('public/sdk/host.css'))) fail('public/sdk/host.css does not read --font-ui');
+  // The product page loads only landing.css: it carries the same six faces, word for word, and names the two families.
+  const landing = read('public/landing.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const facesOf = (t) => [...t.matchAll(/@font-face\s*\{[^}]*\}/g)].map((m) => m[0].replace(/\s+/g, ' '));
+  if (facesOf(landing).join('\n') !== facesOf(css).join('\n')) fail('public/landing.css: its @font-face rules are not system.css\'s, word for word');
+  if (!/body\.landing \{[^}]*"Figtree", "Figtree Fallback"/.test(landing) || !/\.hero h1 \{[^}]*"Fraunces", "Fraunces Fallback"/.test(landing)) fail('public/landing.css: the page is not Figtree, or its title not Fraunces');
   const pages = fs.readdirSync(path.join(root, 'public')).filter((f) => /\.(css|html)$/.test(f)).map((f) => `public/${f}`);
   for (const f of [...pages, 'public/sdk/host.css', 'public/sdk/host.js', 'public/sdk/system.css']) {
     if (/fonts\.(googleapis|gstatic)\.com|use\.typekit|fonts\.bunny|@import\s+url\(\s*["']?https?:/i.test(read(f))) fail(`${f} names a font host; the fonts are ours (public/fonts)`);

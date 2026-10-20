@@ -2998,7 +2998,7 @@ input.switch:disabled {
 }
 
 .topbar > .nav-left > .page-tabs > .subtab {
-  padding: 0 10px;
+  padding: 0 12px; /* on the spacing scale (check-spacing); the layout tabs' own 10px is a recorded stray */
   border-radius: var(--radius-small);
   color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
   font-size: var(--nav-font-size);

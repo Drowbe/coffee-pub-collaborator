@@ -52,7 +52,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .landing .btn-quiet { border-color: var(--l-line); color: var(--l-text); background: var(--l-panel); }
 .landing .btn-quiet:hover { border-color: var(--l-teal); }
 .landing .btn-small { min-height: 38px; padding: 0 16px; font-size: 14px; }
-.landing .btn-big { min-height: 52px; padding: 0 32px; font-size: 17px; }
+.landing .btn-big { min-height: 52px; padding: 0 24px; font-size: 17px; }
 .landing .btn:active { transform: translateY(1px); }
 .landing .btn.coming-soon, .landing .btn[aria-disabled="true"] { opacity: 0.6; cursor: default; pointer-events: none; }
 .landing input[type="text"], .landing input[type="password"], .landing select { font-weight: 400; width: 100%; min-height: 46px; padding: 0 16px; border: 2px solid var(--l-line); border-radius: var(--radius-medium); background: var(--l-panel); color: var(--l-text); font: inherit; }

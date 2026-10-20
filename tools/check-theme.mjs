@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /*
- * check-theme.mjs -- light and dark (GitHub #62): /theme.css carries both of the live theme's sets, each under its
- * own <html data-theme-mode>, the default one also covering a page without the attribute (server/theme-css.js); a
- * person's own mode is kept on their account (Store.setThemeMode), absent while they follow the environment's
- * default; and a bad mode, the owner's or a person's, is refused and changes nothing. The top bar's colour areas
- * (plan-two-zone-nav.md decision 8): navBrandBg, navBrandText, navRightBg and navRightText are optional keys like the
- * others -- written to /theme.css only when set, null (Auto) when not a color, a stored theme without them reading
- * them as Auto.
+ * check-theme.mjs -- light and dark (GitHub #62) and the colour roles (plan-design-system.md, step 8): /theme.css carries both of
+ * the live theme's sets, each under its own <html data-theme-mode>, the default one also covering a page without the attribute
+ * (server/theme-css.js); the keys of a set are the colour roles (`surface-page` sets `--surface-page`); the colours the server
+ * picks (text on the accent and on each status fill, the accent and the status colours as text, the OK mark) are written with
+ * them and reach their contrast; a person's own mode is kept on their account (Store.setThemeMode), absent while they follow the
+ * environment's default; a bad mode, the owner's or a person's, is refused and changes nothing; the optional keys (the top bar's
+ * areas, the four status fills...) are written only when set, null (Auto) when not a color; a stored theme in the format from before
+ * the roles is not read -- it is dropped on load, one line is logged, and the default theme shows.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -16,7 +17,8 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { themeCss, themeVersion } = require('../server/theme-css.js');
-const { Store, THEME_OPTIONAL } = require('../server/store.js');
+const { Store, THEME_BASE, THEME_OPTIONAL, DEFAULT_THEME } = require('../server/store.js');
+const TC = require('../public/theme-colour.js');
 let n = 0;
 const test = (name, fn) => {
   try {
@@ -36,45 +38,60 @@ const withStore = (fn) => {
   }
 };
 
-const LIGHT = { bg: '#ffffff', bgSection: '#f7f7f7', border: '#e0e0e0', text: '#333333', textDim: '#767676', accent: '#e45628', onAccent: '#ffffff', headerBg: '#eeeeee' };
-const DARK = { bg: '#111111', bgSection: '#222222', border: '#333333', text: '#eeeeee', textDim: '#999999', accent: '#e45628', onAccent: '#ffffff' };
+const set = (page, panel, edge, text, muted, accent, onAccent, more = {}) => ({ 'surface-page': page, 'surface-panel': panel, 'edge-hairline': edge, 'text-primary': text, 'text-muted': muted, 'accent-fill': accent, 'text-on-accent': onAccent, ...more });
+const LIGHT = set('#ffffff', '#f7f7f7', '#e0e0e0', '#333333', '#767676', '#e45628', '#ffffff', { 'surface-bar-top': '#eeeeee' });
+const DARK = set('#111111', '#222222', '#333333', '#eeeeee', '#999999', '#e45628', '#ffffff');
+const NAV = { 'surface-bar-brand': '#102030', 'text-bar-brand': '#f0e0d0', 'surface-bar-right': '#203040', 'text-bar-right': '#e0d0c0' };
+const STATUS = { 'status-danger-fill': '#aa2222', 'status-ok-fill': '#22aa22', 'status-warn-fill': '#aaaa22', 'status-info-fill': '#2222aa' };
+const blockOf = (css, selector) => new RegExp(`${selector.replace(/[[\]().*+?^$|]/g, '\\$&')} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+const prop = (body, name) => new RegExp(`^ {2}${name}: ([^;]+);$`, 'm').exec(body)?.[1] ?? null;
+
+test('the keys of a set are the colour roles: seven base ones, and the optional ones including the four status fills', () => {
+  assert.deepEqual(THEME_BASE, ['surface-page', 'surface-panel', 'edge-hairline', 'text-primary', 'text-muted', 'accent-fill', 'text-on-accent']);
+  for (const key of ['surface-card', 'surface-bar-top', 'text-bar', 'surface-bar-brand', 'text-bar-brand', 'surface-bar-right', 'text-bar-right', 'icon-default', 'icon-hover', 'accent-fill-hover', 'fill-secondary', 'text-on-secondary', 'fill-secondary-hover', 'status-danger-fill', 'status-ok-fill', 'status-warn-fill', 'status-info-fill']) assert.ok(THEME_OPTIONAL.includes(key), key);
+  assert.equal(THEME_OPTIONAL.length, 17);
+  assert.equal(new Set([...THEME_BASE, ...THEME_OPTIONAL]).size, THEME_BASE.length + THEME_OPTIONAL.length);
+});
 
 test('both sets are sent, each under its own selector, the default one also covering no attribute', () => {
   const css = themeCss({ light: LIGHT, dark: DARK }, 'dark');
-  assert.match(css, /:root:not\(\[data-theme-mode="light"\]\) \{[^}]*--bg: #111111;/);
-  assert.match(css, /:root\[data-theme-mode="light"\] \{[^}]*--bg: #ffffff;/);
+  assert.match(css, /:root:not\(\[data-theme-mode="light"\]\) \{[^}]*--surface-page: #111111;/);
+  assert.match(css, /:root\[data-theme-mode="light"\] \{[^}]*--surface-page: #ffffff;/);
   const flipped = themeCss({ light: LIGHT, dark: DARK }, 'light');
-  assert.match(flipped, /:root:not\(\[data-theme-mode="dark"\]\) \{[^}]*--bg: #ffffff;/);
-  assert.match(flipped, /:root\[data-theme-mode="dark"\] \{[^}]*--bg: #111111;/);
+  assert.match(flipped, /:root:not\(\[data-theme-mode="dark"\]\) \{[^}]*--surface-page: #ffffff;/);
+  assert.match(flipped, /:root\[data-theme-mode="dark"\] \{[^}]*--surface-page: #111111;/);
+  assert.doesNotMatch(css, /--bg:|--bg-section|--text:|--accent:/, 'no old token names are written for a role that has none of its own');
 });
 
 test('an optional color one mode sets stays in that mode', () => {
   const css = themeCss({ light: LIGHT, dark: DARK }, 'light');
-  const dark = /:root\[data-theme-mode="dark"\] \{([^}]*)\}/.exec(css)[1];
-  assert.doesNotMatch(dark, /--header-bg/);
-  assert.match(css, /--header-bg: #eeeeee;/);
+  assert.doesNotMatch(blockOf(css, ':root[data-theme-mode="dark"]'), /--surface-bar-top/);
+  assert.match(css, /--surface-bar-top: #eeeeee;/);
 });
 
-test('a null set (style.css\'s own palette) writes nothing; an odd default mode reads as dark', () => {
+test("a null set writes nothing; an odd default mode reads as dark", () => {
   const css = themeCss({ light: LIGHT, dark: null }, 'nonsense');
   assert.doesNotMatch(css, /:root:not/);
   assert.match(css, /:root\[data-theme-mode="light"\]/);
   assert.notEqual(themeVersion({ light: LIGHT, dark: null }, 'dark'), themeVersion({ light: LIGHT, dark: null }, 'light'));
+  assert.equal(themeCss({ light: null, dark: null }, 'dark'), '/* default mode: dark */\n');
 });
 
-test('an untouched environment: Strong Coffee, its dark set left to style.css and its light set sent', () => withStore((store) => {
+test('an untouched environment: Strong Coffee, both its sets sent', () => withStore((store) => {
   const sets = store.activeThemeSets();
-  assert.equal(sets.dark, null);
-  assert.equal(sets.light.bg, '#faf6f1');
+  assert.equal(sets.dark['surface-page'], DEFAULT_THEME.dark['surface-page']);
+  assert.equal(sets.light['surface-page'], '#faf6f1');
   assert.equal(store.settings.themeMode, 'dark');
+  const css = themeCss(sets, 'dark');
+  assert.match(blockOf(css, ':root:not([data-theme-mode="light"])'), /--surface-page: #1a1410;/);
 }));
 
 test('a theme with one set shows it in both modes', () => withStore((store) => {
   const theme = store.addTheme({ name: 'One', mode: 'light', ...LIGHT });
   store.updateSettings({ activeThemeId: theme.id });
   const sets = store.activeThemeSets();
-  assert.equal(sets.light.bg, '#ffffff');
-  assert.equal(sets.dark.bg, '#ffffff');
+  assert.equal(sets.light['surface-page'], '#ffffff');
+  assert.equal(sets.dark['surface-page'], '#ffffff');
 }));
 
 test("the owner's default mode: light or dark only; anything else is refused and nothing changes", () => withStore((store) => {
@@ -117,77 +134,143 @@ test('a stored mode that is not light or dark is dropped on load', () => withSto
   assert.equal('themeMode' in new Store(dir).userByKey(user.key), false);
 }));
 
-const NAV = { navBrandBg: '#102030', navBrandText: '#f0e0d0', navRightBg: '#203040', navRightText: '#e0d0c0' };
-const NAV_VARS = { navBrandBg: '--nav-brand-bg', navBrandText: '--nav-brand-text', navRightBg: '--nav-right-bg', navRightText: '--nav-right-text' };
-
-test("the top bar's four colour keys are optional theme keys, after headerText", () => {
-  const at = THEME_OPTIONAL.indexOf('headerText');
-  assert.deepEqual(THEME_OPTIONAL.slice(at + 1, at + 5), Object.keys(NAV));
-});
-
-test('a set with the four nav keys writes them to /theme.css; one without them writes nothing for them', () => {
+test('a set with the four top-bar keys writes them to /theme.css; one without them writes nothing for them', () => {
   const css = themeCss({ light: { ...LIGHT, ...NAV }, dark: DARK }, 'light');
-  const light = /:root:not\(\[data-theme-mode="dark"\]\) \{([^}]*)\}/.exec(css)[1];
-  for (const [key, prop] of Object.entries(NAV_VARS)) assert.ok(light.includes(`  ${prop}: ${NAV[key]};`), prop);
-  const dark = /:root\[data-theme-mode="dark"\] \{([^}]*)\}/.exec(css)[1];
-  assert.doesNotMatch(dark, /--nav-/);
-  assert.doesNotMatch(themeCss({ light: LIGHT, dark: DARK }, 'dark'), /--nav-/);
-  assert.doesNotMatch(themeCss({ light: { ...LIGHT, navBrandBg: null, navRightText: null }, dark: null }, 'dark'), /--nav-/);
+  const light = blockOf(css, ':root:not([data-theme-mode="dark"])');
+  for (const [key, value] of Object.entries(NAV)) assert.equal(prop(light, `--${key}`), value, key);
+  assert.doesNotMatch(blockOf(css, ':root[data-theme-mode="dark"]'), /--surface-bar-|--text-bar-/);
+  assert.doesNotMatch(themeCss({ light: LIGHT, dark: DARK }, 'dark'), /--surface-bar-brand|--text-bar-/);
+  assert.doesNotMatch(themeCss({ light: { ...LIGHT, 'surface-bar-brand': null, 'text-bar-right': null }, dark: null }, 'dark'), /--surface-bar-brand|--text-bar-right/);
 });
 
-test('the nav keys: set by addTheme and updateTheme, a value that is not a color goes back to Auto (null), null puts one back on Auto', () => withStore((store) => {
-  const theme = store.addTheme({ name: 'Nav', mode: 'light', ...LIGHT, ...NAV, navRightBg: 'red; background: url(x)' });
-  assert.deepEqual(Object.fromEntries(Object.keys(NAV).map((k) => [k, theme.light[k]])), { ...NAV, navRightBg: null });
-  store.updateTheme(theme.id, { mode: 'light', navRightBg: '#ABCDEF', navBrandText: null, navBrandBg: 'blue' });
+test('the optional keys: set by addTheme and updateTheme, a value that is not a color goes back to Auto (null), null puts one back on Auto', () => withStore((store) => {
+  const theme = store.addTheme({ name: 'Nav', mode: 'light', ...LIGHT, ...NAV, 'surface-bar-right': 'red; background: url(x)' });
+  assert.deepEqual(Object.fromEntries(Object.keys(NAV).map((k) => [k, theme.light[k]])), { ...NAV, 'surface-bar-right': null });
+  store.updateTheme(theme.id, { mode: 'light', 'surface-bar-right': '#ABCDEF', 'text-bar-brand': null, 'surface-bar-brand': 'blue', 'status-warn-fill': '#aaaa22' });
   const after = store.themes.find((t) => t.id === theme.id).light;
-  assert.deepEqual([after.navRightBg, after.navBrandText, after.navBrandBg, after.navRightText], ['#abcdef', null, null, NAV.navRightText]);
+  assert.deepEqual([after['surface-bar-right'], after['text-bar-brand'], after['surface-bar-brand'], after['text-bar-right'], after['status-warn-fill']], ['#abcdef', null, null, NAV['text-bar-right'], '#aaaa22']);
   store.updateSettings({ activeThemeId: theme.id });
   const css = themeCss(store.activeThemeSets(), 'light');
-  assert.match(css, /--nav-right-bg: #abcdef;/);
-  assert.doesNotMatch(css, /--nav-brand-bg|--nav-brand-text/);
+  assert.match(css, /--surface-bar-right: #abcdef;/);
+  assert.doesNotMatch(css, /--surface-bar-brand|--text-bar-brand/);
 }));
 
-test('a stored theme from before the nav keys reads them as Auto and writes the same /theme.css as before', () => withStore((store, dir) => {
-  const theme = store.addTheme({ name: 'Old', mode: 'light', ...LIGHT });
+test('the old keys are not read: a set under the earlier names has no complete set', () => withStore((store) => {
+  const old = { bg: '#ffffff', bgSection: '#f7f7f7', border: '#e0e0e0', text: '#333333', textDim: '#767676', accent: '#e45628', onAccent: '#ffffff' };
+  assert.throws(() => store.addTheme({ name: 'Old', mode: 'light', ...old }), /every color is required/);
+  assert.equal(store.sanitizeTheme({ id: 'x', name: 'Old', light: old, dark: old }), null);
+  assert.equal(store.sanitizeTheme({ id: 'x', name: 'Old', ...old }), null);
+}));
+
+test('a stored theme in the format from before the roles is dropped on load: one line is logged, the default shows, nothing crashes', () => withStore((store, dir) => {
+  const theme = store.addTheme({ name: 'Mine', mode: 'light', ...LIGHT });
   store.updateSettings({ activeThemeId: theme.id });
   store.save();
   const file = path.join(dir, 'app.json');
   const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const old = { bg: '#ffffff', bgSection: '#f7f7f7', border: '#e0e0e0', text: '#333333', textDim: '#767676', accent: '#e45628', onAccent: '#ffffff' };
   const stored = raw.settings.themes.find((t) => t.id === theme.id);
-  for (const key of Object.keys(NAV)) delete stored.light[key];
-  assert.equal(Object.keys(stored.light).some((k) => k in NAV), false);
+  stored.light = old;
+  stored.dark = null;
+  const builtin = raw.settings.themes.find((t) => t.id === 'staying-blonde');
+  builtin.light = old;
+  builtin.dark = old;
   fs.writeFileSync(file, JSON.stringify(raw));
-  // Read as stored, as the nine older optional keys are: absent is Auto, the same as null, in /theme.css, in a theme
-  // file (null) and in the editor (public/admin.js reads !colors[key] as Auto).
-  const again = new Store(dir);
-  const light = again.themes.find((t) => t.id === theme.id).light;
-  for (const key of Object.keys(NAV)) assert.ok(light[key] == null, key);
-  const exported = require('../server/theme-file.js').themeToFile(again.themes.find((t) => t.id === theme.id));
-  for (const key of Object.keys(NAV)) assert.equal(exported.light[key], null, `exported ${key}`);
-  const css = themeCss(again.activeThemeSets(), 'light');
-  assert.doesNotMatch(css, /--nav-/);
-  assert.equal(css, themeCss({ light: LIGHT, dark: LIGHT }, 'light'), 'one set shows in both modes, as before');
+  const lines = [];
+  const warn = console.warn;
+  console.warn = (...args) => lines.push(args.join(' '));
+  let again;
+  try { again = new Store(dir); } finally { console.warn = warn; }
+  assert.equal(lines.length, 1, lines.join('\n'));
+  assert.match(lines[0], /^themes: 2 saved themes in an older format could not be read and were removed$/);
+  assert.equal(again.themes.some((t) => t.id === theme.id), false, 'the unreadable theme is gone');
+  assert.equal(again.settings.activeThemeId, null, 'the default theme is live again');
+  const teal = again.themes.find((t) => t.id === 'staying-blonde');
+  assert.equal(teal.name, 'Calming Teal', 'a shipped theme is put back as shipped');
+  assert.equal(teal.dark['accent-fill'], '#0dc9ca');
+  assert.equal(themeCss(again.activeThemeSets(), 'dark').includes('--surface-page: #1a1410;'), true, 'Strong Coffee is what /theme.css says');
+  assert.equal(themeCss(new Store(dir).activeThemeSets(), 'dark'), themeCss(again.activeThemeSets(), 'dark'), 'and it stays that way');
 }));
 
-test("the theme editor's four fields: in THEME_OPTIONAL_FIELDS after Header text with their Auto formulas, each a row with its Auto box", () => {
+test('the colours the server picks are written with the set, and reach their contrast', () => {
+  const css = themeCss({ light: set('#ffffff', '#f7f9fa', '#e1e8e8', '#333333', '#767676', '#0dc9ca', '#ffffff'), dark: null }, 'light');
+  const body = blockOf(css, ':root:not([data-theme-mode="dark"])');
+  // The theme's own text on the accent (white on teal, 1.9 : 1) is replaced by the pick.
+  assert.equal(prop(body, '--text-on-accent'), '#0a0a0a');
+  assert.ok(TC.contrast(prop(body, '--text-on-accent'), '#0dc9ca') >= 4.5);
+  assert.ok(TC.contrast(prop(body, '--text-accent'), '#ffffff') >= 4.5 && TC.contrast(prop(body, '--text-accent'), '#f7f9fa') >= 4.5);
+  for (const k of TC.STATUSES) {
+    assert.ok(TC.contrast(prop(body, `--status-${k}-text`), '#ffffff') >= 4.5, k);
+    assert.match(prop(body, `--status-${k}-on-fill`), /^#(ffffff|0a0a0a)$/);
+  }
+  assert.ok(TC.contrast(prop(body, '--status-ok-mark'), '#ffffff') >= 3);
+  // A text on the accent that already reaches 4.5 : 1 is the theme's own, byte for byte.
+  const coffee = themeCss({ light: null, dark: DEFAULT_THEME.dark }, 'dark');
+  assert.equal(prop(blockOf(coffee, ':root:not([data-theme-mode="light"])'), '--text-on-accent'), '#1a1206');
+  // The accent as text is the accent itself while it already reaches 4.5 : 1 on the page and on a panel.
+  assert.equal(prop(blockOf(coffee, ':root:not([data-theme-mode="light"])'), '--text-accent'), '#c8873a');
+});
+
+test('when neither white nor near-black reaches 4.5 : 1 on the accent, the better one is written and the set says so', () => {
+  const css = themeCss({ light: DEFAULT_THEME.light, dark: null }, 'light'); // Strong Coffee light: white on #a8692a is 4.45
+  const body = blockOf(css, ':root:not([data-theme-mode="dark"])');
+  assert.equal(prop(body, '--text-on-accent'), '#ffffff');
+  assert.match(body, /\/\* flagged: Neither white nor near-black reaches 4\.5 : 1 on the accent\. \*\//);
+  assert.doesNotMatch(themeCss({ light: null, dark: DEFAULT_THEME.dark }, 'dark'), /flagged/);
+});
+
+test('a status fill the theme sets is the fill its text and its text-on-fill are picked from; Auto uses the mode\'s own fill', () => {
+  const css = themeCss({ light: { ...LIGHT, ...STATUS }, dark: DARK }, 'light');
+  const light = blockOf(css, ':root:not([data-theme-mode="dark"])');
+  for (const [key, value] of Object.entries(STATUS)) assert.equal(prop(light, `--${key}`), value, key);
+  assert.doesNotMatch(blockOf(css, ':root[data-theme-mode="dark"]'), /--status-[a-z]+-fill/, 'the dark set did not set them');
+  const auto = themeCss({ light: LIGHT, dark: DARK }, 'light');
+  assert.doesNotMatch(auto, /--status-[a-z]+-fill/, 'Auto writes no fill (style.css and system.css have it)');
+  const warn = (mode) => TC.resolve(mode === 'light' ? LIGHT : DARK, mode).fills.warn;
+  assert.deepEqual([warn('light'), warn('dark')], ['#94680a', '#d9a93c']);
+  assert.notEqual(prop(blockOf(auto, ':root:not([data-theme-mode="dark"])'), '--status-warn-text'), prop(blockOf(auto, ':root[data-theme-mode="dark"]'), '--status-warn-text'));
+});
+
+test('CSS typed into a color never reaches /theme.css, and every line it writes is a #rrggbb colour, a comment or a selector', () => withStore((store) => {
+  const theme = store.addTheme({ name: 'Evil', mode: 'light', ...LIGHT, 'icon-default': 'red; background: url(x)', 'status-info-fill': 'url(x)' });
+  store.updateSettings({ activeThemeId: theme.id });
+  const css = themeCss(store.activeThemeSets(), 'light');
+  assert.doesNotMatch(css, /url\(|red/);
+  for (const line of css.split('\n')) assert.match(line, /^( {2}--[a-z-]+: #[0-9a-f]{6};| {2}\/\* flagged: [^*]*\*\/|\/\* default mode: (light|dark) \*\/|:root[^{]*\{|\})?$/, line);
+}));
+
+test('the old tokens that a role has its own default for are also written when the theme sets the role (scaffolding, deleted with the old tokens)', () => {
+  const css = themeCss({ light: { ...LIGHT, 'surface-card': '#123456', 'fill-secondary': '#234567', 'fill-secondary-hover': '#345678', 'icon-default': '#456789' }, dark: null }, 'light');
+  const body = blockOf(css, ':root:not([data-theme-mode="dark"])');
+  for (const [role, old, value] of [['surface-card', '--bg-card', '#123456'], ['fill-secondary', '--secondary', '#234567'], ['fill-secondary-hover', '--secondary-hover', '#345678'], ['icon-default', '--icon', '#456789']]) {
+    assert.equal(prop(body, `--${role}`), value, role);
+    assert.equal(prop(body, old), value, old);
+  }
+  assert.deepEqual(Object.keys(TC.LEGACY).sort(), ['fill-secondary', 'fill-secondary-hover', 'icon-default', 'surface-card']);
+});
+
+test('style.css has Strong Coffee dark as the default of the base roles, and the old tokens are defined from the roles', () => {
+  const style = fs.readFileSync(new URL('../public/style.css', import.meta.url), 'utf8');
+  const root = /^:root \{([\s\S]*?)\n\}/m.exec(style)[1];
+  for (const [key, value] of Object.entries(DEFAULT_THEME.dark)) assert.ok(root.includes(`--${key}: ${value};`), `--${key}: ${value}`);
+  for (const [old, role] of [['--bg', 'surface-page'], ['--bg-section', 'surface-panel'], ['--border', 'edge-hairline'], ['--text', 'text-primary'], ['--text-dim', 'text-muted'], ['--accent', 'accent-fill'], ['--on-accent', 'text-on-accent']]) {
+    assert.ok(root.includes(`${old}: var(--${role});`), `${old} is defined from --${role}`);
+  }
+  assert.doesNotMatch(root, /--(bg|bg-section|border|text|text-dim|accent|on-accent|ok|danger):\s*#/, 'no old token holds a colour of its own');
+});
+
+test("the theme editor's fields: a row for every optional key in the same order, the status fills among them, each with its Auto box", () => {
   const admin = fs.readFileSync(new URL('../public/admin.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
-  const list = admin.match(/const THEME_OPTIONAL_FIELDS = \[([\s\S]*?)\n\];/);
+  const base = admin.match(/const THEME_FIELDS = \[([\s\S]*?)\n\];/);
+  assert.ok(base, 'THEME_FIELDS');
+  assert.deepEqual([...base[1].matchAll(/\['([\w-]+)', '--([\w-]+)', '([\w-]+)'\]/g)].map((m) => m[3]), THEME_BASE);
+  for (const m of base[1].matchAll(/\['([\w-]+)', '--([\w-]+)', '([\w-]+)'\]/g)) assert.equal(m[2], m[3], 'the CSS property is the role');
+  const list = admin.match(/const THEME_OPTIONAL_FIELDS = \[([\s\S]*?)\n\]\.map/);
   assert.ok(list, 'THEME_OPTIONAL_FIELDS');
-  const rows = [...list[1].matchAll(/\['([\w-]+)', '([\w-]+)', '(\w+)', '([^']*)'\]/g)].map((m) => m.slice(1));
-  const keys = rows.map((r) => r[2]);
-  assert.deepEqual(keys, THEME_OPTIONAL, 'the editor has a field for every optional key, in the same order');
-  const fields = {
-    navBrandBg: ['theme-nav-brand-bg', 'var(--nav-primary-edge-bg)', 'Branding area background'],
-    navBrandText: ['theme-nav-brand-text', 'var(--header-text)', 'Branding area text'],
-    navRightBg: ['theme-nav-right-bg', 'var(--nav-primary-edge-bg)', 'Right side background'],
-    navRightText: ['theme-nav-right-text', 'var(--header-text)', 'Right side text'],
-  };
-  for (const [key, [id, formula, label]] of Object.entries(fields)) {
-    const row = rows.find((r) => r[2] === key);
-    assert.deepEqual(row, [id, NAV_VARS[key], key, formula], key);
-    assert.ok(html.includes(`<label>${label}<input id="${id}" type="color"></label><label class="check"><input type="checkbox" data-auto-for="${id}"> Auto</label>`), `${id} row with its Auto box`);
-  }
+  const rows = [...list[1].matchAll(/\['([\w-]+)', '([\w-]+)'\]/g)].map((m) => m.slice(1));
+  assert.deepEqual(rows.map((r) => r[1]), THEME_OPTIONAL.filter((k) => !k.startsWith('status-')), 'the editor has a field for every optional key, in the same order');
+  for (const [id] of rows) assert.ok(new RegExp(`<label>[^<]+<input id="${id}" type="color"></label><label class="check"><input type="checkbox" data-auto-for="${id}"> Auto</label>`).test(html), `${id} row with its Auto box`);
 });
 
 console.log(`check-theme: ${n} checks passed`);

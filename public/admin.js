@@ -737,34 +737,35 @@ $('save-login').addEventListener('click', () => saveSettings({ loginText: $('set
 // Every theme holds a light and a dark set (either may be missing: the
 // other then stands in); Strong Coffee's two come from the server and
 // can't be edited.
+const TC = window.ThemeColour; // public/theme-colour.js (the picks and the Auto formulas, shared with the server), loaded by admin.html
+// The key of a theme set IS the colour role (server/store.js THEME_BASE and THEME_OPTIONAL), and the role is the CSS property.
 const THEME_FIELDS = [
-  ['theme-bg', '--bg', 'bg'],
-  ['theme-bg-section', '--bg-section', 'bgSection'],
-  ['theme-border', '--border', 'border'],
-  ['theme-text', '--text', 'text'],
-  ['theme-text-dim', '--text-dim', 'textDim'],
-  ['theme-accent', '--accent', 'accent'],
-  ['theme-on-accent', '--on-accent', 'onAccent'],
+  ['theme-bg', '--surface-page', 'surface-page'],
+  ['theme-bg-section', '--surface-panel', 'surface-panel'],
+  ['theme-border', '--edge-hairline', 'edge-hairline'],
+  ['theme-text', '--text-primary', 'text-primary'],
+  ['theme-text-dim', '--text-muted', 'text-muted'],
+  ['theme-accent', '--accent-fill', 'accent-fill'],
+  ['theme-on-accent', '--text-on-accent', 'text-on-accent'],
 ];
-// Colors a theme may leave on Auto (the stylesheet derives them). For an Auto
-// field the preview sets the same formula style.css uses, so what you see is
-// right whichever theme happens to be live.
+// Colors a theme may leave on Auto (system.css derives them). For an Auto field the preview sets the same formula
+// (ThemeColour.AUTO_CSS), so what you see is right whichever theme happens to be live.
 const THEME_OPTIONAL_FIELDS = [
-  ['theme-card', '--bg-card', 'card', 'var(--bg-input)'],
-  ['theme-header-bg', '--header-bg', 'headerBg', 'var(--bg)'],
-  ['theme-header-text', '--header-text', 'headerText', 'var(--text)'],
+  ['theme-card', 'surface-card'],
+  ['theme-header-bg', 'surface-bar-top'],
+  ['theme-header-text', 'text-bar'],
   // The top bar's colour areas (plan-two-zone-nav.md decision 8): the branding area and the right side.
-  ['theme-nav-brand-bg', '--nav-brand-bg', 'navBrandBg', 'var(--nav-primary-edge-bg)'],
-  ['theme-nav-brand-text', '--nav-brand-text', 'navBrandText', 'var(--header-text)'],
-  ['theme-nav-right-bg', '--nav-right-bg', 'navRightBg', 'var(--nav-primary-edge-bg)'],
-  ['theme-nav-right-text', '--nav-right-text', 'navRightText', 'var(--header-text)'],
-  ['theme-icon', '--icon', 'icon', 'initial'], // initial: unset, so the fallbacks in style.css apply
-  ['theme-icon-hover', '--icon-hover', 'iconHover', 'var(--accent)'],
-  ['theme-primary-hover', '--primary-hover', 'primaryHover', 'var(--accent-hover)'],
-  ['theme-secondary', '--secondary', 'secondary', 'var(--surface)'],
-  ['theme-secondary-text', '--secondary-text', 'secondaryText', 'var(--text)'],
-  ['theme-secondary-hover', '--secondary-hover', 'secondaryHover', 'var(--surface-hover)'],
-];
+  ['theme-nav-brand-bg', 'surface-bar-brand'],
+  ['theme-nav-brand-text', 'text-bar-brand'],
+  ['theme-nav-right-bg', 'surface-bar-right'],
+  ['theme-nav-right-text', 'text-bar-right'],
+  ['theme-icon', 'icon-default'],
+  ['theme-icon-hover', 'icon-hover'],
+  ['theme-primary-hover', 'accent-fill-hover'],
+  ['theme-secondary', 'fill-secondary'],
+  ['theme-secondary-text', 'text-on-secondary'],
+  ['theme-secondary-hover', 'fill-secondary-hover'],
+].map(([id, key]) => [id, `--${key}`, key, TC.AUTO_CSS[key]]);
 const autoBox = (id) => document.querySelector(`[data-auto-for="${id}"]`);
 const isAuto = (id) => autoBox(id).checked;
 let colorProbeCtx = null;
@@ -826,6 +827,16 @@ function loadThemeInputsFrom(colors) {
     if (!auto) $(id).value = colors[key];
   }
 }
+// The set the inputs show now: every base colour, and each optional one or null when it is on Auto.
+function currentThemeSet() {
+  const set = {};
+  for (const [id, , key] of THEME_FIELDS) set[key] = $(id).value;
+  for (const [id, , key] of THEME_OPTIONAL_FIELDS) set[key] = isAuto(id) ? null : $(id).value;
+  return set;
+}
+// Every property the preview has put on :root, so that leaving the preview takes exactly those off again.
+const previewed = new Set();
+const setPreviewVar = (name, value) => { document.documentElement.style.setProperty(name, value); previewed.add(name); };
 // Sets these straight on :root (not just a scoped preview box) -- several
 // other rules (button surfaces, hover shades) are themselves computed FROM
 // these seven with color-mix(), and that only recomputes for real when the
@@ -835,19 +846,26 @@ function loadThemeInputsFrom(colors) {
 // persists it. Not previewing, the colors go on only long enough to read the Auto fields' values, and come off again
 // before the page paints.
 function updateThemePreview() {
-  const root = document.documentElement;
-  for (const [id, cssVar] of THEME_FIELDS) root.style.setProperty(cssVar, $(id).value);
-  for (const [id, cssVar, , formula] of THEME_OPTIONAL_FIELDS) {
-    root.style.setProperty(cssVar, isAuto(id) ? formula : $(id).value);
+  for (const [id, cssVar] of THEME_FIELDS) setPreviewVar(cssVar, $(id).value);
+  for (const [id, cssVar, key, formula] of THEME_OPTIONAL_FIELDS) {
+    const auto = isAuto(id);
+    setPreviewVar(cssVar, auto ? formula : $(id).value);
+    const old = TC.LEGACY[key]; // the old token the server also writes for this role (theme-colour.js LEGACY)
+    if (old) setPreviewVar(old, auto ? TC.LEGACY_AUTO[old] : $(id).value);
   }
-  // An Auto field shows what it currently works out to.
-  for (const [id, cssVar] of THEME_OPTIONAL_FIELDS) {
+  // What the server picks for this set (text on the accent and on the status fills, the accent and status colours as text).
+  const got = TC.resolve(currentThemeSet(), selectedMode);
+  if (got) for (const [role, hex] of Object.entries(got.picks)) setPreviewVar(`--${role}`, hex);
+  // An Auto field shows what it currently works out to: what the product draws, which for the four roles that still have an old
+  // token with a default of its own (theme-colour.js LEGACY) is that token's. --icon has no value when Auto; show what an icon on
+  // the header's main colour draws (style.css, .topbar .icon-link). Not read from the sample header's icons: they sit in its right
+  // side, whose text colour a theme may set apart.
+  for (const [id, cssVar, key] of THEME_OPTIONAL_FIELDS) {
     if (!isAuto(id)) continue;
-    // --icon has no value when Auto; show what an icon on the header's main colour draws (style.css, .topbar .icon-link).
-    // Not read from the sample header's icons: they sit in its right side, whose text colour a theme may set apart.
-    $(id).value = cssVar === '--icon'
+    const old = TC.LEGACY[key];
+    $(id).value = old === '--icon'
       ? toHex(computedColor('var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent))'))
-      : resolvedVar(cssVar);
+      : resolvedVar(old || cssVar);
   }
   if (!previewing) clearThemePreview();
 }
@@ -861,9 +879,8 @@ document.addEventListener('app:theme', () => {
   if (!previewing && defaultTheme) updateThemePreview();
 });
 function clearThemePreview() {
-  const root = document.documentElement;
-  for (const [, cssVar] of THEME_FIELDS) root.style.removeProperty(cssVar);
-  for (const [, cssVar] of THEME_OPTIONAL_FIELDS) root.style.removeProperty(cssVar);
+  for (const name of previewed) document.documentElement.style.removeProperty(name);
+  previewed.clear();
 }
 for (const [id] of THEME_FIELDS) $(id).addEventListener('input', previewThemeEdit);
 for (const [id] of THEME_OPTIONAL_FIELDS) {

@@ -1918,10 +1918,10 @@ test('the top bar\'s colour areas: the branding and the right zone, with default
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const root = css.slice(css.indexOf(':root {'), css.indexOf('\n}\n', css.indexOf(':root {')));
   assert.match(root, /--nav-primary-edge-bg: color-mix\(in srgb, var\(--header-bg\) 97%, black\);/, 'the shade, opaque');
-  assert.match(root, /--nav-brand-bg: var\(--nav-primary-edge-bg\);/);
-  assert.match(root, /--nav-brand-text: var\(--header-text\);/);
-  assert.match(root, /--nav-right-bg: var\(--nav-primary-edge-bg\);/);
-  assert.match(root, /--nav-right-text: var\(--header-text\);/);
+  assert.match(root, /--nav-brand-bg: var\(--surface-bar-brand, var\(--nav-primary-edge-bg\)\);/);
+  assert.match(root, /--nav-brand-text: var\(--text-bar-brand, var\(--header-text\)\);/);
+  assert.match(root, /--nav-right-bg: var\(--surface-bar-right, var\(--nav-primary-edge-bg\)\);/);
+  assert.match(root, /--nav-right-text: var\(--text-bar-right, var\(--header-text\)\);/);
   assert.match(css, /\n\.topbar > \.nav-left > \.brand-home \{\s*--header-text: var\(--nav-brand-text\);[^}]*background: var\(--nav-brand-bg\);/, 'the branding area, its text through --header-text');
   assert.match(css, /@media \(min-width: 641px\) \{\s*\.topbar > \.nav-right \{\s*--header-text: var\(--nav-right-text\);\s*color: var\(--header-text\);\s*background: var\(--nav-right-bg\);/, 'the right zone, wider than a phone');
   assert.ok(!/\.topbar \.nav-left,\s*\.topbar \.nav-right \{[^}]*background/.test(css), 'no descendant rule paints the zones (it reached the space bar)');

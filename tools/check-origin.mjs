@@ -110,7 +110,7 @@ try {
     environmentName: (await call('GET', 'aaa', '/api/settings', { headers: { cookie: ownerCookie } })).json.settings.environmentName,
     hostName: (await call('GET', 'admin', '/api/host/environments', { headers: { cookie: hostCookie } })).json.environments.find((e) => e.slug === 'bbb').name,
   });
-  const set = { bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff' };
+  const set = { 'surface-page': '#ffffff', 'surface-panel': '#f5f7f8', 'edge-hairline': '#dde3e6', 'text-primary': '#222222', 'text-muted': '#6b7479', 'accent-fill': '#1c7c8c', 'text-on-accent': '#ffffff' };
   const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a8b90000000049454e44ae426082', 'hex');
   // [what, method, subdomain, path, body, type, cookie]
   const ROUTES = [

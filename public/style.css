@@ -1,25 +1,31 @@
-/* These seven (plus --on-accent) are the whole themeable surface -- a
-   server admin can override every one of them (see /theme.css, filled in
-   from Manage > Settings > Theme). Everything else below is either a fixed
-   semantic colour (--ok, --danger: status, not brand -- see the Theme panel's
-   own note on why those two stay put) or computed FROM these seven with
-   color-mix(), so the whole app re-derives its raised surfaces, recessed
-   fields and shading from just the handful of colors an admin actually
-   picks, rather than each needing its own setting. Mixing toward --accent
-   or --border (not flatly toward black/white) is deliberate: it's the one
-   direction that reads right whether the base colors end up light or dark,
-   so a light theme doesn't need a whole second formula. */
+/* The colour roles (public/sdk/system.css, documentation/designsystem/design-theme.md). A theme sets seven base roles and may set
+   the four status fills and a few more (server/store.js THEME_BASE and THEME_OPTIONAL; /theme.css writes them, and the colours it
+   picks itself: text on the accent and on each status fill, the accent and status colours as text). These are Strong Coffee's
+   dark values, the ones a page has before /theme.css says anything (and on a page that never gets one). system.css computes
+   every other role from these with color-mix(). They are here, not in system.css, so a page that loads only this file still has them. */
 :root {
-  --bg: #1a1410;
-  --bg-section: #241c16;
-  --border: #3b2e24;
-  --text: #f1e6d8;
-  --text-dim: #a8998a;
-  --accent: #c8873a;
-  --on-accent: #1a1206; /* text/icons drawn on an --accent background */
-  --on-danger: #fff; /* the glyph on a solid --danger or --ok button (End call, dial back in) */
-  --ok: #6fae6b;
-  --danger: #b8503f;
+  --surface-page: #1a1410;
+  --surface-panel: #241c16;
+  --edge-hairline: #3b2e24;
+  --text-primary: #f1e6d8;
+  --text-muted: #a8998a;
+  --accent-fill: #c8873a;
+  --text-on-accent: #1a1206; /* text/icons drawn on an --accent-fill background */
+  --status-ok-fill: #6fae6b;
+  --status-danger-fill: #b8503f;
+
+  /* SCAFFOLDING, deleted when the last file that reads each one moves onto the roles (plan-design-system.md, step 36): the old
+     token names, defined from the roles so that files not yet moved follow the theme. Not for new code: use the roles. */
+  --bg: var(--surface-page);
+  --bg-section: var(--surface-panel);
+  --border: var(--edge-hairline);
+  --text: var(--text-primary);
+  --text-dim: var(--text-muted);
+  --accent: var(--accent-fill);
+  --on-accent: var(--text-on-accent);
+  --on-danger: var(--status-danger-on-fill, white); /* the glyph on a solid --danger or --ok button (End call, dial back in) */
+  --ok: var(--status-ok-fill);
+  --danger: var(--status-danger-fill);
   /* The tints (plan-chat-model.md, decisions 17 to 20): a module's colour, on its icon and on its messages. Fixed, not
      set by a theme; these are the dark values, and the light ones follow under the light mode below. A module names
      one in its module.json ("color": "blue"); the AI is gold. See design-theme.md, "The tints". */
@@ -31,15 +37,15 @@
   --tint-red: #e07a6e;
   --tint-orange: #e8964a;
   --tint-pink: #e58ab8;
-  --danger-text: color-mix(in srgb, var(--danger) 55%, white);
-  --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
-  --bg-input: color-mix(in srgb, var(--bg) 85%, var(--border) 15%);
+  --danger-text: var(--status-danger-text, var(--danger));
+  --accent-hover: color-mix(in srgb, var(--accent-fill) 85%, white);
+  --bg-input: color-mix(in srgb, var(--surface-page) 85%, var(--edge-hairline) 15%);
   /* Card background: the small items inside a section (member tiles, facts,
-     thumbnails). Follows the input shade until a theme sets it. */
+     thumbnails). Follows the input shade until a theme sets it (/theme.css then writes this too). */
   --bg-card: var(--bg-input);
-  --surface: color-mix(in srgb, var(--bg-section) 90%, var(--accent) 10%);
-  --surface-hover: color-mix(in srgb, var(--bg-section) 78%, var(--accent) 22%);
-  --shade: color-mix(in srgb, var(--bg) 85%, var(--border) 15%);
+  --surface: color-mix(in srgb, var(--surface-panel) 90%, var(--accent-fill) 10%);
+  --surface-hover: color-mix(in srgb, var(--surface-panel) 78%, var(--accent-fill) 22%);
+  --shade: var(--bg-input);
   /* Layout: the one height every module header strip has, so headers in
      neighbouring columns line up. Nothing else sets a module header height
      (tools/check-canvas.mjs enforces it). 34px wider than a phone: the 28px titlebar buttons with 3px above and below
@@ -87,7 +93,7 @@
   --z-menu: 26;
   /* Themeable on their own (Manage > Theme); each follows the tokens above
      until a theme sets it. */
-  --header-bg: var(--bg);
+  --header-bg: var(--surface-bar-top, var(--surface-page));
   /* The five corner radii; nothing else is ever written as a radius (tools/check-radius.mjs). Min: tiny tags, scrollbar
      thumbs, kbd, checkboxes, bar ends. Small: buttons, inputs, tabs, chips, menu items, view-switch segments. Medium:
      cards, menus, popovers, list rows that are boxes. Large: panels, windows, dialogs, sheets, kind lists. Round:
@@ -98,8 +104,8 @@
   --radius-large: 11px;
   --radius-round: 999px;
   /* A selected, on or current tab, chip, button or row: a fill, never a border, an underline or a ring. */
-  --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent);
-  --header-text: var(--text);
+  --selected-bg: color-mix(in srgb, var(--accent-fill) 28%, transparent);
+  --header-text: var(--text-bar, var(--text-primary));
   /* The two rows of the header, each its own colour (see architecture-navigation.md): the top bar's left zone is
      --header-bg itself, and the secondary nav (the space, a page's bar) its own, between the header and the page.
      Derived from --header-bg until a theme sets them. */
@@ -109,19 +115,19 @@
   --nav-primary-edge-bg: color-mix(in srgb, var(--header-bg) 97%, black);
   --nav-secondary-bg: rgba(0, 0, 0, 0.02);
   /* The top bar's two other colour areas (plan-two-zone-nav.md, decision 8), each with its text: the branding (the logo
-     and the environment's name) and the right zone (the bell, your picture). A theme sets them (navBrandBg,
-     navBrandText, navRightBg, navRightText); until then they are the shade above and the header text. */
-  --nav-brand-bg: var(--nav-primary-edge-bg);
-  --nav-brand-text: var(--header-text);
-  --nav-right-bg: var(--nav-primary-edge-bg);
-  --nav-right-text: var(--header-text);
+     and the environment's name) and the right zone (the bell, your picture). A theme sets them (surface-bar-brand,
+     text-bar-brand, surface-bar-right, text-bar-right); until then they are the shade above and the header text. */
+  --nav-brand-bg: var(--surface-bar-brand, var(--nav-primary-edge-bg));
+  --nav-brand-text: var(--text-bar-brand, var(--header-text));
+  --nav-right-bg: var(--surface-bar-right, var(--nav-primary-edge-bg));
+  --nav-right-text: var(--text-bar-right, var(--header-text));
   /* --icon has no default here: where it is used, var(--icon, <fallback>) picks
      the fallback that suits the surface (dim text in the page, the header
      text color in the header) until a theme sets it. */
-  --icon-hover: var(--accent);
-  --primary-hover: var(--accent-hover);
+  --icon-hover: var(--accent-fill); /* a role (a theme may set it), here beside the icon tokens that read it */
+  --primary-hover: var(--accent-fill-hover, var(--accent-hover));
   --secondary: var(--surface);
-  --secondary-text: var(--text);
+  --secondary-text: var(--text-on-secondary, var(--text-primary));
   --secondary-hover: var(--surface-hover);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 14px;
@@ -206,7 +212,7 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--text-link, var(--accent)); /* the accent as text: picked to read on the page and a panel in every theme (theme-colour.js) */
   text-decoration: none;
 }
 
@@ -2081,7 +2087,7 @@ body.in-space .page-scroll {
   height: 15px;
   border-radius: var(--radius-round);
   background: var(--bg-card);
-  color: var(--ok);
+  color: var(--status-ok-mark);
   font-size: 8px;
 }
 
@@ -3773,7 +3779,7 @@ button.whoami:focus-visible {
 }
 
 .dot.online {
-  background: var(--ok);
+  background: var(--status-ok-mark);
   box-shadow: 0 0 6px rgba(111, 174, 107, 0.7);
 }
 
@@ -8211,7 +8217,7 @@ body.module-page .module-status {
     width: 9px;
     height: 9px;
     border-radius: var(--radius-round);
-    background: var(--ok);
+    background: var(--status-ok-mark);
     border: 2px solid var(--header-bg);
   }
 
@@ -8266,7 +8272,7 @@ body.module-page .module-status {
     width: 9px;
     height: 9px;
     border-radius: var(--radius-round);
-    background: var(--ok);
+    background: var(--status-ok-mark);
     border: 2px solid var(--header-bg);
   }
 
@@ -9228,7 +9234,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   border: 1px solid var(--border);
   border-radius: var(--radius-min);
   background: var(--bg-card);
-  color: var(--ok);
+  color: var(--status-ok-mark);
   font-size: 6px;
 }
 
@@ -9385,7 +9391,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .who-here-oncall .who-here-call {
-  color: var(--ok);
+  color: var(--status-ok-mark);
 }
 
 @media (max-width: 640px) {
@@ -9453,7 +9459,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
   body.in-space .subnav .nav-left > .join-call i {
     font-size: 18px;
-    color: var(--ok);
+    color: var(--status-ok-mark);
   }
 
   body.in-space .join-call-more {

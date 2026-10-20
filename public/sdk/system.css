@@ -1,20 +1,18 @@
 /* system.css -- the design system's shared stylesheet (documentation/plans/plan-design-system.md, "Migration plan", step 2 and step 10).
    contract: 1
 
-   STATE: tokens, colour roles and font faces only. NOTHING in the product reads them yet, so loading this file changes no pixel.
-   Later steps move one component family at a time onto these names. No element rules, no component rules, no `body` or `input`.
+   STATE: tokens, colour roles and font faces only. The colour roles are live (the old colour tokens in style.css are defined from
+   them); nothing else here is read by the product yet. Later steps move one component family at a time onto these names. No element rules, no component rules, no `body` or `input`.
 
    Loaded by every app page AFTER style.css and theme.css (so it can only add names, never beat a rule), and by in-page modules
    through module-host.js (their `:root` blocks are dropped there; the tokens reach a shadow root by inheriting from the page).
    This file never redefines an existing token. Already defined elsewhere and kept there: --radius-min/small/medium/large/round
    (style.css and host.css; check-radius), --z-menu (26) and --toolbar-h (34px) (style.css).
 
-   Colour roles are written in terms of TODAY's tokens (--bg, --bg-section, --bg-card, --bg-input, --text, --text-dim, --border,
-   --accent, --on-accent and the rest), so each role resolves to the value the product draws today for that job, in every theme and
-   both modes. Where nothing equivalent exists today (warn, info, tooltip, scrim, disabled) the role takes the Colour family's
-   proposed formula (proposed-colour.js). A later step (theme-css.js, step 8) will write the base roles and these lines will be
-   reversed. Hard-coded colours are not allowed in this file except the keywords black, white and transparent used in mixes
-   (tools/check-system-css.mjs).
+   Colour roles are written in terms of the BASE roles the theme sets (step 8), by the Colour family's named formulas
+   (proposed-colour.js); no role reads an old token. The base roles' defaults are in style.css, where the old tokens that files not
+   yet moved still read are defined from the roles (deleted when the last consumer moves, step 36). Hard-coded colours are not
+   allowed in this file except the keywords black, white and transparent used in mixes (tools/check-system-css.mjs).
 
    Breakpoints. A media query cannot read a custom property, so the three widths are written out wherever they are used:
      BREAKPOINTS: 640 900 1200
@@ -110,87 +108,91 @@
   --bottom-bar-h: 54px;
   --bottom-bar-total: calc(var(--bottom-bar-h) + var(--safe-bottom));
 
-  /* ================= Colour roles, in terms of today's tokens ================= */
+  /* ================= Colour roles =================
+     BASE roles are set by the theme and have their default (Strong Coffee dark) in public/style.css, where a page that loads
+     only that file still finds them: surface-page, surface-panel, edge-hairline, text-primary, text-muted, accent-fill,
+     text-on-accent and the two fixed status fills (status-danger-fill, status-ok-fill). /theme.css (server/theme-css.js) writes
+     the active theme's over them, and writes the colours it PICKS itself (public/theme-colour.js): text-on-accent when the
+     theme's own does not reach 4.5:1, text-accent, status-<k>-text, status-<k>-on-fill, status-ok-mark. The roles below are
+     DERIVED: named formulas in terms of those, so a theme that sets seven colours gets all of them. A role a theme may also set
+     (surface-card, surface-bar-top, text-bar, ...; server/store.js THEME_OPTIONAL) is a formula here until it does.
+     The formulas of those optional roles are repeated in public/theme-colour.js AUTO_CSS (tools/check-system-css.mjs holds them equal).
+     The roles marked FALLBACK below are the ones /theme.css picks: the formula is only what a page has when no /theme.css came. */
 
   /* Surfaces */
-  --surface-page: var(--bg);
-  --surface-panel: var(--bg-section);
-  --surface-card: var(--bg-card);
-  --surface-field: var(--bg-input);
-  --surface-menu: var(--bg-card); /* .host-menu and .sdk-menu draw --bg-card today */
+  --surface-card: color-mix(in srgb, var(--surface-panel) 92%, var(--text-primary));
+  --surface-field: color-mix(in srgb, var(--surface-page) 85%, var(--edge-hairline));
+  --surface-menu: color-mix(in srgb, var(--surface-panel) 96%, var(--text-primary));
   --surface-popover: var(--surface-menu);
-  --surface-toast: var(--bg-section); /* .toast */
-  --surface-tooltip: var(--text); /* new: the inverse of the page */
-  --surface-chat-message: color-mix(in srgb, var(--text) 5%, transparent); /* .message */
-  --surface-chat-own: color-mix(in srgb, var(--accent) 10%, transparent); /* .message.own */
-  --surface-titlebar: var(--bg-section); /* .mod-header draws no fill of its own; it sits on the module's panel */
-  --surface-toolbar: var(--shade); /* .mod-toolbar */
-  --surface-bar-top: var(--nav-primary-bg);
-  --surface-bar-nav: var(--nav-secondary-bg);
-  --surface-bar-brand: var(--nav-brand-bg);
-  --surface-bar-right: var(--nav-right-bg);
-  --surface-canvas: var(--bg);
-  --surface-track: var(--bg-section); /* the scrollbar track */
+  --surface-toast: var(--surface-card);
+  --surface-tooltip: var(--text-primary); /* the inverse of the page */
+  --surface-chat-message: var(--surface-field);
+  --surface-chat-own: color-mix(in srgb, var(--accent-fill) 22%, transparent);
+  --surface-titlebar: var(--surface-field);
+  --surface-toolbar: var(--surface-field);
+  --surface-bar-top: var(--surface-page);
+  --surface-bar-nav: var(--surface-page);
+  --surface-bar-brand: color-mix(in srgb, var(--surface-bar-top) 97%, black);
+  --surface-bar-right: color-mix(in srgb, var(--surface-bar-top) 97%, black);
+  --surface-canvas: var(--surface-page);
+  --surface-track: color-mix(in srgb, var(--surface-panel) 88%, var(--text-primary)); /* a scrollbar or progress track */
 
   /* Text and icons */
-  --text-primary: var(--text);
-  --text-muted: var(--text-dim);
-  --text-disabled: color-mix(in srgb, var(--text-dim) 55%, transparent); /* new: the proposed formula */
-  --text-bar: var(--header-text);
-  --text-on-accent: var(--on-accent);
-  --text-accent: var(--accent); /* a link is the accent today */
-  --text-link: var(--accent);
-  --text-selected: var(--text); /* a selected tab or row keeps the body text on its fill today */
-  --text-tooltip: var(--bg); /* new */
-  --icon-default: var(--icon, var(--text-dim));
-  --icon-bar: var(--icon, var(--header-text));
+  --text-disabled: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  --text-bar: var(--text-primary);
+  --text-bar-brand: var(--text-bar);
+  --text-bar-right: var(--text-bar);
+  --text-on-secondary: var(--text-primary);
+  --text-accent: var(--accent-fill); /* FALLBACK: /theme.css writes the accent mixed with the least text colour that reaches 4.5:1 */
+  --text-link: var(--text-accent);
+  --text-selected: color-mix(in srgb, var(--accent-fill) 55%, var(--text-primary));
+  --text-tooltip: var(--surface-page);
+  --icon-default: var(--text-muted);
+  --icon-bar: color-mix(in srgb, var(--text-bar) 75%, transparent);
 
   /* Edges */
-  --edge-hairline: var(--border);
-  --edge-field: var(--border); /* an input draws 1px --border today */
-  --edge-bar: var(--border);
-  --edge-menu: var(--border);
-  --scrollbar-thumb: var(--border);
+  --edge-field: color-mix(in srgb, var(--edge-hairline) 80%, var(--text-primary));
+  --edge-bar: var(--edge-hairline);
+  --edge-menu: var(--edge-hairline);
+  --scrollbar-thumb: var(--text-muted);
 
   /* Interaction */
-  --accent-fill: var(--accent);
-  --accent-fill-hover: var(--accent-hover);
-  --fill-hover: color-mix(in srgb, var(--accent) 14%, transparent); /* the menu item hover */
-  --fill-selected: var(--selected-bg);
-  --fill-today: color-mix(in srgb, var(--accent) 14%, transparent); /* the proposed formula */
-  --fill-secondary: var(--secondary);
-  --fill-secondary-hover: var(--secondary-hover);
-  --focus-ring: var(--accent);
-  --overlay-scrim: color-mix(in srgb, var(--bg) 70%, transparent); /* new: the proposed formula */
+  --accent-fill-hover: color-mix(in srgb, var(--accent-fill) 85%, white);
+  --fill-hover: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --fill-selected: color-mix(in srgb, var(--accent-fill) 28%, transparent);
+  --fill-today: color-mix(in srgb, var(--accent-fill) 14%, transparent);
+  --fill-secondary: var(--surface-card);
+  --fill-secondary-hover: color-mix(in srgb, var(--surface-card) 94%, var(--text-primary));
+  --focus-ring: var(--accent-fill);
+  --overlay-scrim: color-mix(in srgb, var(--surface-page) 70%, transparent);
   --shadow-color: color-mix(in srgb, black 35%, transparent);
 
-  /* Status. Danger and OK are today's --danger and --ok. Warn and Info are the gold and blue category tints, which are exactly the
-     proposed defaults in both modes (#d9a93c and #94680a; #6aa6e8 and #2a62b0). */
-  --status-danger-fill: var(--danger);
-  --status-danger-text: var(--danger-text);
-  --status-danger-tint: color-mix(in srgb, var(--status-danger-fill) 12%, transparent);
-  --status-danger-on-fill: var(--on-danger);
-  --status-ok-fill: var(--ok);
-  --status-ok-text: var(--ok);
-  --status-ok-tint: color-mix(in srgb, var(--status-ok-fill) 12%, transparent);
-  --status-ok-on-fill: var(--on-danger); /* "the glyph on a solid --danger or --ok button" */
+  /* Status. Each has a fill (a base the theme may set; Auto is danger and ok from style.css and warn and info the gold and blue
+     category tints, which change with the mode), readable text, a soft background and the colour of text on the fill. */
   --status-warn-fill: var(--tint-gold);
-  --status-warn-text: color-mix(in srgb, var(--status-warn-fill) 70%, var(--text)); /* the fill with 30% text colour */
-  --status-warn-tint: color-mix(in srgb, var(--status-warn-fill) 12%, transparent);
-  --status-warn-on-fill: var(--bg);
   --status-info-fill: var(--tint-blue);
-  --status-info-text: color-mix(in srgb, var(--status-info-fill) 70%, var(--text));
+  --status-danger-text: color-mix(in srgb, var(--status-danger-fill) 70%, var(--text-primary)); /* FALLBACK: /theme.css writes the pick */
+  --status-danger-tint: color-mix(in srgb, var(--status-danger-fill) 12%, transparent);
+  --status-danger-on-fill: white; /* FALLBACK: /theme.css writes white or near-black, whichever reaches 4.5:1 */
+  --status-ok-text: color-mix(in srgb, var(--status-ok-fill) 70%, var(--text-primary)); /* FALLBACK */
+  --status-ok-tint: color-mix(in srgb, var(--status-ok-fill) 12%, transparent);
+  --status-ok-on-fill: var(--surface-page); /* FALLBACK */
+  --status-ok-mark: var(--status-ok-fill); /* the OK colour for a bar or a dot; FALLBACK: /theme.css writes the darker mix that reaches 3:1 */
+  --status-warn-text: color-mix(in srgb, var(--status-warn-fill) 70%, var(--text-primary)); /* FALLBACK */
+  --status-warn-tint: color-mix(in srgb, var(--status-warn-fill) 12%, transparent);
+  --status-warn-on-fill: var(--surface-page); /* FALLBACK */
+  --status-info-text: color-mix(in srgb, var(--status-info-fill) 70%, var(--text-primary)); /* FALLBACK */
   --status-info-tint: color-mix(in srgb, var(--status-info-fill) 12%, transparent);
-  --status-info-on-fill: var(--bg);
+  --status-info-on-fill: var(--surface-page); /* FALLBACK */
 }
 
 /* Light mode: the shadows are the text colour at a low strength, so one is never a black smudge on a pale page. The same two selectors
    the tints use in style.css (the stylesheet's light set, or the environment's light default with no pick). */
 :root[data-theme-mode="light"],
 :root[data-mode-shown="light"]:not([data-theme-mode="dark"]) {
-  --shadow-1: 0 1px 4px color-mix(in srgb, var(--text) 8%, transparent);
-  --shadow-2: 0 2px 8px color-mix(in srgb, var(--text) 10%, transparent);
-  --shadow-3: 0 4px 16px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-1: 0 1px 4px color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --shadow-2: 0 2px 8px color-mix(in srgb, var(--text-primary) 10%, transparent);
+  --shadow-3: 0 4px 16px color-mix(in srgb, var(--text-primary) 10%, transparent);
   --shadow-color: color-mix(in srgb, black 10%, transparent);
 }
 

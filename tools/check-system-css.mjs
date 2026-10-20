@@ -2,16 +2,22 @@
 /*
  * check-system-css.mjs -- the design system's shared stylesheet, public/sdk/system.css (plan-design-system.md, migration plan, steps 2 and 10).
  *
- * Step 2 adds the file with tokens, colour roles and font faces ONLY: nothing in the product reads them, so loading it changes no
- * pixel. This check holds that:
+ * The file holds tokens, colour roles and font faces ONLY. Since step 8 the colour roles are live: the theme sets the base roles
+ * (server/theme-css.js), system.css derives the rest by named formulas, and the old colour tokens that unmoved files read are defined
+ * from the roles in style.css. This check holds that:
  *   1. The file parses (balanced braces, every declaration ends) and holds no raw colour: no hex, and the only rgb()/rgba() are the
  *      approved shadow and scrim defaults. Mixes use the keywords black, white and transparent.
  *   2. The approved tokens equal the approved values: spacing, type scale, weights, leading, tracking, shadows, scrim, layers,
  *      motion, icon sizes, breakpoints (and the three widths written out in the file's comment) and the layout tokens.
- *   3. Every approved colour role exists, and none of the tokens it defines collides with a token defined anywhere else.
+ *   3. Every colour role exists (the base roles in style.css, the rest here), none of the tokens defined here collides with a token
+ *      defined anywhere else, no role here reads an old token, the Auto formulas the theme editor sets (public/theme-colour.js
+ *      AUTO_CSS) are the formulas written here, and the Auto status fills are style.css's.
  *   4. Browser (Chromium over its DevTools protocol, as tools/check-design-system.mjs does; skipped, said so, when there is none):
  *      with the real style.css, the real /theme.css rules of the three shipped themes in light and dark, and system.css, every colour
- *      role resolves to a computed colour, and each role that has an equivalent today resolves to the very value that token has.
+ *      role resolves to a computed colour; each old token that is defined from a role equals it; a theme that sets a role the old
+ *      token has its own default for (the card, the secondary fills, the icon) reaches the old token too; and the picked colours
+ *      reach their contrast on the computed colours (text on the accent 4.5 unless flagged, text on each status fill 4.5, the accent
+ *      and each status colour as text 4.5, the OK mark and the scrollbar thumb 3).
  *   5. Fonts: the faces exist, are not applied (no font-family in the product reads --font-ui or --font-display yet), and a normal page
  *      load requests no font file. The font files and their licences are served.
  */
@@ -86,37 +92,58 @@ if (!/BREAKPOINTS: 640 900 1200/.test(raw)) fail('system.css: the header comment
 for (const m of css.matchAll(/@media[^{]*\((?:max|min)-width:\s*(\d+)px\)/g)) if (![640, 900, 1200].includes(Number(m[1]))) fail(`system.css: a media query at ${m[1]}px is not one of 640, 900, 1200`);
 // The light-mode shadows are the text colour at 8, 10 and 10 percent.
 const lightShadow = (n) => (defs.get(n) || [])[1];
-if (lightShadow('--shadow-1') !== '0 1px 4px color-mix(in srgb, var(--text) 8%, transparent)') fail('--shadow-1 light value changed');
-if (lightShadow('--shadow-2') !== '0 2px 8px color-mix(in srgb, var(--text) 10%, transparent)') fail('--shadow-2 light value changed');
-if (lightShadow('--shadow-3') !== '0 4px 16px color-mix(in srgb, var(--text) 10%, transparent)') fail('--shadow-3 light value changed');
+if (lightShadow('--shadow-1') !== '0 1px 4px color-mix(in srgb, var(--text-primary) 8%, transparent)') fail('--shadow-1 light value changed');
+if (lightShadow('--shadow-2') !== '0 2px 8px color-mix(in srgb, var(--text-primary) 10%, transparent)') fail('--shadow-2 light value changed');
+if (lightShadow('--shadow-3') !== '0 4px 16px color-mix(in srgb, var(--text-primary) 10%, transparent)') fail('--shadow-3 light value changed');
 
 // ---- 3. the colour roles ----
-const ROLES = [
-  'surface-page', 'surface-panel', 'surface-card', 'surface-field', 'surface-menu', 'surface-popover', 'surface-toast', 'surface-tooltip', 'surface-chat-message', 'surface-chat-own',
+const TC = require('../public/theme-colour.js');
+const { DEFAULT_THEME } = require('../server/store.js');
+// The base roles a theme sets, with the default (Strong Coffee dark) in style.css, plus the two status fills that are not tints.
+const BASE = ['surface-page', 'surface-panel', 'edge-hairline', 'text-primary', 'text-muted', 'accent-fill', 'text-on-accent', 'status-danger-fill', 'status-ok-fill'];
+// The roles system.css derives (formulas), some of which /theme.css also writes (the picks) or a theme may set.
+const DERIVED = [
+  'surface-card', 'surface-field', 'surface-menu', 'surface-popover', 'surface-toast', 'surface-tooltip', 'surface-chat-message', 'surface-chat-own',
   'surface-titlebar', 'surface-toolbar', 'surface-bar-top', 'surface-bar-nav', 'surface-bar-brand', 'surface-bar-right', 'surface-canvas', 'surface-track',
-  'text-primary', 'text-muted', 'text-disabled', 'text-bar', 'text-on-accent', 'text-accent', 'text-link', 'text-selected', 'text-tooltip', 'icon-default', 'icon-bar',
-  'edge-hairline', 'edge-field', 'edge-bar', 'edge-menu', 'scrollbar-thumb',
-  'accent-fill', 'accent-fill-hover', 'fill-hover', 'fill-selected', 'fill-today', 'fill-secondary', 'fill-secondary-hover', 'focus-ring', 'overlay-scrim', 'shadow-color',
-  ...['danger', 'ok', 'warn', 'info'].flatMap((k) => ['fill', 'text', 'tint', 'on-fill'].map((p) => `status-${k}-${p}`)),
+  'text-disabled', 'text-bar', 'text-bar-brand', 'text-bar-right', 'text-on-secondary', 'text-accent', 'text-link', 'text-selected', 'text-tooltip', 'icon-default', 'icon-bar',
+  'edge-field', 'edge-bar', 'edge-menu', 'scrollbar-thumb',
+  'accent-fill-hover', 'fill-hover', 'fill-selected', 'fill-today', 'fill-secondary', 'fill-secondary-hover', 'focus-ring', 'overlay-scrim', 'shadow-color',
+  'status-warn-fill', 'status-info-fill', 'status-ok-mark',
+  ...['danger', 'ok', 'warn', 'info'].flatMap((k) => ['text', 'tint', 'on-fill'].map((p) => `status-${k}-${p}`)),
 ];
-for (const r of ROLES) if (!defs.has(`--${r}`)) fail(`colour role --${r} is missing`);
-// What each role equals today: the token (or expression) the product draws for that job. Roles not listed are new-only (they take the
-// proposed formula) or are compared against a mix written the same way.
-const TODAY = {
-  'surface-page': 'var(--bg)', 'surface-panel': 'var(--bg-section)', 'surface-card': 'var(--bg-card)', 'surface-field': 'var(--bg-input)', 'surface-menu': 'var(--bg-card)',
-  'surface-popover': 'var(--bg-card)', 'surface-toast': 'var(--bg-section)', 'surface-chat-message': 'color-mix(in srgb, var(--text) 5%, transparent)',
-  'surface-chat-own': 'color-mix(in srgb, var(--accent) 10%, transparent)', 'surface-titlebar': 'var(--bg-section)', 'surface-toolbar': 'var(--shade)',
-  'surface-bar-top': 'var(--nav-primary-bg)', 'surface-bar-nav': 'var(--nav-secondary-bg)', 'surface-bar-brand': 'var(--nav-brand-bg)', 'surface-bar-right': 'var(--nav-right-bg)',
-  'surface-canvas': 'var(--bg)', 'surface-track': 'var(--bg-section)',
-  'text-primary': 'var(--text)', 'text-muted': 'var(--text-dim)', 'text-bar': 'var(--header-text)', 'text-on-accent': 'var(--on-accent)', 'text-accent': 'var(--accent)',
-  'text-link': 'var(--accent)', 'text-selected': 'var(--text)', 'icon-default': 'var(--icon, var(--text-dim))', 'icon-bar': 'var(--icon, var(--header-text))',
-  'edge-hairline': 'var(--border)', 'edge-field': 'var(--border)', 'edge-bar': 'var(--border)', 'edge-menu': 'var(--border)', 'scrollbar-thumb': 'var(--border)',
-  'accent-fill': 'var(--accent)', 'accent-fill-hover': 'var(--accent-hover)', 'fill-hover': 'color-mix(in srgb, var(--accent) 14%, transparent)', 'fill-selected': 'var(--selected-bg)',
-  'fill-secondary': 'var(--secondary)', 'fill-secondary-hover': 'var(--secondary-hover)', 'focus-ring': 'var(--accent)',
-  'status-danger-fill': 'var(--danger)', 'status-danger-text': 'var(--danger-text)', 'status-danger-on-fill': 'var(--on-danger)',
-  'status-ok-fill': 'var(--ok)', 'status-ok-text': 'var(--ok)', 'status-ok-on-fill': 'var(--on-danger)',
-  'status-warn-fill': 'var(--tint-gold)', 'status-info-fill': 'var(--tint-blue)',
-};
+const ROLES = [...BASE, 'icon-hover', ...DERIVED]; // icon-hover is a role too, defined in style.css beside the icon tokens
+const styleDefs = new Map();
+for (const m of read('public/style.css').replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[a-z0-9-]+)\s*:\s*([^;{}]+);/g)) {
+  if (!styleDefs.has(m[1])) styleDefs.set(m[1], []);
+  styleDefs.get(m[1]).push(m[2].trim().replace(/\s+/g, ' '));
+}
+for (const r of BASE) {
+  if (!styleDefs.has(`--${r}`)) fail(`base role --${r} is not defined in style.css (its default is there)`);
+  if (defs.has(`--${r}`)) fail(`base role --${r} is defined in system.css; its default belongs in style.css`);
+}
+if (!styleDefs.has('--icon-hover')) fail('--icon-hover (a role a theme may set) is not defined in style.css');
+for (const r of DERIVED) if (!defs.has(`--${r}`)) fail(`derived colour role --${r} is missing from system.css`);
+// The base defaults in style.css are Strong Coffee's dark set.
+for (const key of Object.keys(DEFAULT_THEME.dark)) if (styleDefs.get(`--${key}`)?.[0] !== DEFAULT_THEME.dark[key]) fail(`style.css --${key} is ${styleDefs.get(`--${key}`)?.[0]}, Strong Coffee's dark set says ${DEFAULT_THEME.dark[key]}`);
+// The Auto status fills the server and the editor use are the ones style.css draws.
+{
+  const [dangerDark, okDark] = [styleDefs.get('--status-danger-fill')?.[0], styleDefs.get('--status-ok-fill')?.[0]];
+  if (dangerDark !== TC.STATUS_AUTO.dark.danger || dangerDark !== TC.STATUS_AUTO.light.danger) fail(`Auto danger fill: style.css ${dangerDark}, theme-colour.js ${TC.STATUS_AUTO.dark.danger}`);
+  if (okDark !== TC.STATUS_AUTO.dark.ok || okDark !== TC.STATUS_AUTO.light.ok) fail(`Auto ok fill: style.css ${okDark}, theme-colour.js ${TC.STATUS_AUTO.dark.ok}`);
+  for (const [k, tint] of [['warn', '--tint-gold'], ['info', '--tint-blue']]) {
+    const [dark, light] = styleDefs.get(tint) || [];
+    if (dark !== TC.STATUS_AUTO.dark[k] || light !== TC.STATUS_AUTO.light[k]) fail(`Auto ${k} fill: style.css ${tint} is ${dark} / ${light}, theme-colour.js ${TC.STATUS_AUTO.dark[k]} / ${TC.STATUS_AUTO.light[k]}`);
+  }
+}
+// The formulas the editor sets for an Auto field are the formulas written for the role.
+for (const [role, formula] of Object.entries(TC.AUTO_CSS)) {
+  const written = (defs.get(`--${role}`) || styleDefs.get(`--${role}`) || [])[0];
+  if (written !== formula) fail(`--${role}: theme-colour.js AUTO_CSS says "${formula}", the stylesheet says "${written}"`);
+}
+// The old colour tokens (defined in style.css from the roles, deleted when their last consumer moves) are not read by a role here.
+const OLD_COLOUR = ['--bg', '--bg-section', '--bg-card', '--bg-input', '--text', '--text-dim', '--border', '--accent', '--on-accent', '--header-bg', '--header-text',
+  '--nav-primary-bg', '--nav-brand-bg', '--nav-brand-text', '--nav-right-bg', '--nav-right-text', '--selected-bg', '--danger', '--ok', '--on-danger', '--danger-text',
+  '--accent-hover', '--primary-hover', '--secondary', '--secondary-text', '--secondary-hover', '--surface', '--surface-hover', '--shade', '--icon'];
 // Collisions: a token system.css defines must not be defined in any other stylesheet or by the theme writer.
 {
   const others = new Map();
@@ -127,12 +154,14 @@ const TODAY = {
     walk(dir);
   }
   for (const f of files) for (const m of read(f).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[a-z0-9-]+)\s*:/g)) note(m[1], f);
-  for (const m of read('server/theme-css.js').matchAll(/'(--[a-z0-9-]+)'/g)) note(m[1], 'server/theme-css.js');
+  for (const f of ['server/theme-css.js', 'public/theme-colour.js']) for (const m of read(f).matchAll(/'(--[a-z0-9-]+)'/g)) note(m[1], f);
   for (const n of defs.keys()) if (others.has(n)) fail(`${n} is defined in system.css and in ${others.get(n)}`);
-  // Every var(--x) system.css reads is defined: in itself or in today's stylesheets/theme (the old tokens it is written in terms of).
+  // Every var(--x) system.css reads is defined (in itself or in style.css, where the base roles are) and is not an old colour token.
   const known = new Set([...defs.keys(), ...others.keys()]);
-  const optionalToday = new Set(['--icon']); // read with a fallback
-  for (const m of css.matchAll(/var\((--[a-z0-9-]+)/g)) if (!known.has(m[1]) && !optionalToday.has(m[1])) fail(`system.css reads ${m[1]}, which is defined nowhere`);
+  for (const m of css.matchAll(/var\((--[a-z0-9-]+)/g)) {
+    if (!known.has(m[1])) fail(`system.css reads ${m[1]}, which is defined nowhere`);
+    if (OLD_COLOUR.includes(m[1])) fail(`system.css reads the old token ${m[1]}; the roles are written in terms of the base roles`);
+  }
 }
 
 // ---- fonts: files and faces ----
@@ -236,27 +265,72 @@ if (!problems.length) {
         const r = await fetch(`${server.base}/fonts/${f}`); if (!r.ok) fail(`/fonts/${f} is not served (${r.status})`);
       }
       // The colour roles, in every shipped theme and both modes.
-      const probe = `(${function probe(roles, today, themeRules) {
+      const probe = `(${function probe(roles, themeRules, flagged, legacy) {
         const out = [];
         const style = document.createElement('style'); document.head.appendChild(style);
         const outer = document.createElement('div'); outer.style.color = 'rgb(1, 2, 3)'; // a role that does not resolve inherits this
         const inner = document.createElement('div'); outer.appendChild(inner); document.body.appendChild(outer);
         const colour = (expr) => { inner.style.color = ''; inner.style.cssText = `color: ${expr}`; return getComputedStyle(inner).color; };
+        const parse = (c) => {
+          const n = (c.match(/-?[\d.]+(?:e-?\d+)?%?/g) || []).map((x) => (x.endsWith('%') ? parseFloat(x) / 100 : parseFloat(x)));
+          const k = /^color\(/.test(c) ? 255 : 1;
+          return { r: n[0] * k, g: n[1] * k, b: n[2] * k, a: n.length > 3 ? n[3] : 1 };
+        };
+        const over = (f, b) => ({ r: f.r * f.a + b.r * (1 - f.a), g: f.g * f.a + b.g * (1 - f.a), b: f.b * f.a + b.b * (1 - f.a), a: 1 });
+        const lum = (c) => { const f = (v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
+        const ratio = (a, b) => { const x = lum(a); const y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+        const role = (r) => parse(colour(`var(--${r})`));
+        // Each old token that is defined from a role equals the role (a theme that sets none of the roles that have their own old default).
+        const SAME = [['--bg', '--surface-page'], ['--bg-section', '--surface-panel'], ['--border', '--edge-hairline'], ['--text', '--text-primary'], ['--text-dim', '--text-muted'],
+          ['--accent', '--accent-fill'], ['--on-accent', '--text-on-accent'], ['--bg-input', '--surface-field'], ['--shade', '--surface-field'], ['--bg-card', '--surface-field'],
+          ['--selected-bg', '--fill-selected'], ['--header-bg', '--surface-bar-top'], ['--header-text', '--text-bar'], ['--nav-brand-bg', '--surface-bar-brand'],
+          ['--nav-right-bg', '--surface-bar-right'], ['--nav-brand-text', '--text-bar-brand'], ['--nav-right-text', '--text-bar-right'], ['--accent-hover', '--accent-fill-hover'],
+          ['--primary-hover', '--accent-fill-hover'], ['--secondary-text', '--text-on-secondary'], ['--danger', '--status-danger-fill'], ['--ok', '--status-ok-fill'],
+          ['--danger-text', '--status-danger-text'], ['--on-danger', '--status-danger-on-fill'], ['--icon-hover', '--accent-fill']];
         for (const [theme, rules] of themeRules) {
           for (const mode of ['light', 'dark']) {
+            const at = `${theme} ${mode}`;
             style.textContent = rules; document.documentElement.setAttribute('data-theme-mode', mode);
             for (const r of roles) {
               const got = colour(`var(--${r})`);
-              if (got === 'rgb(1, 2, 3)' || !/^(rgb|color)/.test(got)) out.push(`${theme} ${mode}: --${r} does not resolve (${got})`);
-              if (today[r]) { const want = colour(today[r]); if (got !== want) out.push(`${theme} ${mode}: --${r} is ${got}, today's ${today[r]} is ${want}`); }
+              if (got === 'rgb(1, 2, 3)' || !/^(rgb|color)/.test(got)) out.push(`${at}: --${r} does not resolve (${got})`);
             }
+            for (const [old, r] of SAME) { const a = colour(`var(${old})`); const b = colour(`var(${r})`); if (a !== b) out.push(`${at}: ${old} is ${a}, ${r} is ${b}`); }
+            // The picked colours, on the colours the browser computes.
+            const page = role('surface-page'); const panel = role('surface-panel');
+            const min = (what, fg, bg, need) => { const x = ratio(fg.a < 1 ? over(fg, bg) : fg, bg); if (x < need - 0.005) out.push(`${at}: ${what} is ${x.toFixed(2)} : 1, needs ${need}`); };
+            if (!flagged[`${at}|accent`]) min('text on the accent', role('text-on-accent'), role('accent-fill'), 4.5);
+            min('the accent as text on the page', role('text-accent'), page, 4.5);
+            min('the accent as text on a panel', role('text-accent'), panel, 4.5);
+            for (const k of ['danger', 'ok', 'warn', 'info']) {
+              const text = role(`status-${k}-text`);
+              min(`the ${k} colour as text on the page`, text, page, 4.5);
+              min(`the ${k} colour as text on a panel`, text, panel, 4.5);
+              min(`the ${k} colour as text on its tint`, text, over(role(`status-${k}-tint`), panel), 4.5);
+              if (!flagged[`${at}|${k}`]) min(`text on the ${k} fill`, role(`status-${k}-on-fill`), role(`status-${k}-fill`), 4.5);
+            }
+            min('the OK mark on the page', role('status-ok-mark'), page, 3);
+            min('the OK mark on a panel', role('status-ok-mark'), panel, 3);
+            min('the scrollbar thumb on its track', role('scrollbar-thumb'), role('surface-track'), 3);
           }
         }
+        // A theme that sets the roles whose old token has a default of its own reaches the old token too.
+        style.textContent = legacy.rules; document.documentElement.setAttribute('data-theme-mode', 'dark');
+        for (const [old, want] of legacy.expect) { const got = colour(`var(${old})`); if (got !== colour(want)) out.push(`legacy: ${old} is ${got}, the theme set ${want}`); }
         style.remove(); outer.remove(); document.documentElement.removeAttribute('data-theme-mode');
         return out;
       }})`;
       const themeRules = themes.map((t) => [t.name, themeCss({ light: t.light, dark: t.dark }, 'dark')]);
-      const bad = await ev(`JSON.stringify(${probe}(${JSON.stringify(ROLES.map((r) => r))}, ${JSON.stringify(TODAY)}, ${JSON.stringify(themeRules)}))`);
+      const flagged = {};
+      for (const t of themes) {
+        for (const mode of ['light', 'dark']) {
+          const got = t[mode] && TC.resolve(t[mode], mode);
+          for (const f of got?.flags || []) flagged[`${t.name} ${mode}|${/accent/.test(f) ? 'accent' : (/the (\w+) fill/.exec(f) || [])[1]}`] = true;
+        }
+      }
+      const legacySet = { ...DEFAULT_THEME.dark, 'surface-card': '#123456', 'fill-secondary': '#234567', 'fill-secondary-hover': '#345678', 'icon-default': '#456789' };
+      const legacy = { rules: themeCss({ light: null, dark: legacySet }, 'dark'), expect: [['--bg-card', '#123456'], ['--secondary', '#234567'], ['--secondary-hover', '#345678'], ['--icon', '#456789'], ['--surface-card', '#123456'], ['--fill-secondary', '#234567']] };
+      const bad = await ev(`JSON.stringify(${probe}(${JSON.stringify(ROLES)}, ${JSON.stringify(themeRules)}, ${JSON.stringify(flagged)}, ${JSON.stringify(legacy)}))`);
       for (const b of JSON.parse(bad)) fail(b);
     } finally {
       try { cdp.ws.close(); } catch { /* closing */ }

@@ -448,7 +448,7 @@ try {
 
   // --- addendum 2: templates grow (#68) -----------------------------------------------------------------------------
   const templateFile = require('../server/template-file.js');
-  const set = (over = {}) => ({ bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff', ...over });
+  const set = (over = {}) => ({ 'surface-page': '#ffffff', 'surface-panel': '#f5f7f8', 'edge-hairline': '#dde3e6', 'text-primary': '#222222', 'text-muted': '#6b7479', 'accent-fill': '#1c7c8c', 'text-on-accent': '#ffffff', ...over });
   const harbour = { name: 'Harbour', author: 'Thomas', light: set(), dark: null };
   const grown = (over = {}) => ({ ...structuredClone(travelRaw), id: 'harbour', name: 'Harbour', version: 1, reactions: [{ id: 'wave', glyph: '👋', label: 'Wave' }], theme: harbour, ...over });
 
@@ -458,10 +458,10 @@ try {
     assert.deepEqual(problems(grown({ version: 0 })), ['"version" must be a whole number, 1 or more.']);
     assert.deepEqual(problems(grown({ reactions: [{ label: 'x' }] })), ['reactions[0]: each reaction needs a glyph of 1 to 8 characters.']);
     assert.deepEqual(problems(grown({ reactions: [{ glyph: '👋', size: 3 }] })), ['reactions[0]: a reaction takes only id, glyph and label.']);
-    assert.deepEqual(problems(grown({ theme: { ...harbour, light: set({ bg: 'red; background: url(x)' }) } })), ['theme: This theme has no complete light or dark set: each needs all seven base colors.']);
+    assert.deepEqual(problems(grown({ theme: { ...harbour, light: set({ 'surface-page': 'red; background: url(x)' }) } })), ['theme: This theme has no complete light or dark set: each needs all seven base colors.']);
     assert.deepEqual(problems(grown({ theme: { ...harbour, glow: 1 } })), ['theme: "glow" is not part of a theme.']);
     const clean = templates.cleanTemplate(grown());
-    assert.deepEqual([clean.version, clean.reactions[0].id, clean.theme.name, clean.theme.author, clean.theme.light.bg], [1, 'wave', 'Harbour', 'Thomas', '#ffffff']);
+    assert.deepEqual([clean.version, clean.reactions[0].id, clean.theme.name, clean.theme.author, clean.theme.light['surface-page']], [1, 'wave', 'Harbour', 'Thomas', '#ffffff']);
     const unversioned = structuredClone(travelRaw);
     delete unversioned.version;
     assert.equal(templates.cleanTemplate(unversioned).version, 1, 'a file without a version is version 1');

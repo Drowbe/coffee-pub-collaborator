@@ -2,7 +2,7 @@
 /*
  * check-themes.mjs -- themes as files (documentation/plans/plan-themes.md, GitHub #67): server/theme-file.js and
  * Store.importTheme on their own, then a real server on a throwaway DATA_DIR:
- *   - every built-in and Strong Coffee exports with all twenty keys per set and imports back to the same colors,
+ *   - every built-in and Strong Coffee exports with every key per set and imports back to the same colors,
  *     named "(2)", and /theme.css with the import applied says what it said with the original;
  *   - each refusal in the plan's order, with its sentence: over 16 KB, not JSON, not an object, format not "theme" or
  *     formatVersion not a whole number, a marker from before the formats were named by kind (plan-kind-names.md), a newer
@@ -44,7 +44,7 @@ const test = async (name, fn) => {
   }
 };
 const EVIL = 'red; background: url(x)';
-const set = (over = {}) => ({ bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff', ...over });
+const set = (over = {}) => ({ 'surface-page': '#ffffff', 'surface-panel': '#f5f7f8', 'edge-hairline': '#dde3e6', 'text-primary': '#222222', 'text-muted': '#6b7479', 'accent-fill': '#1c7c8c', 'text-on-accent': '#ffffff', ...over });
 const file = (over = {}) => ({ format: 'theme', formatVersion: 1, name: 'Harbour', author: 'Thomas', light: set(), dark: null, ...over });
 // The old-format theme fixture (tools/fixtures/format-old/), found by its kind so no product name is written here.
 const OLD_DIR = path.join(ROOT, 'tools', 'fixtures', 'format-old');
@@ -63,12 +63,12 @@ await test('export: every key of each set, null for Auto and for a set the theme
     const out = tf.themeToFile(theme);
     assert.deepEqual(Object.keys(out), ['format', 'formatVersion', 'name', 'light', 'dark']);
     assert.deepEqual([out.format, out.formatVersion], ['theme', 1]);
-    for (const mode of ['light', 'dark']) assert.deepEqual(Object.keys(out[mode]), tf.SET_KEYS, `${id} ${mode}: twenty keys`);
+    for (const mode of ['light', 'dark']) assert.deepEqual(Object.keys(out[mode]), tf.SET_KEYS, `${id} ${mode}: every key`);
   }
   const coffee = tf.themeToFile(null);
   assert.equal(coffee.name, 'Strong Coffee');
-  assert.equal(coffee.dark.bg, DEFAULT_THEME.dark.bg);
-  assert.equal(coffee.dark.secondary, null);
+  assert.equal(coffee.dark['surface-page'], DEFAULT_THEME.dark['surface-page']);
+  assert.equal(coffee.dark['fill-secondary'], null);
   const one = tf.themeToFile({ name: 'Only light', light: set(), dark: null });
   assert.equal(one.dark, null);
   assert.equal(tf.themeFileName('Strong Coffee'), 'strong-coffee.theme.json');
@@ -101,57 +101,58 @@ await test('import refusals, each with its sentence, in the plan\'s order', () =
   assert.equal(tf.NOT_A_THEME_FILE, `That isn't a ${PRODUCT} theme file.`);
   assert.equal(tf.NEWER, `This theme was made by a newer version of ${PRODUCT}.`);
   assert.throws(read(file({ light: null })), refusedWith(tf.NO_COMPLETE_SET));
-  assert.throws(read(file({ light: set({ accent: undefined }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color missing');
-  assert.throws(read(file({ light: set({ accent: EVIL }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color that is CSS');
+  assert.throws(read(file({ light: set({ 'accent-fill': undefined }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color missing');
+  assert.throws(read(file({ light: set({ 'accent-fill': EVIL }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color that is CSS');
   assert.throws(read(file({ light: 'red' })), refusedWith(tf.NO_COMPLETE_SET));
+  // A file whose sets use the keys from before the colour roles has no complete set: it is not read.
+  const earlier = { bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff' };
+  assert.throws(read(file({ light: earlier, dark: earlier })), refusedWith(tf.NO_COMPLETE_SET), 'the earlier key names');
 });
 
 await test('import: unknown keys dropped and named; a bad color drops its set or goes back to Auto; name and author cleaned', () => {
-  const got = tf.readThemeFile({ ...file({ dark: set({ bg: EVIL }), light: { ...set({ secondary: EVIL, icon: '#ABCDEF' }), glow: '#ffffff', bgCard: '#000000' } }), font: 'Comic Sans' }, sanitize);
-  assert.deepEqual(got.dropped, ['font', 'light.glow', 'light.bgCard', 'light.secondary', 'dark']);
+  const got = tf.readThemeFile({ ...file({ dark: set({ 'surface-page': EVIL }), light: { ...set({ 'fill-secondary': EVIL, 'icon-default': '#ABCDEF' }), glow: '#ffffff', bgCard: '#000000' } }), font: 'Comic Sans' }, sanitize);
+  assert.deepEqual(got.dropped, ['font', 'light.glow', 'light.bgCard', 'light.fill-secondary', 'dark']);
   assert.equal(got.dark, null);
-  assert.equal(got.light.secondary, null, 'CSS in an optional color is Auto');
-  assert.equal(got.light.icon, '#abcdef');
+  assert.equal(got.light['fill-secondary'], null, 'CSS in an optional color is Auto');
+  assert.equal(got.light['icon-default'], '#abcdef');
   assert.equal(got.author, 'Thomas');
   const named = tf.readThemeFile(file({ name: `  ${'N'.repeat(50)}  `, author: `A\u0007b${'c'.repeat(80)}` }), sanitize);
   assert.equal(named.name.length, 40);
   assert.equal(named.author.length, 60);
   assert.ok(!/\p{Cc}/u.test(named.author));
-  const bare = tf.readThemeFile({ format: 'theme', formatVersion: 1, dark: set({ bg: '#10181b' }) }, sanitize);
-  assert.deepEqual([bare.name, 'author' in bare, bare.light, bare.dark.bg, bare.dropped], ['Theme', false, null, '#10181b', []]);
+  const bare = tf.readThemeFile({ format: 'theme', formatVersion: 1, dark: set({ 'surface-page': '#10181b' }) }, sanitize);
+  assert.deepEqual([bare.name, 'author' in bare, bare.light, bare.dark['surface-page'], bare.dropped], ['Theme', false, null, '#10181b', []]);
   assert.deepEqual(tf.readThemeFile(file({ name: 5, author: ['x'] }), sanitize).dropped, ['name', 'author']);
 });
 
-const NAV = { navBrandBg: '#102030', navBrandText: '#f0e0d0', navRightBg: '#203040', navRightText: '#e0d0c0' };
-await test('the nav keys: in every exported set; a file with them round-trips; a bad one goes back to Auto and is named; formatVersion stays 1', () => {
-  for (const key of Object.keys(NAV)) assert.ok(tf.SET_KEYS.includes(key), key);
+const NAV = { 'surface-bar-brand': '#102030', 'text-bar-brand': '#f0e0d0', 'surface-bar-right': '#203040', 'text-bar-right': '#e0d0c0' };
+const STATUS = { 'status-danger-fill': '#aa2222', 'status-ok-fill': '#22aa22', 'status-warn-fill': '#aaaa22', 'status-info-fill': '#2222aa' };
+await test('the top bar keys and the four status fills: in every exported set; a file with them round-trips; a bad one goes back to Auto and is named; formatVersion stays 1', () => {
+  for (const key of [...Object.keys(NAV), ...Object.keys(STATUS)]) assert.ok(tf.SET_KEYS.includes(key), key);
   assert.equal(tf.THEME_FILE_VERSION, 1);
-  const got = tf.readThemeFile(file({ light: set(NAV), dark: set({ bg: '#10181b', navRightBg: '#ABCDEF' }) }), sanitize);
+  const got = tf.readThemeFile(file({ light: set({ ...NAV, ...STATUS }), dark: set({ 'surface-page': '#10181b', 'surface-bar-right': '#ABCDEF', 'status-ok-fill': '#00AA00' }) }), sanitize);
   assert.deepEqual(got.dropped, []);
-  for (const [key, value] of Object.entries(NAV)) assert.equal(got.light[key], value, key);
-  assert.deepEqual([got.dark.navRightBg, got.dark.navBrandBg], ['#abcdef', null]);
+  for (const [key, value] of Object.entries({ ...NAV, ...STATUS })) assert.equal(got.light[key], value, key);
+  assert.deepEqual([got.dark['surface-bar-right'], got.dark['surface-bar-brand'], got.dark['status-ok-fill'], got.dark['status-warn-fill']], ['#abcdef', null, '#00aa00', null]);
   const out = tf.themeToFile({ name: 'Harbour', light: got.light, dark: got.dark });
   assert.equal(out.formatVersion, 1);
   assert.deepEqual(tf.readThemeFile(JSON.stringify(out), sanitize).light, got.light, 'export then import: the same set');
-  const bad = tf.readThemeFile(file({ light: set({ ...NAV, navBrandBg: EVIL, navRightText: 'blue' }) }), sanitize);
-  assert.deepEqual(bad.dropped, ['light.navBrandBg', 'light.navRightText']);
-  assert.deepEqual([bad.light.navBrandBg, bad.light.navRightText, bad.light.navBrandText], [null, null, NAV.navBrandText]);
+  const bad = tf.readThemeFile(file({ light: set({ ...NAV, 'surface-bar-brand': EVIL, 'text-bar-right': 'blue', 'status-info-fill': EVIL }) }), sanitize);
+  assert.deepEqual(bad.dropped, ['light.surface-bar-brand', 'light.text-bar-right', 'light.status-info-fill']);
+  assert.deepEqual([bad.light['surface-bar-brand'], bad.light['text-bar-right'], bad.light['text-bar-brand'], bad.light['status-info-fill']], [null, null, NAV['text-bar-brand'], null]);
 });
 
-await test('a theme file, a template\'s theme and the bundled templates without the nav keys still load, on Auto', () => {
-  const older = tf.readThemeFile(file(), sanitize); // file() is a theme file as an older server wrote it: none of the four
-  assert.deepEqual(older.dropped, []);
-  for (const key of Object.keys(NAV)) assert.equal(older.light[key], null, key);
+await test('a theme file, a template\'s theme and the bundled templates that set none of the optional keys still load, on Auto', () => {
+  const plain = tf.readThemeFile(file(), sanitize); // file() sets only the seven base colours
+  assert.deepEqual(plain.dropped, []);
+  for (const key of [...Object.keys(NAV), ...Object.keys(STATUS)]) assert.equal(plain.light[key], null, key);
   const templates = require('../server/templates.js');
   const embedded = templates.readEmbeddedTheme({ name: 'Trip', light: set(), dark: null });
   assert.deepEqual(embedded.dropped, []);
   for (const key of Object.keys(NAV)) assert.equal(embedded.theme.light[key], null, key);
-  for (const f of fs.readdirSync(path.join(ROOT, 'templates')).filter((x) => x.endsWith('.json'))) {
-    assert.ok(!/"nav(Brand|Right)(Bg|Text)"/.test(fs.readFileSync(path.join(ROOT, 'templates', f), 'utf8')), `${f} sets none of the nav keys`);
-  }
   for (const id of BUILTIN_THEME_IDS) {
     const theme = store.themes.find((t) => t.id === id);
-    for (const mode of ['light', 'dark']) for (const key of Object.keys(NAV)) assert.ok(theme[mode][key] == null, `${id} ${mode} ${key}`);
+    for (const mode of ['light', 'dark']) for (const key of [...Object.keys(NAV), ...Object.keys(STATUS)]) assert.ok(theme[mode][key] == null, `${id} ${mode} ${key}`);
   }
   for (const mode of ['light', 'dark']) for (const key of Object.keys(NAV)) assert.ok(DEFAULT_THEME[mode][key] == null, `Strong Coffee ${mode} ${key}`);
 });
@@ -325,35 +326,29 @@ try {
       await apply(theme.id);
       const again = modeBlocks(await css());
       assert.deepEqual(again.light, original.light, `${id}: the light block`);
-      if (id === 'default') {
-        // Strong Coffee's dark set is style.css's own :root, so the original writes nothing for it; the import writes
-        // that very palette out.
-        assert.deepEqual(original.dark, {});
-        const root = fs.readFileSync(path.join(ROOT, 'public', 'style.css'), 'utf8');
-        for (const [prop, value] of Object.entries(again.dark)) assert.ok(root.includes(`${prop}: ${value};`), `${prop}: ${value} is style.css's own`);
-        assert.equal(Object.keys(again.dark).length, 7);
-      } else {
-        assert.deepEqual(again.dark, original.dark, `${id}: the dark block`);
-      }
+      assert.deepEqual(again.dark, original.dark, `${id}: the dark block`);
+      // Every set is written whole now, Strong Coffee's dark one too: the seven base colours and the picks.
+      for (const mode of ['light', 'dark']) for (const prop of ['--surface-page', '--text-on-accent', '--text-accent', '--status-danger-text', '--status-ok-mark']) assert.ok(original[mode][prop], `${id} ${mode} ${prop}`);
     }
     await apply(null);
   });
 
-  await test('live: the nav keys -- set with PATCH, written to /theme.css, a bad one back on Auto; exported and imported back the same', async () => {
+  await test('live: the top bar and status keys -- set with PATCH, written to /theme.css, a bad one back on Auto; exported and imported back the same', async () => {
     const made = await call('POST', '/api/themes', { body: { name: 'Nav', mode: 'light', ...set() } });
     assert.equal(made.status, 200, made.text);
     const id = made.json.theme.id;
     await apply(id);
     const before = modeBlocks(await css());
-    assert.ok(!Object.keys(before.light).some((p) => p.startsWith('--nav-')), 'none set, none written');
-    const patched = await call('PATCH', `/api/themes/${id}`, { body: { mode: 'light', ...NAV, navRightText: EVIL } });
+    assert.ok(!Object.keys(before.light).some((p) => p.startsWith('--surface-bar-') || p.startsWith('--text-bar-') || /^--status-[a-z]+-fill$/.test(p)), 'none set, none written');
+    const patched = await call('PATCH', `/api/themes/${id}`, { body: { mode: 'light', ...NAV, 'text-bar-right': EVIL, 'status-warn-fill': '#AAAA22' } });
     assert.equal(patched.status, 200, patched.text);
-    assert.deepEqual([patched.json.theme.light.navBrandBg, patched.json.theme.light.navRightText], [NAV.navBrandBg, null]);
+    assert.deepEqual([patched.json.theme.light['surface-bar-brand'], patched.json.theme.light['text-bar-right'], patched.json.theme.light['status-warn-fill']], [NAV['surface-bar-brand'], null, '#aaaa22']);
     const after = modeBlocks(await css());
-    assert.deepEqual([after.light['--nav-brand-bg'], after.light['--nav-brand-text'], after.light['--nav-right-bg'], after.light['--nav-right-text']], [NAV.navBrandBg, NAV.navBrandText, NAV.navRightBg, undefined]);
+    assert.deepEqual([after.light['--surface-bar-brand'], after.light['--text-bar-brand'], after.light['--surface-bar-right'], after.light['--text-bar-right'], after.light['--status-warn-fill']], [NAV['surface-bar-brand'], NAV['text-bar-brand'], NAV['surface-bar-right'], undefined, '#aaaa22']);
+    assert.notEqual(after.light['--status-warn-text'], before.light['--status-warn-text'], 'the text picked for the status colour follows its fill');
     const exported = (await call('GET', `/api/themes/${id}/export`)).json;
     assert.equal(exported.formatVersion, 1);
-    assert.deepEqual([exported.light.navBrandBg, exported.light.navRightText], [NAV.navBrandBg, null]);
+    assert.deepEqual([exported.light['surface-bar-brand'], exported.light['text-bar-right'], exported.light['status-warn-fill']], [NAV['surface-bar-brand'], null, '#aaaa22']);
     const imported = await call('POST', '/api/themes/import', { body: exported });
     assert.equal(imported.status, 200, imported.text);
     assert.deepEqual(imported.json.dropped, []);
@@ -380,7 +375,7 @@ try {
       [JSON.stringify(file({ formatVersion: 2 })), 'application/json', tf.NEWER],
       ...oldThemeFiles().flatMap((old) => [[old, 'application/json', tf.OLD_THEME_FILE], [old, 'text/plain', tf.OLD_THEME_FILE]]),
       [JSON.stringify({ ...file(), format: undefined, formatVersion: undefined, someTheme: 1 }), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify(file({ light: set({ bg: EVIL }) })), 'application/json', tf.NO_COMPLETE_SET],
+      [JSON.stringify(file({ light: set({ 'surface-page': EVIL }) })), 'application/json', tf.NO_COMPLETE_SET],
       [JSON.stringify(file({ light: null, dark: null })), 'text/plain', tf.NO_COMPLETE_SET],
     ];
     for (const [body, type, sentence] of cases) {
@@ -394,23 +389,23 @@ try {
   });
 
   await test('live: a hand-edited file -- an unknown key, CSS in a color, no dark set -- comes in with what was dropped, and no CSS reaches /theme.css', async () => {
-    const edited = { format: 'theme', formatVersion: 1, name: 'Harbour', author: 'Thomas', font: 'x', light: { ...set({ secondary: EVIL, headerBg: '#123456' }), glow: EVIL }, dark: { ...set({ accent: EVIL }) } };
+    const edited = { format: 'theme', formatVersion: 1, name: 'Harbour', author: 'Thomas', font: 'x', light: { ...set({ 'fill-secondary': EVIL, 'surface-bar-top': '#123456' }), glow: EVIL }, dark: { ...set({ 'accent-fill': EVIL }) } };
     const r = await call('POST', '/api/themes/import', { body: edited });
     assert.equal(r.status, 200, r.text);
-    assert.deepEqual(r.json.dropped, ['font', 'light.glow', 'light.secondary', 'dark']);
-    assert.deepEqual([r.json.theme.name, r.json.theme.author, r.json.theme.dark, r.json.theme.light.secondary, r.json.theme.light.headerBg], ['Harbour', 'Thomas', null, null, '#123456']);
+    assert.deepEqual(r.json.dropped, ['font', 'light.glow', 'light.fill-secondary', 'dark']);
+    assert.deepEqual([r.json.theme.name, r.json.theme.author, r.json.theme.dark, r.json.theme.light['fill-secondary'], r.json.theme.light['surface-bar-top']], ['Harbour', 'Thomas', null, null, '#123456']);
     const listed = (await call('GET', '/api/themes')).json.themes.find((t) => t.id === r.json.theme.id);
     assert.equal(listed.author, 'Thomas', 'GET /api/themes answers the author');
     await apply(r.json.theme.id);
     const text = await css();
     assert.ok(!/url\(|background:|;\s*;|red/.test(text), text);
-    assert.ok(text.includes('--header-bg: #123456;'));
-    for (const line of text.split('\n').filter((l) => l.includes(': ') && !l.startsWith('/*'))) assert.match(line, /^ {2}--[a-z-]+: #[0-9a-f]{6};$/, line);
+    assert.ok(text.includes('--surface-bar-top: #123456;'));
+    for (const line of text.split('\n').filter((l) => l.includes(': ') && !l.trim().startsWith('/*'))) assert.match(line, /^ {2}--[a-z-]+: #[0-9a-f]{6};$/, line);
     // Imported twice: the second is "Harbour (2)"; exported again, it still names its author.
     const second = await call('POST', '/api/themes/import', { body: edited });
     assert.equal(second.json.theme.name, 'Harbour (2)');
     const back = (await call('GET', `/api/themes/${r.json.theme.id}/export`)).json;
-    assert.deepEqual([back.name, back.author, back.dark, back.light.secondary], ['Harbour', 'Thomas', null, null]);
+    assert.deepEqual([back.name, back.author, back.dark, back.light['fill-secondary']], ['Harbour', 'Thomas', null, null]);
     await apply(null);
   });
 

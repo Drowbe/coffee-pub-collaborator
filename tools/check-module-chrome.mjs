@@ -299,7 +299,7 @@ test('the styles: --status-bar-h 24px in both sheets, one line, tokens only', ()
   assert.match(sdkCss, /--status-bar-h: 24px;/);
   const block = css.slice(css.indexOf('/* mod-chrome:start'), css.indexOf('/* mod-chrome:end */'));
   assert.ok(block.length > 100, 'the block is there');
-  assert.match(block, /\.mod-status \{[^}]*height: var\(--status-bar-h\);[^}]*border-top: 1px solid var\(--border\);[^}]*color: var\(--text-dim\);[^}]*font-size: 12px;[^}]*white-space: nowrap;/);
+  assert.match(block, /\.mod-status \{[^}]*height: var\(--status-bar-h\);[^}]*border-top: 1px solid var\(--border\);[^}]*color: var\(--text-dim\);[^}]*font-size: var\(--text-12\);[^}]*white-space: nowrap;/);
   assert.ok(!/\.mod-status \{[^}]*background/.test(block), 'no colour of its own');
   assert.match(block, /\.mod-status\[hidden\] \{\s*display: none;/);
   assert.match(block, /\.mod-status-text \{[^}]*text-overflow: ellipsis;/);

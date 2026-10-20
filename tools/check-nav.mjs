@@ -1844,7 +1844,8 @@ test('the top bar is two zones: no middle centred from 1001px, the phone\'s plac
   // Their names keep the nav text in the branding's zone: the wordmark's larger size is the environment's name's alone
   // (no `.brand span` rule reaching every word in the zone, which the old `font-size: inherit` resets undid one by one).
   assert.ok(!/(^|\n)\.brand span \{/.test(css), 'no rule sizes every span in the branding\'s zone');
-  assert.match(css, /\n\.brand > span\[data-brand="environmentName"\],\n\.topbar \.brand-name \{\n\s*font-size: 17px;/, 'only the environment\'s name, the wordmark, is larger');
+  assert.match(css, /\n\.brand > span\[data-brand="environmentName"\],\n\.topbar \.brand-name \{\n\s*font-family: var\(--font-display\);\n\s*font-size: var\(--text-18\);\n\s*font-weight: var\(--weight-strong\);/, 'only the environment\'s name, the wordmark, is larger: Fraunces 600 at 18px (C3)');
+  assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.brand > span\[data-brand="environmentName"\],\n\s*\.topbar \.brand-name \{\n\s*font-family: var\(--font-ui\);\n\s*font-size: var\(--text-16\);/, 'below 640px the wordmark is Figtree at 16px (C3)');
   assert.match(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'), /el\.title = tool\.label;/, 'and keep their name as the tooltip');
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(navSrc, /const lookOf = \(t\) => \(t\.bar === 'primary' && t\.zone === 'left' \? 'core'/, 'the core links\' look in the top bar\'s left zone');
@@ -2569,7 +2570,7 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
 // size or weight of its own. The environment's name (the wordmark) is the one larger word, by Thomas's decision.
 test('one nav text: the tokens set once, one rule, every element tool with words wears it, no one-off sizes', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  for (const token of ['--nav-font-size: 13px;', '--nav-font-weight: 600;', '--nav-letter-spacing: normal;', '--nav-line-height: normal;']) {
+  for (const token of ['--nav-font-size: var(--text-13);', '--nav-font-weight: var(--weight-strong);', '--nav-letter-spacing: normal;', '--nav-line-height: normal;']) {
     assert.equal(css.split(token).length - 1, 1, `${token} set once`);
   }
   assert.match(css, /\n\.nav-text,\n\.btn\.nav-text,\n\.core-link \{\n\s*font-family: inherit;\n\s*font-size: var\(--nav-font-size\);\n\s*font-weight: var\(--nav-font-weight\);\n\s*letter-spacing: var\(--nav-letter-spacing\);\n\s*line-height: var\(--nav-line-height\);\n\}/, 'the one rule: the layout tabs\' type (.core-link) and .nav-text, a labelled button\'s too');

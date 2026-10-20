@@ -3000,6 +3000,7 @@ app.use('/fa/css', express.static(path.join(faProDir, 'css'), { maxAge: '7d' }),
 const fontHeaders = { maxAge: '30d', setHeaders: (res) => res.set('Access-Control-Allow-Origin', '*') };
 app.use('/fa/webfonts', express.static(path.join(faProDir, 'webfonts'), fontHeaders), express.static(path.join(faDir, 'webfonts'), fontHeaders));
 app.use('/fonts', express.static(path.join(publicDir, 'fonts'), fontHeaders));
+app.use('/fonts', (req, res) => res.status(404).type('text').send('not found')); // a missing font ends here, not in the environment routes
 
 // Background blur's own dependencies, all self-hosted for the same reason
 // livekit-client is: nothing this page needs is fetched from a CDN at

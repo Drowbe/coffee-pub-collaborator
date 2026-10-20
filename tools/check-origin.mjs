@@ -81,7 +81,7 @@ function call(method, sub, urlPath, { headers = {}, body, type = 'application/js
         let json = null;
         try { json = JSON.parse(text); } catch { /* not JSON */ }
         const cookies = (res.headers['set-cookie'] || []).map((c) => c.split(';')[0]);
-        resolve({ status: res.status || res.statusCode, json, text, cookies, location: res.headers.location });
+        resolve({ status: res.status || res.statusCode, json, text, cookies, location: res.headers.location, headers: res.headers });
       });
     });
     req.on('error', reject);
@@ -190,6 +190,26 @@ try {
       assert.equal(r.status, 303, r.text);
       assert.equal(r.location, '/');
       assert.ok(r.cookies.some((c) => c.startsWith('app_session=')), 'signed in');
+    }
+  });
+  await test('/fonts: served on the bare base domain, a subdomain and the console; font files (and /fa/webfonts) send a wildcard CORS header, nothing else does', async () => {
+    for (const sub of ['', 'aaa', 'admin']) {
+      const r = await call('GET', sub, '/fonts/figtree/latin.woff2');
+      assert.equal(r.status, 200, `${sub || 'bare'} /fonts`);
+      assert.equal(r.headers['access-control-allow-origin'], '*', `${sub || 'bare'} CORS`);
+      assert.match(r.headers['cache-control'] || '', /max-age=2592000/, `${sub || 'bare'} cache`);
+    }
+    const fa = await call('GET', 'aaa', '/fa/webfonts/fa-solid-900.woff2');
+    assert.equal(fa.status, 200);
+    assert.equal(fa.headers['access-control-allow-origin'], '*');
+    // Other public files stay shut on the bare base domain and carry no wildcard header anywhere.
+    for (const p of ['/app.js', '/sdk/host.js', '/fonts-other/x', '/fontsx/figtree/latin.woff2', '/fonts/nope.woff2']) {
+      assert.equal((await call('GET', '', p)).status, 404, `bare ${p}`);
+    }
+    for (const [sub, p] of [['aaa', '/style.css'], ['aaa', '/sdk/host.js'], ['', '/style.css'], ['', '/fa/css/all.min.css']]) {
+      const r = await call('GET', sub, p);
+      assert.equal(r.status, 200, `${sub || 'bare'} ${p}`);
+      assert.equal(r.headers['access-control-allow-origin'], undefined, `${p} must not carry the CORS header`);
     }
   });
 } finally {

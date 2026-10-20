@@ -131,7 +131,7 @@ function showModulePart(part) {
   const known = modulesLoaded ? moduleTabIds() : null;
   modulePart = !known || known.includes(part) ? part : 'config';
   $('module-part-config').hidden = modulePart !== 'config';
-  $('env-part-conference').hidden = modulePart !== 'conference';
+  $('module-part-conference').hidden = modulePart !== 'conference';
   $('module-part-ai').hidden = modulePart !== 'ai';
   $('module-part-module').hidden = ['config', 'conference', 'ai'].includes(modulePart);
   for (const b of $('module-subtabs').querySelectorAll('.subtab')) {
@@ -158,9 +158,9 @@ function selectTab(name) {
     part = name;
     name = 'environment';
   }
-  // The Modules tab's parts (#264): #modules/<id> a module's tab, #conference Conference's; #modules is Configuration.
+  // The Modules tab's parts (#264): #modules/<id> a module's tab (Conference's and the AI service's too); #modules is
+  // Configuration.
   let modPart = 'config';
-  if (name === 'conference') name = 'modules/conference';
   if (name && name.startsWith('modules/')) {
     modPart = decodeURIComponent(name.slice('modules/'.length)) || 'config';
     name = 'modules';

@@ -215,7 +215,7 @@
     <section class="tab-stack" id="tab-modules" hidden>
       <!-- The Modules tab's parts (#264), chosen in the page bar's row (the navigation inside a tab, page-tabs.js rowTabs):
            Configuration, then one tab per module that is on (and Conference while it is on), drawn by admin.js.
-           #modules opens Configuration; #modules/<module id> a module's tab; #conference Conference's. -->
+           #modules opens Configuration; #modules/<id> a module's tab (#modules/conference, #modules/ai). -->
       <nav class="subtabs" id="module-subtabs">
         <button class="subtab active" type="button" data-module-part="config">Configuration</button>
       </nav>
@@ -265,9 +265,9 @@
       </section>
       </div>
 
-      <!-- Conference's tab, while it is on: its card and its call features (moved here from the Environment tab's
-           Conference part, #261; #conference opens it). Every field keeps its id, its setting and its own Save. -->
-      <div class="tab-stack" id="env-part-conference" data-module-part="conference" hidden>
+      <!-- Conference's tab, while it is on (#modules/conference): its entry and its call features, the environment's own
+           (the personal ones are on Profile > Conference). -->
+      <div class="tab-stack" id="module-part-conference" data-module-part="conference" hidden>
         <div id="conference-card"></div>
         <div class="panel">
         <h2>Call features</h2>

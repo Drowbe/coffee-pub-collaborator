@@ -19,7 +19,7 @@
  *     of 28px or more is layout pushing parts apart (space-between, an auto margin) and is not judged. `gaps: false` leaves gaps out; `zero: true`
  *     allows 0 (parts that touch on purpose, such as a segmented control);
  *   - the selector matches nothing in a frame set (so a renamed class cannot silently pass).
- * Row options: row (selector), frame, skip (selector of children to leave out), only (selector: judge just these children), padding, gaps, zero,
+ * Row options: across (a selector of parts in different cells of the row that must share one centre line), row (selector), frame, skip (selector of children to leave out), only (selector: judge just these children), padding, gaps, zero,
  * centres (false: leave the centre test out, for a row whose parts are deliberately top-aligned columns), tol (px, default 1).
  */
 export async function alignRows(b, rows) {
@@ -82,6 +82,15 @@ const alignProbe = (specs) => {
             const cs = l.kids.map(centre); const lo = Math.min(...cs); const hi = Math.max(...cs);
             if (hi - lo > tol) out.problems.push(`${name}: the centre lines of its parts differ by ${fmt(hi - lo)}px (${l.kids.map((c, i) => `${c.className ? '.' + String(c.className).split(' ')[0] : c.tagName.toLowerCase()} ${fmt(cs[i] - rc.top)}`).join(', ')})`);
           }
+        }
+        if (sp.across) {
+          // Parts that sit in different cells of one row (the control of each example) share one centre line.
+          const parts = [...row.querySelectorAll(sp.across)].filter((e) => e.getBoundingClientRect().height > 0);
+          const cs2 = parts.map((e) => { const r2 = e.getBoundingClientRect(); return r2.top + r2.height / 2; });
+          if (cs2.length > 1) { const lo = Math.min(...cs2); const hi = Math.max(...cs2); if (hi - lo > tol && hi - lo < rc.height) {
+            // Wrapped lines of cells are judged line by line.
+            const rows2 = []; for (const e of parts) { const r2 = e.getBoundingClientRect(); const cy = r2.top + r2.height / 2; const l = rows2.find((x) => Math.abs(x.cy - cy) < 24); if (l) l.v.push(cy); else rows2.push({ cy, v: [cy] }); }
+            for (const l of rows2) { const a = Math.min(...l.v); const z = Math.max(...l.v); if (z - a > tol) out.problems.push(`${name}: ${sp.across} are not on one centre line (they differ by ${fmt(z - a)}px)`); } } }
         }
         if (sp.padding !== false) {
           const pl = parseFloat(rcs.paddingLeft); const pr = parseFloat(rcs.paddingRight); const pt = parseFloat(rcs.paddingTop); const pb = parseFloat(rcs.paddingBottom);

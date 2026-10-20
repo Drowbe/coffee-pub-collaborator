@@ -10,11 +10,14 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 
   // The example-page rules of this family's frames only. The anchor puts a static tooltip beside a control; the component itself is placed by script.
   const TP_CSS = `
-.pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
-.pm-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
+.pm-grid { display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px 24px; }
+.pm-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
 .pm-cell > small, .pm-cap { color: var(--text-dim); font-size: var(--text-11); font-weight: 700; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
-.pm-cap { margin: 0 0 6px; }
-.pm-anchor { position: relative; display: inline-block; margin: 44px 60px; }
+.pm-cap { margin: 0 0 8px; }
+.pm-anchor { position: relative; display: inline-block; margin: 0; }
+.pm-grid + .pm-grid { margin-top: 16px; }
+.pm-cell > .pm-slot { margin-top: auto; }
+.pm-slot { display: flex; align-items: center; justify-content: center; box-sizing: border-box; height: 100px; }
 .pm-anchor .sdk-tooltip { position: absolute; top: auto; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); }
 .pm-anchor .sdk-tooltip[data-placement="bottom"] { bottom: auto; top: calc(100% + 8px); }
 .pm-anchor .sdk-tooltip[data-placement="left"] { bottom: auto; top: 50%; left: auto; right: calc(100% + 8px); transform: translateY(-50%); }
@@ -39,19 +42,20 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const zoomBody = () => `<div class="ds-proposed"><div class="pm-zoom" style="padding:30px 60px 10px">${'<div style="position:relative;display:inline-block;padding-top:40px">'}${TIP('Bold', { keys: 'Ctrl+B', arrow: true, id: 'tz' }).replace('class="sdk-tooltip"', 'class="sdk-tooltip" style="position:absolute;left:50%;top:0;transform:translateX(-50%)"')}${IB('bold', 'Bold')}</div></div></div>`;
 
   const statesBody = () => `<div class="ds-proposed"><div class="pm-grid">
-    ${CELL('Hidden (rest)', `<div style="padding:8px 0">${IB('bold', 'Bold')}</div>`, 140)}
-    ${CELL('Shown on hover, after 500ms', `<div class="pm-anchor" style="margin:44px 50px 8px">${TIP('Bold')}${IB('bold', 'Bold', { force: 'ds-force-hover' })}</div>`, 160)}
-    ${CELL('Shown on keyboard focus, at once', `<div class="pm-anchor" style="margin:44px 50px 8px">${TIP('Italic')}${IB('italic', 'Italic', { force: 'ds-force-focus' })}</div>`, 160)}
-    ${CELL('With an arrow', `<div class="pm-anchor" style="margin:44px 50px 8px">${TIP('Underline', { arrow: true })}${IB('underline', 'Underline')}</div>`, 160)}
-    ${CELL('With a shortcut hint', `<div class="pm-anchor" style="margin:44px 70px 8px">${TIP('Bold', { keys: 'Ctrl+B', arrow: true })}${IB('bold', 'Bold')}</div>`, 200)}
-    ${CELL('Longest line: 240px, then it wraps', `<div class="pm-anchor" style="margin:80px 130px 8px">${TIP('Move this place to another day, or to the list of places not yet planned')}${IB('arrows-up-down-left-right', 'Move')}</div>`, 300)}
+    ${CELL('Hidden (rest)', `<div class="pm-slot"><div class="pm-anchor">${IB('bold', 'Bold')}</div></div>`, 140)}
+    ${CELL('Shown on hover, after 500ms', `<div class="pm-slot"><div class="pm-anchor">${TIP('Bold')}${IB('bold', 'Bold', { force: 'ds-force-hover' })}</div></div>`, 160)}
+    ${CELL('Shown on keyboard focus, at once', `<div class="pm-slot"><div class="pm-anchor">${TIP('Italic')}${IB('italic', 'Italic', { force: 'ds-force-focus' })}</div></div>`, 160)}
+    ${CELL('With an arrow', `<div class="pm-slot"><div class="pm-anchor">${TIP('Underline', { arrow: true })}${IB('underline', 'Underline')}</div></div>`, 160)}
+    ${CELL('With a shortcut hint', `<div class="pm-slot"><div class="pm-anchor">${TIP('Bold', { keys: 'Ctrl+B', arrow: true })}${IB('bold', 'Bold')}</div></div>`, 200)}
+  </div><div class="pm-grid">
+    ${CELL('Longest line: 240px, then it wraps', `<div class="pm-slot" style="height:136px"><div class="pm-anchor">${TIP('Move this place to another day, or to the list of places not yet planned')}${IB('arrows-up-down-left-right', 'Move')}</div></div>`, 300)}
   </div></div>`;
 
   const placeBody = () => `<div class="ds-proposed"><div class="pm-grid">
-    ${CELL('Top (the default)', `<div class="pm-anchor">${TIP('Search', { arrow: true })}${IB('magnifying-glass', 'Search')}</div>`, 200)}
-    ${CELL('Bottom (when the top is clipped)', `<div class="pm-anchor">${TIP('Search', { arrow: true, place: 'bottom' })}${IB('magnifying-glass', 'Search')}</div>`, 200)}
-    ${CELL('Left', `<div class="pm-anchor">${TIP('Search', { arrow: true, place: 'left' })}${IB('magnifying-glass', 'Search')}</div>`, 200)}
-    ${CELL('Right', `<div class="pm-anchor">${TIP('Search', { arrow: true, place: 'right' })}${IB('magnifying-glass', 'Search')}</div>`, 200)}
+    ${CELL('Top (the default)', `<div class="pm-slot"><div class="pm-anchor">${TIP('Search', { arrow: true })}${IB('magnifying-glass', 'Search')}</div></div>`, 200)}
+    ${CELL('Bottom (when the top is clipped)', `<div class="pm-slot"><div class="pm-anchor">${TIP('Search', { arrow: true, place: 'bottom' })}${IB('magnifying-glass', 'Search')}</div></div>`, 200)}
+    ${CELL('Left', `<div class="pm-slot"><div class="pm-anchor">${TIP('Search', { arrow: true, place: 'left' })}${IB('magnifying-glass', 'Search')}</div></div>`, 200)}
+    ${CELL('Right', `<div class="pm-slot"><div class="pm-anchor">${TIP('Search', { arrow: true, place: 'right' })}${IB('magnifying-glass', 'Search')}</div></div>`, 200)}
   </div></div>`;
 
   const truncBody = () => `<div class="ds-proposed"><div class="pm-grid">

@@ -9,6 +9,8 @@
  * when the text is not cut (or does not when it is); a contrast row under 4.5 to 1 (inverse text on the inverse fill); the family not marked Approved or its page naming
  * Tooltips as not yet decided. In the stylesheet: a hex colour, a one-sided border, a font under 11px, an inset shadow, a name that is not defined, a delay that is not 500ms.
  */
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'tooltips';
 export const todayOnly = ['sdk-tabs', 'sdk-tab', 'sdk-tab-icon', 'sdk-tab-glyph', 'sdk-tabs-joined'];
 
@@ -27,6 +29,12 @@ export async function browserChecks(b) {
   const { ev, sc, where, problems } = b;
   const r = JSON.parse(await ev(`(${tipsProbe.toString()})(${JSON.stringify({ width: sc.width, mode: sc.mode })})`));
   for (const x of r.problems) problems.push(`${where}: ${x}`);
+  // Alignment: the control of each example sits on one centre line; the label's padding is even; the toolbar's parts share a centre line, 8px apart.
+  await alignRows(b, [
+    { frame: /^Tooltips, (states|placement)$/, row: '.pm-grid', across: '.pm-slot .sdk-icon-btn', centres: false, padding: false, gaps: false },
+    { frame: 'Tooltips, states', row: '.sdk-tooltip', gaps: false },
+    { frame: /^Tooltips, (toolbar|on a phone)$/, row: '.pm-tbar', padding: false },
+  ]);
 }
 
 const tipsProbe = async (ctx) => {

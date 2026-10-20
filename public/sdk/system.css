@@ -218,7 +218,7 @@
 @font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }
 
 /* ================= Tabs and view switches (design system step 14) =================
-   tabs:start -- one component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
+   One component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
    (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Chat's Discussion | Assistant, Travel's
    ways to get there). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
    Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-joined (the view switch: tabs 2px apart, never scrolls, icons only
@@ -230,6 +230,7 @@
    Selected: aria-selected (a tab list), aria-pressed (a switch), aria-current="page" (a place), or .on / .active.
    Rest: no fill, no edge. Selected: --fill-selected with --text-selected. No accent solid, no underline, no coloured edge.
    Sizes: 38px (--btn-h when it is defined; 44px on a phone), small 30px (on a phone its look stays 30px and its hit area is 44px). */
+/* tabs:start */
 :root {
   --tab-h-small: 30px; /* also a top bar place outside a strip (.core-link in public/style.css) */
 }

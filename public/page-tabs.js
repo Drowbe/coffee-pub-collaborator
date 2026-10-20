@@ -1,7 +1,7 @@
 // A page's tabs in the top bar (issue #262: Manage's tabs; Profile's next, #263). The page keeps its own tab strip
 // (`<nav class="subtabs" id="subtabs">` with `.subtab[data-tab]` buttons, its ids, its classes and its own selectTab());
 // this only places that strip in the top bar's left zone, where a space's layout tabs sit, and makes it behave as they
-// do: the tab shown wears `aria-current="page"` (and the selected look, .layout-tabs in style.css), and when the bar is
+// do: the tab shown wears `aria-current="page"` (and the selected look, the Tabs component in public/sdk/system.css), and when the bar is
 // tight the tabs leave from the right into a "..." after the last one shown (tabOverflow() in primary-nav.js, the layout
 // tabs' rule: the first tab and the tab shown never leave), which opens the shared menu listing them. On a phone the
 // strip is not in the bar (as the layout tabs are not); each tab is an entry at the top of the header's menu instead,

@@ -619,6 +619,15 @@ function selectTab(name) {
   const tab = TABS.includes(name) ? name : 'environments';
   for (const t of TABS) { const el = $(`tab-${t}`); if (el) el.hidden = tab !== t; }
   for (const b of document.querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
+  // A strip wider than the page scrolls inside itself: bring the chosen tab into it, the page left as it is.
+  const strip = $('subtabs');
+  const on = strip.querySelector('.subtab.active');
+  if (on && strip.scrollWidth > strip.clientWidth) {
+    const t = on.getBoundingClientRect();
+    const s = strip.getBoundingClientRect();
+    if (t.left < s.left) strip.scrollLeft += t.left - s.left;
+    else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
+  }
   if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
 }
 $('subtabs').addEventListener('click', (event) => {

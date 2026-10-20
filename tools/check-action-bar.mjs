@@ -61,7 +61,8 @@ test('the styles: locked to the bottom, the safe area, tokens only, 44 px on a p
   assert.match(block, /\.action-bar \{[^}]*padding: 12px 16px calc\(12px \+ env\(safe-area-inset-bottom, 0px\)\);/, 'respects the safe area');
   assert.match(block, /\.action-bar \{[^}]*background: var\(--bg-section\);/);
   assert.match(block, /\.action-content \{[^}]*overflow-y: auto;/, 'the content scrolls above it');
-  assert.match(block, /@media \(max-width: 640px\) \{[\s\S]*min-height: 44px;/);
+  // 44 px on a phone is the Buttons block's --btn-h (system.css); the bar only shares the row out.
+  assert.match(block, /@media \(max-width: 640px\) \{[\s\S]*\.action-bar-buttons \.btn \{\s*flex: 1 1 0;/);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block) && !/rgba?\(/.test(block), 'tokens only');
 });
 

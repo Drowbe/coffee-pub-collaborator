@@ -325,7 +325,7 @@ test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and c
   // The "..." had the keyboard and hides (the bar grew): to a tool it held, else the left zone; never <body>.
   assert.match(fit, /wasFocused === fold\.more && fold\.more\.hidden/);
   assert.match(fit, /heldBefore\.has\(c\.dataset\.navTool\)/);
-  assert.match(src, /more\.className = 'sdk-more nav-more'/);
+  assert.match(src, /more\.className = 'sdk-icon-btn btn-quiet btn-small nav-more'/);
   const hm = fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8');
   assert.match(hm, /'menuitemcheckbox'/);
   assert.match(hm, /aria-checked/);
@@ -992,14 +992,13 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   // running; on a phone the tab reads "Start" or "Join"), the accent look and the Layout button's size, nothing new in
   // colour. Wider than a phone it sits at the right end of the chat's Discussion | Assistant row (#chat-views).
   assert.match(space, /joinCallButton\.id = 'join-call';/);
-  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/);
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-primary join-call nav-text';/);
   assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Start call'\);/);
   assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
   assert.match(space, /const verb = running \? 'Join' : 'Start';/, 'Join call while a call runs, Start call while none does');
   assert.match(space, /\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/, 'wider than a phone it is in the chat\'s view row');
   assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted \}\);/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /\n\.join-call \{/, 'its own size rule');
   assert.match(css, /\n\.join-call\[hidden\] \{\s*display: none;/, 'hidden means hidden, whatever its display');
   const own = [...css.matchAll(/([^{}]*\.join-call[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]).join('');
   assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(own), 'its rules use theme tokens only');
@@ -1346,7 +1345,7 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.match(css, /body\.in-space \.subnav:not\(:has\(> \.nav-left > :not\(\[hidden\], \[data-nav-divider\], \.nav-folded\)\)\):not\(:has\(> \.nav-right > :not\(\[hidden\], \[data-nav-divider\], \.nav-folded\)\)\) \{\n\s*display: none;/, 'the second row hides itself with nothing in it');
   assert.ok(css.indexOf('@media (min-width: 641px)') < css.indexOf('body.in-space .subnav:not(:has(> .nav-left'), 'wider than a phone only');
   assert.match(css, /\.subnav \.nav-folded,\n\.topbar > \.nav-right > \.nav-folded \{\n\s*display: none !important;/);
-  assert.match(css, /\.topbar > \.nav-right > \.sdk-more \{\n\s*width: 30px;\n\s*height: 30px;/);
+  assert.match(css, /\.topbar > \.nav-right > \.sdk-icon-btn,\n\.subnav \.sdk-icon-btn \{\n\s*--b-fg:/);
   assert.match(css, /\.topbar:has\(> \.nav-left > \.layout-tabs > \.layout-favorites-note:not\(\[hidden\]\)\) \{\n\s*z-index: var\(--z-menu\);/);
 });
 
@@ -2581,7 +2580,7 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   const people = fs.readFileSync(path.join(ROOT, 'public/space-people.js'), 'utf8');
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(space, /spaceSwitcherButton\.className = 'core-link space-switcher-button';/, 'the space switcher');
-  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/, 'Join the call');
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-primary join-call nav-text';/, 'Join the call');
   assert.match(space, /phaseChip\.className = 'phase-chip nav-text';/, 'the phase chip');
   assert.match(space, /name\.className = 'status-band-name nav-text';/, 'a band\'s name');
   assert.match(space, /statusToGo\.className = 'status-togo nav-text';/, 'the countdown chip\'s words');

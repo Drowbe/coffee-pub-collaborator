@@ -1572,7 +1572,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!head) fail('public/space.html', 'the column needs the call\'s titlebar (<header class="side-column-call-head" id="call-head">)');
   else {
     if (!/id="call-head-name">Call</.test(head)) fail('public/space.html', 'the call\'s titlebar reads Call (#call-head-name) until the environment names it');
-    if (!/<button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
+    if (!/<button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
   }
   if (html.indexOf('id="call-head"') > html.indexOf('id="side-column-strip"')) fail('public/space.html', 'the call\'s titlebar sits above the call (before #side-column-strip)');
   if (!/openHostMenu\(event\.currentTarget, callMenuItems\)/.test(spaceJs)) fail(F, 'the call\'s "..." opens on the shared menu (openHostMenu, callMenuItems)');

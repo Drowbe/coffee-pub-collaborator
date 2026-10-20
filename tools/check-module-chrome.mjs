@@ -268,14 +268,14 @@ test('the chrome: a "+" slot before "...", a labelled status region, moved (not 
 });
 
 test('popped out and on the module\'s own page: the "+" and the status bar (step 5)', () => {
-  assert.match(moduleHtml, /<span class="titlebar-custom" id="module-titlebar-custom"><\/span>\s*\n\s*<span class="titlebar-add" id="module-titlebar-add" hidden><\/span>\s*\n\s*<button class="sdk-more" id="module-menu"/, 'popped out: icon, name, tools, "+", "...", close');
+  assert.match(moduleHtml, /<span class="titlebar-custom" id="module-titlebar-custom"><\/span>\s*\n\s*<span class="titlebar-add" id="module-titlebar-add" hidden><\/span>\s*\n\s*<button class="sdk-icon-btn btn-quiet btn-small" id="module-menu"/, 'popped out: icon, name, tools, "+", "...", close');
   assert.match(moduleHtml, /<div class="mod-status module-status" id="module-status" role="region" aria-label="Status" hidden><\/div>/, 'a labelled status region under the module');
   assert.match(moduleJs, /const add = popout \? \$\('module-titlebar-add'\) : pageAddSlot\(mod\);/, 'the titlebar popped out, the page bar on the own page');
   assert.match(moduleJs, /status\.setAttribute\('aria-label', `\$\{mod\.name\} status`\);/);
   assert.match(moduleJs, /nav\.register\(\{ id: 'page-bar-add', bar: 'secondary', zone: 'right',[^}]*fold: false, element: slot \}\);/, 'the page bar\'s "+" through the nav registry, never folded');
   assert.ok(/\n    add,\n    status,\n/.test(moduleJs), 'the mount gets both');
   assert.match(css, /body\.module-page \.module-status \{[^}]*height: calc\(var\(--status-bar-h\) \+ env\(safe-area-inset-bottom, 0px\)\);[^}]*padding-bottom: env\(safe-area-inset-bottom, 0px\);/, 'clear of the home indicator');
-  assert.match(css, /body\.module-popout \.module-titlebar \.mod-add,\s*\n\s*body\.module-popout \.module-titlebar \.msg-btn,\s*\n\s*\.page-bar-add \.mod-add \{[^}]*width: 44px;/, '44 px on a phone');
+  assert.match(css, /body\.module-popout \.module-titlebar \.mod-add,\s*\n\s*body\.module-popout \.module-titlebar \.sdk-icon-btn,\s*\n\s*\.page-bar-add \.mod-add \{[^}]*width: 44px;/, '44 px on a phone');
 });
 
 test('no bundled module calls host.bar.set (every one draws the "+")', () => {
@@ -307,7 +307,7 @@ test('the styles: --status-bar-h 24px in both sheets, one line, tokens only', ()
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block) && !/rgba?\(/.test(block), 'tokens only');
 });
 
-test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding above or below, its buttons 28px (Thomas, 2026-10-13: "too much top and bottom padding")', () => {
+test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding above or below, its buttons 30px (Thomas, 2026-10-13: "too much top and bottom padding")', () => {
   const css = read('public/style.css');
   assert.match(css, /--module-header-h: var\(--module-header-phone-h, 34px\);/, 'the one token: 34px wider than a phone');
   assert.match(css, /@media \(max-width: 640px\) \{\n\s*:root \{\n\s*--module-header-phone-h: 42px;/, 'a phone keeps its 42px touch height');
@@ -318,8 +318,8 @@ test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding a
   assert.match(head, /height: var\(--module-header-h\);/);
   assert.match(head, /padding: 0 6px 0 10px;/, 'no padding above or below: the height is the token\'s alone');
   assert.match(rule('.chat header'), /height: var\(--module-header-h\);[\s\S]*padding: 0 8px 0 12px;/, 'the chat\'s header lines up with it');
-  // Nothing in a titlebar may be taller than the 28px buttons (the "...", the "+", Close): 3px above and below.
-  assert.match(rule('.sdk-more'), /height: 28px;/);
+  // Nothing in a titlebar may be taller than the small buttons (the "...", the "+", Close): 2px above and below.
+  assert.match(read('public/sdk/system.css'), /--btn-h-small: 30px;/);
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sel = m[1].trim();
     if (!/\.mod-header|\.module-floating-head|\.module-titlebar/.test(sel) || /\.canvas\.narrow/.test(sel)) continue;

@@ -97,6 +97,7 @@
   --btn-pad-x: var(--space-4);
   --btn-font: var(--text-14);
   --btn-icon: var(--icon-16);
+  --btn-hit: calc((var(--btn-h-small) - 44px) / 2); /* how far a small button's hit area grows past its box on a phone */
 
   /* ---- Breakpoints, documented (see the comment at the top: not usable in @media) ---- */
   --bp-narrow: 640px;
@@ -336,7 +337,7 @@
 .sdk-btn.primary {
   --b-bg: var(--accent-fill);
   --b-bg-h: var(--accent-fill-hover);
-  --b-bg-a: color-mix(in srgb, black 14%, var(--accent-fill-hover));
+  --b-bg-a: color-mix(in srgb, var(--accent-fill) 80%, var(--text-on-accent));
   --b-fg: var(--text-on-accent);
   --b-fg-h: var(--text-on-accent);
   --b-bd: transparent;
@@ -354,8 +355,8 @@
 /* The solid red: only a final confirm (Delete for good, Leave). */
 .btn-danger.solid {
   --b-bg: var(--status-danger-fill);
-  --b-bg-h: color-mix(in srgb, var(--status-danger-fill) 82%, white);
-  --b-bg-a: color-mix(in srgb, var(--status-danger-fill) 82%, black);
+  --b-bg-h: color-mix(in srgb, var(--status-danger-fill) 82%, var(--status-danger-on-fill));
+  --b-bg-a: color-mix(in srgb, var(--status-danger-fill) 70%, var(--status-danger-text));
   --b-fg: var(--status-danger-on-fill);
   --b-fg-h: var(--status-danger-on-fill);
 }
@@ -392,11 +393,11 @@
   .btn-small::after {
     content: "";
     position: absolute;
-    inset: -7px 0;
+    inset: var(--btn-hit) 0;
   }
 
   .sdk-icon-btn.btn-small::after {
-    inset: -7px;
+    inset: var(--btn-hit);
   }
 }
 

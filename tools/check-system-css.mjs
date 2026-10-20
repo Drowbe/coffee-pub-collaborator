@@ -157,7 +157,9 @@ const OLD_COLOUR = ['--bg', '--bg-section', '--bg-card', '--bg-input', '--text',
     const walk = (d) => { for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== 'node_modules') walk(p); } else if (/\.(css|html)$/.test(e.name) && !p.includes(`${path.sep}design${path.sep}`)) files.push(p); } };
     walk(dir);
   }
-  for (const f of files) for (const m of read(f).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[a-z0-9-]+)\s*:/g)) note(m[1], f);
+  // The Buttons block's per-button properties (--b-*, --btn-h) are meant to be set on one button by a rule that lays it out.
+  const PER_BUTTON = /^--(b-(bg|bg-h|bg-a|fg|fg-h|bd)|btn-h)$/;
+  for (const f of files) for (const m of read(f).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[a-z0-9-]+)\s*:/g)) if (!PER_BUTTON.test(m[1])) note(m[1], f);
   for (const f of ['server/theme-css.js', 'public/theme-colour.js']) for (const m of read(f).matchAll(/'(--[a-z0-9-]+)'/g)) note(m[1], f);
   for (const n of defs.keys()) if (others.has(n)) fail(`${n} is defined in system.css and in ${others.get(n)}`);
   // Every var(--x) system.css reads is defined (in itself or in style.css, where the base roles are) and is not an old colour token.

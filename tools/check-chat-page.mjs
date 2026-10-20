@@ -1144,8 +1144,8 @@ test('the composer: the Discussion has no paste box; the Assistant has no format
   for (const gone of ['chat-import-text', 'chat-import-show', 'Paste the whole answer here', 'id="chat-import"']) assert.ok(!html.includes(gone), `${gone} is gone`);
   const tag = (id) => new RegExp(`<[a-z]+ [^>]*id="${id}"[^>]*>`).exec(html)?.[0] || '';
   for (const id of ['chat-pic', 'chat-bold', 'chat-italic', 'chat-code', 'chat-list']) assert.match(tag(id), /data-for="discussion"/, `${id} is the Discussion's`);
-  assert.match(html, /data-for="discussion">\s*<button class="msg-btn" id="chat-emoji"/);
-  assert.match(html, /data-for="discussion">\s*<button class="msg-btn" id="chat-help"/, 'formatting help is the Discussion\'s');
+  assert.match(html, /data-for="discussion">\s*<button class="sdk-icon-btn btn-quiet btn-small" id="chat-emoji"/);
+  assert.match(html, /data-for="discussion">\s*<button class="sdk-icon-btn btn-quiet btn-small" id="chat-help"/, 'formatting help is the Discussion\'s');
   assert.match(tag('chat-import-copy'), /data-for="assistant"[^>]*title="Copy prompt"/);
   assert.match(tag('chat-bring'), /data-for="assistant"[^>]*title="Bring in research"/);
   assert.ok(!/data-for/.test(tag('chat-command')), 'the commands button is in both');

@@ -2989,6 +2989,39 @@ input.switch:disabled {
   }
 }
 
+/* A page's tabs in the top bar (page-tabs.js, #262: Manage's #subtabs): the layout tabs' place and look (.layout-tabs and
+   .core-link above), so the page's own .subtab rules (the strip's look in the page) do not reach them here. Not a
+   strip that scrolls: what does not fit goes into its "...". On a phone they are entries in the header's menu. */
+.topbar > .nav-left > .page-tabs {
+  overflow: visible;
+  border-bottom: 0;
+}
+
+.topbar > .nav-left > .page-tabs > .subtab {
+  padding: 0 10px;
+  border-radius: var(--radius-small);
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  font-size: var(--nav-font-size);
+  font-weight: var(--nav-font-weight);
+  letter-spacing: var(--nav-letter-spacing);
+  line-height: var(--nav-line-height);
+}
+
+.topbar > .nav-left > .page-tabs > .subtab:hover {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+.topbar > .nav-left > .page-tabs > .subtab[hidden] {
+  display: none;
+}
+
+/* With its tabs in the top bar, a page's second row is for navigation inside a tab only: not drawn while it has nothing
+   to show, at any width. */
+.topbar > .page-bar.page-bar-inside:not(:has(> .nav-left > :not([hidden], [data-nav-divider]))):not(:has(> .nav-right > :not([hidden]))) {
+  display: none;
+}
+
 /* Save this layout's sheet, and Rename's (space.js, openLayoutSheet): a small <dialog> in the editor window's look
    (host.css .sdk-editor, as the phase sheet is), its form Name, the share switch, the server's refusal, then the action
    bar (action-bar:start above) locked to the bottom with Save and Cancel. */

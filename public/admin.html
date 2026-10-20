@@ -18,15 +18,17 @@
   <header class="topbar"></header>
 
   <main class="admin">
+    <!-- Manage's tabs: admin.js marks them data-top-bar, so renderPageBar() puts them in the top bar (page-tabs.js, #262).
+         data-icon is each tab's icon in the header's menu on a phone. -->
     <nav class="subtabs" id="subtabs">
-      <button class="subtab active" data-tab="environment" type="button" data-fill>{Environment}</button>
-      <button class="subtab" data-tab="template" type="button" id="template-tab">Template</button>
-      <button class="subtab" data-tab="theme" type="button">Theme</button>
-      <button class="subtab" data-tab="spaces" type="button" data-fill>{Spaces}</button>
-      <button class="subtab" data-tab="roles" type="button">Roles</button>
-      <button class="subtab" data-tab="users" type="button">Users</button>
-      <button class="subtab" data-tab="modules" type="button" data-fill>{Modules}</button>
-      <button class="subtab" data-tab="about" type="button">About</button>
+      <button class="subtab active" data-tab="environment" type="button" data-icon="sliders" data-fill>{Environment}</button>
+      <button class="subtab" data-tab="template" type="button" id="template-tab" data-icon="shapes">Template</button>
+      <button class="subtab" data-tab="theme" type="button" data-icon="palette">Theme</button>
+      <button class="subtab" data-tab="spaces" type="button" data-icon="door-open" data-fill>{Spaces}</button>
+      <button class="subtab" data-tab="roles" type="button" data-icon="user-shield">Roles</button>
+      <button class="subtab" data-tab="users" type="button" data-icon="users">Users</button>
+      <button class="subtab" data-tab="modules" type="button" data-icon="puzzle-piece" data-fill>{Modules}</button>
+      <button class="subtab" data-tab="about" type="button" data-icon="circle-info">About</button>
     </nav>
 
     <section class="tab-stack" id="tab-users" hidden>

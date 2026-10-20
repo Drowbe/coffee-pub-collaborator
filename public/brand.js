@@ -1,6 +1,7 @@
 import { nav } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
+import { topBarTabs } from '/page-tabs.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
 import { profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
@@ -155,6 +156,9 @@ let freshModules = 0; // modules this server ships that are not installed yet: M
 let updatesWaiting = 0; // module updates available, for owners and the admin (GET /api/modules)
 let presentSpace = null; // the space this page is present in (an aside's parent in an aside); the space page says so
 let inSpace = false; // the space page showing a space (plan-one-bar.md, step 7): its one bar has the switcher in the Spaces slot's place
+// A page whose tabs are in the top bar (renderPageBar(), a control marked data-top-bar: Manage, #262): the bar is the
+// page's, so the Spaces slot and the switcher's entries in the phone menu leave it, and the anchor names the page.
+let pageTabsInBar = false;
 let bar = { adminHref: '/admin', withThemeSwitch: true, guest: false, hostConsole: false };
 
 // A page opened over a call (?from=space, Profile or Manage in the space page's frame): the same origin underneath.
@@ -298,7 +302,7 @@ function registerSystemTools(header) {
     caret.title = `Switch ${word('space')}`;
     caret.setAttribute('aria-label', caret.title);
     caret.addEventListener('click', () => openSwitcher(caret));
-    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() && !inSpace });
+    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() && !inSpace && !pageTabsInBar });
   }
   // The anchor: where you are, after the Spaces slot (setTopbarLocation; the space page's breadcrumb). On a phone only
   // its last segment shows (style.css).
@@ -496,7 +500,7 @@ async function refreshMenuSpaces() {
   menuSpaceIds = keep;
   entries.forEach((e, i) => {
     const hint = hereHint(e);
-    nav.register({ id: `menu-space-${e.id}`, bar: 'primary', zone: 'right', group: 'menu-where', order: 3 + Math.min(i, 900), icon: e.here ? 'location-dot' : 'door-open', label: hint ? `${e.name} (${hint})` : e.name, visible: () => onPhone() && account !== null, onClick: () => pickSpace(e.id) });
+    nav.register({ id: `menu-space-${e.id}`, bar: 'primary', zone: 'right', group: 'menu-where', order: 3 + Math.min(i, 900), icon: e.here ? 'location-dot' : 'door-open', label: hint ? `${e.name} (${hint})` : e.name, visible: () => onPhone() && account !== null && !pageTabsInBar, onClick: () => pickSpace(e.id) });
   });
 }
 // A pick: the space page enters it or goes back to it (app:enter-space, the space page underneath when this page is
@@ -1173,20 +1177,29 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
   el.innerHTML = '<div class="nav-left"></div><span class="nav-right"></span>';
   header.appendChild(el);
   nav.attach('secondary', el);
-  const state = { name: String(name || ''), icon: String(icon || '') };
+  // A control marked data-top-bar (the page's tabs: Manage, #262) goes in the top bar instead (page-tabs.js), as a space's
+  // layout tabs do; the page's name is then the top bar's anchor at every width, and this row is left for navigation
+  // inside a tab (what the page registers into the secondary bar), not drawn while it has nothing.
+  const inBar = controls.filter((c) => c && c.hasAttribute('data-top-bar'));
+  const state = { name: String(name || ''), icon: String(icon || ''), tabsInBar: inBar.length > 0 };
+  if (state.tabsInBar) {
+    pageTabsInBar = true;
+    el.classList.add('page-bar-inside');
+  }
   const iconHtml = (i) => (i ? `<i class="${i.includes(' ') ? escapeHtml(i) : `fa-solid fa-${escapeHtml(i)}`} fa-fw" aria-hidden="true"></i>` : '');
   let nameEl = null;
   if (showName) {
     nameEl = doc.createElement('span');
     nameEl.className = 'page-bar-name nav-text'; // the nav text; the current page's name, so in --header-text
     nameEl.id = 'page-bar-name';
-    nav.register({ id: 'page-bar-name', bar: 'secondary', zone: 'left', group: 'page', groupOrder: 2, order: 1, fold: false, element: nameEl, visible: () => !onPhone() && Boolean(state.name) });
+    nav.register({ id: 'page-bar-name', bar: 'secondary', zone: 'left', group: 'page', groupOrder: 2, order: 1, fold: false, element: nameEl, visible: () => !onPhone() && Boolean(state.name) && !state.tabsInBar });
   }
   if (manage) {
     nav.register({ id: 'page-bar-manage', bar: 'secondary', zone: 'left', group: 'page-manage', groupOrder: 1, order: 1, fold: false, labelled: true, icon: 'gear', label: 'Manage', href: keepingQuery(manage), visible: () => seesUpdates(account?.role) });
     paintManageBadge();
   }
-  controls.filter(Boolean).forEach((c, i) => {
+  for (const c of inBar) topBarTabs({ strip: c, label: state.name });
+  controls.filter((c) => c && !inBar.includes(c)).forEach((c, i) => {
     c.classList.add('page-bar-control');
     nav.register({ id: c.id || `page-bar-control-${i + 1}`, bar: 'secondary', zone: 'left', group: 'page', order: 2 + i, fold: false, element: c });
   });
@@ -1198,6 +1211,7 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
     }
     paintPageAnchor(state);
     nav.draw('secondary');
+    if (state.tabsInBar) nav.draw('primary'); // the Spaces slot leaves, and the anchor's width changed
   };
   if (phoneQuery) phoneQuery.addEventListener('change', paint);
   paint();
@@ -1214,10 +1228,11 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
 
 // The anchor on a page with a page bar: nothing wider than a phone; on a phone the page's name, a plain label (not a
 // link, no separator), current, cut short with an ellipsis as the anchor is (style.css), the whole name as its title.
-function paintPageAnchor({ name, icon }) {
+// A page whose tabs are in the top bar has its name there at every width, before its tabs, as a space's name is.
+function paintPageAnchor({ name, icon, tabsInBar = false }) {
   const crumb = byId('topbar-crumb');
   if (!crumb) return;
-  const a = pageAnchor({ phone: onPhone(), name, icon });
+  const a = pageAnchor({ phone: onPhone(), name, icon }) || (tabsInBar ? pageAnchor({ phone: true, name, icon }) : null);
   crumb.replaceChildren();
   if (!a) return;
   const label = document.createElement('span');

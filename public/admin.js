@@ -2199,7 +2199,9 @@ const flightSchedule = wireFlightSchedule('/api/flight-schedule');
 
 async function init() {
   renderTopbar();
-  renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the tabs in the page bar (plan-two-zone-nav.md)
+  // The tabs in the top bar (#262), as a space's layout tabs are; the page bar's row is left for navigation inside a tab.
+  $('subtabs').toggleAttribute('data-top-bar', true);
+  renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the page bar (plan-two-zone-nav.md), its tabs in the top bar
   await loadBranding();
   buildHomeIconGrid(); // after the branding: the choices are its icon list
   wireOverlayBack(word('space', { many: true, cap: true }));

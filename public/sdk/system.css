@@ -2,7 +2,8 @@
    contract: 1
 
    STATE: tokens, colour roles and font faces only. The colour roles are live (the old colour tokens in style.css are defined from
-   them); nothing else here is read by the product yet. Later steps move one component family at a time onto these names. No element rules, no component rules, no `body` or `input`.
+   them), and so are the fonts and the type scale (step 11: style.css sets --font-ui on the page and --font-display on display text;
+   the sizes, weights, leading and tracking of style.css, host.css and the bundled modules read the type tokens). Later steps move one component family at a time onto these names. No element rules, no component rules, no `body` or `input`.
 
    Loaded by every app page AFTER style.css and theme.css (so it can only add names, never beat a rule), and by in-page modules
    through module-host.js (their `:root` blocks are dropped there; the tokens reach a shadow root by inheriting from the page).
@@ -55,7 +56,7 @@
   --tracking-normal: 0;
   --tracking-caps: 0.06em;
 
-  /* ---- Fonts: defined, NOT applied (no font-family in the product reads these yet). The faces are at the foot of this file. ---- */
+  /* ---- Fonts: --font-ui is the interface (style.css :root), --font-display display text only. The faces are at the foot of this file. ---- */
   --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-ui: "Figtree", "Figtree Fallback", var(--font-system);
   --font-display: "Fraunces", "Fraunces Fallback", "Figtree", "Figtree Fallback", var(--font-system);
@@ -406,9 +407,9 @@
 }
 /* buttons:end */
 
-/* ================= Font faces (bundled, self-hosted; defined, not applied) =================
-   Nothing is fetched until text is drawn in the family (no font-family reads them yet), and then only the file that holds the letters in
-   use (unicode-range). The files and their licences are in /fonts/<family>/. Each family has the bundled face with metric overrides
+/* ================= Font faces (bundled, self-hosted from our own server) =================
+   A file is fetched only when text is drawn in its family, and then only the file that holds the letters in use (unicode-range):
+   a page in English asks for Figtree's Latin file, and Fraunces only where display text shows. The files and their licences are in /fonts/<family>/. Each family has the bundled face with metric overrides
    (so a line's box is the same in every browser) and a "<Family> Fallback" system face scaled to the same width so the page does not
    jump when the font arrives. Derivation: the Typography family on the proposed page. */
 @font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; ascent-override: 95%; descent-override: 24%; line-gap-override: 0%;

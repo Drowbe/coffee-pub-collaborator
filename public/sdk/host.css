@@ -43,8 +43,9 @@
   --tint-pink: #e58ab8;
   /* The host's status bar under the module (host.status.set), the same as the page's own (public/style.css). */
   --status-bar-h: 24px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  /* Figtree in the page (public/sdk/system.css); a sandboxed frame has no system.css, so the system stack there. */
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
+  font-size: var(--text-14);
 }
 
 :root[data-theme-mode="light"],
@@ -71,6 +72,18 @@ body {
 
 h1, h2, h3 {
   margin: 0 0 8px;
+}
+
+/* The interface font on every control too, and one strong weight (the browser's bold is 700). */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+h1, h2, h3, h4, h5, h6, b, strong, th {
+  font-weight: var(--weight-strong);
 }
 
 a {
@@ -146,9 +159,9 @@ select:focus {
 :root {
   --field-h: 38px;
   --field-pad-x: 10px;
-  --field-font: 14px;
+  --field-font: var(--text-14);
   --field-gap: 12px;
-  --label-size: 12px;
+  --label-size: var(--text-12);
   --label-gap: 4px;
   --section-gap: 20px;
 }
@@ -156,13 +169,13 @@ select:focus {
 @media (max-width: 640px) {
   .sdk-form {
     --field-h: 44px;
-    --field-font: 16px;
+    --field-font: var(--text-16);
   }
 }
 
 .sdk-editor[data-lift="phone"] .sdk-form {
   --field-h: 44px;
-  --field-font: 16px;
+  --field-font: var(--text-16);
 }
 
 .sdk-form {
@@ -193,7 +206,7 @@ select:focus {
 
 .sdk-form textarea {
   padding: 8px var(--field-pad-x);
-  line-height: 1.4;
+  line-height: var(--leading-body);
   min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
   resize: vertical;
 }
@@ -234,7 +247,7 @@ select:focus {
   padding-bottom: var(--label-gap);
   color: var(--text-dim);
   font-size: var(--label-size);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 16px;
 }
 
@@ -376,9 +389,9 @@ select:focus {
   padding: 12px 0 0;
   border-top: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -456,19 +469,19 @@ select:focus {
 .sdk-datefield input { flex: 1; min-width: 0; }
 .sdk-datefield input::-webkit-calendar-picker-indicator { display: none; }
 .sdk-form .sdk-datefield { gap: 8px; height: var(--field-h); }
-.tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: 11px; font-weight: 600; }
+.tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: var(--text-11); font-weight: var(--weight-strong); }
 .sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
 .sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .sdk-dp-head button, .sdk-dp-foot button { border: 0; border-radius: var(--radius-small); padding: 3px 9px; background: var(--secondary); color: var(--secondary-text); font: inherit; cursor: pointer; }
 .sdk-dp-head button:hover, .sdk-dp-foot button:hover { background: var(--secondary-hover); }
 .sdk-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.sdk-dp-dow { padding: 2px 0; text-align: center; color: var(--text-dim); font-size: 10px; text-transform: uppercase; }
+.sdk-dp-dow { padding: 2px 0; text-align: center; color: var(--text-dim); font-size: var(--text-11); text-transform: uppercase; }
 .sdk-dp-day { height: 30px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; cursor: pointer; }
 .sdk-dp-day:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .sdk-dp-day.other { color: var(--text-dim); opacity: .55; }
 .sdk-dp-day.inrange { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.sdk-dp-day.today { background: var(--selected-bg); font-weight: 700; }
-.sdk-dp-day.sel { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.sdk-dp-day.today { background: var(--selected-bg); font-weight: var(--weight-strong); }
+.sdk-dp-day.sel { background: var(--accent); color: var(--on-accent); font-weight: var(--weight-strong); }
 .sdk-dp-foot { display: flex; justify-content: space-between; margin-top: 6px; }
 /* datepicker:end */
 
@@ -548,7 +561,7 @@ select:focus {
 
 .sdk-editor-discard-text {
   flex: 1 1 auto;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 /* A phone (the page 640 px wide or less): a full-screen sheet. The same rules serve a dialog in a lifted frame when the
@@ -702,8 +715,8 @@ select:focus {
   border-radius: var(--radius-round);
   background: color-mix(in srgb, var(--kind-color) 22%, var(--bg-card));
   color: var(--kind-color);
-  font-size: 13px;
-  line-height: 1;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
 }
 
 .sdk-kind-chip[hidden] {
@@ -761,7 +774,7 @@ select:focus {
   background: var(--bg-card);
   color: var(--text);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 .sdk-kind-group {
@@ -775,9 +788,9 @@ select:focus {
 .sdk-kind-group-title {
   padding: 6px 8px 3px;
   color: var(--text-dim);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
@@ -795,7 +808,7 @@ select:focus {
 }
 
 .sdk-kind-option[aria-selected="true"] .sdk-kind-name {
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .sdk-kind-option[aria-selected="true"] .sdk-kind-icon {
@@ -848,7 +861,7 @@ select:focus {
   }
 
   .sdk-kind.open .sdk-kind-input {
-    font-size: 16px;
+    font-size: var(--text-16);
   }
 
   .sdk-kind.open .sdk-kind-list {

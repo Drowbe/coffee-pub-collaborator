@@ -385,7 +385,7 @@
   }
 
   const UI_CSS = `
-.sdk-menu { position: fixed; z-index: 9999; min-width: 180px; max-width: 320px; max-height: 70vh; overflow: auto; padding: 4px; border-radius: var(--radius-medium); border: 1px solid var(--border); background: var(--bg-card); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; }
+.sdk-menu { position: fixed; z-index: 9999; min-width: 180px; max-width: 320px; max-height: 70vh; overflow: auto; padding: 4px; border-radius: var(--radius-medium); border: 1px solid var(--border); background: var(--bg-card); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: var(--text-13) var(--font-ui, system-ui, sans-serif); }
 .sdk-menu-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--radius-small); background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
 .sdk-menu-item:hover, .sdk-menu-item:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
 .sdk-menu-item:disabled { color: var(--text-dim); cursor: default; }
@@ -394,9 +394,9 @@
 .sdk-menu-icon { flex: none; display: inline-flex; width: 1em; }
 .sdk-menu-icon svg { width: 1em; height: 1em; fill: currentColor; }
 .sdk-menu-label { flex: 1; min-width: 0; }
-.sdk-menu-hint { flex-basis: 100%; margin-top: 1px; color: var(--text-dim); font-size: 12px; }
+.sdk-menu-hint { flex-basis: 100%; margin-top: 1px; color: var(--text-dim); font-size: var(--text-12); }
 .sdk-menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
-.sdk-menu-heading { padding: 6px 10px 2px; color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.sdk-menu-heading { padding: 6px 10px 2px; color: var(--text-dim); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .sdk-menu-caret { flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; border-top: 1.5px solid var(--text-dim); border-right: 1.5px solid var(--text-dim); transform: rotate(45deg); }
 .sdk-menu-category .sdk-menu-label { flex: 1; }
 .sdk-menu-category.open { background: color-mix(in srgb, var(--accent) 14%, transparent); }

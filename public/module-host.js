@@ -640,7 +640,7 @@ function ptrBegin(source, { ref = null, summary = null }, label, x, y) {
   const doc = source.frame.ownerDocument;
   const ghost = doc.createElement('div');
   ghost.textContent = String(label || '').slice(0, 40);
-  ghost.style.cssText = 'position:fixed;z-index:2147483001;pointer-events:none;padding:3px 9px;border-radius:var(--radius-small);background:#c8873a;color:#1a1206;font:600 12px sans-serif;max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  ghost.style.cssText = 'position:fixed;z-index:2147483001;pointer-events:none;padding:3px 9px;border-radius:var(--radius-small);background:#c8873a;color:#1a1206;font:var(--weight-strong) var(--text-12) var(--font-ui);max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.4)';
   doc.body.appendChild(ghost);
   ptrDrag = { source, ref, summary, label, ghost, over: null, doc, timer: setTimeout(ptrEnd, 60000) };
   ptrMove(x, y);
@@ -2219,7 +2219,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     const [sdkCss, systemCss, css, body] = await Promise.all([text('/sdk/host.css'), text('/sdk/system.css'), text(`${base}?part=css`), text(`${base}?part=body`)]);
     const root = container.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
-    // system.css after host.css, as the app's pages load it (the design system's tokens and roles; nothing reads them yet).
+    // system.css after host.css, as the app's pages load it (the design system's tokens and roles; their :root is dropped here, so the module reads the page's, inherited).
     style.textContent = scopeCss(sdkCss) + '\n' + scopeCss(systemCss) + '\n' + scopeCss(css);
     root.appendChild(style);
     const tpl = document.createElement('template');

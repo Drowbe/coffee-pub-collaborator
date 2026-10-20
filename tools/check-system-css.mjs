@@ -18,8 +18,10 @@
  *      token has its own default for (the card, the secondary fills, the icon) reaches the old token too; and the picked colours
  *      reach their contrast on the computed colours (text on the accent 4.5 unless flagged, text on each status fill 4.5, the accent
  *      and each status colour as text 4.5, the OK mark and the scrollbar thumb 3).
- *   5. Fonts: the faces exist, are not applied (no font-family in the product reads --font-ui or --font-display yet), and a normal page
- *      load requests no font file. The font files and their licences are served.
+ *   5. Fonts (switched on in step 11): the faces exist; the app's pages read --font-ui (style.css) and display text reads
+ *      --font-display; no stylesheet or page names a font host. In the browser, the sign-in page asks for the files its text
+ *      uses and nothing else: Figtree's Latin file and Fraunces (its heading), from our own server, never Figtree's Latin
+ *      Extended file (no such letters on the page), and both faces load. The font files and their licences are served.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -178,10 +180,17 @@ for (const f of faces) {
   if (!/ascent-override/.test(f) || !/descent-override/.test(f)) fail('an @font-face without its metric overrides');
 }
 if (!/size-adjust:\s*100\.59%/.test(css) || !/size-adjust:\s*95\.67%/.test(css) || !/size-adjust:\s*111\.60%/.test(css)) fail('a fallback face lost its size-adjust (100.59%, 95.67%, 111.60%)');
-// Not applied: nothing in the product's stylesheets or scripts reads --font-ui or --font-display, or names the faces.
+// Applied: the pages' own font is --font-ui, display text reads --font-display, and nothing names a font host.
 {
-  const scan = ['public/style.css', 'public/sdk/host.css', 'public/landing.css', 'public/destination.css', 'public/sdk/host.js'];
-  for (const f of scan) if (/var\(--font-(ui|display)|"?Figtree|"?Fraunces/.test(read(f))) fail(`${f} applies the new fonts; this step only defines them`);
+  const style = read('public/style.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rootBlock = /:root\s*\{([^}]*)\}/.exec(style)?.[1] || '';
+  if (!/font-family:\s*var\(--font-ui\)/.test(rootBlock)) fail('public/style.css: the page font (:root) is not var(--font-ui)');
+  if (!/font-family:\s*var\(--font-display\)/.test(style)) fail('public/style.css: no display text reads var(--font-display)');
+  for (const f of ['public/sdk/host.css', 'public/landing.css']) if (!/var\(--font-ui\b/.test(read(f))) fail(`${f} does not read --font-ui`);
+  const pages = fs.readdirSync(path.join(root, 'public')).filter((f) => /\.(css|html)$/.test(f)).map((f) => `public/${f}`);
+  for (const f of [...pages, 'public/sdk/host.css', 'public/sdk/host.js', 'public/sdk/system.css']) {
+    if (/fonts\.(googleapis|gstatic)\.com|use\.typekit|fonts\.bunny|@import\s+url\(\s*["']?https?:/i.test(read(f))) fail(`${f} names a font host; the fonts are ours (public/fonts)`);
+  }
 }
 
 // ---- 4 and 5. the browser ----
@@ -256,12 +265,22 @@ if (!problems.length) {
       await new Promise((r) => setTimeout(r, 800));
       if (!requests.some((u) => u.endsWith('/sdk/system.css'))) fail('the sign-in page did not request /sdk/system.css');
       else if (statuses.get(`${server.base}/sdk/system.css`) !== 200) fail('/sdk/system.css was not served (200)');
+      // Only the files the page's text uses, from our own server: Figtree Latin (the page) and Fraunces (its heading).
+      await ev('document.fonts.ready.then(() => true)');
       const fontReqs = requests.filter((u) => /\/fonts\/|\.woff2?(\?|$)/.test(u) && !/\/fa\/webfonts\//.test(u));
-      if (fontReqs.length) fail(`a normal page load requested a bundled font file: ${fontReqs.join(', ')}`);
-      const faceInfo = await ev(`JSON.stringify([...document.fonts].map((f) => [f.family.replace(/"/g, ''), f.status]).filter((x) => /Figtree|Fraunces/.test(x[0])))`);
-      const loaded = JSON.parse(faceInfo);
-      if (loaded.length < 6 && loaded.length !== 0) fail(`the page registered ${loaded.length} of 6 faces`);
-      if (loaded.some((x) => x[1] !== 'unloaded')) fail(`a bundled face is loading or loaded on a normal page: ${faceInfo}`);
+      for (const u of fontReqs) if (!u.startsWith(`${server.base}/fonts/`)) fail(`a font was asked for from somewhere else: ${u}`);
+      const want = ['/fonts/figtree/latin.woff2', '/fonts/fraunces/latin.woff2'];
+      for (const w of want) if (!fontReqs.some((u) => u === server.base + w)) fail(`the sign-in page did not ask for ${w} (asked: ${fontReqs.join(', ') || 'none'})`);
+      if (fontReqs.some((u) => u.endsWith('/fonts/figtree/latin-ext.woff2'))) fail('the sign-in page asked for Figtree\'s Latin Extended file, which its text does not use');
+      if (new Set(fontReqs).size !== fontReqs.length) fail(`a font file was asked for twice: ${fontReqs.join(', ')}`);
+      const faceInfo = await ev(`JSON.stringify([...document.fonts].map((f) => [f.family.replace(/"/g, ''), f.status, f.unicodeRange]).filter((x) => /Figtree|Fraunces/.test(x[0])))`);
+      const faces = JSON.parse(faceInfo);
+      if (faces.length < 6) fail(`the page registered ${faces.length} of 6 faces`);
+      for (const fam of ['Figtree', 'Fraunces']) if (!faces.some((x) => x[0] === fam && x[1] === 'loaded')) fail(`${fam} did not load on the sign-in page: ${faceInfo}`);
+      const used = await ev(`(() => { const h = document.querySelector('.brand.big > [data-brand="environmentName"]'); return JSON.stringify([getComputedStyle(document.body).fontFamily, h ? getComputedStyle(h).fontFamily : 'no heading at ' + location.pathname]); })()`);
+      const [bodyFont, headFont] = JSON.parse(used);
+      if (!/^"?Figtree"?,/.test(bodyFont)) fail(`the sign-in page's text is not Figtree: ${bodyFont}`);
+      if (!/^"?Fraunces"?,/.test(headFont)) fail(`the sign-in page's heading is not Fraunces: ${headFont}`);
       // The files are served.
       for (const f of ['figtree/latin.woff2', 'figtree/latin-ext.woff2', 'figtree/OFL.txt', 'fraunces/latin.woff2', 'fraunces/OFL.txt']) {
         const r = await fetch(`${server.base}/fonts/${f}`); if (!r.ok) fail(`/fonts/${f} is not served (${r.status})`);
@@ -349,5 +368,5 @@ if (problems.length) {
   for (const p of problems) console.error('  ' + p);
   process.exit(1);
 }
-console.log(`check-system-css: ok (${defs.size} tokens, ${ROLES.length} colour roles, ${faces.length} font faces, no font requested on load)${note}`);
+console.log(`check-system-css: ok (${defs.size} tokens, ${ROLES.length} colour roles, ${faces.length} font faces, the fonts on, only the used files asked for)${note}`);
 process.exit(0);

@@ -25,20 +25,21 @@ body { margin: 0; overflow: hidden; }
 .results { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(380px, calc(100% - 20px)); max-height: 55%; overflow: auto; margin: 0; padding: 6px; list-style: none; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-large); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); }
 .result { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-medium); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .result:hover, .result.on { background: color-mix(in srgb, var(--accent) 16%, transparent); }
-.result small { display: block; color: var(--text-dim); font-size: 12px; }
-.results .note { padding: 8px 10px; color: var(--text-dim); font-size: 12px; }
+.result small { display: block; color: var(--text-dim); font-size: var(--text-12); }
+.results .note { padding: 8px 10px; color: var(--text-dim); font-size: var(--text-12); }
 
 /* the search field over the top of the map (the host bar's field when the titlebar + is not drawn); the zoom is across from it */
 .map-search { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(340px, calc(100% - 66px)); height: 32px; margin: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-section); color: var(--text-dim); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); }
 .map-search:focus-within { border-color: var(--accent); color: var(--text); }
-.map-search input, .map-search input:focus { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--text); font: inherit; font-size: 14px; outline: none; }
+.map-search input, .map-search input:focus { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--text); font: inherit; font-size: var(--text-14); outline: none; }
 .map-search input::placeholder { color: var(--text-dim); }
 .results.under-search { top: 48px; bottom: auto; max-height: calc(100% - 60px); }
 
 /* the notice under the tools: adding a place, a warning */
-.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: var(--radius-round); background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
+.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: var(--radius-round); background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: var(--text-13); }
 
 /* ---- the map library's own controls, restyled with the tokens ---- */
+.maplibregl-map { font-family: inherit; } /* the interface font, not the library's Helvetica */
 .maplibregl-ctrl-group { border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); overflow: hidden; }
 .maplibregl-ctrl-group button { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
 .maplibregl-ctrl-group button + button { border-top: 1px solid var(--border); }
@@ -50,7 +51,7 @@ body { margin: 0; overflow: hidden; }
 .maplibregl-ctrl-bottom-right { bottom: 10px; align-items: flex-end; }
 
 /* the credit the licence requires on every map: always shown, never hidden by a setting */
-.attribution { max-width: 100%; padding: 2px 8px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 82%, transparent); color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+.attribution { max-width: 100%; padding: 2px 8px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 82%, transparent); color: var(--text-dim); font-size: var(--text-11); line-height: var(--leading-body); }
 .attribution a { color: inherit; }
 
 /* ---- a pin: an HTML marker the map library positions ----
@@ -59,7 +60,7 @@ body { margin: 0; overflow: hidden; }
    absolute, it is already what its label is placed against. */
 .pin { --pin: var(--accent); --pin-text: var(--on-accent); display: block; width: 30px; height: 30px; padding: 0; border: 0; background: none; color: var(--pin-text); font: inherit; cursor: pointer; transform-origin: 50% 100%; }
 .pin-body { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--bg-section); border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--pin); box-shadow: 0 2px 6px color-mix(in srgb, black 40%, transparent); }
-.pin-body .ic { transform: rotate(45deg); font-size: 14px; }
+.pin-body .ic { transform: rotate(45deg); font-size: var(--text-14); }
 .pin[data-kind="object"] { --pin: var(--bg-card); --pin-text: var(--text); }
 .pin[data-kind="object"] .pin-body { border-color: var(--accent); }
 
@@ -78,17 +79,17 @@ body { margin: 0; overflow: hidden; }
 .pin.soft:not(.selected) .pin-label { opacity: 0.8; }
 /* the visit status: a small round badge at the pin's top left (the person mark is on the right), a fill and an icon, its words in the pin's label for a screen reader */
 .pin-badge { position: absolute; left: -6px; top: -6px; z-index: 3; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--bg-section); color: var(--text); box-shadow: 0 1px 3px color-mix(in srgb, black 40%, transparent); pointer-events: none; }
-.pin-badge .ic { font-size: 9px; }
+.pin-badge .ic { font-size: var(--text-9); }
 .pin-badge[data-visit="booked"] { color: var(--tint-blue); }
 .pin-badge[data-visit="visited"] { color: var(--tint-green); }
 .pin-badge[data-visit="favorite"] { color: var(--tint-gold); }
 .pin.dim:hover, .pin.dim:focus-visible { opacity: 1; }
 .pin.selected .pin-body { --pin: var(--text); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { --pin-text: var(--bg); }
-.pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 6px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 88%, transparent); color: var(--text); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 6px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 88%, transparent); color: var(--text); font-size: var(--text-11); line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .pin.dragging { opacity: 0.7; }
 .pin.cluster { width: 38px; height: 38px; }
-.pin.cluster .pin-body { width: 38px; height: 38px; border-radius: var(--radius-round); transform: none; font-weight: 700; font-size: 13px; }
+.pin.cluster .pin-body { width: 38px; height: 38px; border-radius: var(--radius-round); transform: none; font-weight: var(--weight-strong); font-size: var(--text-13); }
 .pin.cluster .pin-label { display: none; }
 .pin.draft { --pin: var(--bg-section); --pin-text: var(--accent); }
 .pin.draft .pin-body { border-style: dashed; border-color: var(--accent); }
@@ -98,7 +99,7 @@ body { margin: 0; overflow: hidden; }
 .editor { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 70%, transparent); }
 .editor-card { width: 100%; max-width: 460px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-large); }
 .editor-card h3 { margin: 0; }
-.editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: 12px; }
+.editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: var(--text-12); }
 .editor-card input, .editor-card textarea { width: 100%; }
 .editor-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .editor-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -108,7 +109,7 @@ body { margin: 0; overflow: hidden; }
 .state { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; color: var(--text-dim); background: var(--bg); }
 .state h2 { margin: 0; color: var(--text); }
 .state p { margin: 0; max-width: 420px; }
-.state .ic { font-size: 30px; color: var(--accent); margin-bottom: 4px; }
+.state .ic { font-size: var(--text-28); color: var(--accent); margin-bottom: 4px; }
 .skel { width: 100%; height: 100%; background: linear-gradient(90deg, var(--bg-section), color-mix(in srgb, var(--bg-section) 82%, var(--text)), var(--bg-section)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
@@ -125,7 +126,7 @@ body { margin: 0; overflow: hidden; }
 .app.narrow .maplibregl-ctrl-top-right { top: 10px; }
 
 .app.narrow .map-search { width: min(420px, calc(100% - 70px)); height: 40px; }
-.app.narrow .map-search input, .app.narrow .map-search input:focus { font-size: 16px; }
+.app.narrow .map-search input, .app.narrow .map-search input:focus { font-size: var(--text-16); }
 .app.narrow .results.under-search { top: 56px; max-height: calc(100% - 68px); }
 
 .app.narrow .maplibregl-ctrl-bottom-right { bottom: 4px; right: 8px; z-index: 6; }
@@ -155,11 +156,11 @@ body { margin: 0; overflow: hidden; }
 .callout[data-kind="object"] { --tone: var(--text-dim); }
 .callout[data-cat] { --tone: var(--accent); }
 .callout::before { content: ""; position: absolute; left: 14px; top: -1px; width: 36px; height: 4px; border-radius: 0 0 var(--radius-min) var(--radius-min); background: var(--tone); }
-.callout h3 { margin: 4px 30px 0 0; font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
-.callout-where { margin: 0; color: var(--text-dim); font-size: 13px; overflow-wrap: anywhere; }
-.callout-where .coords { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 11px; opacity: 0.85; }
-.callout-source { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 8px; border: 1px dashed var(--border); border-radius: var(--radius-medium); color: var(--text-dim); font-size: 12px; }
-.callout-source .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+.callout h3 { margin: 4px 30px 0 0; font-size: var(--text-16); line-height: var(--leading-section); overflow-wrap: anywhere; }
+.callout-where { margin: 0; color: var(--text-dim); font-size: var(--text-13); overflow-wrap: anywhere; }
+.callout-where .coords { display: block; font-family: ui-monospace, Menlo, monospace; font-size: var(--text-11); opacity: 0.85; }
+.callout-source { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 8px; border: 1px dashed var(--border); border-radius: var(--radius-medium); color: var(--text-dim); font-size: var(--text-12); }
+.callout-source .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font-size: var(--text-13); cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
 .callout-source .open-link:hover, .callout-source .open-link:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); outline: none; }
 .callout-close { position: absolute; top: 8px; right: 8px; }
 .callout-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }

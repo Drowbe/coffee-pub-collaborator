@@ -55,7 +55,7 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   gap: 4px;
   height: 24px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--text-12);
 }
 
 .dest-filter-toggle[aria-expanded="true"] {
@@ -95,7 +95,7 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 /* The parts. */
@@ -291,13 +291,13 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
     background: transparent;
     color: color-mix(in srgb, var(--header-text) 65%, transparent);
     font: inherit;
-    font-size: 11px;
-    line-height: 1.1;
+    font-size: var(--text-11);
+    line-height: var(--leading-display);
     cursor: pointer;
   }
 
   .dest-tab i {
-    font-size: 18px;
+    font-size: var(--text-18);
   }
 
   .dest-tab span {

@@ -1,0 +1,171 @@
+/* ==== Choice rows (PROPOSED 2026-10-20; the research recommendations Thomas approved as a batch on 2026-10-20) ====
+   A choice row is a whole-row choice: the tick box or radio (the approved Fields 16px box with the --text-dim edge) on the left, the label, and, if there is
+   one, a description (12px, muted). The whole row is the target and the label: 32px high on a desktop, 44px on a phone (--check-h, from Fields). Hover is
+   the quiet fill (--menu-hover). Checked is the neutral selected fill (--selected-bg); no accent edge, no accent fill. Focus is the 2px accent outline over
+   the row, inside it (offset -2px), the mechanism of the Fields, Tabs, Chips and Menus; the box's own ring is then not drawn.
+     .sdk-choice-row                  the row (a <label> around the input and the words; aliases .check and its copies)
+     .sdk-choice-text, -label, -desc  the words
+     .sdk-choice-list                 a group of rows, 2px apart
+     .sdk-choice-boxed                the boxed row: a card row with a hairline, ONLY where each option has a description (alias .template-option)
+     .sdk-choice-switch               the switch row: the words, then the approved 36 by 20 switch at the right; on or off is the switch, so no fill
+     .sdk-choice-poll                 a poll option: the row with a progress fill behind it (the fill is Progress's .sdk-progress-behind)
+   The segmented choice for two to four short options is not drawn here: it is the Tabs family's joined switch (.sdk-tabs.sdk-tabs-joined), and .sdk-choice is its name. Colours are theme
+   tokens only. Radii are tokens. */
+
+.ds-proposed {
+  --cr-pad-x: 8px;
+  --cr-gap: 8px;
+}
+
+.ds-proposed .sdk-choice {
+  min-width: 0;
+}
+
+.ds-proposed .sdk-choice-list {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* ---- the row ---- */
+.ds-proposed :is(.sdk-choice-row, .check) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--cr-gap);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--check-h);
+  margin: 0;
+  padding: 0 var(--cr-pad-x);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--field-font);
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.12s;
+}
+
+.ds-proposed :is(.sdk-choice-row, .check):hover:not(:has(:disabled)) {
+  background: var(--menu-hover);
+}
+
+/* Checked: the neutral selected fill. A switch is on or off in the switch itself, so it takes no fill. */
+.ds-proposed :is(.sdk-choice-row, .check):has(> input:is([type="checkbox"], [type="radio"]):not(.sdk-switch, .switch):checked) {
+  background: var(--selected-bg);
+}
+
+.ds-proposed :is(.sdk-choice-row, .check):has(> input:is([type="checkbox"], [type="radio"]):not(.sdk-switch, .switch):checked):hover:not(:has(:disabled)) {
+  background: var(--menu-current-hover);
+}
+
+/* Focus: a 2px accent outline inside the row. The box's own ring is not drawn as well. */
+.ds-proposed :is(.sdk-choice-row, .check):has(> input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ds-proposed .sdk-choice-row > input:is([type="checkbox"], [type="radio"]):focus-visible {
+  outline: none;
+}
+
+.ds-proposed :is(.sdk-choice-row, .check):has(> input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ds-proposed :is(.sdk-choice-row, .check):has(> input:disabled) > input {
+  opacity: 1;
+}
+
+/* ---- the words ---- */
+.ds-proposed .sdk-choice-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ds-proposed .sdk-choice-label {
+  min-width: 0;
+}
+
+.ds-proposed .sdk-choice-desc {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* On a filled row (checked, hovered) the description is a step darker, as the Menus hints are. */
+.ds-proposed .sdk-choice-row:is(:hover, :has(> input:checked:not(.sdk-switch))) .sdk-choice-desc {
+  color: var(--menu-hint-strong);
+}
+
+/* A row with a description: the box sits level with the first line. */
+.ds-proposed .sdk-choice-row:has(.sdk-choice-desc) {
+  align-items: flex-start;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.ds-proposed .sdk-choice-row:has(.sdk-choice-desc) > input:is([type="checkbox"], [type="radio"]) {
+  margin-top: 2px;
+}
+
+/* ---- the switch row: the words, then the switch ---- */
+.ds-proposed .sdk-choice-row:has(> input.sdk-switch) {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ds-proposed .sdk-choice-row:has(> input.sdk-switch) > input.sdk-switch {
+  margin-left: auto;
+  margin-top: 0;
+}
+
+/* ---- the boxed row: only where each option has a description ---- */
+.ds-proposed :is(.sdk-choice-boxed, .template-option) {
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+}
+
+.ds-proposed :is(.sdk-choice-boxed, .template-option) > input:is([type="checkbox"], [type="radio"]) {
+  margin-top: 2px;
+}
+
+.ds-proposed :is(.sdk-choice-boxed, .template-option) .sdk-choice-label {
+  font-weight: 600;
+}
+
+/* ---- a poll option: the row with the fill behind it ---- */
+.ds-proposed .sdk-choice-poll {
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.ds-proposed .sdk-choice-poll > :not(.sdk-progress-behind) {
+  position: relative;
+  z-index: 1;
+}
+
+.ds-proposed .sdk-choice-poll .sdk-meter-value {
+  flex: none;
+  margin-left: auto;
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-choice-row, .check) { transition: none; }
+}

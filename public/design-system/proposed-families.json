@@ -20,6 +20,11 @@
     { "id": "modulechrome", "js": "proposed-modulechrome.js", "css": "proposed-modulechrome.css" },
     { "id": "chat", "js": "proposed-chat.js", "css": "proposed-chat.css" },
     { "id": "journey", "js": "proposed-journey.js", "css": "proposed-journey.css" },
-    { "id": "tabbar", "js": "proposed-tabbar.js", "css": "proposed-tabbar.css" }
+    { "id": "tabbar", "js": "proposed-tabbar.js", "css": "proposed-tabbar.css" },
+    { "id": "links", "js": "proposed-links.js", "css": "proposed-links.css" },
+    { "id": "pickers", "js": "proposed-pickers.js", "css": "proposed-pickers.css" },
+    { "id": "progress", "js": "proposed-progress.js", "css": "proposed-progress.css" },
+    { "id": "avatars", "js": "proposed-avatars.js", "css": "proposed-avatars.css" },
+    { "id": "choices", "js": "proposed-choices.js", "css": "proposed-choices.css" }
   ]
 }

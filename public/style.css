@@ -4658,8 +4658,8 @@ span.message-vis {
   display: flex;
 }
 
-.message.private-ai .sdk-icon-btn.kept,
-.message.private-ai .sdk-icon-btn.queued {
+.message.private-ai .btn.kept,
+.message.private-ai .btn.queued {
   --b-fg: var(--text-accent);
   --b-fg-h: var(--text-accent);
 }
@@ -4690,10 +4690,6 @@ span.message-vis {
   font-size: var(--text-11);
 }
 
-.message .chat-object-keep {
-  display: inline-flex;
-}
-
 /* An object's details in one line under its title (plan-object-handoff.md): the flight, the times, the reference. */
 .message .chat-object-details {
   margin: 0 0 6px;
@@ -4719,14 +4715,10 @@ span.message-vis {
   font-size: var(--text-12);
 }
 
-.message .chat-object-place-btn {
-  gap: 2px;
-  font-size: var(--text-12);
-}
-
 .message .chat-object-keep.kept,
 .message .chat-object-keep.queued {
-  color: var(--accent);
+  --b-fg: var(--text-accent);
+  --b-fg-h: var(--text-accent);
 }
 
 /* Kept or waiting, Keep stays focusable but does nothing (aria-disabled): it reads as done, not as dimmed. */

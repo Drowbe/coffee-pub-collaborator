@@ -4201,7 +4201,7 @@ function linkKeepEl(entry, look) {
   if (!chatLinkKeeper?.may || !entry.stored || !chatIdOk(entry.id)) return null;
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'sdk-icon-btn btn-quiet btn-small chat-link-keep';
+  b.className = 'btn btn-quiet btn-small chat-link-keep';
   b.textContent = 'Keep';
   b.title = `Keep this link in ${look.name}`;
   b.addEventListener('click', () => keepLink(entry, b));

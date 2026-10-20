@@ -125,10 +125,11 @@ Note: the brief kept "the headline" on the front page; today's headline is a tra
 
 ### 7. The pending fixes
 
-- **Independent, can ship now (they survive the move):** the plane flying nose first along the route
-  (`landing.html` about line 82; it sits at a fixed `rotate(-28)` while the route marches); the chat-first
-  rewording of "Voice and video for the whole group, with a chat beside it" (about line 177), which moves to
-  `/travel` as written.
+- **Already done:** the chat-first wording of the hero's lede, the description, "A chat, and a call when you want
+  one" (it was "Voice and video for the whole group, with a chat beside it", about line 177) and How it works
+  (`0f9a79e`). It moves to `/travel` as written.
+- **Independent, can ship now (it survives the move):** the plane flying nose first along the route
+  (`landing.html` line 82; it sits at a fixed `rotate(-28)` while the route marches).
 - **Folded into the restructure:** the eyebrow "For trips and game nights" and the hero's headline and lede (the
   front page gets new ones); labelling the Planner copy as travel-only (it moves to `/travel`, so no label is
   needed); the third use card from `2f64c5b` (kept, linking to `/projects` once that exists); "Voice and video that
@@ -182,7 +183,7 @@ Sizes: small is a few hours of one builder, medium about a day, large more than 
 
 | Step | What | Who | Size | Can run beside |
 | --- | --- | --- | --- | --- |
-| 1 | The plane's direction; the chat-first call paragraph | experience-design | small | anything |
+| 1 | The plane's direction | experience-design | small | anything |
 | 2 | The addresses, `pages` in `/api/product`, the preview tool | server-development | small | 3, 4 |
 | 3 | `/travel`: the travel content moved to its own page | experience-design | medium | 2 |
 | 4 | The travel template adds Budget, Polls and To-do (if choice 6A) | server-development | small | 2, 3 |
@@ -225,7 +226,7 @@ Each answerable in a line; my suggestion first.
 10. **Games word and space word:** "Games" for the page and "Campaign" for the space?
 11. **The Planner on the travel page** is called "Itinerary", as the template shows it?
 12. **Sharing cards** stay out for now; only a title and description per page?
-13. **Ship the plane fix and the chat-first call paragraph now**, before the restructure?
+13. **Ship the plane fix now**, before the restructure?
 14. **Order:** travel, then games, then projects after #351?
 
 Blocking the first build (steps 2, 3, 5): 1, 2, 3, 4, 6, 7. Blocking games: 5, 9, 10. Step 1 needs only 13.

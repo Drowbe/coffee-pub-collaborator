@@ -39,7 +39,6 @@
   --toast-w: 340px;
   --toast-gap: 8px;
   --toast-ms: 200ms;
-  --z-toast: 60;
 }
 
 /* The kind: four variables every part reads. info is the default. */

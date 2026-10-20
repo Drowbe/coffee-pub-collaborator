@@ -264,7 +264,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="dialogs-h"><a href="#dialogs">Dialogs and sheets</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">one shell for the editor, the Set up sheets, the layout and phase sheets, the picker and the confirm: three sizes, one close</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> One shell for the six dialogs of today, in <b>three sizes: 360 (a confirm), 560 (a form), 880 (a browse)</b>; the phase sheet's 760 folds into 880. The title is Figtree 600 at 18px (not Fraunces). The close is the approved icon-only Quiet small button at the top right, in the same place in every dialog. The footer has its buttons at the right, Primary last, under a hairline. The head and the foot stay while the body scrolls. The surface is the panel with a hairline, <code>--radius-large</code>, <code>--shadow-3</code> and the scrim. It comes in over 200ms. On a phone it is <b>full screen</b>, not a bottom sheet. Escape closes it (and asks "Discard your changes?" when there are edits), focus is trapped and goes back to the opener, and a click on the backdrop does not close a form with edits. A <b>styled confirm</b> replaces the browser's own <code>window.confirm</code> (42 calls today).</p>
+<p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> One shell for the six dialogs of today, in <b>three sizes: 360 (a confirm), 560 (a form), 880 (a browse)</b>; the phase sheet's 760 folds into 880. The title is Figtree 600 at 18px (not Fraunces). The close is the approved icon-only Quiet small button at the top right, in the same place in every dialog. The footer has its buttons at the right, Primary last, under a hairline. The head and the foot stay while the body scrolls. The surface is the panel with a hairline, <code>--radius-large</code>, <code>--shadow-3</code> (the Foundations family's) and the scrim. It comes in over 200ms. On a phone it is <b>full screen</b>, not a bottom sheet. Escape closes it (and asks "Discard your changes?" when there are edits), focus is trapped and goes back to the opener, and a click on the backdrop does not close a form with edits. A <b>styled confirm</b> replaces the browser's own <code>window.confirm</code> (42 calls today).</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#dialogs-anatomy">Anatomy</a><a href="#dialogs-sizes">Three sizes</a><a href="#dialogs-states">States</a><a href="#dialogs-confirm">Confirm</a><a href="#dialogs-two">Two steps</a><a href="#dialogs-ctx">A form in context</a><a href="#dialogs-phone">On a phone</a><a href="#dialogs-stack">The stack</a><a href="#dialogs-try">Try it</a><a href="#dialogs-keys">Behaviour</a><a href="#dialogs-alias">Aliases</a><a href="#dialogs-today">Today to proposed</a><a href="#dialogs-contrast">Contrast</a><a href="#dialogs-tokens">Tokens</a><a href="#dialogs-markup">Markup contract</a><a href="#dialogs-widths">Widths</a></nav>
 
 <h4 class="ds-h4" id="dialogs-anatomy">Anatomy</h4>
@@ -276,7 +276,7 @@ ${dim([
     ['4 Close', 'The approved icon-only Quiet small button: 30px, <code>--text-dim</code> icon, the quiet fill on hover, a 44px hit area on a phone. At the top right, the same place in every dialog. Escape does the same.'],
     ['5 Body', 'The one part that scrolls. 24px at the sides (16px on a phone), 16px between fields. Fields and buttons are the approved ones.'],
     ['6 Foot', 'Buttons at the right, 8px apart, Primary last (a destructive confirm: the soft Danger last). A 1px <code>--border</code> hairline above. An error or a note goes to the left of the buttons.'],
-    ['7 Scrim', '<code>--scrim</code> (black at 55% in dark mode, 35% in light), from the Menus family. On a phone it is opaque (<code>--bg</code>) because the dialog covers the screen.'],
+    ['7 Scrim', '<code>--scrim</code> (black at 55%), from the Foundations family. On a phone it is opaque (<code>--bg</code>) because the dialog covers the screen.'],
   ])}
 
 <h4 class="ds-h4" id="dialogs-sizes">Three sizes</h4>
@@ -332,8 +332,8 @@ ${tbl(['Today', 'Proposed', 'Note'], [
     ['Four widths: 360 (layout sheet), 560 (editor), 760 (phase sheet), 880 (large editor, picker)', 'Three: 360 (confirm), 560 (form), 880 (browse)', 'The layout sheet moves to 560, the phase sheet to 880.'],
     ['Close buttons in different places: the editor\'s hangs from a sticky corner, the picker\'s sits in its header, the layout sheet has none', 'One close, top right, 16px in, the Quiet small icon button', 'The same place in every dialog.'],
     ['Titles 15px (layout sheet), 18px (picker, editor), none (the Set up sheets)', 'Figtree 600 at 18px, always', 'Not Fraunces: a dialog is not a headline.'],
-    ['Scrim: <code>--bg</code> at 70% (the sheets), raw black at 60% (the picker)', '<code>--scrim</code>: black at 55% (dark), 35% (light)', 'Menus family token.'],
-    ['Shadows <code>0 16px 48px</code> at 45% and <code>0 20px 60px</code> at 50%', '<code>--shadow-3</code>, about <code>0 8px 30px</code>', 'A page-local copy until Foundations defines it.'],
+    ['Scrim: <code>--bg</code> at 70% (the sheets), raw black at 60% (the picker)', '<code>--scrim</code>: black at 55%', 'Foundations token.'],
+    ['Shadows <code>0 16px 48px</code> at 45% and <code>0 20px 60px</code> at 50%', '<code>--shadow-3</code>, about <code>0 8px 30px</code>', 'The Foundations family\'s token.'],
     ['Two of the six are not full screen on a phone (the layout sheet, the picker)', 'All are, at 640px and below', 'Safe-area insets.'],
     ['The head scrolls away with the body in the Set up sheets and the phase sheet', 'The head and the foot stay; the body scrolls', 'A hairline under the head once scrolled.'],
     ['<code>window.confirm</code>: 42 calls. <code>admin.js</code> 15, <code>profile.js</code> 12, <code>space.js</code> 4, <code>host-templates.js</code> 3, <code>module-config.js</code> 2, <code>module-settings.js</code> 2, one each in <code>chat-input.js</code>, <code>flight-schedule.js</code>, <code>host.js</code> and the Stream module', 'The styled confirm, three kinds', 'Counted from the code on 2026-10-20 (a search for <code>confirm(</code>); an earlier list had admin 17 and profile 13, which makes 45.'],
@@ -346,11 +346,11 @@ ${tbl(['Today', 'Proposed', 'Note'], [
 
 <h4 class="ds-h4" id="dialogs-tokens">Tokens</h4>
 ${tbl(['Token', 'Use here', ''], [
-    ['<code>--shadow-3</code>', 'The shadow of a window: dark <code>0 8px 30px rgba(0, 0, 0, 0.50)</code>; light <code>0 8px 30px</code> of <code>--text</code> at 22%. A page-local copy; the Foundations family defines it.', 'new (page-local)'],
-    ['<code>--scrim</code>', 'The backdrop: black at 55% (dark), 35% (light). Opaque <code>--bg</code> on a phone.', 'exists (Menus)'],
+    ['<code>--shadow-3</code>', 'The shadow of a window: about <code>0 8px 30px</code> (the Foundations family\'s value: dark black at 50%, light <code>--text</code> at 18%).', 'exists (Foundations)'],
+    ['<code>--scrim</code>', 'The backdrop: black at 55%. Opaque <code>--bg</code> on a phone.', 'exists (Foundations)'],
     ['<code>--dlg-w-confirm</code>, <code>--dlg-w-form</code>, <code>--dlg-w-browse</code>', '360px, 560px, 880px.', 'new'],
     ['<code>--dlg-pad-x</code>, <code>--dlg-ms</code>, <code>--dlg-max-h</code>', '24px (16px on a phone); 200ms; the screen less 48px.', 'new'],
-    ['<code>--z-dialog</code>', 'The layer of a dialog that is not a <code>&lt;dialog&gt;</code>: above the menus, under the toasts (40).', 'new'],
+    ['<code>--z-dialog</code>', 'The layer of a dialog that is not a <code>&lt;dialog&gt;</code>: above the menus, under the toasts (40).', 'exists (Foundations)'],
     ['<code>--bg-section</code>, <code>--border</code>, <code>--text</code>, <code>--text-dim</code>', 'The panel surface, the hairlines, the text.', 'exists'],
     ['<code>--radius-large</code>', 'The dialog\'s corner (none on a phone).', 'exists'],
     ['<code>--btn-h-small</code>', 'The close: 30px.', 'exists (Buttons)'],

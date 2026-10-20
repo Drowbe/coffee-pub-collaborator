@@ -5,7 +5,7 @@
    Parts, top to bottom:  head (title + close)  /  body (scrolls)  /  foot (buttons, right-aligned, Primary last, a hairline above).
    - Title: Figtree, weight 600, 18px (not the Fraunces headline font). Close: the approved icon-only Quiet small button (30px, a 44px hit area on a phone), at the top
      right, 16px in from the top and the right edge, the same place in every dialog.
-   - Surface: the panel (--bg-section), a 1px --border hairline, --radius-large, --shadow-3 and the scrim (--scrim, from the Menus family: black at 55% in dark mode).
+   - Surface: the panel (--bg-section), a 1px --border hairline, --radius-large, --shadow-3 and the scrim (--scrim, from the Foundations family: black at 55%).
    - The head and the foot stay while the body scrolls (the body is the only thing that scrolls); a hairline shows under the head once it has scrolled.
    - Enter and exit: 200ms ease-out (a fade and an 8px rise). Phone (640px and below): full screen (no radius, no shadow, an opaque backdrop, the safe-area insets),
      not a bottom sheet.
@@ -16,22 +16,15 @@
    .sdk-dialog-discard .sdk-dialog-discard-text .sdk-dialog-note. Aliases (today's names take the look, no markup is edited): .sdk-editor .sdk-editor-large .sdk-editor-actions
    .sdk-editor-discard .sdk-editor-discard-text .sdk-editor-close .layout-sheet .layout-sheet-title .layout-form-body .phase-sheet .phase-sheet-head .phase-sheet-body
    .phase-sheet-close .bgpick .bgpick-card .bgpick-head .bgpick-body .bgpick-foot .bgpick-close.
-   --shadow-3 is a PAGE-LOCAL copy: the Foundations family defines it. Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or underline. */
+   --shadow-3, --scrim and --z-dialog come from the Foundations family. Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or underline. */
 
 .ds-proposed {
-  /* The shadow of a window (a menu's is --shadow-2). About 0 8px 30px: a copy until the Foundations family defines the token. */
-  --shadow-3: 0 8px 30px rgba(0, 0, 0, 0.50);
   --dlg-w-confirm: 360px;
   --dlg-w-form: 560px;
   --dlg-w-browse: 880px;
   --dlg-pad-x: 24px;
   --dlg-ms: 200ms;
   --dlg-max-h: calc(100dvh - 48px);
-  --z-dialog: 40;
-}
-
-.ds-proposed:is(:root[data-theme-mode="light"] *) {
-  --shadow-3: 0 8px 30px color-mix(in srgb, var(--text) 22%, transparent);
 }
 
 @media (max-width: 640px) {

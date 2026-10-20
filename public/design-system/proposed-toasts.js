@@ -330,7 +330,7 @@ ${tbl(['Token', 'Use here', ''], [
     ['<code>--status-*-text</code>', 'The fill mixed into <code>--text</code> (danger 70%, ok 40% because its fill is the palest, warn and info 60%): readable on the tint over a page or a panel.', 'new (page-local)'],
     ['<code>--status-*-on-fill</code>', 'White or near-black, whichever reaches 4.5 to 1 on the fill (relative colour from the fill\'s lightness).', 'new (page-local)'],
     ['<code>--toast-w</code>, <code>--toast-gap</code>, <code>--toast-ms</code>', '340px; 8px; 200ms.', 'new'],
-    ['<code>--z-toast</code>', 'The layer of the stack: above the dialogs (60 today).', 'exists'],
+    ['<code>--z-toast</code>', 'The layer of the stack: above the dialogs (60).', 'exists (Foundations)'],
     ['<code>--shadow-2</code>', 'The toast\'s shadow (Menus family).', 'exists (Menus)'],
     ['<code>--bg-card</code>, <code>--border</code>, <code>--text</code>, <code>--text-dim</code>', 'The toast\'s surface, hairline and text.', 'exists'],
     ['<code>--radius-small</code>, <code>--radius-medium</code>, <code>--radius-round</code>', 'The chip; the toast and the inline banner; the banner icon.', 'exists'],

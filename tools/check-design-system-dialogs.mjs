@@ -7,7 +7,7 @@
  * right edge of the dialog's border box in every dialog and every alias; a surface that is not the panel with a 1px hairline, --radius-large and a 0 8px 30px shadow; a
  * footer that is not right-aligned with a top hairline and the Primary (or the Danger) last; a head that does not get a hairline once the body has scrolled, or a body that
  * does not scroll while the head and the foot stay; a discard row that does not replace the foot; a confirm that is not 360, whose destructive button is not the soft Danger
- * (or the final one the solid), or whose Cancel is not first; the scrim not black at 55% in dark mode (35% in light); at 390 a dialog that is not full screen with no radius,
+ * (or the final one the solid), or whose Cancel is not first; the scrim not black at 55%; at 390 a dialog that is not full screen with no radius,
  * no shadow and an opaque backdrop; in the live demo: Escape closing a clean form, Escape asking "Discard your changes?" on a dirty one (and again keeping the edits), the
  * backdrop ignored while dirty, the Tab trap, the focus return to the opener, the page's scroll lock, the default focus (the first field of a form, Cancel of a
  * confirm), the typed name enabling the final button; an element with an edge of a colour on one side only; a contrast row under its minimum; the family not marked
@@ -24,8 +24,7 @@ export function staticChecks({ fail, css, defined }) {
   if (/box-shadow\s*:\s*inset|inset\s+\d/.test(css)) fail('proposed-dialogs.css: an inset shadow (a bar)');
   if (/text-decoration\s*:\s*underline/.test(css)) fail('proposed-dialogs.css: a rule underlines something');
   for (const m of css.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/g)) if (Number(m[1]) < 11) fail(`proposed-dialogs.css: a font size of ${m[1]}px, under 11px`);
-  if (!/--shadow-3:\s*0 8px 30px rgba\(0, 0, 0, 0\.50\)/.test(css)) fail('proposed-dialogs.css: the dark --shadow-3 is not 0 8px 30px at 50% black');
-  if (!/:root\[data-theme-mode="light"\][^{]*\{[^}]*--shadow-3:\s*0 8px 30px/.test(css)) fail('proposed-dialogs.css: --shadow-3 has no light value');
+  if (!/box-shadow:\s*var\(--shadow-3\)/.test(css)) fail('proposed-dialogs.css: the surface does not use box-shadow: var(--shadow-3)');
   if (!/--dlg-w-confirm:\s*360px/.test(css) || !/--dlg-w-form:\s*560px/.test(css) || !/--dlg-w-browse:\s*880px/.test(css)) fail('proposed-dialogs.css: the three sizes are not 360, 560 and 880');
   if (!/--dlg-ms:\s*200ms/.test(css) || !/ease-out/.test(css)) fail('proposed-dialogs.css: the enter and exit is not 200ms ease-out');
   if (!/@media \(max-width: 640px\)[\s\S]*border-radius: 0;[\s\S]*box-shadow: none;/.test(css)) fail('proposed-dialogs.css: no full-screen rule at 640px (no radius, no shadow)');
@@ -119,7 +118,7 @@ const dialogsProbe = async (ctx) => {
   }
 
   // The scrim and the phone.
-  { const d = get('Dialogs, in context'); const layer = d.querySelector('.sdk-dialog-layer'); const want = d.defaultView.innerWidth <= 640 ? tok(d, 'var(--bg)', 'backgroundColor') : ctx.mode === 'dark' ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.35)';
+  { const d = get('Dialogs, in context'); const layer = d.querySelector('.sdk-dialog-layer'); const want = d.defaultView.innerWidth <= 640 ? tok(d, 'var(--bg)', 'backgroundColor') : tok(d, 'var(--scrim)', 'backgroundColor'); if (d.defaultView.innerWidth > 640 && want !== 'rgba(0, 0, 0, 0.55)') bad(`--scrim is ${want}, not black at 55%`);
     if (getComputedStyle(layer).backgroundColor !== want) bad(`the scrim is ${getComputedStyle(layer).backgroundColor}, expected ${want}`);
     const dlg = layer.querySelector('.sdk-dialog'); if (d.defaultView.innerWidth > 640 && !near(dlg.getBoundingClientRect().width, 560, 1)) bad('the form in context is not 560px');
     const p = get('Dialogs, phone'); const dl = p.querySelector('.sdk-dialog'); const cs = getComputedStyle(dl); const iw = p.defaultView.innerWidth; const ih = p.defaultView.innerHeight;

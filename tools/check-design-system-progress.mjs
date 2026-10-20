@@ -20,7 +20,7 @@ export function staticChecks({ fail, css, js, DS }) {
   if (/rgba?\(\s*111/.test(css)) fail('proposed-progress.css: the raw green rgba(111,174,107) is back (use --ok)');
   if (/border-(left|right|top|bottom)\s*:/.test(css)) fail('proposed-progress.css: a rule draws an edge on one side (no bar)');
   if (!/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?animation:\s*none/.test(css)) fail('proposed-progress.css: no reduced-motion rule that stops the shimmer');
-  if (!/animation:\s*sdk-shimmer\s+1\.4s/.test(css)) fail('proposed-progress.css: the shimmer is not 1.4s');
+  if (!/animation:\s*shimmer\s+1\.4s/.test(css)) fail('proposed-progress.css: the shimmer is not 1.4s');
   if (!/--pg-h:\s*8px/.test(css) || !/--pg-h:\s*6px/.test(css)) fail('proposed-progress.css: the track heights are not 8px and 6px');
   if (!/status: 'proposed'/.test(js)) fail('proposed-progress.js: the family is not marked Proposed');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
@@ -65,7 +65,7 @@ export async function browserChecks(b) {
       for (const e of d.querySelectorAll('.sdk-progress-behind')) { const wantB = tok('backgroundColor', 'color-mix(in srgb, var(--accent) 24%, transparent)'); const row = e.parentElement;
         if (cs(e).backgroundColor !== wantB) bad(t + ': a poll fill is not the accent at 24%'); if (cs(e).position !== 'absolute' || cs(e).pointerEvents !== 'none') bad(t + ': a poll fill is not behind the row'); if (!row.querySelector('.sdk-meter-value') || !/%/.test(row.querySelector('.sdk-meter-value').textContent)) bad(t + ': a poll row has no percent in text'); }
       // the shimmer
-      for (const e of d.querySelectorAll('.sdk-progress.indeterminate')) { const a = cs(e.querySelector('.sdk-progress-fill')); if (a.animationName !== 'sdk-shimmer' || a.animationDuration !== '1.4s') bad(t + ': the shimmer is not animated (' + a.animationName + ' ' + a.animationDuration + ')'); }
+      for (const e of d.querySelectorAll('.sdk-progress.indeterminate')) { const a = cs(e.querySelector('.sdk-progress-fill')); if (a.animationName !== 'shimmer' || a.animationDuration !== '1.4s') bad(t + ': the shimmer is not animated (' + a.animationName + ' ' + a.animationDuration + ')'); }
       // the microphone
       for (const e of d.querySelectorAll('.sdk-mic')) { const bars = [...e.children]; if (bars.length !== 5) bad(t + ': a microphone level has ' + bars.length + ' bars');
         bars.forEach((s, i) => { const c = cs(s); if (parseFloat(c.width) !== 3) bad(t + ': a microphone bar is ' + c.width + ' wide'); if (parseFloat(c.height) !== [4, 7, 10, 13, 16][i]) bad(t + ': microphone bar ' + (i + 1) + ' is ' + c.height + ' high');

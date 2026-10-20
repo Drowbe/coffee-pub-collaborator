@@ -49,7 +49,7 @@
   text-transform: none;
   cursor: pointer;
   outline: none;
-  transition: background 0.12s;
+  transition: background var(--motion-fast) var(--ease-out);
 }
 
 .ds-proposed :is(.sdk-choice-row, .check):hover:not(:has(:disabled)) {
@@ -110,8 +110,8 @@
 /* A row with a description: the box sits level with the first line. */
 .ds-proposed .sdk-choice-row:has(.sdk-choice-desc) {
   align-items: flex-start;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .ds-proposed .sdk-choice-row:has(.sdk-choice-desc) > input:is([type="checkbox"], [type="radio"]) {
@@ -132,9 +132,9 @@
 /* ---- the boxed row: only where each option has a description ---- */
 .ds-proposed :is(.sdk-choice-boxed, .template-option) {
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   min-height: 44px;
-  padding: 10px 12px;
+  padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-medium);
 }

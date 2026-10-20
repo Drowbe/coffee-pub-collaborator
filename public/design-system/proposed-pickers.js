@@ -28,7 +28,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-ed { box-sizing: border-box; max-width: 560px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); }
 .pm-ed-t { margin: 0 0 14px; font-size: 16px; font-weight: 600; }
 .pm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border); }
-@media (max-width: 640px) { .pm-pw { flex-basis: 140px; width: 140px; } }`;
+@media (max-width: 640px) { .pm-pw { flex-basis: 140px; width: 140px; } }
+@media (max-width: 480px) { .pm-ed .sdk-row { flex-direction: column; gap: 12px; } .pm-ed .sdk-row > .sdk-field { width: 100%; max-width: none; flex: none; } }`;
 
   // ---- data: the examples ----
   const KINDS = [

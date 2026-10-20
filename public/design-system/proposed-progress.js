@@ -7,10 +7,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const PM_CSS = window.DS_PROPOSED.pmCss; // the shared example-page rules (.pm-row, .pm-role ...), from the page engine
   const fa = (n, x) => `<i class="fa-solid fa-${n}${x ? ' ' + x : ''}" aria-hidden="true"></i>`;
 
-  // The keyframes of the shimmer sit here, in the example page's own CSS: the proposed stylesheets may hold only rules under .ds-proposed (the runner checks that),
-  // and a keyframes rule has none. In the product they go in system.css next to the bar.
+  // The shimmer keyframe is the Foundations family's one shared `shimmer` (to: background-position -200% 0); the frames are separate documents, so the examples carry a copy here.
+  // (A keyframe step is not a selector, so it cannot sit in a proposed stylesheet that the runner checks rule by rule.)
   const PG_CSS = `
-@keyframes sdk-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
 .pm-pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 28px; max-width: 760px; }
 .pm-box { box-sizing: border-box; max-width: 560px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 14px; }
 .pm-box h5 { margin: 0; font-size: 14px; font-weight: 600; }
@@ -109,7 +109,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <h4 class="ds-h4" id="progress-anatomy">Anatomy</h4>
 ${dim([
     ['1 Track', '8px high (<code>--pg-h</code>), the full width of its place, <code>--radius-round</code>, fill <code>--border</code>. Fully round is allowed for tracks and bars (as it is for dots and avatars): a bar is a lozenge, not a box with a corner. Clipped, so the fill never shows square ends.'],
-    ['2 Fill', '<code>--accent</code>, the same height as the track, as wide as <code>--pct</code> (data, set by the consumer). It grows with a 0.3s transition (none under reduced motion).'],
+    ['2 Fill', '<code>--accent</code>, the same height as the track, as wide as <code>--pct</code> (data, set by the consumer). It grows with the base motion (200ms; none under reduced motion).'],
     ['3 Label and value', 'Above the bar: the name (13px, <code>--text</code>) and the value in words (<code>--text-dim</code>, "62%", "320 of 400"). The value is always text; colour is never the only signal. In a toolbar or an upload row the value sits to the right of the bar.'],
     ['4 Small track', '6px (<code>.sdk-progress-sm</code>), for toolbars and uploads. Same colours.'],
     ['5 Name and values', '<code>role="progressbar"</code>, <code>aria-label</code> (or <code>aria-labelledby</code>), <code>aria-valuenow</code>, <code>aria-valuemin</code>, <code>aria-valuemax</code>; <code>aria-valuetext</code> when the number alone is not enough (a budget). Today only the AI meter has any of this.'],
@@ -195,7 +195,7 @@ ${code(`<!-- a bar with its label and value -->
 
 <!-- the microphone level -->
 <span class="sdk-mic" role="progressbar" aria-label="Microphone level" aria-valuenow="3" aria-valuemin="0" aria-valuemax="5" aria-valuetext="Medium"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span>`)}
-<p class="ds-desc"><b>Names kept.</b> <code>.tb-progress</code>, <code>.tb-progress-fill</code>, <code>.ai-meter</code> (and <code>.warn</code>), <code>.upload .bar</code> take the look with no markup change; Budget's <code>.bar</code> keeps its name in the module (it is not aliased globally, because other modules use <code>.bar</code> for a toolbar). The keyframes of the shimmer (<code>sdk-shimmer</code>) belong in the product's shared stylesheet; on this page they are in the example frames.</p>
+<p class="ds-desc"><b>Names kept.</b> <code>.tb-progress</code>, <code>.tb-progress-fill</code>, <code>.ai-meter</code> (and <code>.warn</code>), <code>.upload .bar</code> take the look with no markup change; Budget's <code>.bar</code> keeps its name in the module (it is not aliased globally, because other modules use <code>.bar</code> for a toolbar). The shimmer is the Foundations family's one shared <code>shimmer</code> keyframe (and its 1.4s); each example frame carries a copy because frames are separate documents.</p>
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + PG_CSS }, o || {}));

@@ -49,7 +49,7 @@
   cursor: pointer;
   outline: none;
   box-shadow: none;
-  transition: background 0.15s;
+  transition: background var(--motion-fast) var(--ease-out);
 }
 
 .ds-proposed :is(.sdk-picker, .sdk-kind-field):hover:not(:disabled, [aria-disabled="true"]) {
@@ -107,7 +107,7 @@
   font-size: 12px;
   line-height: 1;
   text-align: center;
-  transition: transform 0.15s;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .ds-proposed .sdk-picker[aria-expanded="true"] .sdk-picker-icon {
@@ -195,7 +195,7 @@
   font-size: 14px;
   cursor: pointer;
   outline: none;
-  transition: background 0.12s;
+  transition: background var(--motion-fast) var(--ease-out);
 }
 
 .ds-proposed .sdk-iconpick-btn:hover {
@@ -220,8 +220,8 @@
 
 .ds-proposed .sdk-tile-check {
   position: absolute;
-  top: 1px;
-  right: 1px;
+  top: 2px;
+  right: 2px;
   display: none;
   font-size: 9px;
   line-height: 1;
@@ -300,8 +300,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
-  padding: 6px 4px 0;
+  margin-top: 8px;
+  padding: 8px 4px 0;
   border-top: 1px solid var(--border);
   font-size: 13px;
   color: var(--text);
@@ -351,10 +351,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   box-sizing: border-box;
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   border: 1px solid transparent;
   border-radius: var(--radius-medium);
   background: transparent;
@@ -364,7 +364,7 @@
   text-align: left;
   cursor: pointer;
   outline: none;
-  transition: background 0.12s;
+  transition: background var(--motion-fast) var(--ease-out);
 }
 
 .ds-proposed .sdk-tile:hover {

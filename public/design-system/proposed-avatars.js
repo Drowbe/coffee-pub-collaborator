@@ -139,7 +139,7 @@ ${dim([
     ['5 Fallback icon', '<code>fa-user</code> at half the diameter in <code>--text-dim</code>, for a guest or a person without a name. Today the Stream module falls back to the raw <code>#1a1410</code>; here it is the surface and this icon.'],
     ['6 Presence', 'A 7px dot (<code>--av-dot</code>) with a 2px ring in the surface colour (<code>--av-ring</code>), centred on the circle\'s edge at the lower right. Online is the ok status fill (<code>--ok</code>); away is <code>--text-dim</code>; offline has no dot. It is never colour alone: the dot has <code>title</code> and <code>aria-label</code> ("Online"), and in a list the word is written.'],
     ['7 Who\'s around', 'A stack with an 8px overlap, each circle ringed in the surface colour. When more people are around than fit, the rest are a <b>micro count</b> (the Chips family\'s 14px badge, 9px number) at the end of the stack over the last circle\'s lower right; the number only, and "and 3 more" in words for a screen reader.'],
-    ['8 Photo tile', 'A Home member tile (72px), the chat link image (72px, 52px when narrow) and the profile picture slot (96px) are <b>images in a card, not avatars</b>: <code>--radius-medium</code>, <code>object-fit: cover</code>. The Home tile\'s green-mixed "online" border becomes the presence dot, 6px in from the lower right.'],
+    ['8 Photo tile', 'A Home member tile (72px), the chat link image (72px, 52px when narrow) and the profile picture slot (96px) are <b>images in a card, not avatars</b>: <code>--radius-medium</code>, <code>object-fit: cover</code>. The Home tile\'s green-mixed "online" border becomes the presence dot, 8px in from the lower right.'],
   ])}
 
 <h4 class="ds-h4" id="avatars-sizes">Sizes and fills</h4>

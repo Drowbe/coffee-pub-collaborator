@@ -180,15 +180,15 @@
 
 /* A dot on a tile: in from the lower right corner by 6px (the tile's corner is a medium one). */
 .ds-proposed .sdk-photo > .sdk-presence {
-  right: 6px;
-  bottom: 6px;
+  right: 8px;
+  bottom: 8px;
 }
 
 /* ---- a row: the avatar, the name, the word ---- */
 .ds-proposed .sdk-person {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 

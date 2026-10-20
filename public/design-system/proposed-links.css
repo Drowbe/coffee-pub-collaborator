@@ -79,7 +79,7 @@
 .ds-proposed .sdk-link:has(> i:first-child) {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ---- the link button: a <button type="button"> that looks like a standalone link ---- */

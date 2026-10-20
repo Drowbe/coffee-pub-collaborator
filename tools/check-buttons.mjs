@@ -104,7 +104,7 @@ const BTN = /(\.btn(-primary|-danger|-quiet|-small)?|\.sdk-btn|\.sdk-icon-btn)((
 const LOOK = /^(background(-[a-z]+)?|border(-[a-z]+)*|color|padding(-[a-z]+)*|height|min-height|max-height|font(-[a-z]+)?|line-height|box-shadow|opacity|outline(-[a-z]+)?)$/;
 const SIZE_ONLY_OK = new Set(['width', 'min-width', 'max-width']);
 // .seg (Polls' joined buttons) goes with the Tabs step (host.ui.viewSwitch). The popped-out titlebar stretches its buttons to the bar.
-const LAYOUT_OK = [/^\.seg \.btn/, /^body\.module-popout \.module-titlebar \.sdk-icon-btn$/, /^\.subnav \.sdk-icon-btn$/, /^\.topbar > \.nav-right > \.sdk-icon-btn/, /^\.sdk-editor-close$/];
+const LAYOUT_OK = [/^body\.module-popout \.module-titlebar \.sdk-icon-btn$/, /^\.subnav \.sdk-icon-btn$/, /^\.topbar > \.nav-right > \.sdk-icon-btn/, /^\.sdk-editor-close$/];
 const sheets = ['public/style.css', 'public/sdk/host.css', 'public/destination.css', ...files.filter((f) => /^modules\/[^/]+\/src\/[^/]+\.css$/.test(f))];
 for (const rel of sheets) {
   for (const r of rules(read(rel))) {

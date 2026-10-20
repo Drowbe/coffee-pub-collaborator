@@ -6,6 +6,7 @@ import '/slot-paste.js'; // paste a picture into any image slot
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { fileText } from '/file-text.js';
 import { rowTabs } from '/page-tabs.js';
+import { moduleConfigMarkup, drawModuleConfig } from '/module-config.js';
 import { nav } from '/nav-bar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -112,15 +113,34 @@ const TABS = ['environment', 'template', 'theme', 'spaces', 'roles', 'users', 'm
 const OLD_TABS = { settings: 'environment', server: 'environment', rooms: 'spaces' };
 // Old names of sections that moved to the Template tab (addendum 2; Reactions and Icons came from Theme): a link to one opens the tab at it.
 const OLD_SECTIONS = { words: 'words-panel', 'home-icon': 'home-icon-section', reactions: 'reactions-section', icons: 'icons-section' };
-// The Environment tab's parts (#261): its first (the plan, the name and icon, the sign-in page), Localization, Stream
-// and Conference, each a stack of its own, chosen in the page bar's row (#env-subtabs). A part's own hash opens it
-// (#localization, #stream, #conference); #environment is the first part.
-const ENV_PARTS = ['general', 'localization', 'stream', 'conference'];
+// The Environment tab's parts (#261): its first (the plan, the name and icon, the sign-in page), Localization and
+// Stream, each a stack of its own, chosen in the page bar's row (#env-subtabs). A part's own hash opens it
+// (#localization, #stream); #environment is the first part. Conference's part is its tab on Modules now (#264), and
+// #conference opens it there.
+const ENV_PARTS = ['general', 'localization', 'stream'];
 let envPart = 'general';
 function showEnvPart(part) {
   envPart = ENV_PARTS.includes(part) ? part : 'general';
   for (const el of document.querySelectorAll('#tab-environment > [data-env-part]')) el.hidden = el.dataset.envPart !== envPart;
   for (const b of $('env-subtabs').querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.envPart === envPart);
+}
+// The Modules tab's parts (#264), in the page bar's row (#module-subtabs): Configuration (the list, the filters, the
+// activity), then a tab for each module that is on, Conference's while it is on. A tab that is not there (a module that
+// is off, or was just turned off or uninstalled) opens Configuration, once the list has loaded.
+let modulePart = 'config';
+let modulesLoaded = false;
+function showModulePart(part) {
+  const known = modulesLoaded ? moduleTabIds() : null;
+  modulePart = !known || known.includes(part) ? part : 'config';
+  $('module-part-config').hidden = modulePart !== 'config';
+  $('env-part-conference').hidden = modulePart !== 'conference';
+  $('module-part-module').hidden = modulePart === 'config' || modulePart === 'conference';
+  for (const b of $('module-subtabs').querySelectorAll('.subtab')) {
+    const on = b.dataset.modulePart === modulePart;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  }
+  if (modulesLoaded) drawModuleTab();
 }
 // A strip wider than the page scrolls inside itself (style.css): bring the chosen tab into it, the page left as it is.
 function scrollToChosen(strip) {
@@ -140,6 +160,13 @@ function selectTab(name) {
     part = name;
     name = 'environment';
   }
+  // The Modules tab's parts (#264): #modules/<id> a module's tab, #conference Conference's; #modules is Configuration.
+  let modPart = 'config';
+  if (name === 'conference') name = 'modules/conference';
+  if (name && name.startsWith('modules/')) {
+    modPart = decodeURIComponent(name.slice('modules/'.length)) || 'config';
+    name = 'modules';
+  }
   // A link to a section (an element's id, such as #words-panel or a module's row on the Template tab) opens its tab at it.
   const at = !TABS.includes(name) && name ? $(OLD_SECTIONS[name] || name) : null;
   const inTab = at && at.closest('section[id^="tab-"]');
@@ -151,10 +178,12 @@ function selectTab(name) {
   for (const t of TABS) $(`tab-${t}`).hidden = tab !== t;
   for (const b of $('subtabs').querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
   if (tab === 'environment') showEnvPart(part);
-  nav.draw('secondary'); // the page bar's row holds the Environment tab's parts only while it is shown
+  if (tab === 'modules') showModulePart(modPart);
+  nav.draw('secondary'); // the page bar's row holds the Environment tab's parts, or the Modules tab's, only while it is shown
   if (tab === 'environment') requestAnimationFrame(() => scrollToChosen($('env-subtabs')));
+  if (tab === 'modules') requestAnimationFrame(() => scrollToChosen($('module-subtabs')));
   scrollToChosen($('subtabs'));
-  const hash = tab === 'environment' && envPart !== 'general' ? envPart : tab;
+  const hash = tab === 'environment' && envPart !== 'general' ? envPart : tab === 'modules' && modulePart !== 'config' ? `modules/${encodeURIComponent(modulePart)}` : tab;
   if (location.hash !== `#${hash}`) history.replaceState(null, '', `#${hash}`);
   // Who has a calendar feed changes on their own Profile, so the Users tab asks again each time it opens.
   if (tab === 'users' && users.length) loadFeeds().then(renderUsers);
@@ -172,6 +201,13 @@ $('subtabs').addEventListener('click', (event) => {
 $('env-subtabs').addEventListener('click', (event) => {
   const b = event.target.closest('.subtab');
   if (b) selectTab(b.dataset.envPart === 'general' ? 'environment' : b.dataset.envPart);
+});
+$('module-subtabs').addEventListener('click', (event) => {
+  const b = event.target.closest('.subtab');
+  if (!b) return;
+  const was = modulePart;
+  selectTab(b.dataset.modulePart === 'config' ? 'modules' : `modules/${b.dataset.modulePart}`);
+  if (modulePart !== was) window.scrollTo(0, 0); // a new part starts at its top
 });
 window.addEventListener('hashchange', () => selectTab(location.hash.slice(1)));
 // A section drawn later (a module's row on the Template tab) is opened again once the page has drawn it (init).
@@ -1126,7 +1162,17 @@ async function loadModules() {
   installedModules = data.modules;
   builtinModules = data.builtin || [];
   bundledModules = data.bundled || [];
+  modulesLoaded = true;
+  renderModuleTabs();
   renderModules();
+  // The tab shown again from the list as it is now; a module's tab that has gone (turned off or uninstalled) leaves
+  // Configuration shown, and the address says so.
+  showModulePart(modulePart);
+  if (tabNow === 'modules') {
+    const hash = modulePart === 'config' ? 'modules' : `modules/${encodeURIComponent(modulePart)}`;
+    if (location.hash !== `#${hash}`) history.replaceState(null, '', `#${hash}`);
+    nav.draw('secondary');
+  }
   renderModuleNames();
   renderTemplateNote();
   loadActivity();
@@ -1165,7 +1211,20 @@ function bundledNeeds(b) {
   return `<div class="hint module-needs"><i class="fa-solid fa-circle-info fa-fw" aria-hidden="true"></i> Needs ${waiting.map((r) => `<strong>${escapeHtml(name(r))}</strong>`).join(' and ')} installed and turned on first.</div>`;
 }
 
-function moduleCard(m) {
+// The switch that turns a module, a built-in one or the AI service on and off (#264): one control in place of the
+// Enabled pill and the Disable button, today's switch (input.switch) with its word beside it. Its name says whose it is.
+function enabledSwitch({ id, attr, name, on, disabled = false }) {
+  return `<label class="check module-toggle"><input type="checkbox" class="switch" role="switch" ${attr}="${escapeHtml(id)}" aria-label="${escapeHtml(name)} enabled"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}> Enabled</label>`;
+}
+
+// An installed module's card, in one of four shapes (#264):
+//   'row'  on the Configuration tab, for a module that is on: its head (the switch), notes and what it does; its name
+//          opens its tab, where the rest is;
+//   'full' on the Configuration tab, for a module that is off (it has no tab): everything, so what it asks for is read
+//          before it is turned on, and its versions and Uninstall are still within reach;
+//   'tab'  the top of its own tab: its head, notes, what it does and the name it is shown as;
+//   'more' the foot of its own tab: what it is approved to do, how it runs, its versions and Uninstall.
+function moduleCard(m, shape = 'full') {
   // Where it shows (a person's own data is not a place of its own).
   // An outdated module's old scopes are not read, so it has no place to show: say why instead.
   const scopes = m.outdated ? 'Can\'t run until it is updated' : m.scope.filter((s) => s !== 'person').map((s) => (s === 'environment' ? `${word('environment', { cap: true })} page` : `${word('space', { cap: true })} ${word('canvas')}`)).join(' + ');
@@ -1183,37 +1242,45 @@ function moduleCard(m) {
     ...(m.refs && m.refs.consumes.length ? [`<li><strong>Link to other ${escapeHtml(word('module', { many: true }))}' ${escapeHtml(word('object', { many: true }))}</strong> <span class="hint">${escapeHtml(m.refs.consumes.map((c) => c.replace(':', ' ')).join(', '))}, shown only to people who can already see them</span></li>`] : []),
   ];
   const modeTag = m.runMode === 'page' ? '<span class="pill warn">In the page</span>' : '<span class="pill">Sandboxed</span>';
-  const state = modeTag + ' ' + (m.outdated ? '<span class="pill warn">Needs an update</span>' : m.enabled ? '<span class="pill on">Enabled</span>' : m.needsApproval ? '<span class="pill warn">Needs approval</span>' : '<span class="pill">Disabled</span>');
+  // The state: one switch (#264); a module built for an older version of the product can't be turned on, so it says so.
+  const control = m.outdated ? '<span class="pill warn">Needs an update</span>' : `${m.needsApproval && !m.enabled ? '<span class="pill warn">Needs approval</span> ' : ''}${enabledSwitch({ id: m.id, attr: 'data-module-enabled', name: shownName(m), on: m.enabled, disabled: !m.enabled && Boolean(m.missing?.length || m.needsUpdate?.length) })}`;
   const several = m.versions.length > 1; // the picker lists every kept version, the running one selected
-  const el = document.createElement('article');
-  el.className = 'panel module-card';
-  el.dataset.id = m.id;
-  el.innerHTML = `
+  const name = escapeHtml(shownName(m));
+  const head = `
     <div class="module-head">
       <i class="fa-solid fa-${escapeHtml(shownIcon(m))} fa-fw module-icon" aria-hidden="true"></i>
-      <div class="grow"><h2>${escapeHtml(shownName(m))} <span class="hint">${m.displayName ? `${escapeHtml(m.name)} ` : ''}v${escapeHtml(m.version)}${m.author ? ' by ' + escapeHtml(m.author) : ''}</span></h2>
+      <div class="grow"><h2>${shape === 'row' ? `<a href="#modules/${escapeHtml(encodeURIComponent(m.id))}" title="Open ${name}'s tab">${name}</a>` : name} <span class="hint">${m.displayName ? `${escapeHtml(m.name)} ` : ''}v${escapeHtml(m.version)}${m.author ? ' by ' + escapeHtml(m.author) : ''}</span></h2>
         <div class="hint">${escapeHtml(scopes)}</div></div>
-      ${state}
-    </div>
-    ${m.description ? `<p>${escapeHtml(m.description)}</p>` : ''}
-    ${shownAsLink(m)}
+      ${modeTag} ${control}
+    </div>`;
+  const about = `${m.description ? `<p>${escapeHtml(m.description)}</p>` : ''}`;
+  const approvals = `
     <p class="hint">${asks.length ? (m.needsApproval ? 'Asks for these -- enabling approves them:' : 'Approved to:') : 'Asks for nothing beyond showing itself.'}</p>
     ${asks.length ? `<ul class="module-asks">${asks.join('')}</ul>` : ''}
     <div class="module-runmode">
       <p class="hint"><strong>${m.runMode === 'page' ? 'Runs in the page' : 'Runs sandboxed'}</strong>${m.source === 'bundled' ? ', ships with this server' : ', uploaded'}. ${m.runMode === 'page' ? `It can read and change anything on the page, including what you can see and do. Only allow that for ${escapeHtml(word('module', { a: true }))} you trust.` : `It is walled off in its own frame and can only reach the host through its approved permissions. ${escapeHtml(word('module', { a: true, cap: true }))} in a frame cannot take part in drag and drop between ${escapeHtml(word('module', { many: true }))}.`}</p>
       ${m.source === 'bundled' || m.outdated || hostOnlyHidden() ? '' : `<button class="btn" data-module-runmode="${m.runMode === 'page' ? 'sandbox' : 'page'}" type="button">${m.runMode === 'page' ? 'Switch back to sandboxed' : 'Run in the page...'}</button>`}
-    </div>
+    </div>`;
+  const actions = `
     <div class="row">
-      ${m.outdated || m.needsUpdate?.length ? '' : isConfigurable(m) ? `<a class="btn" href="/module-config.html?id=${encodeURIComponent(m.id)}" title="Change what ${escapeHtml(shownName(m))} does in this ${escapeHtml(word('environment'))}"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> ${escapeHtml(word('module', { cap: true }))} Configuration</a>` : `<button class="btn" type="button" disabled title="${escapeHtml(shownName(m))} has no settings"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> ${escapeHtml(word('module', { cap: true }))} Configuration</button><span class="hint">No settings.</span>`}
-      ${m.outdated ? '' : `<button class="btn ${m.enabled ? '' : 'btn-primary'}" data-module-action="toggle" type="button" ${!m.enabled && (m.missing?.length || m.needsUpdate?.length) ? 'disabled' : ''}>${m.enabled ? 'Disable' : m.needsApproval ? 'Approve and enable' : 'Enable'}</button>`}
       ${m.scope.includes('space') && !m.outdated && m.lobby === false ? `<span class="hint">${escapeHtml(notInLobby())}</span>` : ''}
       ${!m.outdated && !m.enabled && m.missing?.length ? `<span class="hint">Needs ${m.missing.map(needsText).join(', and ')} first.</span>` : ''}
       ${!m.outdated && m.needsUpdate?.length ? `<span class="hint">Needs ${m.needsUpdate.map(nameOf).join(' and ')}, which ${m.needsUpdate.length === 1 ? 'needs' : 'need'} an update from ${m.needsUpdate.length === 1 ? 'its author' : 'their authors'}.</span>` : ''}
       ${several ? `<select data-module-version aria-label="Version">${m.versions.map((v) => `<option value="${escapeHtml(v)}"${v === m.version ? ' selected' : ''}${staleVersions.has(v) && v !== m.version ? ' disabled' : ''}>${escapeHtml(v)}${v === m.version ? ' (current)' : ''}${staleVersions.has(v) ? ' (needs an update)' : ''}</option>`).join('')}</select><button class="btn" data-module-action="rollback" type="button" disabled>Switch to this version</button>` : ''}
       <button class="btn btn-danger" data-module-action="uninstall" type="button">Uninstall</button>
     </div>`;
+  const el = document.createElement('article');
+  el.className = 'panel module-card';
+  el.dataset.id = m.id;
+  if (shape === 'more') {
+    el.innerHTML = `<h2>Permissions and versions</h2>${approvals}${actions}`;
+    return el;
+  }
+  el.innerHTML = shape === 'row' ? `${head}${about}`
+    : shape === 'tab' ? `${head}${about}${shownAsLink(m)}<p class="status" id="module-tab-status" role="status"></p>`
+      : `${head}${about}${shownAsLink(m)}${approvals}${actions}`;
   // Built for an older version of the product (its module.json uses a name that has since changed): it can't be turned on until its author
-  // updates it. Say so plainly, and what exactly, and offer no Enable; Update, another version and Uninstall still work.
+  // updates it. Say so plainly, and what exactly, and offer no switch; Update, another version and Uninstall still work.
   if (m.outdated) {
     const why = document.createElement('div');
     why.className = 'module-outdated';
@@ -1226,9 +1293,30 @@ function moduleCard(m) {
   if (newer) {
     const note = document.createElement('div');
     note.className = 'module-update';
-    note.innerHTML = `<span class="pill warn">Update available</span> <strong>Version ${escapeHtml(newer.version)}</strong> comes with this server. <button class="btn btn-primary btn-small" data-bundled-action="install" data-bundled-id="${escapeHtml(newer.id)}" type="button">Update to ${escapeHtml(newer.version)}</button> <span class="hint">Your data stays as it is, and you can switch back below. If it asks for anything new you approve it first.</span>`;
+    note.innerHTML = `<span class="pill warn">Update available</span> <strong>Version ${escapeHtml(newer.version)}</strong> comes with this server. <button class="btn btn-primary btn-small" data-bundled-action="install" data-bundled-id="${escapeHtml(newer.id)}" type="button">Update to ${escapeHtml(newer.version)}</button> <span class="hint">Your data stays as it is, and you can switch back${shape === 'full' ? ' below' : ` on its tab`}. If it asks for anything new you approve it first.</span>`;
     (el.querySelector('.module-outdated') || el.querySelector('.module-head')).after(note);
   }
+  return el;
+}
+
+// A built-in module's card (the conference, chat): not removable; the conference has a switch, chat is always on. On
+// the Configuration tab (`link`) the name of one with a tab opens it.
+function builtinCard(b, { link = false } = {}) {
+  const el = document.createElement('article');
+  el.className = 'panel module-card';
+  el.dataset.builtin = b.id;
+  const name = escapeHtml(shownName(b));
+  const control = b.switchable ? enabledSwitch({ id: b.id, attr: 'data-builtin-toggle', name: shownName(b), on: b.enabled }) : '<span class="pill on">Always on</span>';
+  el.innerHTML = `
+    <div class="module-head">
+      <i class="fa-solid fa-${escapeHtml(shownIcon(b))} fa-fw module-icon" aria-hidden="true"></i>
+      <div class="grow"><h2>${link && builtinHasTab(b) ? `<a href="#modules/${escapeHtml(encodeURIComponent(b.id))}" title="Open ${name}'s tab">${name}</a>` : name} <span class="hint">${b.displayName ? `${escapeHtml(b.name)}, ` : ''}built in</span></h2>
+        <div class="hint">On ${escapeHtml(word('space', { a: true }))}'s ${escapeHtml(word('canvas'))}</div></div>
+      ${control}
+    </div>
+    <p>${escapeHtml(b.description)}</p>
+    ${shownAsLink(b)}
+    <p class="hint">It comes with the server and can't be removed. Its permissions are on the Roles tab: ${escapeHtml(b.permissions)}.${b.switchable && b.needs ? ` ${escapeHtml(b.needs)}` : ''}</p>`;
   return el;
 }
 
@@ -1408,10 +1496,12 @@ let aiCard = { saved: false, on: false, dependents: [] };
 // separate from moduleFilter, which decides whether it is worth showing under the current filter.
 let aiAvailable = true;
 function syncAiVisibility() {
-  $('ai-panel').hidden = !aiAvailable || moduleFilter === 'updates';
+  const worth = moduleFilter === 'updates' ? false : moduleFilter === 'available' ? aiCard.saved && !aiCard.on : true;
+  $('ai-panel').hidden = !aiAvailable || !worth;
 }
-// Enabling and disabling is here, on the card, like every module's; the setup is on its own page.
-$('ai-toggle').addEventListener('click', async () => {
+// Turned on and off here, with its switch (#264), like every module; the setup is on its own page.
+$('ai-toggle').addEventListener('change', async () => {
+  const input = $('ai-toggle');
   const name = AI_NAMES[aiCard.provider] || 'the service';
   let force = false;
   if (aiCard.on) {
@@ -1421,16 +1511,17 @@ $('ai-toggle').addEventListener('click', async () => {
       msg = `${names} need${aiCard.dependents.length === 1 ? 's' : ''} the AI service. Turn ${aiCard.dependents.length === 1 ? 'it' : 'them'} off too?`;
       force = true;
     }
-    if (!window.confirm(msg)) return;
-  } else if (!window.confirm(`Enable AI?\n\nModules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`)) return;
-  $('ai-toggle').disabled = true;
+    if (!window.confirm(msg)) { input.checked = true; return; }
+  } else if (!window.confirm(`Enable AI?\n\nModules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`)) { input.checked = false; return; }
+  input.disabled = true;
   try {
     const wasOn = aiCard.on;
     await api('PUT', '/api/ai', { enabled: !wasOn, ...(force ? { force: true } : {}) });
     await loadModules(); // refreshes both the module list (a forced cascade may have disabled some) and the AI card
     say($('modules-status'), wasOn ? 'AI disabled' : 'AI enabled');
   } catch (err) {
-    $('ai-toggle').disabled = false;
+    input.checked = aiCard.on;
+    input.disabled = false;
     say($('modules-status'), err.message, true);
   }
 });
@@ -1444,13 +1535,10 @@ async function loadAi() {
     const saved = provider !== 'none';
     const on = saved && ai.enabled !== false;
     aiCard = { saved, on, provider, model: ai.active.model, dependents: dependents || [] };
-    $('ai-state').textContent = on ? 'Enabled' : saved ? 'Disabled' : 'Off';
-    $('ai-state').classList.toggle('on', on);
-    $('ai-toggle').textContent = on ? 'Disable' : 'Approve and enable';
-    $('ai-toggle').classList.toggle('btn-primary', !on && saved);
+    $('ai-toggle').checked = on;
     $('ai-toggle').disabled = !saved;
     $('ai-toggle-hint').textContent = saved ? '' : 'Set up a service first (AI Configuration).';
-    $('ai-summary').textContent = on ? `${AI_NAMES[provider] || provider}, ${aiCard.model || 'no model chosen'}. ${on ? `${Number(usage.tokens || 0).toLocaleString()} tokens this month${usage.monthlyTokens ? ' of ' + usage.monthlyTokens.toLocaleString() : ''}.` : 'Set up, and switched off.'}` : 'Not set up.';
+    $('ai-summary').textContent = on ? `${AI_NAMES[provider] || provider}, ${aiCard.model || 'no model chosen'}. ${on ? `${Number(usage.tokens || 0).toLocaleString()} tokens this month${usage.monthlyTokens ? ' of ' + usage.monthlyTokens.toLocaleString() : ''}.` : 'Set up, and switched off.'}` : saved ? 'Set up, and switched off.' : 'Not set up.';
     aiAvailable = true;
   } catch {
     aiAvailable = false;
@@ -1458,15 +1546,20 @@ async function loadAi() {
   syncAiVisibility();
 }
 
-// Which modules the tab lists: all of them, or only those with an update waiting.
+// Which modules the Configuration tab lists: all of them, those with an update waiting, those with settings, or those
+// that could be turned on (#264: installed and off, and the ones that ship with this server and are not installed yet).
 let moduleFilter = 'all';
 const hasUpdate = (id) => bundledModules.some((b) => b.id === id && b.update);
-// A module can be configured when it has settings the admin chooses for the server (what Module Configuration shows).
-// A module has a configuration page when it has environment settings, takes part in calendar sharing (GET /api/modules'
+// A module can be configured when it has settings the admin chooses for the server (what its tab's Settings shows).
+// A module has a configuration when it has environment settings, takes part in calendar sharing (GET /api/modules'
 // `sharing`), or its page is a top bar destination's main part (Show in the top bar): plan-space-calendars.md, section 4.
 const isDestinationMain = (m) => (m.surfaces?.destination || []).some((p) => p && p.part === 'main');
 const isConfigurable = (m) => !m.outdated && !m.needsUpdate?.length && ((m.settings || []).some((d) => d.scope === 'environment') || m.sharing === true || isDestinationMain(m));
-const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : moduleFilter === 'configurable' ? isConfigurable(m) : true;
+const canTurnOn = (m) => !m.enabled && !m.outdated;
+const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : moduleFilter === 'configurable' ? isConfigurable(m) : moduleFilter === 'available' ? canTurnOn(m) : true;
+// The built-in modules each filter shows: every one under All; Conference under Configurable while it has its tab, and
+// under Available while it is off.
+const builtinsFor = (filter) => filter === 'all' ? builtinModules : filter === 'configurable' ? builtinModules.filter(builtinHasTab) : filter === 'available' ? builtinModules.filter((b) => b.switchable && !b.enabled) : [];
 function syncModuleFilters() {
   const updates = installedModules.filter((m) => hasUpdate(m.id)).length;
   for (const b of document.querySelectorAll('[data-module-filter]')) {
@@ -1481,9 +1574,9 @@ function syncModuleFilters() {
   up.hidden = !updates;
   greenCount(up, updates, `${updates} ${updates === 1 ? 'update' : 'updates'} available`);
   const conf = $('module-filters').querySelector('[data-count="configurable"]');
-  conf.textContent = String(installedModules.filter(isConfigurable).length);
+  conf.textContent = String(installedModules.filter(isConfigurable).length + builtinsFor('configurable').length);
   const avail = $('module-filters').querySelector('[data-count="available"]');
-  const availableNow = bundledModules.filter((b) => !b.installed).length;
+  const availableNow = bundledModules.filter((b) => !b.installed).length + installedModules.filter(canTurnOn).length + builtinsFor('available').length;
   avail.textContent = String(availableNow);
   greenCount(avail, availableNow, `${availableNow} available`);
 }
@@ -1506,35 +1599,21 @@ function renderModules() {
   // The AI service card is not a versioned module, so it has no update to offer; it does have its own
   // configuration page, so it stays visible under Configurable.
   syncAiVisibility();
-  // "Available" isolates the not-yet-installed list below; every other filter hides it and works on what is installed.
-  const showAvailableOnly = moduleFilter === 'available';
-  const updatesOnly = moduleFilter !== 'all' && !showAvailableOnly;
-  // The built-in modules first: always on, and not removable.
-  for (const b of updatesOnly || showAvailableOnly ? [] : builtinModules) {
-    const el = document.createElement('article');
-    el.className = 'panel module-card';
-    el.innerHTML = `
-      <div class="module-head">
-        <i class="fa-solid fa-${escapeHtml(shownIcon(b))} fa-fw module-icon" aria-hidden="true"></i>
-        <div class="grow"><h2>${escapeHtml(shownName(b))} <span class="hint">${b.displayName ? `${escapeHtml(b.name)}, ` : ''}built in</span></h2>
-          <div class="hint">On ${escapeHtml(word('space', { a: true }))}'s ${escapeHtml(word('canvas'))}</div></div>
-        <span class="pill ${b.switchable ? (b.enabled ? 'on' : '') : 'on'}">${b.switchable ? (b.enabled ? 'Enabled' : 'Disabled') : 'Always on'}</span>
-      </div>
-      <p>${escapeHtml(b.description)}</p>
-      ${shownAsLink(b)}
-      <p class="hint">It comes with the server and can't be removed. Its permissions are on the Roles tab: ${escapeHtml(b.permissions)}.</p>
-      ${b.switchable ? `<div class="row"><button class="btn ${b.enabled ? '' : 'btn-primary'}" type="button" data-builtin-toggle="${escapeHtml(b.id)}">${b.enabled ? 'Disable' : 'Approve and enable'}</button>${b.needs ? `<span class="hint">${escapeHtml(b.needs)}</span>` : ''}</div>` : ''}`;
-    list.appendChild(el);
-  }
-  if (!showAvailableOnly && (updatesOnly ? !installedModules.some(moduleMatches) : !installedModules.length)) {
+  // The built-in modules first: not removable; Conference can be turned off, Chat is always on.
+  const builtins = builtinsFor(moduleFilter);
+  for (const b of builtins) list.appendChild(builtinCard(b, { link: true }));
+  // Installed modules: one that is on is a short card whose name opens its tab; one that is off (it has no tab) shows
+  // everything, so what it asks for is read before it is turned on.
+  const shown = installedModules.filter(moduleMatches);
+  if (moduleFilter !== 'available' && !shown.length) {
     const none = document.createElement('div');
     none.className = 'panel';
-    none.innerHTML = updatesOnly ? `<p class="hint">${moduleFilter === 'configurable' ? `No installed ${escapeHtml(word('module'))} has settings.` : 'Everything is up to date.'}</p>` : `<p class="hint">No other ${escapeHtml(word('module', { many: true }))} installed yet.</p>`;
+    none.innerHTML = moduleFilter === 'updates' ? '<p class="hint">Everything is up to date.</p>' : moduleFilter === 'configurable' ? `<p class="hint">No installed ${escapeHtml(word('module'))} has settings.</p>` : `<p class="hint">No other ${escapeHtml(word('module', { many: true }))} installed yet.</p>`;
     list.appendChild(none);
   }
-  if (!showAvailableOnly) for (const m of installedModules) if (moduleMatches(m)) list.appendChild(moduleCard(m));
-  // Modules that ship with this server and are not installed yet: shown under All, and on their own under Available.
-  const available = updatesOnly ? [] : bundledModules.filter((b) => !b.installed);
+  for (const m of shown) list.appendChild(moduleCard(m, moduleHasTab(m) ? 'row' : 'full'));
+  // Modules that ship with this server and are not installed yet: shown under All and under Available.
+  const available = moduleFilter === 'all' || moduleFilter === 'available' ? bundledModules.filter((b) => !b.installed) : [];
   if (available.length) {
     const box = document.createElement('div');
     box.className = 'panel';
@@ -1545,47 +1624,83 @@ function renderModules() {
         <button class="btn btn-primary" data-bundled-action="install" data-bundled-id="${escapeHtml(b.id)}" type="button" ${b.notInPlan ? `disabled title="Your plan does not include this ${escapeHtml(word('module'))}"` : ''}>Install</button>
       </div>`).join('')}`;
     list.appendChild(box);
-  } else if (showAvailableOnly) {
+  } else if (moduleFilter === 'available' && !shown.length && !builtins.length) {
     const none = document.createElement('div');
     none.className = 'panel';
-    none.innerHTML = '<p class="hint">Nothing new to install right now.</p>';
+    none.innerHTML = '<p class="hint">Nothing new to install or turn on right now.</p>';
     list.appendChild(none);
   }
 }
 
-// A built-in feature the admin may switch off (the conference): it goes through the same enable step as a module.
-$('modules-list').addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-builtin-toggle]');
-  if (!button) return;
-  const b = builtinModules.find((x) => x.id === button.dataset.builtinToggle);
+// What happened, said on the Configuration tab and on the module's tab while it is shown.
+function sayModules(text, error = false) {
+  say($('modules-status'), text, error);
+  const here = $('module-tab-status');
+  if (here && !$('module-part-module').hidden) say(here, text, error);
+}
+
+// A built-in module's switch (the conference): it goes through the same enable step as a module.
+$('tab-modules').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-builtin-toggle]');
+  if (!input) return;
+  const b = builtinModules.find((x) => x.id === input.dataset.builtinToggle);
   if (!b) return;
-  const enable = !b.enabled;
-  if (!enable && !window.confirm(`Turn off ${shownName(b)} for everyone?\n\n${b.turnOff || `It stops working in every ${word('space')} until you enable it again.`}`)) return;
-  if (enable && !window.confirm(`Enable ${shownName(b)}?\n\n${b.turnOn || b.description}`)) return;
-  button.disabled = true;
+  const enable = input.checked;
+  if (!enable && !window.confirm(`Turn off ${shownName(b)} for everyone?\n\n${b.turnOff || `It stops working in every ${word('space')} until you enable it again.`}`)) { input.checked = true; return; }
+  if (enable && !window.confirm(`Enable ${shownName(b)}?\n\n${b.turnOn || b.description}`)) { input.checked = false; return; }
+  input.disabled = true;
   try {
     await api('PATCH', '/api/settings', { [b.setting || `${b.id}Enabled`]: enable });
     await loadModules();
     say($('modules-status'), `${shownName(b)} ${enable ? 'enabled' : 'disabled'}`);
   } catch (err) {
-    button.disabled = false;
+    input.checked = !enable;
+    input.disabled = false;
     say($('modules-status'), err.message, true);
   }
 });
 
+// An installed module's switch (#264): on approves what it asks for (said first when it waits for approval); off asks
+// first when other modules need it, and turns them off too.
+$('tab-modules').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-module-enabled]');
+  if (!input) return;
+  const m = installedModules.find((x) => x.id === input.dataset.moduleEnabled);
+  if (!m) return;
+  const enable = input.checked;
+  let force = false;
+  if (!enable && m.dependents?.length) {
+    const names = m.dependents.map(shownNameOf).join(' and ');
+    if (!window.confirm(`${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`)) { input.checked = true; return; }
+    force = true;
+  }
+  if (enable && m.needsApproval && !window.confirm(`Turn on ${shownName(m)}?\n\nThis approves what it asks for, listed on its card.`)) { input.checked = false; return; }
+  input.disabled = true;
+  try {
+    await api('PATCH', `/api/modules/${m.id}`, { enabled: enable, ...(force ? { force: true } : {}) });
+    await loadModules();
+    await loadRoles(); // a module's permissions join the Roles grid when it is on
+    sayModules(`${shownName(m)} ${enable ? 'enabled' : 'disabled'}`);
+  } catch (err) {
+    input.checked = !enable;
+    input.disabled = false;
+    sayModules(err.message, true);
+  }
+});
+
 // Install or update a module that ships with this server, by building it here.
-$('modules-list').addEventListener('click', async (event) => {
+$('tab-modules').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-bundled-action]');
   if (!button) return;
   button.disabled = true;
-  say($('modules-status'), 'installing...');
+  sayModules('installing...');
   try {
     const { module } = await api('POST', `/api/modules/bundled/${encodeURIComponent(button.dataset.bundledId)}/install`);
     await loadModules();
     await loadRoles();
-    say($('modules-status'), `${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then enable'}`);
+    sayModules(`${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then turn it on'}`);
   } catch (err) {
-    say($('modules-status'), err.message, true);
+    sayModules(err.message, true);
     button.disabled = false;
   }
 });
@@ -1599,13 +1714,13 @@ $('module-install').addEventListener('click', async () => {
     $('module-file').value = '';
     await loadModules();
     await loadRoles(); // a module's permissions join the Roles grid when it is on
-    say($('modules-status'), `${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then enable'}`);
+    say($('modules-status'), `${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then turn it on'}`);
   } catch (err) {
     say($('modules-status'), err.message, true);
   }
 });
 
-$('modules-list').addEventListener('click', async (event) => {
+$('tab-modules').addEventListener('click', async (event) => {
   const mode = event.target.closest('[data-module-runmode]');
   if (!mode) return;
   const m = installedModules.find((x) => x.id === mode.closest('.module-card').dataset.id);
@@ -1614,27 +1729,19 @@ $('modules-list').addEventListener('click', async (event) => {
     if (to === 'page' && !window.confirm(`Run ${shownName(m)} in the page?\n\n${word('module', { a: true, cap: true })} in the page is not walled off. It can read and change everything on the page, act as you, and reach anything you can. the host cannot hold it to its approved permissions.\n\nOnly continue if you trust whoever wrote it.`)) return;
     await api('PATCH', `/api/modules/${m.id}`, { runMode: to, acceptRisk: to === 'page' });
     await loadModules();
-    say($('modules-status'), `${shownName(m)} now runs ${to === 'page' ? 'in the page' : 'sandboxed'}`);
+    sayModules(`${shownName(m)} now runs ${to === 'page' ? 'in the page' : 'sandboxed'}`);
   } catch (err) {
-    say($('modules-status'), err.message, true);
+    sayModules(err.message, true);
   }
 });
 
-$('modules-list').addEventListener('click', async (event) => {
+$('tab-modules').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-module-action]');
   if (!button) return;
   const card = button.closest('.module-card');
   const m = installedModules.find((x) => x.id === card.dataset.id);
   try {
-    if (button.dataset.moduleAction === 'toggle') {
-      let force = false;
-      if (m.enabled && m.dependents?.length) {
-        const names = m.dependents.map(shownNameOf).join(' and ');
-        if (!window.confirm(`${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`)) return;
-        force = true;
-      }
-      await api('PATCH', `/api/modules/${m.id}`, { enabled: !m.enabled, ...(force ? { force: true } : {}) });
-    } else if (button.dataset.moduleAction === 'rollback') {
+    if (button.dataset.moduleAction === 'rollback') {
       const version = card.querySelector('[data-module-version]').value;
       if (version === m.version) return;
       if (!window.confirm(`Switch ${shownName(m)} to version ${version}? Its data stays as it is.`)) return;
@@ -1646,21 +1753,95 @@ $('modules-list').addEventListener('click', async (event) => {
     }
     await loadModules();
     await loadRoles(); // a module's permissions join the Roles grid when it is on
-    say($('modules-status'), '');
+    sayModules('');
   } catch (err) {
-    say($('modules-status'), err.message, true);
+    sayModules(err.message, true);
   }
 });
 
-$('modules-list').addEventListener('change', async (event) => {
+$('tab-modules').addEventListener('change', async (event) => {
   if (event.target.matches('[data-module-version]')) {
     // Switching is only offered for a version that is not the running one.
     const card = event.target.closest('.module-card');
     const m = installedModules.find((x) => x.id === card.dataset.id);
     card.querySelector('[data-module-action="rollback"]').disabled = event.target.value === m.version;
-    return;
   }
 });
+
+// The Modules tab's row (#264): Configuration, Conference while it is on (its settings are its call features), then
+// each installed module that is on, by the name it is shown as. Drawn again only when the list of tabs changes.
+const builtinHasTab = (b) => b.id === 'conference' && b.switchable && b.enabled;
+const moduleHasTab = (m) => m.enabled && !m.outdated;
+function moduleTabIds() {
+  return ['config', ...builtinModules.filter(builtinHasTab).map((b) => b.id), ...installedModules.filter(moduleHasTab).map((m) => m.id)];
+}
+let moduleTabsDrawn = '';
+function renderModuleTabs() {
+  const strip = $('module-subtabs');
+  const want = [...builtinModules.filter(builtinHasTab), ...installedModules.filter(moduleHasTab)].map((m) => [m.id, shownName(m)]);
+  const key = JSON.stringify(want);
+  if (key === moduleTabsDrawn) return;
+  moduleTabsDrawn = key;
+  for (const b of [...strip.querySelectorAll('.subtab')]) if (b.dataset.modulePart !== 'config') b.remove();
+  for (const [id, name] of want) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'subtab';
+    b.dataset.modulePart = id;
+    b.textContent = name;
+    strip.append(b);
+  }
+}
+
+// The tab shown, drawn from the list as it is now: Conference's card, or an installed module's card, its settings and
+// the rest. The settings (module-config.html's markup) are drawn again only for another module, version or state, so
+// a refresh of the list never drops what someone is typing in them.
+let moduleConfigKey = '';
+let moduleConfigSeq = 0;
+function drawModuleTab() {
+  if (modulePart === 'config') return;
+  if (modulePart === 'conference') {
+    const b = builtinModules.find((x) => x.id === 'conference');
+    if (b) $('conference-card').replaceChildren(builtinCard(b));
+    return;
+  }
+  const m = installedModules.find((x) => x.id === modulePart);
+  if (!m) return;
+  $('module-tab-card').replaceChildren(moduleCard(m, 'tab'));
+  $('module-tab-more').replaceChildren(moduleCard(m, 'more'));
+  const key = `${m.id}:${m.version}:${m.enabled}`;
+  if (key !== moduleConfigKey) drawModuleSettings(m, key);
+}
+async function drawModuleSettings(m, key) {
+  moduleConfigKey = key;
+  const seq = ++moduleConfigSeq;
+  const live = () => seq === moduleConfigSeq;
+  const box = $('module-tab-settings');
+  box.replaceChildren(); // the last module's copy leaves first: its ids are the ones the next copy uses
+  let section;
+  try {
+    section = await moduleConfigMarkup();
+  } catch (err) {
+    if (!live()) return;
+    moduleConfigKey = '';
+    box.innerHTML = `<div class="panel"><p class="status error">The settings could not be read (${escapeHtml(err.message)}). Reload the page to try again.</p></div>`;
+    return;
+  }
+  if (!live()) return;
+  // The card above already names the module and says what it does: the copy keeps only its settings, under a heading.
+  section.querySelector('.module-head').hidden = true;
+  section.querySelector('#cfg-desc').hidden = true;
+  const heading = document.createElement('h2');
+  heading.textContent = 'Settings';
+  section.prepend(heading);
+  box.append(section);
+  applyWords(section);
+  try {
+    await drawModuleConfig(m, { live });
+  } catch (err) {
+    if (live()) sayModules(err.message, true);
+  }
+}
 
 // --- Font Awesome icons -----------------------------------------------------
 // Paste the HTML Font Awesome gives you; we keep just its classes.
@@ -2235,6 +2416,8 @@ async function init() {
   renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the page bar (plan-two-zone-nav.md), its tabs in the top bar
   // The page bar's row: the Environment tab's parts, while that tab is shown (#261).
   rowTabs({ strip: $('env-subtabs'), label: `${word('environment', { cap: true })} settings`, visible: () => tabNow === 'environment' });
+  // And the Modules tab's: Configuration and a tab per module that is on (#264), while that tab is shown.
+  rowTabs({ strip: $('module-subtabs'), label: word('module', { many: true, cap: true }), visible: () => tabNow === 'modules' });
   requestAnimationFrame(() => scrollToChosen($('env-subtabs'))); // a link to a part: its tab in view in the row
   await loadBranding();
   buildHomeIconGrid(); // after the branding: the choices are its icon list

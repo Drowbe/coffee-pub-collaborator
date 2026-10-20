@@ -6610,6 +6610,18 @@ input[type="color"] {
   margin: 0;
 }
 
+/* A module's switch in its card's head (#264): today's switch (input.switch) and its word, kept on one line. */
+.module-toggle {
+  display: inline-flex;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* On the Configuration tab the filters sit on their own between the activity and the list, in the stack's gap. */
+.tab-stack > .module-filters {
+  margin-top: 0;
+}
+
 .module-icon {
   font-size: 22px;
   color: var(--accent);

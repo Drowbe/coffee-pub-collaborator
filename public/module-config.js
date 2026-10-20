@@ -1,4 +1,5 @@
-// One module's own settings page (Manage > Modules > Module Configuration): /module-config.html?id=<module id>.
+// One module's own settings page: /module-config.html?id=<module id>, and the same settings in the module's tab on
+// Manage > Modules (#264; admin.js draws them with drawModuleConfig()).
 // Owners and the admin. Every module gets a page, so a module with many settings is not squeezed into a shared box.
 // Above the module's own settings, the host draws the environment switches that belong to the module
 // (plan-space-calendars.md, section 4, decision 11): Calendar sharing for a module that takes part in it, and Show in
@@ -56,46 +57,72 @@ function failure(err) {
   return err.message;
 }
 
-renderTopbar();
-renderPageBar({ manage: '/admin#modules' }); // named once the module is known (plan-two-zone-nav.md)
-await loadBranding();
-wireOverlayBack();
+// Manage > Modules draws the same configuration in a module's own tab (#264): it takes the #config markup from this
+// page (moduleConfigMarkup) and draws it with drawModuleConfig(). The page's own code runs only on this page.
+if (document.body && document.body.dataset.page === 'module-config') {
+  renderTopbar();
+  renderPageBar({ manage: '/admin#modules' }); // named once the module is known (plan-two-zone-nav.md)
+  await loadBranding();
+  wireOverlayBack();
 
-// Owners and the admin only. Signed out (401): to sign-in and back. Signed in without the right (403): say so and stop,
-// since sign-in would only send them back here. Anything else: say the list could not be read.
-let data;
-let stop = '';
-let denied = false;
-try {
-  data = await api('GET', '/api/modules');
-} catch (err) {
-  denied = err.status === 403;
-  if (err.status === 401) location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
-  else stop = err.status === 403 ? `Only ${word('owner', { many: true })} can change this.` : `The ${word('module', { many: true })} could not be read (${failure(err)}). Reload the page to try again.`;
+  // Owners and the admin only. Signed out (401): to sign-in and back. Signed in without the right (403): say so and stop,
+  // since sign-in would only send them back here. Anything else: say the list could not be read.
+  let data;
+  let stop = '';
+  let denied = false;
+  try {
+    data = await api('GET', '/api/modules');
+  } catch (err) {
+    denied = err.status === 403;
+    if (err.status === 401) location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+    else stop = err.status === 403 ? `Only ${word('owner', { many: true })} can change this.` : `The ${word('module', { many: true })} could not be read (${failure(err)}). Reload the page to try again.`;
+  }
+  const m = data && data.modules.find((x) => x.id === id);
+  if (stop) {
+    $('cfg-denied').textContent = stop;
+    $('cfg-denied').hidden = false;
+    if (denied) document.querySelector('.module-config-back').hidden = true; // Modules is not theirs either
+  } else if (data && !m) {
+    $('cfg-missing').hidden = false;
+  } else if (m) {
+    // What this environment calls it (its display name and icon, else its own), with its own name beside the version
+    // when the two differ, as its card on the Modules tab shows.
+    const name = m.displayName || m.name;
+    document.title = `${document.title.split(' - ')[0]} - ${name} configuration`; // the environment's name is in front once branding has loaded
+    renderPageBar({ name, icon: m.displayIcon || m.icon });
+    await drawModuleConfig(m);
+  }
 }
-const m = data && data.modules.find((x) => x.id === id);
-if (stop) {
-  $('cfg-denied').textContent = stop;
-  $('cfg-denied').hidden = false;
-  if (denied) document.querySelector('.module-config-back').hidden = true; // Modules is not theirs either
-} else if (data && !m) {
-  $('cfg-missing').hidden = false;
-} else if (m) {
-  // What this environment calls it (its display name and icon, else its own), with its own name beside the version
-  // when the two differ, as its card on the Modules tab shows.
+
+// This page's #config markup, for Manage's module tabs: read once, a fresh copy each time (its ids are this page's, so
+// only one copy is in a document at a time).
+let markup = null;
+export async function moduleConfigMarkup() {
+  if (!markup) {
+    const res = await fetch('/module-config.html', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`the server answered ${res.status}`);
+    markup = new DOMParser().parseFromString(await res.text(), 'text/html').getElementById('config');
+    if (!markup) throw new Error('the configuration could not be read');
+  }
+  return document.importNode(markup, true);
+}
+
+// One module's configuration, drawn into the #config markup in the document (this page's, or the copy in a module's tab
+// on Manage). `live()` says whether that copy is still the one shown: a draw that waited on the server and was replaced
+// in the meantime stops there, so it never fills the next module's copy.
+export async function drawModuleConfig(m, { live = () => true } = {}) {
   const name = m.displayName || m.name;
-  document.title = `${document.title.split(' - ')[0]} - ${name} configuration`; // the environment's name is in front once branding has loaded
   $('config').hidden = false;
   $('cfg-icon').classList.add(`fa-${m.displayIcon || m.icon}`);
   $('cfg-name').textContent = `${name} configuration`;
-  renderPageBar({ name, icon: m.displayIcon || m.icon });
   $('cfg-version').textContent = `${m.displayName ? `${m.name} ` : ''}v${m.version}${m.author ? ' by ' + m.author : ''}`;
   $('cfg-state').textContent = m.enabled ? 'Enabled' : 'Disabled';
   $('cfg-state').classList.add(m.enabled ? 'on' : 'warn');
   $('cfg-desc').textContent = m.description || '';
   const mine = (scope) => (m.settings || []).filter((d) => d.scope === scope).length; // the server's scope names (plan-names step 5a)
   const showSettings = () => renderModuleSettings($('settings'), { scope: 'environment', only: m.id, heading: false });
-  const hostSections = await wireHostSections(m, name);
+  const hostSections = await wireHostSections(m, name, live);
+  if (!live()) return;
   if (!mine('environment')) {
     $('cfg-none').hidden = hostSections;
   } else if (!m.enabled) {
@@ -104,6 +131,7 @@ if (stop) {
   } else {
     await showSettings();
   }
+  if (!live()) return;
   if (m.geocoder && m.enabled) wireCache(m.id);
   if (m.regionSource && m.enabled) wireRegion(m, showSettings);
   const others = [mine('space') && `each ${word('space')}'s ${word('moderator', { many: true })} choose some in the ${word('space')}'s ${word('module')} settings`, mine('person') && 'each person chooses some in their own profile'].filter(Boolean);
@@ -116,7 +144,7 @@ if (stop) {
 // Draws the host's sections this module has: Calendar sharing (m.sharing) and Show in the top bar (a destination's main
 // part). Each switch is saved as it is flipped (PATCH /api/settings) and redrawn from the answer, since otherCalendars
 // follows calendarFeeds until it is set. Answers whether any section is shown.
-async function wireHostSections(m, name) {
+async function wireHostSections(m, name, live = () => true) {
   const sharing = m.sharing === true;
   const mains = DESTINATIONS.filter((d) => (m.surfaces?.destination || []).some((p) => p && p.id === d.id && p.part === 'main'));
   if (!sharing && !mains.length) return false;
@@ -131,6 +159,7 @@ async function wireHostSections(m, name) {
   } catch {
     return false; // nothing to draw the switches from: the module's own settings still show
   }
+  if (!live()) return false; // another module's configuration is shown now
   const modulesLink = () => {
     const a = document.createElement('a');
     a.href = '/admin#modules';

@@ -213,19 +213,20 @@
     </section>
 
     <section class="tab-stack" id="tab-modules" hidden>
+      <!-- The Modules tab's parts (#264), chosen in the page bar's row (the navigation inside a tab, page-tabs.js rowTabs):
+           Configuration, then one tab per module that is on (and Conference while it is on), drawn by admin.js.
+           #modules opens Configuration; #modules/<module id> a module's tab; #conference Conference's. -->
+      <nav class="subtabs" id="module-subtabs">
+        <button class="subtab active" type="button" data-module-part="config">Configuration</button>
+      </nav>
+      <div class="tab-stack" id="module-part-config" data-module-part="config">
       <div class="panel">
         <h2 data-fill>{Modules}</h2>
-        <p class="hint" data-fill>Add features by uploading {a module} zip. {A module} runs in the browser, in a sandbox, and only reaches the server through what it asks for below. Upload it, look over what it asks for, then turn it on.</p>
+        <p class="hint" data-fill>Add features by uploading {a module} zip. {A module} runs in the browser, in a sandbox, and only reaches the server through what it asks for. Upload it, look over what it asks for, then turn it on. Each {module} that is on has its own tab above, with its settings.</p>
         <div class="row">
           <span data-host-only><input type="file" id="module-file" accept=".zip,application/zip">
           <button class="btn btn-primary" id="module-install" type="button">Install</button></span>
-          <span class="status" id="modules-status"></span>
-        </div>
-        <div class="module-filters" id="module-filters" role="group" aria-label="Show">
-          <button class="filter-chip on" type="button" data-module-filter="all" aria-pressed="true">All <span class="count" data-count="all"></span></button>
-          <button class="filter-chip" type="button" data-module-filter="updates" aria-pressed="false">Updates available <span class="count" data-count="updates"></span></button>
-          <button class="filter-chip" type="button" data-module-filter="configurable" aria-pressed="false">Configurable <span class="count" data-count="configurable"></span></button>
-          <button class="filter-chip" type="button" data-module-filter="available" aria-pressed="false">Available <span class="count" data-count="available"></span></button>
+          <span class="status" id="modules-status" role="status"></span>
         </div>
         <!-- what modules have done lately: newest first, in a box that scrolls -->
         <div class="activity-head"><h3>Recent activity</h3><span class="hint" data-fill>What {modules} have done lately</span></div>
@@ -234,17 +235,23 @@
           <p class="hint activity-empty" id="module-activity-empty">No activity yet.</p>
         </div>
       </div>
+      <!-- The filters, between the activity and the list (#264). -->
+      <div class="module-filters" id="module-filters" role="group" aria-label="Show">
+        <button class="filter-chip on" type="button" data-module-filter="all" aria-pressed="true">All <span class="count" data-count="all"></span></button>
+        <button class="filter-chip" type="button" data-module-filter="updates" aria-pressed="false">Updates available <span class="count" data-count="updates"></span></button>
+        <button class="filter-chip" type="button" data-module-filter="configurable" aria-pressed="false">Configurable <span class="count" data-count="configurable"></span></button>
+        <button class="filter-chip" type="button" data-module-filter="available" aria-pressed="false">Available <span class="count" data-count="available"></span></button>
+      </div>
       <!-- The AI service is server-wide, not one module's setting: its own configuration page, and a summary here. -->
       <div class="panel" id="ai-panel">
         <div class="module-head">
           <i class="fa-solid fa-wand-magic-sparkles fa-fw module-icon" aria-hidden="true"></i>
           <div class="grow"><h2>AI service</h2><div class="hint" id="ai-summary">Loading...</div></div>
-          <span class="pill" id="ai-state">Off</span>
+          <label class="check module-toggle"><input type="checkbox" class="switch" role="switch" id="ai-toggle" aria-label="AI service enabled" aria-describedby="ai-toggle-hint" disabled> <span id="ai-state">Enabled</span></label>
         </div>
         <p class="hint" data-fill>Lets {modules} that ask for it summarise and answer questions about the {objects} a person selects. Set it up on its own page, then tick <strong>Use AI in {modules}</strong> for a role on the Roles tab ({guests} never can).</p>
         <div class="row">
           <a class="btn" href="/ai-config.html"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> AI Configuration</a>
-          <button class="btn" type="button" id="ai-toggle" disabled>Approve and enable</button>
           <span class="hint" id="ai-toggle-hint"></span>
         </div>
       </div>
@@ -266,6 +273,40 @@
         </form>
         <div class="row danger-row"><button class="btn btn-small btn-danger" id="flight-clear" type="button">Clear all</button></div>
       </section>
+      </div>
+
+      <!-- Conference's tab, while it is on: its card and its call features (moved here from the Environment tab's
+           Conference part, #261; #conference opens it). Every field keeps its id, its setting and its own Save. -->
+      <div class="tab-stack" id="env-part-conference" data-module-part="conference" hidden>
+        <div id="conference-card"></div>
+        <div class="panel">
+        <h2>Call features</h2>
+        <p class="hint" data-fill>Turn any of these off for the whole {environment}. All on by default. Portrait size is how large a picture sits in the conference tile when the camera is off. 100 is as tall as the tile. Coffee Pub Studio's participant box uses this same size.</p>
+        <div class="fields">
+          <label>Maximum call quality<select id="set-max-quality"><option value="360">360p</option><option value="540">540p</option><option value="720">720p</option></select></label>
+          <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
+        </div>
+        <div class="checks">
+          <label class="check"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
+          <label class="check" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
+          <label class="check"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
+          <label class="check"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
+          <label class="check" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="save-features" type="button">Save</button>
+          <span class="status" id="features-status"></span>
+        </div>
+        </div>
+      </div>
+
+      <!-- An installed module's tab, while it is on: its card, its settings (module-config.html's markup, drawn by
+           module-config.js's drawModuleConfig()), then what it is approved to do, its versions and Uninstall. -->
+      <div class="tab-stack" id="module-part-module" data-module-part="module" hidden>
+        <div id="module-tab-card"></div>
+        <div id="module-tab-settings"></div>
+        <div id="module-tab-more"></div>
+      </div>
     </section>
 
     <section class="tab-stack" id="tab-about" hidden>
@@ -391,13 +432,13 @@
 
     <section class="tab-stack" id="tab-environment">
       <!-- The Environment tab's parts (#261), each its own stack; the strip goes in the page bar's row, the navigation
-           inside this tab (admin.js, page-tabs.js rowTabs). A part's hash (#localization, #stream, #conference) opens it;
-           #environment is the first. Only the interface moved: every field keeps its id, its setting and its own Save. -->
+           inside this tab (admin.js, page-tabs.js rowTabs). A part's hash (#localization, #stream) opens it; #environment
+           is the first. Only the interface moved: every field keeps its id, its setting and its own Save. Conference's
+           part moved to its tab on Modules (#264), and #conference opens it there. -->
       <nav class="subtabs" id="env-subtabs">
         <button class="subtab active" type="button" data-env-part="general" data-fill>{Environment}</button>
         <button class="subtab" type="button" data-env-part="localization">Localization</button>
         <button class="subtab" type="button" data-env-part="stream">Stream</button>
-        <button class="subtab" type="button" data-env-part="conference">Conference</button>
       </nav>
       <div class="tab-stack" id="env-part-general" data-env-part="general">
         <!-- The environment on a host with several: its plan, what it has used, and the two things an owner may ask of the host. -->
@@ -504,28 +545,6 @@
         </div>
       </div>
 
-      <div class="tab-stack" id="env-part-conference" data-env-part="conference" hidden>
-        <div class="panel">
-        <h2>Call features</h2>
-        <p class="hint" data-fill>The conference is built in, not {a module}, so its settings for the whole {environment} are here. Turn it on or off on the <a href="#modules">{Modules}</a> tab.</p>
-        <p class="hint" data-fill>Turn any of these off for the whole {environment}. All on by default. Portrait size is how large a picture sits in the conference tile when the camera is off. 100 is as tall as the tile. Coffee Pub Studio's participant box uses this same size.</p>
-        <div class="fields">
-          <label>Maximum call quality<select id="set-max-quality"><option value="360">360p</option><option value="540">540p</option><option value="720">720p</option></select></label>
-          <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
-        </div>
-        <div class="checks">
-          <label class="check"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
-          <label class="check" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
-          <label class="check"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
-          <label class="check"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
-          <label class="check" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
-        </div>
-        <div class="row">
-          <button class="btn btn-primary" id="save-features" type="button">Save</button>
-          <span class="status" id="features-status"></span>
-        </div>
-        </div>
-      </div>
     </section>
   </main>
 

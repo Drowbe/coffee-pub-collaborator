@@ -6622,6 +6622,11 @@ input[type="color"] {
   margin-top: 0;
 }
 
+/* What happened, at the foot of a module's own tab card: no room taken while there is nothing to say. */
+.module-card > .status {
+  margin: 0;
+}
+
 .module-icon {
   font-size: 22px;
   color: var(--accent);

@@ -138,7 +138,7 @@ export async function browserChecks(b) {
   }
   // Alignment (tools/check-design-system-align.mjs): shared centre lines, even padding, gaps on the 4px scale.
   await alignRows(b, [
-    { frame: /^Pickers, triggers, all states$/, row: '.pm-row', across: '.pm-role, .dsf-ex > :first-child', centres: false, padding: false, gaps: false },
+    { frame: /^Pickers, triggers, all states$/, row: '.pm-row', across: (sc.width > 640 ? '.pm-role, ' : '') + '.dsf-ex > :first-child', centres: false, padding: false, gaps: false },
     { frame: 'Pickers, a form', row: '.sdk-row', tops: true, padding: false },
     { frame: 'Pickers, a form', row: '.pm-ed', centres: false, padding: false },
   ]);

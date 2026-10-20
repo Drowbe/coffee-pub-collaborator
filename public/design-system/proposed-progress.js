@@ -21,6 +21,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-up { display: flex; align-items: flex-start; gap: 12px; }
 .pm-up > .btn { margin-top: -6px; }
 .pm-row .pm-role { margin-top: 16px; min-height: 18px; }
+@media (max-width: 640px) { .pm-row .pm-role { margin-top: 0 !important; min-height: 0 !important; } }
 .pm-up > .sdk-meter { flex: 1 1 auto; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
 .pm-ct th, .pm-ct td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }

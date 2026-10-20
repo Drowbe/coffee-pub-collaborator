@@ -31,6 +31,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .dsf-states { gap: 16px 24px; }
 .dsf-state { gap: 4px; }
 .pm-row .pm-role { margin-top: 16px; min-height: var(--field-h); }
+@media (max-width: 640px) { .pm-row .pm-role { margin-top: 0 !important; min-height: 0 !important; } }
 /* The Cards family's .sdk-row is a list row with a box; the form's .sdk-row is a row of fields. In the form it is the row of fields. */
 .pm-ed .sdk-form > .sdk-row { padding: 0; min-height: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 @media (max-width: 640px) { .pm-pw { flex-basis: 140px; width: 140px; } }

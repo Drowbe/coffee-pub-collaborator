@@ -115,7 +115,7 @@ export async function browserChecks(b) {
   }
   // Alignment (tools/check-design-system-align.mjs): shared centre lines, even padding, gaps on the 4px scale.
   await alignRows(b, [
-    { frame: 'Links, all states', row: '.pm-row', across: '.pm-role, .dsf-ex', centres: false, padding: false, gaps: false },
+    { frame: 'Links, all states', row: '.pm-row', across: (sc.width > 640 ? '.pm-role, ' : '') + '.dsf-ex', centres: false, padding: false, gaps: false },
     { frame: 'Links in use', row: '.pm-opt', padding: false },
     { frame: /^Links in/, row: '.pm-chat', tops: true, padding: false },
     { frame: 'Links in use', row: '.pm-card2', centres: false },

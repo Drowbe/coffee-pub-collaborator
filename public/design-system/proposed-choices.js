@@ -26,6 +26,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .dsf-states { gap: 16px 24px; }
 .dsf-state { gap: 4px; }
 .pm-row .pm-role { margin-top: 16px; min-height: var(--check-h, 32px); }
+@media (max-width: 640px) { .pm-row .pm-role { margin-top: 0 !important; min-height: 0 !important; } }
 /* The label of a row that has a description sits level with the label's first line, not the middle of the box. */
 .pm-row:has(.sdk-choice-desc) .pm-role { margin-top: 17px; }
 .pm-row:has(.sdk-choice-boxed) .pm-role { margin-top: 18px; }

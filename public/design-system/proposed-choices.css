@@ -129,13 +129,13 @@
   margin-top: 0;
 }
 
-/* A switch row with a description: the switch sits level with the first line, not the middle of two lines (the switch is 20px, the line 18px). */
+/* A switch row with a description: the switch sits level with the first line, not the middle of two lines (the switch is 20px; the line is 1.3 times the field font). */
 .ds-proposed .sdk-choice-row:has(> input.sdk-switch):has(.sdk-choice-desc) {
   align-items: flex-start;
 }
 
 .ds-proposed .sdk-choice-row:has(> input.sdk-switch):has(.sdk-choice-desc) > input.sdk-switch {
-  margin-top: -1px;
+  margin-top: calc(var(--field-font) * 1.3 / 2 - 10px);
 }
 
 /* ---- the boxed row: only where each option has a description ---- */

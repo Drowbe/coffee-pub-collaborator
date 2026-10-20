@@ -29,7 +29,7 @@ export function staticChecks({ fail, css, js, DS }) {
 }
 
 export async function browserChecks(b) {
-  const { ev, where, problems } = b;
+  const { ev, sc, where, problems } = b;
   const probe = JSON.parse(await ev(`(() => {
     const F = window.__ds.frames; const out = { problems: [], n: 0 }; const bad = (m) => out.problems.push(m);
     const dd = (t) => { const f = F.find((x) => x.iframe.title === t); return f && f.iframe.contentDocument; };
@@ -84,8 +84,8 @@ export async function browserChecks(b) {
   for (const x of [...new Set(probe.problems)]) problems.push(`${where}: ${x}`);
   // Alignment (tools/check-design-system-align.mjs): shared centre lines, even padding, gaps on the 4px scale.
   await alignRows(b, [
-    { frame: 'Avatars, sizes and fills', row: '.pm-row', across: '.pm-role, .sdk-avatar', centres: false, padding: false, gaps: false },
-    { frame: 'Avatars, presence', row: '.pm-row:first-child', across: '.pm-role, .sdk-avatar', centres: false, padding: false, gaps: false },
+    { frame: 'Avatars, sizes and fills', row: '.pm-row', across: (sc.width > 640 ? '.pm-role, ' : '') + '.sdk-avatar', centres: false, padding: false, gaps: false },
+    { frame: 'Avatars, presence', row: '.pm-row:first-child', across: (sc.width > 640 ? '.pm-role, ' : '') + '.sdk-avatar', centres: false, padding: false, gaps: false },
     { frame: 'Avatars, photo tiles', row: '.pm-tiles', across: '.sdk-photo, .sdk-avatar', centres: false, padding: false, gaps: false },
     { frame: 'Avatars, in use', row: '.pm-msg', tops: true, padding: false },
     { frame: 'Avatars, in use', row: '.pm-link', tops: true },

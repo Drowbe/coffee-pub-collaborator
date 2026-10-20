@@ -13,6 +13,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-sizes > .pm-grp { display: grid; grid-template-rows: none; gap: 12px; }
 .pm-grp > div { display: grid; grid-template-rows: var(--slot, 64px) auto; align-items: center; justify-items: center; gap: 4px; }
 .pm-row .pm-role { margin-top: 0; min-height: var(--role-h, 96px); }
+@media (max-width: 640px) { .pm-row .pm-role { margin-top: 0 !important; min-height: 0 !important; } }
 .pm-sizes small, .pm-grp small { color: var(--text-dim); font-size: 11px; font-weight: 600; }
 .pm-card3 { box-sizing: border-box; max-width: 560px; padding: 16px; border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 12px; }
 .pm-card3 h5 { margin: 0; font-size: 14px; font-weight: 600; }

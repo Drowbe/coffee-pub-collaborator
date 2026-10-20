@@ -34,6 +34,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .dsf-states { gap: 16px 24px; }
 .dsf-state { gap: 4px; }
 .pm-row .pm-role { margin-top: 16px; min-height: 32px; }
+@media (max-width: 640px) { .pm-row .pm-role { margin-top: 0 !important; min-height: 0 !important; } }
 @media (max-width: 640px) { .pm-lw { flex-basis: 140px; width: 140px; } }`;
 
   // ---- the automatic pick: --text-link is the accent, mixed with the least text colour that reaches 4.5:1 on the page and on a panel (the Colour family's

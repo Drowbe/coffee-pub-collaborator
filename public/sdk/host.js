@@ -1856,6 +1856,21 @@
       // A short note that appears for a few seconds and goes: for an instant confirmation ("Saved in X.") or a small refusal. Never
       // draw one inline in the module. Resolves true; the text is cut to 200 characters.
       toast: (text) => call('ui.toast', { text: String(text ?? '') }).then(() => true),
+      // A question the person answers, in place of the browser's own confirm (never call window.confirm). Drawn by the page, over
+      // everything, as the styled confirm: a title, a plain message, Cancel and the action. Resolves true (the action) or false
+      // (Cancel, Escape, a click outside); rejects only when it is asked badly (no title, an unknown kind) or the page did not answer.
+      // host.ui.confirm({ title, message?, action?, cancel?, kind?, typed? }):
+      //   title    the question, short ("Delete this place?"); message: one or two plain lines of what happens ("\n\n" starts a paragraph).
+      //   action   the button's word ("Delete"; default "OK"); cancel: default "Cancel".
+      //   kind     'plain' (default: the main button; easy to take back), 'destructive' (soft red, focus on Cancel) or
+      //            'final' (cannot be undone: solid red, focus on Cancel).
+      //   typed    with kind 'final': a name the person types before the action turns on.
+      // Escape cancels; focus is held in the dialog and goes back to where it was.
+      confirm: (o) => {
+        const t = o && typeof o === 'object' ? o : {};
+        if (typeof t.title !== 'string' || !t.title.trim()) return Promise.reject(Object.assign(new Error('say what is being asked (title)'), { status: 400 }));
+        return call('ui.confirm', { title: t.title, message: t.message, action: t.action, cancel: t.cancel, kind: t.kind, typed: t.typed }).then((r) => r === true);
+      },
       // A date picker for a date field: a small month grid under it, weekdays across the top, so the day a date
       // falls on is visible while choosing. The typed field keeps working; a button opens the grid and the
       // weekday of what is in the field shows under it. Works on <input type="date"> and
@@ -3121,6 +3136,7 @@
       const id = ++seq;
       pending.set(id, { resolve, reject });
       global.parent.postMessage({ host: 1, tk: secret, id, method, params }, '*');
+      if (method === 'ui.confirm') return; // a question waits as long as the person takes
       setTimeout(() => {
         if (!pending.delete(id)) return;
         reject(new Error('the host did not answer'));

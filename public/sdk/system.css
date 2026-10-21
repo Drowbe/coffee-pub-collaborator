@@ -1316,3 +1316,104 @@ input[type="checkbox"].sdk-switch:checked::before {
   input::before { transition: none; }
 }
 /* fields:end */
+
+/* confirm:start */
+/* The styled confirm (Dialogs and sheets, approved 2026-10-21): the question dialog public/confirm.js draws in place of window.confirm.
+   360px, the panel with a hairline, --radius-large, --shadow-3 and the scrim. Title, a plain message, Cancel and the action; the action is the
+   Primary (plain), the soft Danger (destructive) or the solid Danger (final, cannot be undone). It stays a 360px dialog on a phone: a question
+   is not a form, so it is not full screen. The shell rules below are written for .sdk-dialog-confirm alone; the Dialogs block takes the
+   same names for the other dialogs (proposed-dialogs.css), and what it repeats here can be dropped when it lands. */
+dialog.sdk-dialog-confirm {
+  --dlg-pad-x: 24px;
+  --dlg-ms: 200ms;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 32px));
+  max-width: 100%;
+  height: fit-content;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-large);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dlg-ms) ease-out, transform var(--dlg-ms) ease-out, overlay var(--dlg-ms) allow-discrete, display var(--dlg-ms) allow-discrete;
+}
+dialog.sdk-dialog-confirm:not([open]) { display: none; }
+dialog.sdk-dialog-confirm:focus { outline: none; }
+@starting-style {
+  dialog.sdk-dialog-confirm[open] { opacity: 0; transform: translateY(8px); }
+}
+dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
+
+.sdk-dialog-confirm .sdk-dialog-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px var(--dlg-pad-x);
+}
+.sdk-dialog-confirm .sdk-dialog-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: calc((var(--btn-h-small) - 24px) / 2) 0;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-18);
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.sdk-dialog-confirm .sdk-dialog-close { position: relative; flex: none; margin-right: -8px; }
+.sdk-dialog-confirm .sdk-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 var(--dlg-pad-x) 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sdk-dialog-confirm .sdk-dialog-body[hidden] { display: none; }
+.sdk-dialog-confirm .sdk-dialog-body > p { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+.sdk-dialog-confirm .sdk-dialog-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px var(--dlg-pad-x) calc(16px + env(safe-area-inset-bottom, 0px));
+  border: 0;
+  border-top: 1px solid var(--edge-hairline);
+}
+@media (max-width: 640px) {
+  .sdk-dialog-confirm { --dlg-pad-x: 16px; }
+  .sdk-dialog-confirm .sdk-dialog-close::after { content: ""; position: absolute; inset: var(--btn-hit); }
+  .sdk-dialog-confirm .sdk-dialog-foot > .btn { --btn-h: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.sdk-dialog-confirm { transition: none; }
+}
+/* confirm:end */

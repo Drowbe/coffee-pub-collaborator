@@ -5,6 +5,7 @@
 // space's canvas (canvas.js).
 
 import { api, accessKeyHeaders, word, words, withinSpacePage, showNote } from '/brand.js';
+import { confirmDialog } from '/confirm.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
 import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus } from '/module-chrome.js';
@@ -1373,6 +1374,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (typeof text !== 'string' || !text.trim()) throw Object.assign(new Error('say something'), { status: 400 });
       showNote(text);
       return true;
+    },
+    // A question for the person (host.ui.confirm): the styled confirm over the page. true for the action, false for anything else.
+    async 'ui.confirm'(o) {
+      return confirmDialog(o);
     },
     // A Font Awesome icon as inline SVG, for a module in a sandboxed frame that cannot load the icon font.
     async 'icons.svg'({ name, style }) {

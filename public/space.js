@@ -4919,14 +4919,15 @@ async function openMic() {
   return mic.track;
 }
 
-// The call bar's microphone level: five bars, the first n lit (n from 0 to 5).
-let micBarsLit = -1;
+// The call bar's microphone level: a fill rising from the bottom of the button (level from 0 to 1); the steps 0 to 5 are for the words.
+let micShown = -1;
 function showMicLevel(level) {
-  const n = Math.min(5, Math.round(level * 5));
-  if (n === micBarsLit) return;
-  micBarsLit = n;
+  const pct = Math.max(0, Math.min(100, Math.round(level * 100)));
+  if (pct === micShown) return;
+  micShown = pct;
   const el = $('meter');
-  [...el.children].forEach((bar, i) => bar.classList.toggle('on', i < n));
+  const n = Math.min(5, Math.round(level * 5));
+  el.style.setProperty('--pct', pct + '%');
   el.setAttribute('aria-valuenow', String(n));
   el.setAttribute('aria-valuetext', ['Silent', 'Quiet', 'Quiet', 'Medium', 'Loud', 'Loud'][n]);
 }

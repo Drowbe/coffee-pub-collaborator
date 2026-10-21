@@ -5173,29 +5173,33 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   pointer-events: none;
 }
 
-/* ---- the call's microphone level: its own pattern, five vertical bars, the lit ones in the ok mark (.on); in the call bar it sits in the button (public/style.css) ---- */
+/* ---- the call's microphone level: a round face with a fill rising from the bottom (--pct), in the ok mark, behind the glyph; in the call bar it is the button itself (public/style.css) ---- */
 .sdk-mic {
+  --pct: 0%;
+  position: relative;
   display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
-}
-
-.sdk-mic > span {
-  display: block;
-  width: 3px;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
   border-radius: var(--radius-round);
   background: var(--pg-track);
 }
 
-.sdk-mic > span:nth-child(1) { height: 4px; }
-.sdk-mic > span:nth-child(2) { height: 7px; }
-.sdk-mic > span:nth-child(3) { height: 10px; }
-.sdk-mic > span:nth-child(4) { height: 13px; }
-.sdk-mic > span:nth-child(5) { height: 16px; }
-
-.sdk-mic > span.on {
+.sdk-mic::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--pct);
   background: var(--status-ok-mark);
+  pointer-events: none;
+}
+
+.sdk-mic > i {
+  position: relative;
 }
 /* progress:end */
 

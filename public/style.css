@@ -3236,14 +3236,6 @@ a.crumb-here:hover {
   border-color: var(--primary-hover);
 }
 
-#mic.on .sdk-mic > span {
-  background: color-mix(in srgb, var(--text-on-accent) 35%, transparent);
-}
-
-#mic.on .sdk-mic > span.on {
-  background: var(--status-ok-mark);
-}
-
 /* Off is calm: the neutral fill and the slashed glyph, nothing red. */
 .fbtn.off:not(#away-toggle) {
   color: var(--text-dim);
@@ -3441,19 +3433,21 @@ a.crumb-here:hover {
   z-index: 1;
 }
 
-/* The microphone level (the SDK's .sdk-mic, five bars) sits at the bottom of the button, behind the glyph. It still tracks your real input
-   level while muted (so you can see you're talking before you unmute), but lit bars there read as "still live": they go muted. */
+/* The microphone level (the SDK's .sdk-mic) is the fill rising from the bottom of the round button, behind the glyph; the button's overflow clips it to the circle.
+   It still tracks your real input level while muted (so you can see you're talking before you unmute), but a fill there reads as "still live": it goes muted. */
 .fbtn .sdk-mic {
   position: absolute;
-  bottom: 3px;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: -1px;
+  width: auto;
+  height: auto;
+  background: none;
   pointer-events: none;
 }
 
-.fbtn.off .sdk-mic > span.on,
-.fbtn.gated .sdk-mic > span.on {
+.fbtn.off .sdk-mic::before,
+.fbtn.gated .sdk-mic::before {
   background: var(--text-muted);
+  opacity: 0.5;
 }
 
 /* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. The column keeps its own overflow, so a tall import panel scrolls inside the column instead of pushing the formatting row out from under the input. */

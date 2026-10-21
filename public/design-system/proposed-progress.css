@@ -197,27 +197,32 @@
   font-weight: 600;
 }
 
-/* ---- the call's microphone level: its own pattern, vertical bars in the ok status fill ---- */
+/* ---- the call's microphone level: a round face with a fill rising from the bottom (--pct), in the ok mark, behind the glyph ---- */
 .ds-proposed .sdk-mic {
+  --pct: 0%;
+  position: relative;
   display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
-}
-
-.ds-proposed .sdk-mic > span {
-  display: block;
-  width: 3px;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
   border-radius: var(--radius-round);
   background: var(--pg-track);
+  color: var(--text);
 }
 
-.ds-proposed .sdk-mic > span:nth-child(1) { height: 4px; }
-.ds-proposed .sdk-mic > span:nth-child(2) { height: 7px; }
-.ds-proposed .sdk-mic > span:nth-child(3) { height: 10px; }
-.ds-proposed .sdk-mic > span:nth-child(4) { height: 13px; }
-.ds-proposed .sdk-mic > span:nth-child(5) { height: 16px; }
-
-.ds-proposed .sdk-mic > span.on {
+.ds-proposed .sdk-mic::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--pct);
   background: var(--pg-ok);
+  pointer-events: none;
+}
+
+.ds-proposed .sdk-mic > i {
+  position: relative;
 }

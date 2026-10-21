@@ -4,6 +4,7 @@
 // without the cards' Saves (`draft: true`), in the Set up panel's modules tab, whose own Save sends them. The
 // server decides who may change what; this only draws what it is given.
 import { api, escapeHtml, word, accessKeyHeaders } from '/brand.js';
+import { confirmDialog } from '/confirm.js';
 
 // A list of things with a label, an icon and a colour each (Planner's marker types): rows to change, reorder, remove and add. The rows the
 // module says are fixed (def.fixed: ids) are always there; their label, icon and colour can change but they cannot be removed.
@@ -206,7 +207,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       const module = modules.find((m) => m.id === card.dataset.module);
       const name = delBtn.dataset.deleteFile;
       const folder = delBtn.closest('[data-files]')?.dataset.folder || '';
-      if (!window.confirm(`Delete ${name}? This can't be undone.`)) return;
+      if (!await confirmDialog({ title: `Delete ${name}?`, message: "This can't be undone.", action: 'Delete', kind: 'final' })) return;
       delBtn.disabled = true;
       try {
         await api('DELETE', `/api/modules/${encodeURIComponent(module.id)}/files/${encodeURIComponent(name)}${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`);
@@ -236,7 +237,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       const module = modules.find((m) => m.id === clearBtn.closest('.module-settings-card').dataset.module);
       const def = module.settings.find((d) => d.key === row.dataset.upload);
       const name = def && def.value;
-      if (!name || !window.confirm(`Clear ${name}? The file is deleted now. This can't be undone.`)) return;
+      if (!name || !await confirmDialog({ title: `Clear ${name}?`, message: "The file is deleted now. This can't be undone.", action: 'Clear', kind: 'final' })) return;
       clearBtn.disabled = true;
       const line = row.querySelector('[data-upload-status]');
       try {

@@ -6,6 +6,7 @@
 // the top bar for a module whose page is a top bar destination's main part. Neither names a module.
 import { loadBranding, api, renderTopbar, renderPageBar, wireOverlayBack, word, fill, hasOwnerRights, refreshDestinations } from '/brand.js';
 import { renderModuleSettings } from '/module-settings.js';
+import { confirmDialog } from '/confirm.js';
 import { wireRegionCut } from '/region-cut.js';
 
 const $ = (id) => document.getElementById(id);
@@ -246,11 +247,11 @@ async function wireHostSections(m, name, live = () => true) {
       try { await makePublished(); say(publishedStatus, 'address made'); } catch (err) { say(publishedStatus, failure(err), true); }
     });
     $('published-new').addEventListener('click', async () => {
-      if (!window.confirm('Make a new address? The old address stops working for everyone who has it.')) return;
+      if (!await confirmDialog({ title: 'Make a new address?', message: 'The old address stops working for everyone who has it.', action: 'Make new', kind: 'destructive' })) return;
       try { await makePublished(); say(publishedStatus, 'new address made'); } catch (err) { say(publishedStatus, failure(err), true); }
     });
     $('published-off').addEventListener('click', async () => {
-      if (!window.confirm('Turn off the published calendar\'s address? It stops working for everyone who has it.')) return;
+      if (!await confirmDialog({ title: "Turn off the published calendar's address?", message: 'It stops working for everyone who has it.', action: 'Turn off', kind: 'destructive' })) return;
       try {
         await api('DELETE', '/api/settings/published-calendar');
         publishedUrl = '';

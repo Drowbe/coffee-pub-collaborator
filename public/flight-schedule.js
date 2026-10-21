@@ -4,8 +4,9 @@
 // holds the markup (#flight-schedule-section and the ids below) and calls wireFlightSchedule with its route. The server's
 // own sentences are shown as they come.
 import { api } from '/brand.js';
+import { confirmDialog } from '/confirm.js';
 
-const CLEAR_QUESTION = 'Clear all learned flights? Lookups will find nothing until people save flights again.';
+const CLEAR_CONFIRM = { title: 'Clear all learned flights?', message: 'Lookups will find nothing until people save flights again.', action: 'Clear', kind: 'destructive' };
 const flights = (n) => `${n} flight${n === 1 ? '' : 's'}`;
 
 export function wireFlightSchedule(route) {
@@ -54,7 +55,7 @@ export function wireFlightSchedule(route) {
     }
   });
   clear.addEventListener('click', async () => {
-    if (!window.confirm(CLEAR_QUESTION)) return;
+    if (!await confirmDialog(CLEAR_CONFIRM)) return;
     try {
       const answer = await api('DELETE', route);
       show(answer);

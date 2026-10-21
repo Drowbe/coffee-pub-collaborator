@@ -1918,7 +1918,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       const movedWords = moved ? `${moved} ${moved === 1 ? 'has' : 'have'} a new place: the one before is no longer allowed. ` : '';
       if (!split.going.length) { setNote(`${movedWords}${leftOut || 'Nothing here can keep those yet.'}`.trim()); refresh(); return; }
       const what = keepCountWords(split.going.map((p) => ({ kind: p.kind, moduleName: p.target.moduleName })), objectWords());
-      if (!window.confirm(`${movedWords}Keep ${what}?${leftOut ? ` ${leftOut}` : ''}`)) { refresh(); return; }
+      // Loaded when asked: this file also runs in Node (the checks), where the page's /confirm.js is not a path.
+      const { confirmDialog } = await import('/confirm.js');
+      if (!await confirmDialog({ title: `Keep ${what}?`, message: `${movedWords}${leftOut}`.trim(), action: 'Keep' })) { refresh(); return; }
       keepTicked.disabled = true;
       // One after another, as before; then how they all went, in one note.
       const waits = [];

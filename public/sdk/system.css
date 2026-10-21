@@ -3264,6 +3264,307 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 }
 /* modulechrome:end */
 
+/* ================= Chat: the message and the composer (design system step 29) =================
+   Source: public/design-system/proposed-chat.css, without the .ds-proposed prefix, on the product's own class names (the drawing's
+   .sdk-message, .sdk-message-head, -portrait, -name, -command, -time, -body, -text, -quote are .message, .message-head, ... here).
+   - Others' messages are FLAT on the window: no box, no fill, no padding. Two flat messages in a row have the list's 8px gap and a
+     hairline (with 8px above it) between them. Your own message (.own) is the one boxed kind: the 10% accent fill, the medium
+     corner, 12px of padding (4px above the head). Nesting stops at window > your own message > a card or a quote.
+   - The head is 30px: a 22px round portrait, the name 12px weight 600, the command and the time 11px in --msg-meta (muted, but
+     readable on both message fills), then "private"/"public" and the "..." (the Quiet small icon button), always shown.
+   - A command's or the AI's message (data-tint) has its tint on the portrait only: a 22% tint behind the glyph and the glyph in
+     the readable mix. No left edge, no fill of the message.
+   - The body is 14px on 20px. A quote (the AI answer's question, a block quote) is a nested neutral fill, not a rule.
+   - The composer's field is the Fields text area: --field-h high (38px, 44px on a phone, 16px words there), growing to five
+     lines, then it scrolls. Enter sends; there is no Send button.
+   The text rules leave a card in the text alone (:not(:is(.chat-object, .chat-link) *)), so it keeps its own type.
+   The cards in a message (an object, a link box) are the Cards family and read --bg-card, which no colour role equals yet, so
+   their rules stay in style.css's chat block (their corner: medium on the window, small inside your own message). */
+/* chat:start */
+:root {
+  --msg-fill-own: color-mix(in srgb, var(--accent-fill) 10%, transparent);
+  --msg-quote-fill: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --msg-portrait: 22px;
+  --msg-meta: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted)); /* the time and the command: 4.5 to 1 on both message fills */
+  --msg-head-h: var(--btn-h-small);
+  --composer-lines: 5;
+  --composer-lh: 20px;
+  --composer-pad-y: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  :root { --composer-lh: 22px; --composer-pad-y: 10px; }
+}
+
+/* ---- the list of messages: flat on the window ---- */
+.chat .messages {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+  font-size: var(--text-14);
+  line-height: 20px;
+}
+
+/* ---- the message ---- */
+.message {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-medium);
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--text-14);
+  line-height: 20px;
+  box-shadow: none;
+}
+
+/* Between two flat messages: the 8px gap and a hairline, with 8px above it, so they do not run together. */
+.message:not(.own):has(+ .message:not(.own)) {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--edge-hairline);
+}
+
+/* Your own message: the one boxed kind. */
+.message.own {
+  padding: var(--space-1) var(--space-3) var(--space-3);
+  background: var(--msg-fill-own);
+}
+
+.message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--msg-head-h);
+  padding: 0;
+  background: none;
+}
+
+.message-head-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.message-head-side:last-child {
+  flex: none;
+  gap: var(--space-0);
+}
+
+.message-portrait {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--msg-portrait);
+  height: var(--msg-portrait);
+  overflow: hidden;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--text-primary) 14%, var(--surface-panel));
+  color: var(--text-primary);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-ui);
+  object-fit: cover;
+}
+
+/* A command or the AI: the tint on the portrait only. */
+.message[data-tint] .message-portrait {
+  background: color-mix(in srgb, var(--tint) 22%, var(--surface-panel));
+  color: color-mix(in srgb, var(--tint) 62%, var(--text-primary));
+}
+
+.message-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-12);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The command after the person's name ("/r"). */
+.message-command {
+  flex: none;
+  color: var(--msg-meta);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+}
+
+.message-dash,
+.message-when {
+  flex: none;
+  color: var(--msg-meta);
+  font-size: var(--text-11);
+  font-weight: var(--weight-regular);
+  line-height: 16px;
+}
+
+/* "private", "public" or "shared": a word, a button for its author. */
+.message-vis {
+  padding: var(--space-0) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  color: var(--msg-meta);
+  font: inherit;
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  cursor: pointer;
+}
+
+button.message-vis:hover {
+  background: var(--fill-hover);
+}
+
+button.message-vis:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+span.message-vis {
+  cursor: default;
+}
+
+/* ---- the body ---- */
+.message-body {
+  min-width: 0;
+  padding: 0;
+  background: none;
+  font-size: var(--text-14);
+  line-height: 20px;
+}
+
+.message .text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.message .text p:not(:is(.chat-object, .chat-link) *) {
+  margin: 0 0 var(--space-1);
+}
+
+.message .text p:last-child:not(:is(.chat-object, .chat-link) *) {
+  margin-bottom: 0;
+}
+
+.message .text :is(ul, ol):not(:is(.chat-object, .chat-link) *) {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-5);
+}
+
+.message .text :is(h1, h2, h3):not(:is(.chat-object, .chat-link) *) {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-14);
+  font-weight: var(--weight-strong);
+  line-height: 20px;
+}
+
+.message .text a:not(:is(.chat-object, .chat-link) *) {
+  color: var(--text-link);
+  text-decoration: underline;
+}
+
+.message .text img:not(:is(.chat-object, .chat-link) *) {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  margin-top: var(--space-0);
+  border-radius: var(--radius-small);
+  cursor: zoom-in;
+}
+
+.message .text code {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-min);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-13);
+}
+
+.message .text pre {
+  box-sizing: border-box;
+  margin: var(--space-1) 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--radius-small);
+  background: var(--msg-quote-fill);
+  font-size: var(--text-13);
+  line-height: 18px;
+  white-space: pre;
+}
+
+.message .text pre code {
+  padding: 0;
+  background: none;
+}
+
+/* A quote: a nested neutral fill with the small corner, not a rule. The AI answer's question is one line. */
+.message-quote,
+.message .text blockquote {
+  box-sizing: border-box;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--msg-quote-fill);
+  color: var(--msg-meta);
+  font-size: var(--text-12);
+  line-height: 16px;
+}
+
+.message-quote {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message .text blockquote {
+  margin: var(--space-1) 0;
+}
+
+/* ---- the composer's field: the Fields text area, one line to start, five at most, then it scrolls ---- */
+.chat-bar textarea {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  height: var(--field-h);
+  min-height: var(--field-h);
+  max-height: calc(var(--composer-lines) * var(--composer-lh) + 2 * var(--composer-pad-y) + 2px);
+  padding: var(--composer-pad-y) var(--field-pad-x);
+  line-height: var(--composer-lh);
+  resize: none;
+  overflow-y: auto;
+}
+
+/* The hint stays on one line and never wraps; chat-input.js picks a shorter hint when the field is too narrow for the
+   full one (a textarea's hint gets no ellipsis in every browser). What a person types still wraps. */
+.chat-bar textarea::placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* chat:end */
+
 /* ================= Dialogs and sheets (design system step 18) =================
    One shell for everything that opens over the page and asks for attention: the editor window (.sdk-editor, host.ui.editor), the layout
    sheet, the phase sheet, the background picker and the aside overlay's card. Source: public/design-system/proposed-dialogs.css, with the

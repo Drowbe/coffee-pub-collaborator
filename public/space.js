@@ -6074,11 +6074,12 @@ $('chat-input').addEventListener('beforeinput', (event) => {
 });
 // Grows with the text up to a few lines, then scrolls -- resetting height
 // to 'auto' first is what lets scrollHeight shrink back down too, not just
-// grow, when a line is deleted.
+// grow, when a line is deleted. The field is border-box, so its edge is added back (else five lines show a scrollbar);
+// its max-height stops it at five lines (system.css, the chat block).
 function resizeChatInput() {
   const el = $('chat-input');
   el.style.height = 'auto';
-  el.style.height = `${el.scrollHeight}px`;
+  el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
 }
 $('chat-input').addEventListener('input', resizeChatInput);
 

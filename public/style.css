@@ -3641,9 +3641,9 @@ a.crumb-here:hover {
   height: auto;
   min-height: 100%;
   overflow: visible; /* a message of more than one line grows up into the chat column, not the shared row */
-  background: var(--shade); /* the same as the video toolbar and the module bars in the shared bottom row */
-  border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
+  background: var(--surface-field); /* the same as the video toolbar and the module bars in the shared bottom row */
+  border-left: 1px solid var(--edge-hairline);
+  border-top: 1px solid var(--edge-hairline);
 }
 
 /* a thin strip over the chat column's left edge, to drag it wider or narrower */
@@ -3665,62 +3665,6 @@ a.crumb-here:hover {
 
 /* The chat's header (.chat-head) and its tools (.chat-tools) are a module's title bar: public/sdk/system.css, modulechrome. */
 
-.chat .messages {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--text-13);
-}
-
-.message {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0;
-  border-radius: var(--radius-medium);
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-}
-
-.message.own {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-/* A command's or the AI's message: the colour of its module (data-tint, below) on a thin left edge and on the
-   portrait's icon; text and backgrounds keep their tokens (plan-chat-model.md, decision 18). */
-.message[data-tint] {
-  --message-tint: var(--tint);
-  border-left: 3px solid var(--message-tint);
-}
-
-.message[data-tint] .message-portrait-icon {
-  color: var(--message-tint);
-}
-
-/* The command after the person's name ("/r"). */
-.message-command {
-  flex: none;
-  color: var(--text-dim);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-}
-
-/* A public AI answer's question, in one line (decision 11); the whole of it is the line's title. */
-.message-quote {
-  margin: 0 0 6px;
-  padding-left: 8px;
-  border-left: 2px solid var(--border);
-  color: var(--text-dim);
-  font-size: var(--text-12);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* Chat's two views (#chat-views, chat-input.js, GitHub #203): #messages carries data-view and each line data-in
    (discussion, assistant or both; a line without one is the Discussion's). Changing the view fetches nothing. */
 #messages[data-view="discussion"] > [data-in="assistant"],
@@ -3730,186 +3674,9 @@ a.crumb-here:hover {
 
 .chat-view-empty {
   margin: auto 0;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-12);
   text-align: center;
-}
-
-/* Header, then the message. The header is a step darker than the message under it. */
-.message-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 3px 2px 3px 8px;
-  border-radius: var(--radius-medium) var(--radius-medium) 0 0;
-  background: color-mix(in srgb, var(--text) 8%, var(--bg));
-}
-
-.message.own .message-head {
-  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
-}
-
-.message-head-side {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.message-head-side:last-child {
-  flex: none;
-}
-
-.message-portrait {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-round);
-  object-fit: cover;
-  background: color-mix(in srgb, var(--text) 14%, var(--bg));
-  color: var(--text);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-}
-
-.message-name {
-  font-size: var(--text-12);
-  font-weight: var(--weight-strong);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.message-dash,
-.message-when {
-  flex: none;
-  color: var(--text-dim);
-  font-size: var(--text-11);
-  font-weight: var(--weight-regular);
-}
-
-.message-vis {
-  border: 0;
-  background: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  cursor: pointer;
-  padding: 2px 4px;
-}
-
-span.message-vis {
-  cursor: default;
-}
-
-.message-body {
-  padding: 6px 8px 8px;
-}
-
-.message .actions {
-  position: absolute;
-  right: 2px;
-  top: 2px;
-  display: none;
-  gap: 1px;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  border-radius: var(--radius-min);
-}
-
-.message:hover .actions,
-.message:focus-within .actions {
-  display: flex;
-}
-
-.message .text {
-  overflow-wrap: anywhere;
-}
-
-.message .text img {
-  display: block;
-  max-width: 100%;
-  max-height: 240px;
-  border-radius: var(--radius-medium);
-  cursor: zoom-in;
-  margin-top: 2px;
-}
-
-.message .text code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--text-12);
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-  padding: 0 4px;
-  border-radius: var(--radius-min);
-}
-
-.message .text a {
-  color: var(--accent);
-}
-
-.message .who {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-}
-
-.message.own .who {
-  color: var(--text-dim);
-}
-
-.message .who .when {
-  margin-left: 6px;
-  color: var(--text-dim);
-  font-weight: var(--weight-regular);
-}
-
-.message .text {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.message .text p {
-  margin: 0 0 4px;
-}
-
-.message .text p:last-child {
-  margin-bottom: 0;
-}
-
-.message .text ul,
-.message .text ol {
-  margin: 4px 0;
-  padding-left: 18px;
-}
-
-.message .text h1,
-.message .text h2,
-.message .text h3 {
-  margin: 6px 0 4px;
-  font-size: 1em;
-}
-
-.message .text pre {
-  margin: 4px 0;
-  padding: 6px 8px;
-  border-radius: var(--radius-medium);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  overflow-x: auto;
-  white-space: pre;
-}
-
-.message .text blockquote {
-  margin: 4px 0;
-  padding: 2px 0 2px 8px;
-  border-left: 2px solid var(--border);
-  color: var(--text-dim);
 }
 
 .chat-closed-ask {
@@ -3919,7 +3686,7 @@ span.message-vis {
   gap: 8px;
   padding: 10px 12px;
   border-radius: var(--radius-medium);
-  background: color-mix(in srgb, var(--text) 5%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
 }
 
 .chat-closed-ask p {
@@ -3937,7 +3704,7 @@ span.message-vis {
   align-items: center;
   gap: 8px;
   margin: 4px 0;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-11);
   text-align: center;
 }
@@ -3947,7 +3714,7 @@ span.message-vis {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border);
+  background: var(--edge-hairline);
 }
 
 /* The formatting tools: a layer above the chat's input row, like the conference's popovers. */
@@ -3992,7 +3759,7 @@ span.message-vis {
 
 .chat-import-dropped {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 0.85em;
 }
 
@@ -4002,23 +3769,11 @@ span.message-vis {
   color: var(--danger-text);
 }
 
-/* The Assistant's one box: five lines to start with (a line is 18px; padding and border make up the rest), then it
+/* The Assistant's one box: five lines to start with (the composer's line, padding and edge, system.css chat block), then it
    grows and scrolls. */
 .chat[data-view="assistant"] #chat-input {
-  min-height: calc(5 * 18px + 2 * 9px + 2px);
+  min-height: calc(var(--composer-lines) * var(--composer-lh) + 2 * var(--composer-pad-y) + 2px);
   max-height: 220px;
-}
-
-.message.private-ai .actions {
-  position: static;
-  display: none;
-  margin-left: auto;
-  background: none;
-}
-
-.message.private-ai:hover .actions,
-.message.private-ai:focus-within .actions {
-  display: flex;
 }
 
 .message.private-ai .btn.kept,
@@ -4027,13 +3782,21 @@ span.message-vis {
   --b-fg-h: var(--text-accent);
 }
 
+/* An object in a message is the approved card: a 1px hairline, no shadow, 12px of padding. Its corner is one step under what
+   it sits on: medium on the flat window, small inside your own message (Chat family, step 29). */
 .message .chat-object {
-  white-space: normal;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
+  box-sizing: border-box;
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
   background: var(--bg-card);
+  box-shadow: none;
+  white-space: normal;
+}
+
+.message.own .chat-object {
+  border-radius: var(--radius-small);
 }
 
 .message .chat-object h3 {
@@ -4049,14 +3812,14 @@ span.message-vis {
 
 .message .chat-object-meta {
   margin: 0 0 8px;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-11);
 }
 
 /* An object's details in one line under its title (plan-object-handoff.md): the flight, the times, the reference. */
 .message .chat-object-details {
   margin: 0 0 6px;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: var(--text-12);
   overflow-wrap: anywhere;
 }
@@ -4074,7 +3837,7 @@ span.message-vis {
 }
 
 .message .chat-object-place {
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-12);
 }
 
@@ -4099,7 +3862,7 @@ span.message-vis {
   align-items: center;
   gap: 6px;
   margin: 0 0 8px;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-12);
 }
 
@@ -4123,23 +3886,30 @@ span.message-vis {
 
 /* A link in a chat message (plan-chat-links.md): under the text, a box with the picture, the title as the link, the
    description in up to three lines and the site, with Keep or who kept it. Read with the keeper's setting off, one
-   line: the site and Keep (.chat-link-plain). The keeper's colour (data-tint) is on the box's left edge and its icon
-   only, never its text or background; the message stays its author's. */
+   line: the site and Keep (.chat-link-plain). The box is the approved card (a hairline, 12px of padding, no edge; its
+   corner as the object card's). The keeper's colour (data-tint) is on its icon only, never an edge, its text or its
+   background; the message stays its author's. */
 .message .chat-link {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   align-items: flex-start;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--tint, var(--border));
+  box-sizing: border-box;
+  min-width: 0;
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-medium);
   background: var(--bg-card);
+  box-shadow: none;
   white-space: normal;
 }
 
+.message.own .chat-link {
+  border-radius: var(--radius-small);
+}
+
 .message .chat-link-plain {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   background: none;
 }
 
@@ -4147,9 +3917,9 @@ span.message-vis {
   flex: none;
   width: 72px;
   height: 72px;
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-small);
   object-fit: cover;
-  background: var(--shade);
+  background: var(--surface-field);
 }
 
 .message .chat-link-text {
@@ -4160,18 +3930,21 @@ span.message-vis {
 .message .chat-link-title {
   display: block;
   overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-14);
   font-weight: var(--weight-strong);
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .message .chat-link-desc {
   display: -webkit-box;
-  margin: 3px 0 0;
+  margin: var(--space-0) 0 0;
   overflow: hidden;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-12);
-  line-height: var(--leading-body);
+  line-height: 16px;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
@@ -4183,7 +3956,7 @@ span.message-vis {
   gap: 2px 6px;
   min-width: 0;
   margin-top: 4px;
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: var(--text-11);
 }
 
@@ -4193,7 +3966,11 @@ span.message-vis {
 
 .message .chat-link-icon {
   flex: none;
-  color: var(--tint, var(--text-dim));
+  color: var(--text-muted);
+}
+
+.message .chat-link[data-tint] .chat-link-icon {
+  color: color-mix(in srgb, var(--tint) 62%, var(--text-primary));
 }
 
 .message .chat-link-site-name {
@@ -4234,9 +4011,9 @@ span.message-vis {
   justify-content: space-between;
   gap: 8px;
   box-sizing: border-box;
-  padding: 2px 6px;
-  border-top: 1px solid var(--border);
-  background: var(--shade);
+  padding: var(--space-0) var(--space-2);
+  border-top: 1px solid var(--edge-hairline);
+  background: var(--surface-field);
 }
 
 .chat-format-side {
@@ -4263,7 +4040,7 @@ span.message-vis {
 .chat-help-popup p {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .chat-help-popup code {
@@ -4306,31 +4083,6 @@ span.message-vis {
   align-items: flex-end;
   gap: 6px;
   padding: 8px 10px 8px 8px; /* as the module bars beside it */
-}
-
-.chat textarea {
-  box-sizing: border-box;
-  min-height: var(--bar-control-h);
-  flex: 1;
-  min-width: 0;
-  resize: none;
-  max-height: 120px;
-  overflow-y: auto;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  color: var(--text);
-  padding: 9px;
-  font: inherit;
-  line-height: 18px; /* one line plus padding is exactly the control height */
-}
-
-/* The hint stays on one line and never wraps; chat-input.js picks a shorter hint when the field is too narrow for the
-   full one (a textarea's hint gets no ellipsis in every browser). What a person types still wraps as before. */
-.chat textarea::placeholder {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .popover {

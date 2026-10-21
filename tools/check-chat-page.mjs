@@ -49,6 +49,9 @@ const test = (name, fn) => {
 const space = read('public/space.js');
 const chat = read('public/chat-input.js');
 const css = read('public/style.css');
+// The Chat family's block in system.css (design system step 29): the message, its head, portrait, body and quote, and the composer's field.
+const sys = read('public/sdk/system.css');
+const chatBlock = sys.slice(sys.indexOf('/* chat:start */'), sys.indexOf('/* chat:end */'));
 const fnBody = (src, head) => {
   const at = src.indexOf(head);
   assert.ok(at > -1, `missing ${head}`);
@@ -139,7 +142,7 @@ test('a public AI answer reads "AI, for <name>" and quotes the question in one l
   assert.match(el, /const quote = entry\.visibility === 'public' && entry\.question \? entry\.question : null;/, 'never on a private answer');
   assert.match(el, /if \(quote\) name = `AI, for \$\{quote\.who\}`;/);
   assert.match(el, /q\.className = 'message-quote';/);
-  assert.match(css, /\.message-quote \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;/, 'one line');
+  assert.match(chatBlock, /\n\.message-quote \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/, 'one line');
 });
 
 test('"Delete your private messages" is gone for Clear… (plan-chat-clear.md, decision 1)', () => {
@@ -395,18 +398,24 @@ test('the eight tints: fixed dark values on :root and light ones for the light m
   assert.deepEqual(createRequire(import.meta.url)('../server/modules.js').TINTS, TINTS);
 });
 
-test('a tint colours a message\'s portrait icon and left edge, and a module\'s icon; no fixed colour in those rules', () => {
+test('a tint colours a message\'s portrait (no edge: the Chat family, step 29) and a module\'s icon; no fixed colour in those rules', () => {
   for (const t of TINTS) assert.match(css, new RegExp(`\\[data-tint="${t}"\\] \\{ --tint: var\\(--tint-${t}\\); \\}`));
-  const rule = (sel) => {
-    const at = css.indexOf(`\n${sel} {`);
-    assert.ok(at > -1, `style.css has ${sel}`);
-    return css.slice(at, css.indexOf('}', at));
+  const rule = (src, sel) => {
+    const at = src.indexOf(`\n${sel} {`);
+    assert.ok(at > -1, `the stylesheet has ${sel}`);
+    return src.slice(at, src.indexOf('}', at));
   };
-  assert.match(rule('.message[data-tint]'), /--message-tint: var\(--tint\);\s*border-left: 3px solid var\(--message-tint\);/);
-  assert.match(rule('.message[data-tint] .message-portrait-icon'), /color: var\(--message-tint\);/);
-  assert.match(rule('i[data-tint]'), /color: var\(--tint\);/);
-  for (const sel of ['.message[data-tint]', '.message[data-tint] .message-portrait-icon', 'i[data-tint]', '.message-command', '.message-quote', '.chat-view-empty']) {
-    assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(rule(sel)), `${sel} uses tokens only`);
+  assert.match(rule(chatBlock, '.message[data-tint] .message-portrait'), /background: color-mix\(in srgb, var\(--tint\) 22%, var\(--surface-panel\)\);\s*color: color-mix\(in srgb, var\(--tint\) 62%, var\(--text-primary\)\);/);
+  // No side edge on a message or anything in it, and the tint only on the portrait or a link's icon.
+  for (const src of [css, chatBlock]) {
+    for (const [, sel, body] of src.matchAll(/([^{}]*\.message[^{}]*)\{([^{}]*)\}/g)) {
+      assert.ok(!/border-(left|right)\s*:/.test(body), `${sel.trim()}: no side edge in a message`);
+      if (/var\(--tint\)/.test(body)) assert.match(sel, /message-portrait|chat-link-icon/, `${sel.trim()}: the tint only on the portrait or the link's icon`);
+    }
+  }
+  assert.match(rule(css, 'i[data-tint]'), /color: var\(--tint\);/);
+  for (const [src, sel] of [[chatBlock, '.message[data-tint] .message-portrait'], [css, 'i[data-tint]'], [chatBlock, '.message-command'], [chatBlock, '.message-quote'], [css, '.chat-view-empty']]) {
+    assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(rule(src, sel)), `${sel} uses tokens only`);
   }
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.
   const canvasJs = read('public/canvas.js');
@@ -509,14 +518,15 @@ test('links: storedEntry keeps preview and kept; the page asks for the preview, 
   assert.match(space, /loadLinkKeeper\(currentSpace\.id\);/);
 });
 
-test('links: the box wears the keeper\'s tint on its left edge and icon only, theme tokens throughout', () => {
+test('links: the box wears the keeper\'s tint on its icon only (no edge: the Chat family, step 29), theme tokens throughout', () => {
   const css = read('public/style.css');
   const rules = [...css.matchAll(/([^{}]*\.chat-link[^{}]*)\{([^{}]*)\}/g)];
   assert.ok(rules.length >= 8, 'the link box\'s rules');
   for (const [, sel, body] of rules) {
     assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(body), `${sel.trim()}: theme tokens only`);
+    assert.ok(!/border-(left|right)\s*:/.test(body), `${sel.trim()}: no side edge`);
     const tinted = body.split(';').filter((d) => /var\(--tint/.test(d)).map((d) => d.split(':')[0].trim());
-    for (const prop of tinted) assert.ok(['border-left', 'color'].includes(prop), `${sel.trim()}: the tint only on the edge or the icon (${prop})`);
+    for (const prop of tinted) assert.equal(prop, 'color', `${sel.trim()}: the tint only on the icon (${prop})`);
     if (tinted.includes('color')) assert.match(sel, /chat-link-icon/, 'the coloured text is the icon');
   }
 });
@@ -1151,7 +1161,8 @@ test('the composer: the Discussion has no paste box; the Assistant has no format
   assert.ok(!/data-for/.test(tag('chat-command')), 'the commands button is in both');
   const paint = fnBody(chat.replace(/^ {2}/gm, ''), 'function paintModeTools() {');
   assert.match(paint, /const off = mine \? !\(assistant && importOk\) : assistant;/, 'in the Assistant the formatting tools go; its two tools show where objects can be kept');
-  assert.match(css, /\.chat\[data-view="assistant"\] #chat-input \{\n\s*min-height: calc\(5 \* 18px/, 'five lines tall');
+  assert.match(css, /\.chat\[data-view="assistant"\] #chat-input \{\n\s*min-height: calc\(var\(--composer-lines\) \* var\(--composer-lh\)/, 'five lines tall');
+  assert.match(chatBlock, /--composer-lines: 5;/, 'five lines of the composer\'s line');
   assert.match(chat, /if \(\$\('chat'\)\) \$\('chat'\)\.dataset\.view = view;/);
   assert.ok(!/offerImport|pendingImport/.test(chat), 'a long paste no longer offers a button');
 });

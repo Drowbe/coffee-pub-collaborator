@@ -634,7 +634,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "scroll": "#module-frame >>> article.card.block"
+     "scroll": "#module-frame >>> article.block"
     }
    ],
    "tier": "state"

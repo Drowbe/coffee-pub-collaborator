@@ -206,7 +206,7 @@
     } else if (c.template === 'block') {
       const type = markerType(item.type);
       el.dataset.type = item.type;
-      setIcon(el.querySelector('.mk-icon [data-icon]'), type.icon);
+      setIcon(el.querySelector('.sdk-card-icon [data-icon]'), type.icon);
       colourPill(el, type);
       put(el, { title: item.title || type.label, minutes: duration, body: item.notes });
     } else if (c.template === 'note') {
@@ -383,18 +383,18 @@
     state.markerTypes = list.filter((t) => t && typeof t.id === 'string' && /^#[0-9a-f]{6}$/i.test(t.color || ''));
     if (!state.markerTypes.length) state.markerTypes = DEFAULT_MARKER_TYPES;
   }
-  // A marker's one colour: on the pill as a custom property, which gives the border and both cells.
+  // A marker's one colour: on the chip or row as a custom property, which gives its icon chip and its tint fill.
   const colourPill = (el, type) => { if (el) el.style.setProperty('--marker', type.color); };
   function buildMarker(kind, time, sub) {
     const type = markerType(kind);
     const row = clone('tpl-row-marker');
     row.dataset.marker = kind;
-    setIcon(row.querySelector('.markercard [data-icon]'), type.icon);
+    setIcon(row.querySelector('.sdk-mk-ic [data-icon]'), type.icon);
     // `mdate` repeats `time` (a date, for these plan-wide markers) inside the pill: on a phone, where the pill
     // is the whole row and .when's own column has nowhere to sit beside it, the stylesheet shows this instead
     // and hides .when, so the date stays with the box it is about rather than stranded above it.
     fill(row, { time, mdate: time, title: type.label, sub });
-    colourPill(row.querySelector('.markerpill'), type);
+    colourPill(row.querySelector('.sdk-mk-line'), type);
     return row;
   }
   // The markers of the whole plan, on the main timeline between the day blocks (not inside a day): the plan's ends above the first day
@@ -432,7 +432,7 @@
     row.classList.add(`ph-${lead.tint}`);
     const when = g.starts.length ? g.starts[0].start : g.day; // the day the phase begins, else the day it ends
     const text = parseYmd(when).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
-    setIcon(row.querySelector('.markercard [data-icon]'), g.starts.length ? 'flag' : 'flag-checkered');
+    setIcon(row.querySelector('.sdk-mk-ic [data-icon]'), g.starts.length ? 'flag' : 'flag-checkered');
     fill(row, { time: text, mdate: text, title: names.join(' · '), sub: '' });
     return row;
   }
@@ -594,9 +594,9 @@
     const row = clone('tpl-row-lane');
     row.dataset.id = item.id;
     row.dataset.type = item.type;
-    setIcon(row.querySelector('.mk-icon [data-icon]'), type.icon);
+    setIcon(row.querySelector('.sdk-mk-ic [data-icon]'), type.icon);
     fill(row, { title: item.title || type.label, body: item.notes });
-    colourPill(row.querySelector('.markerpill'), type);
+    colourPill(row.querySelector('.sdk-mk-line'), type);
     if (!canEdit) row.querySelector('.menu-btn')?.remove();
     return row;
   }

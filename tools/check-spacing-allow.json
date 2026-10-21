@@ -59,20 +59,17 @@
     },
     "modules/travel/src/travel-lib-cards.css": {
       "-6px": 3,
-      "-14px": 2,
       "-28px": 1,
-      "-39px": 1,
       "3px": 2,
-      "5px": 3,
-      "6px": 26,
-      "7px": 3,
-      "9px": 3,
-      "10px": 27,
-      "14px": 22,
+      "5px": 1,
+      "6px": 23,
+      "7px": 2,
+      "9px": 2,
+      "10px": 26,
+      "14px": 21,
       "18px": 1,
       "26px": 1,
-      "28px": 1,
-      "34px": 3
+      "28px": 1
     },
     "modules/travel/src/travel-lib-editor.css": {
       "6px": 1,

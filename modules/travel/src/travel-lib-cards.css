@@ -47,34 +47,10 @@
 .day-summary { margin: 0; color: var(--text-primary); font-size: var(--text-14); }
 .day-summary:empty { display: none; }
 .dmeta p { margin: 2px 0 0; color: var(--text-muted); font-size: var(--text-12); }
-/* the whole-day markers ("Travel day"): tags under the summary, each in its marker's colour */
 .day-tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; }
-.daytag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border: 1px solid var(--marker); border-radius: var(--radius-round); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); color: var(--text-primary); font: inherit; font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; }
-.daytag .ic { color: var(--marker); font-size: var(--text-11); }
-.daytag:hover { background: color-mix(in srgb, var(--marker) 30%, var(--bg-card)); }
-.daytag:disabled { cursor: default; }
 /* ---- markers, the line that joins the boxes, the days-between badge ---- */
-/* A marker is a two-part pill: an icon cell and a label cell, in one colour (--marker). The border is the colour, the icon cell is the colour, the
-   label cell is the colour lightened into the card, and the icon is white with a little see-through so it takes a touch of the colour it sits on.
-   The colour of a type comes from the settings (the script sets --marker); until then each type has a hue of the card families, turned from the accent. */
-.markerpill { --turn: 0; --marker: color-mix(in srgb, var(--accent-fill) 65%, var(--text-primary)); }
-@supports (color: oklch(from red l c h)) { .markerpill { --marker: oklch(from var(--accent-fill) l calc(c * 0.95) calc(h + var(--turn))); } }
-.row.marker[data-marker="planning-start"] .markerpill { --turn: 195; }
-.row.marker[data-marker="planning-end"] .markerpill { --turn: 255; }
-.row.marker[data-marker="trip-start"] .markerpill { --turn: 95; }
-.row.marker[data-marker="trip-end"] .markerpill { --turn: 0; }
-.card.block[data-type="free-time"] { --turn: 140; } .card.block[data-type="rest"] { --turn: 225; } .card.block[data-type="buffer"] { --turn: 45; }
-.card.block[data-type="meet-up"] { --turn: 330; } .card.block[data-type="leave-by"] { --turn: 15; }
-.markerpill { display: flex; align-items: stretch; position: relative; margin: 6px 0; min-height: 38px; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); overflow: hidden; box-shadow: none; padding: 0; }
-.markerpill::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--marker) 14%, transparent) 0 6px, transparent 6px 12px); pointer-events: none; }
-.mk-icon { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 46px; background: var(--marker); border-right: 1.5px solid color-mix(in srgb, var(--marker) 55%, var(--surface-page)); color: rgba(255, 255, 255, 0.88); font-size: var(--text-16); }
-.mk-label { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
-.mk-label b { font-size: var(--text-13); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-primary); }
-.mk-label .sub, .mk-label .mk-note { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); opacity: 0.78; font-size: var(--text-12); font-variant-numeric: tabular-nums; }
-.mk-label .mk-len { padding: 0 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--marker) 30%, transparent); font-size: var(--text-11); line-height: 18px; font-variant-numeric: tabular-nums; }
-.mk-label .mk-len:empty, .mk-label .mk-note:empty, .mk-label .sub:empty { display: none; }
-.card.block.markerpill { padding-right: 34px; }
-.card.block .menu-btn { z-index: 1; }
+/* A marker is the Markers block of system.css: a line chip (.sdk-mk-line) on the line between the days, a day row (.sdk-mk-row) in a
+   day and a day tag (.sdk-mk-tag) in the day's head. Its one colour (--marker) is set by the script from the settings. */
 /* the plan-wide markers sit between the day blocks, on the line */
 .timeline.ends { margin: 0 0 12px; padding: 0 14px 0 9px; }
 .timeline.ends .rail::before { display: none; }
@@ -340,31 +316,27 @@
   .row.entry .rail .dot { transition: transform 0.12s ease, box-shadow 0.12s ease; }
   .row.entry .rail:hover .dot { transform: scale(1.5); box-shadow: 0 0 0 3px var(--surface-panel), 0 0 0 5px color-mix(in srgb, var(--tone) 40%, transparent); }
 }
-/* a time block is a .card too, so its pill rules must win over the card's */
-.card.block.markerpill { display: flex; align-items: stretch; gap: 0; min-height: 38px; padding: 0 34px 0 0; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); box-shadow: none; overflow: hidden; }
-.card.block.markerpill .mk-icon { align-self: stretch; }
-.mk-label b, .mk-label .mk-len { flex: none; white-space: nowrap; }
 
-/* The icon cell of a marker sits ON the line: its centre is the rail's centre (the day's own rail, or the plan's line between the days). The date stays to the left of it. */
-.row.marker .rail .dot, .row[data-kind="block"] .rail .dot { display: none; }
-.row.marker .when, .row[data-kind="block"] .when { padding-right: 8px; }
-.row.marker .markerpill, .row[data-kind="block"] .markerpill { margin-left: -39px; }
-.row.marker .mk-icon, .row[data-kind="block"] .mk-icon { width: 40px; }
-.row.marker .rail, .row[data-kind="block"] .rail { z-index: 0; }
-.row.marker .slot, .row[data-kind="block"] .slot { position: relative; z-index: 1; }
-.app.narrow .row.marker .markerpill, .app.narrow .row[data-kind="block"] .markerpill { margin-left: -28px; }
-.app.narrow .row.marker .mk-icon, .app.narrow .row[data-kind="block"] .mk-icon { width: 26px; font-size: var(--text-13); }
+/* A line chip hangs ON the line: its icon chip's centre is the rail's centre (the rail is 18px, 10px from the slot, so its middle is 19px left of
+   the slot; the icon chip's middle is 13px into the chip: its 1px edge, 2px of padding and half of 20px). The date stays to the left of it. */
+.row.marker .rail .dot { display: none; }
+.row.marker .when { padding-right: 8px; }
+.row.marker .rail { z-index: 0; }
+.row.marker .slot { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) 0; }
+.row.marker .sdk-mk-line { margin-left: -32px; }
+.app.narrow .row.marker .sdk-mk-line { margin-left: -28px; } /* the narrow rail is 14px, 8px from the slot: 15px */
+.row.marker .slot > .menu-btn { position: static; flex: none; }
+/* A time block in a day is a day row (the Markers block): it sits in the slot as a card does, and its dot on the rail is neutral. */
+.row[data-kind="block"] .rail .dot { background: var(--text-muted); }
+.sdk-mk-row { --tint: var(--marker); }
+.sdk-mk-row > .menu-btn { position: static; }
 /* A plan-wide marker is one banner-like pill with nothing beside its date: stacking the date in its own
    full-width row above it (the way every other row does on a phone) leaves it stranded with empty space
-   beside it. mk-date carries the same date inside the pill for a phone to show instead (see buildMarker); the
+   beside it. mk-date carries the same date inside the chip for a phone to show instead (see buildMarker); the
    rail stays exactly where every other row's does, since .when is simply hidden here, not moved. */
 .mk-date { display: none; }
 .app.narrow .row.marker .when { display: none; }
-.app.narrow .row.marker .mk-date { display: inline; flex: none; color: var(--text-primary); opacity: 0.78; font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.app.narrow .row.marker .mk-date::after { content: '\00b7'; margin: 0 5px; opacity: 0.6; }
-.app.narrow .row.marker .mk-label { gap: 6px; }
-/* the menu button of a block: on the label cell's right edge, over the hatch */
-.card.block.markerpill .menu-btn { top: 50%; right: 4px; margin-top: -14px; }
+.app.narrow .row.marker .mk-date:not(:empty) { display: inline; }
 
 /* items at a joint on the line between the day blocks: a marker as its pill, anything else as the card it would be in a day, with
    no time. The head of the line (data-after="") is before the first day. A list being dropped on is .drop-target. */
@@ -372,8 +344,6 @@
 .timeline.between .rail::before { display: none; }
 .timeline.between .when { visibility: hidden; }
 .timeline.between.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: 2px; }
-.row.marker.lane .markerpill { padding-right: 34px; }
-.row.marker.lane .menu-btn { position: absolute; top: 50%; right: 4px; margin-top: -14px; z-index: 1; }
 .row.marker.lane .when b { font-size: var(--text-12); font-weight: var(--weight-medium); color: var(--text-muted); }
 /* the joint: a small + on the line where two days meet, so a marker can be added anywhere between them */
 .joint { position: relative; height: 0; z-index: 2; }
@@ -384,12 +354,12 @@
 @media (hover: none) { .jointadd { opacity: 0.6; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .jointadd { transition: none; } }
 
-/* Dragging over the plan: one of its own items (press its body, or a marker's pill, and move) or another module's item. While anything
+/* Dragging over the plan: one of its own items (press its body, or a marker's chip, and move) or another module's item. While anything
    is over it, every joint opens into a place to drop (.days.dragging-line), the joint or day under the pointer is .drop-target, and the
    plan's own item being moved is .dragging. Dropping on another item of the same joint or day puts it before or after (data-drop). */
-@media (hover: hover) { .row.marker.lane .markerpill { cursor: grab; } .row.marker.lane .markerpill:active { cursor: grabbing; } .row.marker.lane .menu-btn { cursor: pointer; } }
+@media (hover: hover) { .row.marker.lane .sdk-mk-line { cursor: grab; } .row.marker.lane .sdk-mk-line:active { cursor: grabbing; } }
 .row.marker.lane.dragging { opacity: 0.45; }
-.row.marker.lane.dragging .markerpill { box-shadow: 0 0 0 2px var(--accent-fill), 0 10px 26px color-mix(in srgb, black 40%, transparent); }
+.row.marker.lane.dragging .sdk-mk-line { box-shadow: var(--shadow-1); }
 .row.marker.lane[data-drop="before"] { box-shadow: 0 -3px 0 var(--accent-fill); }
 .row.marker.lane[data-drop="after"] { box-shadow: 0 3px 0 var(--accent-fill); }
 .days.dragging-line .joint { height: 30px; margin: -4px 0 4px; }
@@ -400,11 +370,8 @@
 
 /* a phase's start or end on the line (drawn from the bar's dates): filled in the phase's tint, no coloured border; every start and every
    end is a marker of its own, never blended with a neighbour's */
-.row.marker.phase .markerpill { --marker: var(--ph); border: 0; background: color-mix(in srgb, var(--ph) 32%, var(--bg-card)); }
-.row.marker.phase .markerpill::before { display: none; }
-.row.marker.phase .mk-icon { border-right: 0; }
+.row.marker.phase .sdk-mk-line { --marker: var(--ph); }
 .row.marker.phase .rail .dot { background: var(--ph); }
-.row.marker.phase .mk-label b { text-transform: none; letter-spacing: var(--tracking-normal); font-size: var(--text-13); }
 
 /* phases: a day in a dated phase takes a soft wash of the phase's tint (header and strip chip), with its name beside the
    date in a tag filled in the tint; borders stay the neutral ones. The tint names are the theme's (Phases.tintOf). */

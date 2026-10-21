@@ -1873,6 +1873,153 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 }
 /* calendar:end */
 
+/* ================= Markers (design system step 33) =================
+   A Planner marker (a type with a label, an icon and a colour the person chose) in three forms, by its job. Source:
+   public/design-system/proposed-markers.css, with the colour roles. The Calendar's markers are the Calendar block's kept bar, not these.
+   - Line chip (.sdk-mk-line): a moment between days, hanging on the plan's line: the Chips 24px tag with the marker at 22% over the
+     surface, a 20px icon chip (.sdk-mk-ic) at 38%, 12px words in the text colour, an optional date (.sdk-mk-when) and note (.sdk-mk-note).
+   - Day row (.sdk-mk-row, with .sdk-row): a block of time in a day, the Cards row with the marker's icon in the icon chip (the
+     module gives the row --tint: its --marker).
+   - Day tag (.sdk-mk-tag): a whole day (Travel day), the Chips tag in the day card's label row, 12px, its glyph in the marker's colour.
+   The marker's colour is the one value --marker (set on the element from the person's setting; the muted text colour when none); it is on the icon chip and the tint
+   fill, never on an edge: no coloured border, hatch or stripe. The words are always the text colour; the glyph is the marker mixed 45%
+   into the text. Hover is the marker at 34%, focus the 2px outline inside; on a phone the hit area is 44px.
+   tools/check-design-system-markers.mjs holds the drawing. */
+/* markers:start */
+:root {
+  --mk-tint: 22%;
+  --mk-icon-tint: 38%;
+  --mk-h: 24px;
+  --mk-ic: 20px;
+  --mk-line: color-mix(in srgb, var(--text-primary) 18%, transparent);
+}
+
+/* ---- the colour the three forms share ---- */
+:is(.sdk-mk-line, .sdk-mk-tag) {
+  --mk-surface: var(--surface-panel);
+  --mk-fg: color-mix(in srgb, var(--marker, var(--text-muted)) 45%, var(--text-primary));
+}
+:is(.sdk-day, .sdk-card) .sdk-mk-tag { --mk-surface: var(--surface-card); }
+
+/* ---- the line chip: a Chips tag that hangs on the line ---- */
+.sdk-mk-line {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) + var(--space-0));
+  box-sizing: border-box;
+  height: var(--mk-h);
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--space-2) 0 var(--space-0);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--marker, var(--text-muted)) var(--mk-tint), var(--mk-surface));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
+  outline: none;
+  transition: background var(--motion-fast);
+}
+:is(button, a, [tabindex="0"]).sdk-mk-line { cursor: pointer; }
+:is(button, a, [tabindex="0"]).sdk-mk-line:hover { background: color-mix(in srgb, var(--marker, var(--text-muted)) 34%, var(--mk-surface)); }
+.sdk-mk-line:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-mk-line.is-dragging { cursor: grabbing; box-shadow: var(--shadow-1); }
+.sdk-mk-line > .sdk-mk-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sdk-mk-line > .sdk-mk-when { flex: none; color: var(--text-muted); font-size: var(--text-12); font-variant-numeric: tabular-nums; }
+.sdk-mk-line > .sdk-mk-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+.sdk-mk-line > :is(.sdk-mk-when, .sdk-mk-note):empty { display: none; }
+
+/* The icon chip inside the line chip: the marker's tint, a little stronger than the chip. */
+.sdk-mk-ic {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--mk-ic);
+  height: var(--mk-ic);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--marker, var(--text-muted)) var(--mk-icon-tint), var(--mk-surface));
+  color: var(--mk-fg);
+  font-size: var(--icon-12);
+  line-height: 1;
+}
+.sdk-mk-ic svg { width: 1em; height: 1em; fill: currentColor; }
+
+/* The line itself (neutral, 2px, behind the chips), for a page that draws one. */
+.sdk-mk-spine { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; padding: var(--space-1) 0; }
+.sdk-mk-spine::before { content: ""; position: absolute; top: 0; bottom: 0; left: 11px; width: 2px; background: var(--mk-line); }
+
+/* ---- the day row: the Cards row with the marker's icon chip ---- */
+.sdk-mk-row > .sdk-mk-time { flex: none; width: 5ch; color: var(--text-muted); font-size: var(--text-12); font-variant-numeric: tabular-nums; }
+.sdk-mk-row .sdk-row-title { font-weight: var(--weight-medium); }
+.sdk-mk-row > .sdk-mk-len { flex: none; }
+@media (max-width: 640px) {
+  .sdk-mk-row .sdk-row-title { white-space: normal; }
+}
+
+/* ---- the day tag: the Chips tag with the marker's tint ---- */
+.sdk-mk-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  height: var(--mk-h);
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--marker, var(--text-muted)) var(--mk-tint), var(--mk-surface));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  box-shadow: none;
+  outline: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background var(--motion-fast);
+}
+.sdk-mk-tag > :is(i, .ic) { flex: none; display: inline-flex; width: var(--icon-12); font-size: var(--icon-12); line-height: 1; justify-content: center; color: var(--mk-fg, currentColor); }
+.sdk-mk-tag > .ic svg { width: 1em; height: 1em; fill: currentColor; }
+.sdk-mk-tag:hover { background: color-mix(in srgb, var(--marker, var(--text-muted)) 34%, var(--mk-surface)); }
+.sdk-mk-tag:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-mk-tag:disabled { cursor: default; pointer-events: none; }
+.sdk-mk-tag > .sdk-mk-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* A phone: the look stays; the hit area is 44px (as the Chips family does). */
+@media (max-width: 640px) {
+  :is(button, a).sdk-mk-line:not(:disabled)::before, .sdk-mk-tag:not(:disabled)::before {
+    content: "";
+    position: absolute;
+    inset: calc((var(--mk-h) - 2px - 44px) / 2) 0;
+  }
+  .sdk-mk-tag { overflow: visible; }
+  .sdk-mk-spine { gap: calc(var(--space-3) + var(--space-0)); }
+}
+
+/* ---- the legend ---- */
+.sdk-mk-legend { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sdk-mk-line, .sdk-mk-tag) { transition: none; }
+}
+/* markers:end */
+
 /* ================= Fields and forms (design system step 13) =================
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the

@@ -20,9 +20,6 @@
     "modules/stream/src/stream.css": {
       "raw": 7
     },
-    "modules/travel/src/travel-lib-cards.css": {
-      "shadow-scrim": 2
-    },
     "modules/travel/src/travel.js": {
       "raw": 12
     },

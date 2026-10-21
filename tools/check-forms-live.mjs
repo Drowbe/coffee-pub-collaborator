@@ -153,7 +153,7 @@ function measure() {
   const phone = fieldH >= 44;
   const nm = (e) => e.id ? '#' + e.id : (e.getAttribute('name') ? '[name=' + e.getAttribute('name') + ']' : e.tagName.toLowerCase() + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/)[0] : ''));
   const add = (rule, where, detail) => out.push({ rule, where, detail });
-  const oneLine = (e) => e.matches('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]):not([type=file]):not([type=color]), select, button.sdk-field-btn') && vis(e);
+  const oneLine = (e) => e.matches('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]):not([type=file]):not([type=color]), select') && vis(e);
   const r1 = (n) => Math.round(n * 10) / 10;
   if (!(fieldH > 0)) add('tokens', 'form', '--field-h is not defined');
   // Labels and focus.

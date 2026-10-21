@@ -387,7 +387,7 @@ window.__dsLog = [];
       id: 'live-datepicker-open', name: 'Live: date picker, open', height: 330, title: 'Live date picker, open',
       desc: 'The month grid (.sdk-dp) opened under a field.',
       body: '<div class="dsf-live"><form class="sdk-form" onsubmit="return false"><div class="sdk-row"><label class="sdk-field sdk-m"><span class="sdk-label">Departure day</span><input type="date" id="d2" value="2026-10-14"><span class="sdk-hint"></span></label></div></form></div>',
-      script: `host.ui.datePicker(document.getElementById('d2'), { clearable: true }); var b = document.querySelector('.sdk-field-btn, .sdk-dp-btn'); if (b) b.click();`,
+      script: `host.ui.datePicker(document.getElementById('d2'), { clearable: true }); var b = document.querySelector('.sdk-datefield .sdk-icon-btn'); if (b) b.click();`,
     },
     {
       id: 'live-menu', name: 'Live: host.menu.show (the module menu and its flyout)', height: 330, title: 'Live menu',

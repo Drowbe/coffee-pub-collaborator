@@ -146,7 +146,7 @@
   background-color: var(--bg-input);
 }
 
-/* A number: no stepper. A date or time: the browser's own picker icon is hidden; the .sdk-field-btn sits inside the field (below). */
+/* A number: no stepper. A date or time: the browser's own picker icon is hidden; the .sdk-icon-btn sits inside the field (below). */
 .ds-proposed input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -171,11 +171,11 @@
 }
 
 /* A date (or time) with a picker button: ONE field. The wrapper is the .sdk-group (host.ui.datePicker writes it as .sdk-datefield.sdk-group); it holds
-   the input and the .sdk-field-btn (the calendar; a second one, the list, may follow). The input is the whole box: one border, one fill, one
+   the input and the .sdk-icon-btn (the calendar; a second one, the list, may follow). The input is the whole box: one border, one fill, one
    focus edge. The button is a small Quiet icon button (30px) laid inside the trailing edge with the same inset above, below and at the
    right, so it sits in the middle of the field's height. The text never runs under it (padding-right). On a phone the button keeps its
    look and gets a 44px target. Hover is a fill; the button's own focus is a 2px ring inside it, and the field draws its one edge too. */
-.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) {
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn) {
   --dp-btn: 30px;
   --dp-inset: calc((var(--field-h) - var(--dp-btn)) / 2);
   position: relative;
@@ -184,15 +184,15 @@
   min-width: 0;
 }
 
-.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > input {
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn) > input {
   padding-right: calc(var(--dp-inset) + var(--dp-btn) + 6px);
 }
 
-.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn ~ .sdk-field-btn) > input {
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn ~ .sdk-icon-btn) > input {
   padding-right: calc(var(--dp-inset) + 2 * var(--dp-btn) + 8px);
 }
 
-.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn {
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn) > .sdk-icon-btn {
   --btn-h: var(--dp-btn);
   --btn-icon: 14px;
   --b-bg: transparent;
@@ -210,11 +210,11 @@
   padding-top: 1px;
 }
 
-.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn ~ .sdk-field-btn) > .sdk-field-btn:nth-of-type(1) {
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn ~ .sdk-icon-btn) > .sdk-icon-btn:nth-of-type(1) {
   right: calc(var(--dp-inset) + var(--dp-btn) + 2px);
 }
 
-.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn:focus-visible {
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn) > .sdk-icon-btn:focus-visible {
   outline-offset: -2px;
   background: var(--b-bg-h);
   color: var(--b-fg-h);
@@ -222,7 +222,7 @@
 
 /* The 44px target on a phone: the hit area grows past the 30px box (the field is 44px high, so it stays inside it). */
 @media (max-width: 640px) {
-  .ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn::after {
+  .ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-icon-btn) > .sdk-icon-btn::after {
     content: "";
     position: absolute;
     inset: -8px;
@@ -230,7 +230,7 @@
 }
 
 /* The field's one edge shows when the input or the button has the focus. */
-.ds-proposed .sdk-group:has(> .sdk-field-btn:focus-visible) > input:is([type="date"], [type="time"], [type="datetime-local"]) {
+.ds-proposed .sdk-group:has(> .sdk-icon-btn:focus-visible) > input:is([type="date"], [type="time"], [type="datetime-local"]) {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--f-ring) !important;
   outline: 2px solid var(--accent) !important;

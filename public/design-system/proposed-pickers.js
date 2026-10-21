@@ -70,7 +70,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   function pkDate(s) {
     if (s === 'Placeholder' || s === 'Open') return '<span class="pm-na" aria-hidden="true">-</span>';
     const a = (s === 'Hover' ? ' class="ds-force-hover"' : s === 'Focus' ? ' class="ds-force-focus"' : '') + (s === 'Disabled' ? ' disabled' : '') + (s === 'Error' ? ' aria-invalid="true"' : '');
-    return `<div class="sdk-group"><input type="date" aria-label="Day" value="2026-10-17"${a}><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar"${s === 'Disabled' ? ' disabled' : ''}>${fa('calendar')}</button></div>`;
+    return `<div class="sdk-group"><input type="date" aria-label="Day" value="2026-10-17"${a}><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar" title="Open the calendar"${s === 'Disabled' ? ' disabled' : ''}>${fa('calendar')}</button></div>`;
   }
   const pkMatrix = (h44) => `<div class="ds-proposed"${h44 ? ' data-field-h="44"' : ''}>${(h44 ? PK_KINDS.filter((k) => k.id === "kind" || k.id === "col") : PK_KINDS).map((k) => `<div class="pm-row"><div class="pm-role">${k.n}</div><div class="dsf-states">${PK_STATES.map((s) => `<div class="dsf-state pm-pw"><small>${s}</small><div class="dsf-ex">${pkTrigger(k, s)}</div></div>`).join('')}</div></div>`).join('')}
     <div class="pm-row"><div class="pm-role">Date (Fields)</div><div class="dsf-states">${PK_STATES.map((s) => `<div class="dsf-state pm-pw"><small>${s}</small><div class="dsf-ex">${pkDate(s)}</div></div>`).join('')}</div></div></div>`;
@@ -113,7 +113,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       <div class="sdk-field sdk-m"><span class="sdk-label" id="${uid}-c">Currency</span><button type="button" class="sdk-picker" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="${uid}-c">${val('<b>EUR</b> Euro')}${fa('chevron-down', 'sdk-picker-icon')}</button><span class="sdk-hint"></span></div>
     </div>
     <div class="sdk-row">
-      <div class="sdk-field sdk-m" role="group" aria-labelledby="${uid}-d"><span class="sdk-label" id="${uid}-d">Day</span><div class="sdk-group"><input type="date" value="2026-10-17" aria-label="Day"><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar">${fa('calendar')}</button></div><span class="sdk-hint"></span></div>
+      <div class="sdk-field sdk-m" role="group" aria-labelledby="${uid}-d"><span class="sdk-label" id="${uid}-d">Day</span><div class="sdk-group"><input type="date" value="2026-10-17" aria-label="Day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar" title="Open the calendar">${fa('calendar')}</button></div><span class="sdk-hint"></span></div>
       <div class="sdk-field sdk-m"><span class="sdk-label" id="${uid}-o">Colour</span><button type="button" class="sdk-picker" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="${uid}-o"><span class="sdk-picker-sw" style="--sw: #c8873a"></span>${val('<span class="sdk-hex">#c8873a</span>')}${fa('chevron-down', 'sdk-picker-icon')}</button><span class="sdk-hint"></span></div>
     </div>
     <div class="sdk-row">

@@ -17,7 +17,7 @@
 import { alignRows } from './check-design-system-align.mjs';
 
 export const id = 'dialogs';
-export const todayOnly = ['sdk-form', 'sdk-tabs', 'sdk-field', 'sdk-label', 'sdk-hint', 'sdk-optional', 'sdk-group', 'sdk-field-btn', 'sdk-dp', 'sdk-dp-head', 'sdk-dp-title', 'sdk-dp-grid', 'sdk-dp-dow', 'sdk-dp-day', 'sel', 'today', 'solid', 'sdk-toasts', 'sdk-toast', 'sdk-toast-icon', 'sdk-toast-body', 'sdk-toast-title', 'sdk-toast-end'];
+export const todayOnly = ['sdk-form', 'sdk-tabs', 'sdk-field', 'sdk-label', 'sdk-hint', 'sdk-optional', 'sdk-group', 'sdk-dp', 'sdk-dp-head', 'sdk-dp-title', 'sdk-dp-grid', 'sdk-dp-dow', 'sdk-dp-day', 'sel', 'today', 'solid', 'sdk-toasts', 'sdk-toast', 'sdk-toast-icon', 'sdk-toast-body', 'sdk-toast-title', 'sdk-toast-end'];
 
 export function staticChecks({ fail, css, defined }) {
   const noHair = css.replace(/border-(top|bottom)\s*:\s*1px solid var\(--border\)/g, '').replace(/border-bottom\s*:\s*1px solid transparent/g, '');

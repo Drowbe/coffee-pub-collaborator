@@ -34,7 +34,7 @@ export async function browserChecks(b) {
     // The date field: the text and the calendar icon each sit within 1px of the middle of the field's height, by ink (4x).
     for (const [title, part] of [['Fields, all states', 'text'], ['Fields, all states', 'icon'], ['Fields, all states, 44px', 'text'], ['Fields, all states, 44px', 'icon']]) {
       // the field on a whole pixel, then the part of its width: the text (up to 4px short of the button) or the button's own box
-      const { png: pngD } = await b.shotAt(title, `d.querySelectorAll('.pm-row')[4].querySelectorAll('.dsf-state')[3].querySelector('input')`, '', `(el, b) => { const q = el.parentElement.querySelector('.sdk-field-btn').getBoundingClientRect(); return ${part === 'icon' ? '[q.left, q.right]' : '[b.left, q.left - 4]'}; }`);
+      const { png: pngD } = await b.shotAt(title, `d.querySelectorAll('.pm-row')[4].querySelectorAll('.dsf-state')[3].querySelector('input')`, '', `(el, b) => { const q = el.parentElement.querySelector('.sdk-icon-btn').getBoundingClientRect(); return ${part === 'icon' ? '[q.left, q.right]' : '[b.left, q.left - 4]'}; }`);
       const c = inkCentre(pngD, 4, 10);
       if (c === null) problems.push(`${where}: no ink found in the date ${part} (${title})`);
       else if (Math.abs(c) > 1.01) problems.push(`${where}: the date ${part} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its field (${title})`);
@@ -98,8 +98,8 @@ const fieldProbe = async () => {
     if (cs(ro).backgroundColor !== 'rgba(0, 0, 0, 0)') bad(`${title}: read-only is not without a fill`);
     // The date field: the calendar button sits INSIDE the field's box (one field), at the trailing edge, 30px or less, with the same inset above, below and right;
     // the field keeps its height and the text never runs under the button.
-    { const dEl = cell(4, 3).querySelector('input'); const dBtn = cell(4, 3).querySelector('.sdk-field-btn');
-      if (!dBtn) bad(`${title}: the date field has no .sdk-field-btn`);
+    { const dEl = cell(4, 3).querySelector('input'); const dBtn = cell(4, 3).querySelector('.sdk-icon-btn');
+      if (!dBtn) bad(`${title}: the date field has no .sdk-icon-btn`);
       else { const f = dEl.getBoundingClientRect(); const q = dBtn.getBoundingClientRect(); const grp = dEl.parentElement.getBoundingClientRect();
         if (q.left < f.left - 0.5 || q.right > f.right + 0.5 || q.top < f.top - 0.5 || q.bottom > f.bottom + 0.5) bad(`${title}: the calendar button is not inside the date field's box`);
         if (q.width > 30.6 || q.height > 30.6) bad(`${title}: the calendar button is ${q.width} by ${q.height}px, over 30`);

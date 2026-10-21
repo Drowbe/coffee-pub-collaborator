@@ -36,7 +36,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     { n: 'Text area', err: 'Keep it to 250 letters', v: 'Meet at the gate at nine.', ph: 'Notes', ctl: (a) => `<textarea aria-label="Notes" rows="3"${a}></textarea>`, area: true },
     { n: 'List', err: 'Choose one', v: 'Hotel', ph: 'Choose one', ro: false, ctl: (a, s, val) => `<select aria-label="Kind"${a}>${s === 'Placeholder' || s === 'Rest' || s === 'Error' ? '<option value="" selected>Choose one</option>' : '<option value="">Choose one</option>'}<option${val ? ' selected' : ''}>Hotel</option><option>Food</option></select>` },
     { n: 'Number', err: 'Use 0 or more', v: '12', ph: '0', ctl: (a) => `<input type="number" aria-label="People"${a}>` },
-    { n: 'Date', err: 'Pick a day', v: '2026-10-17', ph: null, ctl: (a, s, val, dis) => `<div class="sdk-group"><input type="date" aria-label="Day"${a}><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar"${dis}>${fa('calendar')}</button></div>` },
+    { n: 'Date', err: 'Pick a day', v: '2026-10-17', ph: null, ctl: (a, s, val, dis) => `<div class="sdk-group"><input type="date" aria-label="Day"${a}><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar" title="Open the calendar"${dis}>${fa('calendar')}</button></div>` },
     { n: 'Time', err: 'Add a time', v: '14:30', ph: null, ctl: (a) => `<input type="time" aria-label="Time"${a}>` },
     { n: 'Search', err: null, v: 'louvre', ph: 'Search places', ctl: (a) => `<div class="sdk-search">${fa('magnifying-glass')}<input type="search" aria-label="Search places"${a}></div>` },
     { n: 'File', err: null, v: null, ph: null, only: ['Rest', 'Hover', 'Focus', 'Disabled'], ctl: (a) => `<input type="file" aria-label="Photo"${a}>` },
@@ -104,7 +104,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const formCard = (title, uid) => `<div class="pm-ed"><h5 class="pm-ed-t">${title}</h5><form class="sdk-form" onsubmit="return false">
     <label class="sdk-field"><span class="sdk-label">Name</span><input type="text" value="Louvre museum"><span class="sdk-hint"></span></label>
     <div class="sdk-row">
-      <div class="sdk-field sdk-m" role="group" aria-labelledby="${uid}-d"><span class="sdk-label" id="${uid}-d">Day</span><div class="sdk-group"><input type="date" value="2026-10-17" aria-label="Day"><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar">${fa('calendar')}</button></div><span class="sdk-hint">Saturday</span></div>
+      <div class="sdk-field sdk-m" role="group" aria-labelledby="${uid}-d"><span class="sdk-label" id="${uid}-d">Day</span><div class="sdk-group"><input type="date" value="2026-10-17" aria-label="Day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar" title="Open the calendar">${fa('calendar')}</button></div><span class="sdk-hint">Saturday</span></div>
       <label class="sdk-field sdk-s"><span class="sdk-label">From</span><input type="time" value="09:30"><span class="sdk-hint"></span></label>
       <label class="sdk-field sdk-s"><span class="sdk-label">To</span><input type="time" value="12:00"><span class="sdk-hint"></span></label>
     </div>
@@ -198,7 +198,7 @@ ${tbl(['Field', 'Markup', 'Notes'], [
     ['Text area', '<code>textarea</code>', 'The same edge, three lines at least, grows with <code>resize: vertical</code>.'],
     ['List', '<code>select</code>', 'The same box; the arrow is drawn from <code>--text-dim</code>. A first option with <code>value=""</code> reads as a placeholder.'],
     ['Number', '<code>input type="number"</code>', 'No stepper buttons. A unit goes after it in a group: <code>.sdk-unit</code>.'],
-    ['Date and time', '<code>input type="date"</code> and a <code>.sdk-field-btn</code> in one <code>.sdk-group</code> (<code>host.ui.datePicker</code> writes it as <code>.sdk-datefield.sdk-group</code>); <code>type="time"</code> has no button', 'One field: the calendar is a small Quiet icon button (30px) inside the trailing edge, with the same inset above, below and at the right. One border, one fill, one focus edge around all of it; the text never runs under the icon. On a phone the button keeps its look and has a 44px target. The browser\'s own picker icon is hidden.'],
+    ['Date and time', '<code>input type="date"</code> and a <code>.sdk-icon-btn</code> in one <code>.sdk-group</code> (<code>host.ui.datePicker</code> writes it as <code>.sdk-datefield.sdk-group</code>); <code>type="time"</code> has no button', 'One field: the calendar is a small Quiet icon button (30px) inside the trailing edge, with the same inset above, below and at the right. One border, one fill, one focus edge around all of it; the text never runs under the icon. On a phone the button keeps its look and has a 44px target. The browser\'s own picker icon is hidden.'],
     ['Search', '<code>.sdk-search</code> around an icon and <code>input type="search"</code>', 'One search field: the magnifier inside at the left, the same box and height as every field. Replaces three looks (see Today to proposed).'],
     ['File', '<code>input type="file"</code>', 'The field is the box; the chooser is a small Secondary button inside it. The words next to it are the browser\'s.'],
     ['Colour', '<code>input type="color"</code>', 'A swatch 1.5 times the field height, the same edge. Beside it, usually the hex in a text field.'],
@@ -253,7 +253,7 @@ ${tbl(['Today', 'Where', 'Proposed'], [
     ['<code>.setup-field input</code> (8px 10px, a 2px outline on focus)', 'Set up', 'The field; the ring replaces the outline.'],
     ['<code>.layout-field input[type="search"]</code> (13px, 5px 8px)', 'the layout sheet', 'Search.'],
     ['<code>.map-search</code> (32px, icon inside, a shadow)', 'Maps', 'Search. The module keeps its place on the map; the shadow and the panel fill go.'],
-    ['<code>.sdk-datefield</code> with a 30px button beside the input', 'the date picker', 'The date field with the Quiet icon button (30px) inside its trailing edge; one border and one focus edge. <code>.sdk-datefield.sdk-group</code> wraps the input and the <code>.sdk-field-btn</code> (a second one, the list, sits beside it).'],
+    ['<code>.sdk-datefield</code> with a 30px button beside the input', 'the date picker', 'The date field with the Quiet icon button (30px) inside its trailing edge; one border and one focus edge. <code>.sdk-datefield.sdk-group</code> wraps the input and the <code>.sdk-icon-btn</code> (a second one, the list, sits beside it).'],
     ['<code>input.switch</code>, <code>label.switch-row</code> (22 by 12)', 'Set up, the layout sheet', 'The switch (<code>.sdk-switch</code>); <code>.switch</code> stays as an alias.'],
     ['Tick box with <code>role="switch"</code>', 'the Planner (round trip)', 'The switch.'],
     ['<code>.task .tick</code> (18px, <code>accent-color</code>)', 'To-do', 'The tick box, 16px.'],
@@ -307,7 +307,7 @@ ${code(`<form class="sdk-form">
 
   <!-- a date: the .sdk-group wraps the input and the calendar button; the button sits inside the field's trailing edge -->
   <div class="sdk-field"><span class="sdk-label">Day</span>
-    <div class="sdk-group"><input type="date" aria-label="Day"><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar"><i class="fa-solid fa-calendar" aria-hidden="true"></i></button></div>
+    <div class="sdk-group"><input type="date" aria-label="Day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar" title="Open the calendar"><i class="fa-solid fa-calendar" aria-hidden="true"></i></button></div>
     <span class="sdk-hint"></span></div>
 
   <!-- tick box, radio, switch: the row is the target -->

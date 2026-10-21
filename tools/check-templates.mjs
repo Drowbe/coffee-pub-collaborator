@@ -98,10 +98,10 @@ try {
     assert.deepEqual(t.words, { space: { one: 'trip', many: 'trips' } });
     assert.equal(t.verbs, null, 'Travel sets no verb (addendum 4, decision 3): it reads the default');
     assert.equal('verbs' in travelRaw, false, 'travel.json has no verbs entry');
-    assert.deepEqual(t.modules, ['travel', 'places', 'maps', 'research', 'calendar', 'chat', 'conference']);
+    assert.deepEqual(t.modules, ['travel', 'places', 'maps', 'research', 'calendar', 'budget', 'polls', 'todo', 'chat', 'conference']);
     assert.deepEqual([t.moduleNames.travel, t.icons.home, t.lobby.name, t.lobby.description, t.spaceDefaults.profile], ['Itinerary', 'suitcase-rolling', 'Home base', 'Everyone on every trip.', 'participants']);
     assert.deepEqual(t.spaceDefaults.opensWith, ['travel', 'chat']);
-    assert.equal(t.version, 6);
+    assert.equal(t.version, 7);
     // Version 6: each phase has a Font Awesome Free solid icon that can be drawn (the server's own drawable() test).
     assert.deepEqual(t.phases.map((p) => [p.id, p.icon]), [['planning', 'clipboard-list'], ['booking', 'ticket'], ['buffer', 'hourglass-half'], ['pre-trip', 'suitcase-rolling'], ['trip', 'plane'], ['post-trip', 'camera-retro']]);
     for (const p of travelRaw.phases) assert.ok(fs.existsSync(path.join(ROOT, 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid', `${p.icon}.svg`)), `${p.id}: ${p.icon} is not a drawable icon`);
@@ -386,7 +386,7 @@ try {
     const owned = { homeIcon: env.store.settings.homeIcon, words: env.store.settings.words };
     const opts = { allowed: (id) => id !== 'research', name: (id) => `name of ${id}` };
     const offer = templates.offerFor(env, travel, opts);
-    assert.deepEqual(offer.modules.map((m) => [m.id, m.allowed, m.why || null]), [['travel', true, null], ['places', true, null], ['maps', true, null], ['research', false, 'not in the plan'], ['calendar', true, null], ['conference', true, null]]);
+    assert.deepEqual(offer.modules.map((m) => [m.id, m.allowed, m.why || null]), [['travel', true, null], ['places', true, null], ['maps', true, null], ['research', false, 'not in the plan'], ['calendar', true, null], ['budget', true, null], ['polls', true, null], ['todo', true, null], ['conference', true, null]]);
     assert.equal(offer.modules[0].name, 'name of travel');
     assert.deepEqual(offer.lobby, { name: 'Home base', description: 'Everyone on every trip.' });
     assert.deepEqual(offer.spaceDefaults, { profile: 'participants', opensWith: ['travel', 'chat'] });
@@ -404,7 +404,7 @@ try {
     assert.deepEqual(second, first);
     assert.deepEqual(switchSnapshot(env), once, 'twice: the same');
     // What is left to offer: only what is still missing.
-    assert.deepEqual(templates.offerFor(env, travel, opts).modules.map((m) => m.id), ['travel', 'research', 'calendar']);
+    assert.deepEqual(templates.offerFor(env, travel, opts).modules.map((m) => m.id), ['travel', 'research', 'calendar', 'budget', 'polls', 'todo']);
     assert.equal(templates.offerFor(env, travel, opts).spaceDefaults, null);
   });
 
@@ -602,14 +602,14 @@ try {
     for (let i = 0; i < 100 && !server.output().includes('[out] Applied the "travel" template'); i += 1) await new Promise((r) => setTimeout(r, 50));
     assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'trip');
     assert.deepEqual((await call(server, 'out', 'GET', '/api/branding')).json.words.home, { one: 'Trips', many: 'Trips', a: 'a Trips' }, 'branding\'s home, from the template\'s space word');
-    const edited = await console_('PATCH', '/api/host/templates/travel', { words: { space: { one: 'journey', many: 'journeys' } }, modules: [...shipped.modules, 'polls'] });
+    const edited = await console_('PATCH', '/api/host/templates/travel', { words: { space: { one: 'journey', many: 'journeys' } }, modules: [...shipped.modules, 'assistant'] });
     assert.deepEqual([edited.status, edited.json.template.id, edited.json.template.version, edited.json.template.edited, edited.json.template.source], [200, 'travel', shipped.version + 1, true, 'bundled'], edited.text);
     assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'journey', 'the new word, with no restart');
     const owner = cookieOf(await call(server, 'out', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
     const tab = await call(server, 'out', 'GET', '/api/environment/template', { cookie: owner });
     assert.equal(tab.json.template.offerOpen, true);
-    assert.ok(tab.json.offer.modules.some((m) => m.id === 'polls'), 'a changed module is offered, not forced');
-    assert.equal((await call(server, 'out', 'GET', '/api/modules', { cookie: owner })).json.modules.some((m) => m.id === 'polls'), false);
+    assert.ok(tab.json.offer.modules.some((m) => m.id === 'assistant'), 'a changed module is offered, not forced');
+    assert.equal((await call(server, 'out', 'GET', '/api/modules', { cookie: owner })).json.modules.some((m) => m.id === 'assistant'), false);
   });
 
   await test('verbs (addendum 4), hosted: the owner\'s over the template\'s over the default, and a host edit reaches branding at once', async () => {
@@ -657,7 +657,7 @@ try {
     assert.equal(copy.status, 201, copy.text);
     assert.deepEqual([copy.json.template.source, copy.json.template.version, copy.json.template.hidden, copy.json.template.id, copy.json.template.name], ['host', 1, false, 'day-trips', 'Day trips']);
     assert.deepEqual(copy.json.template.words, { space: { one: 'journey', many: 'journeys' } });
-    assert.ok(copy.json.template.modules.includes('polls'));
+    assert.ok(copy.json.template.modules.includes('assistant'));
     assert.equal((await travelRow()).version, before, 'the original is unchanged');
     const again = await console_('POST', '/api/host/templates/day-trips/duplicate', { id: 'day-trips-2', name: 'Day trips two' });
     assert.equal(again.status, 201, again.text);
@@ -673,7 +673,7 @@ try {
     assert.equal(file.status, 200, file.text);
     assert.equal(file.json.edited, true);
     assert.deepEqual(file.json.words.space, { one: 'journey', many: 'journeys' });
-    assert.ok(file.json.modules.includes('polls'));
+    assert.ok(file.json.modules.includes('assistant'));
     const imported = await console_('POST', '/api/host/templates/import?id=from-file', file.json);
     assert.equal(imported.status, 201, imported.text);
     assert.deepEqual(imported.json.dropped, []);
@@ -790,7 +790,7 @@ try {
       fs.writeFileSync(path.join(hosted, 'host.json'), JSON.stringify(data, null, 2));
     });
     row = await travelRow();
-    assert.deepEqual([row.name, row.edited, row.version, row.update], ['Journeys', true, edited.json.template.version, { shippedVersion: 6 }], 'the notice opens');
+    assert.deepEqual([row.name, row.edited, row.version, row.update], ['Journeys', true, edited.json.template.version, { shippedVersion: 7 }], 'the notice opens');
     const mine = await console_('POST', '/api/host/templates/travel/update', { keep: 'mine' });
     assert.deepEqual([mine.status, mine.json.template.update, mine.json.template.name], [200, null, 'Journeys'], 'once: keeping the edit closes it');
     await restartHost();

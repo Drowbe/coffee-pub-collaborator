@@ -2608,15 +2608,29 @@ hostRouter.delete('/api/host/admins/:key', requireHostAdmin, (req, res) => {
     sendHostError(err, res);
   }
 });
+// The product's use pages at the bare base domain: each address, its file in public/ and the template it advertises.
+// A page is live only while that template is among the host's offered ones (templateChoices(null)) and its file exists;
+// otherwise the address answers 404 like any unknown path (plan-product-pages.md, decisions 7, 8 and 10).
+const PRODUCT_PAGES = [
+  { path: '/travel', file: 'landing-travel.html', template: 'travel' },
+  { path: '/games', file: 'landing-games.html', template: 'games' },
+  { path: '/projects', file: 'landing-projects.html', template: 'projects' },
+];
+const livePages = () => {
+  if (!BASE_DOMAIN) return [];
+  const offered = new Set(templateChoices(null).map((t) => t.id));
+  return PRODUCT_PAGES.filter((p) => offered.has(p.template) && fs.existsSync(page(p.file)));
+};
 // The product itself, for the landing page (the bare base domain) and the console (admin.<base>): public, no
 // session needed, and harmless anywhere else it happens to be reached. name and contact are configuration, never
 // code, since the product's own name is still being chosen. Registered on hostRouter here (admin.<base> only
 // ever reaches it through here anyway); the main app's own copy is registered after the resolver below, not
 // here, so an old-base-domain request still 301s instead of this one route quietly bypassing that.
+// `pages`: the use pages live on this host ([{ path, template }]), so the front page links only those.
 function productInfo(_req, res) {
   const plans = hostRegistry ? Object.entries(hostRegistry.plansCatalog()).map(([id, p]) => ({ id, name: p.name, caps: p.caps, checkoutUrl: checkoutUrlFor(id) })) : [];
   // `templates`: what a new environment can be made from ([{ id, name, description }]), for the sign-up form.
-  res.json({ name: PRODUCT_NAME, contact: CONTACT_EMAIL || null, baseDomain: BASE_DOMAIN || null, version: VERSION, signup: signupEnabled, plans, templates: BASE_DOMAIN ? templateChoices(null).map(({ id, name, description }) => ({ id, name, description })) : [] });
+  res.json({ name: PRODUCT_NAME, contact: CONTACT_EMAIL || null, baseDomain: BASE_DOMAIN || null, version: VERSION, signup: signupEnabled, plans, templates: BASE_DOMAIN ? templateChoices(null).map(({ id, name, description }) => ({ id, name, description })) : [], pages: livePages().map(({ path: p, template }) => ({ path: p, template })) });
 }
 hostRouter.get('/api/product', productInfo);
 // One environment's public name, for the product page's own Sign in (a slug is an address already, so confirming
@@ -2678,7 +2692,9 @@ if (BASE_DOMAIN) {
     // above). Only the handful of paths that page actually needs are let through; anything else is a plain 404,
     // same as an unknown subdomain.
     if (host === BASE_DOMAIN) {
-      if (req.path === '/') return res.sendFile(page('landing.html'));
+      if (req.path === '/') return res.sendFile(page('landing.html'), { dotfiles: 'allow' });
+      const useSite = livePages().find((p) => p.path === req.path);
+      if (useSite) return res.sendFile(page(useSite.file), { dotfiles: 'allow' });
       const BARE_BASE_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/signup'];
       if (BARE_BASE_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
       return res.status(404).type('text').send('not found');

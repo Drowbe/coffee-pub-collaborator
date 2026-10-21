@@ -226,9 +226,74 @@ try {
       assert.equal(r.headers['access-control-allow-origin'], undefined, `${p} must not carry the CORS header`);
     }
   });
+  // plan-product-pages.md, decisions 7, 8, 10 and the contract: the use pages at the bare base domain.
+  const same = (sub) => ({ cookie: hostCookie, origin: originOf(sub), 'sec-fetch-site': 'same-origin' });
+  await test('/travel answers 200 with its page while the travel template is offered; /games and /projects (no template) answer 404', async () => {
+    const travel = await call('GET', '', '/travel', { headers: { accept: 'text/html' } });
+    assert.equal(travel.status, 200, travel.text.slice(0, 120));
+    assert.equal(travel.text, fs.readFileSync(path.join(ROOT, 'public', 'landing-travel.html'), 'utf8'), 'the page is public/landing-travel.html');
+    for (const p of ['/games', '/projects', '/travel/', '/landing-travel.html', '/travel.html']) assert.equal((await call('GET', '', p)).status, 404, p);
+    const info = await call('GET', '', '/api/product');
+    assert.deepEqual(info.json.pages, [{ path: '/travel', template: 'travel' }]);
+  });
+  await test('a use page is only at the bare base domain: an environment and the console do not send it', async () => {
+    const file = fs.readFileSync(path.join(ROOT, 'public', 'landing-travel.html'), 'utf8');
+    for (const sub of ['aaa', 'admin']) assert.notEqual((await call('GET', sub, '/travel', { headers: { accept: 'text/html' } })).text, file, sub);
+  });
+  await test('hiding the travel template takes /travel to 404 and out of `pages`; showing it brings it back', async () => {
+    const hide = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: true } });
+    assert.equal(hide.status, 200, hide.text);
+    assert.equal((await call('GET', '', '/travel')).status, 404, 'hidden: 404');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, []);
+    assert.deepEqual((await call('GET', '', '/api/product')).json.templates, []);
+    const show = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: false } });
+    assert.equal(show.status, 200, show.text);
+    assert.equal((await call('GET', '', '/travel')).status, 200, 'shown again: 200');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/travel', template: 'travel' }]);
+  });
+  await test('a host template called games or projects does not make a page without its file', async () => {
+    const made = await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'games', name: 'Games', description: 'A test.', modules: ['chat'] } });
+    assert.equal(made.status, 201, made.text);
+    assert.equal((await call('GET', '', '/games')).status, fs.existsSync(path.join(ROOT, 'public', 'landing-games.html')) ? 200 : 404);
+    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'), fs.existsSync(path.join(ROOT, 'public', 'landing-games.html')));
+    await call('DELETE', 'admin', '/api/host/templates/games', { headers: same('admin') });
+  });
 } finally {
   await new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
   fs.rmSync(dataDir, { recursive: true, force: true });
+}
+
+// No BASE_DOMAIN: there are no product pages. /travel is not a page, and /api/product lists none (single-environment installs behave as before).
+{
+  const one = fs.mkdtempSync(path.join(os.tmpdir(), 'check-origin-single-'));
+  const solo = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
+    cwd: ROOT,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: one, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let soloOut = '';
+  solo.stdout.on('data', (d) => { soloOut += d; });
+  solo.stderr.on('data', (d) => { soloOut += d; });
+  try {
+    const soloPort = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`the single-environment server did not start:\n${soloOut}`)), 20000);
+      const look = () => { const m = /listening on :(\d+)/.exec(soloOut); if (m) { clearTimeout(timer); resolve(Number(m[1])); } };
+      solo.stdout.on('data', look);
+      solo.stderr.on('data', look);
+    });
+    await test('without BASE_DOMAIN: /travel, /games and /projects are not pages, and /api/product lists no pages', async () => {
+      for (const p of ['/travel', '/games', '/projects']) {
+        const r = await fetch(`http://127.0.0.1:${soloPort}${p}`, { redirect: 'manual' });
+        assert.equal(r.status, 404, p);
+        assert.notEqual(await r.text(), fs.readFileSync(path.join(ROOT, 'public', 'landing-travel.html'), 'utf8'), p);
+      }
+      const info = await (await fetch(`http://127.0.0.1:${soloPort}/api/product`)).json();
+      assert.deepEqual([info.pages, info.templates, info.baseDomain], [[], [], null]);
+    });
+  } finally {
+    await new Promise((resolve) => { if (solo.exitCode !== null) return resolve(); solo.once('exit', resolve); solo.kill('SIGTERM'); });
+    fs.rmSync(one, { recursive: true, force: true });
+  }
 }
 
 if (failed) {

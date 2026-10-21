@@ -154,7 +154,7 @@ export const colourProbe = async () => {
   chk('surface-card', mix(P, 0.92, T), 2); chk('surface-menu', mix(P, 0.96, T), 2); chk('surface-popover', mix(P, 0.96, T), 2); chk('surface-toast', mix(P, 0.92, T), 2);
   chk('fill-secondary', mix(P, 0.92, T), 2);
   if (hex(val('surface-menu')) === hex(val('surface-card'))) bad('the menu and the card are the same colour: they must be separate formulas');
-  for (const id of ['surface-field', 'surface-page', 'accent-fill', 'fill-selected', 'surface-bar-top', 'surface-titlebar', 'edge-field']) if (hex(val(id)) !== before[id]) bad(`--${id} moved when only the Panel changed`);
+  for (const id of ['surface-field', 'surface-page', 'accent-fill', 'fill-selected', 'surface-bar-top', 'surface-toolbar', 'edge-field']) if (hex(val(id)) !== before[id]) bad(`--${id} moved when only the Panel changed`);
   const flashed = [...board.querySelectorAll('.cb-sw.flash')].map((s) => s.dataset.role);
   const moved = R.filter((r) => hex(val(r.id)) !== before[r.id]).map((r) => r.id);
   for (const id of flashed) if (!moved.includes(id)) bad(`--${id} flashed but did not change`);

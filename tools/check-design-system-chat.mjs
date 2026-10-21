@@ -3,7 +3,7 @@
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a message from others that has a box or a fill (it is flat on the window), your own message that is not the 10% accent fill with the medium corner and 12px of padding, an object card or link box with a corner that is not medium on the window and small in your own message, a message that is not 8px from the next, more than two surfaces nested in a window (the nesting check), a child corner larger than its parent's, a space to the parent's edge under the child's padding, a message fill that is not 10% accent (own), a message with any edge or a tint anywhere but the portrait (the 3px left bar is gone), a name
- * that is not 12px weight 600, a time that is not 11px, a body that is not 14px, a portrait that is not 22px, a quote with a rule instead of a nested fill, a reaction that
+ * that is not 12px weight 600, a time that is not 11px, a body that is not 14px, a portrait that is not 24px, a quote with a rule instead of a nested fill, a reaction that
  * is not a 24px Chips tag (selected = --selected-bg), an object card or link box that is not the approved card (a 1px --border hairline on all four sides, no shadow,
  * padding 12; the link photo 72px, 52px on a phone), a hover slot that is shown at rest, a "..." that is not the 30px Quiet small icon button, a composer field that is not the
  * Fields text area (field step, hairline, small corner, 38px or 44px on a phone, 16px words on a phone), a field that grows past five lines or does not scroll, a Send button, a
@@ -30,9 +30,9 @@ export function staticChecks({ fail, css, js, defined }) {
   for (const m of css.matchAll(/font-weight\s*:\s*(\d+)/g)) if (Number(m[1]) > 600) fail(`proposed-chat.css: font-weight ${m[1]} (the weights are 400, 500 and 600)`);
   for (const m of css.matchAll(/font-size\s*:\s*(\d+)px/g)) if (Number(m[1]) < 11) fail(`proposed-chat.css: font-size ${m[1]}px (nothing under 11px)`);
   if (/--msg-fill\s*:/.test(css)) fail('proposed-chat.css: --msg-fill is back (a message from others is flat: no fill)');
-  if (!/--msg-fill-own:\s*color-mix\(in srgb, var\(--accent\) 10%, transparent\)/.test(css)) fail('proposed-chat.css: the own message fill is not 10% accent');
+  if (/--msg-fill-own/.test(css)) fail('proposed-chat.css: --msg-fill-own is back (the own message reads --surface-chat-own)');
   if (!/:is\(\.sdk-message, \.message\)\s*\{[^}]*padding:\s*0;[^}]*background:\s*none;/.test(css)) fail('proposed-chat.css: the message is not flat (no padding, no fill) before .own');
-  if (!/\.own, \[data-own\]\)\s*\{[^}]*padding:\s*4px 12px 12px;[^}]*background:\s*var\(--msg-fill-own\)/.test(css)) fail('proposed-chat.css: your own message is not the box with 12px of padding and the accent fill');
+  if (!/\.own, \[data-own\]\)\s*\{[^}]*padding:\s*4px 12px 12px;[^}]*background:\s*var\(--surface-chat-own\)/.test(css)) fail('proposed-chat.css: your own message is not the box with 12px of padding and the accent fill');
   if (/\[data-tint\][^{]*\{[^}]*\b(border|background)\b/.test(css.replace(/:is\(\.sdk-message, \.message\)\[data-tint\] :is\(\.sdk-message-portrait[^{]*\{[^}]*\}/, ''))) fail('proposed-chat.css: a [data-tint] rule draws a border or a fill other than on the portrait');
   for (const c of ['sdk-messages', 'sdk-message', 'sdk-message-head', 'sdk-message-who', 'sdk-message-portrait', 'sdk-message-name', 'sdk-message-command', 'sdk-message-time', 'sdk-message-tools', 'sdk-message-actions', 'sdk-message-body',
     'sdk-message-text', 'sdk-message-quote', 'sdk-message-reactions', 'sdk-react-emoji', 'sdk-linkbox', 'sdk-linkbox-photo', 'sdk-linkbox-text', 'sdk-linkbox-title', 'sdk-linkbox-desc', 'sdk-linkbox-site', 'sdk-linkbox-keep',
@@ -81,7 +81,7 @@ const probe = async () => {
       if (c.borderTopLeftRadius !== tok(d, 'var(--radius-medium)', 'borderTopLeftRadius')) bad('a message is not --radius-medium');
       const head = m.querySelector('.sdk-message-head'); if (cs(head).backgroundColor !== 'rgba(0, 0, 0, 0)') bad('a message head has a band');
       if (head.getBoundingClientRect().height < 29.4) bad('a message head is under 30px');
-      const pt = m.querySelector('.sdk-message-portrait'); const pr = pt.getBoundingClientRect(); if (!near(pr.width, 22) || !near(pr.height, 22)) bad(`a portrait is ${pr.width} by ${pr.height}, expected 22`);
+      const pt = m.querySelector('.sdk-message-portrait'); const pr = pt.getBoundingClientRect(); if (!near(pr.width, 24) || !near(pr.height, 24)) bad(`a portrait is ${pr.width} by ${pr.height}, expected 24`);
       if (cs(pt).borderTopLeftRadius !== tok(d, 'var(--radius-round)', 'borderTopLeftRadius')) bad('a portrait is not round');
       const nm = cs(m.querySelector('.sdk-message-name')); if (nm.fontSize !== '12px' || nm.fontWeight !== '600') bad(`a name is ${nm.fontSize} weight ${nm.fontWeight}, expected 12px 600`);
       const tm = cs(m.querySelector('.sdk-message-time')); if (tm.fontSize !== '11px' || tm.fontWeight !== '400') bad(`a time is ${tm.fontSize} weight ${tm.fontWeight}, expected 11px 400`);

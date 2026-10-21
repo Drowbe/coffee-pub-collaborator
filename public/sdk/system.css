@@ -136,9 +136,7 @@
   --surface-popover: var(--surface-menu);
   --surface-toast: var(--surface-card);
   --surface-tooltip: var(--text-primary); /* the inverse of the page */
-  --surface-chat-message: var(--surface-field);
-  --surface-chat-own: color-mix(in srgb, var(--accent-fill) 22%, transparent);
-  --surface-titlebar: var(--surface-field);
+  --surface-chat-own: color-mix(in srgb, var(--accent-fill) 10%, transparent);
   --surface-toolbar: var(--surface-field);
   --surface-bar-top: var(--surface-page);
   --surface-bar-nav: var(--surface-page);
@@ -3221,7 +3219,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    - Others' messages are FLAT on the window: no box, no fill, no padding. Two flat messages in a row have the list's 8px gap and a
      hairline (with 8px above it) between them. Your own message (.own) is the one boxed kind: the 10% accent fill, the medium
      corner, 12px of padding (4px above the head). Nesting stops at window > your own message > a card or a quote.
-   - The head is 30px: a 22px round portrait, the name 12px weight 600, the command and the time 11px in --msg-meta (muted, but
+   - The head is 30px: a 24px round portrait, the name 12px weight 600, the command and the time 11px in --msg-meta (muted, but
      readable on both message fills), then "private"/"public" and the "..." (the Quiet small icon button), always shown.
    - A command's or the AI's message (data-tint) has its tint on the portrait only: a 22% tint behind the glyph and the glyph in
      the readable mix. No left edge, no fill of the message.
@@ -3233,9 +3231,8 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    their rules stay in style.css's chat block (their corner: medium on the window, small inside your own message). */
 /* chat:start */
 :root {
-  --msg-fill-own: color-mix(in srgb, var(--accent-fill) 10%, transparent);
   --msg-quote-fill: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  --msg-portrait: 22px;
+  --msg-portrait: 24px;
   --msg-meta: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted)); /* the time and the command: 4.5 to 1 on both message fills */
   --msg-head-h: var(--btn-h-small);
   --composer-lines: 5;
@@ -3288,7 +3285,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 /* Your own message: the one boxed kind. */
 .message.own {
   padding: var(--space-1) var(--space-3) var(--space-3);
-  background: var(--msg-fill-own);
+  background: var(--surface-chat-own);
 }
 
 .message-head {

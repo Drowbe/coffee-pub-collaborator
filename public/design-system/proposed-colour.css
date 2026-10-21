@@ -153,7 +153,7 @@
 .ds-colour .cm-mi.dng { color: var(--status-danger-text); }
 
 .ds-colour .cm-canvas { position: relative; display: flex; flex-direction: column; gap: 0; padding: 10px; background: var(--surface-canvas); }
-.ds-colour .cm-title { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius-medium) var(--radius-medium) 0 0; background: var(--surface-titlebar); }
+.ds-colour .cm-title { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius-medium) var(--radius-medium) 0 0; background: var(--surface-toolbar); }
 .ds-colour .cm-tool { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; background: var(--surface-toolbar); }
 .ds-colour .cm-tab { padding: 5px 10px; border-radius: var(--radius-small); }
 .ds-colour .cm-tab:not(.on) { color: var(--text-muted); }
@@ -161,7 +161,7 @@
 .ds-colour .cm-content { display: flex; flex-direction: column; gap: 8px; padding: 10px 2px; }
 .ds-colour .cm-chat { display: flex; gap: 6px; }
 .ds-colour .cm-msgs { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
-.ds-colour .cm-bub { align-self: flex-start; max-width: 80%; padding: 6px 10px; border-radius: var(--radius-large) var(--radius-large) var(--radius-large) var(--radius-min); background: var(--surface-chat-message); }
+.ds-colour .cm-bub { align-self: flex-start; max-width: 80%; padding: 6px 10px; border-radius: var(--radius-large) var(--radius-large) var(--radius-large) var(--radius-min); background: var(--surface-field); }
 .ds-colour .cm-bub.own { align-self: flex-end; border-radius: var(--radius-large) var(--radius-large) var(--radius-min) var(--radius-large); background: var(--surface-chat-own); }
 .ds-colour .cm-sbt { position: relative; flex: none; width: 8px; border-radius: var(--radius-round); background: var(--surface-track); }
 .ds-colour .cm-sbh { position: absolute; left: 0; right: 0; top: 6px; height: 24px; border-radius: var(--radius-round); background: var(--scrollbar-thumb); }

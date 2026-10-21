@@ -144,4 +144,5 @@ body { margin: 0; overflow: hidden; }
 @keyframes callout-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .callout { animation: none; } }
 
-.app.narrow .results { left: 8px; right: 8px; width: auto; --menu-item-h: 44px; }
+.app.narrow .results { left: 8px; right: 8px; width: auto; }
+.app.narrow .result { min-height: 44px; }

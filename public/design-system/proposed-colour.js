@@ -46,9 +46,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   add('surface-popover', S, 'surface', 'A popover or the emoji picker', { f: REF('surface-menu'), unseen: 'Popovers and the emoji picker (not drawn in this screen)' });
   add('surface-toast', S, 'surface', 'A toast', { f: REF('surface-card') });
   add('surface-tooltip', S, 'surface', 'A tooltip', { f: REF('text-primary'), how: 'inverse of the page: the text colour' });
-  add('surface-chat-message', S, 'surface', 'A chat bubble', { f: REF('surface-field') });
-  add('surface-chat-own', S, 'surface', 'Your own chat bubble', { f: M('accent-fill', 22, 'transparent'), over: 'surface-canvas' });
-  add('surface-titlebar', S, 'surface', 'A module title bar', { f: REF('surface-field') });
+  add('surface-chat-own', S, 'surface', 'Your own chat bubble', { f: M('accent-fill', 10, 'transparent'), over: 'surface-canvas' });
   add('surface-toolbar', S, 'surface', 'A module toolbar row', { f: REF('surface-field') });
   add('surface-bar-top', S, 'surface', 'The top bar', { f: REF('surface-page'), how: 'the page (can be set on its own)' });
   add('surface-bar-nav', S, 'surface', 'The space bar and the phone tab bar', { f: REF('surface-page'), how: 'the page (can be set on its own)' });
@@ -229,7 +227,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       </div>
     </div>
     <div class="cm-canvas" data-roles="surface-canvas" data-part="Work area">
-      <div class="cm-title" data-roles="surface-titlebar" data-part="Module title bar"><span class="cm-ico" data-roles="tint-teal" data-part="Module colours">${fa('map-location-dot')}</span><b>Planner</b><span class="cm-r cm-ico" data-roles="icon-default" data-part="Icon">${fa('xmark')}</span></div>
+      <div class="cm-title" data-roles="surface-toolbar" data-part="Module title bar"><span class="cm-ico" data-roles="tint-teal" data-part="Module colours">${fa('map-location-dot')}</span><b>Planner</b><span class="cm-r cm-ico" data-roles="icon-default" data-part="Icon">${fa('xmark')}</span></div>
       <div class="cm-tool" data-roles="surface-toolbar" data-part="Module toolbar">
         <span class="cm-btn pri" data-roles="accent-fill text-on-accent" data-part="Primary button">${fa('plus')} Add</span>
         <span class="cm-btn" data-roles="fill-secondary" data-part="Secondary button">Edit</span>
@@ -240,7 +238,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       <div class="cm-content">
         <div class="cm-chat">
           <div class="cm-msgs">
-            <div class="cm-bub" data-roles="surface-chat-message" data-part="Chat bubble">Louvre first? <span class="cm-muted" data-roles="text-muted" data-part="Hint text">Sam</span></div>
+            <div class="cm-bub" data-roles="surface-field" data-part="Chat bubble">Louvre first? <span class="cm-muted" data-roles="text-muted" data-part="Hint text">Sam</span></div>
             <div class="cm-bub own" data-roles="surface-chat-own" data-part="Own chat bubble">Yes, 9:30 works.</div>
           </div>
           <div class="cm-sbt" data-roles="surface-track" data-part="Scrollbar track"><i class="cm-sbh" data-roles="scrollbar-thumb" data-part="Scrollbar thumb"></i></div>
@@ -263,7 +261,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // ---- the Today vs Proposed strip: the five tokens that colour the most unrelated things today (the spec's table) ----
   const OVERLAPS = [
     { tok: '--bg-section', now: 'surface-panel', items: [['Side panel', 'surface-panel'], ['Dialog and editor', 'surface-panel'], ['Toast', 'surface-toast'], ['Menu', 'surface-menu'], ['Popover', 'surface-popover'], ['Chat command menu', 'surface-menu'], ['Dashboard widget', 'surface-panel'], ['Action bar', 'surface-panel'], ['Scrollbar track', 'surface-track'], ['Secondary button', 'fill-secondary']] },
-    { tok: '--bg-card', now: 'surface-field', items: [['Card', 'surface-card'], ['Bell list', 'surface-menu'], ['Menu', 'surface-menu'], ['Popover', 'surface-popover'], ['Chip', 'surface-card'], ['Chat object', 'surface-chat-message'], ['Skeleton loader', 'surface-card'], ['Calendar day cell', 'surface-card'], ['Progress track', 'surface-track']] },
+    { tok: '--bg-card', now: 'surface-field', items: [['Card', 'surface-card'], ['Bell list', 'surface-menu'], ['Menu', 'surface-menu'], ['Popover', 'surface-popover'], ['Chip', 'surface-card'], ['Chat object', 'surface-field'], ['Skeleton loader', 'surface-card'], ['Calendar day cell', 'surface-card'], ['Progress track', 'surface-track']] },
     { tok: '--border', now: 'edge-hairline', items: [['Divider', 'edge-hairline'], ['Top bar edge', 'edge-bar'], ['Field outline', 'edge-field'], ['Card outline', 'edge-hairline'], ['Menu outline', 'edge-menu'], ['Scrollbar thumb', 'scrollbar-thumb'], ['Tint inside a field', 'surface-field']] },
     { tok: '--accent', now: 'accent-fill', items: [['Link', 'text-link'], ['Focus ring', 'focus-ring'], ['Primary button', 'accent-fill'], ['Badge', 'accent-fill'], ['Progress fill', 'accent-fill'], ['Selected fill', 'fill-selected'], ['Hover wash', 'fill-hover'], ['Secondary button', 'fill-secondary']] },
     { tok: '--bg', now: 'surface-page', items: [['Page', 'surface-page'], ['Modal backdrop', 'overlay-scrim'], ['Module window', 'surface-canvas'], ['Chat action strip', 'surface-toolbar'], ['Top bar', 'surface-bar-top'], ['Field fill', 'surface-field'], ['Toolbar fill', 'surface-toolbar']] },

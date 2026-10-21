@@ -214,7 +214,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="chat-h"><a href="#chat">Chat: message and composer</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the message, its parts and cards, the composer, the format bar, the status line</span></header>
-<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Two new components. <b>Message</b>: others are flat on the window (no box, no fill), your own a 10% accent fill, the one boxed message kind (redrawn 2026-10-21, see "Changed 2026-10-21"); a 22px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
+<p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Two new components. <b>Message</b>: others are flat on the window (no box, no fill), your own a 10% accent fill, the one boxed message kind (redrawn 2026-10-21, see "Changed 2026-10-21"); a 24px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#chat-conversation">Conversation</a><a href="#chat-parts">Message parts</a><a href="#chat-composer">Composer</a><a href="#chat-live">Live composer</a><a href="#chat-statusline">Status line</a><a href="#chat-unread">Unread</a><a href="#chat-phone">On a phone</a><a href="#chat-contrast">Contrast</a><a href="#chat-map">Today to proposed</a><a href="#chat-alias">Aliases</a><a href="#chat-tokens">Tokens</a><a href="#chat-contract">Markup</a><a href="#chat-widths">Widths</a><a href="#chat-decided">Decided 2026-10-21</a><a href="#chat-nesting">Changed 2026-10-21: fewer boxes</a></nav>
 
 <h4 class="ds-h4" id="chat-conversation">A conversation</h4>
@@ -222,7 +222,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <div data-slot="conversation"></div>
 ${dim([
     ['1 Message', 'Others: flat on the window, no box, no fill, no edge. Your own: the one boxed kind, a 10% <code>--accent</code> fill, <code>--radius-medium</code>, padding 4px 12px 12px (the 12 keeps a card inside it 12px from the edge). Messages are 8px apart (the list\'s gap, <code>--space-2</code>), and a flat message has a 1px <code>--border</code> hairline under it (with 8px above the line) when another flat message follows, so flat messages do not run together. The shaded head band is gone.'],
-    ['2 Head', 'A 22px portrait (a page-local copy of the Avatars size), the name 12px weight 600, an optional command 11px 600, the time 11px muted, and at the end the "..." (the Quiet small icon button, 30px; today 24px). The head is 30px high.'],
+    ['2 Head', 'A 24px portrait (the Avatars 24 size), the name 12px weight 600, an optional command 11px 600, the time 11px muted, and at the end the "..." (the Quiet small icon button, 30px; today 24px). The head is 30px high.'],
     ['3 Body', '14px on 20px (the type scale); paragraphs 8px apart; code 13px; a link in the accent mix, underlined. Long words wrap.'],
     ['4 Tint', 'Only on the portrait: a 22% tint fill behind the icon and the icon in the readable mix. The message stays neutral.'],
     ['5 Quote', 'A nested neutral fill (<code>--text</code> 7% over the message), <code>--radius-small</code>, 12px. Not a 2px rule.'],
@@ -281,10 +281,10 @@ ${tbl(['Component', 'New name', 'Older names that take the same rules'], [
 
 <h4 class="ds-h4" id="chat-tokens">Tokens</h4>
 ${tbl(['Token', 'Value', 'Used for'], [
-    ['<code>--msg-fill-own</code>', '<code>--accent</code> 10%', 'The fill of your own message, the one boxed kind. Proposed token (the value is today\'s). <code>--msg-fill</code> (the others\' 5%) is gone: they are flat.'],
+    ['<code>--surface-chat-own</code>', '<code>--accent-fill</code> 10%', 'The fill of your own message, the one boxed kind (a colour role). <code>--msg-fill</code> (the others\' 5%) is gone: they are flat.'],
     ['<code>--msg-quote-fill</code>', '<code>--text</code> 7%', 'The nested quote. Proposed token.'],
     ['<code>--msg-meta</code>', '<code>--text</code> 78% into <code>--text-dim</code>', 'The time and the command word: muted, but 4.5 to 1 on both message fills (plain <code>--text-dim</code> is 4.1 on them). Proposed token.'],
-    ['<code>--msg-portrait</code>', '22px', 'The portrait in a message (until the Avatars family sets it). Proposed token.'],
+    ['<code>--msg-portrait</code>', '24px', 'The portrait in a message (the Avatars 24 size). Proposed token.'],
     ['<code>--composer-lines</code> <code>--composer-lh</code> <code>--composer-pad-y</code>', '5, 20px (22px on a phone), 8px (10px on a phone)', 'The field\'s growth: one line is 38px (44px on a phone), five lines 118px (132px). Proposed tokens.'],
     ['<code>--bg-section</code> <code>--bg-card</code> <code>--bg-input</code> <code>--border</code> <code>--selected-bg</code> <code>--tint-*</code>', 'the theme\'s', 'The window, the cards, the field, the hairlines, the selected fill, the portrait tint.'],
     ['<code>--shadow-2</code>', '0 2px 8px', 'The help and emoji popovers (the Menus shadow).'],
@@ -332,7 +332,7 @@ ${dim([
 <p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
 ${tbl(["Decided as drawn","Why"], [
     ["Body 14px, meta 11 and 12 (today 13px)","The type scale's default UI and body size; a chat is read, so it takes the body size."],
-    ["The portrait is 22px, a page-local copy","The Avatars family is built at the same time and decides the size."],
+    ["The portrait is 24px, the Avatars 24 size","Decided 2026-10-21 when the Chat block was built."],
     ["The \"...\" is always visible; the hover slot adds react, reply and keep","The \"...\" is the one action that works on a phone. The slot takes no room."],
     ["A reaction is a Chips tag (24px) with a count; yours is the selected fill","Tags are 24px and may be pressed; the choice chip (30px) is large for a line of messages."],
     ["The quote is a fill of <code>--text</code> at 7%, with 12px words","One surface step in, quieter than the message."],

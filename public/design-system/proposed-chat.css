@@ -5,7 +5,7 @@
                            .message-quote .message .actions .message .chat-link)
      others   FLAT on the window: no box, no fill        own      a 10% accent fill, --radius-medium: the one boxed message kind (Thomas, 2026-10-21: too many boxes in boxes)
                 a message is 8px from the next (the list's gap); the old shaded head band is gone
-     head     a 22px portrait, the name 12px weight 600 (not 650), the time 11px, then the "..." (the icon-only Quiet small button, 30px; was 24px)
+     head     a 24px portrait, the name 12px weight 600 (not 650), the time 11px, then the "..." (the icon-only Quiet small button, 30px; was 24px)
      body     14px (the type scale), meta 11 and 12.   hover actions: a small slot at the top right, shown on hover and on focus inside; not on a phone
      tinted   a command or AI message: the tint is on the portrait icon ONLY. No left bar, no edge, no fill of the message.
      quote    a nested neutral fill (a surface step), not a 2px rule.     reactions: Chips tags (24px) with a count.
@@ -16,13 +16,12 @@
                            and .chat-emoji-popup are the Menus popover)
      input    the field step (--bg-input) with the Fields look; Enter sends (there is no Send button); Shift+Enter is a new line; at most 5 lines, then it scrolls.
      status   the module's status line (#chat-status): the connection on the left, the latest notice on the right, a polite live region.
-   Portraits are a page-local copy of the Avatars family's 22px size (that family is built at the same time); the Avatars family decides the final one.
+   Portraits are the Avatars family's 24px size.
    Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or ring. */
 
 .ds-proposed {
-  --msg-fill-own: color-mix(in srgb, var(--accent) 10%, transparent);
   --msg-quote-fill: color-mix(in srgb, var(--text) 7%, transparent);
-  --msg-portrait: 22px;
+  --msg-portrait: 24px;
   --msg-meta: color-mix(in srgb, var(--text) 78%, var(--text-dim)); /* the time and the command: muted, but readable on the message fills */
   --composer-lines: 5;
   --composer-lh: 20px;
@@ -77,7 +76,7 @@
 .ds-proposed :is(.sdk-message, .message):is(.own, [data-own]) {
   --msg-inset: 12px;
   padding: 4px 12px 12px;
-  background: var(--msg-fill-own);
+  background: var(--surface-chat-own);
 }
 
 .ds-proposed :is(.sdk-message-head, .message-head) {

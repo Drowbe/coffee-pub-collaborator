@@ -1417,3 +1417,366 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   dialog.sdk-dialog-confirm { transition: none; }
 }
 /* confirm:end */
+
+/* ================= Journey bar: the status strip and its journey bar (design system step 30) =================
+   The space's status strip (space.js, "the status strip"): the phase chip, the journey bar, the countdown, up to three facts and
+   the attention pill. Source: public/design-system/proposed-journey.css, without the .ds-proposed prefix, the new names only, with the
+   colour roles. The journey bar is a proportional day grid laid out by journeyLayout (public/journey-layout.js, the Proposed page's
+   own function word for word): every day an equal slice, a band days x day width - 2px wide (--x, --w), the days no phase covers an
+   empty dashed slice (.sdk-gap), a phase with no dates a dashed stub at the right end, the today pin above the bar with a 2px stem
+   down through today's slice (--pin-x), ticks under the bar per day, Monday or month, and their dates.
+   The strip is 57px wider than a phone (--status-strip-h, style.css: the row's 1px rule and the 56px grid: the pin, the 24px bar,
+   the ticks, the dates) and a slim 28px line on a phone (--status-strip-slim-h), where the journey is a 2px line along its foot with
+   a 7px dot at today and a tap on a band shows its name and dates. Every chip in the header is 30px (22px on the slim line) and a
+   Chips look: a neutral fill, the countdown's accent fill, the pill's warn tone. Band fills by state: past 12%, ahead 22%, current
+   the selected fill with its name in the accent mix and "Now", off a dashed neutral hairline. No coloured edge, ring or bar: the
+   journey line, the progress line and the pin's stem are blocks.
+   Where it sits (the space bar's row, the header's line on a phone), the row's rule and fill, and the width at which the facts give
+   way are the page's layout: public/style.css, status-strip block. The tooltip (.sdk-journey-tip) is the Tooltips family's look,
+   drawn here for the bands until that family's own block is built (step 21). */
+/* journey:start */
+:root {
+  --jr-chip-h: 30px; /* every chip in the header; 22px on the phone's slim line */
+  --jr-chip-h-slim: 22px;
+  --jr-chip-gap: 6px; /* between a chip's icon and words */
+  --jr-chip-pad: 10px;
+  --jr-band-h: 24px;
+  --jr-band-pad: var(--space-2);
+  --jr-band-pad-icon: 5px;
+  --jr-pin-h: 14px;
+  --jr-pin-min: 20px;
+  --jr-pin-pad: 5px;
+  --jr-dot: 7px; /* today on the phone's line */
+  --jr-dot-top: -3px;
+  --jr-line: 2px;
+  --jr-line-foot: 3px; /* the phone's line above the strip's foot */
+  --jr-bar-top: 15px; /* the pin's row above the bar: the pin 1px to 15px, the bar 15px to 39px, the ticks to 43px, the dates to 55px */
+  --jr-tick: 4px;
+  --jr-tick-label-h: 12px;
+  --jr-past: 12%;
+  --jr-ahead: 22%;
+  --jr-count: 22%;
+  --jr-fact: 8%;
+  --jr-now: color-mix(in srgb, var(--accent-fill) 55%, var(--text-bar));
+  --jr-muted: color-mix(in srgb, var(--text-bar) 78%, var(--surface-bar-top));
+  --jr-pin-fill: color-mix(in srgb, var(--accent-fill) 88%, var(--text-primary)); /* the micro count's fill */
+  --jr-tip-max-w: 240px;
+  --jr-tip-leading: 16px;
+  --jr-phase-h: 58px; /* the phases sheet's band; 52px on a phone */
+  --jr-phase-h-phone: 52px;
+  --jr-phase-label-h: 16px;
+  --jr-phase-span-h: 14px;
+}
+
+/* ---- the strip ---- */
+.sdk-strip {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  column-gap: var(--space-3);
+  box-sizing: border-box;
+  height: calc(var(--status-strip-h) - 1px); /* the row's 1px top rule makes it --status-strip-h */
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--space-3);
+  color: var(--text-bar);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  overflow: hidden;
+}
+.sdk-strip[hidden] { display: none; }
+
+/* The phase chip's place: its words give way first (an ellipsis), the bar keeps its room. */
+.sdk-strip-said { display: flex; flex: 0 3 auto; align-items: center; height: 100%; min-width: 120px; }
+
+/* ---- the header chips: one height, 30px (22px on the phone's slim line) ---- */
+.sdk-strip-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--jr-chip-gap);
+  flex: none;
+  box-sizing: border-box;
+  height: var(--jr-chip-h);
+  min-height: 0;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--jr-chip-pad);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--text-bar) var(--jr-fact), transparent);
+  color: var(--text-bar);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-ui);
+  white-space: nowrap;
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: none;
+  outline: none;
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.sdk-strip-chip:hover { background: color-mix(in srgb, var(--text-bar) 14%, transparent); }
+.sdk-strip-chip:active { background: color-mix(in srgb, var(--text-bar) 20%, transparent); }
+.sdk-strip-chip:is([aria-expanded="true"], .on) { background: var(--fill-selected); color: var(--jr-now); }
+.sdk-strip-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-strip-chip:is(:disabled, [aria-disabled="true"]) { opacity: 0.5; pointer-events: none; }
+.sdk-strip-chip[hidden] { display: none; }
+.sdk-strip-chip > i { flex: none; width: var(--icon-14); font-size: var(--icon-14); line-height: var(--leading-ui); text-align: center; }
+
+/* The phase chip: the phase's dot, then the sentence. Each clause after the first is all or nothing (it wraps to a line the chip
+   does not show); the first is cut last, with an ellipsis. The words stay its name: the dot never stands alone for meaning. */
+.sdk-strip-phase { flex: 0 1 auto; padding-left: var(--space-2); }
+.sdk-strip-dot { flex: none; width: 10px; height: 10px; border-radius: var(--radius-round); background: var(--tint, var(--accent-fill)); }
+.sdk-strip-sentence { display: flex; flex-wrap: wrap; align-content: flex-start; min-width: 0; height: 1.4em; line-height: var(--leading-body); overflow: hidden; }
+.sdk-strip-sentence > .story-part { flex: none; white-space: pre; }
+.sdk-strip-sentence > .story-lead { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sdk-strip-sentence > .story-part:not(.story-lead) { color: color-mix(in srgb, currentColor 80%, transparent); }
+
+/* The countdown: a 22% accent fill; the number 16px weight 600, the words 13px, on one baseline. */
+.sdk-strip-count { align-items: baseline; background: color-mix(in srgb, var(--accent-fill) var(--jr-count), transparent); }
+.sdk-strip-count:hover { background: color-mix(in srgb, var(--accent-fill) 32%, transparent); }
+.sdk-strip-count-n { font-size: var(--text-16); font-weight: var(--weight-strong); line-height: calc(var(--jr-chip-h) - 2px); }
+.sdk-strip-count-words { font-size: var(--text-13); font-weight: var(--weight-medium); line-height: calc(var(--jr-chip-h) - 2px); }
+
+/* A fact: an icon and words; one with progress (the budget) fills from the left in the accent, as wide as its share. */
+.sdk-strip-facts { display: flex; flex: none; align-items: center; gap: var(--space-2); min-width: 0; height: 100%; }
+.sdk-strip-facts[hidden], .sdk-strip-fact[hidden] { display: none; }
+.sdk-strip-fact { max-width: 240px; }
+.sdk-strip-fact > .sdk-strip-fact-fill { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: color-mix(in srgb, var(--accent-fill) 22%, transparent); pointer-events: none; }
+.sdk-strip-fact > :is(i, .sdk-strip-fact-text) { position: relative; }
+.sdk-strip-fact-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* The attention pill: a warn tone fill (it needs action), the count a Chips count. At the strip's right end. */
+.sdk-strip-attn-slot { display: flex; flex: none; align-items: center; margin-left: auto; }
+.sdk-strip-attn-slot[hidden] { display: none; }
+.sdk-strip-attn {
+  --chip-tone: var(--status-warn-fill);
+  padding: 0 var(--space-2) 0 var(--jr-chip-gap);
+  background: color-mix(in srgb, var(--chip-tone) 18%, var(--surface-bar-top));
+  color: color-mix(in srgb, var(--chip-tone) 45%, var(--text-bar));
+  font-weight: var(--weight-strong);
+}
+.sdk-strip-attn:hover { background: color-mix(in srgb, var(--chip-tone) 28%, var(--surface-bar-top)); }
+.sdk-strip-attn[aria-expanded="true"] { background: color-mix(in srgb, var(--chip-tone) 34%, var(--surface-bar-top)); color: color-mix(in srgb, var(--chip-tone) 45%, var(--text-bar)); }
+.sdk-strip-attn-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--jr-chip-gap);
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--text-bar) 14%, transparent);
+  color: var(--text-bar);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the journey bar: a day grid (journeyLayout) ---- */
+.sdk-journey {
+  position: relative;
+  display: block;
+  flex: 1 1 360px;
+  align-self: stretch;
+  box-sizing: border-box;
+  min-width: 48px;
+  max-width: 880px;
+  height: calc(var(--status-strip-h) - 1px);
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sdk-band {
+  position: absolute;
+  top: var(--jr-bar-top);
+  left: var(--x);
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: var(--w);
+  min-width: 0;
+  height: var(--jr-band-h);
+  padding: 0 var(--jr-band-pad);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--tint, var(--accent-fill)) var(--jr-ahead), transparent);
+  color: var(--text-bar);
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-ui);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sdk-band[data-label="icon"] { padding: 0 var(--jr-band-pad-icon); }
+.sdk-band[data-label="none"] { padding: 0; }
+.sdk-band[data-state="past"] { background: color-mix(in srgb, var(--tint, var(--accent-fill)) var(--jr-past), transparent); }
+/* The current band: the neutral selected fill, its name in the accent mix, and the text "Now". No edge, no ring. */
+.sdk-band[data-state="current"] { background: var(--fill-selected); color: var(--jr-now); font-weight: var(--weight-strong); }
+/* Off (a phase with no dates): a dashed neutral hairline, not coloured. */
+.sdk-band[data-state="off"] { padding: 0; border-style: dashed; background: none; }
+.sdk-band[data-state="off"] > * { display: none; }
+.sdk-band:is(.lit, :hover):not([data-state="off"]) { background: color-mix(in srgb, var(--tint, var(--accent-fill)) 32%, transparent); }
+.sdk-band[data-state="current"]:is(.lit, :hover) { background: color-mix(in srgb, var(--accent-fill) 38%, transparent); }
+.sdk-band:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.sdk-band-box { display: flex; align-items: center; gap: var(--jr-chip-gap); min-width: 0; width: 100%; overflow: hidden; }
+.sdk-band-box[data-align="end"] { justify-content: flex-end; }
+.sdk-band-box[data-align="center"] { justify-content: center; }
+.sdk-band-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.sdk-band-icon { flex: none; font-size: var(--icon-12); color: inherit; }
+.sdk-band-now { flex: none; font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-ui); color: var(--jr-now); }
+/* How far through the phase today is: a 2px line along the foot of the current band, ending at the pin. */
+.sdk-band-progress { position: absolute; left: 0; bottom: 0; width: max(0px, calc(var(--p) - 1px)); height: var(--jr-line); background: var(--jr-now); pointer-events: none; }
+
+/* Days no phase covers: an empty slice, a dashed neutral hairline. */
+.sdk-gap { position: absolute; top: var(--jr-bar-top); left: var(--x); box-sizing: border-box; width: var(--w); height: var(--jr-band-h); border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); pointer-events: none; }
+
+/* The grid: 1px neutral hairlines 4px high under the bar, and 11px muted dates under them. Never coloured. */
+.sdk-tick { position: absolute; top: calc(var(--jr-bar-top) + var(--jr-band-h)); left: calc(var(--x) - 0.5px); width: 1px; height: var(--jr-tick); background: color-mix(in srgb, var(--text-bar) 28%, transparent); pointer-events: none; }
+.sdk-tick-label { position: absolute; top: calc(var(--jr-bar-top) + var(--jr-band-h) + var(--jr-tick)); left: var(--x); color: var(--jr-muted); font-size: var(--text-11); font-weight: var(--weight-medium); line-height: var(--jr-tick-label-h); white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; }
+.sdk-tick-label[data-align="c"] { transform: translateX(-50%); }
+.sdk-tick-label[data-align="e"] { transform: translateX(-100%); }
+
+/* The today pin: above the bar, never on a band, in the micro count's fill with the day of the month; its stem is 2px down through
+   the bar at the middle of today's slice. Its name is "Today, 14 October". */
+.sdk-today {
+  position: absolute;
+  z-index: 1;
+  top: 1px;
+  left: var(--pin-x);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--jr-pin-min);
+  height: var(--jr-pin-h);
+  margin: 0;
+  padding: 0 var(--jr-pin-pad);
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--jr-pin-fill);
+  color: var(--text-on-accent);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: var(--jr-pin-h);
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.sdk-today-stem { position: absolute; top: 100%; left: calc(50% - 1px); width: 2px; height: calc(var(--jr-bar-top) - var(--jr-pin-h) - 1px + var(--jr-band-h)); background: var(--jr-pin-fill); }
+
+/* A band's name and dates, on hover, focus or a tap: the Tooltips look (space.js places it). */
+.sdk-journey-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-popover);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: var(--jr-tip-max-w);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--surface-tooltip);
+  color: var(--text-tooltip);
+  box-shadow: var(--shadow-2);
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  line-height: var(--jr-tip-leading);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast);
+}
+.sdk-journey-tip[data-show] { opacity: 1; visibility: visible; }
+.sdk-journey-tip::after { content: ""; position: absolute; left: calc(var(--arrow-x, 50%) - 4px); bottom: -3px; width: 8px; height: 8px; background: var(--surface-tooltip); transform: rotate(45deg); }
+.sdk-journey-tip[data-placement="bottom"]::after { top: -3px; bottom: auto; }
+
+/* ---- the phases sheet's band (the Set up phase band, phase-sheet.js): 58px, the same fills as the journey bar ----
+   Each band a fill of its phase's tint by state (past 12%, ahead 22%, current the selected fill with its name in the accent mix
+   and "Now"), the neutral hairline, the medium corner; no coloured top edge and no ring. Today is a 2px dashed neutral line
+   drawn as a block (not an edge), with the word "Today" above it. Its width is its share of the days (phase-sheet.js). */
+.sdk-phase-strip { margin: var(--space-3) 0 var(--space-1); padding: var(--space-5) 0 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.sdk-phase-bands { position: relative; display: flex; align-items: stretch; gap: var(--space-1); box-sizing: border-box; width: 100%; min-width: max-content; height: var(--jr-phase-h); margin: 0; padding: 0; list-style: none; }
+.sdk-phase-band {
+  --s: var(--surface-field);
+  position: relative;
+  display: flex;
+  flex: 0 1 0px;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-0);
+  box-sizing: border-box;
+  min-width: 56px; /* BAND_MIN in phase-sheet.js */
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--tint, var(--accent-fill)) var(--jr-ahead), var(--s));
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.sdk-phase-band[data-state="past"] { background: color-mix(in srgb, var(--tint, var(--accent-fill)) var(--jr-past), var(--s)); }
+.sdk-phase-band[data-state="current"] { background: color-mix(in srgb, var(--fill-selected), var(--s)); }
+.sdk-phase-band.lit:not([data-state="off"]),
+.sdk-phase-band:hover:not([data-state="off"], [data-state="current"]) { background: color-mix(in srgb, var(--tint, var(--accent-fill)) 32%, var(--s)); }
+.sdk-phase-band:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-phase-band[data-state="off"] { flex: none; width: 14px; min-width: 14px; padding: 0; border-style: dashed; background: none; }
+.sdk-phase-band[data-state="off"].lit { border-color: var(--text-primary); }
+.sdk-phase-band[data-state="off"] > * { display: none; }
+.sdk-phase-band-label { display: block; max-width: 100%; overflow: hidden; font-size: var(--text-13); font-weight: var(--weight-medium); line-height: var(--jr-phase-label-h); text-overflow: ellipsis; white-space: nowrap; }
+.sdk-phase-band[data-main] .sdk-phase-band-label { font-weight: var(--weight-strong); }
+.sdk-phase-band-span { display: block; max-width: 100%; overflow: hidden; color: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted)); font-size: var(--text-11); line-height: var(--jr-phase-span-h); text-overflow: ellipsis; white-space: nowrap; }
+.sdk-phase-band[data-state="current"] .sdk-phase-band-label { color: color-mix(in srgb, var(--accent-fill) 55%, var(--text-primary)); font-weight: var(--weight-strong); }
+.sdk-phase-band-now { font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--jr-phase-span-h); color: color-mix(in srgb, var(--accent-fill) 55%, var(--text-primary)); }
+.sdk-phase-band-now[hidden] { display: none; }
+/* Today in the band: a dashed neutral line (a block, not an edge) and its word above the bar, in the strip's top room. */
+.sdk-phase-today { position: absolute; top: 0; bottom: 0; left: var(--at); width: 2px; margin-left: -1px; background: linear-gradient(var(--text-primary) 50%, transparent 50%) 0 0 / 2px 6px repeat-y; pointer-events: none; }
+.sdk-phase-today[hidden] { display: none; }
+.sdk-phase-today-word { position: absolute; top: calc(-1 * var(--space-5)); left: 1px; transform: translateX(-50%); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--jr-phase-span-h); white-space: nowrap; }
+.sdk-phase-today.at-start .sdk-phase-today-word { left: 2px; transform: none; }
+.sdk-phase-today.at-end .sdk-phase-today-word { left: auto; right: 0; transform: none; }
+
+/* ---- a phone: the slim 28px line; the journey a 2px line along its foot with a 7px dot at today; no ticks, dates or names ---- */
+@media (max-width: 640px) {
+  .sdk-strip { height: var(--status-strip-slim-h); padding: 0 var(--space-3) var(--jr-line); column-gap: var(--space-2); }
+  .sdk-strip :is(.sdk-strip-count, .sdk-strip-facts) { display: none; }
+  .sdk-strip .sdk-strip-chip { z-index: 1; height: var(--jr-chip-h-slim); font-size: var(--text-12); }
+  .sdk-strip .sdk-strip-said { flex: 1 1 auto; min-width: 0; }
+  .sdk-strip .sdk-strip-phase { flex: 1 1 auto; padding: 0 var(--space-1); background: none; }
+  .sdk-strip .sdk-strip-dot { width: 8px; height: 8px; }
+  .sdk-strip .sdk-strip-attn { padding: 0 var(--jr-chip-gap) 0 var(--space-1); font-size: var(--text-11); }
+  .sdk-strip .sdk-journey { position: absolute; left: 0; right: 0; bottom: var(--jr-line-foot); flex: none; min-width: 0; max-width: none; height: var(--jr-line); cursor: default; }
+  .sdk-strip .sdk-band { top: 0; height: var(--jr-line); padding: 0; border: 0; border-radius: var(--radius-min); background: color-mix(in srgb, var(--tint, var(--accent-fill)) 55%, transparent); overflow: visible; }
+  .sdk-strip .sdk-band > * { display: none; }
+  .sdk-strip .sdk-band[data-state="past"] { background: color-mix(in srgb, var(--tint, var(--accent-fill)) 28%, transparent); }
+  .sdk-strip .sdk-band[data-state="current"] { background: var(--jr-now); }
+  .sdk-strip .sdk-band[data-state="off"] { background: color-mix(in srgb, var(--text-bar) 22%, transparent); }
+  /* A band is reached by a taller invisible area; a tap shows its name and dates. */
+  .sdk-strip .sdk-band::after { content: ""; position: absolute; left: 0; right: 0; top: -9px; bottom: -3px; }
+  .sdk-strip .sdk-journey > :is(.sdk-gap, .sdk-tick, .sdk-tick-label) { display: none; }
+  .sdk-strip .sdk-today { top: var(--jr-dot-top); width: var(--jr-dot); min-width: 0; height: var(--jr-dot); padding: 0; overflow: hidden; color: transparent; font-size: 0; }
+  .sdk-strip .sdk-today-stem { display: none; }
+  /* The phases sheet's band: 52px, the names only (the dates are in the rows). */
+  .sdk-phase-bands { height: var(--jr-phase-h-phone); }
+  .sdk-phase-band { padding: var(--space-1) var(--jr-band-pad-icon); }
+  .sdk-phase-band-label { font-size: var(--text-12); }
+  .sdk-phase-band-span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sdk-strip-chip, .sdk-journey-tip) { transition: none; }
+}
+/* journey:end */

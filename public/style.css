@@ -55,11 +55,11 @@
   /* The status bar at the bottom of a module's own window or column (host.status.set): one slim, fixed line.
      public/sdk/host.css has the same token. */
   --status-bar-h: 24px;
-  /* The space's status strip (plan-space-status-strip.md: the phase chip and its track; plan-space-story-strip.md,
-     drawing B: a taller journey bar): one fixed line, the header's second row wider than a phone (--status-strip-h)
-     and a slim line under the top row on a phone (--status-strip-slim-h), so it never changes the header's height as
-     its words arrive. Not the module status bar above. */
-  --status-strip-h: 44px;
+  /* The space's status strip (plan-space-status-strip.md; the Journey bar family, design system step 30: the day grid):
+     one fixed line, the header's second row wider than a phone (--status-strip-h: the row's 1px rule and the 56px grid,
+     the pin, the 24px bar, the ticks and their dates) and a slim line under the top row on a phone
+     (--status-strip-slim-h), so it never changes the header's height as its words arrive. Not the module status bar above. */
+  --status-strip-h: 57px;
   --status-strip-slim-h: 28px;
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
      Send), so they line up whatever cell they are in. */
@@ -8703,45 +8703,25 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 @media (max-width: 640px) { .published-calendar { margin-left: 0; } }
 /* calendars-tab:end */
 
-/* status-strip:start -- the space's status strip (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps
-   1 and 2, drawing B: a taller journey bar; space.js, "the status strip"): the phase chip ("● Booking starts tomorrow ·
-   Trip in 35 days", a button that opens the timeline sheet; no caret) and the journey bar beside it (the phases end to
-   end, each named where it fits, the past pale, today's filled with the accent, the rest outlined, the main one
-   heavier, a pin at today with the day of the month), the days to go, then the facts' chips and the count.
-   Wider than a phone it is the space bar's left zone (.subnav, the header's second row) and that row is
-   --status-strip-h tall; on a phone it is a slim line of the header under the top row (space.js placeSubnav moves it),
-   --status-strip-slim-h. One line only, and things give way in this order as the line narrows: the facts' chips (one by
-   one from the end, space.js fitFacts; all gone at 760px), the names in the bands (below 760px, or a band too narrow for its name), the days to go, the
-   bar (at 48px it wraps out of sight), and last the end of the sentence (its clauses drop whole, the first is cut with
-   an ellipsis). The dot never stands alone for meaning: the words stay the chip's name. Colours from the theme's
-   tokens only. */
-.status-strip {
-  display: flex;
-  flex-wrap: wrap; /* the way out: what does not fit wraps onto a line that is cut off */
-  align-items: center;
-  column-gap: 12px;
-  box-sizing: border-box;
-  height: calc(var(--status-strip-h) - 1px); /* the row's 1px top rule makes it --status-strip-h */
-  min-width: 0;
-  overflow: hidden;
-}
-
-.status-strip[hidden] {
-  display: none;
-}
-
-.subnav .nav-left > .status-strip {
+/* status-strip:start -- where the space's status strip sits (plan-space-status-strip.md; plan-space-story-strip.md; space.js, "the
+   status strip"). Its look (the chips, the journey bar's day grid, the phone's slim line) is the Journey bar family's, in
+   public/sdk/system.css (journey block, design system step 30). Here: wider than a phone it is the space bar's left zone
+   (.subnav, the header's second row), and that row is --status-strip-h (57px) tall; on a phone it is a slim line of the
+   header under the top row (space.js placeSubnav moves it), --status-strip-slim-h. Things give way in this order as the line
+   narrows: the facts (one by one from the end, space.js fitFacts, while the journey bar has less than its room; all gone at
+   760px, FACT_CHIPS_HIDDEN_AT in phase-sheet.js), the end of the sentence, then the bar to its least width. */
+.subnav .nav-left > .sdk-strip {
   flex: 1 1 auto;
 }
 
-/* The left zone holding the strip spans the row, so the track has its room to grow. */
-body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
+/* The left zone holding the strip spans the row, so the bar has its room to grow. */
+body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
   justify-self: stretch;
 }
 
 /* The space bar holding the strip is the strip's height, every layout tab alike (the empty row still hides itself). */
 @media (min-width: 641px) {
-  body.in-space .subnav:has(> .nav-left > .status-strip:not([hidden])) {
+  body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) {
     box-sizing: border-box;
     height: var(--status-strip-h);
     padding-top: 0;
@@ -8749,328 +8729,24 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   }
 }
 
-.status-said {
-  display: flex;
-  flex: 0 1 auto;
-  align-items: center;
-  height: 100%;
-  min-width: 0;
+/* 760px and below: no facts (FACT_CHIPS_HIDDEN_AT); the phase sheet lists them instead. */
+@media (max-width: 760px) {
+  .sdk-strip .sdk-strip-facts {
+    display: none;
+  }
 }
 
-.status-strip .phase-chip {
-  display: inline-flex;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  min-width: 0;
-  padding: 0 10px 0 8px;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--header-text); /* the nav text (.nav-text, space.js), in the colour of what is current */
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.status-strip .phase-chip[aria-expanded="true"],
-.status-strip .phase-chip:hover {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-}
-
-.status-strip .phase-chip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px; /* inside the strip, which cuts what passes its edge */
-}
-
-.phase-dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-round);
-  background: var(--tint, var(--accent)); /* the colour of the phase today is in (data-tint, space.js) */
-}
-
-/* The sentence: the first clause keeps its line and is cut with an ellipsis; each later clause is all or nothing,
-   wrapping onto a second line the label does not show. */
-.status-strip .phase-chip .phase-chip-label {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  min-width: 0;
-  height: 1.4em;
-  line-height: var(--leading-body);
-  overflow: hidden;
-}
-
-.status-strip .phase-chip .story-part {
-  flex: none;
-  white-space: pre;
-}
-
-.status-strip .phase-chip .story-lead {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The later clauses: the same nav text, a little paler than the lead. */
-.status-strip .phase-chip .story-part:not(.story-lead) {
-  color: color-mix(in srgb, currentColor 80%, transparent);
-}
-
-/* The journey bar: a least of 48px (else it wraps out of sight), up to 880px. */
-.status-track {
-  display: flex;
-  flex: 1 1 48px;
-  gap: 3px;
-  min-width: 48px;
-  max-width: 880px;
-  height: 24px;
-  cursor: pointer;
-}
-
-/* Today before the first phase or after the last: the pin at that end, the bands kept clear of it. */
-.status-track.lead,
-.status-track.trail {
-  position: relative;
-}
-
-.status-track.lead {
-  padding-left: 32px;
-}
-
-.status-track.trail {
-  padding-right: 32px;
-}
-
-.status-track.lead > .status-today {
-  left: 14px;
-}
-
-.status-track.trail > .status-today {
-  left: calc(100% - 14px);
-}
-
-/* Each band wears its phase's colour (data-tint, the sheet's own: Phases.tintOf) as a FILL, never a coloured border
-   (Thomas, 2026-10-14: "no colored borders"): ahead of today a soft wash of it, behind today a paler one, today's band a
-   stronger fill under the header's text. The edge is the theme's neutral border, as every other control's. Its words
-   are the nav text (.status-band-name). */
-.status-band {
-  position: relative;
-  box-sizing: border-box;
-  flex-basis: 0;
-  min-width: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-medium);
-  background: color-mix(in srgb, var(--tint, var(--accent)) 22%, transparent);
-  color: color-mix(in srgb, var(--header-text) 75%, transparent);
-}
-
-.status-band.main {
-  color: var(--header-text);
-}
-
-.status-band.past {
-  background: color-mix(in srgb, var(--tint, var(--accent)) 12%, transparent);
-}
-
-.status-band.current {
-  background: color-mix(in srgb, var(--tint, var(--accent)) 50%, var(--header-bg));
-  color: var(--header-text);
-}
-
-/* A band's name (and icon): beside a full-height spacer, so a name too long for its band wraps to a second line that
-   the box cuts off, rather than spilling or being cut mid-word. */
-.status-band-box {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  padding: 0 5px;
-  overflow: hidden;
-}
-
-.status-band-box::before {
-  content: "";
-  flex: none;
-  width: 0;
-  height: 100%;
-}
-
-/* Today's band keeps its name on the side the pin is not on. */
-.status-band-box.end {
-  justify-content: flex-end;
-}
-
-/* The nav text (.nav-text, space.js), in its band's colour. */
-.status-band-name {
-  display: inline-flex;
-  flex: none;
-  align-self: center;
-  align-items: center;
-  gap: 5px;
-  color: inherit;
-  white-space: nowrap;
-}
-
-.status-band-icon {
-  flex: none;
-  align-self: center;
-  font-size: var(--text-11);
-  color: inherit;
-}
-
-.status-band-icon + .status-band-name {
-  margin-left: 5px;
-}
-
-/* The pin at today: a disc larger than the bar, filled with its phase's colour (a fill, no coloured ring), a ring of
-   the header's own colour to part it from the band, and the day of the month in the nav text (.nav-text, space.js) in
-   the header's colour, which reads on the tint in either mode. */
-.status-today {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: 28px;
-  height: 28px;
-  margin: -14px 0 0 -14px;
-  border: 0;
-  border-radius: var(--radius-round);
-  background: var(--tint, var(--accent));
-  box-shadow: 0 0 0 2px var(--header-bg);
-  color: var(--header-bg);
-  line-height: var(--leading-ui);
-}
-
-.status-today-day {
-  color: inherit;
-}
-
-/* The countdown (space.js; Thomas, 2026-10-14): one chip, the number large and bold with its words ("days to Trip",
-   or "Trip starts today") beside it on one baseline. The words are the nav text (.nav-text, space.js); the number the
-   nav size a quarter larger, bold. Filled with the accent in the theme's tokens, inside the neutral border, the height
-   and rhythm of the facts' chips (28px). Gone on a phone's slim line. */
-.status-togo {
-  display: inline-flex;
-  flex: none;
-  align-items: baseline;
-  gap: 5px;
-  box-sizing: border-box;
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--header-text);
-  line-height: 26px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.status-togo[hidden] {
+/* A space without phases: the strip is the count alone. */
+.sdk-strip.attention-only > :not(.sdk-strip-attn-slot) {
   display: none;
 }
 
-.status-togo-days {
-  font-size: var(--text-16);
-  font-weight: var(--weight-strong);
-  line-height: 26px;
-}
-
-.status-togo-words {
-  color: inherit;
-  line-height: 26px;
-}
-
-/* The facts (space.js, host.facts; plan-space-story-strip.md, step 5): up to three chips after the days to go, each a
-   button with its icon and words in the nav text (.nav-text, space.js). FILLED, never a coloured border (Thomas,
-   2026-10-14): a soft wash of the header's text inside the theme's neutral border, as every control; a fact with
-   progress (the budget) carries a fill of the accent from the left, as wide as its share. The last thing in the line
-   before the count, so it gives way first: space.js fitFacts drops the chips one by one from the end while the line is
-   crowded, and below 760px they are all gone (before the names in the bands). Never on a phone's slim line. */
-.status-facts {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  height: 100%;
-}
-
-.status-facts[hidden] {
-  display: none;
-}
-
-.status-strip .status-fact {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: 28px;
-  max-width: 240px;
-  padding: 0 10px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: color-mix(in srgb, var(--header-text) 8%, transparent);
-  color: var(--header-text);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.status-strip .status-fact.dropped {
-  display: none;
-}
-
-.status-strip .status-fact:hover,
-.status-strip .status-fact[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-}
-
-.status-strip .status-fact:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px; /* inside the strip, which cuts what passes its edge */
-}
-
-/* The progress: a fill of the accent from the left, under the icon and the words. */
-.status-fact-fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: var(--fact-progress, 0%);
-  background: color-mix(in srgb, var(--accent) 32%, transparent);
-}
-
-.status-strip .status-fact > i {
-  position: relative;
-  font-size: var(--text-12);
-  color: color-mix(in srgb, var(--header-text) 75%, transparent);
-}
-
-.status-fact-text {
-  position: relative;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* A chip's menu: the module's facts in full, each with its icon (the shared menu's own text). */
+/* A fact's menu: the module's facts in full, each with its icon (the shared menu's own text). */
 .status-fact-list {
   margin: 0;
   padding: 4px 10px 6px;
   list-style: none;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: var(--text-13);
 }
 
@@ -9082,180 +8758,22 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 }
 
 .status-fact-list > li > i {
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
-/* 760px and below: no chips (they give way before the names in the bands, which go at the same width). */
-@media (max-width: 760px) {
-  .status-strip .status-facts {
-    display: none;
-  }
-}
-
-/* The count of what needs action (space.js, host.attention): a pill at the strip's right end, drawn over a right margin
-   the strip keeps for it, so the line's items give way before it does. Its own polite status; the button opens the list. */
-.status-attention {
-  position: absolute;
-  top: 0;
-  right: 8px;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-}
-
-.status-attention[hidden] {
-  display: none;
-}
-
-.status-strip.has-attention {
-  position: relative;
-  padding-right: 132px;
-}
-
-.attention-count {
-  box-sizing: border-box;
-  height: 24px;
-  max-width: 124px;
-  padding: 0 11px;
-  overflow: hidden;
-  border: 0;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: inherit;
-  font-size: var(--text-12);
-  font-weight: var(--weight-strong);
-  line-height: 24px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.attention-count:hover,
-.attention-count[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--accent) 85%, var(--header-text));
-}
-
-.attention-count:focus-visible {
-  outline: 2px solid var(--header-text);
-  outline-offset: 1px;
-}
-
-/* A space without phases: the strip is the count alone. */
-.status-strip.attention-only > :not(.status-attention) {
-  display: none;
-}
-
-/* Narrow: the names in the bands go first (the bar keeps its colours, the pin and the days to go). */
-@media (max-width: 760px) {
-  .status-strip .status-band-name {
-    display: none;
-  }
-}
-
-/* On a phone the strip is a slim line of the header under the top row (space.js placeSubnav; the space bar is the tab
-   bar at the foot): the dot and the sentence (its later clauses give way as above; the whole words stay its name), and
-   the bar a 2px line along its foot, the full width, with a small mark at today. No names, no days to go, no slot. The
-   top row no longer has the chip. */
+/* On a phone the strip is a slim line of the header under the top row (space.js placeSubnav; the space bar is the tab bar
+   at the foot), full bleed, on the space bar's own colour with the row's rule on top. */
 @media (max-width: 640px) {
-  .topbar:has(> .status-strip:not([hidden])) {
+  .topbar:has(> .sdk-strip:not([hidden])) {
     flex-wrap: wrap;
     row-gap: 0;
   }
 
-  .topbar > .status-strip {
-    position: relative;
+  .topbar > .sdk-strip {
     flex: 0 0 calc(100% + 20px); /* full bleed: cancels the header's 10px side padding */
-    flex-wrap: nowrap;
     margin: 0 -10px;
-    padding: 0 10px 2px;
-    height: var(--status-strip-slim-h);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--edge-hairline);
     background: var(--nav-secondary-bg);
-  }
-
-  .topbar > .status-strip.has-attention {
-    padding-right: 110px;
-  }
-
-  .topbar > .status-strip .attention-count {
-    height: 20px;
-    max-width: 100px;
-    padding: 0 9px;
-    font-size: var(--text-11);
-    line-height: 20px;
-  }
-
-  .topbar > .status-strip .phase-chip {
-    height: 100%;
-    padding: 0 4px; /* the nav text, as wider (.nav-text) */
-  }
-
-  .topbar > .status-strip .phase-dot {
-    width: 8px;
-    height: 8px;
-  }
-
-  .topbar > .status-strip .status-track {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    gap: 1px;
-    min-width: 0;
-    max-width: none;
-    height: 2px;
-  }
-
-  .topbar > .status-strip .status-track.lead,
-  .topbar > .status-strip .status-track.trail {
-    position: absolute;
-    padding: 0;
-  }
-
-  .topbar > .status-strip .status-track.lead > .status-today {
-    left: 1px;
-  }
-
-  .topbar > .status-strip .status-track.trail > .status-today {
-    left: calc(100% - 1px);
-  }
-
-  /* A 2px line has no room for a border: the band is the colour itself, paler behind today and ahead of it. */
-  .topbar > .status-strip .status-band-box {
-    display: none;
-  }
-
-  .topbar > .status-strip .status-band {
-    border: 0;
-    border-radius: 0;
-    background: color-mix(in srgb, var(--tint, var(--accent)) 60%, transparent);
-  }
-
-  .topbar > .status-strip .status-band.past {
-    background: color-mix(in srgb, var(--tint, var(--accent)) 35%, transparent);
-  }
-
-  .topbar > .status-strip .status-band.current {
-    background: var(--tint, var(--accent));
-  }
-
-  .topbar > .status-strip .status-today {
-    top: -2px;
-    bottom: 0;
-    width: 2px;
-    height: auto;
-    margin: 0 0 0 -1px;
-    border: 0;
-    border-radius: var(--radius-min);
-    background: var(--header-text);
-    box-shadow: none;
-  }
-
-  .topbar > .status-strip .status-today-day,
-  .topbar > .status-strip .status-togo,
-  .topbar > .status-strip .status-facts {
-    display: none;
   }
 }
 /* status-strip:end */
@@ -9521,157 +9039,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   outline-offset: 1px;
 }
 
-/* --- the bar --- */
-.phase-strip {
-  margin: 14px 0 4px;
-  padding-top: 20px; /* room for the word "Today" above the line */
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-}
-
-.phase-bands {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  height: 58px;
-  min-width: max-content;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.phase-band {
-  position: relative;
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 1 0px;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-  min-width: 56px; /* BAND_MIN */
-  padding: 4px 8px 2px;
-  overflow: hidden;
-  border-top: 4px solid var(--tint, var(--accent));
-  border-radius: var(--radius-medium);
-  background: color-mix(in srgb, var(--tint, var(--accent)) 16%, var(--bg-input));
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
-}
-
-.phase-band:first-child {
-  border-top-left-radius: var(--radius-medium);
-  border-bottom-left-radius: var(--radius-medium);
-}
-
-.phase-band:last-child {
-  border-top-right-radius: var(--radius-medium);
-  border-bottom-right-radius: var(--radius-medium);
-}
-
-.phase-band.off {
-  flex: none;
-  min-width: 14px;
-  width: 14px;
-  padding: 0;
-  border: 1px dashed var(--text-dim);
-  border-radius: var(--radius-min);
-  background: none;
-  cursor: pointer;
-}
-
-
-.phase-band.main .phase-band-label {
-  font-weight: var(--weight-strong);
-}
-
-.phase-band.current {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-
-.phase-band.lit:not(.off) {
-  background: color-mix(in srgb, var(--tint, var(--accent)) 32%, var(--bg-input));
-}
-
-.phase-band.lit.off {
-  border-style: solid;
-  border-color: var(--text);
-}
-
-.phase-band-label,
-.phase-band-span {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.phase-band-label {
-  font-size: var(--text-13);
-  font-weight: var(--weight-strong);
-}
-
-.phase-band-span {
-  font-size: var(--text-11);
-  color: var(--text-dim);
-}
-
-.phase-band-now {
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-
-.phase-today {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--at);
-  border-left: 2px dashed var(--text);
-  pointer-events: none;
-}
-
-.phase-today-word {
-  position: absolute;
-  top: -22px;
-  left: -1px;
-  transform: translateX(-50%);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  white-space: nowrap;
-  color: var(--text);
-}
-
-.phase-today.at-start .phase-today-word {
-  left: 2px;
-  transform: none;
-}
-
-.phase-today.at-end .phase-today-word {
-  left: auto;
-  right: 2px;
-  transform: none;
-}
-
-/* The band is padded so the word sits above the strip, not clipped: the strip's top padding is its room. */
-.phase-band {
-  overflow: visible;
-}
-
-.phase-band .phase-band-label,
-.phase-band .phase-band-span {
-  display: block;
-  max-width: 100%;
-}
-
-/* The stub shows nothing: its name is its tooltip and its row's; the band is for seeing. */
-.phase-band.off .phase-band-label,
-.phase-band.off .phase-band-span,
-.phase-band.off .phase-band-now,
-.phase-band.off .phase-today {
-  display: none;
-}
+/* --- the bar: the Journey bar family's Set up band (.sdk-phase-band, public/sdk/system.css, journey block) --- */
 
 /* --- the first step --- */
 .phase-first {
@@ -9923,22 +9291,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
   .phase-sheet-head {
     padding-right: 48px;
-  }
-
-  .phase-bands {
-    height: 52px;
-  }
-
-  .phase-band {
-    padding: 3px 5px 2px;
-  }
-
-  .phase-band-label {
-    font-size: var(--text-12);
-  }
-
-  .phase-band-span {
-    display: none !important; /* the dates are in the rows; the bar keeps the names */
   }
 
   .phase-rows-head {

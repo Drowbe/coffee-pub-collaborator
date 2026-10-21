@@ -2,11 +2,10 @@
   "about": "check-spacing: today's spacing values off the scale (0 1 2 4 8 12 16 20 24 32 40 48 px), per file and value. Counts may only fall; lower them with: node tools/check-spacing.mjs --update",
   "counts": {
     "modules/budget/src/budget.css": {
-      "3px": 2,
-      "6px": 12,
-      "10px": 18,
-      "14px": 3,
-      "30px": 1
+      "3px": 1,
+      "6px": 9,
+      "10px": 14,
+      "14px": 2
     },
     "modules/calendar/src/calendar-widget.css": {
       "-2.5px": 1,
@@ -18,42 +17,37 @@
       "5px": 2,
       "6px": 9,
       "7px": 5,
-      "10px": 7,
-      "13px": 1,
-      "36px": 1
+      "10px": 6,
+      "13px": 1
     },
     "modules/maps/src/maps.css": {
-      "3px": 1,
       "6px": 8,
-      "10px": 7,
-      "14px": 3,
+      "10px": 4,
+      "14px": 2,
       "30px": 1
     },
     "modules/places/src/places.css": {
-      "3px": 3,
+      "3px": 1,
       "5px": 2,
-      "6px": 17,
+      "6px": 14,
       "7px": 4,
-      "10px": 7,
-      "14px": 5,
-      "30px": 1
+      "10px": 4,
+      "14px": 4
     },
     "modules/polls/src/polls-widget.css": {
       "5px": 1
     },
     "modules/polls/src/polls.css": {
-      "6px": 12,
+      "6px": 8,
       "10px": 5,
       "30px": 1
     },
     "modules/research/src/research.css": {
-      "3px": 1,
       "5px": 3,
-      "6px": 16,
+      "6px": 12,
       "7px": 1,
-      "10px": 13,
+      "10px": 9,
       "14px": 4,
-      "30px": 1,
       "74px": 1
     },
     "modules/stream/src/stream-keyed.css": {
@@ -68,10 +62,9 @@
     },
     "modules/todo/src/todo.css": {
       "5px": 1,
-      "6px": 8,
+      "6px": 6,
       "7px": 2,
-      "10px": 4,
-      "36px": 1
+      "10px": 3
     },
     "modules/travel/src/travel-lib-cards.css": {
       "-6px": 3,
@@ -100,11 +93,8 @@
       "5px": 1
     },
     "modules/travel/src/travel.css": {
-      "3px": 1,
       "5px": 1,
       "6px": 16,
-      "7px": 1,
-      "9px": 1,
       "10px": 9,
       "18px": 1
     },
@@ -143,22 +133,18 @@
       "-6px": 1,
       "-7px": 1,
       "-10px": 4,
-      "-14px": 2,
-      "3px": 26,
-      "5px": 14,
-      "6px": 172,
-      "7px": 7,
-      "9px": 2,
-      "10px": 122,
-      "11px": 1,
-      "14px": 34,
+      "3px": 24,
+      "5px": 9,
+      "6px": 170,
+      "7px": 6,
+      "9px": 1,
+      "10px": 118,
+      "14px": 33,
       "18px": 16,
       "28px": 1,
       "30px": 2,
       "34px": 1,
-      "38px": 3,
-      "110px": 1,
-      "132px": 1
+      "38px": 3
     }
   }
 }

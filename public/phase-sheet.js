@@ -149,8 +149,8 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       <button type="button" class="phase-sheet-close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
     </div>
     <ul class="phase-sheet-facts" aria-label="Facts" hidden></ul>
-    <div class="phase-strip">
-      <ol class="phase-bands" aria-label="The phases in order"></ol>
+    <div class="sdk-phase-strip">
+      <ol class="sdk-phase-bands" aria-label="The phases in order"></ol>
     </div>
     <div class="phase-first" hidden>
       <label class="phase-first-label" for="phase-first-day">Start the first phase on</label>
@@ -165,7 +165,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     <p class="phase-sheet-status" role="status" aria-live="polite"></p>
     </div>
   `;
-  const bandsEl = dlg.querySelector('.phase-bands');
+  const bandsEl = dlg.querySelector('.sdk-phase-bands');
   const listEl = dlg.querySelector('.phase-list');
   const firstEl = dlg.querySelector('.phase-first');
   const firstInput = dlg.querySelector('#phase-first-day');
@@ -211,10 +211,10 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   const rowEls = new Map();
   list.forEach((p, i) => {
     const band = doc.createElement('li');
-    band.className = 'phase-band';
+    band.className = 'sdk-phase-band'; // the Journey bar family's Set up band (system.css)
     band.dataset.id = p.id;
     band.dataset.tint = R.tintOf ? R.tintOf(i) : tintOf(i);
-    band.innerHTML = '<span class="phase-band-label"></span><span class="phase-band-span"></span><span class="phase-band-now" hidden>now</span><span class="phase-today" hidden><span class="phase-today-word">Today</span></span>';
+    band.innerHTML = '<span class="sdk-phase-band-label"></span><span class="sdk-phase-band-span"></span><span class="sdk-phase-band-now" hidden>Now</span><span class="sdk-phase-today" hidden><span class="sdk-phase-today-word">Today</span></span>';
     band.addEventListener('click', () => focusRow(p.id));
     band.addEventListener('mouseenter', () => lit(p.id, true));
     band.addEventListener('mouseleave', () => lit(p.id, false));
@@ -293,17 +293,17 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     bands.forEach((b, i) => {
       const band = bandEls.get(b.id);
       const share = shares[i];
-      band.classList.toggle('off', !b.dated);
-      band.classList.toggle('current', b.current);
-      band.classList.toggle('main', b.main);
+      // Its state is a fill (system.css): past, current, ahead, or off for a phase with no dates.
+      band.dataset.state = !b.dated ? 'off' : b.current ? 'current' : b.end && today && today > b.end ? 'past' : 'ahead';
+      if (b.main) band.dataset.main = '1'; else delete band.dataset.main;
       band.style.flexGrow = b.dated ? String(share.grow) : '0';
       const span = !b.dated ? 'not scheduled' : b.end ? `${fmt(b.start)} to ${fmt(b.end)}, ${daysWord(share.days)}` : `from ${fmt(b.start)}`;
-      band.querySelector('.phase-band-label').textContent = b.label;
-      band.querySelector('.phase-band-span').textContent = span;
-      band.querySelector('.phase-band-now').hidden = !b.current;
+      band.querySelector('.sdk-phase-band-label').textContent = b.label;
+      band.querySelector('.sdk-phase-band-span').textContent = span;
+      band.querySelector('.sdk-phase-band-now').hidden = !b.current;
       band.title = `${b.label}: ${span}${b.current ? ', now' : ''}`;
       const at = todayPercent(b, share.days, today, { rule: R });
-      const line = band.querySelector('.phase-today');
+      const line = band.querySelector('.sdk-phase-today');
       line.hidden = at === null;
       if (at !== null) line.style.setProperty('--at', `${at}%`);
       line.classList.toggle('at-start', at !== null && at < 20);

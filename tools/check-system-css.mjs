@@ -163,7 +163,11 @@ const OLD_COLOUR = ['--bg', '--bg-section', '--bg-card', '--bg-input', '--text',
   for (const f of ['server/theme-css.js', 'public/theme-colour.js']) for (const m of read(f).matchAll(/'(--[a-z0-9-]+)'/g)) note(m[1], f);
   for (const n of defs.keys()) if (others.has(n)) fail(`${n} is defined in system.css and in ${others.get(n)}`);
   // Every var(--x) system.css reads is defined (in itself or in style.css, where the base roles are) and is not an old colour token.
-  const known = new Set([...defs.keys(), ...others.keys()]);
+  // The Journey bar block's per-element properties are written by space.js on one band, slice, tick, pin or tooltip, from
+  // journeyLayout (public/journey-layout.js): its place (--x, --w, --pin-x), its progress (--p), the tooltip's arrow, and today's
+  // place in a band of the phases sheet (--at, phase-sheet.js).
+  const PER_ELEMENT = ['--x', '--w', '--p', '--pin-x', '--arrow-x', '--at'];
+  const known = new Set([...defs.keys(), ...others.keys(), ...PER_ELEMENT]);
   for (const m of css.matchAll(/var\((--[a-z0-9-]+)/g)) {
     if (!known.has(m[1])) fail(`system.css reads ${m[1]}, which is defined nowhere`);
     if (OLD_COLOUR.includes(m[1])) fail(`system.css reads the old token ${m[1]}; the roles are written in terms of the base roles`);

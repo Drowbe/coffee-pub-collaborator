@@ -37,6 +37,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // Each DAY is an equal slice (dayW). A band is days x dayW wide minus a 2px gap (1px each side); a gap between phases is an empty slice; today's pin stands at the centre of
   // its slice (or in the lead / trail zone when today is outside the trip). Label modes by band width: >= 96 icon + name (the "Now" word from 140), >= 28 icon only, else the fill alone;
   // a label stays inside its own band and never under the pin's stem. Ticks: every day up to 31 days, every Monday up to 120 days, every month start beyond.
+  // journey-layout:start (public/journey-layout.js holds the same text, for the product; tools/check-nav.mjs holds the two equal)
   const DAY_MS = 86400000;
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -102,6 +103,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const offs = []; for (let k = 0; k < o.offs; k += 1) offs.push({ x: width - (o.offs - k) * o.offW + 1, w: o.offW - 2 });
     return { first, last, total, dayW, zl, zt, bands, gaps, ticks, tickMode, labels, pin, offs, where };
   }
+  // journey-layout:end
   window.DS_PROPOSED.journeyLayout = journeyLayout;
 
   // The six Travel phases (the template's own order, tints and icons), with dates (2026): today is Oct 14.

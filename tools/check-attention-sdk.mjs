@@ -63,17 +63,21 @@ has(space, /canvas\.open\(moduleId\);\n\s*if \(object && object\.module\) canvas
 ok(!/attentionButton\.(style|innerHTML)/.test(space), 'no inline colours or markup on the count');
 
 // --- phase icons in the journey bar ------------------------------------------------------------------------------
-has(space, /icon\.className = `fa-solid fa-\$\{phaseIcons\[b\.id\]\} status-band-icon`;/, 'a phase\'s icon in its band');
+has(space, /icon\.className = `fa-solid fa-\$\{b\.i\} sdk-band-icon`;/, 'a phase\'s icon in its band');
+has(space, /i: phaseIcons\[b\.id\] \|\| ''/, 'the band\'s icon is the template\'s phase icon');
 has(space, /typeof p\.icon === 'string' && \/\^\[a-z0-9-\]\+\$\/\.test\(p\.icon\)/, 'only a plain icon name is used');
 
-// --- the look: theme tokens only ---------------------------------------------------------------------------------
+// --- the look: theme tokens only (the Journey bar family, public/sdk/system.css) ---------------------------------
+const sys = read('public/sdk/system.css');
+const look = sys.slice(sys.indexOf('/* journey:start */'), sys.indexOf('/* journey:end */'));
 const block = css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
-has(block, /\.attention-count \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/, 'the count is drawn in the accent');
-has(block, /\.status-strip\.has-attention \{\n\s*position: relative;\n\s*padding-right: 132px;/, 'the strip leaves a gap for the count');
-has(block, /\.status-strip\.attention-only > :not\(\.status-attention\) \{\n\s*display: none;/, 'a space without phases shows the count alone');
-has(block, /\.topbar > \.status-strip\.has-attention \{\n\s*padding-right: 110px;/, 'and on a phone');
-const added = block.slice(block.indexOf('.status-attention {'), block.indexOf('/* Narrow: the names'));
-ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(added), 'no colour literals in the count\'s rules');
+has(look, /\.sdk-strip-attn \{[^}]*--chip-tone: var\(--status-warn-fill\);[^}]*background: color-mix\(in srgb, var\(--chip-tone\) 18%, var\(--surface-bar-top\)\);/, 'the count is a warn tone chip, not a solid accent pill');
+has(look, /\.sdk-strip-attn-slot \{ display: flex; flex: none; align-items: center; margin-left: auto; \}/, 'the count sits at the strip\'s right end');
+has(look, /\.sdk-strip-attn-n \{[^}]*min-width: 18px;[^}]*height: 18px;[^}]*border-radius: var\(--radius-round\);/, 'its number is a Chips count');
+has(block, /\.sdk-strip\.attention-only > :not\(\.sdk-strip-attn-slot\) \{\n\s*display: none;/, 'a space without phases shows the count alone');
+has(space, /count\.className = 'sdk-strip-attn-n';/, 'the count in its own span, made as elements');
+const added = look.slice(look.indexOf('.sdk-strip-attn-slot {'), look.indexOf('/* ---- the journey bar'));
+ok(added.length > 0 && !/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(added), 'no colour literals in the count\'s rules');
 
 // --- Polls ---------------------------------------------------------------------------------------------------------
 has(polls, /if \(!inSpace \|\| !host\.attention\) return;/, 'Polls reports only in a space');

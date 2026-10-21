@@ -2,7 +2,7 @@
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
-import { openPhaseSheet, bandShares, todayPercent, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
+import { openPhaseSheet, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
 import { renderModuleSettings } from '/module-settings.js';
 import { actionBar } from '/action-bar.js';
@@ -1699,54 +1699,59 @@ if (columnEl) {
 placeColumnTools(); // now that the two exist
 // --- end the always-on column ---
 
-// --- the status strip: the phase chip and its track (phase-sheet.js) ----------------------------------------------
-// The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2): the
-// chip, "● Booking starts tomorrow" (the story sentence, Phases.storyParts; no caret, it opens the
-// sheet, not a menu) and, beside it, the journey bar: the phases end to end, each band named (and its icon, when the
-// template gives one) where it fits, the past pale, today's filled with the accent, the ones to come outlined, the
-// main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then the facts
-// modules report (host.facts, up to three chips) and the count (host.attention) at the right. The template's phases
-// (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`, refreshed by the presence
-// poll, and by my own save) go through the one rule, public/phases.js (window.Phases). Nothing but the sheet opens
-// from it (phases only inform): the chip, a button, and the bar and its days to go, press targets for the mouse (the
-// chip is the keyboard's way). Shown on every layout tab whenever the space has phases; never with no phases, for a
-// guest, in an aside or while home is shown over the space.
+// --- the status strip: the phase chip and its journey bar (the Journey bar family) ----------------------------------
+// The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2; design
+// system step 30): the chip, "● Booking starts tomorrow" (the story sentence, Phases.storyParts; no caret, it opens the
+// sheet, not a menu) and, beside it, the journey bar: a day grid (journeyLayout, public/journey-layout.js), each band as
+// wide as its phase is long, named (and its icon, when the template gives one) where it fits, past, current ("Now") and
+// ahead by fill, the days no phase covers as an empty slice, a pin above the bar at today with the day of the month, and
+// the dates under it; then the days to go. Then the facts modules report (host.facts, up to three chips) and the count
+// (host.attention) at the right. The template's phases (branding.phases) and this space's dates (its presence record's
+// `phases` and `createdAt`, refreshed by the presence poll, and by my own save) go through the one rule, public/phases.js
+// (window.Phases). Nothing but the sheet opens from it (phases only inform): the chip, the days to go, and a press on the
+// bar. Shown on every layout tab whenever the space has phases; never with no phases, for a guest, in an aside or while
+// home is shown over the space. Its look is system.css's (journey block).
 // Wider than a phone it is an element tool of the space bar's left zone (`phase-chip`, the `secondary` bar: that row is
-// the strip, style.css, --status-strip-h), with no `fit`. On a narrow window things give way in order (style.css): the
-// facts' slot, the names in the bands, the days to go, the bar (to its least width, 48px, then out of sight), and last
-// the end of the sentence (each clause after the first is its own span and drops whole). On a phone the space bar is
-// the tab bar at the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the
-// header as a slim line under the top row (--status-strip-slim-h): the sentence and the bar as a 2px line along its foot.
-// The header moves to a popped-out window with the strip in it. For a screen reader the strip is a region, "Status";
-// the chip's words sit in one polite status, written only when the sentence changes, so the presence poll never makes
-// it speak again; the bar is hidden from it (the words carry it).
+// the strip, style.css, --status-strip-h), with no `fit`. On a narrow window things give way in order: the facts (one by
+// one, fitFacts; all at 760px), the end of the sentence (each clause after the first is its own span and drops whole),
+// then the bar to its least width; a band shows what fits of its name and icon. On a phone the space bar is the tab bar
+// at the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the header as a
+// slim line under the top row (--status-strip-slim-h): the sentence and the bar as a 2px line along its foot, a dot at
+// today, and a tap on a band says its name and dates. The header moves to a popped-out window with the strip in it. For
+// a screen reader the strip is a region, "Status"; the chip's words sit in one polite status, written only when the
+// sentence changes, so the presence poll never makes it speak again; the bar is a group, "Journey", each band named by
+// its name and dates, the pin by today's date.
 const statusStrip = document.createElement('div');
 statusStrip.id = 'status-strip';
-statusStrip.className = 'status-strip';
+statusStrip.className = 'sdk-strip';
 statusStrip.setAttribute('role', 'region');
 statusStrip.setAttribute('aria-label', 'Status');
 statusStrip.hidden = true; // until a space with phases is entered
 const statusSaid = document.createElement('span');
-statusSaid.className = 'status-said';
+statusSaid.className = 'sdk-strip-said';
 statusSaid.setAttribute('role', 'status');
 const phaseChip = document.createElement('button');
 phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
-phaseChip.className = 'phase-chip nav-text'; // the nav text, as every word in the bars
+phaseChip.className = 'sdk-strip-chip sdk-strip-phase'; // a header chip (system.css, journey block)
 phaseChip.setAttribute('aria-haspopup', 'dialog');
-phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span>';
-const statusTrack = document.createElement('span');
-statusTrack.className = 'status-track';
-statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
-const statusToGo = document.createElement('span');
-statusToGo.className = 'status-togo nav-text'; // the nav text, as every word in the bars
-statusToGo.setAttribute('aria-hidden', 'true'); // the chip's story carries the phase; this is the countdown to it
+phaseChip.innerHTML = '<span class="sdk-strip-dot" aria-hidden="true"></span><span class="sdk-strip-sentence"></span>';
+// The journey bar: a day grid (journeyLayout, public/journey-layout.js). Each band is reached by the keyboard and shows its
+// name and dates in a tooltip on hover, focus or a tap; the pin's name is today's date.
+const statusTrack = document.createElement('div');
+statusTrack.className = 'sdk-journey';
+statusTrack.setAttribute('role', 'group');
+statusTrack.setAttribute('aria-label', 'Journey');
+const statusToGo = document.createElement('button');
+statusToGo.type = 'button';
+statusToGo.className = 'sdk-strip-chip sdk-strip-count'; // the countdown to the main phase; it opens the phases too
+statusToGo.setAttribute('aria-haspopup', 'dialog');
 statusToGo.hidden = true;
 // The facts modules report (host.facts, plan-space-story-strip.md step 5): up to three chips after the days to go, each a
 // button opening a small menu. Not a live region: a fact that changes is not read out (the plan's accessibility rule);
 // the chips are drawn again only when the facts change.
 const statusFacts = document.createElement('span');
-statusFacts.className = 'status-facts';
+statusFacts.className = 'sdk-strip-facts';
 statusFacts.setAttribute('role', 'group');
 statusFacts.setAttribute('aria-label', 'Facts');
 statusSaid.appendChild(phaseChip);
@@ -1754,13 +1759,13 @@ statusSaid.appendChild(phaseChip);
 // end, after the days to go, only above zero. Its own polite status, written only when the count changes; the button
 // opens the shared menu of what needs action.
 const statusAttention = document.createElement('span');
-statusAttention.className = 'status-attention';
+statusAttention.className = 'sdk-strip-attn-slot';
 statusAttention.setAttribute('role', 'status');
 statusAttention.hidden = true;
 const attentionButton = document.createElement('button');
 attentionButton.type = 'button';
 attentionButton.id = 'attention-count';
-attentionButton.className = 'attention-count';
+attentionButton.className = 'sdk-strip-chip sdk-strip-attn'; // the warn tone chip with the count in a Chips count
 attentionButton.setAttribute('aria-haspopup', 'menu');
 statusAttention.appendChild(attentionButton);
 statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention);
@@ -1785,84 +1790,32 @@ function phaseTimeline() {
   if (!R || !space) return [];
   return R.timelineOf(templatePhases, space.phases || {}, { today: phaseToday(), created: space.createdAt });
 }
-// The bar: one band per dated phase, as wide as its share of the timeline (bandShares, the sheet's own bar), the
-// phases before today's pale, today's filled, the ones after outlined, the main one heavier; each band's name (and
-// icon) inside it, dropped by style.css when it does not fit; the pin at today (todayPercent) with the day of the
-// month. The days to go after it (Phases.countdown). Drawn again only when a date or the day changes.
+// The bar: a day grid (journeyLayout, public/journey-layout.js; the Journey bar family). Every day is an equal slice of the
+// bar's width, so a band is as wide as its phase is long and the days no phase covers show as an empty slice; an open-ended
+// phase (no end) runs two weeks past today or its start; a phase with no dates is a stub at the right end. The pin stands
+// above the bar at the middle of today's slice (or in a zone at the end the trip has not reached, or has passed), the ticks
+// and dates under it. Each band says what fits of its icon and name, and its name and dates on hover, focus or a tap. Laid
+// out again when the bar's width changes or a date or the day does (journeySpec). The days to go after it
+// (Phases.countdown).
+const OPEN_DAYS_PAST_TODAY = 14; // as the sheet's bar (phase-sheet.js bandShares)
+const JOURNEY_LEAST = 480; // the bar keeps at least this much before a fact gives way (the day grid needs the room)
+let journeySpec = null; // { bands, today }: what the bar shows, laid out at its width by layoutJourney
+let journeyDrawn = '';
+const journeyPhone = () => (statusTrack.ownerDocument.defaultView || window).matchMedia('(max-width: 640px)').matches;
 function drawStatusTrack(bands, today) {
   const R = phaseRule();
-  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end, b.tint, phaseIcons[b.id] || ''])]);
-  if (statusTrack.dataset.drawn === key) return;
-  statusTrack.dataset.drawn = key;
-  const doc = statusTrack.ownerDocument;
-  const shares = bandShares(bands, { today, rule: R });
-  const segs = [];
-  bands.forEach((b, i) => {
-    if (!b.dated) return;
-    const seg = doc.createElement('span');
-    seg.className = 'status-band';
-    seg.dataset.tint = b.tint; // the phase's own colour (Phases.tintOf), as in the sheet: one border, one tint
-    seg.style.flexGrow = String(shares[i].grow);
-    if (b.current) seg.classList.add('current');
-    else if (b.end && today > b.end) seg.classList.add('past');
-    if (b.main) seg.classList.add('main');
-    const at = todayPercent(b, shares[i].days, today, { rule: R });
-    // The icon and the name sit in a box that drops the name, then the icon, to a hidden line when the band is too narrow (style.css); in
-    // today's band it keeps to the side the pin is not on.
-    const box = doc.createElement('span');
-    box.className = 'status-band-box';
-    if (at !== null && at < 50) box.classList.add('end');
-    const name = doc.createElement('span');
-    name.className = 'status-band-name nav-text'; // the nav text; its colour is the band's (style.css)
-    name.append(b.label);
-    // The icon is its own item beside the name: a band too narrow for the name drops the name to the hidden second
-    // line and keeps the icon; one too narrow for both loses the icon too. The full name stays in the tooltip.
-    if (phaseIcons[b.id]) {
-      const icon = doc.createElement('i');
-      icon.className = `fa-solid fa-${phaseIcons[b.id]} status-band-icon`;
-      icon.setAttribute('aria-hidden', 'true');
-      box.appendChild(icon);
-    }
-    box.appendChild(name);
-    seg.appendChild(box);
-    seg.title = b.label;
-    if (at !== null) {
-      const mark = doc.createElement('span');
-      mark.className = 'status-today'; // inside the band: takes its colour
-      mark.style.left = `${at}%`;
-      const dayOfMonth = doc.createElement('span');
-      dayOfMonth.className = 'status-today-day nav-text';
-      dayOfMonth.textContent = String(Number(today.slice(8, 10)));
-      mark.appendChild(dayOfMonth);
-      seg.appendChild(mark);
-    }
-    segs.push(seg);
-  });
-  // Today before the first phase or after the last: the pin stands at that end of the bar, the bands kept clear of it.
-  const dated = bands.filter((b) => b.dated);
-  const outside = !dated.length ? '' : today < dated[0].start ? 'lead' : (dated[dated.length - 1].end && today > dated[dated.length - 1].end ? 'trail' : '');
-  statusTrack.classList.toggle('lead', outside === 'lead');
-  statusTrack.classList.toggle('trail', outside === 'trail');
-  if (outside) {
-    const mark = doc.createElement('span');
-    mark.className = 'status-today';
-    mark.dataset.tint = (outside === 'lead' ? dated[0] : dated[dated.length - 1]).tint; // the band it stands beside
-    const dayOfMonth = doc.createElement('span');
-    dayOfMonth.className = 'status-today-day nav-text';
-    dayOfMonth.textContent = String(Number(today.slice(8, 10)));
-    mark.appendChild(dayOfMonth);
-    segs.push(mark);
-  }
-  statusTrack.replaceChildren(...segs);
+  journeySpec = { bands, today };
+  layoutJourney();
   const togo = R.countdown(bands, today);
+  const doc = statusToGo.ownerDocument;
   statusToGo.hidden = !togo;
   if (togo) {
-    // "2 days to Trip": the number large and bold, the rest beside it; "Trip starts today" has no number.
+    // "2 days to Trip": the number large, the rest beside it; "Trip starts today" has no number.
     const rest = doc.createElement('span');
-    rest.className = 'status-togo-words';
+    rest.className = 'sdk-strip-count-words';
     if (togo.days > 0) {
-      const n = doc.createElement('b');
-      n.className = 'status-togo-days';
+      const n = doc.createElement('span');
+      n.className = 'sdk-strip-count-n';
       n.textContent = String(togo.days);
       rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip"
       statusToGo.replaceChildren(n, rest);
@@ -1870,12 +1823,190 @@ function drawStatusTrack(bands, today) {
       rest.textContent = togo.words;
       statusToGo.replaceChildren(rest);
     }
+    statusToGo.setAttribute('aria-label', `${togo.words}. Phases`);
   } else statusToGo.replaceChildren();
 }
+function layoutJourney() {
+  const L = window.JourneyLayout;
+  if (!journeySpec || !L || statusStrip.hidden) return;
+  const width = statusTrack.getBoundingClientRect().width;
+  if (!width) return;
+  const R = phaseRule();
+  const { bands, today } = journeySpec;
+  const phone = journeyPhone();
+  const key = JSON.stringify([today, Math.round(width * 100), phone, bands.map((b) => [b.id, b.label, b.start, b.end, b.tint, phaseIcons[b.id] || ''])]);
+  if (key === journeyDrawn) return;
+  journeyDrawn = key;
+  const dated = bands.filter((b) => b.dated).sort((x, y) => (x.start < y.start ? -1 : x.start > y.start ? 1 : 0));
+  const offs = bands.filter((b) => !b.dated);
+  // An open-ended phase runs two weeks past today (or its start, when that is later), as the sheet's bar draws it.
+  const endOf = (b) => b.end || R.addDays(today > b.start ? today : b.start, OPEN_DAYS_PAST_TODAY);
+  const lay = L.journeyLayout(dated.map((b) => ({ n: b.label, i: phaseIcons[b.id] || '', t: b.tint, s: b.start, e: endOf(b) })), today, width, { zone: phone ? 14 : 28, offs: offs.length });
+  const doc = statusTrack.ownerDocument;
+  const px = (v) => `${Math.round(v * 100) / 100}px`;
+  const out = [];
+  lay.bands.forEach((b, k) => {
+    const phase = dated[k];
+    const tip = phase.end ? `${b.n}, ${b.span}${b.state === 'current' ? ', now' : ''}` : `${b.n}, from ${L.dayText(L.dayNo(b.s))}${b.state === 'current' ? ', now' : ''}`;
+    const band = doc.createElement('span');
+    band.className = 'sdk-band';
+    band.dataset.state = b.state;
+    band.dataset.tint = b.t; // the phase's own colour (Phases.tintOf), as in the sheet
+    band.dataset.label = b.label.mode;
+    band.dataset.tip = tip;
+    band.setAttribute('aria-label', tip);
+    band.tabIndex = 0;
+    band.style.setProperty('--days', String(b.days));
+    band.style.setProperty('--x', px(b.x));
+    band.style.setProperty('--w', px(b.w));
+    if (b.label.mode !== 'none') {
+      const box = doc.createElement('span');
+      box.className = 'sdk-band-box';
+      box.dataset.align = b.label.align;
+      if (b.i) {
+        const icon = doc.createElement('i');
+        icon.className = `fa-solid fa-${b.i} sdk-band-icon`;
+        icon.setAttribute('aria-hidden', 'true');
+        box.appendChild(icon);
+      }
+      if (b.label.mode === 'full') {
+        const name = doc.createElement('span');
+        name.className = 'sdk-band-name';
+        name.textContent = b.n;
+        box.appendChild(name);
+      }
+      if (b.label.now) {
+        const now = doc.createElement('span');
+        now.className = 'sdk-band-now';
+        now.textContent = 'Now';
+        box.appendChild(now);
+      }
+      band.appendChild(box);
+    }
+    if (b.progress != null) {
+      const line = doc.createElement('span');
+      line.className = 'sdk-band-progress'; // how far through the phase today is
+      line.style.setProperty('--p', px(b.progress));
+      band.appendChild(line);
+    }
+    out.push(band);
+  });
+  for (const g of lay.gaps) {
+    if (g.w < 2) continue;
+    const gap = doc.createElement('span');
+    gap.className = 'sdk-gap';
+    gap.setAttribute('aria-hidden', 'true');
+    gap.style.setProperty('--days', String(g.days));
+    gap.style.setProperty('--x', px(g.x));
+    gap.style.setProperty('--w', px(g.w));
+    out.push(gap);
+  }
+  lay.offs.forEach((f, k) => {
+    const tip = `${offs[k].label}, no dates`;
+    const band = doc.createElement('span');
+    band.className = 'sdk-band';
+    band.dataset.state = 'off';
+    band.dataset.tint = offs[k].tint;
+    band.dataset.tip = tip;
+    band.setAttribute('aria-label', tip);
+    band.tabIndex = 0;
+    band.style.setProperty('--x', px(f.x));
+    band.style.setProperty('--w', px(f.w));
+    out.push(band);
+  });
+  for (const t of lay.ticks) {
+    const tick = doc.createElement('i');
+    tick.className = 'sdk-tick';
+    tick.setAttribute('aria-hidden', 'true');
+    tick.style.setProperty('--x', px(t.x));
+    out.push(tick);
+  }
+  for (const l of lay.labels) {
+    const label = doc.createElement('span');
+    label.className = 'sdk-tick-label';
+    label.dataset.align = l.align;
+    label.setAttribute('aria-hidden', 'true');
+    label.style.setProperty('--x', px(l.x));
+    label.textContent = l.text;
+    out.push(label);
+  }
+  if (lay.pin.where !== 'none') {
+    const pin = doc.createElement('span');
+    pin.className = 'sdk-today';
+    pin.setAttribute('role', 'img');
+    const d = new Date(`${today}T12:00:00`);
+    pin.setAttribute('aria-label', `Today, ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`);
+    pin.dataset.where = lay.pin.where;
+    pin.style.setProperty('--pin-x', px(lay.pin.x));
+    pin.style.setProperty('--day-offset', String(lay.pin.offset == null ? 0 : lay.pin.offset));
+    pin.textContent = String(lay.pin.day);
+    const stem = doc.createElement('span');
+    stem.className = 'sdk-today-stem';
+    stem.setAttribute('aria-hidden', 'true');
+    pin.appendChild(stem);
+    out.push(pin);
+  }
+  hideJourneyTip();
+  statusTrack.dataset.mode = lay.tickMode;
+  statusTrack.dataset.where = lay.where;
+  statusTrack.style.setProperty('--day-w', px(lay.dayW));
+  statusTrack.style.setProperty('--zone', px(lay.zl));
+  statusTrack.replaceChildren(...out);
+}
+if (typeof ResizeObserver === 'function') new ResizeObserver(() => layoutJourney()).observe(statusTrack);
+// A band's name and dates: on hover and focus, and for three seconds after a tap (the phone's line has no words). The
+// Tooltips look (system.css, .sdk-journey-tip), above the band when there is room, in the strip's own window.
+let journeyTip = null;
+let journeyTipFor = null;
+let journeyTipTimer = 0;
+function hideJourneyTip() {
+  if (journeyTip) journeyTip.removeAttribute('data-show');
+  if (journeyTipFor) journeyTipFor.removeAttribute('aria-describedby');
+  journeyTipFor = null;
+}
+function showJourneyTip(band, { tapped = false } = {}) {
+  const doc = band.ownerDocument;
+  const win = doc.defaultView || window;
+  if (!journeyTip || journeyTip.ownerDocument !== doc) {
+    journeyTip?.remove();
+    journeyTip = doc.createElement('div');
+    journeyTip.className = 'sdk-journey-tip';
+    journeyTip.id = 'journey-tip';
+    journeyTip.setAttribute('role', 'tooltip');
+    doc.body.appendChild(journeyTip);
+  }
+  hideJourneyTip();
+  journeyTip.textContent = band.dataset.tip;
+  journeyTipFor = band;
+  band.setAttribute('aria-describedby', 'journey-tip');
+  const r = band.getBoundingClientRect();
+  const tw = journeyTip.offsetWidth;
+  const th = journeyTip.offsetHeight;
+  const cx = r.left + r.width / 2;
+  const left = Math.max(4, Math.min(win.innerWidth - tw - 4, cx - tw / 2));
+  const above = r.top - th - 8 >= 4;
+  journeyTip.style.left = `${left}px`;
+  journeyTip.style.top = `${above ? r.top - th - 6 : r.bottom + 6}px`;
+  journeyTip.style.setProperty('--arrow-x', `${Math.max(10, Math.min(tw - 10, cx - left))}px`);
+  journeyTip.dataset.placement = above ? 'top' : 'bottom';
+  journeyTip.setAttribute('data-show', '');
+  win.clearTimeout(journeyTipTimer);
+  if (tapped) journeyTipTimer = win.setTimeout(hideJourneyTip, 3000);
+}
+const tipBand = (event) => (event.target && event.target.closest ? event.target.closest('.sdk-band[data-tip]') : null);
+statusTrack.addEventListener('pointerover', (event) => { const b = tipBand(event); if (b && event.pointerType !== 'touch') showJourneyTip(b); });
+statusTrack.addEventListener('pointerout', (event) => { if (tipBand(event) && event.pointerType !== 'touch') hideJourneyTip(); });
+statusTrack.addEventListener('focusin', (event) => { const b = tipBand(event); if (b) showJourneyTip(b); });
+statusTrack.addEventListener('focusout', hideJourneyTip);
+statusTrack.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideJourneyTip();
+  // A band is a way into the phases from the keyboard too, as a press is with the mouse (wider than a phone).
+  else if ((event.key === 'Enter' || event.key === ' ') && tipBand(event) && !journeyPhone()) { event.preventDefault(); openPhaseSheetFrom(phaseChip); }
+});
 // The chip's words: the sentence's clauses, each after the first its own span with its " · ", so a narrow strip drops
-// them whole from the end (style.css) and the label's text is still the whole sentence.
+// them whole from the end (system.css) and the label's text is still the whole sentence.
 function writeStory(parts) {
-  const label = phaseChip.querySelector('.phase-chip-label');
+  const label = phaseChip.querySelector('.sdk-strip-sentence');
   const doc = label.ownerDocument;
   label.replaceChildren(...parts.map((part, i) => {
     const span = doc.createElement('span');
@@ -1923,10 +2054,16 @@ function drawAttentionCount() {
   const n = phaseChipWanted() ? attention.total : 0;
   const words = n === 1 ? '1 needs action' : `${n} need action`;
   statusAttention.hidden = n < 1;
-  statusStrip.classList.toggle('has-attention', n > 0);
   statusStrip.classList.toggle('attention-only', !phasesWanted());
   if (n > 0 && attentionButton.textContent !== words) {
-    attentionButton.textContent = words;
+    // The count in a Chips count, then the words: its text is still the whole sentence ("3 need action").
+    const count = document.createElement('span');
+    count.className = 'sdk-strip-attn-n';
+    count.textContent = String(n);
+    const rest = document.createElement('span');
+    rest.className = 'sdk-strip-attn-words';
+    rest.textContent = words.slice(String(n).length);
+    attentionButton.replaceChildren(count, rest);
     attentionButton.title = `${words}. Show the list`;
   }
 }
@@ -1952,9 +2089,8 @@ attentionButton.addEventListener('click', () => openHostMenu(attentionButton, at
 // Facts are the space's (every module's last report, from GET /api/spaces/:id/facts, only the modules I may read here).
 // The strip draws up to three, in each fact's `order`, then the order the modules answered in; the rest are in the
 // phone's phase sheet and a chip's menu. On a narrow line they give way first, one by one from the end (fitFacts),
-// before the names in the bands go (style.css hides them all at 760px and below, and on a phone).
+// while the journey bar has less than its room (JOURNEY_LEAST); style.css hides them all at 760px and below, and on a phone.
 const MAX_FACT_CHIPS = 3;
-const FACT_TRACK_LEAST = 180; // the journey bar keeps at least this much before a fact gives way
 let spaceFacts = { spaceId: null, modules: [] };
 let factsDrawn = '';
 function followFactsSpace() {
@@ -2006,29 +2142,28 @@ const budgetSource = () => ({ name: spaceFacts.modules.find((m) => (m.facts || [
 function factsHiddenInStrip() {
   const view = subnav.ownerDocument.defaultView || window;
   if (view.matchMedia(`(max-width: ${FACT_CHIPS_HIDDEN_AT}px)`).matches) return true;
-  return factsInOrder().length > statusFacts.querySelectorAll('.status-fact:not(.dropped)').length;
+  return factsInOrder().length > statusFacts.querySelectorAll('.sdk-strip-fact:not([hidden])').length;
 }
 function factChip(f) {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'status-fact nav-text'; // the nav text, as every word in the bars
+  b.className = 'sdk-strip-chip sdk-strip-fact'; // a header chip (system.css, journey block)
   b.dataset.module = f.module;
   b.setAttribute('aria-haspopup', 'menu');
   b.title = f.value ? `${f.text} · ${f.value}. ${f.name}` : `${f.text}. ${f.name}`;
   b.setAttribute('aria-label', b.title);
   if (typeof f.progress === 'number') {
     const fill = document.createElement('span');
-    fill.className = 'status-fact-fill'; // the progress, a fill from the left (style.css)
+    fill.className = 'sdk-strip-fact-fill'; // the progress, a fill from the left (system.css)
     fill.setAttribute('aria-hidden', 'true');
-    b.style.setProperty('--fact-progress', `${Math.round(Math.min(1, Math.max(0, f.progress)) * 100)}%`);
-    b.classList.add('has-progress');
+    b.style.setProperty('--p', `${Math.round(Math.min(1, Math.max(0, f.progress)) * 100)}%`);
     b.appendChild(fill);
   }
   const icon = document.createElement('i');
   icon.className = `fa-solid fa-${/^[a-z0-9-]+$/.test(f.icon) ? f.icon : 'circle-info'}`;
   icon.setAttribute('aria-hidden', 'true');
   const words = document.createElement('span');
-  words.className = 'status-fact-text';
+  words.className = 'sdk-strip-fact-text';
   words.textContent = f.text;
   b.append(icon, words);
   b.addEventListener('click', () => openHostMenu(b, () => factMenuItems(f.module)));
@@ -2045,13 +2180,14 @@ function drawFacts() {
   statusFacts.hidden = !shown.length;
   fitFacts();
 }
-// A narrow line: the last chip gives way, one at a time, while the line has wrapped or the bar is left too narrow.
+// A narrow line: the last chip gives way, one at a time, while the journey bar is left less than its room (the day grid
+// needs it) or the line runs past the strip's end.
 function fitFacts() {
   const chips = [...statusFacts.children];
-  for (const c of chips) c.classList.remove('dropped');
+  for (const c of chips) c.hidden = false;
   if (!chips.length || statusStrip.hidden || !statusFacts.getClientRects().length) return;
-  const crowded = () => statusFacts.offsetTop > statusSaid.offsetTop + 4 || (statusTrack.getClientRects().length && statusTrack.offsetWidth < FACT_TRACK_LEAST);
-  for (let i = chips.length - 1; i >= 0 && crowded(); i -= 1) chips[i].classList.add('dropped');
+  const crowded = () => (statusTrack.getClientRects().length && statusTrack.offsetWidth < JOURNEY_LEAST) || statusStrip.scrollWidth > statusStrip.clientWidth + 1;
+  for (let i = chips.length - 1; i >= 0 && crowded(); i -= 1) chips[i].hidden = true;
 }
 if (typeof ResizeObserver === 'function') new ResizeObserver(() => fitFacts()).observe(statusStrip);
 // A chip's menu: the module's name, each of its facts in full (with its value), and a way to open the module.
@@ -2114,7 +2250,7 @@ function updatePhaseChip() {
   const parts = R.storyParts(bands, today);
   const words = parts.join(' · ');
   // Written only when the sentence changes: the status is polite, and the presence poll runs this every few seconds.
-  if (phaseChip.querySelector('.phase-chip-label').textContent !== words) {
+  if (phaseChip.querySelector('.sdk-strip-sentence').textContent !== words) {
     writeStory(parts);
     phaseChip.title = `${words}. Phases`;
     phaseChip.setAttribute('aria-label', `${words}. Phases`);
@@ -2122,7 +2258,7 @@ function updatePhaseChip() {
   // The dot takes the colour of the phase today is in (before the first, the first; past the last, the last).
   const datedNow = bands.filter((b) => b.dated);
   const here = bands.find((b) => b.current) || datedNow.filter((b) => b.start <= today).pop() || datedNow[0] || null;
-  const dot = phaseChip.querySelector('.phase-dot');
+  const dot = phaseChip.querySelector('.sdk-strip-dot');
   if (here) dot.dataset.tint = here.tint; else delete dot.dataset.tint;
   drawStatusTrack(bands, today);
   fitFacts(); // the sentence or the bar may have changed the room
@@ -2156,7 +2292,12 @@ function openPhaseSheetFrom(opener) {
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
-statusTrack.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
+// A press on the bar opens the phases wider than a phone; on the phone's 2px line a tap on a band shows its name and dates.
+statusTrack.addEventListener('click', (event) => {
+  const band = tipBand(event);
+  if (journeyPhone()) { if (band) showJourneyTip(band, { tapped: true }); return; }
+  openPhaseSheetFrom(phaseChip);
+});
 statusToGo.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
 // The strip as a tool of the space bar's left zone, wider than a phone; no fit (the track gives way, style.css).
 const STATUS_STRIP_TOOL = { id: 'phase-chip', bar: 'secondary', zone: 'left', group: 'status', order: 1, icon: 'circle', label: 'Status', element: statusStrip, visible: phaseChipWanted };

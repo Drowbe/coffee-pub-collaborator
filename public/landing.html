@@ -8,31 +8,21 @@
   <meta name="theme-color" content="#0E1A2B" media="(prefers-color-scheme: dark)">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:">
   <link rel="icon" href="/img/site/icon">
-  <title data-product>Coffee Pub</title>
-  <meta name="description" content="Plan the trip, talk it through and keep it all in one place: a chat, a call when you want one, and the tools your group needs beside them, at your own address.">
-  <!-- One stylesheet (with the product's two fonts, served from /fonts), no scripts but landing.js (which fills in the product's name
-       from the host). The pictures are drawn here as SVG, and the screenshots are files under /assets/images/brand/landing/ (the one
-       folder the bare base domain serves). -->
+  <!-- The page's own title; landing.js puts the product's name where {name} is. -->
+  <title data-title="{name}: one place for the whole group">One place for the whole group</title>
+  <meta name="description" content="One place for the whole group: a chat first, a call when you want one, and the tools your group needs beside them, for trips, game nights, and projects and mentoring, at your own address.">
+  <!-- The front page: one stylesheet (with the product's two fonts, served from /fonts), no scripts but landing.js (which fills in the
+       product's name and the plans from the host, and links each use card to its page when the host has that page). It has no big picture:
+       the three use cards are the picture. The travel art and tour are on /travel. -->
   <link rel="stylesheet" href="/landing.css">
 </head>
 <body class="landing">
   <a class="skip" href="#main">Skip to the page</a>
 
-  <!-- The pictures, drawn once and used by name: spot illustrations for each benefit. -->
+  <!-- The pictures, drawn once and used by name: spot illustrations for the three uses. -->
   <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
-    <symbol id="i-call" viewBox="0 0 64 64"><rect class="s-a s-l" x="6" y="12" width="40" height="30" rx="7"/><circle class="s-c s-l" cx="20" cy="24" r="5"/><path class="s-c s-l" d="M12 38c1-5 4-7 8-7s7 2 8 7z"/><circle class="s-b" cx="35" cy="22" r="3.2"/><path class="s-l" d="M33 33h9"/><path class="s-b s-l" d="M40 38h14a5 5 0 0 1 5 5v7a5 5 0 0 1-5 5h-3l-5 5v-5h-6a5 5 0 0 1-5-5v-7a5 5 0 0 1 5-5z"/><path class="s-l" d="M44 46h10M44 50h6"/></symbol>
-    <symbol id="i-plan" viewBox="0 0 64 64"><rect class="s-a s-l" x="10" y="8" width="44" height="48" rx="7"/><path class="s-b s-l" d="M10 20h44v-5a7 7 0 0 0-7-7H17a7 7 0 0 0-7 7z"/><circle class="s-c s-l" cx="21" cy="31" r="3.2"/><circle class="s-c s-l" cx="21" cy="42" r="3.2"/><path class="s-l" d="M29 31h17M29 42h12M21 34v5"/><path class="s-l" d="M44 48l4-2 4-6-6 2z"/></symbol>
-    <symbol id="i-map" viewBox="0 0 64 64"><path class="s-a s-l" d="M6 16l17-6 18 6 17-6v38l-17 6-18-6-17 6z"/><path class="s-l" d="M23 10v38M41 16v38"/><path class="s-l" d="M10 40c6-5 9 1 14-3M44 24c4 2 7 0 10-3" /><path class="s-b s-l" d="M44 22c-6 0-9 4-9 8 0 6 9 14 9 14s9-8 9-14c0-4-3-8-9-8z"/><circle class="s-c" cx="44" cy="30" r="3"/></symbol>
-    <symbol id="i-places" viewBox="0 0 64 64"><ellipse class="s-a" cx="32" cy="54" rx="18" ry="5"/><path class="s-b s-l" d="M32 6c-10 0-16 7-16 15 0 11 16 29 16 29s16-18 16-29c0-8-6-15-16-15z"/><circle class="s-c s-l" cx="32" cy="21" r="6"/></symbol>
-    <symbol id="i-calendar" viewBox="0 0 64 64"><rect class="s-a s-l" x="7" y="12" width="50" height="45" rx="7"/><path class="s-b s-l" d="M7 26h50v-7a7 7 0 0 0-7-7H14a7 7 0 0 0-7 7z"/><path class="s-l" d="M20 7v10M44 7v10"/><circle class="s-c" cx="20" cy="36" r="2.6"/><circle class="s-c" cx="32" cy="36" r="2.6"/><circle class="s-b" cx="44" cy="36" r="2.6"/><circle class="s-c" cx="20" cy="47" r="2.6"/><circle class="s-c" cx="32" cy="47" r="2.6"/></symbol>
-    <symbol id="i-budget" viewBox="0 0 64 64"><rect class="s-a s-l" x="6" y="16" width="46" height="36" rx="8"/><path class="s-l" d="M6 26h46"/><circle class="s-b s-l" cx="46" cy="36" r="12"/><path class="s-l" d="M46 30v12M42.5 33.5c0-2 7-2 7 0s-7 1.500-7 3.500 7 2 7 0"/></symbol>
     <symbol id="i-todo" viewBox="0 0 64 64"><rect class="s-a s-l" x="12" y="9" width="40" height="49" rx="7"/><rect class="s-c s-l" x="23" y="5" width="18" height="9" rx="4"/><path class="s-b s-l" d="M19 27l3 3 6-7"/><path class="s-l" d="M33 28h13M33 41h13"/><path class="s-b s-l" d="M19 40l3 3 6-7"/></symbol>
-    <symbol id="i-poll" viewBox="0 0 64 64"><rect class="s-a s-l" x="7" y="8" width="50" height="48" rx="8"/><rect class="s-b s-l" x="15" y="34" width="8" height="15" rx="2"/><rect class="s-c s-l" x="28" y="22" width="8" height="27" rx="2"/><rect class="s-b s-l" x="41" y="28" width="8" height="21" rx="2"/><path class="s-l" d="M17 18h18"/></symbol>
-    <symbol id="i-research" viewBox="0 0 64 64"><path class="s-a s-l" d="M8 14c8-3 16-2 24 3 8-5 16-6 24-3v38c-8-3-16-2-24 3-8-5-16-6-24-3z"/><path class="s-l" d="M32 17v38"/><path class="s-l" d="M15 24c4-1 8 0 12 2M15 33c4-1 8 0 12 2M37 26c4-2 8-3 12-2M37 35c4-2 8-3 12-2"/><circle class="s-b s-l" cx="48" cy="12" r="6"/></symbol>
-    <symbol id="i-assistant" viewBox="0 0 64 64"><path class="s-a s-l" d="M30 8l5 15 15 5-15 5-5 15-5-15-15-5 15-5z"/><path class="s-b s-l" d="M50 38l2.500 7 7 2.500-7 2.500-2.500 7-2.500-7-7-2.500 7-2.500z"/><circle class="s-c s-l" cx="13" cy="50" r="4"/></symbol>
-    <symbol id="i-stream" viewBox="0 0 64 64"><rect class="s-a s-l" x="5" y="14" width="42" height="34" rx="7"/><path class="s-c s-l" d="M47 26l12-7v26l-12-7z"/><circle class="s-c s-l" cx="26" cy="29" r="6"/><path class="s-c s-l" d="M15 44c1-6 5-8 11-8s10 2 11 8"/><circle class="s-b" cx="14" cy="22" r="3"/><path class="s-l" d="M20 56h22"/></symbol>
     <symbol id="i-lock" viewBox="0 0 64 64"><path class="s-l" d="M20 28v-8a12 12 0 0 1 24 0v8"/><rect class="s-a s-l" x="12" y="27" width="40" height="30" rx="8"/><circle class="s-b s-l" cx="32" cy="40" r="4.500"/><path class="s-l" d="M32 44v6"/></symbol>
-    <symbol id="i-house" viewBox="0 0 64 64"><path class="s-a s-l" d="M8 30L32 9l24 21v25a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z"/><rect class="s-c s-l" x="25" y="36" width="14" height="22" rx="3"/><circle class="s-b" cx="35" cy="47" r="1.600"/><rect class="s-b s-l" x="40" y="14" width="6" height="12" rx="1"/></symbol>
     <symbol id="i-suitcase" viewBox="0 0 64 64"><rect class="s-b s-l" x="8" y="20" width="48" height="34" rx="8"/><path class="s-l" d="M23 20v-5a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v5"/><path class="s-l" d="M22 20v34M42 20v34"/><path class="s-c s-l" d="M8 34h48"/><circle class="s-a s-l" cx="32" cy="34" r="3.500"/></symbol>
     <symbol id="i-dice" viewBox="0 0 64 64"><rect class="s-a s-l" x="8" y="18" width="34" height="34" rx="8" transform="rotate(-8 25 35)"/><circle class="s-l" cx="17" cy="28" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="33" cy="28" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="25" cy="36" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="17" cy="44" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="33" cy="44" r="2.200" transform="rotate(-8 25 35)"/><rect class="s-b s-l" x="36" y="8" width="22" height="22" rx="6" transform="rotate(14 47 19)"/><circle class="s-c" cx="42" cy="14" r="2" transform="rotate(14 47 19)"/><circle class="s-c" cx="52" cy="24" r="2" transform="rotate(14 47 19)"/></symbol>
     <symbol id="i-tick" viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -41,8 +31,7 @@
   <header class="top">
     <a class="brand" href="/"><img class="brand-mark" src="/assets/images/brand/landing/mark.webp" alt="" width="96" height="92"><span class="brand-name" data-product>Coffee Pub</span></a>
     <nav class="top-links" aria-label="Page">
-      <a class="hide-small" href="#tour">See it</a>
-      <a class="hide-small" href="#what">What you get</a>
+      <a class="hide-small" href="#who">Uses</a>
       <a class="hide-small" href="#how">How it works</a>
       <a class="hide-small" href="#plans">Plans</a>
       <a class="btn btn-quiet" href="#signin" id="nav-signin">Sign in</a>
@@ -51,60 +40,56 @@
   </header>
 
   <main id="main">
-    <section class="hero" aria-labelledby="hero-title">
+    <section class="hero hero-plain" aria-labelledby="hero-title">
       <div class="hero-text">
-        <p class="eyebrow">For trips and game nights</p>
-        <h1 id="hero-title">Plan the trip. Talk it through. Keep it all in one place.</h1>
-        <p class="lede">A chat, a call when you want one, and the tools your group needs beside them: the plan, the map, the dates and the budget. One address for your people, and nobody else's.</p>
+        <h1 id="hero-title">One place for the whole group.</h1>
+        <p class="lede">Talk in a chat, and start a call when you want one. Then add the tools your group needs beside them. One address for your people, and nobody else's.</p>
         <div class="hero-actions">
           <a class="btn btn-go btn-big" href="#start" data-contact-link>Get your own environment</a>
-          <a class="btn btn-quiet btn-big" href="#tour">See it in action</a>
+          <a class="btn btn-quiet btn-big" href="#who">See what it is for</a>
         </div>
         <p class="hero-note">Your own environment at <code data-example-host>yourname.example</code>: your people, your spaces, your tools.</p>
       </div>
-      <div class="hero-art">
-        <svg viewBox="0 0 560 470" role="img" aria-label="A trip route drawn across a map, with a video call and a day plan floating beside it.">
-          <defs>
-            <clipPath id="map-clip"><rect x="20" y="40" width="470" height="380" rx="30"/></clipPath>
-          </defs>
-          <g clip-path="url(#map-clip)">
-            <rect x="20" y="40" width="470" height="380" class="h-sea"/>
-            <path class="h-wave" d="M20 120q40-14 80 0t80 0 80 0 80 0 80 0 70 0M20 330q40-14 80 0t80 0 80 0 80 0 80 0 70 0" fill="none"/>
-            <path class="h-land" d="M20 60C80 50 130 90 170 130c40 40 100 20 150 50 40 24 30 80 80 100 30 12 60 0 90 20V420H20z"/>
-            <path class="h-land2" d="M300 40c40 10 60 40 110 36 30-2 60-18 80-6V40z"/>
-            <path class="h-land2" d="M60 380c30-30 70-20 100-8 30 12 50 22 70 48H60z"/>
-            <path class="h-grid" d="M20 130h470M20 230h470M20 330h470M140 40v380M260 40v380M380 40v380" fill="none"/>
-          </g>
-          <path class="h-route" d="M92 342C130 250 200 330 250 250S330 150 392 150" fill="none"/>
-          <circle class="h-stop" cx="92" cy="342" r="9"/>
-          <circle class="h-stop" cx="250" cy="250" r="9"/>
-          <g transform="translate(392 150)"><path class="h-pin" d="M0-34c-14 0-22 10-22 21 0 15 22 40 22 40s22-25 22-40c0-11-8-21-22-21z"/><circle class="h-pin-dot" cx="0" cy="-13" r="8"/></g>
-          <g transform="translate(176 292) rotate(7)"><path class="h-plane" d="M-18 0l36-8c4-1 6 2 2 5l-8 5 5 14-6 1-9-12-13 4-1-4 8-5-9-4z"/></g>
-          <circle class="h-sun" cx="452" cy="82" r="26"/>
-          <path class="h-sun-ray" d="M452 38v-12M452 126v12M408 82h-12M496 82h12M421 51l-8-8M483 113l8 8M483 51l8-8M421 113l-8 8" fill="none"/>
-          <!-- the call -->
-          <g transform="translate(300 292)">
-            <rect class="h-night" x="0" y="0" width="226" height="138" rx="22"/>
-            <rect class="h-tile" x="14" y="14" width="96" height="84" rx="14"/>
-            <circle class="h-face-a" cx="62" cy="46" r="15"/><path class="h-face-a" d="M36 98c2-20 13-28 26-28s24 8 26 28z"/>
-            <rect class="h-tile" x="116" y="14" width="96" height="84" rx="14"/>
-            <circle class="h-face-b" cx="164" cy="46" r="15"/><path class="h-face-b" d="M138 98c2-20 13-28 26-28s24 8 26 28z"/>
-            <circle class="h-ctl" cx="84" cy="118" r="9"/><circle class="h-ctl" cx="113" cy="118" r="9"/><circle class="h-end" cx="142" cy="118" r="9"/>
-            <path class="h-night" d="M30 138l-4 22 28-22z"/>
-          </g>
-          <!-- the plan -->
-          <g transform="translate(14 8)">
-            <rect class="h-sheet" x="0" y="0" width="200" height="126" rx="18"/>
-            <path class="h-sheet-top" d="M0 40V18a18 18 0 0 1 18-18h164a18 18 0 0 1 18 18v22z"/>
-            <circle class="h-day" cx="30" cy="20" r="11"/>
-            <rect class="h-line-w" x="52" y="14" width="80" height="9" rx="4.500"/>
-            <circle class="h-dot-a" cx="28" cy="66" r="6"/><rect class="h-line" x="44" y="61" width="112" height="9" rx="4.500"/>
-            <circle class="h-dot-b" cx="28" cy="90" r="6"/><rect class="h-line" x="44" y="85" width="90" height="9" rx="4.500"/>
-            <circle class="h-dot-a" cx="28" cy="114" r="6"/><rect class="h-line" x="44" y="109" width="126" height="9" rx="4.500"/>
-            <path class="h-thread" d="M28 72v12M28 96v12" fill="none"/>
-          </g>
-        </svg>
+    </section>
+
+    <section id="who" class="band" aria-labelledby="who-title">
+      <div class="head">
+        <h2 id="who-title">What it is for</h2>
+        <p class="band-lede">Name things the way your group does. A space can be a trip, a campaign or a team.</p>
       </div>
+      <div class="three">
+        <article class="aud" data-page="/travel">
+          <svg class="spot big" aria-hidden="true"><use href="#i-suitcase"/></svg>
+          <h3>Trips</h3>
+          <p>Plan the trip with the people coming. Put flights and stays on the plan, drop the places you like on the map, vote on where to eat, and split the costs at the end.</p>
+          <ul class="ticks">
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A plan, places and a map in one space</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A calendar for the dates that matter</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Polls for the choices, a budget for the sums</li>
+          </ul>
+        </article>
+        <article class="aud" data-page="/games">
+          <svg class="spot big" aria-hidden="true"><use href="#i-dice"/></svg>
+          <h3>Game nights</h3>
+          <p>One space for each campaign, with side conversations for whispers and a calendar for session nights. For a stream, every player is an OBS source: their camera on a clear background, with a border that lights up when they talk.</p>
+          <ul class="ticks">
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A chat that stays open between sessions</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Every player as a browser source for OBS</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Notes and research your group can find again</li>
+          </ul>
+        </article>
+        <article class="aud" data-page="/projects">
+          <svg class="spot big" aria-hidden="true"><use href="#i-todo"/></svg>
+          <h3>Projects and mentoring</h3>
+          <p>Plan a product or design project with the people on it, and talk the problem through. Keep the tasks, the dates and the research in one space. Or run a mentoring group: meet for each session, vote on what to cover next, and keep the notes.</p>
+          <ul class="ticks">
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Chat, and a call for working things out</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>To-do, the plan and a calendar for the steps and dates</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Polls and research your group can find again</li>
+          </ul>
+        </article>
+      </div>
+      <p class="band-lede aud-more">Or anything else your group does together.</p>
     </section>
 
     <!-- Sign in: the host knows where a person has been (the env_hint cookie an environment leaves on the parent domain), never who they are -->
@@ -126,162 +111,6 @@
         </div>
       </form>
       <p class="hint" id="signin-note" hidden></p>
-    </section>
-
-    <section id="tour" class="band tour-band" aria-labelledby="tour-title">
-      <div class="head">
-        <h2 id="tour-title">See it in action</h2>
-        <p class="band-lede">A trip to Lisbon, from the first plan to who owes whom. These are real screens from the product.</p>
-      </div>
-      <div class="tour" id="tour-box">
-        <div class="tour-stack">
-          <figure class="tour-frame f1">
-            <img src="/assets/images/brand/landing/shot-planner-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="The Itinerary for a trip to Lisbon: ten days along the top, and day one below with a flight from New York to Lisbon, a hotel check-in and a dinner.">
-            <figcaption><b>Plan</b> Flights, stays and stops, day by day.</figcaption>
-          </figure>
-          <figure class="tour-frame f2">
-            <img src="/assets/images/brand/landing/shot-places-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="The Places list for the trip: a market, a viewpoint, a cape, a bookshop and a tram stop, grouped by kind, each marked as on the map.">
-            <figcaption><b>Places</b> The places the trip cares about, on the map too.</figcaption>
-          </figure>
-          <figure class="tour-frame f3">
-            <img src="/assets/images/brand/landing/shot-workspace-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="A space with the call and chat down the left, and the Itinerary, Places and Budget side by side.">
-            <figcaption><b>Call</b> Talk it through with the plan open beside you.</figcaption>
-          </figure>
-          <figure class="tour-frame f4">
-            <img src="/assets/images/brand/landing/shot-budget-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="The Budget costs list for the trip: flights, hotel, tickets and dinners with the amounts and who paid.">
-            <figcaption><b>Budget</b> Know who paid and who owes whom.</figcaption>
-          </figure>
-        </div>
-        <div class="tour-bar" id="tour-bar" hidden>
-          <button class="btn btn-quiet btn-small" type="button" id="tour-toggle">Pause</button>
-          <div class="tour-tabs" role="group" aria-label="Choose a screen">
-            <button type="button" data-frame="0">Plan</button>
-            <button type="button" data-frame="1">Places</button>
-            <button type="button" data-frame="2">Call</button>
-            <button type="button" data-frame="3">Budget</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="what" class="band" aria-labelledby="what-title">
-      <div class="head">
-        <h2 id="what-title">What you get</h2>
-        <p class="band-lede">Everything a group needs to get something done together, in one place.</p>
-      </div>
-
-      <div class="feature">
-        <div class="feature-text">
-          <svg class="spot" aria-hidden="true"><use href="#i-call"/></svg>
-          <h3>A chat, and a call when you want one</h3>
-          <p>Chat for the whole group, and voice and video when you want them. Step into a side conversation and come back. Pop the call out into its own window. The chat is there whether or not you are on the call.</p>
-        </div>
-        <figure class="shot"><img src="/assets/images/brand/landing/shot-workspace-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="A space with the call and chat on the left, and the Itinerary, Places and Budget open beside them."></figure>
-      </div>
-
-      <div class="feature flip">
-        <div class="feature-text">
-          <svg class="spot" aria-hidden="true"><use href="#i-plan"/></svg>
-          <h3>A plan everyone can see</h3>
-          <p>The Planner lays a trip out day by day: what you know, what your options are, what you have decided. Flights, stays, stops, ideas between days, and the cost of each.</p>
-        </div>
-        <figure class="shot"><img src="/assets/images/brand/landing/shot-planner-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="The Itinerary: day one of a trip to Lisbon with a flight, a hotel check-in and a dinner."></figure>
-      </div>
-
-      <div class="feature">
-        <div class="feature-text">
-          <svg class="spot" aria-hidden="true"><use href="#i-budget"/></svg>
-          <h3>Money without the awkward bit</h3>
-          <p>Costs planned and paid, a target, and who owes whom. Add a cost from the plan and it is counted once.</p>
-        </div>
-        <figure class="shot"><img src="/assets/images/brand/landing/shot-settle-1280.webp" width="1280" height="380" loading="lazy" decoding="async" alt="Budget, Settle up: Sam Okafor pays Mia Alvarez $172.00, with what each person paid and their share."></figure>
-      </div>
-
-      <div class="feature flip">
-        <div class="feature-text">
-          <svg class="spot" aria-hidden="true"><use href="#i-calendar"/></svg>
-          <h3>Dates and to-dos, together</h3>
-          <p>One calendar for the group, a month, a week or a list, with a to-do list beside it. Give a task a day and it lands on the calendar.</p>
-        </div>
-        <figure class="shot"><img src="/assets/images/brand/landing/shot-calendar-1280.webp" width="1280" height="900" loading="lazy" decoding="async" alt="The Calendar for October with the trip marked across the last week, and the to-do list beside it."></figure>
-      </div>
-
-      <div class="feature">
-        <div class="feature-text">
-          <svg class="spot" aria-hidden="true"><use href="#i-poll"/></svg>
-          <h3>Decide, then move on</h3>
-          <p>Ask the group: pick one, pick any, suggest another option. The result can carry straight onto the plan.</p>
-        </div>
-        <figure class="shot"><img src="/assets/images/brand/landing/shot-polls-1280.webp" width="1280" height="460" loading="lazy" decoding="async" alt="A poll, Where do we eat on the first night, with three options and the votes so far."></figure>
-      </div>
-
-      <h3 class="sub" id="modules-title">And the rest, as modules</h3>
-      <p class="band-lede">Turn on the ones your group needs. Each environment picks its own, and a module can sit beside the call, float over it or open in its own window.</p>
-      <ul class="modules" aria-labelledby="modules-title">
-        <li><svg class="spot" aria-hidden="true"><use href="#i-plan"/></svg><b>Planner</b><span>A trip day by day, or anything that unfolds over dates.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-map"/></svg><b>Maps</b><span>Everything with a position on one map, with regions kept on the server for when you are offline.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-places"/></svg><b>Places</b><span>The places that matter, with an address, a position and a note.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-calendar"/></svg><b>Calendar</b><span>The group's dates, with the events of every space you belong to.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-todo"/></svg><b>To-do</b><span>Tasks with due dates, linked to what they are about.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-poll"/></svg><b>Polls</b><span>Pick one, pick any, or suggest another option.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-budget"/></svg><b>Budget</b><span>What you spend, what you planned, who owes whom.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-research"/></svg><b>Research</b><span>Notes, links and photos, tagged and shared.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-assistant"/></svg><b>Assistant</b><span>Ask about anything the group holds, and drop the answer where it is useful.</span></li>
-        <li><svg class="spot" aria-hidden="true"><use href="#i-stream"/></svg><b>Stream</b><span>Every player as an OBS source, on a clear background.</span></li>
-      </ul>
-    </section>
-
-    <section id="who" class="band alt" aria-labelledby="who-title">
-      <div class="head">
-        <h2 id="who-title">For trips, game nights and projects</h2>
-        <p class="band-lede">Name things the way your group does. A space can be a trip, a campaign or a team.</p>
-      </div>
-      <div class="three">
-        <article class="aud">
-          <svg class="spot big" aria-hidden="true"><use href="#i-suitcase"/></svg>
-          <h3>Friends and family on the move</h3>
-          <p>Plan the trip with the people coming. Put flights and stays on the plan, drop the places you like on the map, vote on where to eat, and split the costs at the end. On the day, the call and the plan are on the same screen.</p>
-          <ul class="ticks">
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>The Planner, Places and Maps in one space</li>
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A calendar for the dates that matter</li>
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Polls for the choices, a budget for the sums</li>
-          </ul>
-        </article>
-        <article class="aud">
-          <svg class="spot big" aria-hidden="true"><use href="#i-dice"/></svg>
-          <h3>Tabletop groups that play online</h3>
-          <p>One space for each campaign, with side conversations for whispers and a calendar for session nights. For a stream, every player is an OBS source: their camera on a clear background, with a border that lights up when they talk.</p>
-          <ul class="ticks">
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Voice and video that stays open between sessions</li>
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Every player as a browser source for OBS</li>
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Notes and research your group can find again</li>
-          </ul>
-        </article>
-        <article class="aud">
-          <svg class="spot big" aria-hidden="true"><use href="#i-todo"/></svg>
-          <h3>Teams and mentors working together</h3>
-          <p>Plan a product or design project with the people on it, and talk the problem through on a call that stays open. Keep the tasks, the dates and the research in one space. Or run a mentoring group: meet for each session, vote on what to cover next, and keep the notes.</p>
-          <ul class="ticks">
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Chat and a call for working things out</li>
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>To-do, the Planner and a calendar for the steps and dates</li>
-            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Polls and research your group can find again</li>
-          </ul>
-        </article>
-      </div>
-      <p class="band-lede aud-more">Or anything else your group plans together.</p>
-    </section>
-
-    <section id="phone" class="band" aria-labelledby="phone-title">
-      <div class="head">
-        <h2 id="phone-title">In your pocket, too</h2>
-        <p class="band-lede">The same screens fit a phone, so the plan is there when you are in the street.</p>
-      </div>
-      <ul class="phones">
-        <li><figure><img src="/assets/images/brand/landing/shot-planner-390.webp" width="390" height="900" loading="lazy" decoding="async" alt="The Itinerary on a phone: day one with the flight from New York to Lisbon."><figcaption>The plan</figcaption></figure></li>
-        <li><figure><img src="/assets/images/brand/landing/shot-places-390.webp" width="390" height="900" loading="lazy" decoding="async" alt="Places on a phone, grouped by kind."><figcaption>The places</figcaption></figure></li>
-        <li><figure><img src="/assets/images/brand/landing/shot-chat-390.webp" width="390" height="900" loading="lazy" decoding="async" alt="The chat on a phone, with a link and two suggestions that can be kept in the plan."><figcaption>The chat</figcaption></figure></li>
-        <li><figure><img src="/assets/images/brand/landing/shot-budget-390.webp" width="390" height="900" loading="lazy" decoding="async" alt="The Budget overview on a phone: what is spent and a bar for each kind of cost."><figcaption>The budget</figcaption></figure></li>
-      </ul>
     </section>
 
     <section id="how" class="band alt" aria-labelledby="how-title">

@@ -35,7 +35,8 @@ for (const file of pageFiles) {
     .replace(/<span data-version><\/span>/, '<span>preview</span>');
   fs.writeFileSync(path.join(out, target), html);
 }
-fs.copyFileSync(path.join(root, 'public', 'landing.css'), path.join(out, 'landing.css'));
+fs.writeFileSync(path.join(out, 'landing.css'), fs.readFileSync(path.join(root, 'public', 'landing.css'), 'utf8').replaceAll('url(/fonts/', 'url(fonts/'));
+fs.cpSync(path.join(root, 'public', 'fonts'), path.join(out, 'fonts'), { recursive: true });
 for (const f of fs.readdirSync(IMAGES)) fs.copyFileSync(path.join(IMAGES, f), path.join(out, 'img', f));
 
 // The walkthrough's controls are the first block of landing.js; the rest of that file talks to the host, which a preview has none of.
@@ -47,6 +48,16 @@ const preview = `// Preview only: the walkthrough from landing.js, and the forms
 ${src.slice(start, end)}
 for (const el of document.querySelectorAll('[data-example-host]')) el.textContent = 'yourname.example.com';
 for (const el of document.querySelectorAll('[data-signup-domain]')) el.textContent = '.example.com';
+// the use cards link to the use pages this folder has, as the real page does for the pages the host offers
+for (const card of document.querySelectorAll('.aud[data-page]')) {
+  const file = ${JSON.stringify(pageFiles.filter((f) => f !== 'landing.html'))}.find((f) => '/' + f.replace('.html', '') === card.dataset.page);
+  if (!file) continue;
+  const go = document.createElement('a');
+  go.className = 'aud-go';
+  go.href = file;
+  go.textContent = 'More about ' + card.querySelector('h3').textContent.toLowerCase();
+  card.append(go);
+}
 const signup = document.getElementById('signup-form');
 if (signup) {
 signup.hidden = false;

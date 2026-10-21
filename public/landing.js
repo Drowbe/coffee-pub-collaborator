@@ -55,6 +55,18 @@ fill('[data-version]', product.version ? String(product.version) : '');
 const example = document.querySelector('[data-example-host]');
 if (example && product.baseDomain) example.textContent = `yourname.${product.baseDomain}`;
 
+// The use cards on the front page: a card links to its page (/travel, /games, /projects) only when this host has that page
+// (GET /api/product's `pages`); otherwise it stays a plain card, still shown as a use.
+const pagePaths = new Set((Array.isArray(product.pages) ? product.pages : []).map((p) => p && p.path));
+for (const card of document.querySelectorAll('.aud[data-page]')) {
+  if (!pagePaths.has(card.dataset.page)) continue;
+  const go = document.createElement('a');
+  go.className = 'aud-go';
+  go.href = card.dataset.page;
+  go.textContent = `More about ${card.querySelector('h3').textContent.toLowerCase()}`;
+  card.append(go);
+}
+
 // Whether anyone can make an environment from this page (the host's SIGNUP switch, on a host with a base domain). Off,
 // every call to action reads "Coming soon" and does nothing (the author: not ready for this), and the Get started band
 // says so; a contact address, when the host has given one, is still offered as the way to ask.

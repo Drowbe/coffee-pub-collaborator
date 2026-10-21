@@ -97,6 +97,8 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .lede { margin-top: 20px; max-width: 560px; color: var(--l-dim); font-size: clamp(17px, 2.4vw, 20px); line-height: 1.55; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
 .hero-note { margin-top: 24px; color: var(--l-dim); font-size: 15px; }
+.hero-plain { padding-bottom: 8px; }
+.hero-plain .lede { max-width: 620px; }
 .hero-note code { padding: 2px 8px; border-radius: var(--radius-small); background: var(--l-band); color: var(--l-text); font-size: 0.95em; }
 .hero-art svg { display: block; width: 100%; height: auto; max-width: 600px; margin: 0 auto; filter: drop-shadow(0 18px 24px rgba(20, 36, 59, 0.14)); overflow: visible; }
 .h-sea { fill: var(--l-teal-soft); } .h-wave { stroke: var(--l-sea); stroke-width: 3; opacity: 0.8; }
@@ -184,6 +186,11 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .aud { padding: 24px; border: 1px solid var(--l-line); border-radius: var(--radius-large); background: var(--l-surface); }
 .aud h3 { margin-top: 16px; font-size: 24px; }
 .aud p { margin-top: 12px; color: var(--l-dim); }
+.aud { position: relative; }
+/* a use card links to its page when the host has that page (landing.js adds the link, and it covers the card) */
+.aud-go::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-large); }
+.aud:has(.aud-go):hover { border-color: var(--l-teal); }
+.aud .aud-go { display: inline-block; margin-top: 20px; font-weight: 600; }
 .ticks { margin: 20px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .ticks li { display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: start; font-size: 16px; }
 .ticks svg { width: 24px; height: 24px; margin-top: 1px; padding: 4px; border-radius: var(--radius-round); background: var(--l-teal); color: var(--l-on-teal); }
@@ -277,6 +284,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
   .three { grid-template-columns: repeat(3, 1fr); }
   .three .aud:last-child { grid-column: auto; }
   .hero { grid-template-columns: 1.15fr 1fr; gap: 40px; padding-top: 48px; }
+  .hero.hero-plain { grid-template-columns: 1fr; }
   .feature { grid-template-columns: 1fr 1.35fr; gap: 48px; margin-top: 48px; }
   .feature.flip { grid-template-columns: 1.35fr 1fr; }
   .feature.flip .feature-text { order: 2; }

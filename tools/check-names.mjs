@@ -480,7 +480,7 @@ const ALL_FORMS = new Set(WORDS.KEYS.flatMap((k) => [WORDS.DEFAULTS[k].one, WORD
 // A placeholder with an article ({a space}): fill() fills it only for a singular form it knows.
 const ARTICLE_PLACEHOLDER = /\{(?:a|an|A|An) ([A-Za-z]+)\}/g;
 // A string handed to a log call (the host operator's, in the host's words): console.log('...') or log(`...`).
-const LOG_CALL = /(?:\bconsole\.(?:log|warn|error|info|debug)|(?:^|[^\w.$])log)\(\s*$/;
+const LOG_CALL = /(?:\bconsole\.(?:log|warn|error|info|debug)|(?:^|[^\w.$])log|\b(?:warnings|lines)\.push)\(\s*$/;
 // A string a person reads whatever its shape: assigned to a title, placeholder, aria-label, alt or text, or given as
 // an object's label, title, text or placeholder.
 const READ_CONTEXT = /(?:\.(?:title|placeholder|textContent|innerText|ariaLabel|alt|label)\s*=\s*|\bsetAttribute\(\s*['"](?:title|aria-label|placeholder|alt)['"]\s*,\s*|(?:^|[\s{,(])['"]?(?:title|placeholder|ariaLabel|aria-label|alt|text|label)['"]?\s*:\s*)$/;
@@ -774,6 +774,7 @@ function wordsCheck() {
       "console.log('fine'); res.json({ error: 'no such space' });",
       "const k = `space${n === 1 ? '' : 's'}`;",
       "const l = 'module' + ', ' + x;",
+      "items.push('no such space');",
     ];
     const clean = [
       "const k = 'space'; if (scope === 'space') {}",
@@ -782,11 +783,12 @@ function wordsCheck() {
       "el.className = 'space active'; document.querySelector('.space .guest');",
       "const m = fill('Make {a space} or {an aside}, {Spaces}');",
       "console.log('no such space'); log(`the ${'owner'} space ${x}`);",
+      "warnings.push(`no such space for ${x}`); lines.push('the owner space');",
       "throw new Error(`module.json: scope must be \"space\" for ${key}, a ${'member'} space`);",
       "const v = `${name}modules${x}`; const w = `${word('space', { many: true })} ${n}`;",
     ];
     const got = vocabularyHits('server/scratch.js', [...caught, ...clean].join('\n'), []).hits.map((h) => `${h.line}:${h.token}`);
-    assert.deepEqual(got, ['1:space', '2:space', '3:members', '4:spaces', '5:space', '6:space', '7:SPACES', '8:Space', '9:owner', '10:guest', '11:member', '12:{a spaces}', '12:{an trip}', '13:space', '14:space', '15:module']);
+    assert.deepEqual(got, ['1:space', '2:space', '3:members', '4:spaces', '5:space', '6:space', '7:SPACES', '8:Space', '9:owner', '10:guest', '11:member', '12:{a spaces}', '12:{an trip}', '13:space', '14:space', '15:module', '16:space']);
     const html = '<p>Spaces</p><b title="owner">x</b><script>const t = \'no such space\';</script><p data-fill>{a guests}</p>';
     assert.deepEqual(vocabularyHits('public/scratch.html', html, []).hits.map((h) => h.token), ['Spaces', 'owner', 'space', '{a guests}']);
   });

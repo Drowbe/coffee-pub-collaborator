@@ -101,13 +101,13 @@ test('domainSettings: the product host, the console host, the automatic labels, 
   const under = domainSettings({ baseDomain: 'example.com', productDomain: 'www.example.com', livekitHost: 'wss://LiveKit.example.com:443/', reservedSlugs: 'studio, Shop,,studio' });
   assert.deepEqual([under.productHost, under.productLabel, under.reservedNames], ['www.example.com', 'www', ['studio', 'shop', 'www', 'livekit']]);
   assert.deepEqual(domainSettings({ baseDomain: 'example.com', productDomain: 'a.b.example.com', livekitHost: 'rtc.example.com:7880' }).reservedNames, ['rtc'], 'two labels deep: nothing to reserve');
-  // Nonsense is said and ignored; the console's own host stops the start.
+  // Nonsense stops the start with one line; so does the console's own host.
   for (const bad of ['https://product.example.org', 'product.example.org:8443', 'product.example.org/x', 'not a host', '-bad.example.org']) {
     const r = domainSettings({ baseDomain: 'example.com', productDomain: bad });
-    assert.equal(r.productHost, 'example.com', bad);
-    assert.equal(r.warnings.length, 1, bad);
-    assert.ok(r.warnings[0].startsWith(`PRODUCT_DOMAIN=${bad} is not a host name`), r.warnings[0]);
+    assert.equal(r.stop, `PRODUCT_DOMAIN=${bad} is not a host name (like www.example.com: no https://, no port, no path). Fix or remove it.`);
+    assert.equal(r.warnings.length, 0, bad);
   }
+  assert.ok(domainSettings({ baseDomain: 'example.com', productDomain: 'product.example.org.' }).stop, 'a trailing dot stops');
   assert.equal(domainSettings({ baseDomain: 'example.com', productDomain: 'admin.example.com' }).stop, "PRODUCT_DOMAIN=admin.example.com is the host console's address. Pick another host for the product pages.");
   assert.deepEqual(domainSettings({ baseDomain: 'example.com', reservedSlugs: 'ok, not ok, a.b' }).warnings, ['RESERVED_SLUGS: "not ok" is not a name an environment could have, so it is left out.', 'RESERVED_SLUGS: "a.b" is not a name an environment could have, so it is left out.']);
   assert.equal(hostOf('[::1]:7880'), '');
@@ -857,19 +857,29 @@ try {
 
   await liveTest('live: PRODUCT_DOMAIN on an environment\'s own address, or on the console\'s, stops the start with one line', async () => {
     const dir = path.join(liveDir, 'domains');
+    const hostFile = path.join(dir, 'host.json');
+    const hostBefore = fs.readFileSync(hostFile);
     const clash = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'acme.localhost' }).then((s) => { server = s; return null; }, (err) => err);
     assert.ok(clash, 'the start stopped');
     assert.ok(clash.message.includes('PRODUCT_DOMAIN=acme.localhost is the address of the "acme" environment. Pick another host for the product pages.'), clash.message);
+    assert.ok(fs.readFileSync(hostFile).equals(hostBefore), 'host.json is byte-identical after the stopped start');
+    assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp')), [], 'no temp file left');
     const consoleClash = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'admin.localhost' }).then((s) => { server = s; return null; }, (err) => err);
     assert.ok(consoleClash && consoleClash.message.includes("PRODUCT_DOMAIN=admin.localhost is the host console's address. Pick another host for the product pages."), consoleClash?.message);
     const empty = path.join(liveDir, 'domains-empty');
     const stoppedEmpty = await startServer(empty, { ...hostedEnv, PRODUCT_DOMAIN: 'admin.localhost' }).then((s) => { server = s; return null; }, (err) => err);
     assert.ok(stoppedEmpty, 'the start stopped');
     assert.equal(fs.existsSync(path.join(empty, 'host.json')), false, 'before anything is written');
-    // Nonsense is said, and the product pages stay at the bare base.
-    server = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'https://product.localhost/' });
-    assert.ok(server.output().includes('PRODUCT_DOMAIN=https://product.localhost/ is not a host name'), server.output());
-    assert.equal((await call(server, '', 'GET', '/', { accept: 'text/html' })).status, 200, 'the bare base still serves the front page');
+    // Nonsense stops the start with one line, before any file is written.
+    const nonsense = await startServer(empty, { ...hostedEnv, PRODUCT_DOMAIN: 'https://product.localhost/' }).then((s) => { server = s; return null; }, (err) => err);
+    assert.ok(nonsense && nonsense.message.includes('PRODUCT_DOMAIN=https://product.localhost/ is not a host name (like www.example.com: no https://, no port, no path). Fix or remove it.'), nonsense?.message);
+    assert.equal(fs.existsSync(path.join(empty, 'host.json')), false, 'before anything is written');
+    // Without BASE_DOMAIN it is only ignored, with one line.
+    const single = path.join(liveDir, 'single-nonsense-product');
+    fs.cpSync(FIXTURE, single, { recursive: true, filter: (src) => !path.relative(FIXTURE, src).startsWith('host') });
+    const { BASE_DOMAIN: _drop, ...noBaseEnv } = hostedEnv;
+    server = await startServer(single, { ...noBaseEnv, PRODUCT_DOMAIN: 'https://product.localhost/' });
+    assert.ok(server.output().includes('PRODUCT_DOMAIN is ignored without BASE_DOMAIN'), server.output());
     await server.stop();
     server = null;
   });

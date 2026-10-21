@@ -275,6 +275,19 @@ if (domains.stop) {
   console.error(domains.stop);
   process.exit(1);
 }
+// The product host's own label may be an existing environment's slug (the product pages would hide it): read host.json
+// as it is, without opening the registry, so the start that stops writes nothing.
+if (BASE_DOMAIN && domains.productLabel) {
+  let existing = [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'host.json'), 'utf8'));
+    existing = Array.isArray(raw.environments) ? raw.environments : [];
+  } catch { /* no host.json yet: no environment has the name */ }
+  if (existing.some((t) => t && t.slug === domains.productLabel)) {
+    console.error(`PRODUCT_DOMAIN=${domains.productHost} is the address of the "${domains.productLabel}" environment. Pick another host for the product pages.`);
+    process.exit(1);
+  }
+}
 // The registry of environments (DATA_DIR/host.json): which environments exist, their plans, the host admins. Only
 // built when BASE_DOMAIN is set -- a self-hosted install with no base domain never has this file.
 // The host's Names migration part (documentation/plans/plan-names.md, "The migration") runs first, before
@@ -299,10 +312,6 @@ const CONSOLE_HOST = domains.consoleHost; // admin.<BASE_DOMAIN>, '' without it
 // host's own label stops the start, since the product pages would hide that environment.
 if (hostRegistry) {
   hostRegistry.setReservedNames(domains.reservedNames);
-  if (domains.productLabel && hostRegistry.findEnvironment(domains.productLabel)) {
-    console.error(`PRODUCT_DOMAIN=${PRODUCT_HOST} is the address of the "${domains.productLabel}" environment. Pick another host for the product pages.`);
-    process.exit(1);
-  }
   for (const t of hostRegistry.listEnvironments()) {
     if (hostRegistry.isReserved(t.slug)) console.warn(`"${t.slug}" is now reserved; it keeps working, but no new environment can take that name.`);
   }

@@ -39,7 +39,7 @@ function nameList(value) {
 
 // What the settings mean, before any environment is looked at:
 //   productHost      the host the product pages answer at (the bare base when PRODUCT_DOMAIN is unset, equal to the
-//                    base, or not a host name)
+//                    base, or not a host name: then the start stops)
 //   productElsewhere true when that is not the bare base, so the bare base redirects there
 //   consoleHost      admin.<base>, always (plan-domains decision 6: no CONSOLE_HOST)
 //   reservedNames    RESERVED_SLUGS' names, plus the automatic labels: PRODUCT_DOMAIN's and LIVEKIT_HOST's first
@@ -63,7 +63,7 @@ function domainSettings({ baseDomain = '', productDomain = '', reservedSlugs = '
   let stop = null;
   if (product && product !== base) {
     if (!isHostName(product)) {
-      warnings.push(`PRODUCT_DOMAIN=${productDomain} is not a host name (like www.example.com: no https://, no port, no path). It is ignored, so the product pages stay at ${base}.`);
+      stop = `PRODUCT_DOMAIN=${String(productDomain).trim()} is not a host name (like www.example.com: no https://, no port, no path). Fix or remove it.`;
     } else if (product === consoleHost) {
       stop = `PRODUCT_DOMAIN=${product} is the host console's address. Pick another host for the product pages.`;
     } else {

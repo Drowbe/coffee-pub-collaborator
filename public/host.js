@@ -4,7 +4,8 @@
 import { loadBranding, api, renderTopbar } from '/brand.js';
 import { wireRegionCut } from '/region-cut.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
-import { renderOffer, switchQuestion } from '/template-offer.js';
+import { renderOffer, switchConfirm } from '/template-offer.js';
+import { confirmDialog } from '/confirm.js';
 import { initTemplates } from '/host-templates.js';
 import { wireFlightSchedule } from '/flight-schedule.js';
 
@@ -515,7 +516,7 @@ async function refreshEnvironments(slug, message, error = false) {
 async function switchEnvironmentTemplate(card, t) {
   const value = slot(card, 'template-select').value;
   const chosen = templates.find((x) => x.id === value);
-  if (!window.confirm(switchQuestion(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
+  if (!await confirmDialog(switchConfirm(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
   const button = card.querySelector('[data-action="template-switch"]');
   button.disabled = true;
   say(slot(card, 'template-status'), 'Switching…');

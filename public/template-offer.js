@@ -14,13 +14,13 @@ const sentence = (text) => {
 };
 const PROFILE_LABELS = { roleplaying: 'Roleplaying', participants: 'Participants', characters: 'Characters' };
 
-// The question before a switch: what changes at once, and that nothing is turned off. `name` is the template's, or
-// null for no template.
-export function switchQuestion(name) {
+// The question before a switch (the options for confirmDialog): what changes at once, and that nothing is turned off. `name` is
+// the template's, or null for no template.
+export function switchConfirm(name) {
   const what = `Words, icons and ${word('module')} names`;
   return name
-    ? `Switch to the ${name} template?\n\n${what} change now. Nothing is turned off or removed. Then you choose what else it turns on.`
-    : `Switch to no template?\n\n${what} go back to the default ones (or your own) now. Nothing is turned off or removed.`;
+    ? { title: `Switch to the ${name} template?`, message: `${what} change now. Nothing is turned off or removed. Then you choose what else it turns on.`, action: 'Switch' }
+    : { title: 'Switch to no template?', message: `${what} go back to the default ones (or your own) now. Nothing is turned off or removed.`, action: 'Switch' };
 }
 
 // True when the offer has anything to tick.

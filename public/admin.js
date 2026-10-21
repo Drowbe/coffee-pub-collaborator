@@ -3,7 +3,8 @@ import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import { wireFlightSchedule } from '/flight-schedule.js';
 import '/slot-paste.js'; // paste a picture into any image slot
-import { renderOffer, switchQuestion } from '/template-offer.js';
+import { renderOffer, switchConfirm } from '/template-offer.js';
+import { confirmDialog } from '/confirm.js';
 import { fileText } from '/file-text.js';
 import { rowTabs } from '/page-tabs.js';
 import { moduleConfigMarkup, drawModuleConfig } from '/module-config.js';
@@ -265,7 +266,7 @@ function userOf(card) {
 }
 
 function wire(card) {
-  card.addEventListener('click', (event) => {
+  card.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-action]');
     if (!button || !card.contains(button)) return;
     const user = userOf(card);
@@ -273,12 +274,12 @@ function wire(card) {
     if (action === 'mute') {
       api('POST', `/api/users/${user.key}/mute`, { muted: true }).then(refreshLive).catch((err) => say($('party-status'), err.message, true));
     } else if (action === 'feed-off') {
-      if (!window.confirm(`Turn off ${user.displayName}'s calendar feed? Their address stops working. They can make a new one.`)) return;
+      if (!await confirmDialog({ title: `Turn off ${user.displayName}'s calendar feed?`, message: 'Their address stops working. They can make a new one.', action: 'Turn off', kind: 'destructive' })) return;
       api('DELETE', `/api/users/${user.key}/feed`)
         .then(() => { feeds.delete(user.key); fill(card, user); say($('party-status'), 'calendar feed turned off'); })
         .catch((err) => say($('party-status'), err.message, true));
     } else if (action === 'kick') {
-      if (!window.confirm(`Kick ${user.displayName} from the call? They can rejoin.`)) return;
+      if (!await confirmDialog({ title: `Kick ${user.displayName} from the call?`, message: 'They can rejoin.', action: 'Kick', kind: 'destructive' })) return;
       api('POST', `/api/users/${user.key}/kick`).then(refreshLive).catch((err) => say($('party-status'), err.message, true));
     }
   });
@@ -1113,7 +1114,7 @@ $('theme-update').addEventListener('click', async () => {
 $('theme-delete').addEventListener('click', async () => {
   const selected = themes.find((t) => t.id === selectedThemeId);
   if (!selected) return;
-  if (!window.confirm(`Delete the theme "${selected.name}"? This can't be undone.`)) return;
+  if (!await confirmDialog({ title: `Delete the theme "${selected.name}"?`, message: "This can't be undone.", action: 'Delete', kind: 'final' })) return;
   try {
     await api('DELETE', `/api/themes/${selected.id}`);
     themes = themes.filter((t) => t.id !== selected.id);
@@ -1630,14 +1631,14 @@ $('tab-modules').addEventListener('change', async (event) => {
   const name = AI_NAMES[aiCard.provider] || 'the service';
   let force = false;
   if (aiCard.on) {
-    let msg = 'Disable AI for everyone?\n\nModules that use it are told AI is not available. Your setup is kept.';
+    let ask = { title: 'Disable AI for everyone?', message: 'Modules that use it are told AI is not available. Your setup is kept.', action: 'Disable', kind: 'destructive' };
     if (aiCard.dependents?.length) {
       const names = aiCard.dependents.map((d) => d.name).join(' and ');
-      msg = `${names} need${aiCard.dependents.length === 1 ? 's' : ''} the AI service. Turn ${aiCard.dependents.length === 1 ? 'it' : 'them'} off too?`;
+      ask = { title: `${names} need${aiCard.dependents.length === 1 ? 's' : ''} the AI service. Turn ${aiCard.dependents.length === 1 ? 'it' : 'them'} off too?`, action: 'Turn off', kind: 'destructive' };
       force = true;
     }
-    if (!window.confirm(msg)) { input.checked = true; return; }
-  } else if (!window.confirm(`Enable AI?\n\nModules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`)) { input.checked = false; return; }
+    if (!await confirmDialog(ask)) { input.checked = true; return; }
+  } else if (!await confirmDialog({ title: 'Enable AI?', message: `Modules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`, action: 'Enable' })) { input.checked = false; return; }
   input.disabled = true;
   const status = () => (modulePart === 'ai' ? $('ai-status') : $('modules-status'));
   try {
@@ -1756,8 +1757,8 @@ $('tab-modules').addEventListener('change', async (event) => {
   const b = builtinModules.find((x) => x.id === input.dataset.builtinToggle);
   if (!b) return;
   const enable = input.checked;
-  if (!enable && !window.confirm(`Turn off ${shownName(b)} for everyone?\n\n${b.turnOff || `It stops working in every ${word('space')} until you enable it again.`}`)) { input.checked = true; return; }
-  if (enable && !window.confirm(`Enable ${shownName(b)}?\n\n${b.turnOn || b.description}`)) { input.checked = false; return; }
+  if (!enable && !await confirmDialog({ title: `Turn off ${shownName(b)} for everyone?`, message: b.turnOff || `It stops working in every ${word('space')} until you enable it again.`, action: 'Turn off', kind: 'destructive' })) { input.checked = true; return; }
+  if (enable && !await confirmDialog({ title: `Enable ${shownName(b)}?`, message: b.turnOn || b.description, action: 'Enable' })) { input.checked = false; return; }
   input.disabled = true;
   try {
     await api('PATCH', '/api/settings', { [b.setting || `${b.id}Enabled`]: enable });
@@ -1781,10 +1782,10 @@ $('tab-modules').addEventListener('change', async (event) => {
   let force = false;
   if (!enable && m.dependents?.length) {
     const names = m.dependents.map(shownNameOf).join(' and ');
-    if (!window.confirm(`${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`)) { input.checked = true; return; }
+    if (!await confirmDialog({ title: `${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`, action: 'Turn off', kind: 'destructive' })) { input.checked = true; return; }
     force = true;
   }
-  if (enable && m.needsApproval && !window.confirm(`Turn on ${shownName(m)}?\n\nThis approves what it asks for, listed under its name.`)) { input.checked = false; return; }
+  if (enable && m.needsApproval && !await confirmDialog({ title: `Turn on ${shownName(m)}?`, message: 'This approves what it asks for, listed under its name.', action: 'Turn on' })) { input.checked = false; return; }
   input.disabled = true;
   try {
     await api('PATCH', `/api/modules/${m.id}`, { enabled: enable, ...(force ? { force: true } : {}) });
@@ -1836,7 +1837,7 @@ $('tab-modules').addEventListener('click', async (event) => {
   const m = installedModules.find((x) => x.id === mode.closest('.module-card').dataset.id);
   const to = mode.dataset.moduleRunmode;
   try {
-    if (to === 'page' && !window.confirm(`Run ${shownName(m)} in the page?\n\n${word('module', { a: true, cap: true })} in the page is not walled off. It can read and change everything on the page, act as you, and reach anything you can. the host cannot hold it to its approved permissions.\n\nOnly continue if you trust whoever wrote it.`)) return;
+    if (to === 'page' && !await confirmDialog({ title: `Run ${shownName(m)} in the page?`, message: `${word('module', { a: true, cap: true })} in the page is not walled off. It can read and change everything on the page, act as you, and reach anything you can. the host cannot hold it to its approved permissions.\n\nOnly continue if you trust whoever wrote it.`, action: 'Run in the page', kind: 'destructive' })) return;
     await api('PATCH', `/api/modules/${m.id}`, { runMode: to, acceptRisk: to === 'page' });
     await loadModules();
     sayModules(`${shownName(m)} now runs ${to === 'page' ? 'in the page' : 'sandboxed'}`);
@@ -1854,11 +1855,11 @@ $('tab-modules').addEventListener('click', async (event) => {
     if (button.dataset.moduleAction === 'rollback') {
       const version = card.querySelector('[data-module-version]').value;
       if (version === m.version) return;
-      if (!window.confirm(`Switch ${shownName(m)} to version ${version}? Its data stays as it is.`)) return;
+      if (!await confirmDialog({ title: `Switch ${shownName(m)} to version ${version}?`, message: 'Its data stays as it is.', action: 'Switch' })) return;
       await api('POST', `/api/modules/${m.id}/rollback`, { version });
     } else if (button.dataset.moduleAction === 'uninstall') {
-      if (!window.confirm(`Uninstall ${shownName(m)}?${m.dependents?.length ? ' ' + m.dependents.map(shownNameOf).join(' and ') + ' needs it and will be turned off.' : ''}`)) return;
-      const wipe = window.confirm(`Also delete ${shownName(m)}'s saved data?\n\nOK deletes it for good. Cancel keeps it, so a later reinstall picks up where it left off.\n\nFiles you placed in the ${word('module')}'s own folder (a map file, say) are never deleted.`);
+      if (!await confirmDialog({ title: `Uninstall ${shownName(m)}?`, message: m.dependents?.length ? `${m.dependents.map(shownNameOf).join(' and ')} needs it and will be turned off.` : '', action: 'Uninstall', kind: 'destructive' })) return;
+      const wipe = await confirmDialog({ title: `Also delete ${shownName(m)}'s saved data?`, message: `Keep it, and a later reinstall picks up where it left off.\n\nFiles you placed in the ${word('module')}'s own folder (a map file, say) are never deleted.`, action: 'Delete data too', cancel: 'Keep data', kind: 'final' });
       await api('DELETE', `/api/modules/${m.id}?keepData=${wipe ? 0 : 1}`);
     }
     await loadModules();
@@ -2173,7 +2174,7 @@ $('stream-show').addEventListener('click', () => {
 });
 $('stream-copy').addEventListener('click', () => copy(streamKey, $('settings-status')));
 $('stream-regen').addEventListener('click', async () => {
-  if (!window.confirm('Regenerate the access key? Every link made with it and the Studio app need the new one.')) return;
+  if (!await confirmDialog({ title: 'Regenerate the access key?', message: 'Every link made with it and the Studio app need the new one.', action: 'Regenerate', kind: 'destructive' })) return;
   try {
     ({ streamKey } = await api('POST', '/api/stream-key/regenerate'));
     showStreamKey();
@@ -2267,7 +2268,7 @@ $('template-select').addEventListener('change', syncTemplateSwitch);
 $('template-switch').addEventListener('click', async () => {
   const value = $('template-select').value;
   const chosen = templateChoices.find((c) => c.id === value);
-  if (!window.confirm(switchQuestion(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
+  if (!await confirmDialog(switchConfirm(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
   const button = $('template-switch');
   button.disabled = true;
   say($('template-status'), 'Switching...');
@@ -2424,7 +2425,7 @@ $('template-imported').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-template-delete]');
   if (!b) return;
   const t = templateChoices.find((c) => c.id === b.dataset.templateDelete);
-  if (!window.confirm(`Delete the ${templateName(t) || b.dataset.templateDelete} template? Its file can be imported again.`)) return;
+  if (!await confirmDialog({ title: `Delete the ${templateName(t) || b.dataset.templateDelete} template?`, message: 'Its file can be imported again.', action: 'Delete', kind: 'destructive' })) return;
   try {
     await api('DELETE', `/api/templates/${encodeURIComponent(b.dataset.templateDelete)}`);
     await loadTemplate();

@@ -65,7 +65,7 @@
              their own with the password. The whole row is hidden when the server does not offer it. -->
         <div class="row" id="mfa-row" hidden>
           <span class="field-label">Two-step sign-in</span>
-          <span class="pill" id="mfa-state">off</span>
+          <span class="sdk-status" id="mfa-state">off</span>
           <button class="btn btn-small btn-primary" id="mfa-on" type="button" hidden>Turn on</button>
           <button class="btn btn-small" id="mfa-off" type="button" hidden>Turn off</button>
           <button class="btn btn-small btn-danger" id="mfa-reset" type="button" hidden>Reset their second factor</button>
@@ -227,7 +227,7 @@
             <div class="address-what">
               <i class="fa-solid fa-layer-group fa-fw address-icon" aria-hidden="true"></i>
               <strong class="address-name">Everything</strong>
-              <span class="pill" id="feed-row-state">off</span>
+              <span class="sdk-status" id="feed-row-state">off</span>
               <span class="hint" id="feed-row-read"></span>
             </div>
             <p class="hint address-hint" id="feed-everything-hint"></p>
@@ -290,7 +290,7 @@
       <div class="address-what">
         <i class="fa-solid fa-fw address-icon" aria-hidden="true"></i>
         <strong class="address-name"></strong>
-        <span class="pill" data-state>off</span>
+        <span class="sdk-status" data-state>off</span>
         <span class="hint" data-read></span>
       </div>
       <p class="hint address-hint" data-hint hidden></p>

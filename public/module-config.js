@@ -118,7 +118,7 @@ export async function drawModuleConfig(m, { live = () => true } = {}) {
   $('cfg-name').textContent = `${name} configuration`;
   $('cfg-version').textContent = `${m.displayName ? `${m.name} ` : ''}v${m.version}${m.author ? ' by ' + m.author : ''}`;
   $('cfg-state').textContent = m.enabled ? 'Enabled' : 'Disabled';
-  $('cfg-state').classList.add(m.enabled ? 'on' : 'warn');
+  $('cfg-state').dataset.tone = m.enabled ? 'ok' : 'warn';
   $('cfg-desc').textContent = m.description || '';
   const mine = (scope) => (m.settings || []).filter((d) => d.scope === scope).length; // the server's scope names (plan-names step 5a)
   const showSettings = () => renderModuleSettings($('settings'), { scope: 'environment', only: m.id, heading: false });

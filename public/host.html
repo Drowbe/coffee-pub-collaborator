@@ -65,7 +65,7 @@
       <section class="panel" id="host-mfa-panel" hidden>
         <div class="section-head">
           <h2>Your two-step sign-in</h2>
-          <span class="pill" id="host-mfa-state">off</span>
+          <span class="sdk-status" id="host-mfa-state">off</span>
           <span class="status" id="host-mfa-status"></span>
         </div>
         <p class="hint" id="host-mfa-hint">A code from an authenticator app after the password, for this host admin account. HOST_MFA_REQUIRED on the server makes it mandatory for every host admin.</p>
@@ -324,7 +324,7 @@
         <form class="ai-service" autocomplete="off">
           <div class="ai-service-head">
             <strong data-slot="name"></strong>
-            <span class="pill" data-slot="offered"></span>
+            <span class="sdk-status" data-slot="offered"></span>
           </div>
           <div class="ai-key" data-slot="address-row" hidden>
             <label class="ai-label" for="ai-address-compatible">Address</label>
@@ -339,7 +339,7 @@
           <div class="ai-key">
             <div class="ai-label">Key</div>
             <div class="ai-key-row">
-              <span class="pill" data-slot="key-state">not set</span>
+              <span class="sdk-status" data-slot="key-state">not set</span>
               <input name="key" type="password" maxlength="300" placeholder="paste a new key" autocomplete="new-password" hidden>
               <button class="btn btn-small" type="button" data-action="key-replace">Set a key</button>
               <button class="btn btn-small btn-danger" type="button" data-action="key-clear" hidden>Remove the key</button>
@@ -422,7 +422,7 @@
     <section class="panel environment">
       <div class="section-head">
         <h2><a data-slot="link" target="_blank" rel="noopener"><span data-slot="name"></span></a> <code data-slot="slug"></code></h2>
-        <span class="tag" data-slot="status"></span>
+        <span class="sdk-status" data-slot="status"></span>
         <span class="grow"></span>
         <button class="btn btn-small" data-action="plan" type="button">Edit</button>
         <button class="btn btn-small" data-action="backup" type="button">Backup</button>

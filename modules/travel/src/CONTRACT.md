@@ -39,7 +39,7 @@ The four views (Days/Decisions/Bookings/Money) are the toolbar's view switch (`h
 
 ## The day strip (`#daystrip`)
 
-One `button.daychip[data-action=goto-day][data-day=YYYY-MM-DD]` per day, holding the weekday and then `<b>` the day number. `.today` marks today, `.current` the day in view (the script moves it as the list scrolls). Clicking scrolls `#day-<date>` into view.
+One `button.sdk-chip.daychip[data-action=goto-day][data-day=YYYY-MM-DD]` per day, holding the weekday and then `<b>` the day number. `.today` marks today, `aria-current="true"` the day in view (the script moves it as the list scrolls). Clicking scrolls `#day-<date>` into view.
 
 ## A day (`section.day`)
 

@@ -22,7 +22,7 @@ function listRow(def, r) {
     <input type="color" data-f="color" value="${escapeHtml(color)}" aria-label="Colour">
     <details class="icon-pick"><summary aria-label="Icon" title="Icon"><i class="fa-solid fa-${escapeHtml(icon)} fa-fw" aria-hidden="true"></i></summary><div class="icon-grid">${ICONS.map((n) => `<button type="button" data-icon-choice="${n}" title="${n.replace(/-/g, ' ')}"><i class="fa-solid fa-${n} fa-fw" aria-hidden="true"></i></button>`).join('')}</div></details>
     <input type="text" data-f="label" value="${escapeHtml(r.label || '')}" maxlength="${def.maxLength || 30}" placeholder="Label" aria-label="Label">
-    <span class="list-tools"><button type="button" class="btn btn-small" data-list="up" title="Move up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" class="btn btn-small" data-list="down" title="Move down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>${fixed ? '<span class="pill">Built in</span>' : '<button type="button" class="btn btn-small btn-danger" data-list="remove" title="Remove" aria-label="Remove"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>'}</span>
+    <span class="list-tools"><button type="button" class="btn btn-small" data-list="up" title="Move up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" class="btn btn-small" data-list="down" title="Move down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>${fixed ? '<span class="sdk-status">Built in</span>' : '<button type="button" class="btn btn-small btn-danger" data-list="remove" title="Remove" aria-label="Remove"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>'}</span>
   </li>`;
 }
 function listControl(def) {
@@ -67,7 +67,7 @@ function control(def, draft = false) {
   if (def.shared === true) { // true only when the host really keeps it: the listing also carries the manifest's own "host" flag on a single install
     const files = def.type === 'files' ? (def.available || []) : [];
     const list = files.length ? `<ul class="shared-files">${files.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : def.type === 'files' ? '<p class="hint">The host has no files here yet.</p>' : '';
-    return `<div data-shared><div class="hint">${escapeHtml(def.label)} <span class="pill">Provided by the host</span></div>${list}${def.type !== 'files' && def.value ? `<p class="hint">${escapeHtml(String(def.value))}</p>` : ''}</div>`;
+    return `<div data-shared><div class="hint">${escapeHtml(def.label)} <span class="sdk-status">Provided by the host</span></div>${list}${def.type !== 'files' && def.value ? `<p class="hint">${escapeHtml(String(def.value))}</p>` : ''}</div>`;
   }
   if (def.type === 'files') {
     const chosen = new Set(Array.isArray(def.value) ? def.value : def.value ? [def.value] : []);

@@ -253,17 +253,17 @@ export function openHostMenu(trigger, items) {
     }
     if (item.tag) {
       const tag = doc.createElement('span');
-      tag.className = 'host-menu-tag';
+      tag.className = 'sdk-chip-tag';
       tag.textContent = item.tag;
       b.appendChild(tag);
     }
     const count = Math.max(0, Math.round(Number(item.badge) || 0));
     if (count) {
       const badge = doc.createElement('span');
-      badge.className = 'host-menu-badge';
+      badge.className = 'sdk-badge';
       badge.textContent = count > 9 ? '9+' : String(count);
       // `badgeTone: 'ok'` draws it green; `badgeLabel` ("2 updates available") is said after the row's name.
-      if (item.badgeTone === 'ok') badge.classList.add('badge-ok');
+      if (item.badgeTone === 'ok') badge.dataset.tone = 'ok';
       if (item.badgeLabel && !item.ariaLabel) b.setAttribute('aria-label', `${spoken || item.label || item.title || ''}, ${item.badgeLabel}`);
       b.appendChild(badge);
     }

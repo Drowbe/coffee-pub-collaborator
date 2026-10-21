@@ -47,11 +47,11 @@
     <section id="view-costs" class="view" aria-label="Costs" hidden>
       <div class="list-tools">
         <div class="sdk-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="find" type="search" maxlength="100" placeholder="Find a cost" aria-label="Find a cost" autocomplete="off"></div>
-        <div class="tool-row" role="group" aria-label="Show the costs">
-          <button class="chip-btn" type="button" id="tool-group"><span class="ic" data-icon="layer-group"></span><span data-slot="label">By day</span></button>
-          <button class="chip-btn" type="button" id="tool-sort"><span class="ic" data-icon="arrow-down-wide-short"></span><span data-slot="label">Date, earliest first</span></button>
-          <button class="chip-btn" type="button" id="tool-category"><span class="ic" data-icon="tag"></span><span data-slot="label">All categories</span></button>
-          <button class="chip-btn" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span data-slot="label">Anyone paid</span></button>
+        <div class="sdk-chips" role="group" aria-label="Show the costs">
+          <button class="sdk-chip" type="button" id="tool-group"><span class="ic" data-icon="layer-group"></span><span class="sdk-chip-label" data-slot="label">By day</span></button>
+          <button class="sdk-chip" type="button" id="tool-sort"><span class="ic" data-icon="arrow-down-wide-short"></span><span class="sdk-chip-label" data-slot="label">Date, earliest first</span></button>
+          <button class="sdk-chip" type="button" id="tool-category"><span class="ic" data-icon="tag"></span><span class="sdk-chip-label" data-slot="label">All categories</span></button>
+          <button class="sdk-chip" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span class="sdk-chip-label" data-slot="label">Anyone paid</span></button>
         </div>
       </div>
       <p class="hint note" data-slot="withheld-note" hidden></p>

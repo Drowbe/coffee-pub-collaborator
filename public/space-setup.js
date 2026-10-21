@@ -366,8 +366,8 @@ export function createSpaceSetup(deps) {
             <div class="phase-row-name">
               <span class="phase-swatch" aria-hidden="true"></span>
               ${rowIconHtml(p)}<span class="phase-row-label">${esc(p.label)}</span>
-              <span class="phase-tag phase-tag-now" hidden>now</span>
-              <span class="phase-tag phase-tag-main" hidden>main</span>
+              <span class="sdk-chip-tag" data-phase-tag="now" data-tone="info" hidden>now</span>
+              <span class="sdk-chip-tag" data-phase-tag="main" hidden>main</span>
             </div>
             <label class="phase-row-field phase-row-start"><span class="phase-row-word">Start</span><input type="date" class="phase-date" data-edge="start" data-id="${esc(p.id)}" aria-label="${esc(p.label)} starts"></label>
             <label class="phase-row-field phase-row-end"><span class="phase-row-word">End</span><input type="date" class="phase-date" data-edge="end" data-id="${esc(p.id)}" aria-label="${esc(p.label)} ends"></label>
@@ -718,8 +718,8 @@ export function createSpaceSetup(deps) {
       row.classList.toggle('off', !r.dated);
       row.classList.toggle('current', r.current);
       row.classList.toggle('main', r.main);
-      row.querySelector('.phase-tag-now').hidden = !r.current;
-      row.querySelector('.phase-tag-main').hidden = !r.main;
+      row.querySelector('[data-phase-tag="now"]').hidden = !r.current;
+      row.querySelector('[data-phase-tag="main"]').hidden = !r.main;
       const start = row.querySelector('input[data-edge="start"]');
       const end = row.querySelector('input[data-edge="end"]');
       start.value = r.start || '';

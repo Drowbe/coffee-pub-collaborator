@@ -145,8 +145,8 @@
     const summaries = backlinks.get(x.key) || [];
     if (!summaries.length) return '';
     return `<div class="meta">Linked from ${summaries.map((c) => (c.open
-      ? `<span class="tag ref" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`
-      : `<span class="tag"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join(' ')}</div>`;
+      ? `<span class="sdk-chip-tag" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`
+      : `<span class="sdk-chip-tag"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join(' ')}</div>`;
   };
   if (host.objects && host.objects.onOpen) {
     host.objects.onOpen((ref) => {
@@ -201,10 +201,10 @@
     if (!o.link) return '';
     const c = optSummaries.get(objectKey(o.link));
     const remove = mayManage(x) && !isClosed(x.p) ? `<button class="x" type="button" data-unlink="${esc(x.key)}|${esc(o.id)}" aria-label="Remove link">&times;</button>` : '';
-    if (!c) return '<div class="optlink"><span class="tag">Loading...</span></div>';
-    if (c.error) return `<div class="optlink"><span class="tag" title="Deleted, or not something you can see">Not available</span>${remove}</div>`;
+    if (!c) return '<div class="optlink"><span class="sdk-chip-tag">Loading...</span></div>';
+    if (c.error) return `<div class="optlink"><span class="sdk-chip-tag" title="Deleted, or not something you can see">Not available</span>${remove}</div>`;
     const body = `<b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}`;
-    return `<div class="optlink">${c.open ? `<span class="tag ref" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}">${body}</span>` : `<span class="tag">${body}</span>`}${remove}</div>`;
+    return `<div class="optlink">${c.open ? `<span class="sdk-chip-tag" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}">${body}</span>` : `<span class="sdk-chip-tag">${body}</span>`}${remove}</div>`;
   }
   async function resolveOptionLinks() {
     if (!host.objects || !host.objects.resolve) return;
@@ -275,7 +275,7 @@
     return `<article class="poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
       ${canManage ? `<button class="menu-btn sdk-icon-btn btn-quiet btn-small" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}
       <h3 data-drag="${esc(x.key)}" title="Drag onto a to-do to link it">${esc(p.question)}</h3>
-      <div class="meta">${p.multi ? 'Pick any' : 'Pick one'} &middot; ${voters} ${voters === 1 ? 'vote' : 'votes'}${status ? `<span class="tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
+      <div class="meta">${p.multi ? 'Pick any' : 'Pick one'} &middot; ${voters} ${voters === 1 ? 'vote' : 'votes'}${status ? `<span class="sdk-chip-tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
       ${opts}
       ${p.addable && votable && p.options.length < MAX_OPTIONS ? `<div class="addopt"><input type="text" maxlength="100" placeholder="Suggest another option" data-addtext="${esc(x.key)}" aria-label="Suggest another option"><button class="btn btn-small" type="button" data-addopt="${esc(x.key)}">Add</button></div>` : ''}
       ${x.scope === 'spaces' && !closed ? `<div class="meta">Vote in that ${esc(word('space'))}.</div>` : ''}
@@ -317,7 +317,7 @@
 
     $('spaces').hidden = spaceInfo.size === 0;
     if (spaceInfo.size) {
-      $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
+      $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="sdk-chip ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
     }
 
     let html = groupHtml(spaceInfo.size ? word('environment', { cap: true }) : '', own);

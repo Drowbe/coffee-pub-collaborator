@@ -632,15 +632,16 @@ function renderMembers(list, members, spaceId, isAside = false) {
     // offStream() is primary-nav.js's: activeSpace null is a stream somewhere I can't see.
     const asideNow = u.online && (Boolean(u.aside) || presenceSpaces.find((r) => r.id === u.space)?.isAside);
     const offTheStream = offStream(u, activeSpace, ownerOnline, presenceSpaces.filter((r) => r.isAside).map((r) => r.id));
-    let badge = el.querySelector('.stream-badge');
+    let badge = el.querySelector(':scope > .sdk-chip-tag');
     if (asideNow || offTheStream) {
       if (!badge) {
         badge = document.createElement('span');
-        badge.className = 'stream-badge';
+        badge.className = 'sdk-chip-tag';
         el.appendChild(badge);
       }
       badge.textContent = asideNow ? word('aside') : 'off stream';
-      badge.classList.toggle('aside', Boolean(asideNow));
+      if (asideNow) badge.dataset.tone = 'info';
+      else delete badge.dataset.tone;
     } else if (badge) {
       badge.remove();
     }

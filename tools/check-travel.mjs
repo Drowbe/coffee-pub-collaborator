@@ -1145,7 +1145,7 @@ test('the Planner and the Calendar draw a phase only as a wash and a name, in th
   for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);
   const rules = css.slice(css.indexOf('/* phases:'));
   assert.match(rules, /\.day2\.in-phase \.day-head2 \{ background: [^;]*var\(--ph\)/, 'the day header takes a wash of the tint');
-  assert.match(rules, /\.daychip\.in-phase:not\(\.current\) \{ background: [^;]*var\(--ph\)/, 'and so does the strip chip');
+  assert.match(rules, /\.daychip\.in-phase:not\(\[aria-current="true"\]\) \{ background: [^;]*var\(--ph\)/, 'and so does the strip chip');
   assert.doesNotMatch(rules, /(border|outline|box-shadow)[^;]*var\(--ph\)/, 'a phase never draws a coloured border or outline');
   assert.doesNotMatch(css.slice(css.indexOf('/* phases:')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
   assert.match(read('travel.js'), /phaseOnDay\(plan\.bands\(\), day\)/, 'the day header asks for its phase');

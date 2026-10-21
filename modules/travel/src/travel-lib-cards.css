@@ -93,8 +93,7 @@
 @supports (color: oklch(from red l c h)) { .day2.in-trip, .daychip.in-trip { --tone: oklch(from var(--accent-fill) l calc(c * 0.95) calc(h + var(--turn))); } }
 .day2.in-trip .dnum { background: var(--tone); }
 .day2.in-trip.current .dnum { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 40%, transparent); }
-.daychip.in-trip:not(.current) { border-color: color-mix(in srgb, var(--tone) 60%, var(--edge-hairline)); }
-.daychip.in-trip:not(.current) b { color: var(--tone); }
+.daychip.in-trip:not([aria-current="true"]) b { color: var(--tone); }
 /* the days-between badge: a circle with the count on the line, and a + beside it that opens what can be added there */
 .gap { display: flex; align-items: center; margin: 0 0 14px; padding-left: calc(var(--spine-x) - 17px); }
 .gapcount { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--radius-round); border: 2px solid var(--text-muted); background: var(--surface-panel); color: var(--text-primary); font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
@@ -140,8 +139,8 @@
 .card h3 { margin: 0; font-size: var(--text-14); line-height: var(--leading-section); overflow-wrap: break-word; }
 .card p { margin: 0; color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }
 .chips2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; }
-.pill { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--edge-hairline)); border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 10%, transparent); color: var(--text-primary); font-size: var(--text-11); white-space: nowrap; }
-.pill.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: var(--tracking-caps); }
+.card .sdk-chip-tag { --chip-tone: var(--tone); }
+.sdk-chip-tag.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: var(--tracking-caps); }
 /* what the face has no place for, folded under the card: a "More" line, then label/value pairs. Spans the card whatever its own layout. */
 .card > .card-more { grid-column: 1 / -1; flex-basis: 100%; width: 100%; margin: 0; padding: 0 12px 8px; border-top: 1px dashed color-mix(in srgb, var(--tone) 35%, var(--edge-hairline)); font-size: var(--text-12); }
 .card.transit, .card.meal, .card.act { flex-wrap: wrap; }
@@ -428,5 +427,5 @@
 .ph-gold { --ph: var(--tint-gold); }
 .ph-red { --ph: var(--tint-red); }
 .day2.in-phase .day-head2 { background: linear-gradient(180deg, color-mix(in srgb, var(--ph) 34%, var(--surface-panel)), color-mix(in srgb, var(--ph) 18%, var(--surface-panel))); }
-.daychip.in-phase:not(.current) { background: color-mix(in srgb, var(--ph) 20%, var(--bg-card)); }
-.phase-tag { display: inline-block; max-width: 100%; margin-bottom: 3px; padding: 0 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--ph) 45%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+.daychip.in-phase:not([aria-current="true"]) { background: color-mix(in srgb, var(--ph) 20%, var(--surface-panel)); }
+.dmeta > .sdk-chip-tag { --chip-tone: var(--ph); margin-bottom: var(--space-1); max-width: 100%; vertical-align: top; }

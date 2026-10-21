@@ -334,7 +334,7 @@ function registerSystemTools(header) {
   bell.setAttribute('aria-haspopup', 'dialog');
   bell.setAttribute('aria-expanded', 'false');
   bell.setAttribute('aria-controls', 'notifications-list');
-  bell.innerHTML = '<i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="badge" aria-hidden="true" hidden></span>';
+  bell.innerHTML = '<i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true" hidden></span>';
   bell.addEventListener('click', (event) => {
     event.stopPropagation(); // not a click "elsewhere" for the phone menu or the list itself
     toggleNotices(bell);
@@ -729,7 +729,7 @@ function paintBell() {
   const { count, title } = bellNow();
   bell.title = title;
   bell.setAttribute('aria-label', title);
-  const badge = bell.querySelector('.badge');
+  const badge = bell.querySelector('.sdk-badge-micro');
   badge.hidden = !count;
   badge.textContent = count > 9 ? '9+' : String(count);
 }

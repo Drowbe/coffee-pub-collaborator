@@ -2,7 +2,7 @@
 
 **Audience:** whoever writes the Research module's script (the modules side) and whoever styles it (the interface side). The plan is `documentation/plans/plan-research.md`; the reference rendering is `design/pane.html` (`?state=normal|photos|empty|uploading|position|filtered`, `?theme=light`, `?w=390`). The conversation with the AI (once here as Ask, 0.1.10-0.1.12) is now its own module, Assistant (see `documentation/plans/plan-assistant-module.md` and `modules/assistant/src/CONTRACT.md`): a card's menu offers **Research this**, which requests the generic `askAssistant` action of whichever module offers it, never naming Assistant.
 
-**How it works.** The stylesheet styles elements by class and attribute; the script builds them from `<template>`s and toggles states, and never sets a style (the one exception is a tag's colour, `--tag`). Colours come only from the theme tokens. Text from people goes in with `textContent`.
+**How it works.** The stylesheet styles elements by class and attribute; the script builds them from `<template>`s and toggles states, and never sets a style (the one exception is a tag's colour, `--chip-tone`). Colours come only from the theme tokens. Text from people goes in with `textContent`.
 
 ## The pane
 
@@ -10,8 +10,8 @@
 <div class="rs [narrow]">                     narrow under 720 px (the script sets it from the pane's width)
   <header class="rs-head">                    hidden when the host titlebar is there: the name goes in host.setTitle ("Research", no count, #191). Kept for a harness with no titlebar: h1[data-slot=own-name] (the Mine/This space switch is in the toolbar, not here)
   <div class="rs-tools">                      .sdk-search.rs-search (input[type=search])
-  <div class="rs-chips">                      kind chips: All, Notes, Links, Photos, Answers (.rs-chip.on)
-  <div class="rs-chips">                      the tags chosen as filters, only those (.rs-chip.tag[style=--tag], each with an .x to drop it); the chooser itself is the toolbar's Tags button (host.ui.toolbarButton), a menu of every tag in use with a count
+  <div class="rs-chips">                      kind chips: All, Notes, Links, Photos, Answers (.sdk-chip, .on and aria-pressed)
+  <div class="rs-chips">                      the tags chosen as filters, only those (.sdk-chip-removable[style=--chip-tone], each with a .sdk-chip-x button to drop it); the chooser itself is the toolbar's Tags button (host.ui.toolbarButton), a menu of every tag in use with a count
   <main class="rs-body">                      .upload and .pos-ask when needed, then .rs-grid (cards, packed like masonry) or .rs-list (one row each) of .rcard, or .rs-empty
   (no bar of its own)                         adding is the titlebar "+" (host.add.set); a status line at the foot (host.status.set) says how many show (see below)
 ```
@@ -20,7 +20,7 @@ Views are as in Places: **Mine** (the person scope, private across spaces) and *
 
 ## A card (`article.rcard[data-kind=note|link|photo|answer][data-id]`)
 
-`.top` holds `.kind` (the kind's icon in a round badge), `.kicker` ("Note", "Link", "Photo", "Answer", and for an answer a permanent `.ai-mark` "AI"), `button.edit[data-action=edit]` (a pen: opens the editor) and `button.menu` (its menu). Then `h3` (the title), for a link `.site` (the site's name), `p.excerpt` (the body, clamped to four lines until the card is opened), `.tags` of `.tag[style=--tag]`, and `.meta` (the date, the place, an attachment count, and `.by` with the adder's initial). A photo also has `.thumb` first, an image cropped 4:3 across the card's top. The card is focusable and draggable (as any card: onto a plan's day, onto a task); A click, Enter or Space opens or closes the card to read it in place (`.open`, `aria-expanded`; the open cards are kept across redraws, not stored); links inside still work. The editor opens from the pen, the menu's Edit, a double click, or Shift+Enter.
+`.top` holds `.kind` (the kind's icon in a round badge), `.kicker` ("Note", "Link", "Photo", "Answer", and for an answer a permanent `.ai-mark` "AI"), `button.edit[data-action=edit]` (a pen: opens the editor) and `button.menu` (its menu). Then `h3` (the title), for a link `.site` (the site's name), `p.excerpt` (the body, clamped to four lines until the card is opened), `.tags` of `.sdk-chip-tag[style=--chip-tone]`, and `.meta` (the date, the place, an attachment count, and `.by` with the adder's initial). A photo also has `.thumb` first, an image cropped 4:3 across the card's top. The card is focusable and draggable (as any card: onto a plan's day, onto a task); A click, Enter or Space opens or closes the card to read it in place (`.open`, `aria-expanded`; the open cards are kept across redraws, not stored); links inside still work. The editor opens from the pen, the menu's Edit, a double click, or Shift+Enter.
 
 **The menu** (`⋯`): Open, Edit, Copy to "This space" / "Mine", Research this (only when a module offers `askAssistant`), Remove. Removing a photo also removes its file.
 
@@ -44,7 +44,7 @@ A note: title, body, tags (a field that suggests the tags already used), an opti
 
 ## Tags
 
-Plain words, typed freely, one word each. A list of well-known tags with a colour is kept in Module Configuration (the list control); a tag that is on the list wears its colour (\`--tag\`), any other is grey. The tag chips under the kind chips list the tags in use.
+Plain words, typed freely, one word each. A list of well-known tags with a colour is kept in Module Configuration (the list control); a tag that is on the list wears its colour (\`--chip-tone\`), any other is grey. The tag chips under the kind chips list the tags in use.
 
 ## States
 
@@ -63,9 +63,9 @@ Sorting (newest first is the default), a compact list instead of the grid, sever
 
 The script clones these and fills them by hook only: `[data-slot=x]` (its text, or hidden when empty; `[data-slot=x-wrap]` hides when the slot inside it is empty), `[data-icon=name]` (an icon).
 
-- `tpl-card` (`article.rcard`, the script sets `data-kind`, `data-id`): slots `thumb` (an `img`, its `src`), `kind`, `ai` (shown for an answer), `title`, `site`, `excerpt`, `tags` (holds `tpl-tag` clones, each with `--tag`), `when`, `place`, `by`; `button[data-action=menu]`.
+- `tpl-card` (`article.rcard`, the script sets `data-kind`, `data-id`): slots `thumb` (an `img`, its `src`), `kind`, `ai` (shown for an answer), `title`, `site`, `excerpt`, `tags` (holds `tpl-tag` clones, each with `--chip-tone`), `when`, `place`, `by`; `button[data-action=menu]`.
 - `tpl-conflict` (as in Places: `text`, `use-theirs`, `keep-mine`), `tpl-source` (a pill for an answer's source; `.gone` when it is no longer there).
-- `tpl-chip-tag` (a chosen tag in `#tag-chips`, `--tag`, always `.on`, with its `.x`), `tpl-tag`. Chips are small rounded rectangles (5px), never pills.
+- `tpl-chip-tag` (a chosen tag in `#tag-chips`, `--chip-tone`, with its `.sdk-chip-x`), `tpl-tag`. Chips are the SDK's: `.sdk-chip` (a kind), `.sdk-chip-removable` and `.sdk-chip-tag`, small rounded rectangles, never pills.
 - `tpl-upload` (`.upload`: `name`, `progress`, `step`, `[data-action=retry-upload]`), `tpl-pos-ask` (`text`, `[data-action=keep-position]`, `[data-action=drop-position]`).
 - The dialog is one form, `#form.sdk-form[data-kind=note|link|photo|answer]`; each row lists the kinds that show it in `data-kinds`, and the stylesheet hides the rest. Fields: `f-title`, `f-caption` (a photo), `f-url`, `f-body`, `f-excerpt`, `f-tags` (with `#tag-list`), `f-point` and `f-date`, `#f-asked` (an answer kept from Assistant: `asked`, `sources`), `f-by`, `f-error`, `f-save`, `f-cancel`, `f-delete`.
 - `#item-menu`: `edit`, `copy-to` (its label reads "Copy to This space" or "Copy to Mine"), `ask-about` ("Research this", hidden unless a module offers `askAssistant`), `delete`.

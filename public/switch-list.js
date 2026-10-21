@@ -19,7 +19,7 @@ export function switchRowHtml({ id, icon, name, on = false, note = '', badge = 0
     + `<i class="fa-solid fa-${ICON.test(icon || '') ? icon : 'puzzle-piece'} fa-fw" aria-hidden="true"${TINT.test(tint || '') ? ` data-tint="${tint}"` : ''}></i>`
     + `<span class="switch-name">${escapeHtml(name)}</span>`
     + (note ? ` <span class="hint">(${escapeHtml(note)})</span>` : '')
-    + (n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : '')
+    + (n ? `<span class="sdk-badge">${n > 9 ? '9+' : n}</span>` : '')
     + '</label>';
 }
 

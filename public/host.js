@@ -90,7 +90,7 @@ function aiServiceRow(c, s) {
   slot(form, 'name').textContent = c.name;
   const offered = slot(form, 'offered');
   offered.textContent = s.offered ? 'Offered' : 'Not offered';
-  offered.classList.toggle('on', Boolean(s.offered));
+  if (s.offered) offered.dataset.tone = 'ok'; else delete offered.dataset.tone;
   slot(form, 'address-row').hidden = c.id !== 'compatible';
   form.elements.address.value = s.address || '';
   slot(form, 'workspace-row').hidden = c.id !== 'anthropic'; // an organisation-level key must name its workspace
@@ -104,7 +104,7 @@ function aiServiceRow(c, s) {
   const syncKey = () => {
     const set = (s.keySet || keyMode === 'replace') && keyMode !== 'clear';
     keyState.textContent = s.keyFromEnvironment ? 'set by the server\'s environment' : keyMode === 'clear' ? 'will be removed' : set ? 'set' : 'not set';
-    keyState.classList.toggle('on', set);
+    if (set) keyState.dataset.tone = 'ok'; else delete keyState.dataset.tone;
     keyInput.hidden = keyMode !== 'replace';
     replaceBtn.hidden = Boolean(s.keyFromEnvironment);
     replaceBtn.textContent = keyMode === 'replace' ? 'Cancel' : s.keySet ? 'Replace the key' : 'Set a key';
@@ -257,14 +257,15 @@ function renderEnvironments() {
     slot(el, 'slug').textContent = `${t.slug}.${settings.baseDomain}`;
     const status = slot(el, 'status');
     status.textContent = t.status === 'pastDue' ? 'past due' : t.status || 'active';
-    status.dataset.status = t.status || 'active';
+    if (t.status === 'pastDue') status.dataset.tone = 'danger';
+    else if (t.status === 'suspended') status.dataset.tone = 'neutral';
     el.querySelector('[data-action="suspend"]').textContent = t.status === 'suspended' ? 'Resume' : 'Suspend';
     // Refused (its data is from a newer version of the product, its app.json can't be read, or its data update could not finish): it answers its visitors with
     // a 503 until a good backup is restored, so the card says so and why, and has nothing to count.
     const refused = t.refused || null;
     if (refused) {
       status.textContent = "won't open";
-      status.dataset.status = 'refused';
+      status.dataset.tone = 'danger';
       const box = slot(el, 'refused');
       const when = refused.at ? new Date(refused.at) : null;
       const refusedCopy_ = refusedCopy();
@@ -764,7 +765,7 @@ function renderHostMfa() {
   if (!offered) return;
   const on = Boolean(me.mfaEnrolled);
   $('host-mfa-state').textContent = on ? (me.mfaBypass ? 'on, bypassed' : 'on') : 'off';
-  $('host-mfa-state').classList.toggle('on', on && !me.mfaBypass);
+  if (on && !me.mfaBypass) $('host-mfa-state').dataset.tone = 'ok'; else delete $('host-mfa-state').dataset.tone;
   $('host-mfa-on').hidden = on;
   $('host-mfa-off').hidden = !on || me.mfaRequired || me.mfaBypass;
   $('host-mfa-reset').hidden = !on || !me.mfaBypass;

@@ -1091,7 +1091,7 @@ export function createStatusSlot(status) {
         statusList.appendChild(dot);
       }
       const el = doc.createElement('span');
-      el.className = `mod-status-item${item.chip ? ' chip' : ''}${item.end ? ' end' : ''}`;
+      el.className = `mod-status-item${item.chip ? ' sdk-status' : ''}${item.end ? ' end' : ''}`;
       el.title = item.title;
       if (item.quiet) el.setAttribute('aria-hidden', 'true');
       if (item.icon) {

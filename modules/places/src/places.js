@@ -440,7 +440,7 @@
       if (key) tone(c, categoryColor(cats, catRow(key)));
       setIcon(c.querySelector('[data-icon]'), icon);
       fill(c, { label, count: String(count) });
-      c.classList.toggle('on', state.cat === key);
+      c.setAttribute('aria-pressed', String(state.cat === key));
       chips.push(c);
     };
     chip('', 'layer-group', 'All', searched.length);
@@ -1246,7 +1246,7 @@
     if (t && t.dataset.action === 'add-place') return openEditor(null, null);
     if (t && t.dataset.action === 'find-new') return void (state.q && showFound(state.q, sharedSearch(state.q)));
     if (t && t.dataset.action === 'clear-filter') { if (!asPart) { state.filter = ''; $('filter').value = ''; } state.cat = ''; return render(); }
-    const chip = ev.target.closest('.chip');
+    const chip = ev.target.closest('.sdk-chip');
     if (chip) { state.cat = chip.dataset.cat === state.cat ? '' : chip.dataset.cat; return render(); }
     if (rowEl && !ev.target.closest('.item-menu')) {
       const w = rowEl.dataset.where;

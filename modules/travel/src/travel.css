@@ -44,16 +44,11 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .strip-arrow .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .daystrip { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 6px; scroll-behavior: smooth; scrollbar-width: none; }
 .daystrip::-webkit-scrollbar { display: none; }
-.daychip { flex: none; display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-muted); font: inherit; font-size: var(--text-11); line-height: var(--leading-section); cursor: pointer; }
-.daychip b { color: var(--text-primary); font-size: var(--text-14); font-weight: var(--weight-strong); }
-.daychip { transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
-.daychip:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
-/* the chosen day: filled, lifted and glowing, so it cannot be missed */
-.daychip.current { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); transform: translateY(-2px); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-fill) 45%, transparent); }
-.daychip.current b { color: var(--text-on-accent); }
-.daychip.current.today::after { background: var(--text-on-accent); }
-@media (prefers-reduced-motion: reduce) { .daychip, .daystrip { transition: none; scroll-behavior: auto; } .daychip.current { transform: none; } }
-.daychip.today::after { content: ""; width: 5px; height: 5px; margin-top: 2px; border-radius: var(--radius-round); background: var(--accent-fill); }
+/* A day in the strip is a choice chip that stacks the weekday over the number; the chosen day is aria-current (the chip's selected fill). */
+.daychip { flex: none; flex-direction: column; min-width: 46px; height: auto; padding: var(--space-1) var(--space-2); gap: var(--space-0); font-size: var(--text-11); line-height: var(--leading-section); }
+.daychip b { font-size: var(--text-14); font-weight: var(--weight-strong); }
+.daychip.today::after { content: ""; width: 5px; height: 5px; margin-top: var(--space-0); border-radius: var(--radius-round); background: var(--accent-fill); }
+.daychip[aria-current="true"].today::after { background: currentColor; }
 
 /* ---- the days ---- */
 .body { flex: 1; min-height: 0; overflow: auto; margin: 0 -12px; padding: 0 12px 16px; }

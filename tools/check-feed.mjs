@@ -274,7 +274,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.ok(calendarsTab.includes('id="section-external"') && calendarsTab.includes('id="section-feed"'), 'both sections are on the Calendars tab');
   assert.ok(calendarsTab.indexOf('id="section-external"') < calendarsTab.indexOf('id="section-feed"'), 'coming in, then going out');
   assert.match(profileHtml, /<button class="subtab" data-tab="calendars" type="button" hidden>Calendars<\/button>/, 'the tab is Calendars, hidden until there is something to show');
-  assert.match(calendarsTab, /<li class="address-row" id="feed-row">[\s\S]*?<strong class="address-name">Everything<\/strong>\s*<span class="pill" id="feed-row-state">/, 'Everything is the first row, with the owner\'s pill');
+  assert.match(calendarsTab, /<li class="address-row" id="feed-row">[\s\S]*?<strong class="address-name">Everything<\/strong>\s*<span class="sdk-status" id="feed-row-state">/, 'Everything is the first row, with the owner\'s pill');
   assert.match(profileHtml, /<template id="address-row-template">\s*<li class="address-row" data-space>/, 'a space row comes from the template');
   assert.ok(profileHtml.includes('Copy it now. It will not be shown again.'), 'the address is said to be shown once');
   assert.ok(profileHtml.includes('From URL'), 'the Google steps name From URL');

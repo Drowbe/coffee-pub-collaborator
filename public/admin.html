@@ -248,10 +248,10 @@
       </div>
       <!-- The filters, between the activity and the list (#264). -->
       <div class="module-filters" id="module-filters" role="group" aria-label="Show">
-        <button class="filter-chip on" type="button" data-module-filter="all" aria-pressed="true">All <span class="count" data-count="all"></span></button>
-        <button class="filter-chip" type="button" data-module-filter="updates" aria-pressed="false">Updates available <span class="count" data-count="updates"></span></button>
-        <button class="filter-chip" type="button" data-module-filter="configurable" aria-pressed="false">Configurable <span class="count" data-count="configurable"></span></button>
-        <button class="filter-chip" type="button" data-module-filter="available" aria-pressed="false">Available <span class="count" data-count="available"></span></button>
+        <button class="sdk-chip on" type="button" data-module-filter="all" aria-pressed="true">All <span class="sdk-badge" data-count="all"></span></button>
+        <button class="sdk-chip" type="button" data-module-filter="updates" aria-pressed="false">Updates available <span class="sdk-badge" data-count="updates"></span></button>
+        <button class="sdk-chip" type="button" data-module-filter="configurable" aria-pressed="false">Configurable <span class="sdk-badge" data-count="configurable"></span></button>
+        <button class="sdk-chip" type="button" data-module-filter="available" aria-pressed="false">Available <span class="sdk-badge" data-count="available"></span></button>
       </div>
       <!-- The AI service: server-wide (the service, model and key the Assistant, Chat's AI and Research share), not one
            module's setting. Its entry here, with its switch, drawn by admin.js; its setup is on its own tab (#modules/ai). -->
@@ -333,7 +333,7 @@
             <div class="ai-key" data-ai-for="openai anthropic compatible">
               <div class="ai-label">Key <span class="hint" id="ai-key-optional" hidden>(optional for a model on your own network)</span></div>
               <div class="ai-key-row">
-                <span class="pill" id="ai-key-state">not set</span>
+                <span class="sdk-status" id="ai-key-state">not set</span>
                 <input id="ai-key" type="password" maxlength="300" placeholder="paste a new key" autocomplete="new-password" aria-label="New key" hidden>
                 <button class="btn btn-small" type="button" id="ai-key-replace">Set a key</button>
                 <button class="btn btn-small btn-danger" type="button" id="ai-key-clear" hidden>Remove the key</button>
@@ -506,7 +506,7 @@
         <div class="panel" id="env-panel" hidden>
           <div class="section-head">
             <h2 data-fill>{Environment}</h2>
-            <span class="pill" id="env-plan-pill"></span>
+            <span class="sdk-status" id="env-plan-pill"></span>
             <span class="status" id="env-status"></span>
           </div>
           <p class="hint env-banner" id="env-banner" hidden></p>
@@ -649,7 +649,7 @@
       <img class="thumb" data-thumb alt="">
       <div class="user-title">
         <strong data-name></strong>
-        <span class="meta"><span data-login></span> · <span data-role></span> · key <code data-key></code> <span class="pill" data-mfa hidden title="Signs in in two steps">two-step</span> <span class="pill" data-feed hidden title="Has a private address for a calendar app">calendar feed</span></span>
+        <span class="meta"><span data-login></span> · <span data-role></span> · key <code data-key></code> <span class="sdk-status" data-mfa hidden title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed hidden title="Has a private address for a calendar app">calendar feed</span></span>
       </div>
       <span class="live" data-live></span>
       <button class="btn btn-small" data-action="mute" type="button">Mute mic</button>

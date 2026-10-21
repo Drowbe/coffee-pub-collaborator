@@ -415,11 +415,6 @@ a:hover {
   outline-offset: 1px;
 }
 
-/* The bell: an icon with its count. */
-.topbar .nav-bell .badge[hidden] {
-  display: none;
-}
-
 /* The bell's list, under the bell, inside the window (brand.js places it). Only theme tokens. */
 .bell-list {
   position: fixed;
@@ -869,29 +864,6 @@ body.host-console #tab-host .list {
   display: grid;
   gap: 6px;
   margin: 8px 0;
-}
-
-body.host-console .tag {
-  padding: 1px 8px;
-  border-radius: var(--radius-round);
-  border: 1px solid var(--border);
-  font-size: var(--text-11);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-
-body.host-console .tag[data-status="pastDue"] {
-  border-color: var(--danger);
-  color: var(--danger-text);
-}
-
-body.host-console .tag[data-status="refused"] {
-  border-color: var(--danger);
-  color: var(--danger-text);
-}
-
-body.host-console .tag[data-status="suspended"] {
-  opacity: 0.6;
 }
 
 body.host-console .grow {
@@ -1722,22 +1694,6 @@ body.in-space .page-scroll {
   white-space: nowrap;
 }
 
-/* Off stream: online, but not in the space the admin currently is. "aside"
-   is the more specific case of being in a private pulled-aside space. */
-.stream-badge {
-  font-size: var(--text-11);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-dim);
-  background: var(--bg-section);
-  border-radius: var(--radius-min);
-  padding: 1px 5px;
-}
-
-.stream-badge.aside {
-  color: var(--accent);
-}
-
 /* A "pull aside" space's join card: no image or member counts worth showing. */
 .space-choice.aside .space-choice-image,
 .space-choice.aside .space-choice-count {
@@ -2117,22 +2073,6 @@ body.in-space .subnav {
   --b-fg: var(--b-fg-h);
 }
 
-.topbar > .nav-right > .sdk-icon-btn .badge {
-  position: absolute;
-  top: -3px;
-  right: -2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-9);
-  font-weight: var(--weight-strong);
-  line-height: 14px;
-  text-align: center;
-}
-
 /* The Workspace's tools in the top bar (a module's tools and the "..." first; the favorites and Layout with the bell;
    Set up, Full screen and Pop out right of your picture): the top bar's own items never shrink, one small gap
    (--topbar-gap) between them, a divider between the groups. Wider than a phone only: on a phone the right zone is the menu. */
@@ -2200,22 +2140,6 @@ body.in-space .subnav {
   position: relative;
   --btn-h: 20px;
   width: 28px;
-}
-
-.subnav .sdk-icon-btn .badge {
-  position: absolute;
-  top: -3px;
-  right: -2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-9);
-  font-weight: var(--weight-strong);
-  line-height: 14px;
-  text-align: center;
 }
 
 .subnav-tools {
@@ -2330,18 +2254,8 @@ label.switch-row.disabled:hover {
   white-space: nowrap;
 }
 
-.switch-row .badge {
+.switch-row .sdk-badge {
   margin-left: auto;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: 16px;
-  text-align: center;
 }
 
 /* The phone's tab bar's holder (space.js, #modules-menu inside it; canvas.js fills the tabs): drawn only where the
@@ -2622,7 +2536,7 @@ body.in-space .topbar {
     display: none;
   }
 
-  .subnav-modules .modules-menu-item span:not(.badge) {
+  .subnav-modules .modules-menu-item span:not(.sdk-badge) {
     display: none;
   }
 
@@ -2632,20 +2546,9 @@ body.in-space .topbar {
 }
 
 
-.icon-link .badge {
-  position: absolute;
+.icon-link .sdk-badge-micro {
   top: 0;
   right: 0;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-9);
-  font-weight: var(--weight-strong);
-  line-height: 14px;
-  text-align: center;
 }
 
 .icon-link.on {
@@ -2779,17 +2682,6 @@ button.whoami:focus-visible {
 
 .profile-title h1 {
   margin: 0;
-}
-
-.profile-title .tag {
-  align-self: flex-start;
-  font-size: var(--text-11);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--accent);
-  background: var(--bg-section);
-  border-radius: var(--radius-min);
-  padding: 2px 6px;
 }
 
 .slot-pick.big {
@@ -3914,22 +3806,6 @@ a.crumb-here:hover {
    live" -- a grey one reads as off. */
 .fbtn.off .meter {
   background: color-mix(in srgb, var(--text) 18%, transparent);
-}
-
-.fbtn .badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: 16px;
-  z-index: 2;
 }
 
 /* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. The column keeps its own overflow, so a tall import panel scrolls inside the column instead of pushing the formatting row out from under the input. */
@@ -5897,25 +5773,6 @@ html.has-background .panel.login {
   padding-left: 20px;
 }
 
-.pill {
-  padding: 2px 10px;
-  border-radius: var(--radius-round);
-  border: 1px solid var(--border);
-  font-size: var(--text-12);
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.pill.on {
-  color: var(--accent);
-  background: var(--selected-bg);
-}
-
-.pill.warn {
-  color: #e0b25a;
-  border-color: #e0b25a;
-}
-
 /* Narrow windows (a phone): the chat replaces the video while it is open, with
    the toolbar still under it, so one click on Chat brings the video back. */
 .canvas.narrow {
@@ -6086,18 +5943,8 @@ body.conference-window {
   background: var(--selected-bg);
 }
 
-.modules-menu-item .badge {
+.modules-menu-item .sdk-badge {
   margin-left: auto;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: 16px;
-  text-align: center;
 }
 
 /* Above the call (and the overlay pages), below nothing that matters. */
@@ -6195,20 +6042,6 @@ body.conference-window {
 
 .module-layer.snapping .snap-grid {
   display: block;
-}
-
-/* Unread count on a module's header item */
-.nav-badge {
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: 16px;
-  text-align: center;
 }
 
 /* Notification toasts */
@@ -6392,29 +6225,8 @@ body.conference-window {
   z-index: var(--z-menu); /* above a floating module (the layer is 25), under a page opened over the call (30) */
 }
 
-.host-menu-badge {
+.host-menu-item .sdk-badge {
   margin-left: auto;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: 16px;
-  text-align: center;
-}
-
-/* A small word after an entry's label (Default). */
-.host-menu-tag {
-  flex: none;
-  padding: 0 6px;
-  border-radius: var(--radius-round);
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  font-size: var(--text-11);
-  line-height: 16px;
 }
 
 .host-menu-range {
@@ -6880,12 +6692,6 @@ body.module-page .module-status {
   margin-left: auto;
 }
 
-.mod-status-item.chip {
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-round);
-}
-
 .mod-status-text {
   min-width: 0;
   overflow: hidden;
@@ -6925,11 +6731,6 @@ body.module-page .module-status {
 }
 /* the filters at the top of the Modules tab */
 .module-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.filter-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-round); background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: var(--text-13); cursor: pointer; }
-.filter-chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--text); }
-.filter-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: var(--weight-strong); }
-.filter-chip .count { min-width: 18px; padding: 0 5px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text) 16%, transparent); font-size: var(--text-11); line-height: 18px; text-align: center; }
-.filter-chip.on .count { background: color-mix(in srgb, var(--on-accent) 25%, transparent); }
 /* recent module activity: a box of rows that scrolls, newest first; the text can be selected and copied */
 .activity-head { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 6px; }
 .activity-head h3 { margin: 0; font-size: var(--text-16); }
@@ -7031,7 +6832,7 @@ body.module-page .module-status {
     font-size: var(--text-18);
   }
 
-  body.in-space .subnav-modules .modules-menu-item span:not(.badge) {
+  body.in-space .subnav-modules .modules-menu-item span:not(.sdk-badge) {
     display: block;
     max-width: 100%;
     overflow: hidden;
@@ -7046,7 +6847,7 @@ body.module-page .module-status {
     position: relative;
   }
 
-  body.in-space .subnav-modules .modules-menu-item .badge {
+  body.in-space .subnav-modules .modules-menu-item .sdk-badge {
     position: absolute;
     top: 2px;
     left: calc(50% + 6px);
@@ -7108,7 +6909,7 @@ body.module-page .module-status {
     display: block;
   }
 
-  body.in-space .subnav #subnav-more .badge {
+  body.in-space .subnav #subnav-more .sdk-badge-micro {
     top: 2px;
     right: auto;
     left: calc(50% + 6px);
@@ -7446,21 +7247,6 @@ body.module-page .module-status {
   color: var(--accent);
 }
 
-.whos-around-count {
-  min-width: 20px;
-  padding: 0 6px;
-  border-radius: var(--radius-round);
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--accent);
-  font-size: var(--text-11);
-  line-height: 20px;
-  text-align: center;
-}
-
-.whos-around-count:empty {
-  display: none;
-}
-
 .whos-around-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -7796,9 +7582,6 @@ body.module-page .module-status {
 .bgpick-close { width: 32px; height: 32px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); cursor: pointer; }
 .bgpick-close:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 .bgpick-filters { display: flex; flex-direction: column; gap: 6px; padding: 0 16px 8px; }
-.bgpick-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.bgpick-chip { height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-round); background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: var(--text-12); cursor: pointer; }
-.bgpick-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .bgpick-body { flex: 1; min-height: 160px; overflow: auto; padding: 4px 16px 12px; }
 .bgpick-msg { padding: 24px 0; text-align: center; }
 .bgpick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
@@ -8425,7 +8208,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .address-row .feed-made { margin: 4px 0 0; }
 .panel .address-row .address-hint { overflow-wrap: anywhere; }
 @media (max-width: 640px) {
-  .address-what .pill { order: 1; }
+  .address-what .sdk-status { order: 1; }
   .address-what [data-read], .address-what #feed-row-read { flex-basis: 100%; order: 2; }
 }
 /* Module Configuration's published calendar, under the Calendar sharing switches: its state, the address once, its buttons. */
@@ -8875,26 +8658,6 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
 .phase-row.off .phase-row-label {
   color: var(--text-dim);
   font-weight: var(--weight-medium);
-}
-
-.phase-tag {
-  flex: none;
-  padding: 1px 6px;
-  border-radius: var(--radius-round);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-
-.phase-tag-now {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.phase-tag-main {
-  border: 1px solid var(--border);
-  color: var(--text-dim);
 }
 
 .phase-row-field {
@@ -10059,26 +9822,6 @@ body:not(.in-aside) .side-column-chat {
   outline-offset: 1px;
 }
 
-.side-column-rail-chat .badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: var(--radius-round);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: 16px;
-  text-align: center;
-}
-
-.side-column-rail-chat .badge[hidden] {
-  display: none;
-}
-
 .side-column-rail-faces {
   display: flex;
   flex-direction: column;
@@ -10314,18 +10057,10 @@ body:not(.in-aside) .side-column.call-left > .side-column-chat {
   color: var(--text);
 }
 
-/* Green count: something to act on (a module update, a new module to turn on). A filled pill with the number as text,
-   so the number says it, not only the colour. --ok darkened so --on-danger text reads on it. */
-:is(.badge, .nav-badge, .host-menu-badge, .count).badge-ok,
-.filter-chip.on .count.badge-ok {
-  background: color-mix(in srgb, var(--ok) 70%, black);
-  color: var(--on-danger);
-}
-
 /* In the phone's header menu the count sits at the end of the row, not on the icon's corner. */
 @media (max-width: 640px) {
   .topbar.menu-open .links > .icon-link::after { order: 1; }
-  .topbar.menu-open .links > .icon-link .badge.badge-ok {
+  .topbar.menu-open .links > .icon-link .sdk-badge-micro[data-tone="ok"] {
     position: static;
     order: 2;
     margin-left: auto;

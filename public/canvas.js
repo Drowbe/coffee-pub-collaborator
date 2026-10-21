@@ -1871,7 +1871,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       // enough: the conference can be shown and out of the call ("Not in a call"), so its owner says (def.inCall).
       b.classList.toggle('in-call', open && Boolean(def.inCall?.()));
       const n = builtinUnread[def.id] || 0;
-      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(def.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(def.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
+      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(def.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(def.name)}</span>${n ? `<span class="sdk-badge">${n > 9 ? '9+' : n}</span>` : ''}`;
       menu.appendChild(b);
     }
     for (const m of available) {
@@ -1881,7 +1881,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       b.dataset.module = m.id;
       b.classList.toggle('on', isNarrow() && opened.has(m.id) ? view === m.id : opened.has(m.id));
       const n = unreadOf(m.id);
-      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(m.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
+      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(m.name)}</span>${n ? `<span class="sdk-badge">${n > 9 ? '9+' : n}</span>` : ''}`;
       menu.appendChild(b);
     }
     // The tabs are new: the bar folds again (nav-bar.js, plan-phone-space-bar.md), so the tabs that do not fit and

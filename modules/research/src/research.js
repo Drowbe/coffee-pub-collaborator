@@ -1,7 +1,7 @@
 // The Research module's page: notes, links and photos a group keeps while it plans, each a card that can be tagged, found again,
 // linked from anywhere and dragged onto a plan. The objects live in the module's store (see research-lib.js). This page draws into
 // the markup in research.html by cloning its templates and filling their [data-slot] and [data-icon] hooks, and toggles the state
-// classes and data attributes CONTRACT.md lists. It builds no markup from strings and sets no style (a tag's colour, --tag, and the
+// classes and data attributes CONTRACT.md lists. It builds no markup from strings and sets no style (a tag's colour, --chip-tone, and the
 // object menu's position are the exceptions). "Research this" asks in Chat (`host.chat.ask`) with that object as context.
 (async () => {
   'use strict';
@@ -129,7 +129,7 @@
     const el = clone(tplId);
     fill(el, { label: tag });
     const c = colorOf(tag);
-    if (c) el.style.setProperty('--tag', c);
+    if (c) el.style.setProperty('--chip-tone', c);
     return el;
   }
 
@@ -269,11 +269,11 @@
       hydrate(root);
       return;
     }
-    for (const b of $('kinds').querySelectorAll('.rs-chip')) b.classList.toggle('on', b.dataset.kind === state.kind);
+    for (const b of $('kinds').querySelectorAll('.sdk-chip')) { b.classList.toggle('on', b.dataset.kind === state.kind); b.setAttribute('aria-pressed', String(b.dataset.kind === state.kind)); }
     const counts = tagCounts(all);
     // Only the tags chosen as filters show here, each with an x; every tag in use is in the toolbar's Tags chooser.
     state.tags = state.tags.filter((t) => counts.some((c) => c.tag === t)); // a tag no object carries any more drops out
-    $('tag-chips').replaceChildren(...state.tags.map((tag) => { const c = tagNode(tag, 'tpl-chip-tag'); c.dataset.tag = tag; return c; }));
+    $('tag-chips').replaceChildren(...state.tags.map((tag) => { const c = tagNode(tag, 'tpl-chip-tag'); c.dataset.tag = tag; c.querySelector('.sdk-chip-x').setAttribute('aria-label', `Stop filtering by ${tag}`); return c; }));
     hide($('tag-chips'), !state.tags.length);
     if (tagsButton) tagsButton.set({ label: state.tags.length ? `Tags ${state.tags.length}` : 'Tags', on: state.tags.length > 0 });
     const dl = $('tag-list');
@@ -381,10 +381,10 @@
   }
 
   $('filter').addEventListener('input', () => { state.filter = $('filter').value; render(); });
-  $('kinds').addEventListener('click', (ev) => { const b = ev.target.closest('.rs-chip'); if (b) { state.kind = b.dataset.kind; render(); } });
+  $('kinds').addEventListener('click', (ev) => { const b = ev.target.closest('.sdk-chip'); if (b) { state.kind = b.dataset.kind; render(); } });
   // A chosen tag's chip drops that tag from the filter; choosing one is the toolbar's Tags menu (openTagMenu).
   $('tag-chips').addEventListener('click', (ev) => {
-    const b = ev.target.closest('.rs-chip');
+    const b = ev.target.closest('.sdk-chip-x') && ev.target.closest('[data-tag]');
     if (!b) return;
     state.tags = state.tags.filter((t) => t !== b.dataset.tag);
     render();

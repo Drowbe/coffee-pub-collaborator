@@ -23,7 +23,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
    itself (the two ways to lose it) sit behind this "..." in the corner, apart from everything else. */
 .menu-btn { position: absolute; top: 8px; right: 8px; }
 .meta { color: var(--text-muted); font-size: var(--text-12); }
-.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); font-size: var(--text-11); color: var(--text-muted); }
+.meta .sdk-chip-tag { margin-left: var(--space-2); }
 .opt { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-page); color: var(--text-primary); font: inherit; text-align: left; overflow: hidden; cursor: pointer; }
 .opt:disabled { cursor: default; }
 .opt:not(:disabled):hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
@@ -44,9 +44,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* other spaces' polls on the environment page */
 .ri { display: inline-flex; align-items: center; margin-right: 2px; }
 .ri svg { width: 1em; height: 1em; fill: currentColor; }
-.spaces { display: flex; flex-wrap: wrap; gap: 6px; }
-.filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: none; color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; opacity: 0.6; }
-.filter.on { color: var(--text-primary); background: var(--fill-selected); opacity: 1; }
 
 /* the form for a new poll: #editor is a <dialog> the SDK draws as the editor window (host.ui.editor), which gives the
    box, its padding, the backdrop and the sticky button row (.sdk-editor-actions). The form is .sdk-form: the SDK draws every
@@ -57,15 +54,12 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .opt-row { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 .opt-row input { flex: 1; min-width: 0; }
 
-.tag.ref { cursor: pointer; }
-.tag.ref:hover { color: var(--text-primary); border-color: var(--accent-fill); }
-.tag b { color: var(--accent); font-weight: var(--weight-strong); }
+.sdk-chip-tag b { font-weight: var(--weight-strong); }
 .poll.flash { border-color: var(--accent-fill); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-fill) 35%, transparent); }
 
 .opt.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 .optlink { display: flex; align-items: center; gap: 4px; margin: 2px 0 6px 4px; }
-.optlink .tag { margin-left: 0; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.optlink .tag.ref { cursor: pointer; }
+.optlink .sdk-chip-tag { min-width: 0; text-overflow: ellipsis; }
 .optlink .x { padding: 0 4px; border: 0; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
 
 .o-datewrap { flex: 1 1 100%; }

@@ -530,7 +530,8 @@
     if (ph && ph.tint) {
       el.classList.add('in-phase', `ph-${ph.tint}`);
       const tag = document.createElement('span');
-      tag.className = 'phase-tag';
+      tag.className = 'sdk-chip-tag';
+      tag.dataset.tone = 'custom';
       tag.textContent = ph.label;
       tag.title = `${ph.label}${ph.first ? ' starts' : ''}`;
       head.querySelector('.dmeta').prepend(tag);
@@ -1515,11 +1516,11 @@
 
   function markCurrent(day) {
     if (day) { state.currentDay = day; syncStatus(); }
-    for (const c of root.querySelectorAll('.daychip')) c.classList.toggle('current', c.dataset.day === day);
+    for (const c of root.querySelectorAll('.daychip')) { if (c.dataset.day === day) c.setAttribute('aria-current', 'true'); else c.removeAttribute('aria-current'); }
     for (const d of root.querySelectorAll('.day2[data-day]')) d.classList.toggle('current', Boolean(day) && d.dataset.day === day);
     // keep the chosen chip in view inside the strip (the strip alone scrolls, never the page)
     const strip = $('daystrip');
-    const chip = strip && strip.querySelector('.daychip.current');
+    const chip = strip && strip.querySelector('.daychip[aria-current="true"]');
     if (chip) {
       const left = chip.offsetLeft - strip.offsetLeft;
       if (left < strip.scrollLeft || left + chip.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: left - (strip.clientWidth - chip.offsetWidth) / 2 });

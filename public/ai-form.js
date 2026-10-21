@@ -62,8 +62,8 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     // A saved key this server can't read (the server says why in keyProblem): it counts as none and has to be entered again.
     const problem = aiState.keyProblem && aiKeyMode === 'keep' ? aiState.keyProblem.charAt(0).toUpperCase() + aiState.keyProblem.slice(1) : '';
     $('ai-key-state').textContent = aiState.keyFromEnvironment ? 'set by the server\'s environment' : aiKeyMode === 'clear' ? 'will be removed' : set ? 'set' : problem ? 'can\'t be read' : 'not set';
-    $('ai-key-state').classList.toggle('on', set);
-    $('ai-key-state').classList.toggle('warn', Boolean(problem));
+    const keyTone = problem ? 'warn' : set ? 'ok' : '';
+    if (keyTone) $('ai-key-state').dataset.tone = keyTone; else delete $('ai-key-state').dataset.tone;
     $('ai-key').hidden = aiKeyMode !== 'replace';
     $('ai-key-replace').hidden = aiState.keyFromEnvironment;
     $('ai-key-replace').textContent = aiKeyMode === 'replace' ? 'Cancel' : aiState.keySet ? 'Replace the key' : problem ? 'Enter the key again' : 'Set a key';

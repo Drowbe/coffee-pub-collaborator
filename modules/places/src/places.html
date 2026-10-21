@@ -26,7 +26,7 @@
   <div class="part-head" id="part-head" hidden><button class="btn btn-primary" type="button" data-action="add-place"><span class="ic" data-icon="plus"></span> Add a place</button></div>
   <!-- whose places (Mine/This space/Everyone): host.ui.viewSwitch draws it in the toolbar, not here -->
   <p class="view-note" data-slot="view-note" hidden><span class="ic" data-icon="circle-info"></span><span data-slot="text"></span></p>
-  <div class="chips" id="chips" role="group" aria-label="Category"></div>
+  <div class="sdk-chips" id="chips" role="group" aria-label="Category"></div>
   <p class="error" id="note" hidden></p>
   <main id="body" class="body"></main>
   <!-- the results of a search, over the foot of the pane while there are some (the script fills it from the tpl-found-* templates) -->
@@ -84,7 +84,7 @@
 
 <!-- ============================ templates ============================ -->
 
-<template id="tpl-chip"><button class="chip" type="button"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="count" data-slot="count"></span></button></template>
+<template id="tpl-chip"><button class="sdk-chip" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="sdk-badge" data-slot="count"></span></button></template>
 <template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="rows"></div></section></template>
 
 <!-- a place. The element gets data-id and data-cat (a category id from the environment list; do, eat, stay, travel, other to start). -->

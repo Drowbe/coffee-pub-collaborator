@@ -1329,9 +1329,9 @@ function moduleCard(m, shape = 'full') {
     ...(m.actions && m.actions.uses.length ? [`<li><strong>Ask other ${escapeHtml(word('module', { many: true }))} to do things</strong> <span class="hint">${escapeHtml(m.actions.uses.map((c) => c === '*' ? `any ${word('module')}` : c.replace(':', ' ')).join(', '))}: each request is carried out by the ${escapeHtml(word('module'))} that owns the action</span></li>`] : []),
     ...(m.refs && m.refs.consumes.length ? [`<li><strong>Link to other ${escapeHtml(word('module', { many: true }))}' ${escapeHtml(word('object', { many: true }))}</strong> <span class="hint">${escapeHtml(m.refs.consumes.map((c) => c.replace(':', ' ')).join(', '))}, shown only to people who can already see them</span></li>`] : []),
   ];
-  const modeTag = m.runMode === 'page' ? '<span class="pill warn">In the page</span>' : '<span class="pill">Sandboxed</span>';
+  const modeTag = m.runMode === 'page' ? '<span class="sdk-status" data-tone="warn">In the page</span>' : '<span class="sdk-status">Sandboxed</span>';
   // The state: one switch (#264); a module built for an older version of the product can't be turned on, so it says so.
-  const control = m.outdated ? '<span class="pill warn">Needs an update</span>' : `${m.needsApproval && !m.enabled ? '<span class="pill warn">Needs approval</span> ' : ''}${enabledSwitch({ id: m.id, attr: 'data-module-enabled', name: shownName(m), on: m.enabled, disabled: !m.enabled && Boolean(m.missing?.length || m.needsUpdate?.length) })}`;
+  const control = m.outdated ? '<span class="sdk-status" data-tone="warn">Needs an update</span>' : `${m.needsApproval && !m.enabled ? '<span class="sdk-status" data-tone="warn">Needs approval</span> ' : ''}${enabledSwitch({ id: m.id, attr: 'data-module-enabled', name: shownName(m), on: m.enabled, disabled: !m.enabled && Boolean(m.missing?.length || m.needsUpdate?.length) })}`;
   const several = m.versions.length > 1; // the picker lists every kept version, the running one selected
   const name = escapeHtml(shownName(m));
   const head = `
@@ -1381,7 +1381,7 @@ function moduleCard(m, shape = 'full') {
   if (newer) {
     const note = document.createElement('div');
     note.className = 'module-update';
-    note.innerHTML = `<span class="pill warn">Update available</span> <strong>Version ${escapeHtml(newer.version)}</strong> comes with this server. <button class="btn btn-primary btn-small" data-bundled-action="install" data-bundled-id="${escapeHtml(newer.id)}" type="button">Update to ${escapeHtml(newer.version)}</button> <span class="hint">Your data stays as it is, and you can switch back${shape === 'full' ? ' below' : ` on its tab`}. If it asks for anything new you approve it first.</span>`;
+    note.innerHTML = `<span class="sdk-status" data-tone="warn">Update available</span> <strong>Version ${escapeHtml(newer.version)}</strong> comes with this server. <button class="btn btn-primary btn-small" data-bundled-action="install" data-bundled-id="${escapeHtml(newer.id)}" type="button">Update to ${escapeHtml(newer.version)}</button> <span class="hint">Your data stays as it is, and you can switch back${shape === 'full' ? ' below' : ` on its tab`}. If it asks for anything new you approve it first.</span>`;
     (el.querySelector('.module-outdated') || el.querySelector('.module-head')).after(note);
   }
   return el;
@@ -1394,7 +1394,7 @@ function builtinCard(b, { link = false } = {}) {
   el.className = 'panel module-card';
   el.dataset.builtin = b.id;
   const name = escapeHtml(shownName(b));
-  const control = b.switchable ? enabledSwitch({ id: b.id, attr: 'data-builtin-toggle', name: shownName(b), on: b.enabled }) : '<span class="pill on">Always on</span>';
+  const control = b.switchable ? enabledSwitch({ id: b.id, attr: 'data-builtin-toggle', name: shownName(b), on: b.enabled }) : '<span class="sdk-status" data-tone="ok">Always on</span>';
   el.innerHTML = `
     <div class="module-head">
       <i class="fa-solid fa-${escapeHtml(shownIcon(b))} fa-fw module-icon" aria-hidden="true"></i>
@@ -1692,7 +1692,7 @@ function syncModuleFilters() {
 }
 // A count above zero is a green pill with a spoken name; at zero it is the neutral grey one.
 function greenCount(el, n, label) {
-  el.classList.toggle('badge-ok', n > 0);
+  if (n > 0) el.dataset.tone = 'ok'; else delete el.dataset.tone;
   if (n > 0) { el.setAttribute('role', 'img'); el.setAttribute('aria-label', label); } else { el.removeAttribute('role'); el.removeAttribute('aria-label'); }
 }
 $('module-filters').addEventListener('click', (event) => {

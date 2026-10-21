@@ -538,7 +538,7 @@ function reasonInto(el, reason, module = feed && feed.module) {
 function fillAddress(parts, address, { editing, hint = '', place, whyAll = '' }) {
   const { on, allowed } = address;
   parts.state.textContent = on ? 'on' : 'off';
-  parts.state.classList.toggle('on', on);
+  if (on) parts.state.dataset.tone = 'ok'; else delete parts.state.dataset.tone;
   parts.read.textContent = on ? `Made ${dayOf(address.made)}. ${lastRead(address.readAt)}` : '';
   parts.row.classList.toggle('disabled', !editing && !allowed && !on);
   if (parts.hint) {
@@ -1050,7 +1050,7 @@ function renderMfa(editing) {
   if (!mfaOffered) { $('mfa-block').hidden = true; return; }
   const on = Boolean(user.mfaEnrolled);
   $('mfa-state').textContent = on ? (mfaBypass && !editing ? 'on, bypassed' : 'on') : 'off';
-  $('mfa-state').classList.toggle('on', on && !mfaBypass);
+  if (on && !mfaBypass) $('mfa-state').dataset.tone = 'ok'; else delete $('mfa-state').dataset.tone;
   $('mfa-on').hidden = editing || on;
   $('mfa-off').hidden = editing || !on || mfaRequired || mfaBypass;
   // An admin's second factor is not someone else's to reset (the server refuses it): only its own profile offers that.

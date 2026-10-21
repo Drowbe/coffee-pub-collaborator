@@ -267,7 +267,7 @@
     }
     return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => (isMarker(x) ? markerItemHtml(x, start, agenda) : `
       <button class="item${isExternal(x) ? ` ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}" title="${esc(`${whenFull(x.ev, start, end)}  ${x.ev.title}${x.ev.desc ? ' - ' + x.ev.desc.slice(0, 120) : ''}`)}"><span class="when">${esc(whenText(x.ev, start, end, isCompact()))}</span>
-        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="tag ext">${esc(externalName(x.calendar))}</span>` : ''}</strong></span></button>`)).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
+        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="sdk-chip-tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="sdk-chip-tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="sdk-chip-tag">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="sdk-chip-tag" data-tone="custom">${esc(externalName(x.calendar))}</span>` : ''}</strong></span></button>`)).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
   }
 
   function monthList() {
@@ -606,7 +606,7 @@
     const r = x.marker.ref.scope === 'space' && !inSpace ? spaceInfo.get(x.marker.ref.space) : null;
     const name = x.marker.module && x.marker.module.name ? String(x.marker.module.name) : '';
     return `<button type="button" class="item marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}"><span class="when">${esc(isCompact() ? when.replace(/:00(?=\s?[AP]M)/i, '') : when)}</span>
-      <span class="what"><strong>${markerIconHtml(x)}${agenda ? markerSpaceIcon(x) : ''}${esc(x.ev.title)}${name ? `<span class="tag">${esc(name)}</span>` : ''}${!agenda && r ? `<span class="tag space">${spaceIcon({ scope: 'spaces', spaceId: r.id })} ${esc(r.name)}</span>` : ''}</strong></span></button>`;
+      <span class="what"><strong>${markerIconHtml(x)}${agenda ? markerSpaceIcon(x) : ''}${esc(x.ev.title)}${name ? `<span class="sdk-chip-tag">${esc(name)}</span>` : ''}${!agenda && r ? `<span class="sdk-chip-tag">${spaceIcon({ scope: 'spaces', spaceId: r.id })} ${esc(r.name)}</span>` : ''}</strong></span></button>`;
   }
   // A marker opens its object in its own module, as a link does; Ctrl or Cmd asks for a new tab where the page can.
   function openMarker(key, e) {
@@ -665,9 +665,9 @@
     if (box.hidden) return;
     const keep = root.activeElement && root.activeElement.closest && root.activeElement.closest('#filters [data-space], #filters [data-external], #filters [data-marker-kind]');
     const kept = !keep ? '' : keep.dataset.space ? `[data-space="${keep.dataset.space}"]` : keep.dataset.markerKind ? `[data-marker-kind="${keep.dataset.markerKind}"]` : `[data-external="${keep.dataset.external}"]`;
-    box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('')
-      + kinds.map((k) => `<button type="button" class="filter marker${k.tint ? ` tint-${k.tint}` : ''} ${hiddenMarkers.has(k.id) ? '' : 'on'}" data-marker-kind="${esc(k.id)}" aria-pressed="${!hiddenMarkers.has(k.id)}" title="${hiddenMarkers.has(k.id) ? 'Show' : 'Hide'} ${esc(k.label)}">${markerIcons.get(k.icon) ? `<span class="mi" aria-hidden="true">${markerIcons.get(k.icon)}</span>` : ''}${esc(k.label)}</button>`).join('')
-      + [...externalCalendars.values()].map((c) => `<button type="button" class="filter ext ext-${c.tint} ${hiddenExternal.has(c.id) ? '' : 'on'}" data-external="${esc(c.id)}" aria-pressed="${!hiddenExternal.has(c.id)}" title="${hiddenExternal.has(c.id) ? 'Show' : 'Hide'} ${esc(c.name)}, only you see it"><span class="dot" aria-hidden="true"></span> ${esc(c.name)}</button>`).join('');
+    box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="sdk-chip ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('')
+      + kinds.map((k) => `<button type="button" class="sdk-chip marker${k.tint ? ` tint-${k.tint}` : ''} ${hiddenMarkers.has(k.id) ? '' : 'on'}" data-marker-kind="${esc(k.id)}" aria-pressed="${!hiddenMarkers.has(k.id)}" title="${hiddenMarkers.has(k.id) ? 'Show' : 'Hide'} ${esc(k.label)}">${markerIcons.get(k.icon) ? `<span class="mi" aria-hidden="true">${markerIcons.get(k.icon)}</span>` : ''}${esc(k.label)}</button>`).join('')
+      + [...externalCalendars.values()].map((c) => `<button type="button" class="sdk-chip ext ext-${c.tint} ${hiddenExternal.has(c.id) ? '' : 'on'}" data-external="${esc(c.id)}" aria-pressed="${!hiddenExternal.has(c.id)}" title="${hiddenExternal.has(c.id) ? 'Show' : 'Hide'} ${esc(c.name)}, only you see it"><span class="dot" aria-hidden="true"></span> ${esc(c.name)}</button>`).join('');
     if (kept) { const again = box.querySelector(kept); if (again) again.focus(); }
   }
   $('filters').addEventListener('click', (e) => {

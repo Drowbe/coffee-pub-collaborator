@@ -19,13 +19,7 @@ body { margin: 0; overflow: hidden; }
 .head h1 { margin: 0; font-size: var(--text-18); }
 .head .count { color: var(--text-muted); font-size: var(--text-12); }
 .head-search { flex: 1; min-width: 180px; max-width: 360px; margin-left: auto; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; height: 26px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: var(--bg-card); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
-.chip:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
-.chip[data-cat]:not(.on) .ic { color: var(--tone); }
-.chip.on { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); }
-.chip[data-cat].on { background: var(--tone); border-color: var(--tone); color: var(--tone-ink); }
-.chip .count { opacity: 0.8; }
+.sdk-chip[data-cat] { --tone: var(--accent-fill); --chip-glyph: var(--tone); } /* the script sets --tone to the category's colour; it shows on the icon only */
 
 /* ---- the list, grouped by category ---- */
 .body { flex: 1; min-height: 0; overflow: auto; margin: 0 -12px; padding: 0 12px 16px; }
@@ -33,11 +27,8 @@ body { margin: 0; overflow: hidden; }
 .group-title { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
 
-/* the category mark: an icon and a label, coloured by a token mix, never colour alone */
-.cat { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); border-radius: var(--radius-round); color: var(--tone); font-size: var(--text-11); line-height: 18px; white-space: nowrap; }
-
 /* a place: a card in its colour (the script sets --tone: a theme tint, or the colour the owner chose for the category) */
-.place-row, .chip[data-cat], .cat { --tone: var(--accent-fill); --tone-ink: var(--surface-page); }
+.place-row { --tone: var(--accent-fill); --tone-ink: var(--surface-page); }
 .place-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 12px; align-items: start; padding: 12px; border: 1px solid color-mix(in srgb, var(--tone) 36%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-card)), color-mix(in srgb, var(--tone) 5%, var(--bg-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 12%, transparent); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .place-row:hover, .place-row:focus-within { transform: translateY(-1px); border-color: var(--tone); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 8px 18px color-mix(in srgb, black 20%, transparent); }
 @media (prefers-reduced-motion: reduce) { .place-row { transition: none; } .place-row:hover { transform: none; } }
@@ -82,7 +73,6 @@ body { margin: 0; overflow: hidden; }
 /* phones and narrow panes: the script sets .narrow on .app from the pane's width (under 720 px), not the window's */
 .app.narrow .rows { grid-template-columns: minmax(0, 1fr); }
 .app.narrow .head-search { flex: 1 1 100%; max-width: none; margin-left: 0; order: 3; }
-.app.narrow .chip { height: 32px; }
 
 /* ---- whose places (mine, this space, everyone): host.ui.viewSwitch draws the switch itself in the toolbar ---- */
 .view-note { display: flex; align-items: center; gap: 6px; margin: -2px 0 0; color: var(--text-muted); font-size: var(--text-12); }

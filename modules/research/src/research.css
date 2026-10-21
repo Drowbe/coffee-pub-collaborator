@@ -1,6 +1,6 @@
 /*
  * The Research module's look. The markup it styles is fixed in CONTRACT.md; the script builds that markup and toggles state classes and data
- * attributes, it never sets a style (a tag's colour, --tag, is the one exception). Colours come only from the theme tokens, so a light theme
+ * attributes, it never sets a style (a tag's colour, --chip-tone, is the one exception). Colours come only from the theme tokens, so a light theme
  * works. Nothing has a fixed pixel height: the module fills its pane and scrolls inside it. The narrow layout keys on `.rs.narrow`, which the
  * script sets from the pane's width (under 720 px), not the window's.
  */
@@ -25,16 +25,8 @@ body { margin: 0; overflow: hidden; }
 .rs-head h1 { margin: 0; font-size: var(--text-18); }
 .rs-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 14px 8px; }
 .rs-search { flex: 1; min-width: 180px; max-width: 360px; }
-/* Filters: small rounded rectangles, never pills. The kind row is always there; the tag row shows only the tags chosen
-   in the toolbar's Tags chooser, each with an x to drop it. */
-.rs-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 14px 8px; }
-.rs-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-muted); font: inherit; font-size: var(--text-11); line-height: var(--leading-ui); cursor: pointer; }
-.rs-chip.on { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); }
-.rs-chip.tag { --tag: var(--text-muted); border-color: color-mix(in srgb, var(--tag) 55%, var(--edge-hairline)); }
-.rs-chip.tag::before { content: ""; width: 7px; height: 7px; border-radius: var(--radius-min); background: var(--tag); }
-.rs-chip.tag.on { background: color-mix(in srgb, var(--tag) 30%, var(--bg-card)); color: var(--text-primary); }
-.rs-chip.tag .x { margin-left: 2px; color: var(--text-muted); font-size: var(--text-12); line-height: var(--leading-ui); }
-.rs-chip.tag:hover .x, .rs-chip.tag:focus-visible .x { color: var(--text-primary); }
+/* Filters: the kind row is always there; the tag row shows only the tags chosen in the toolbar's Tags chooser, each with an x to drop it. */
+.rs-chips { padding: 0 14px 8px; }
 .rs-body { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 16px; }
 /* cards pack like masonry: the grid's rows are a fine unit and the script gives each card the span its own height needs
    (see masonry() in research.js), so nothing leaves a hole under a short card; the columns come from auto-fill */
@@ -86,8 +78,6 @@ body { margin: 0; overflow: hidden; }
 .rcard .thumb { display: block; width: calc(100% + 24px); margin: -12px -12px 4px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-large) var(--radius-large) 0 0; background: color-mix(in srgb, var(--tone) 25%, var(--bg-card)); }
 .rcard .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-muted); font-size: var(--text-11); }
 .rcard .tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.rcard .tag { --tag: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--tag) 50%, var(--edge-hairline)); border-radius: var(--radius-min); font-size: var(--text-11); line-height: 18px; }
-.rcard .tag::before { content: ""; width: 6px; height: 6px; border-radius: var(--radius-min); background: var(--tag); }
 .rcard .by { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
 .rcard .by span { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 30%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
 /* the empty state, and the photo upload */
@@ -162,5 +152,4 @@ body { margin: 0; overflow: hidden; }
 .upload progress::-moz-progress-bar { background: var(--accent-fill); }
 .upload .step[data-error] { color: var(--danger); }
 /* Ask is a panel over the pane (the whole pane on a phone) */
-.rs.narrow .rs-chip { height: 28px; font-size: var(--text-12); }
 

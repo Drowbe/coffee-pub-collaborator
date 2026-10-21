@@ -444,7 +444,7 @@ function apply(el, t) {
 }
 
 function paintBadge(el, t) {
-  const cls = lookOf(t) === 'core' ? 'nav-badge' : 'badge';
+  const cls = lookOf(t) === 'core' ? 'sdk-badge' : 'sdk-badge-micro';
   let badge = el.querySelector(`:scope > .${cls}`);
   const n = Number(t.badge) || 0;
   if (!n) {
@@ -456,7 +456,7 @@ function paintBadge(el, t) {
     badge.className = cls;
     el.appendChild(badge);
   }
-  badge.classList.toggle('badge-ok', t.badgeTone === 'ok');
+  if (t.badgeTone === 'ok') badge.dataset.tone = 'ok'; else delete badge.dataset.tone;
   if (t.badgeLabel) {
     badge.removeAttribute('aria-hidden');
     badge.setAttribute('role', 'img');
@@ -622,7 +622,7 @@ export function phoneFold(list, { popped = false } = {}) {
 const hasEntry = (t) => Boolean(t) && !(t.element && typeof t.onClick !== 'function' && !t.href);
 // A phone tab's id: its module (`module:<id>`) or built-in (`builtin:<id>`), as canvas.js draws it.
 const tabKey = (tab) => (!tab ? null : tab.dataset.builtin ? `builtin:${tab.dataset.builtin}` : `module:${tab.dataset.module}`);
-const unreadOf = (tab) => parseInt(tab.querySelector(':scope > .badge')?.textContent || '0', 10) || 0;
+const unreadOf = (tab) => parseInt(tab.querySelector(':scope > .sdk-badge')?.textContent || '0', 10) || 0;
 
 // Each bar's fold: its "..." (`more`), the ids folded into it, the folded tabs (the phone's tab bar) and what was last
 // picked from its menu.
@@ -910,7 +910,7 @@ async function openFoldMenu(bar) {
     const icon = [...(tab.querySelector(':scope > i')?.classList || [])].filter((c) => c !== 'fa-fw').join(' ');
     tabItems.push({
       icon: icon || undefined,
-      label: tab.querySelector(':scope > span:not(.badge)')?.textContent || '',
+      label: tab.querySelector(':scope > span:not(.sdk-badge)')?.textContent || '',
       badge: unreadOf(tab),
       onPick: () => {
         fold.picked = key;

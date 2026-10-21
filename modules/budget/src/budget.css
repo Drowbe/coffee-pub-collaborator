@@ -25,12 +25,6 @@ body { margin: 0; overflow: hidden; }
 .big .of { color: var(--text-muted); font-size: var(--text-14); font-weight: var(--weight-regular); }
 .big.over { color: var(--danger); }
 
-/* the bar of spent against the target: a lighter fill for what is only planned, a stronger one for what is paid */
-.bar { position: relative; height: 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text-primary) 12%, transparent); overflow: hidden; }
-.bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-round); }
-.bar-expected { background: color-mix(in srgb, var(--accent-fill) 35%, transparent); }
-.bar-spent { background: var(--accent-fill); }
-.bar.over .bar-spent { background: var(--status-danger-fill); }
 .sums { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px 12px; margin: 10px 0 0; }
 .sum dt { color: var(--text-muted); font-size: var(--text-11); }
 .sum dd { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
@@ -43,10 +37,9 @@ body { margin: 0; overflow: hidden; }
 .mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--radius-round); background: var(--tone, var(--accent-fill)); color: var(--surface-page); font-size: var(--text-12); flex: none; }
 .cat-name { font-weight: var(--weight-strong); min-width: 0; overflow-wrap: anywhere; }
 .cat-amount { color: var(--text-muted); font-size: var(--text-12); text-align: right; }
-.cat-bar { position: relative; height: 6px; margin-top: 4px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text-primary) 10%, transparent); overflow: hidden; }
-.cat-bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-round); }
-.cat-plan { background: color-mix(in srgb, var(--tone, var(--accent-fill)) 40%, transparent); }
-.cat-paid { background: var(--tone, var(--accent-fill)); }
+.cat-bar { margin-top: var(--space-1); }
+.cat-bar .sdk-progress-fill { background: var(--tone, var(--accent-fill)); }
+.cat-bar .sdk-progress-planned { background: color-mix(in srgb, var(--tone, var(--accent-fill)) 40%, transparent); }
 
 /* ---- the burndown: plain SVG, drawn by the script at the width of its place so the words stay readable ---- */
 .chart { width: 100%; overflow: hidden; }

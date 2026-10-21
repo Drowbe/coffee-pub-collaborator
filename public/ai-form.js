@@ -142,10 +142,11 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     const pct = limit ? Math.min(100, Math.round(((used.tokens || 0) / limit) * 100)) : 0;
     $('ai-meter').hidden = !limit;
     $('ai-meter').setAttribute('aria-valuenow', String(pct));
-    $('ai-meter-fill').style.width = pct + '%';
+    $('ai-meter').setAttribute('aria-valuetext', pct >= 90 ? `${pct} percent, almost full` : `${pct} percent`);
+    $('ai-meter-fill').style.setProperty('--pct', pct + '%');
     $('ai-meter').classList.toggle('warn', pct >= 90);
     const tasks = Object.entries((used && used.byTask) || {}).map(([k, v]) => k + ' ' + Number(v).toLocaleString()).join(', ');
-    $('ai-usage-text').textContent = Number((used && used.tokens) || 0).toLocaleString() + ' tokens in ' + Number((used && used.calls) || 0).toLocaleString() + ' calls' + (limit ? ', ' + pct + '% of the ' + limit.toLocaleString() + ' allowance' : ', no limit set') + (tasks ? '. By task: ' + tasks + '.' : '.');
+    $('ai-usage-text').textContent = Number((used && used.tokens) || 0).toLocaleString() + ' tokens in ' + Number((used && used.calls) || 0).toLocaleString() + ' calls' + (limit ? ', ' + pct + '% of the ' + limit.toLocaleString() + ' allowance' + (pct >= 90 ? '. Almost full' : '') : ', no limit set') + (tasks ? '. By task: ' + tasks + '.' : '.');
   }
 
   async function loadAi() {

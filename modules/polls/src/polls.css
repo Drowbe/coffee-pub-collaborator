@@ -21,7 +21,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .meta .sdk-chip-tag { margin-left: var(--space-2); }
 .opt { justify-content: space-between; width: 100%; overflow: hidden; cursor: pointer; }
 .opt:disabled { cursor: default; }
-.opt .fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent-fill) 24%, transparent); pointer-events: none; }
 .opt .name, .opt .num { position: relative; }
 .opt .name { overflow-wrap: anywhere; }
 .opt .name small { display: block; margin-top: 1px; color: var(--text-muted); font-size: var(--text-12); }

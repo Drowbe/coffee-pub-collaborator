@@ -4573,3 +4573,165 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   .sdk-spinner { animation-duration: 2.4s; }
 }
 /* states:end */
+
+/* ================= Progress bars and meters (design system step 25) =================
+   Source: public/design-system/proposed-progress.css, without the .ds-proposed prefix and the aliases. One track: 8px high, fully round, in the
+   hairline colour, with an accent fill and the value in words next to it (text, never colour alone). The small track is 6px (a toolbar, an upload).
+   Every bar is role="progressbar" with aria-valuenow, aria-valuemin, aria-valuemax and a name (aria-label); an unknown one has no valuenow and aria-busy.
+     .sdk-progress          the track; -sm is the 6px one, -short a bar that sits beside text and does not stretch (a toolbar)
+     .sdk-progress-fill     the fill; its width is --pct (data, set with style.setProperty('--pct', '62%'))
+     .sdk-progress-planned  Budget: what is planned, the accent at 35%, under the spent fill
+     .sdk-progress.over     over budget: the fill is the danger status fill and the words say "Over"
+     .sdk-progress.warn     the allowance at 90% or more: the danger fill and the words "Almost full"
+     .sdk-progress.indeterminate   a shimmer; still under reduced motion
+     .sdk-progress-behind   a poll option: a 24% accent fill behind the row, the percent in text on the row
+     .sdk-meter             a bar with its label above (.sdk-meter-head: .sdk-meter-label, .sdk-meter-value, .sdk-meter-sub)
+   The Status strip's fill stays in the Status strip. A native <progress> keeps its own role and takes the same track and fill (below). */
+/* progress:start */
+:root {
+  --pg-h: 8px;
+  --pg-track: var(--edge-hairline);
+  --pg-fill: var(--accent-fill);
+  --pg-planned: color-mix(in srgb, var(--accent-fill) 35%, transparent);
+  --pg-behind: color-mix(in srgb, var(--accent-fill) 24%, transparent);
+  --pg-over: var(--status-danger-fill);
+  --pg-shine: color-mix(in srgb, var(--accent-fill) 40%, var(--surface-card));
+}
+
+@keyframes sdk-progress-shimmer {
+  to { background-position: -200% 0; }
+}
+
+/* ---- the track ---- */
+.sdk-progress {
+  position: relative;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: var(--pg-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--pg-track);
+  overflow: hidden;
+}
+.sdk-progress[hidden] { display: none; }
+.sdk-progress-sm { --pg-h: 6px; }
+/* A bar beside text is a short one. */
+.sdk-progress-short { flex: 1 1 80px; min-width: 40px; max-width: 160px; width: auto; }
+
+.sdk-progress-fill {
+  --pct: 0%; /* the share, set on the element itself by the consumer (style.setProperty('--pct', '62%')) */
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: var(--pct);
+  border-radius: var(--radius-round);
+  background: var(--pg-fill);
+  transition: width var(--motion-base) var(--ease-out);
+}
+
+.sdk-progress .sdk-progress-planned {
+  --pct: 0%;
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: var(--pct);
+  border-radius: var(--radius-round);
+  background: var(--pg-planned);
+  transition: width var(--motion-base) var(--ease-out);
+}
+
+/* Over budget: the danger status fill (a solid fill, not an edge), the whole track, and the words say "Over". */
+.sdk-progress.over :is(.sdk-progress-fill, .sdk-progress-planned) {
+  width: 100%;
+  background: var(--pg-over);
+}
+.sdk-progress.over .sdk-progress-planned { display: none; }
+
+/* The allowance: the danger fill from 90%, and the words "Almost full". */
+.sdk-progress.warn .sdk-progress-fill { background: var(--pg-over); }
+
+/* Indeterminate: a shimmer along the whole track. Under reduced motion it holds still at half. */
+.sdk-progress.indeterminate .sdk-progress-fill {
+  width: 100%;
+  background: linear-gradient(90deg, var(--pg-fill) 0%, var(--pg-shine) 50%, var(--pg-fill) 100%);
+  background-size: 200% 100%;
+  animation: sdk-progress-shimmer 1.4s linear infinite;
+}
+
+/* A native <progress> (the map upload, a file upload): the same track and fill. */
+progress.sdk-progress {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--pg-track);
+}
+progress.sdk-progress::-webkit-progress-bar { background: var(--pg-track); }
+progress.sdk-progress::-webkit-progress-value { background: var(--pg-fill); border-radius: var(--radius-round); }
+progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-radius: var(--radius-round); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-progress.indeterminate .sdk-progress-fill {
+    width: 50%;
+    background: var(--pg-fill);
+    animation: none;
+  }
+
+  .sdk-progress-fill, .sdk-progress-planned { transition: none; }
+}
+
+/* ---- the bar with its label: the name and the value are text; the value is in words ---- */
+.sdk-meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sdk-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: var(--text-13);
+  line-height: 18px;
+}
+
+.sdk-meter-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sdk-meter-value {
+  flex: none;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sdk-meter-value b {
+  color: var(--status-danger-text);
+  font-weight: var(--weight-strong);
+}
+
+.sdk-meter-sub {
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  line-height: 16px;
+}
+
+/* ---- a poll option: the fill sits behind the row, the percent is text on it ---- */
+.sdk-progress-behind {
+  --pct: 0%;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pct);
+  background: var(--pg-behind);
+  pointer-events: none;
+}
+/* progress:end */

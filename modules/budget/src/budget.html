@@ -27,7 +27,7 @@
           <button class="btn btn-small" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
         </div>
         <p class="big" data-slot="big"></p>
-        <div class="bar" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="bar-expected" id="bar-expected"></span><span class="bar-spent" id="bar-spent"></span></div>
+        <div class="sdk-progress" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="sdk-progress-planned" id="bar-expected"></span><span class="sdk-progress-fill" id="bar-spent"></span></div>
         <dl class="sums" id="sums"></dl>
         <p class="hint" data-slot="target-note" hidden></p>
       </div>
@@ -144,7 +144,7 @@
   </article>
 </template>
 
-<template id="tpl-cat-row"><div class="sdk-row cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="cat-bar" aria-hidden="true"><span class="cat-plan"></span><span class="cat-paid"></span></div></div></template>
+<template id="tpl-cat-row"><div class="sdk-row cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="sdk-progress sdk-progress-sm cat-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="sdk-progress-planned"></span><span class="sdk-progress-fill"></span></div></div></template>
 <template id="tpl-sum"><div class="sum"><dt data-slot="label"></dt><dd data-slot="value"></dd></div></template>
 <template id="tpl-legend"><li class="key"><span class="swatch"></span><span data-slot="label"></span></li></template>
 <template id="tpl-person"><div class="sdk-row person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>

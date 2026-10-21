@@ -1872,11 +1872,15 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         if (item.type === 'text') { const s = doc.createElement('span'); s.className = 'tb-text'; s.textContent = item.text; toolbar.appendChild(s); continue; }
         if (item.type === 'progress') {
           const wrap = doc.createElement('span');
-          wrap.className = 'tb-progress';
-          if (item.label) wrap.setAttribute('aria-label', item.label);
+          wrap.className = 'sdk-progress sdk-progress-sm sdk-progress-short';
+          wrap.setAttribute('role', 'progressbar');
+          wrap.setAttribute('aria-label', item.label || 'Progress');
+          wrap.setAttribute('aria-valuemin', '0');
+          wrap.setAttribute('aria-valuemax', '100');
+          wrap.setAttribute('aria-valuenow', String(Math.round(Number(item.value) || 0)));
           const fill = doc.createElement('span');
-          fill.className = 'tb-progress-fill';
-          fill.style.width = `${item.value}%`;
+          fill.className = 'sdk-progress-fill';
+          fill.style.setProperty('--pct', `${item.value}%`);
           wrap.appendChild(fill);
           toolbar.appendChild(wrap);
           continue;

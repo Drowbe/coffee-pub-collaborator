@@ -267,7 +267,7 @@
       const width = voters ? Math.round((names.length / Math.max(voters, max, 1)) * 100) : 0;
       const win = leaders.some((l) => l.id === o.id);
       return `<button type="button" class="sdk-row opt ${mine.includes(o.id) ? 'on mine' : ''} ${win ? 'win' : ''}" data-vote="${esc(x.key)}|${esc(o.id)}" ${votable ? '' : 'disabled'}>
-        <span class="fill" style="width:${width}%"></span><span class="name">${esc(o.text)}${o.date ? `<small>${esc(new Date(o.date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }))}</small>` : ''}${o.desc ? `<small>${esc(o.desc)}</small>` : ''}</span><span class="num">${win ? (leaders.length > 1 ? 'Tied &middot; ' : 'Winner &middot; ') : ''}${names.length}</span></button>
+        <span class="sdk-progress-behind" role="progressbar" aria-label="Votes for ${esc(o.text)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${width}" aria-valuetext="${names.length} of ${voters || 0} voted for it" style="--pct:${width}%"></span><span class="name">${esc(o.text)}${o.date ? `<small>${esc(new Date(o.date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }))}</small>` : ''}${o.desc ? `<small>${esc(o.desc)}</small>` : ''}</span><span class="num">${win ? (leaders.length > 1 ? 'Tied &middot; ' : 'Winner &middot; ') : ''}${names.length}</span></button>
         ${names.length ? `<div class="who">${esc(names.join(', '))}</div>` : ''}${optionLinkHtml(x, o)}`;
     }).join('');
     const canManage = mayManage(x);

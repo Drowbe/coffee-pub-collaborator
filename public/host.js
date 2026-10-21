@@ -284,7 +284,7 @@ function renderEnvironments() {
     // need a host admin's eye (past due, degraded, a deletion asked for) marked.
     el.dataset.status = refused ? 'refused' : t.status || 'active';
     const pctOf = (used, limit) => (limit ? Math.min(100, Math.round((used / limit) * 100)) : null);
-    const tile = (key, value, pct = null, warn = false) => `<div class="fact${warn || (pct !== null && pct >= 90) ? ' fact-warn' : ''}"><span class="fact-key">${escapeHtml(key)}</span><span class="fact-value">${escapeHtml(value)}</span>${pct === null ? '' : `<span class="env-cap-bar${pct >= 90 ? ' warn' : ''}"><span style="width:${pct}%"></span></span>`}</div>`;
+    const tile = (key, value, pct = null, warn = false) => `<div class="fact${warn || (pct !== null && pct >= 90) ? ' fact-warn' : ''}"><span class="fact-key">${escapeHtml(key)}</span><span class="fact-value">${escapeHtml(value)}</span>${pct === null ? '' : `<span class="sdk-progress env-cap-bar${pct >= 90 ? ' warn' : ''}" role="progressbar" aria-label="${escapeHtml(key)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-valuetext="${pct} percent${pct >= 90 ? ', almost full' : ''}"><span class="sdk-progress-fill" style="--pct:${pct}%"></span></span>`}</div>`;
     const none = '\u2014'; // a refused environment has nothing to count
     const storageText = refused ? none : u.storageBytes == null ? (p.storageBytes ? `not measured yet, cap ${gb(p.storageBytes)}` : 'not measured yet') : p.storageBytes ? `${gb(u.storageBytes)} of ${gb(p.storageBytes)}` : `${gb(u.storageBytes)}, no cap`;
     slot(el, 'facts').innerHTML = [

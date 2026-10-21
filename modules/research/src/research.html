@@ -104,7 +104,7 @@
 </template>
 
 <!-- photo upload: one row per file. The script sets [data-slot=step] ("Preparing…", "Uploading…", an error) and the width of the bar through the value of progress. -->
-<template id="tpl-upload"><div class="upload"><span class="ic" data-icon="image"></span><span class="name" data-slot="name"></span><progress max="100" value="0"></progress><span class="step" data-slot="step"></span><button class="btn" type="button" data-action="retry-upload" hidden>Try again</button></div></template>
+<template id="tpl-upload"><div class="upload"><span class="ic" data-icon="image"></span><span class="name" data-slot="name"></span><progress class="sdk-progress sdk-progress-sm" max="100" value="0" aria-label="Upload"></progress><span class="step" data-slot="step"></span><button class="btn" type="button" data-action="retry-upload" hidden>Try again</button></div></template>
 <!-- asked after an upload whose file had a position -->
 <template id="tpl-pos-ask"><div class="pos-ask"><span class="ic" data-icon="location-crosshairs"></span><span class="grow" data-slot="text"></span><button class="btn" type="button" data-action="keep-position">Keep it</button><button class="btn" type="button" data-action="drop-position">Leave it out</button></div></template>
 

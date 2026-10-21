@@ -6637,9 +6637,7 @@ body.chat-window {
 .env-caps dt { color: var(--text-dim); font-size: var(--text-13); }
 .env-caps dd { margin: 0; display: flex; align-items: center; gap: 10px; }
 .env-cap-text { font-size: var(--text-13); min-width: 9em; }
-.env-cap-bar { flex: 1; max-width: 260px; height: 8px; border-radius: var(--radius-min); background: var(--bg-section); overflow: hidden; }
-.env-cap-bar span { display: block; height: 100%; background: var(--accent); }
-.env-cap-bar.warn span { background: var(--danger); }
+.env-cap-bar { flex: 1; max-width: 260px; }
 /* The host console's plans catalog: one card per plan, the design system's fields grid inside it. */
 .plans-editor { display: grid; gap: var(--space-2); margin: 8px 0; }
 .plan-row { display: grid; } /* a card (system.css, Cards) laid out as a grid of fields */
@@ -6696,10 +6694,6 @@ body.chat-window {
 .region-confirm label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-dim); }
 #region-zoom { width: 60px; text-align: center; }
 #region-filename { width: 200px; }
-.region-progress progress { width: 100%; height: 8px; appearance: none; border: 0; border-radius: var(--radius-round); background: var(--bg-section); overflow: hidden; }
-.region-progress progress::-webkit-progress-bar { background: var(--bg-section); }
-.region-progress progress::-webkit-progress-value { background: var(--accent); }
-.region-progress progress::-moz-progress-bar { background: var(--accent); }
 
 /* the AI service panel (Modules tab) */
 .ai-fields { display: flex; flex-direction: column; gap: 12px; margin: 12px 0; }
@@ -6711,9 +6705,6 @@ body.chat-window {
 .ai-key .hint.error { color: var(--danger-text); }
 .ai-usage { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
 .ai-usage h3 { margin: 0 0 8px; font-size: var(--text-14); }
-.ai-meter { height: 8px; border-radius: var(--radius-round); background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; }
-.ai-meter span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width 0.3s ease; }
-.ai-meter.warn span { background: var(--danger); }
 
 /* the pre-made background picker (public/background-picker.js) */
 .bgpick-filters { display: flex; flex-direction: column; gap: 6px; }

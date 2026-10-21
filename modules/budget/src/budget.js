@@ -218,11 +218,11 @@
     hide(bar, !tv.amount);
     if (tv.amount) {
       const pct = (x) => `${Math.max(0, Math.min(100, (x / tv.amount) * 100)).toFixed(1)}%`;
-      $('bar-spent').style.width = pct(t.spent);
-      $('bar-expected').style.width = pct(t.expected);
+      $('bar-spent').style.setProperty('--pct', pct(t.spent));
+      $('bar-expected').style.setProperty('--pct', pct(t.expected));
       bar.classList.toggle('over', t.over);
       bar.setAttribute('aria-valuenow', String(Math.round(Math.min(100, (t.spent / tv.amount) * 100))));
-      bar.setAttribute('aria-valuetext', `${money(t.spent)} of ${money(tv.amount)} spent`);
+      bar.setAttribute('aria-valuetext', t.over ? `Over by ${money(Math.abs(t.left))}: ${money(t.spent)} of ${money(tv.amount)} spent` : `${money(t.spent)} of ${money(tv.amount)} spent`);
     }
     const sums = [sumRow('Planned', money(t.planned)), sumRow('Paid', money(t.spent)), sumRow('Expected', money(t.expected))];
     if (tv.amount) sums.push(sumRow(t.over ? 'Over by' : 'Left', money(Math.abs(t.left)), t.over));
@@ -248,8 +248,12 @@
         setIcon(el.querySelector('[data-icon]'), r.icon);
         const text = r.actual && r.planned ? `${money(r.actual)} of ${money(r.planned)}` : r.actual ? `${money(r.actual)} paid` : `${money(r.planned)} planned`;
         fill(el, { name: `${r.label} · ${r.count}`, amount: text });
-        el.querySelector('.cat-plan').style.width = `${((r.planned / scale) * 100).toFixed(1)}%`;
-        el.querySelector('.cat-paid').style.width = `${((r.actual / scale) * 100).toFixed(1)}%`;
+        el.querySelector('.sdk-progress-planned').style.setProperty('--pct', `${((r.planned / scale) * 100).toFixed(1)}%`);
+        el.querySelector('.sdk-progress-fill').style.setProperty('--pct', `${((r.actual / scale) * 100).toFixed(1)}%`);
+        const catBar = el.querySelector('.cat-bar');
+        catBar.setAttribute('aria-label', `${r.label}: ${text}`);
+        catBar.setAttribute('aria-valuenow', String(Math.round((r.actual / scale) * 100)));
+        catBar.setAttribute('aria-valuetext', text);
         return el;
       }));
     }

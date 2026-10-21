@@ -125,10 +125,12 @@ async function openTab(browser, S, size, mode, url, { call = false, before = nul
 }
 // Measured once the page holds still: ready, and two readings 300 ms apart the same.
 async function settled(tab, wantWindows = 1) {
-  const end = Date.now() + 30000;
+  // Fonts in and the document loaded (not every request done: the space page keeps asking, and the readings below wait for
+  // the page to hold still instead).
+  await tab.eval(`(async () => { try { await document.fonts.ready; } catch (e) {} return document.readyState; })()`).catch(() => null);
+  const end = Date.now() + 20000;
   let last = '';
   while (Date.now() < end) {
-    await tab.settle();
     const got = await tab.eval(COLLECT).catch(() => null);
     if (got && got.ready && got.windows.length >= wantWindows) {
       const key = JSON.stringify(got.windows);

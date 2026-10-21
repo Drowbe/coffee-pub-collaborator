@@ -59,9 +59,17 @@ for (const file of [...walk(path.join(ROOT, 'public')), ...walk(path.join(ROOT, 
   const css = read('public/sdk/system.css');
   const block = /\/\* confirm:start \*\/([\s\S]*?)\/\* confirm:end \*\//.exec(css);
   ok(Boolean(block), 'public/sdk/system.css: no confirm:start / confirm:end block');
-  if (block) {
-    ok(/width:\s*min\(360px,/.test(block[1]), 'system.css confirm block: the confirm is not 360px wide');
-    ok(/box-shadow:\s*var\(--shadow-3\)/.test(block[1]) && /background:\s*var\(--scrim\)/.test(block[1]), 'system.css confirm block: no --shadow-3 or --scrim');
+  const dialogs = /\/\* dialogs:start \*\/([\s\S]*?)\/\* dialogs:end \*\//.exec(css);
+  ok(Boolean(dialogs), 'public/sdk/system.css: no dialogs:start / dialogs:end block');
+  if (block && dialogs) {
+    // The confirm takes the shell from the Dialogs block (no copy of it in its own): it is named in the shell's list, at the
+    // confirm width, and its head, title and foot are the shared ones. The block holds only the confirm's own rules.
+    const shell = /:is\(([^)]*)\) \{\s*--dlg-w: var\(--dlg-w-form\);[\s\S]*?\n\}/.exec(dialogs[1]);
+    ok(Boolean(shell) && /\.sdk-dialog-confirm/.test(shell[1]), 'system.css: the dialog shell does not name .sdk-dialog-confirm');
+    ok(/--dlg-w-confirm:\s*360px/.test(dialogs[1]) && /:is\(\.aside-overlay-card, \.sdk-dialog-confirm\) \{ --dlg-w: var\(--dlg-w-confirm\); \}/.test(dialogs[1]), 'system.css dialogs block: the confirm is not 360px wide');
+    ok(shell && /box-shadow:\s*var\(--shadow-3\)/.test(shell[0]) && /\.sdk-dialog-confirm\)::backdrop \{ background: var\(--scrim\); \}/.test(dialogs[1]), 'system.css dialogs block: no --shadow-3 or --scrim for the confirm');
+    for (const part of ['sdk-dialog-head', 'sdk-dialog-title', 'sdk-dialog-close', 'sdk-dialog-foot']) ok(new RegExp(`\\.${part}\\b`).test(dialogs[1]), `system.css dialogs block: no .${part}`);
+    ok(!/border-radius|box-shadow|--dlg-pad-x:|width:\s*min\(360px/.test(block[1]), 'system.css confirm block: it repeats the shell rules the Dialogs block holds');
     ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(block[1]), 'system.css confirm block: a raw colour');
   }
 }

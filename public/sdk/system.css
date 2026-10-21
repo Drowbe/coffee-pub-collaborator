@@ -2210,65 +2210,24 @@ input[type="checkbox"].sdk-switch:checked::before {
 /* The styled confirm (Dialogs and sheets, approved 2026-10-21): the question dialog public/confirm.js draws in place of window.confirm.
    360px, the panel with a hairline, --radius-large, --shadow-3 and the scrim. Title, a plain message, Cancel and the action; the action is the
    Primary (plain), the soft Danger (destructive) or the solid Danger (final, cannot be undone). It stays a 360px dialog on a phone: a question
-   is not a form, so it is not full screen. The shell rules below are written for .sdk-dialog-confirm alone; the Dialogs block takes the
-   same names for the other dialogs (proposed-dialogs.css), and what it repeats here can be dropped when it lands. */
+   is not a form, so it is not full screen. The dialog shell, the head, the title, the padding and the foot are the Dialogs block's (it names
+   .sdk-dialog-confirm, .sdk-dialog-head, .sdk-dialog-title and .sdk-dialog-foot beside the other dialogs'); only what is the confirm's own is here. */
 dialog.sdk-dialog-confirm {
-  --dlg-pad-x: 24px;
   --dlg-ms: 200ms;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
-  width: min(360px, calc(100vw - 32px));
-  max-width: 100%;
   height: fit-content;
-  max-height: calc(100dvh - 48px);
-  margin: auto;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--edge-hairline);
-  border-radius: var(--radius-large);
-  background: var(--surface-panel);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-3);
-  font-family: var(--font-ui);
-  font-size: 14px;
-  line-height: 20px;
   text-align: left;
   opacity: 1;
   transform: none;
   transition: opacity var(--dlg-ms) ease-out, transform var(--dlg-ms) ease-out, overlay var(--dlg-ms) allow-discrete, display var(--dlg-ms) allow-discrete;
 }
 dialog.sdk-dialog-confirm:not([open]) { display: none; }
-dialog.sdk-dialog-confirm:focus { outline: none; }
 @starting-style {
   dialog.sdk-dialog-confirm[open] { opacity: 0; transform: translateY(8px); }
 }
-dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 
-.sdk-dialog-confirm .sdk-dialog-head {
-  flex: none;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 16px var(--dlg-pad-x);
-}
-.sdk-dialog-confirm .sdk-dialog-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  padding: calc((var(--btn-h-small) - 24px) / 2) 0;
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-size: var(--text-18);
-  font-weight: 600;
-  line-height: 24px;
-  letter-spacing: normal;
-  text-transform: none;
-  overflow-wrap: anywhere;
-}
-.sdk-dialog-confirm .sdk-dialog-close { position: relative; flex: none; margin-right: -8px; }
+.sdk-dialog-confirm .sdk-dialog-close { position: relative; }
 .sdk-dialog-confirm .sdk-dialog-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -2285,20 +2244,10 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 .sdk-dialog-confirm .sdk-dialog-body[hidden] { display: none; }
 .sdk-dialog-confirm .sdk-dialog-body > p { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
 .sdk-dialog-confirm .sdk-dialog-foot {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  box-sizing: border-box;
   margin: 0;
   padding: 16px var(--dlg-pad-x) calc(16px + env(safe-area-inset-bottom, 0px));
-  border: 0;
-  border-top: 1px solid var(--edge-hairline);
 }
 @media (max-width: 640px) {
-  .sdk-dialog-confirm { --dlg-pad-x: 16px; }
   .sdk-dialog-confirm .sdk-dialog-close::after { content: ""; position: absolute; inset: var(--btn-hit); }
   .sdk-dialog-confirm .sdk-dialog-foot > .btn { --btn-h: 44px; }
 }
@@ -3599,7 +3548,7 @@ span.message-vis {
 .sdk-editor[data-lift="phone"] { --dlg-pad-x: var(--space-4); }
 
 /* ---- The shell ---- */
-:is(.sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card, .aside-overlay-card) {
+:is(.sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card, .aside-overlay-card, .sdk-dialog-confirm) {
   --dlg-w: var(--dlg-w-form);
   box-sizing: border-box;
   width: min(var(--dlg-w), 100vw - 32px);
@@ -3621,14 +3570,14 @@ span.message-vis {
 /* The editor window is the one dialog that scrolls as a whole: its head and foot are sticky. */
 .sdk-editor { overflow: auto; overscroll-behavior: contain; }
 :is(.sdk-editor-large, .phase-sheet, .bgpick-card) { --dlg-w: var(--dlg-w-browse); }
-.aside-overlay-card { --dlg-w: var(--dlg-w-confirm); }
-:is(.sdk-editor, .layout-sheet, .phase-sheet):focus { outline: none; }
+:is(.aside-overlay-card, .sdk-dialog-confirm) { --dlg-w: var(--dlg-w-confirm); }
+:is(.sdk-editor, .layout-sheet, .phase-sheet, .sdk-dialog-confirm):focus { outline: none; }
 
 /* A <dialog> that is a flex column while it is open. */
 :is(.layout-sheet, .phase-sheet)[open] { display: flex; flex-direction: column; }
 
 /* The scrim behind a modal dialog. */
-:is(.sdk-editor, .layout-sheet, .phase-sheet)::backdrop { background: var(--scrim); }
+:is(.sdk-editor, .layout-sheet, .phase-sheet, .sdk-dialog-confirm)::backdrop { background: var(--scrim); }
 
 /* The layer of a dialog that is not a <dialog> (the background picker's overlay): the scrim, centring the card. */
 .bgpick {
@@ -3660,7 +3609,7 @@ span.message-vis {
 
 .sdk-editor[data-scrolled] > .sdk-editor-head { border-bottom-color: var(--edge-hairline); }
 
-:is(.sdk-editor-head, .phase-sheet-head, .bgpick-head) {
+:is(.sdk-editor-head, .phase-sheet-head, .bgpick-head, .sdk-dialog-head) {
   flex: none;
   display: flex;
   align-items: flex-start;
@@ -3670,7 +3619,7 @@ span.message-vis {
   padding: var(--space-4) var(--dlg-pad-x);
 }
 
-:is(.sdk-editor-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2) {
+:is(.sdk-editor-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2, .sdk-dialog-title) {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
@@ -3691,7 +3640,7 @@ span.message-vis {
 .phase-sheet-head > h2 { flex: 0 1 auto; }
 
 /* The close hangs 8px into the head's right padding, so its glyph sits the page padding from the edge, as the title does from the left. */
-:is(.sdk-editor-head, .phase-sheet-head, .bgpick-head) > :is(.sdk-editor-close, .phase-sheet-close, .bgpick-close) { flex: none; margin-right: -8px; }
+:is(.sdk-editor-head, .phase-sheet-head, .bgpick-head, .sdk-dialog-head) > :is(.sdk-editor-close, .phase-sheet-close, .bgpick-close, .sdk-dialog-close) { flex: none; margin-right: -8px; }
 
 /* ---- Body ---- */
 .sdk-editor > form { margin: 0; padding: 0 var(--dlg-pad-x); }
@@ -3723,7 +3672,7 @@ span.message-vis {
 .aside-overlay-card { width: auto; padding: var(--space-6); max-width: min(var(--dlg-w-confirm), calc(100% - 32px)); }
 
 /* ---- Foot: the buttons, right-aligned, Primary last, a hairline above ---- */
-:is(.sdk-editor-actions, .sdk-editor-discard, .bgpick-foot) {
+:is(.sdk-editor-actions, .sdk-editor-discard, .bgpick-foot, .sdk-dialog-foot) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

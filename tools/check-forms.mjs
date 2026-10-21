@@ -28,7 +28,7 @@ const TOKENS = ['--field-gap', '--section-gap'];
 const LOOK_TOKENS = ['--field-h', '--field-pad-x', '--field-font', '--label-size', '--label-gap', '--check-h'];
 const OLD_CLASSES = ['editor-card', 'editor-row', 'editor-buttons', 'timing', 'when-pick', 'hm', 'pairing', 'fieldgroup', 'fieldgroup-title', 'setup-field', 'field-label'];
 const ROW_PARENTS = ['sdk-form', 'sdk-section', 'sdk-form-row', 'sdk-when', 'sdk-pair', 'sdk-group'];
-const PIECES = ['sdk-field', 'sdk-check', 'sdk-people', 'sdk-chip'];
+const PIECES = ['sdk-field', 'sdk-choice-row', 'sdk-people', 'sdk-chip'];
 const VOID = new Set(['input', 'br', 'hr', 'img', 'meta', 'link', 'source', 'area', 'base', 'col', 'embed', 'wbr']);
 const FIELD_TAGS = new Set(['input', 'select', 'textarea']);
 const ALLOWED_PROPS = new Set(['display', 'order', 'visibility', 'grid-column']);
@@ -132,7 +132,7 @@ export function checkForm(form, ctx = {}) {
     if (!FIELD_TAGS.has(n.tag)) continue;
     const type = (n.attrs.type || (n.tag === 'input' ? 'text' : n.tag)).toLowerCase();
     if (type === 'hidden') continue;
-    if (!inside(n, form, (p) => PIECES.some((c) => hasClass(p, c)))) add(`${label(n)} is not inside a .sdk-field or .sdk-check`);
+    if (!inside(n, form, (p) => PIECES.some((c) => hasClass(p, c)))) add(`${label(n)} is not inside a .sdk-field or .sdk-choice-row`);
     if (type === 'datetime-local') add(`${label(n)} is a datetime-local; use a day field and a time field`);
     if (type === 'checkbox' && (n.attrs.role || '') === 'switch' && !hasClass(n, 'sdk-switch')) add(`${label(n)} is a checkbox with role="switch" and no .sdk-switch class`);
     if (type === 'date' && !inside(n, form, (p) => hasClass(p, 'sdk-datefield')) && !ctx.datePicker) add(`${label(n)} is a date field that is not the date picker's (call host.ui.datePicker on it)`);
@@ -178,7 +178,7 @@ export function checkModuleCss(css, names, allow = [], file = 'css') {
   const out = [];
   for (const r of cssRules(css)) {
     for (const sel of r.selector.split(',').map((s) => s.trim()).filter(Boolean)) {
-      const reaches = /\.sdk-(form|field|label|hint|error|row|when|s|m|l|full|group|unit|field-btn|datefield|duration|money|pair|section|section-title|check|checks|choice|people|form-error)\b/.test(sel)
+      const reaches = /\.sdk-(form|field|label|hint|error|row|when|s|m|l|full|group|unit|field-btn|datefield|duration|money|pair|section|section-title|choice-row|choice-list|choice|people|form-error)\b/.test(sel)
         || (sel.match(/[#.][\w-]+/g) || []).some((t) => names.has(t))
         || (/(^|[\s>+~(])(input|select|textarea)\b/.test(sel) && (sel.match(/[#.][\w-]+/g) || []).some((t) => names.has('form' + t)));
       if (!reaches) continue;
@@ -198,7 +198,7 @@ function selfTest() {
   const form = (inner, cls = 'sdk-form') => movedForms(`<form class="${cls}">${inner}</form>`, false)[0];
   const field = (c = '<input id="a" type="text">') => `<label class="sdk-field"><span class="sdk-label">A</span>${c}<span class="sdk-hint"></span></label>`;
   const clean = `${field()}<div class="sdk-form-row">${field('<input id="b">')}${field('<select id="c"><option>1</option></select>')}</div>
-    <label class="sdk-check"><input type="checkbox"> Yes</label>
+    <label class="sdk-choice-row"><input type="checkbox"> Yes</label>
     <div class="sdk-field" role="group"><span class="sdk-label">Day</span><div class="sdk-datefield sdk-group"><input type="date"><button class="sdk-icon-btn btn-small btn-quiet"></button></div></div>
     <input type="hidden" name="h">`;
   expect('clean form', checkForm(form(clean)), false);
@@ -210,8 +210,8 @@ function selfTest() {
   expect('nine-choice select', checkForm(form(field('<select>' + '<option>x</option>'.repeat(9) + '</select>'))), true);
   expect('eight-choice select passes', checkForm(form(field('<select>' + '<option>x</option>'.repeat(8) + '</select>'))), false);
   expect('datetime-local', checkForm(form(field('<input type="datetime-local">'))), true);
-  expect('switch checkbox without the switch class', checkForm(form(`<label class="sdk-check"><input type="checkbox" role="switch"></label>`)), true);
-  expect('switch checkbox', checkForm(form(`<label class="sdk-check"><input type="checkbox" role="switch" class="sdk-switch"></label>`)), false);
+  expect('switch checkbox without the switch class', checkForm(form(`<label class="sdk-choice-row"><input type="checkbox" role="switch"></label>`)), true);
+  expect('switch checkbox', checkForm(form(`<label class="sdk-choice-row"><input type="checkbox" role="switch" class="sdk-switch"></label>`)), false);
   expect('bare date field', checkForm(form(field('<input type="date">'))), true);
   expect('bare date field with the picker called', checkForm(form(field('<input type="date">')), { datePicker: true }), false);
   expect('own height in a style attribute', checkForm(form(field('<input style="height:30px">'))), true);

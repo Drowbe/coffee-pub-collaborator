@@ -66,7 +66,7 @@ const GOOD = `<form class="sdk-form" id="fx-form">
     <label class="sdk-field sdk-m"><span class="sdk-label">Class</span><select id="c"><option>Economy</option><option>Premium economy</option><option>Business</option></select><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-l"><span class="sdk-label">Address</span><input id="a" type="text" value="Rua Augusta 100, Lisboa"><span class="sdk-hint"></span></label>
   </div>
-  <div class="sdk-checks"><label class="sdk-check"><input type="checkbox" id="rt"> Round trip</label></div>
+  <div class="sdk-choice-list"><label class="sdk-choice-row"><input type="checkbox" id="rt"> Round trip</label></div>
   <label class="sdk-field sdk-full"><span class="sdk-label">Notes</span><textarea id="n" rows="3"></textarea><span class="sdk-hint"></span></label>
 </form>`;
 // Planted drift: a field 30 px tall, a label pushed down, a wide select that is cut, a field with no label, a bare date field.
@@ -159,8 +159,8 @@ function measure() {
   const controls = [...form.querySelectorAll('input:not([type=hidden]), select, textarea')].filter(vis);
   for (const c of controls) {
     const field = c.closest('.sdk-field');
-    const check = c.closest('.sdk-check, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
-    if (!field && !check) { add('field', nm(c), 'is not inside a .sdk-field or .sdk-check'); continue; }
+    const check = c.closest('.sdk-choice-row, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
+    if (!field && !check) { add('field', nm(c), 'is not inside a .sdk-field or .sdk-choice-row'); continue; }
     const named = (c.labels && [...c.labels].some((l) => l.textContent.trim())) || c.getAttribute('aria-label') || c.getAttribute('aria-labelledby') || (field && field.querySelector('.sdk-label')?.textContent.trim() && field.tagName === 'LABEL');
     if (!named) add('label', nm(c), 'has no label');
   }
@@ -205,7 +205,7 @@ function measure() {
     if (longest > shown + 1) add('clipped', nm(s), `its longest choice is ${Math.round(longest)} px wide, the box shows ${Math.round(shown)} px`);
   }
   // Tick rows.
-  for (const c of [...form.querySelectorAll('.sdk-check')].filter(vis)) {
+  for (const c of [...form.querySelectorAll('.sdk-choice-row')].filter(vis)) {
     const h = c.getBoundingClientRect().height;
     if (h < (phone ? 44 : 32) - 0.5) add('tick-row', nm(c), `is ${r1(h)} px tall, it needs ${phone ? 44 : 32} px`);
   }

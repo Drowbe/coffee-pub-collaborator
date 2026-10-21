@@ -187,7 +187,7 @@
       <div class="sdk-field sdk-m" id="f-checkout-field" role="group" aria-labelledby="f-checkout-label" data-types="hotel"><span class="sdk-label" id="f-checkout-label">Check out</span><select id="f-checkout" name="checkOut" hidden></select><input id="f-checkout-input" type="date" aria-labelledby="f-checkout-label" aria-describedby="f-checkout-phase"><span class="sdk-hint" id="f-checkout-phase" role="status"></span></div>
       <label class="sdk-field sdk-s" id="f-checkouttime-field" data-types="hotel"><span class="sdk-label">Check-out time</span><input id="f-checkOutTime" name="checkOutTime" type="time"><span class="sdk-hint"></span></label>
     </div>
-    <div class="sdk-checks" id="f-pinned-row" hidden><label class="sdk-check"><input id="f-pinned" name="pinned" type="checkbox"> Keep on this day</label></div>
+    <div class="sdk-choice-list" id="f-pinned-row" hidden><label class="sdk-choice-row"><input id="f-pinned" name="pinned" type="checkbox"> Keep on this day</label></div>
     <p class="sdk-hint arrives" id="f-arrives" data-types="flight train ferry bus taxi rideshare shuttle" hidden></p>
     <!-- the arrival as the ticket says it, a day and a time laid out as the departure is (#241); the day follows the departure day until one is chosen (#242). f-arrival holds what is stored (the script joins the two) -->
     <div class="sdk-form-row" data-types="flight train ferry bus">
@@ -215,7 +215,7 @@
     </fieldset>
 
     <div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">
-      <div class="sdk-checks"><label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label></div>
+      <div class="sdk-choice-list"><label class="sdk-choice-row"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label></div>
       <p class="sdk-hint" id="f-roundtrip-note" hidden></p>
       <fieldset class="sdk-section return-leg" id="f-return" hidden><legend class="sdk-section-title">Return</legend>
         <div class="sdk-section lookup" id="f-back-lookup" data-types="flight" role="group" aria-label="Look up the return flight" hidden>
@@ -296,7 +296,7 @@
     <h3 id="day-title"></h3>
     <div id="day-fields">
       <div class="sdk-field sdk-full" role="group" aria-labelledby="day-to-label"><span class="sdk-label" id="day-to-label">Move to</span><input id="day-to" name="to" type="date" aria-labelledby="day-to-label"><span class="sdk-hint"></span></div>
-      <div class="sdk-checks"><label class="sdk-check"><input id="day-rest" name="rest" type="checkbox"> Also move every day after this one by the same amount.</label></div>
+      <div class="sdk-choice-list"><label class="sdk-choice-row"><input id="day-rest" name="rest" type="checkbox"> Also move every day after this one by the same amount.</label></div>
     </div>
     <p class="day-summary" id="day-summary" role="status" aria-live="polite"></p>
     <p class="sdk-form-error" id="day-error" role="alert" hidden></p>

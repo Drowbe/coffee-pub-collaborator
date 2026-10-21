@@ -136,7 +136,6 @@ body { margin: 0; overflow: hidden; }
    checkboxes, each row its label, 44 px tall on a phone. ---- */
 .where { gap: 2px; }
 .ticks { display: flex; flex-direction: column; }
-.tick-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .where-more > summary { padding: 4px 0; color: var(--text-muted); font-size: var(--text-12); cursor: pointer; }
 .where-more > summary:hover { color: var(--text-primary); }
 .where-more .ticks { padding-left: 4px; }

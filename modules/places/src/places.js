@@ -705,7 +705,7 @@
     const box = $('f-owners');
     box.replaceChildren(...state.people.map((person) => {
       const label = document.createElement('label');
-      label.className = 'sdk-check';
+      label.className = 'sdk-choice-row';
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.value = person.key;

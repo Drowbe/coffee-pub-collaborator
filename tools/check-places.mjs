@@ -674,7 +674,7 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
   const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
   assert.match(html, /<fieldset id="f-where" class="sdk-section where" aria-describedby="f-where-line" hidden>\s*<legend class="sdk-section-title">Shows in<\/legend>/);
-  assert.match(html, /<template id="tpl-tick"><label class="sdk-check"><input type="checkbox">/, 'native checkboxes, the label the whole row');
+  assert.match(html, /<template id="tpl-tick"><label class="sdk-choice-row"><input type="checkbox">/, 'native checkboxes, the label the whole row');
   assert.doesNotMatch(html, /<select id="f-where"/, 'no dropdown');
   assert.match(page, /if \(target\.scope === 'environment'\) return `\$\{everyoneIn\(\)\} sees it\.`;/);
   assert.match(page, /return `Only people in \$\{spaceName\(target\.space\)\} see it\.`;/);

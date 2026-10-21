@@ -1632,7 +1632,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 /* ================= Fields and forms (design system step 13) =================
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the
-   product's own (.sdk-form .sdk-field .sdk-label .sdk-hint .sdk-error .sdk-group .sdk-check .sdk-switch); the layout of rows and columns
+   product's own (.sdk-form .sdk-field .sdk-label .sdk-hint .sdk-error .sdk-group .sdk-switch; the tick box and radio row is the Choice rows block, .sdk-choice-row); the layout of rows and columns
    stays in the form block of style.css and host.css, this block is the look.
    The rules are on the bare elements (input, select, textarea), so every form that has them gets the look with no markup change, and
    they are written in :where() (no weight): a component that is not a form field (the chat composer, the combobox in the kind picker,
@@ -2198,26 +2198,6 @@ input[type="checkbox"].sdk-switch:checked:hover:not(:disabled) {
 input[type="checkbox"].sdk-switch:checked::before {
   background: var(--text-on-accent);
   transform: translateX(16px);
-}
-
-/* A tick box, radio or switch with its words: the whole row is the target. */
-.sdk-check {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--check-h);
-  font-size: var(--field-font);
-  line-height: 1.3;
-  cursor: pointer;
-}
-
-.sdk-check:has(:disabled) {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-.sdk-check:has(input:focus-visible) {
-  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4735,3 +4715,163 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   pointer-events: none;
 }
 /* progress:end */
+
+/* ================= Choice rows (design system step 27) =================
+   Source: public/design-system/proposed-choices.css, without the .ds-proposed prefix. This is the row .sdk-check was: a whole-row choice,
+   the tick box or radio (the Fields box) on the left, the words, and a description if there is one. The whole row is the target: --check-h high
+   (32px; 44px on a phone). Hover is the quiet fill; checked is the neutral selected fill (no accent edge, no accent fill: the box carries the accent);
+   focus is the 2px accent outline inside the row.
+     .sdk-choice-row                  the row (a <label> around the input and the words)
+     .sdk-choice-text, -label, -desc  the words
+     .sdk-choice-list                 a group of rows, 4px apart
+     .sdk-choice-boxed                the boxed row: a card row with a hairline, ONLY where each option has a description
+   A switch row is a row whose input is .sdk-switch: the words, then the switch at the right; on or off is the switch, so the row takes no fill.
+   Two to four short options as one control are the Tabs family's joined switch (.sdk-tabs-joined), not a row. */
+/* choices:start */
+:root {
+  --cr-pad-x: var(--space-2);
+  --cr-gap: var(--space-2);
+  --cr-hover: var(--fill-hover);
+  --cr-checked-hover: color-mix(in srgb, var(--accent-fill) 33%, transparent);
+  --cr-desc-strong: color-mix(in srgb, var(--text-muted) 50%, var(--text-primary));
+}
+
+.sdk-choice-list {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* ---- the row ---- */
+.sdk-choice-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--cr-gap);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--check-h);
+  margin: 0;
+  padding: 0 var(--cr-pad-x);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--field-font);
+  font-weight: var(--weight-regular);
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.sdk-choice-row:hover:not(:has(:disabled)) {
+  background: var(--cr-hover);
+}
+
+/* Checked: the neutral selected fill. A switch is on or off in the switch itself, so it takes no fill. */
+.sdk-choice-row:has(> input:is([type="checkbox"], [type="radio"]):not(.sdk-switch):checked) {
+  background: var(--fill-selected);
+}
+
+.sdk-choice-row:has(> input:is([type="checkbox"], [type="radio"]):not(.sdk-switch):checked):hover:not(:has(:disabled)) {
+  background: var(--cr-checked-hover);
+}
+
+/* Focus: a 2px accent outline inside the row. The box's own ring is not drawn as well. */
+.sdk-choice-row:has(> input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.sdk-choice-row > input:is([type="checkbox"], [type="radio"]):focus-visible {
+  outline: none;
+}
+
+.sdk-choice-row:has(> input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sdk-choice-row:has(> input:disabled) > input {
+  opacity: 1;
+}
+
+/* ---- the words ---- */
+.sdk-choice-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sdk-choice-label {
+  min-width: 0;
+}
+
+.sdk-choice-desc {
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  line-height: 16px;
+}
+
+/* On a filled row (checked, hovered) the description is a step darker, as the Menus hints are. */
+.sdk-choice-row:is(:hover, :has(> input:checked:not(.sdk-switch))) .sdk-choice-desc {
+  color: var(--cr-desc-strong);
+}
+
+/* A row with a description: the box sits level with the first line. */
+.sdk-choice-row:has(.sdk-choice-desc) {
+  align-items: flex-start;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.sdk-choice-row:has(.sdk-choice-desc) > input:is([type="checkbox"], [type="radio"]) {
+  margin-top: var(--space-0);
+}
+
+/* ---- the switch row: the words, then the switch ---- */
+.sdk-choice-row:has(> input.sdk-switch) {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sdk-choice-row:has(> input.sdk-switch) > input.sdk-switch {
+  margin-left: auto;
+  margin-top: 0;
+}
+
+/* A switch row with a description: the switch sits level with the first line, not the middle of two lines (the switch is 20px; the line is 1.3 times the field font). */
+.sdk-choice-row:has(> input.sdk-switch):has(.sdk-choice-desc) {
+  align-items: flex-start;
+}
+
+.sdk-choice-row:has(> input.sdk-switch):has(.sdk-choice-desc) > input.sdk-switch {
+  margin-top: calc(var(--field-font) * 1.3 / 2 - 10px);
+}
+
+/* ---- the boxed row: only where each option has a description ---- */
+.sdk-choice-boxed {
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-3);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+}
+
+.sdk-choice-boxed > input:is([type="checkbox"], [type="radio"]) {
+  margin-top: var(--space-0);
+}
+
+.sdk-choice-boxed .sdk-choice-label {
+  font-weight: var(--weight-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-choice-row { transition: none; }
+}
+/* choices:end */

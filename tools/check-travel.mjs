@@ -1306,7 +1306,7 @@ test('the page: the round trip switch, its mark on a card, and the delete questi
   const html = read('travel.html');
   const js = read('travel.js');
   assert.match(html, /<div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">/, 'every journey but a car offers a round trip');
-  assert.ok(html.includes('<label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label>'), 'an on or off setting taken when the form is saved: the switch (fields and forms, Thomas 2026-10-18)');
+  assert.ok(html.includes('<label class="sdk-choice-row"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label>'), 'an on or off setting taken when the form is saved: the switch (fields and forms, Thomas 2026-10-18)');
   for (const id of ['f-return', 'f-back-date', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-number', 'f-back-from', 'f-back-to', 'f-back-fromCode', 'f-back-toCode']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(html.includes('<template id="tpl-card-roundtrip">'));
   for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound']) assert.ok(js.includes(words), words);

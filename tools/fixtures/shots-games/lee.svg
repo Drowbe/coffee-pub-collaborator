@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Lee, a druid with pointed ears and a circlet of leaves. Source of lee.png (the games seed's Character picture); render at 256 on a clear ground. -->
+  <path fill="#1F1A24" d="M76 126c0-52 22-80 52-80s52 28 52 80v74H76z"/>
+  <path fill="#6A8F3D" d="M24 256c4-60 46-86 104-86s100 26 104 86z"/>
+  <path fill="#4F6E2B" d="M128 176c-18 0-34 4-40 14 14 6 28 6 40-2 12 8 26 8 40 2-6-10-22-14-40-14z"/>
+  <rect fill="#DDA982" x="114" y="160" width="28" height="22" rx="8"/>
+  <path fill="#F2C9A0" d="M94 124l-36-26 10 34 28 12zM162 124l36-26-10 34-28 12z"/>
+  <ellipse fill="#F2C9A0" cx="128" cy="128" rx="38" ry="44"/>
+  <path fill="#1F1A24" d="M90 120c4-36 20-54 42-54 22 0 36 18 36 48-12-14-28-20-46-16-14 3-24 10-32 22z"/>
+  <path fill="none" stroke="#4F6E2B" stroke-width="5" stroke-linecap="round" d="M90 106q38-20 76 0"/>
+  <ellipse fill="#8DB45A" stroke="#4F6E2B" stroke-width="2.5" cx="104" cy="96" rx="9" ry="5" transform="rotate(-30 104 96)"/>
+  <ellipse fill="#8DB45A" stroke="#4F6E2B" stroke-width="2.5" cx="128" cy="90" rx="10" ry="6"/>
+  <ellipse fill="#8DB45A" stroke="#4F6E2B" stroke-width="2.5" cx="152" cy="96" rx="9" ry="5" transform="rotate(30 152 96)"/>
+  <circle fill="#E89A8A" opacity="0.55" cx="104" cy="148" r="8"/><circle fill="#E89A8A" opacity="0.55" cx="152" cy="148" r="8"/>
+  <path fill="none" stroke="#2B1D18" stroke-width="4.5" stroke-linecap="round" d="M104 134q8-8 16 0M136 134q8-8 16 0"/>
+  <path fill="none" stroke="#2B1D18" stroke-width="4.5" stroke-linecap="round" d="M116 154q12 10 24 0"/>
+</svg>

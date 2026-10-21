@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <!-- DRAFT, temporary (plan-product-pages.md, step 7): the games hero art for Thomas to look at, next to the travel art. Not a use
+       page and not linked from anywhere. Delete this file when public/games.html is built (step 9); the art then moves into that
+       page inline, as the travel art is in travel.html. Colours: only landing.css's --l-* variables and its h-* classes. -->
+  <title>Draft: games hero art</title>
+  <link rel="stylesheet" href="/landing.css">
+  <style>
+    .draft { max-width: 1120px; margin: 0 auto; padding: 24px 20px 64px; }
+    .draft-flag { display: inline-block; padding: 4px 12px; border-radius: var(--radius-round); background: var(--l-coral-soft); color: var(--l-coral-text); font-weight: 600; font-size: 14px; }
+    .draft h1 { margin-top: 12px; font-family: "Fraunces", "Fraunces Fallback", Georgia, serif; font-size: 34px; }
+    .draft > p { margin-top: 8px; color: var(--l-dim); max-width: 720px; }
+    .draft h2 { margin-top: 40px; font-size: 24px; }
+    .pair { display: flex; flex-wrap: wrap; gap: 32px; margin-top: 16px; align-items: flex-start; }
+    .pair figure { margin: 0; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+    .pair figcaption { margin-top: 12px; color: var(--l-dim); font-size: 15px; }
+    .pair figcaption b { color: var(--l-text); }
+    .w1280 .hero-art { width: 472px; max-width: 100%; }
+    .w390 .hero-art { width: 350px; max-width: 100%; }
+
+    /* The games art: new shapes, in landing.css's palette. Gold (the d20, a token, the lock) reuses .h-sun; the call tile and the
+       card reuse travel's h-* classes as they are. */
+    .g-table { fill: var(--l-sand); }
+    .g-mat { fill: var(--l-teal-soft); }
+    .g-grid { stroke: var(--l-surface); stroke-width: 1.5; opacity: 0.75; fill: none; }
+    .g-water { fill: var(--l-sea); }
+    .g-tree { fill: var(--l-teal); stroke: var(--l-night); stroke-width: 2.500; stroke-linejoin: round; }
+    .g-ink { stroke: var(--l-night); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; fill: none; }
+    .g-line { stroke: var(--l-night); stroke-width: 3; stroke-linejoin: round; }
+    .g-face { fill: var(--l-surface); opacity: 0.45; }
+    .g-aura { fill: var(--l-coral-soft); }
+    .g-smile { fill: none; stroke: var(--l-on-night); stroke-width: 3; stroke-linecap: round; }
+    .g-num { fill: var(--l-night); font: 600 18px "Figtree", "Figtree Fallback", system-ui, sans-serif; }
+    .g-base { stroke: var(--l-night); stroke-width: 3; }
+    .g-coral { fill: var(--l-coral); } .g-teal { fill: var(--l-teal); } .g-night { fill: var(--l-night); }
+    .g-in { fill: var(--l-surface); }
+    .g-eye, .g-pip, .g-horn { fill: var(--l-on-night); } .g-pupil { fill: var(--l-night); }
+    .g-cell { fill: var(--l-line); } .g-cell-on { fill: var(--l-coral); } .g-cell-next { fill: var(--l-teal); }
+  </style>
+</head>
+<body class="landing">
+  <!-- The two pictures, drawn once and shown at both sizes. -->
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <clipPath id="g-mat-clip"><rect x="52" y="72" width="406" height="316" rx="16"/></clipPath>
+      <clipPath id="g-token-clip"><circle cx="0" cy="0" r="15"/></clipPath>
+      <path id="g-tree" d="M13 0A6.5 6.5 0 0 1 8.1 10.2A6.5 6.5 0 0 1-2.9 12.7A6.5 6.5 0 0 1-11.7 5.6A6.5 6.5 0 0 1-11.7-5.6A6.5 6.5 0 0 1-2.9-12.7A6.5 6.5 0 0 1 8.1-10.2A6.5 6.5 0 0 1 13 0z"/>
+      <clipPath id="map-clip"><rect x="20" y="40" width="470" height="380" rx="30"/></clipPath>
+    </defs>
+
+    <!-- GAMES (draft): a game table from above with a battle map on it, three player tokens moving toward a friendly monster,
+         a chest, trees and a pool, a d20 and a d6, the Sessions calendar card and the same call tile as travel. -->
+    <symbol id="art-games" viewBox="0 0 560 470">
+      <!-- the table, and the battle map on it -->
+      <rect class="g-table" x="20" y="40" width="470" height="380" rx="30"/>
+      <g clip-path="url(#g-mat-clip)">
+        <rect class="g-mat" x="52" y="72" width="406" height="316"/>
+        <path class="g-water" d="M458 132c-34 4-56 26-52 56 3 24-26 38-22 66 3 22 24 34 44 40l30 8z"/>
+        <path class="g-grid" d="M52 120h406M52 168h406M52 216h406M52 264h406M52 312h406M52 360h406M100 72v316M148 72v316M196 72v316M244 72v316M292 72v316M340 72v316M388 72v316M436 72v316"/>
+        <use href="#g-tree" class="g-tree" transform="translate(112 350) scale(1.4)"/>
+        <use href="#g-tree" class="g-tree" transform="translate(152 378) scale(1.1)"/>
+        <use href="#g-tree" class="g-tree" transform="translate(86 392) scale(1.2)"/>
+      </g>
+      <!-- a chest to find -->
+      <g transform="translate(244 340) scale(1.15)">
+        <path class="g-coral g-line" d="M-20-6h40v20a4 4 0 0 1-4 4h-32a4 4 0 0 1-4-4z"/>
+        <path class="g-coral g-line" d="M-20-6v-4a10 10 0 0 1 10-10h20a10 10 0 0 1 10 10v4z"/>
+        <rect class="h-sun g-line" x="-5" y="-10" width="10" height="11" rx="2.500"/>
+      </g>
+      <!-- the move, dotted, from a token toward the monster -->
+      <path class="h-route" d="M220 240C248 188 272 236 302 192" fill="none"/>
+      <!-- the monster: friendly, two squares across -->
+      <g transform="translate(340 168)">
+        <circle class="g-aura" r="48"/>
+        <path class="g-horn g-line" d="M-20-26c-12-2-22-12-20-28 6 8 14 12 26 14zM20-26c12-2 22-12 20-28-6 8-14 12-26 14z"/>
+        <circle class="g-night g-base" r="34"/>
+        <circle class="g-eye" cx="-12" cy="-6" r="9"/><circle class="g-eye" cx="12" cy="-6" r="9"/>
+        <circle class="g-pupil" cx="-10" cy="-5" r="4"/><circle class="g-pupil" cx="14" cy="-5" r="4"/>
+        <path class="g-smile" d="M-13 12q13 11 26 0"/>
+        <path class="g-horn" d="M-8 16l3 7 3-5zM8 16l-3 7-3-5z"/>
+      </g>
+      <!-- the players' tokens -->
+      <g transform="translate(124 240)">
+        <circle class="h-sun g-base" r="22"/><circle class="g-in" r="15"/>
+        <g clip-path="url(#g-token-clip)"><circle class="h-sun" cx="0" cy="-3" r="6"/><path class="h-sun" d="M-12 16c1-9 6-12 12-12s11 3 12 12z"/></g>
+      </g>
+      <g transform="translate(220 240)">
+        <circle class="g-teal g-base" r="22"/><circle class="g-in" r="15"/>
+        <g clip-path="url(#g-token-clip)"><circle class="g-teal" cx="0" cy="-3" r="6"/><path class="g-teal" d="M-12 16c1-9 6-12 12-12s11 3 12 12z"/></g>
+      </g>
+      <g transform="translate(172 288)">
+        <circle class="g-coral g-base" r="22"/><circle class="g-in" r="15"/>
+        <g clip-path="url(#g-token-clip)"><circle class="g-coral" cx="0" cy="-3" r="6"/><path class="g-coral" d="M-12 16c1-9 6-12 12-12s11 3 12 12z"/></g>
+      </g>
+      <!-- the dice: a d20 where the sun is, a d6 at the table's edge -->
+      <g transform="translate(452 90) rotate(8)">
+        <path class="h-sun" d="M0-48L41.6-24V24L0 48-41.6 24V-24z"/>
+        <path class="g-face" d="M0-26L22.5 13H-22.5z"/>
+        <path class="g-ink" d="M0-48L41.6-24V24L0 48-41.6 24V-24zM0-26L22.5 13H-22.5zM0-26V-48M0-26L41.6-24M0-26L-41.6-24M22.5 13L41.6-24M22.5 13L41.6 24M22.5 13L0 48M-22.5 13L-41.6-24M-22.5 13L-41.6 24M-22.5 13L0 48"/>
+        <text class="g-num" x="0" y="8" text-anchor="middle">20</text>
+      </g>
+      <g transform="translate(42 316) rotate(-14)">
+        <rect class="g-coral g-line" x="-21" y="-21" width="42" height="42" rx="10"/>
+        <circle class="g-pip" cx="-9" cy="-9" r="4"/><circle class="g-pip" cx="0" cy="0" r="4"/><circle class="g-pip" cx="9" cy="9" r="4"/>
+      </g>
+      <!-- the call: the same tile as travel -->
+      <g transform="translate(300 292)">
+        <rect class="h-night" x="0" y="0" width="226" height="138" rx="22"/>
+        <rect class="h-tile" x="14" y="14" width="96" height="84" rx="14"/>
+        <circle class="h-face-a" cx="62" cy="46" r="15"/><path class="h-face-a" d="M36 98c2-20 13-28 26-28s24 8 26 28z"/>
+        <rect class="h-tile" x="116" y="14" width="96" height="84" rx="14"/>
+        <circle class="h-face-b" cx="164" cy="46" r="15"/><path class="h-face-b" d="M138 98c2-20 13-28 26-28s24 8 26 28z"/>
+        <circle class="h-ctl" cx="84" cy="118" r="9"/><circle class="h-ctl" cx="113" cy="118" r="9"/><circle class="h-end" cx="142" cy="118" r="9"/>
+        <path class="h-night" d="M30 138l-4 22 28-22z"/>
+      </g>
+      <!-- Sessions: a month with the next game night marked -->
+      <g transform="translate(14 8)">
+        <rect class="h-sheet" x="0" y="0" width="200" height="126" rx="18"/>
+        <path class="h-sheet-top" d="M0 40V18a18 18 0 0 1 18-18h164a18 18 0 0 1 18 18v22z"/>
+        <circle class="h-day" cx="30" cy="20" r="11"/>
+        <rect class="h-line-w" x="52" y="14" width="80" height="9" rx="4.500"/>
+        <g transform="translate(14 52)">
+          <rect class="g-cell" x="0" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="0" width="20" height="18" rx="5"/><rect class="g-cell-on" x="100" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="0" width="20" height="18" rx="5"/>
+          <rect class="g-cell" x="0" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="24" width="20" height="18" rx="5"/><rect class="g-cell-next" x="100" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="24" width="20" height="18" rx="5"/>
+          <rect class="g-cell" x="0" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="48" width="20" height="18" rx="5"/><rect class="g-cell-next" x="100" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="48" width="20" height="18" rx="5"/>
+        </g>
+      </g>
+    </symbol>
+
+    <!-- TRAVEL (today, copied from travel.html for comparison) -->
+    <symbol id="art-travel" viewBox="0 0 560 470">
+      <g clip-path="url(#map-clip)">
+        <rect x="20" y="40" width="470" height="380" class="h-sea"/>
+        <path class="h-wave" d="M20 120q40-14 80 0t80 0 80 0 80 0 80 0 70 0M20 330q40-14 80 0t80 0 80 0 80 0 80 0 70 0" fill="none"/>
+        <path class="h-land" d="M20 60C80 50 130 90 170 130c40 40 100 20 150 50 40 24 30 80 80 100 30 12 60 0 90 20V420H20z"/>
+        <path class="h-land2" d="M300 40c40 10 60 40 110 36 30-2 60-18 80-6V40z"/>
+        <path class="h-land2" d="M60 380c30-30 70-20 100-8 30 12 50 22 70 48H60z"/>
+        <path class="h-grid" d="M20 130h470M20 230h470M20 330h470M140 40v380M260 40v380M380 40v380" fill="none"/>
+      </g>
+      <path class="h-route" d="M92 342C130 250 200 330 250 250S330 150 392 150" fill="none"/>
+      <circle class="h-stop" cx="92" cy="342" r="9"/>
+      <circle class="h-stop" cx="250" cy="250" r="9"/>
+      <g transform="translate(392 150)"><path class="h-pin" d="M0-34c-14 0-22 10-22 21 0 15 22 40 22 40s22-25 22-40c0-11-8-21-22-21z"/><circle class="h-pin-dot" cx="0" cy="-13" r="8"/></g>
+      <g transform="translate(176 291) rotate(-3)"><path class="h-plane" d="M22 0C22-2 20-3 16-3H6L-6-18H-11L-4-3H-14L-19-9H-22L-21 0L-22 9H-19L-14 3H-4L-11 18H-6L6 3H16C20 3 22 2 22 0z"/></g>
+      <circle class="h-sun" cx="452" cy="82" r="26"/>
+      <path class="h-sun-ray" d="M452 38v-12M452 126v12M408 82h-12M496 82h12M421 51l-8-8M483 113l8 8M483 51l8-8M421 113l-8 8" fill="none"/>
+      <g transform="translate(300 292)">
+        <rect class="h-night" x="0" y="0" width="226" height="138" rx="22"/>
+        <rect class="h-tile" x="14" y="14" width="96" height="84" rx="14"/>
+        <circle class="h-face-a" cx="62" cy="46" r="15"/><path class="h-face-a" d="M36 98c2-20 13-28 26-28s24 8 26 28z"/>
+        <rect class="h-tile" x="116" y="14" width="96" height="84" rx="14"/>
+        <circle class="h-face-b" cx="164" cy="46" r="15"/><path class="h-face-b" d="M138 98c2-20 13-28 26-28s24 8 26 28z"/>
+        <circle class="h-ctl" cx="84" cy="118" r="9"/><circle class="h-ctl" cx="113" cy="118" r="9"/><circle class="h-end" cx="142" cy="118" r="9"/>
+        <path class="h-night" d="M30 138l-4 22 28-22z"/>
+      </g>
+      <g transform="translate(14 8)">
+        <rect class="h-sheet" x="0" y="0" width="200" height="126" rx="18"/>
+        <path class="h-sheet-top" d="M0 40V18a18 18 0 0 1 18-18h164a18 18 0 0 1 18 18v22z"/>
+        <circle class="h-day" cx="30" cy="20" r="11"/>
+        <rect class="h-line-w" x="52" y="14" width="80" height="9" rx="4.500"/>
+        <circle class="h-dot-a" cx="28" cy="66" r="6"/><rect class="h-line" x="44" y="61" width="112" height="9" rx="4.500"/>
+        <circle class="h-dot-b" cx="28" cy="90" r="6"/><rect class="h-line" x="44" y="85" width="90" height="9" rx="4.500"/>
+        <circle class="h-dot-a" cx="28" cy="114" r="6"/><rect class="h-line" x="44" y="109" width="126" height="9" rx="4.500"/>
+        <path class="h-thread" d="M28 72v12M28 96v12" fill="none"/>
+      </g>
+    </symbol>
+  </svg>
+
+  <main class="draft">
+    <span class="draft-flag">Draft, temporary</span>
+    <h1>Games hero art</h1>
+    <p>For Thomas to look at before the games page is built. Delete this page when /games is built. Each picture is shown at the width the hero art gets on the page.</p>
+
+    <h2>At 1280 wide</h2>
+    <div class="pair w1280">
+      <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="A game table from above: a battle map with three player tokens moving toward a friendly monster, a d20 and a d6, the Sessions calendar and a video call with two players."><use href="#art-games"/></svg></div><figcaption><b>Games</b>, the draft</figcaption></figure>
+      <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="The travel art: a trip route across a map, with a video call and a day plan."><use href="#art-travel"/></svg></div><figcaption><b>Travel</b>, as it is on /travel</figcaption></figure>
+    </div>
+
+    <h2>At 390 wide</h2>
+    <div class="pair w390">
+      <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="The games art, at phone size."><use href="#art-games"/></svg></div><figcaption><b>Games</b>, the draft</figcaption></figure>
+      <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="The travel art, at phone size."><use href="#art-travel"/></svg></div><figcaption><b>Travel</b>, as it is on /travel</figcaption></figure>
+    </div>
+  </main>
+</body>
+</html>

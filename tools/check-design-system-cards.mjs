@@ -13,6 +13,7 @@
  * a shadow other than none and --shadow-1, a name not defined.
  */
 import { checkNesting } from './check-design-system-nesting.mjs';
+import { badgeInk } from './check-design-system-align.mjs';
 export const id = 'cards';
 export const todayOnly = [];
 
@@ -41,6 +42,8 @@ export function staticChecks({ fail, css, js, defined, DS }) {
 
 export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, edgeColours } = b;
+  // The glyph in a portrait: the middle of the disc, by ink (4x).
+  await badgeInk(b, [{ frame: /./, badge: '.sdk-portrait', glyphs: [] }]);
   const cp = JSON.parse(await ev(`(${cardsProbe.toString()})()`));
   for (const x of cp.problems) problems.push(`${where}: ${x}`);
   await checkNesting(b, /^(Cards|Rows)/);

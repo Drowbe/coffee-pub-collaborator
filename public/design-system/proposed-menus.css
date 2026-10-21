@@ -501,6 +501,9 @@
   color: var(--kind-color, var(--text));
   font-size: 1em;
 }
+/* Two glyphs are drawn off the middle of their box (the bag's handles, the mug's handle): moved by what was measured (badgeInk, within 0.5px of the middle of the 22px box). */
+.ds-proposed .sdk-kind-icon > .fa-bag-shopping { transform: translateY(0.07em); }
+.ds-proposed .sdk-kind-icon > .fa-mug-hot { transform: translate(-0.05em, 0.03em); }
 
 .ds-proposed .sdk-kind-option .sdk-kind-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 

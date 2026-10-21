@@ -35,15 +35,14 @@ export async function browserChecks(b) {
       await new Promise((r) => setTimeout(r, 400));
       for (const title of ['Tabs, all states', 'Tabs, all states, small']) {
         for (const [r, nm] of [[0, 'label'], [1, 'icon and label'], [2, 'icon alone']]) for (const col of [0, 3]) {
-          const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[${col}].querySelector('.sdk-tab'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); const fy = fr.top + window.scrollY; /* the frame's own origin: a frame that starts between two device pixels is painted snapped, so its ink moves up to a pixel against the box; it is moved to a whole pixel here (position only) */ const frac = fy - Math.floor(fy); if (frac > 0.01) { m.iframe.style.top = (1 - frac) + 'px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); } return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
-          const shotT = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-          const c = inkCentre(Buffer.from(shotT.data, 'base64'), 4, 10);
+          const { png: pngT } = await b.shotAt(title, `d.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[${col}].querySelector('.sdk-tab')`); // on a whole pixel, across and down
+          const c = inkCentre(pngT, 4, 10);
           if (c === null) problems.push(`${where}: no ink found in the ${nm} tab (${title}, ${col ? 'selected' : 'rest'}, ${face})`);
           else if (Math.abs(c) > 1.01) problems.push(`${where}: the ${nm} tab is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} of the middle of its box (${title}, ${col ? 'selected' : 'rest'}, ${face})`);
         }
       }
     }
-    await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.position = ''; const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
+    await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
     // The focus outline of a tab, rest and selected: all four sides the same at a fractional device pixel ratio and page offset (the Fields' method).
     if (sc.width >= 500) {
       for (const dsf of [1.25, 1.5]) {

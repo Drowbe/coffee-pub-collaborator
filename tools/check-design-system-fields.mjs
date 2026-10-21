@@ -23,9 +23,8 @@ export async function browserChecks(b) {
       await new Promise((r) => setTimeout(r, 400));
       for (const [title, rowsToDo] of [['Fields, all states', [[0, 'text'], [2, 'list'], [3, 'number'], [5, 'time'], [6, 'search']]], ['Fields, all states, 44px', [[0, 'text'], [3, 'number']]]]) {
         for (const [r, nm] of rowsToDo) {
-          const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[3].querySelector('input,select'); m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; /* back to the frame's own place: the shift below is worked out from it, not added to the one left by the previous face */ el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); /* put the field itself on a whole pixel: the 4x ink swings by up to 0.75px with the sub-pixel position, so it must not depend on where the page's text happened to wrap */ const abs = fr.top + b.top + window.scrollY; const frac = abs - Math.floor(abs); m.iframe.style.position = 'relative'; m.iframe.style.top = frac > 0.01 ? (1 - frac) + 'px' : '0px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
-          const shotF = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-          const c = inkCentre(Buffer.from(shotF.data, 'base64'), 4, 10); // a field has a 1px edge and rounded corners: look 2.5px in
+          const { png: pngF } = await b.shotAt(title, `d.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[3].querySelector('input,select')`); // the field itself on a whole pixel, across and down
+          const c = inkCentre(pngF, 4, 10); // a field has a 1px edge and rounded corners: look 2.5px in
           if (c === null) problems.push(`${where}: no ink found in the filled ${nm} field (${title}, ${face})`);
           else if (Math.abs(c) > 1.01) problems.push(`${where}: the text of the filled ${nm} field is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its box (${title}, ${face})`);
         }
@@ -34,9 +33,9 @@ export async function browserChecks(b) {
     await ev(`(() => { for (const f of window.__ds.frames) { const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
     // The date field: the text and the calendar icon each sit within 1px of the middle of the field's height, by ink (4x).
     for (const [title, part] of [['Fields, all states', 'text'], ['Fields, all states', 'icon'], ['Fields, all states, 44px', 'text'], ['Fields, all states, 44px', 'icon']]) {
-      const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const cell = m.iframe.contentDocument.querySelectorAll('.pm-row')[4].querySelectorAll('.dsf-state')[3]; const el = cell.querySelector('input'); const bt = cell.querySelector('.sdk-field-btn'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); const b = el.getBoundingClientRect(); const q = bt.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); const x0 = ${part === 'icon' ? 'q.left' : 'b.left'}; const x1 = ${part === 'icon' ? 'q.right' : 'q.left - 4'}; return JSON.stringify({ x: fr.left + x0 + window.scrollX, y: fr.top + b.top + window.scrollY, w: x1 - x0, h: b.height }); })()`));
-      const shotD = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-      const c = inkCentre(Buffer.from(shotD.data, 'base64'), 4, 10);
+      // the field on a whole pixel, then the part of its width: the text (up to 4px short of the button) or the button's own box
+      const { png: pngD } = await b.shotAt(title, `d.querySelectorAll('.pm-row')[4].querySelectorAll('.dsf-state')[3].querySelector('input')`, '', `(el, b) => { const q = el.parentElement.querySelector('.sdk-field-btn').getBoundingClientRect(); return ${part === 'icon' ? '[q.left, q.right]' : '[b.left, q.left - 4]'}; }`);
+      const c = inkCentre(pngD, 4, 10);
       if (c === null) problems.push(`${where}: no ink found in the date ${part} (${title})`);
       else if (Math.abs(c) > 1.01) problems.push(`${where}: the date ${part} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its field (${title})`);
     }

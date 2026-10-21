@@ -13,6 +13,7 @@
  * Not yet decided; in the stylesheet: a chips rule that draws an edge on one side, an underline, an inset shadow, a tint in a border, a font size under 11px (except the micro count's 9px), the
  * hard-coded #e0b25a, a new name that is not defined.
  */
+import { badgeInk, inkBounds } from './check-design-system-align.mjs';
 export const id = 'chips';
 export const todayOnly = ['aside', 'ref', 'warn', 'in-trip', 'current', 'today', 'mono'];
 
@@ -35,17 +36,37 @@ export function staticChecks({ fail, css, defined, js }) {
 
 export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours } = b;
+  await badgeInk(b, [{ frame: /^Chips, (?!anatomy)/, badge: '.sdk-chip-avatar', glyphs: [], tol: 0.75 /* initials: a letter's own shape (the J hangs left) */ }, { frame: /^Chips, (?!anatomy)/, badge: '.sdk-chip-x', glyphs: [] }]);
+  // A chip with an icon, a dot, a count or an x: everything drawn in it stays inside its border box and at least 4px in from the left and right edge (an icon is
+  // never clipped or tight against the edge) and 3px in from the top and bottom; the icon is the size of its chip (12px in a 24px chip, 14px in a 30px chip). By ink, 4x.
+  {
+    const SEL = ':is(.sdk-chip, .sdk-chip-tag, .sdk-status, .sdk-chip-removable, .sdk-chip-people, .filter-chip, .pill, .tag):has(> :is(i, .sdk-chip-dot, .sdk-badge, .sdk-chip-x, .sdk-chip-avatar))';
+    const list = JSON.parse(await ev(`JSON.stringify(window.__ds.frames.filter((f) => /^Chips, /.test(f.iframe.title)).map((f) => [f.iframe.title, [...f.iframe.contentDocument.querySelectorAll(${JSON.stringify(SEL)})].map((e) => { const r = e.getBoundingClientRect(); return r.width && r.height ? 1 : 0; })]))`));
+    for (const [title, vis] of list) for (let k = 0; k < vis.length; k += 1) {
+      if (!vis[k]) continue;
+      const { rect, png } = await b.shotAt(title, `d.querySelectorAll(${JSON.stringify(SEL)})[${k}]`);
+      const meta = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const e = m.iframe.contentDocument.querySelectorAll(${JSON.stringify(SEL)})[${k}]; const i = e.querySelector(':scope > i'); const cs = i ? getComputedStyle(i) : null; return JSON.stringify({ forced: !!(e.matches('[class*="ds-force"]') || e.querySelector('[class*="ds-force"]')), zoomed: !!e.closest('.pm-zoom'), name: (e.className || '') + ' "' + e.textContent.trim().slice(0, 14) + '"', icon: cs ? parseFloat(cs.fontSize) : 0, ir: i ? i.getBoundingClientRect().left - e.getBoundingClientRect().left : 0 }); })()`));
+      if (meta.forced) continue; // a forced hover or focus draws its own fill or ring right to the box
+      const c = inkBounds(png, 4, meta.zoomed ? 7 : 2);
+      if (process.env.BADGE_DEBUG) console.error(`${where} chip ${title} ${meta.name} ${rect.h}px icon=${meta.icon} ink: left=${c && c.left.toFixed(2)} right=${c && c.right.toFixed(2)} top=${c && c.top.toFixed(2)} bottom=${c && c.bottom.toFixed(2)}`);
+      if (process.env.CHIP_SHOTS) { const fs = await import('node:fs'); fs.mkdirSync(process.env.CHIP_SHOTS, { recursive: true }); fs.writeFileSync(`${process.env.CHIP_SHOTS}/${sc.width}-${sc.mode}-${title.replace(/\W+/g, '_')}-${k}.png`, png); }
+      if (!c) { problems.push(`${where}: nothing drawn in the chip ${meta.name} (${title})`); continue; }
+      if (c.left < 3.99 || c.right < 3.99) problems.push(`${where}: in the chip ${meta.name} (${title}) the ink comes ${c.left.toFixed(1)}px from the left edge and ${c.right.toFixed(1)}px from the right (at least 4px)`);
+      if (c.top < 2.99 || c.bottom < 2.99) problems.push(`${where}: in the chip ${meta.name} (${title}) the ink comes ${c.top.toFixed(1)}px from the top and ${c.bottom.toFixed(1)}px from the bottom (at least 3px)`);
+      const want = rect.h > 27 ? 14 : 12; if (meta.icon && Math.abs(meta.icon - want) > 0.1) problems.push(`${where}: the icon in the ${Math.round(rect.h)}px chip ${meta.name} (${title}) is ${meta.icon}px, expected ${want}`);
+    }
+    await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; } })()`);
+  }
   const cp = JSON.parse(await ev(`(${chipsProbe.toString()})()`)); for (const x of cp.problems) problems.push(`${where}: ${x}`);
   // The ink of a label in a choice chip, a tag and a status label: within 1px of the middle of the box, by a 4x screenshot.
   if (sc.width >= 500) {
     for (const [title, sel, nm] of [['Chips, all states', '.pm-row:nth-child(1) .dsf-state:nth-child(1) .sdk-chip', 'choice chip'], ['Chips, all states', '.pm-row:nth-child(1) .dsf-state:nth-child(4) .sdk-chip', 'selected choice chip'], ['Chips, states of the other roles', '.pm-row:nth-child(1) .dsf-state:nth-child(1) .sdk-chip-tag', 'tag'], ['Chips, states of the other roles', '.pm-row:nth-child(5) .dsf-state:nth-child(1) .sdk-status', 'status label']]) {
-      const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelector(${JSON.stringify(sel)}); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); const fy = fr.top + window.scrollY; const frac = fy - Math.floor(fy); if (frac > 0.01) { m.iframe.style.top = (1 - frac) + 'px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); } return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
-      const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-      const c = inkCentre(Buffer.from(shot.data, 'base64'), 4, 10);
+      const { png } = await b.shotAt(title, `d.querySelector(${JSON.stringify(sel)})`); // on a whole pixel, across and down
+      const c = inkCentre(png, 4, 10);
       if (c === null) problems.push(`${where}: no ink found in the ${nm}`);
       else if (Math.abs(c) > 1.01) problems.push(`${where}: the ${nm} label is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} of the middle of its box`);
     }
-    await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.position = ''; } })()`);
+    await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; } })()`);
     // The focus outline of a chip, rest and selected: all four sides the same at a fractional device pixel ratio and page offset.
     for (const dsf of [1.25, 1.5]) {
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: dsf, mobile: false }, sessionId);

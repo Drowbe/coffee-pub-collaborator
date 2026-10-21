@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { alignRows } from './check-design-system-align.mjs';
+import { alignRows, badgeInk } from './check-design-system-align.mjs';
 
 export const id = 'pickers';
 export const todayOnly = [];
@@ -33,6 +33,7 @@ export function staticChecks({ fail, css, js, DS }) {
 
 export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, edgeColours } = b;
+  await badgeInk(b, [{ frame: /./, badge: '.sdk-tile > .sdk-tile-check', self: true, glyphs: [] }, { frame: /./, badge: '.sdk-swatch > i', self: true, glyphs: [] }]);
   const probe = JSON.parse(await ev(`(() => {
     const F = window.__ds.frames; const get = (t) => { const f = F.find((x) => x.iframe.title === t); return f && f.iframe.contentDocument; };
     const out = { problems: [] }; const bad = (m) => out.problems.push(m);

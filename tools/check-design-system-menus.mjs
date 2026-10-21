@@ -16,6 +16,7 @@
  * sheets still listed as not yet decided. In the stylesheet: a rule that draws an edge on one side, an inset shadow, an underline, a red or accent fill on a
  * danger row or a hover, a name that is not defined, a --shadow-2 with no light value.
  */
+import { badgeInk } from './check-design-system-align.mjs';
 export const id = 'menus';
 export const todayOnly = [];
 
@@ -45,6 +46,8 @@ export function staticChecks({ fail, css, defined }) {
 
 export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, edgeColours } = b;
+  // The glyph in a kind icon: the middle of its 22px box, by ink (4x).
+  await badgeInk(b, [{ frame: /./, badge: '.sdk-kind-icon', glyphs: [] }]);
   const mp = JSON.parse(await ev(`(${menusProbe.toString()})()`));
   for (const x of mp.problems) problems.push(`${where}: ${x}`);
   // Focus: the same on all four edges at a fractional device pixel ratio and page offset (the Fields' and Tabs' method), on a focused row and a current focused row.

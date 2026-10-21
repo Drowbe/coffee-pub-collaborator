@@ -57,13 +57,13 @@ export async function browserChecks(b) {
     }
     for (let k = 0; k < (probe.targets || []).length; k += 1) {
       const t = probe.targets[k];
-      const at = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Buttons, all states'); const b = m.iframe.contentDocument.querySelectorAll('.pm-row')[${k}].querySelector('button'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }); })()`));
-      const shotB = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-      const c = inkCentre(Buffer.from(shotB.data, 'base64'), 4, 10);
+      const { png: pngB } = await b.shotAt('Buttons, all states', `d.querySelectorAll('.pm-row')[${k}].querySelector('button')`); // on a whole pixel, across and down
+      const c = inkCentre(pngB, 4, 10);
       if (c === null) problems.push(`${where}: no ink found in ${t.n}`);
       else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of ${t.n} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its button${fk ? ' set in Figtree' : ''}`);
     }
   }
+  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; } })()`);
   // Fraunces: the file loads from fonts/ (local woff2), and a big title in a 1px-bordered bar sits within 1px of the middle of the bar, at 40, 28, 22 and 18px.
   await ev('window.__ds.setFont("proposed")');
   await new Promise((r) => setTimeout(r, 900));
@@ -71,9 +71,8 @@ export async function browserChecks(b) {
   if (!hl.ok) problems.push(`${where}: Fraunces (${hl.fam}) did not load in the title bars frame`);
   if (hl.n !== 4) problems.push(`${where}: the title bars frame has ${hl.n} bars, expected 4 (40, 28, 22, 18px)`);
   for (let k = 0; k < hl.n; k += 1) {
-    const at = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Headline, title bars'); const b = m.iframe.contentDocument.querySelectorAll('.pm-tb')[${k}]; m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; b.scrollIntoView({ block: 'center' }); let r = b.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); /* the bar on a whole pixel: the 4x ink swings by up to 0.75px with the sub-pixel position of the bar */ const frac = (fr.top + r.top + window.scrollY) % 1; m.iframe.style.top = frac > 0.01 ? (1 - frac) + 'px' : '0px'; r = b.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }); })()`));
-    const shotH = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-    const c = inkCentre(Buffer.from(shotH.data, 'base64'), 4);
+    const { png: pngH } = await b.shotAt('Headline, title bars', `d.querySelectorAll('.pm-tb')[${k}]`); // on a whole pixel, across and down
+    const c = inkCentre(pngH, 4);
     if (c === null) problems.push(`${where}: no ink found in the Fraunces title bar ${k + 1}`);
     else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of the Fraunces title bar ${k + 1} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its bar`);
   }

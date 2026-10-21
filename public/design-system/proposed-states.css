@@ -43,6 +43,9 @@
 /* The block's rhythm, all on the 4px scale: icon, 12px, heading, 4px, text, 16px, button (the Cards family draws the box; its 6px steps are replaced here). */
 .ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state):is(.sdk-empty, .empty, .rs-empty, .state) { gap: 4px; }
 .ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state):is(.sdk-empty, .empty, .rs-empty, .state) > :is(i, .ic) { margin-bottom: 8px; }
+/* The triangle's tip is at the top of its box and the magnifier is drawn a hair right and low, so the glyph (not the box, which keeps the rhythm above) is moved by what was measured (badgeInk). */
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > .fa-triangle-exclamation::before { display: inline-block; transform: translateY(0.1em); }
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > .fa-magnifying-glass::before { display: inline-block; transform: translate(-0.02em, -0.02em); }
 .ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state):is(.sdk-empty, .empty, .rs-empty, .state) > .btn { margin-top: 12px; }
 .ds-proposed .sdk-empty[data-kind="error"] > i:first-child { color: var(--state-error); }
 .ds-proposed :is(.sdk-empty-line, .emptynote, .activity-empty, .bell-empty) {

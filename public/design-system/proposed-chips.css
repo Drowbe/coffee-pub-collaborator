@@ -294,6 +294,7 @@
 .ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > :is(.sdk-chip-x, .x) :is(i, svg) {
   font-size: 12px;
   line-height: 1;
+  transform: translateY(0.02em); /* the x sits a hair high in its box (badgeInk) */
 }
 
 /* ---- counts and dots ---- */

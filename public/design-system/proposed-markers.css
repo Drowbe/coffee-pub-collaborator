@@ -71,6 +71,11 @@
   font-size: 12px;
   line-height: 1;
 }
+/* The glyph sits a hair high in a line box (the browser rounds the font's ascent to a whole pixel), so it is let down by what was measured at 12px, and the two glyphs
+   that are drawn off the middle of their own box are moved across (tools/check-design-system-align.mjs, badgeInk: the ink within 0.5px of the middle of the 20px chip). */
+.ds-proposed .sdk-mk-ic > i { line-height: 1; transform: translateY(0.05em); }
+.ds-proposed .sdk-mk-ic > .fa-moon { transform: translate(0.08em, 0.05em); }
+.ds-proposed .sdk-mk-ic > .fa-sun { transform: translate(0.04em, 0.05em); }
 
 /* The line itself (neutral, 2px, behind the chips): the Planner draws it once for all the days. */
 .ds-proposed .sdk-mk-spine { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 4px 0; }

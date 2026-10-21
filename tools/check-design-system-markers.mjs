@@ -9,6 +9,7 @@
  * 390); a phone chip or tag without a 44px hit area; a marker taking a phase colour; a thin coloured block on a side outside the Calendar frame's declared exception;
  * the legend missing a type or a form; in the stylesheet a gradient, a hex colour, a coloured one-sided border or a shadow; the family not marked Approved.
  */
+import { badgeInk } from './check-design-system-align.mjs';
 export const id = 'markers';
 export const todayOnly = [];
 
@@ -26,6 +27,8 @@ export function staticChecks({ fail, css, js, defined }) {
 
 export async function browserChecks(b) {
   const { ev, where, problems } = b;
+  // The glyph in its icon chip: the middle of the chip, by ink (4x).
+  await badgeInk(b, [{ frame: /^Markers, /, badge: '.sdk-mk-ic', glyphs: [] }]);
   const cp = JSON.parse(await ev(`(${markersProbe.toString()})()`));
   for (const x of cp.problems) problems.push(`${where}: ${x}`);
 }

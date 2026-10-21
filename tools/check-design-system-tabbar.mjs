@@ -40,16 +40,12 @@ export async function browserChecks(b) {
   for (const x of cp.problems) problems.push(`${where}: ${x}`);
   // The label of a tab, within 1px of the middle of its box (a 4x screenshot; the label's words have no descenders).
   for (const [title, idx, nm] of [['Tab bar, states', 0, 'a tab at rest'], ['Tab bar, states', 4, 'the current tab']]) {
-    const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelectorAll('.sdk-tabbar')[0].querySelectorAll('.sdk-tabbar-tab')[${idx}];
-      el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 150));
-      let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); const frac = (fr.top + window.scrollY) - Math.floor(fr.top + window.scrollY); m.iframe.style.position = 'relative'; if (frac > 0.01) { m.iframe.style.top = (1 - frac) + 'px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); }
-      return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
-    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-    const c = inkCentre(Buffer.from(shot.data, 'base64'), 4, 10);
+    const { png } = await b.shotAt(title, `d.querySelectorAll('.sdk-tabbar')[0].querySelectorAll('.sdk-tabbar-tab')[${idx}]`); // on a whole pixel, across and down
+    const c = inkCentre(png, 4, 10);
     if (c === null) problems.push(`${where}: no ink found in ${nm}`);
     else if (Math.abs(c) > 1.01) problems.push(`${where}: the icon and label of ${nm} are ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} of the middle of its box`);
   }
-  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.position = ''; } })()`);
+  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; } })()`);
   // The focus outline of a tab: all four sides the same at a fractional device pixel ratio and page offset.
   if (sc.width >= 500 || true) {
     for (const dsf of [1.25, 1.5]) {

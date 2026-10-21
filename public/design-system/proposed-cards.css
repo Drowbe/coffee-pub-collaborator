@@ -29,7 +29,7 @@
   --gap-in: 8px;
   --gap-card-rows: 4px; /* rows inside a card: the fill step separates them, so 4px; rows in a list on a panel or a window: 8px */
   --gap-group: 16px;
-  --chip-icon: 32px;
+  --card-icon: 32px;
   --tick-hit: 28px;
   --tick-edge: -6px;
   --ls-label: 0.04em;
@@ -152,7 +152,7 @@
 .ds-proposed .sdk-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .ds-proposed .sdk-row-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); font-size: 12px; line-height: 16px; }
 .ds-proposed .sdk-row-meta { flex: none; color: var(--text-dim); font-size: 12px; white-space: nowrap; }
-.ds-proposed .sdk-row .sdk-card-icon { --chip-icon: 28px; }
+.ds-proposed .sdk-row .sdk-card-icon { --card-icon: 28px; }
 /* The tick: a 16px box (the Fields family) in a hit area that is 28px, and 44px on a phone. */
 .ds-proposed .sdk-row-tick {
   flex: none;
@@ -245,8 +245,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--chip-icon);
-  height: var(--chip-icon);
+  width: var(--card-icon);
+  height: var(--card-icon);
   border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--tint, var(--text-dim)) 18%, var(--s, var(--bg-card)));
   color: color-mix(in srgb, var(--tint, var(--text-dim)) 62%, var(--text));
@@ -328,6 +328,9 @@
   color: color-mix(in srgb, var(--tint, var(--text-dim)) 62%, var(--text));
   font-size: 14px; line-height: 1;
 }
+/* The glyph is let down by what was measured at 14px (the browser rounds the font's ascent to a whole pixel; badgeInk, within 0.5px of the middle of the 32px disc). */
+.ds-proposed .sdk-portrait > i { line-height: 1; transform: translateY(0.02em); }
+.ds-proposed .sdk-portrait > .fa-wand-magic-sparkles { transform: translate(0.03em, 0.045em); }
 /* A status word on a host console environment: a plain placeholder label until the Chips family draws the chip. */
 .ds-proposed .sdk-status-word {
   flex: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-small);

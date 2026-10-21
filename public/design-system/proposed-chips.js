@@ -27,7 +27,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-size > small { color: var(--text-dim); font-size: 11px; font-weight: 600; }
 .pm-ruler { position: relative; width: 6px; border-left: 1px solid var(--text-dim); border-right: 1px solid var(--text-dim); }
 .pm-mock { display: flex; align-items: center; gap: 8px; }
-.pm-mock-t { color: var(--text-dim); font-size: 12px; }`;
+.pm-mock-t { color: var(--text-dim); font-size: 12px; }
+/* The anatomy sample, enlarged. The chips wrap, and the zoom is smaller on a phone, so a chip is never narrower than its words and an icon is never pushed out of its edge. */
+.pm-zoom { zoom: 2.5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+@media (max-width: 640px) { .pm-zoom { zoom: 2; } }`;
 
   const TONES = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -361,7 +364,7 @@ ${code(`<!-- a row of choice chips. Selected is aria-pressed="true" -->
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + CH_CSS, onload: chipsDemo }, o || {}));
-    slot('zoom').appendChild(F(`<div class="ds-proposed"><div class="pm-zoom" style="zoom:2.5">${chip({ label: 'Museums', icon: 'landmark', count: 12, sel: true })}${tag({ label: 'Nature', tone: 'green', dot: true })}${removable({ label: 'Cafes', tone: 'gold' })}</div></div>`, 'Chips, anatomy sample', { height: 160 }));
+    slot('zoom').appendChild(F(`<div class="ds-proposed"><div class="pm-zoom">${chip({ label: 'Museums', icon: 'landmark', count: 12, sel: true })}${tag({ label: 'Nature', tone: 'green', dot: true })}${removable({ label: 'Cafes', tone: 'gold' })}</div></div>`, 'Chips, anatomy sample', { height: 160 }));
     slot('roles').appendChild(F(rolesBody(), 'Chips, roles'));
     slot('guide').appendChild(F(guideBody(), 'Chips, which one'));
     slot('choice').appendChild(F(choiceGrid(), 'Chips, all states'));

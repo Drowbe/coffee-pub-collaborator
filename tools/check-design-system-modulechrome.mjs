@@ -62,15 +62,12 @@ export async function browserChecks(b) {
   for (const x of JSON.parse(al)) problems.push(`${where}: ${x}`);
   // The label of a text button in the toolbar, within 1px of the middle of its box (a 4x screenshot of the button).
   for (const [title, sel, nm] of [['Module chrome, toolbar', '.sdk-toolbar .btn:not(.sdk-icon-btn)', 'the toolbar text button'], ['Module chrome, aliases', '.tb-btn', 'the .tb-btn alias']]) {
-    const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelector(${JSON.stringify(sel)}); { const ic = el.querySelector('i'); if (ic) ic.remove(); } el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 150));
-      let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); const frac = (fr.top + window.scrollY) - Math.floor(fr.top + window.scrollY); m.iframe.style.position = 'relative'; if (frac > 0.01) { m.iframe.style.top = (1 - frac) + 'px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); }
-      return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
-    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-    const c = inkCentre(Buffer.from(shot.data, 'base64'), 4, 10);
+    const { png } = await b.shotAt(title, `d.querySelector(${JSON.stringify(sel)})`, `{ const ic = d.querySelector(${JSON.stringify(sel)}).querySelector('i'); if (ic) ic.remove(); }`); // on a whole pixel, across and down
+    const c = inkCentre(png, 4, 10);
     if (c === null) problems.push(`${where}: no ink found in ${nm}`);
     else if (Math.abs(c) > 1.01) problems.push(`${where}: ${nm} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} of the middle of its box`);
   }
-  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.position = ''; } })()`);
+  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; } })()`);
   // The focus ring of a toolbar button: all four sides the same at a fractional device pixel ratio and page offset.
   if (sc.width >= 500) {
     for (const dsf of [1.25, 1.5]) {

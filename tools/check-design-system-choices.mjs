@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { alignRows } from './check-design-system-align.mjs';
+import { alignRows, badgeInk } from './check-design-system-align.mjs';
 
 export const id = 'choices';
 export const todayOnly = [];
@@ -30,6 +30,8 @@ export function staticChecks({ fail, css, js, DS }) {
 
 export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, edgeColours } = b;
+  // The mark in a tick box and the dot in a radio: the middle of the 16px box, by ink (4x). A disabled one is left out: it is drawn at half strength over the row, so the ink is not read against one fill.
+  await badgeInk(b, [{ frame: /^(Choice rows|Tick box|Fields|A form)/, badge: ':is(input[type="checkbox"], input[type="radio"]):checked:not(:disabled, .sdk-switch, .switch)', glyphs: [] }]);
   const probe = JSON.parse(await ev(`(() => {
     const F = window.__ds.frames; const out = { problems: [], rows: 0 }; const bad = (m) => out.problems.push(m);
     const dd = (t) => { const f = F.find((x) => x.iframe.title === t); return f && f.iframe.contentDocument; };

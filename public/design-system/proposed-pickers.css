@@ -400,7 +400,9 @@
   background: var(--bg-card);
   color: var(--text);
   font-size: 10px;
-  line-height: 18px;
+  line-height: 17px; /* the check sits a hair low in an 18px line, and a hair left: a line 1px shorter and 0.75px of padding on the left (badgeInk, within 0.5px of the middle of the disc) */
+  padding-left: 0.75px;
+  box-sizing: border-box;
   text-align: center;
 }
 

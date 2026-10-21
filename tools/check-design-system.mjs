@@ -288,7 +288,8 @@ async function browse(cdp, label, url, scenarios, shots) {
       if (s.families < 1 || s.undecided < 1) problems.push(`${where}: too little drawn (${s.families} decided, ${s.undecided} still to decide)`);
       const page = JSON.parse(await ev(`JSON.stringify({ today: typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined', undecidedLinks: document.querySelectorAll('.ds-undecided a').length, drawnAlsoUndecided: (window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => window.DS_PROPOSED.families.some((f) => f.name.toLowerCase() === n.toLowerCase() || f.id === n.toLowerCase())) })`));
       // Each family's own checks, in the order of tools/check-design-system-families.json. They share the page, so each leaves the switches as it found them.
-      const b = { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours };
+      const shotAt = (title, elExpr, pre, span) => shotAtWhole(ev, cdp, sessionId, title, elExpr, pre, span);
+      const b = { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours, shotAt };
       for (const m of checks) {
         if (!m.browserChecks || (ONLY && !ONLY.includes(m.id))) continue;
         const t0 = Date.now();
@@ -319,6 +320,23 @@ async function browse(cdp, label, url, scenarios, shots) {
   }
   await cdp.send('Target.closeTarget', { targetId });
   return { problems, last: last && JSON.parse(last) };
+}
+
+// A 4x screenshot of one element of an example frame, with the element on a whole device pixel first (across and down). The 4x ink moves by up to 0.75px with the
+// sub-pixel position of the element, so a check of where ink sits must not depend on where the page's text happened to wrap. elExpr is an expression that gives the
+// element from `m` (the frame, m.iframe) and `d` (its document); pre is statements to run first (the words changed to ones with no descenders); span is a function (el, rect) => [x0, x1], the part of the element's width to shoot (in the frame's own coordinates). The frame is moved by
+// position only (relative, top and left); the caller clears them when it is done. Returns { rect: { x, y, w, h }, png }.
+async function shotAtWhole(ev, cdp, sessionId, title, elExpr, pre, span) {
+  const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const d = m.iframe.contentDocument; ${pre || ''}
+    const el = ${elExpr}; m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; m.iframe.style.left = '0px';
+    el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 130));
+    const get = () => { const b = el.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return { x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }; };
+    let o = get(); const fy = o.y - Math.floor(o.y); const fx = o.x - Math.floor(o.x);
+    if (fy > 0.01 || fx > 0.01) { m.iframe.style.top = ((1 - fy) % 1) + 'px'; m.iframe.style.left = ((1 - fx) % 1) + 'px'; await new Promise((r) => setTimeout(r, 130)); o = get(); }
+    ${span ? `const sp = (${span})(el, el.getBoundingClientRect()); const fr = m.iframe.getBoundingClientRect(); o.x = fr.left + sp[0] + window.scrollX; o.w = sp[1] - sp[0];` : ''}
+    return JSON.stringify(o); })()`));
+  const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
+  return { rect: at, png: Buffer.from(shot.data, 'base64') };
 }
 
 // Ink position: the vertical middle of the pixels that differ from the button's own fill, against the middle of the button (px, positive is low).

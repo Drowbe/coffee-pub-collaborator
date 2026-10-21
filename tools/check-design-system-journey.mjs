@@ -117,17 +117,12 @@ export async function browserChecks(b) {
   // The label of a chip or a band, within 1px of the middle of its box (a 4x screenshot; the words are changed to ones with no descenders, as the Buttons' check does).
   for (const [title, sel, nm] of [['Journey, header chips', '.sdk-strip-phase', 'the phase chip'], ['Journey, header chips', '.sdk-strip-attn', 'the attention pill'], ['Journey, header chips', '.sdk-strip-count', 'the countdown'], ['Journey at 1280', '.sdk-band:not([data-state="current"]):not([data-state="off"])', 'a band']]) {
     if (title === 'Journey at 1280' && sc.width < 500) continue;
-    const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelector(${JSON.stringify(sel)});
-      for (const t of el.querySelectorAll('.sdk-strip-sentence, .sdk-strip-count-words, .sdk-band-name, .sdk-strip-attn > span:last-child')) t.textContent = 'Hello now';
-      el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 150));
-      let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); const frac = (fr.top + window.scrollY) - Math.floor(fr.top + window.scrollY); m.iframe.style.position = 'relative'; if (frac > 0.01) { m.iframe.style.top = (1 - frac) + 'px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); }
-      return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
-    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-    const c = inkCentre(Buffer.from(shot.data, 'base64'), 4, 10);
+    const { png } = await b.shotAt(title, `d.querySelector(${JSON.stringify(sel)})`, `for (const t of d.querySelector(${JSON.stringify(sel)}).querySelectorAll('.sdk-strip-sentence, .sdk-strip-count-words, .sdk-band-name, .sdk-strip-attn > span:last-child')) t.textContent = 'Hello now';`); // on a whole pixel, across and down
+    const c = inkCentre(png, 4, 10);
     if (c === null) problems.push(`${where}: no ink found in ${nm}`);
     else if (Math.abs(c) > 1.01) problems.push(`${where}: ${nm} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} of the middle of its box`);
   }
-  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.position = ''; } })()`);
+  await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.left = ''; f.iframe.style.position = ''; } })()`);
   // The focus ring of a chip: all four sides the same at a fractional device pixel ratio and page offset.
   if (sc.width >= 500) {
     for (const dsf of [1.25, 1.5]) {

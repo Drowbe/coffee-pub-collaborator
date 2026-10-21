@@ -274,8 +274,11 @@ test('popped out and on the module\'s own page: the "+" and the status bar (step
   assert.match(moduleJs, /status\.setAttribute\('aria-label', `\$\{mod\.name\} status`\);/);
   assert.match(moduleJs, /nav\.register\(\{ id: 'page-bar-add', bar: 'secondary', zone: 'right',[^}]*fold: false, element: slot \}\);/, 'the page bar\'s "+" through the nav registry, never folded');
   assert.ok(/\n    add,\n    status,\n/.test(moduleJs), 'the mount gets both');
-  assert.match(css, /body\.module-page \.module-status \{[^}]*height: calc\(var\(--status-bar-h\) \+ env\(safe-area-inset-bottom, 0px\)\);[^}]*padding-bottom: env\(safe-area-inset-bottom, 0px\);/, 'clear of the home indicator');
-  assert.match(css, /body\.module-popout \.module-titlebar \.mod-add,\s*\n\s*body\.module-popout \.module-titlebar \.sdk-icon-btn,\s*\n\s*\.page-bar-add \.mod-add \{[^}]*width: 44px;/, '44 px on a phone');
+  const sys = read('public/sdk/system.css');
+  assert.match(sys, /:is\(\.sdk-window-popout, body\.module-page\) \{ --safe-b: var\(--safe-bottom\); \}/, 'clear of the home indicator: the inset on a module\'s own page');
+  assert.match(sys, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*padding: 0 var\(--space-3\) var\(--safe-b\);/, 'the status line grows by the inset');
+  assert.match(css, /body\.module-popout \.module-titlebar \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, popped out');
+  assert.match(css, /\.page-bar-add > \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, in the page bar');
 });
 
 test('no bundled module calls host.bar.set (every one draws the "+")', () => {
@@ -297,14 +300,17 @@ test('no bundled module calls host.bar.set (every one draws the "+")', () => {
 test('the styles: --status-bar-h 24px in both sheets, one line, tokens only', () => {
   assert.match(css, /--status-bar-h: 24px;/);
   assert.match(sdkCss, /--status-bar-h: 24px;/);
-  const block = css.slice(css.indexOf('/* mod-chrome:start'), css.indexOf('/* mod-chrome:end */'));
-  assert.ok(block.length > 100, 'the block is there');
-  assert.match(block, /\.mod-status \{[^}]*height: var\(--status-bar-h\);[^}]*border-top: 1px solid var\(--border\);[^}]*color: var\(--text-dim\);[^}]*font-size: var\(--text-12\);[^}]*white-space: nowrap;/);
-  assert.ok(!/\.mod-status \{[^}]*background/.test(block), 'no colour of its own');
-  assert.match(block, /\.mod-status\[hidden\] \{\s*display: none;/);
-  assert.match(block, /\.mod-status-text \{[^}]*text-overflow: ellipsis;/);
-  assert.match(block, /\.canvas\.narrow \.module-docked \.mod-add \{[^}]*width: 44px;/, '44 px on a phone');
+  const sys = read('public/sdk/system.css');
+  const block = sys.slice(sys.indexOf('/* modulechrome:start */'), sys.indexOf('/* modulechrome:end */'));
+  assert.ok(block.length > 100, 'the Module window block is in system.css');
+  assert.match(block, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*border-top: 1px solid var\(--edge-hairline\);[^}]*background: var\(--surface-panel\);[^}]*color: var\(--text-muted\);[^}]*font-size: var\(--text-12\);[^}]*white-space: nowrap;/, 'one line on the window\'s step, muted 12px words under a hairline');
+  assert.match(block, /:is\(\.sdk-status-line, \.mod-status\)\[hidden\] \{ display: none; \}/);
+  assert.match(block, /:is\(\.sdk-status-text, \.mod-status-text\) \{[^}]*text-overflow: ellipsis;/);
+  assert.match(block, /:is\(\.sdk-status-line, \.mod-status\) \.sdk-status \{\s*--chip-h: var\(--mc-chip-h\);/, 'a status label in the line is 20px');
+  assert.match(block, /--mc-chip-h: 20px;/);
+  assert.match(css, /\.canvas\.narrow \.module-docked \.titlebar-add > \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone');
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block) && !/rgba?\(/.test(block), 'tokens only');
+  for (const gone of ['.mod-status {', '.mod-status-item {', '.mod-header {', '.mod-toolbar {', '.module-floating-head {', '.tb-sep {']) assert.ok(!css.includes(`\n${gone}`), `style.css: ${gone} moved to the Module window block`);
 });
 
 test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding above or below, its buttons 30px (Thomas, 2026-10-13: "too much top and bottom padding")', () => {
@@ -312,17 +318,19 @@ test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding a
   assert.match(css, /--module-header-h: var\(--module-header-phone-h, 34px\);/, 'the one token: 34px wider than a phone');
   assert.match(css, /@media \(max-width: 640px\) \{\n\s*:root \{\n\s*--module-header-phone-h: 42px;/, 'a phone keeps its 42px touch height');
   assert.equal((css.match(/--module-header-phone-h:/g) || []).length, 1, 'set in one place');
-  const rule = (sel) => { const m = css.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`)); return m ? m[2] : null; };
-  const head = rule('.mod-header');
-  assert.ok(head, '.mod-header is there');
+  const sys = read('public/sdk/system.css');
+  const block = sys.slice(sys.indexOf('/* modulechrome:start */'), sys.indexOf('/* modulechrome:end */'));
+  const rule = (sel) => { const m = block.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`)); return m ? m[2] : null; };
+  const head = rule(':is(.sdk-titlebar, .mod-header, .chat-head)');
+  assert.ok(head, 'the title bar (.mod-header, and the chat\'s .chat-head with it) is in the Module window block');
   assert.match(head, /height: var\(--module-header-h\);/);
-  assert.match(head, /padding: 0 6px 0 10px;/, 'no padding above or below: the height is the token\'s alone');
-  assert.match(rule('.chat header'), /height: var\(--module-header-h\);[\s\S]*padding: 0 8px 0 12px;/, 'the chat\'s header lines up with it');
+  assert.match(head, /padding: 0 var\(--space-1\) 0 var\(--space-3\);/, 'no padding above or below: the height is the token\'s alone');
+  assert.match(read('public/space.html'), /<header class="chat-head">/, 'the chat\'s header is the title bar');
   // Nothing in a titlebar may be taller than the small buttons (the "...", the "+", Close): 2px above and below.
   assert.match(read('public/sdk/system.css'), /--btn-h-small: 30px;/);
-  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  for (const m of (css + '\n' + block).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sel = m[1].trim();
-    if (!/\.mod-header|\.module-floating-head|\.module-titlebar/.test(sel) || /\.canvas\.narrow/.test(sel)) continue;
+    if (!/\.mod-header|\.module-floating-head|\.module-titlebar|\.chat-head/.test(sel) || /\.canvas\.narrow/.test(sel)) continue;
     for (const decl of m[2].split(';')) {
       const d = decl.match(/^\s*(min-height|padding(?:-top|-bottom)?|margin(?:-top|-bottom)?)\s*:\s*(.+)$/);
       if (!d) continue;

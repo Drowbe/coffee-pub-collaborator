@@ -3815,24 +3815,7 @@ a.crumb-here:hover {
   background: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
-.chat header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-sizing: border-box;
-  flex: none;
-  height: var(--module-header-h);
-  padding: 0 8px 0 12px;
-  border-bottom: 1px solid var(--border);
-  font-weight: var(--weight-strong);
-}
-
-.chat-tools {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
+/* The chat's header (.chat-head) and its tools (.chat-tools) are a module's title bar: public/sdk/system.css, modulechrome. */
 
 .chat .messages {
   flex: 1;
@@ -5918,7 +5901,7 @@ body.conference-window {
 .module-layer {
   position: fixed;
   inset: 0;
-  z-index: 25;
+  z-index: var(--z-window);
   pointer-events: none;
 }
 
@@ -5928,7 +5911,7 @@ body.conference-window {
    the editor's sheet covers the page as it does from a docked module. */
 @media (max-width: 640px) {
   .module-layer {
-    z-index: 19;
+    z-index: calc(var(--z-bar) - 1);
   }
 
   .module-layer:has(.module-editor-lifted) {
@@ -5936,39 +5919,13 @@ body.conference-window {
   }
 }
 
+/* A floating module: where it sits and its least size. Its look (the window's step, the hairline, the large corner, --shadow-2)
+   and its title bar (.mod-header, the handle) are the Module window block in public/sdk/system.css. */
 .module-floating {
   position: absolute;
-  display: flex;
-  flex-direction: column;
   min-width: 240px;
   min-height: 160px;
-  background: var(--bg-section);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  box-shadow: 0 1px 3px color-mix(in srgb, black 18%, transparent); /* a panel on the page, not a card floating above it (Thomas, 2026-10-13) */
-  overflow: hidden;
   pointer-events: auto;
-}
-
-.module-floating-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: none;
-  background: var(--shade);
-  font-weight: var(--weight-strong);
-  cursor: grab;
-  user-select: none;
-  touch-action: none;
-}
-
-.mod-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .module-floating-frame {
@@ -5976,7 +5933,7 @@ body.conference-window {
   min-height: 0;
   width: 100%;
   border: 0;
-  background: var(--bg);
+  background: var(--surface-page);
 }
 
 .module-floating-grip {
@@ -6067,101 +6024,13 @@ body.conference-window {
   font-size: var(--text-11);
 }
 
-/* Docked modules: a column of the space's grid, beside the video and the chat. */
+/* Docked modules: a column of the space's grid, beside the video and the chat. The column's step (the window's) and its
+   title bar, toolbar and status line are the Module window block in public/sdk/system.css. */
 .module-docked > .mod-content {
   grid-row: 1 / -1; /* fills the whole column: a module has no bar in the shared bottom row */
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--bg) 96%, transparent); /* the same as the chat's content */
-  border-left: 1px solid var(--border);
-}
-
-/* The one header every module has: same height everywhere so columns line up. */
-.mod-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-sizing: border-box;
-  flex: none;
-  height: var(--module-header-h);
-  padding: 0 6px 0 10px;
-  border-bottom: 1px solid var(--border);
-  font-weight: var(--weight-strong);
-}
-
-/* Each module's titlebar told apart at a glance (GitHub #229): its tint (the manifest's colour, else a stable pick from
-   its id; module-tint.js) as a light wash over the header's own background and on its icon; no coloured top edge
-   (Thomas, 2026-10-13: it distracted). The words keep --text, so the pair reads in light and dark alike. Docked,
-   floating, the phone's tab and the popped-out page's titlebar alike. */
-.mod-header[data-tint] {
-  background-image: linear-gradient(color-mix(in srgb, var(--tint) 10%, transparent), color-mix(in srgb, var(--tint) 10%, transparent));
-}
-
-.mod-header[data-tint] .mod-title > i {
-  color: var(--tint);
-  font-size: var(--icon-16);
-}
-
-.mod-header-tools {
-  display: inline-flex;
-  gap: 2px;
-  flex: none;
-}
-
-/* A module's optional toolbar row, under the titlebar and above its content: filters, tabs, a progress
-   bar -- see host.toolbar.set. Sits inside the same flex column as the titlebar and the content in both
-   a docked and a floating module, so no layout rule needs to know which one it is. */
-.mod-toolbar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-  box-sizing: border-box;
-  height: var(--toolbar-h);
-  padding: 0 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--shade);
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none; /* a narrow module scrolls the row by touch/drag rather than clipping it */
-}
-
-.mod-toolbar::-webkit-scrollbar {
-  display: none;
-}
-
-.mod-toolbar[hidden] {
-  display: none;
-}
-
-.tb-text {
-  color: var(--text-dim);
-  font-size: var(--text-12);
-  white-space: nowrap;
-}
-
-.tb-sep {
-  align-self: stretch;
-  width: 1px;
-  margin: 6px 0;
-  background: var(--border);
-}
-
-.tb-progress {
-  position: relative;
-  flex: 1;
-  min-width: 40px;
-  max-width: 160px;
-  height: 6px;
-  border-radius: var(--radius-min);
-  background: var(--border);
-  overflow: hidden;
-}
-
-.tb-progress-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--accent);
+  border-left: 1px solid var(--edge-hairline);
 }
 
 .tb-slider {
@@ -6397,12 +6266,6 @@ body.module-page .module-canvas {
   border-left: 0;
 }
 
-.builtin-floating .chat header {
-  cursor: grab;
-  user-select: none;
-  touch-action: none;
-}
-
 body.chat-window {
   margin: 0;
   height: 100vh;
@@ -6539,10 +6402,11 @@ body.chat-window {
   background: var(--border);
 }
 
-/* mod-chrome:start -- a module window's "+" (host.add.set) and its status bar (host.status.set); module-host.js draws
-   them, canvas.js gives their places (plan-module-titlebar-add.md). The "+" has the "..."'s look in the module's tint;
-   it runs the one add action, or opens the shared menu of them. The status bar is one read-only line, --status-bar-h
-   tall, in --text-dim at 12 px over the window's own background; the last item before the end one is cut first. */
+/* mod-chrome:start -- where a module window's "+" (host.add.set) and its status bar (host.status.set) sit; module-host.js
+   draws them, canvas.js gives their places (plan-module-titlebar-add.md). The "+" is a Quiet small icon button like the "...";
+   it runs the one add action, or opens the shared menu of them. Their look, and the status bar's (one read-only line,
+   --status-bar-h tall, and the home-indicator inset on a module's own page), are the Module window block in
+   public/sdk/system.css; here are only the touch sizes on a phone. */
 .titlebar-add {
   display: inline-flex;
   align-items: center;
@@ -6553,19 +6417,10 @@ body.chat-window {
   display: none;
 }
 
-.mod-header[data-tint] .mod-add {
-  --b-fg: var(--tint);
-  --b-fg-h: var(--tint);
-}
-
-.mod-add:focus-visible {
-  outline-offset: -2px;
-}
-
 /* The tools group as tall as the titlebar, so the "+" can be (44px wide, the titlebar's 42px tall). */
 .canvas.narrow .module-docked .mod-header-tools {
   align-self: stretch;
-  align-items: center; /* the "..." keeps its 28px, centred; the "+" and Close stretch */
+  align-items: center; /* the "..." keeps its 30px, centred; the "+" and Close stretch */
 }
 
 .canvas.narrow .module-docked .titlebar-add {
@@ -6573,28 +6428,18 @@ body.chat-window {
   align-items: stretch;
 }
 
-.canvas.narrow .module-docked .mod-add {
+.canvas.narrow .module-docked .titlebar-add > .sdk-icon-btn {
+  --btn-h: auto; /* as tall as the titlebar */
   width: 44px;
-  height: auto;
 }
 
 /* A module on its own page or popped out (public/module.html): the "+" is in the page bar's right zone, or in the
-   window's own titlebar; the status bar is the last thing on the page, so it keeps clear of the home indicator. */
-.page-bar-add[data-tint] .mod-add {
-  --b-fg: var(--tint);
-  --b-fg-h: var(--tint);
-}
-
-body.module-page .module-status {
-  height: calc(var(--status-bar-h) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
+   window's own titlebar. */
 @media (max-width: 640px) {
   /* Touch sizes: 44px wide, as tall as the bar or titlebar it sits in. */
   body.module-popout .module-titlebar .mod-header-tools {
     align-self: stretch;
-    align-items: center; /* the "..." keeps its 28px, centred; the "+" and Close stretch */
+    align-items: center; /* the "..." keeps its 30px, centred; the "+" and Close stretch */
   }
 
   body.module-popout .module-titlebar .titlebar-add,
@@ -6607,67 +6452,19 @@ body.module-page .module-status {
     align-self: stretch;
   }
 
-  body.module-popout .module-titlebar .mod-add,
-  body.module-popout .module-titlebar .sdk-icon-btn,
-  .page-bar-add .mod-add {
+  body.module-popout .module-titlebar .sdk-icon-btn {
     width: 44px;
     min-width: 44px;
     height: auto;
   }
+
+  .page-bar-add > .sdk-icon-btn {
+    --btn-h: auto; /* as tall as the bar */
+    width: 44px;
+    min-width: 44px;
+  }
 }
 
-.mod-status {
-  display: flex;
-  align-items: center;
-  flex: none;
-  box-sizing: border-box;
-  height: var(--status-bar-h);
-  min-width: 0;
-  padding: 0 10px;
-  border-top: 1px solid var(--border);
-  color: var(--text-dim);
-  font-size: var(--text-12);
-  font-weight: var(--weight-regular);
-  line-height: var(--leading-ui);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.mod-status[hidden] {
-  display: none;
-}
-
-.mod-status-items {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.mod-status-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex: none; /* module-host.js cuts the last before the end item first (a max-width), then the one before it */
-  min-width: 0;
-  overflow: hidden;
-}
-
-.mod-status-item.end {
-  margin-left: auto;
-}
-
-.mod-status-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mod-status-sep {
-  flex: none;
-}
 /* mod-chrome:end */
 
 /* A module that runs in the page: an element of its own, holding a shadow root the module fills. */

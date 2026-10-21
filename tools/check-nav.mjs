@@ -1078,9 +1078,12 @@ test('the space bar\'s lists draw above the modules and under a page opened over
   };
   const z = (sel) => (block(sel).match(/z-index:\s*([^;]+);/) || [])[1]?.trim();
   const menu = Number((css.match(/--z-menu:\s*(\d+);/) || [])[1]);
-  assert.ok(menu > Number(z('.module-layer')), '--z-menu is above the floating modules\' layer');
+  // A layer token (system.css, Foundations) read as its number.
+  const sys = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  const zNum = (v) => { const t = /^var\(--z-([a-z]+)\)$/.exec(v || ''); return t ? Number((sys.match(new RegExp(`--z-${t[1]}:\\s*(\\d+);`)) || [])[1]) : Number(v); };
+  assert.ok(menu > zNum(z('.module-layer')), '--z-menu is above the floating modules\' layer');
   assert.ok(menu < Number(z('.page-overlay')), '--z-menu is under a page opened over the call');
-  assert.ok(Number(z('.topbar')) < Number(z('.module-layer')), 'the header stays under a module dragged over it when nothing is open');
+  assert.ok(zNum(z('.topbar')) < zNum(z('.module-layer')), 'the header stays under a module dragged over it when nothing is open');
   for (const sel of ['.host-menu', '.module-chooser-list', '.who-here-list']) assert.equal(z(sel), 'var(--z-menu)', `${sel} is at the menus' level`);
   const lift = css.match(/\n\.topbar:has\(([^)]*\)[^{]*)\)\s*\{([^}]*)\}/);
   assert.ok(lift, 'the header rises while one of its lists is open (.topbar:has(...))');

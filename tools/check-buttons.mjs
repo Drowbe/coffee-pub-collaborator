@@ -6,7 +6,7 @@
  * one icon-only button (.sdk-icon-btn) live in the block between `buttons:start` and `buttons:end` of system.css. This fails when:
  *   - the block is missing or has no rule for a role, a size, a state or the phone hit area; the heights are not 38px, 44px on a
  *     phone and 30px; a colour in the block is not a token; a state sets a border colour;
- *   - the old button selectors (.action-btn, .sdk-field-btn, .sdk-more, .icon-btn, .msg-btn, .tb-btn, .btn-accent, .sdk-dp-btn) are
+ *   - the old button selectors (.action-btn, .sdk-field-btn, .sdk-more, .icon-btn, .msg-btn, .tb-btn, .mod-add, .btn-accent, .sdk-dp-btn) are
  *     used in a stylesheet, in a script, or in the pages' markup;
  *   - a rule outside system.css, ending in a button class, restyles it (colour, fill, edge, size, type, corners): the page, the
  *     module stylesheets, host.css and the UI_CSS string may lay a button out (margin, flex, position) and may set the role's
@@ -77,7 +77,7 @@ else {
 }
 
 // 2. The old names are gone everywhere.
-const OLD = /(^|[^-\w])(action-btn|sdk-field-btn|sdk-more|icon-btn|msg-btn|tb-btn|btn-accent|sdk-dp-btn|sdk-editor-close-btn)(?![-\w])/;
+const OLD = /(^|[^-\w])(action-btn|sdk-field-btn|sdk-more|icon-btn|msg-btn|tb-btn|mod-add|btn-accent|sdk-dp-btn|sdk-editor-close-btn)(?![-\w])/;
 const files = [];
 const walk = (dir, accept) => {
   for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
@@ -149,7 +149,7 @@ else if (/type="submit"|<button\b/.test(chatForm[0])) fail('public/space.html: t
 const host = read('public/module-host.js');
 if (/drawModuleBar|quick-add-go|className = 'quick-add'/.test(host)) fail('public/module-host.js: the host draws a module action bar again; host.bar.set folds into the titlebar\'s "+"');
 if (!/async 'bar\.set'\(\{ items \}\) \{[\s\S]{0,1400}drawAddSlot\(\);/.test(host)) fail('public/module-host.js: host.bar.set must fold its buttons into the "+" (drawAddSlot)');
-if (!/addButton\.className = 'sdk-icon-btn btn-quiet btn-small mod-add';/.test(host)) fail('public/module-host.js: the titlebar\'s "+" is a Quiet small icon button (.mod-add)');
+if (!/addButton\.className = 'sdk-icon-btn btn-quiet btn-small';/.test(host)) fail('public/module-host.js: the titlebar\'s "+" is a Quiet small icon button');
 for (const r of rules(style)) if (/\.(dock-bar|module-floating-bar|module-bar)\b/.test(r.selector)) fail(`public/style.css: "${r.selector}" styles the old module action bar, which is gone`);
 
 if (problems.length) {

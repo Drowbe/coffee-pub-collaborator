@@ -39,10 +39,15 @@ const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
 const defs = css.match(/--module-header-h\s*:/g) || [];
 if (defs.length !== 1) fail('public/style.css', `--module-header-h must be defined exactly once (found ${defs.length})`);
 
-// A rule for a module header (anything named like .mod-header, or a chat header) must take its height from the token.
-for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+// The Module window block of system.css (design system step 28): the title bar, the toolbar, the status line and the window's look.
+const sysCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+const chromeBlock = sysCss.slice(sysCss.indexOf('/* modulechrome:start */'), sysCss.indexOf('/* modulechrome:end */'));
+if (chromeBlock.length < 100) fail('public/sdk/system.css', 'the Module window block (modulechrome:start to modulechrome:end) is missing');
+
+// A rule for a module header (anything named like .mod-header, or the chat's .chat-head) must take its height from the token.
+for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const selector = m[1].trim();
-  if (!/(\.mod-header|\.chat\s+header)\b/.test(selector)) continue;
+  if (!/(\.mod-header|\.chat-head|\.chat\s+header)\b/.test(selector)) continue;
   const body = m[2];
   for (const decl of body.split(';')) {
     const hm = decl.match(/^\s*(min-|max-)?height\s*:\s*(.+)$/);
@@ -505,8 +510,10 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/win\.innerWidth - SNAP_GAP\)/.test(canvasJs) || !/win\.innerHeight - SNAP_GAP\)/.test(canvasJs)) fail('public/canvas.js', 'clampBox keeps SNAP_GAP clear of the window\'s edges');
   if (!/const half = SNAP_GAP \/ 2;\n\s*return gridFor\(\{ left: s\.left \+ half, top: s\.top \+ half, width: Math\.max\(1, s\.width - SNAP_GAP\), height: Math\.max\(1, s\.height - SNAP_GAP\) \}, snapPitch\(\)\);/.test(canvasJs)) fail('public/canvas.js', 'snapGrid() lays the grid half a gutter in from the canvas\'s edges');
   if ((canvasJs.match(/\{ x: g\.x \+ TIDY_GAP \/ 2, y: g\.y \+ TIDY_GAP \/ 2, w: g\.w - TIDY_GAP, h: g\.h - TIDY_GAP \}/g) || []).length !== 2) fail('public/canvas.js', 'floatAll() and placeWaiting() tidy within half a gutter of the grid (a gutter from the edge)');
-  const floating = /\.module-floating \{([^}]*)\}/.exec(css);
-  if (!floating || !/box-shadow: 0 1px 3px color-mix\(in srgb, black 18%, transparent\);/.test(floating[1])) fail('public/style.css', 'a floating window\'s shadow is a hairline (0 1px 3px, black at 18%)');
+  // A floating module is a window: the one shadow of what floats, --shadow-2 (the Module window family, approved 2026-10-21).
+  if (!/:is\(\.sdk-window-floating, \.module-floating\) \{ box-shadow: var\(--shadow-2\); \}/.test(chromeBlock)) fail('public/sdk/system.css', 'a floating window\'s shadow is --shadow-2');
+  const floating = /\n\.module-floating \{([^}]*)\}/.exec(css);
+  if (!floating || /box-shadow|background|border/.test(floating[1])) fail('public/style.css', 'the floating window\'s look is the Module window block\'s alone (.module-floating in style.css is where it sits)');
   if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px color-mix\(in srgb, black 25%, transparent\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, black at 25%)');
   if (/inset 0 3px 0 var\(--tint\)/.test(css)) fail('public/style.css', 'no 3px tint edge anywhere');
 }
@@ -1628,14 +1635,16 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/<header class="mod-header module-floating-head"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs) || !/<header class="mod-header"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked header carry data-tint');
   const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
   if (!/\$\('module-titlebar'\)\.dataset\.tint = tint;/.test(moduleJs)) fail('public/module.js', 'the popped-out page\'s titlebar carries data-tint');
-  const rule = /\.mod-header\[data-tint\] \{([^}]*)\}/.exec(css);
-  if (!rule) fail('public/style.css', 'a rule for .mod-header[data-tint]');
+  const S = 'public/sdk/system.css';
+  const rule = /:is\(\.sdk-titlebar, \.mod-header, \.chat-head\)\[data-tint\] \{([^}]*)\}/.exec(chromeBlock);
+  if (!rule) fail(S, 'a rule for the tinted title bar (.mod-header[data-tint])');
   else {
-    if (/box-shadow/.test(rule[1])) fail('public/style.css', 'no coloured top edge on the titlebar (Thomas, 2026-10-13): the tint is the wash and the icon only');
-    if (!/color-mix\(in srgb, var\(--tint\) 10%, transparent\)/.test(rule[1])) fail('public/style.css', 'the wash is a 10% mix of the tint over the header\'s own background');
-    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail('public/style.css', 'the titlebar\'s accent uses the tint token, never a raw colour');
+    if (/box-shadow/.test(rule[1])) fail(S, 'no coloured top edge on the titlebar (Thomas, 2026-10-13): the tint is the wash and the icon only');
+    if (!/background: color-mix\(in srgb, var\(--tint\) var\(--mc-wash\), var\(--surface-panel\)\)/.test(rule[1]) || !/--mc-wash: 10%;/.test(chromeBlock)) fail(S, 'the wash is a 10% mix of the tint over the window\'s step');
+    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail(S, 'the titlebar\'s accent uses the tint token, never a raw colour');
   }
-  if (!/\.mod-header\[data-tint\] \.mod-title > i \{[^}]*color: var\(--tint\);/.test(css)) fail('public/style.css', 'the title\'s icon takes the tint');
+  if (!/\)\[data-tint\] :is\(\.sdk-titlebar-title, \.mod-title\) > i \{[^}]*color: color-mix\(in srgb, var\(--tint\) 62%, var\(--text-primary\)\);/.test(chromeBlock)) fail(S, 'the title\'s icon takes the tint (the readable mix)');
+  if (/\.mod-header\[data-tint\]/.test(css)) fail('public/style.css', 'the tinted title bar is the Module window block\'s alone');
 }
 
 // The call's toolbar in the always-on column (plan-one-bar.md, step 6; Thomas, 2026-10-13: "Where did all of the other
@@ -1802,7 +1811,14 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const wideRules = [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
   const zOf = (list, selector) => { const r = list.filter((x) => x.selector === selector && /z-index:/.test(x.body)).pop(); return r ? r.body.match(/z-index:\s*([^;]+)/)[1].trim() : null; };
   const zMenu = Number((plain.match(/--z-menu:\s*(\d+)/) || [])[1]);
-  const num = (v) => (v === 'var(--z-menu)' ? zMenu : Number(v));
+  // The layer tokens (system.css, Foundations): var(--z-*), and the one step under the bars, calc(var(--z-bar) - 1).
+  const zTok = (n) => { const m = sysCss.match(new RegExp(`--z-${n}:\\s*(\\d+);`)); return m ? Number(m[1]) : NaN; };
+  const num = (v) => {
+    if (v === 'var(--z-menu)') return zMenu;
+    const t = /^var\(--z-([a-z]+)\)$/.exec(v || ''); if (t) return zTok(t[1]);
+    const c = /^calc\(var\(--z-([a-z]+)\) - (\d+)\)$/.exec(v || ''); if (c) return zTok(c[1]) - Number(c[2]);
+    return Number(v);
+  };
   const layerPhone = num(zOf(phoneRules, '.module-layer') ?? zOf(wideRules, '.module-layer'));
   const topbar = num(zOf(phoneRules, '.topbar') ?? zOf(wideRules, '.topbar'));
   const tabbarRule = phoneRules.filter((r) => r.selector === 'body.in-space .subnav' && /z-index:/.test(r.body)).pop();

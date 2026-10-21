@@ -1008,7 +1008,7 @@ export function createAddSlot(add, send) {
     if (!addButton) {
       addButton = doc.createElement('button');
       addButton.type = 'button';
-      addButton.className = 'sdk-icon-btn btn-quiet btn-small mod-add';
+      addButton.className = 'sdk-icon-btn btn-quiet btn-small';
       const i = doc.createElement('i');
       i.className = 'fa-solid fa-plus fa-fw';
       i.setAttribute('aria-hidden', 'true');

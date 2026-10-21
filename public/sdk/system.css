@@ -2525,3 +2525,263 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 .sdk-kind-empty { padding: var(--space-2) calc(var(--space-2) + var(--space-0)); color: var(--text-muted); }
 
 /* menus:end */
+
+/* ================= Module window: title bar, toolbar and status line (design system step 28) =================
+   One look for the three bands every module has, docked, floating and popped out (and the Chat's title bar).
+   Source: public/design-system/proposed-modulechrome.css, without the .ds-proposed prefix, in the colour roles.
+   Names: the contract names (.sdk-window, .sdk-titlebar, .sdk-toolbar, .sdk-status-line and their parts) and the product's own
+   names for the same component, which the host draws: the window .module-floating and the docked column .module-docked > .mod-content;
+   the title bar .mod-header (on a floating module also .module-floating-head, popped out also .module-titlebar) and the Chat's
+   .chat-head, with .mod-title and .mod-header-tools / .chat-tools; the toolbar .mod-toolbar with .tb-sep, .tb-text, .tb-progress; the
+   status line .mod-status and its -items, -item, -text, -sep. The old toolbar pill, message button and tinted "+" are retired: a
+   band's buttons are the Buttons block's Quiet small (.btn.btn-small.btn-quiet, .sdk-icon-btn.btn-small.btn-quiet), the "+"
+   included. Layout (where a window sits, its size, the drag and the resize grip, the phone's touch widths) stays in style.css.
+   Bands: title bar --module-header-h (34px, 42px on a phone; style.css), toolbar --toolbar-h (34px; style.css), status line
+   --status-bar-h (24px) plus the home-indicator inset where the window ends the screen (a module's own page or popped-out window).
+   Surfaces: the window is --surface-panel. The title bar is the window's step with the module's tint as a 10% wash (the only tinted
+   band) and the tint on its icon in the readable mix. The toolbar is --surface-toolbar. The status line is the window's step under a
+   hairline. Rows and cards in .sdk-window-content are 8px apart.
+   Floating: --shadow-2 and a grab cursor on the title bar. Docked: no shadow. Popped out: no edge, no corner. No coloured edge. */
+/* modulechrome:start */
+:root {
+  --mc-wash: 10%; /* the tint's wash on the title bar */
+  --mc-chip-h: 20px; /* a status label in the 24px status line */
+  --safe-b: 0px; /* the home-indicator inset under the status line; set where the window ends the screen */
+}
+
+/* ---- the window ---- */
+:is(.sdk-window, .module-floating) {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+:is(.sdk-window-docked, .sdk-window-floating, .module-floating) {
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-large);
+}
+
+:is(.sdk-window-floating, .module-floating) { box-shadow: var(--shadow-2); }
+
+/* A docked module is a column of the space's grid: the window's step; its edge is the column's divider (style.css). */
+.module-docked > .mod-content { background: var(--surface-panel); }
+
+/* A page in its own window (popped out, or a module's own page) is the one that reaches the bottom of the screen: no edge, no
+   corner, and the status line keeps clear of the home indicator. */
+:is(.sdk-window-popout, body.module-page) { --safe-b: var(--safe-bottom); }
+
+.sdk-window-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2); /* rows and cards in the content are 8px apart, never touching */
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--surface-panel);
+  font-size: var(--text-14);
+}
+.sdk-window-content > * { flex: none; }
+
+/* ---- the title bar ---- */
+:is(.sdk-titlebar, .mod-header, .chat-head) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  flex: none;
+  height: var(--module-header-h);
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-bottom: 1px solid var(--edge-hairline);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font-size: var(--text-14);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-ui);
+  user-select: none;
+}
+
+/* The tint: a 10% wash of the module's colour over the window's step, and the tint on the icon. The words keep the text colour. */
+:is(.sdk-titlebar, .mod-header, .chat-head)[data-tint] {
+  background: color-mix(in srgb, var(--tint) var(--mc-wash), var(--surface-panel));
+}
+
+:is(.sdk-titlebar-title, .mod-title) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:is(.sdk-titlebar-title, .mod-title) > i {
+  flex: none;
+  width: var(--icon-16);
+  color: var(--icon-default);
+  font-size: var(--icon-16);
+  line-height: var(--leading-ui);
+  text-align: center;
+}
+
+:is(.sdk-titlebar, .mod-header, .chat-head)[data-tint] :is(.sdk-titlebar-title, .mod-title) > i {
+  color: color-mix(in srgb, var(--tint) 62%, var(--text-primary));
+}
+
+:is(.sdk-titlebar-title, .mod-title) > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.sdk-titlebar-tools, .mod-header-tools, .chat-tools) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
+  flex: none;
+  min-width: 0;
+}
+
+/* A floating module is a window: its title bar is the handle. */
+:is(.sdk-window-floating, .module-floating) :is(.sdk-titlebar, .mod-header, .chat-head) { cursor: grab; touch-action: none; }
+:is(.sdk-window-floating, .module-floating) :is(.sdk-titlebar, .mod-header, .chat-head):active { cursor: grabbing; }
+:is(.sdk-titlebar, .mod-header, .chat-head) :is(button, a, input) { cursor: pointer; }
+
+/* Inside a band the focus ring is drawn inside the button (offset -2px): a band is only a little taller than its buttons and cuts
+   anything outside them (the toolbar scrolls, the window clips). */
+:is(.sdk-titlebar, .sdk-toolbar, .sdk-status-line, .mod-header, .mod-toolbar, .mod-status, .chat-head) :is(.btn, .sdk-icon-btn):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* ---- the toolbar ---- */
+:is(.sdk-toolbar, .mod-toolbar) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  box-sizing: border-box;
+  height: var(--toolbar-h);
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--edge-hairline);
+  background: var(--surface-toolbar);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none; /* a narrow module scrolls the row by touch or drag rather than clipping it */
+}
+:is(.sdk-toolbar, .mod-toolbar)::-webkit-scrollbar { display: none; }
+:is(.sdk-toolbar, .mod-toolbar)[hidden] { display: none; }
+:is(.sdk-toolbar, .mod-toolbar) > * { flex: none; }
+
+/* A search field in a band is the small one: 30px, 13px words (16px on a phone, so the page does not zoom). */
+:is(.sdk-toolbar, .mod-toolbar) .sdk-search {
+  --field-h: var(--btn-h-small);
+  --field-font: var(--text-13);
+  flex: 1 1 140px;
+  width: auto;
+  min-width: 96px;
+  max-width: 240px;
+}
+
+:is(.sdk-toolbar-text, .tb-text) { color: var(--text-muted); font-size: var(--text-12); white-space: nowrap; }
+
+:is(.sdk-sep, .tb-sep) {
+  align-self: center;
+  flex: none;
+  width: 1px;
+  height: var(--space-4);
+  margin: 0;
+  background: var(--edge-hairline);
+}
+
+/* The small progress in a toolbar: 6px high. */
+:is(.sdk-toolbar, .mod-toolbar) > :is(.sdk-progress, .tb-progress) {
+  position: relative;
+  flex: 1 1 80px;
+  min-width: 40px;
+  max-width: 160px;
+  height: 6px;
+  border-radius: var(--radius-min);
+  background: var(--edge-hairline);
+  overflow: hidden;
+}
+:is(.sdk-toolbar, .mod-toolbar) > :is(.sdk-progress, .tb-progress) > :is(.sdk-progress-fill, .tb-progress-fill) {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-fill);
+}
+
+/* ---- the status line ---- */
+:is(.sdk-status-line, .mod-status) {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: none;
+  box-sizing: border-box;
+  height: calc(var(--status-bar-h) + var(--safe-b));
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--space-3) var(--safe-b);
+  border-top: 1px solid var(--edge-hairline);
+  background: var(--surface-panel);
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-ui);
+  white-space: nowrap;
+  overflow: hidden;
+}
+:is(.sdk-status-line, .mod-status)[hidden] { display: none; }
+
+:is(.sdk-status-items, .mod-status-items) {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+:is(.sdk-status-item, .mod-status-item) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none; /* module-host.js cuts the last before the end item first (a max-width), then the one before it */
+  min-width: 0;
+  overflow: hidden;
+}
+:is(.sdk-status-item, .mod-status-item).end { margin-left: auto; padding-left: var(--space-3); flex: 0 1 auto; }
+
+:is(.sdk-status-text, .mod-status-text) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+:is(.sdk-status-sep, .mod-status-sep) { flex: none; padding: 0 calc(var(--space-1) + var(--space-0)); color: var(--text-muted); }
+
+/* A problem is a plain sentence, in the readable red. */
+:is(.sdk-status-item, .mod-status-item).is-problem { color: var(--status-danger-text); }
+
+/* chip: true is the Chips status label (.sdk-status, the chips block) at the line's own size: 20px, because a 24px chip would fill
+   a 24px line. */
+:is(.sdk-status-line, .mod-status) .sdk-status {
+  --chip-h: var(--mc-chip-h);
+  --chip-pad-x: calc(var(--space-1) + var(--space-0));
+}
+
+/* A phone: more room each side of a toolbar, which scrolls by touch; a search in it at 16px. */
+@media (max-width: 640px) {
+  :is(.sdk-toolbar, .mod-toolbar) { padding: 0 var(--space-3); }
+  :is(.sdk-toolbar, .mod-toolbar) .sdk-search { --field-font: var(--text-16); }
+}
+/* modulechrome:end */

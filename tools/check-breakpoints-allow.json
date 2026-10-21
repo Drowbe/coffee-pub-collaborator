@@ -7,5 +7,10 @@
     "public/style.css": {
       "760px": 1
     }
+  },
+  "reasons": {
+    "public/style.css": {
+      "760px": "Where the journey strip hides its fact chips. FACT_CHIPS_HIDDEN_AT in public/phase-sheet.js and a check in check-nav.mjs pin the same number; it moves with the Journey bar's own rework."
+    }
   }
 }

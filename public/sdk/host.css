@@ -9,13 +9,11 @@
   --bg: #1a1410;
   --bg-section: #241c16;
   --bg-card: #2a2119;
-  --bg-input: #2a2119;
   --border: #3b2e24;
   --text: #f1e6d8;
   --text-dim: #a8998a;
   --accent: #c8873a;
   --on-accent: #1a1206;
-  --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
   /* The five corner radii; nothing else is ever written as a radius (tools/check-radius.mjs). Min: tiny tags, scrollbar
      thumbs, kbd, checkboxes, bar ends. Small: buttons, inputs, tabs, chips, menu items, view-switch segments. Medium:
      cards, menus, popovers, list rows that are boxes. Large: panels, windows, dialogs, sheets, kind lists. Round:
@@ -25,8 +23,6 @@
   --radius-medium: 7px;
   --radius-large: 11px;
   --radius-round: 999px;
-  --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent); /* a selected, on or current control: a fill, never a border */
-  --primary-hover: var(--accent-hover);
   --secondary: color-mix(in srgb, var(--bg-section) 90%, var(--accent) 10%);
   --secondary-text: var(--text);
   --secondary-hover: color-mix(in srgb, var(--bg-section) 78%, var(--accent) 22%);

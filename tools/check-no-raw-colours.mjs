@@ -14,6 +14,7 @@
 // modules/*/src (style strings, el.style.color, { background: '#fff' }, fill="#fff" attributes); not public/design-system
 // or MapLibre. A colour a script keeps as plain data (a palette array) is not in a declaration and is not read.
 //
+// The admin theme editor's native colour inputs (public/admin.html, type="color") hold a colour the person picks and the code draws none, so there is nothing to read there.
 // Pages with their own palette (OWN_PALETTE in tools/lib/drift.mjs, today public/landing.css) are not read, and the check prints which; @font-face blocks are not read.
 // Today's offenders are recorded per file and kind in tools/check-no-raw-colours-allow.json. The check passes while no
 // count is higher, fails on a higher count or a new file, and says when a count has dropped.

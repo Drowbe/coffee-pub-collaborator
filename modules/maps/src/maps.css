@@ -33,11 +33,11 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- the map library's own controls, restyled with the tokens ---- */
 .maplibregl-map { font-family: inherit; } /* the interface font, not the library's Helvetica */
-.maplibregl-ctrl-group { border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-panel); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); overflow: hidden; }
+.maplibregl-ctrl-group { border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-panel); box-shadow: 0 2px 10px var(--shadow-color); overflow: hidden; }
 .maplibregl-ctrl-group button { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: none; color: var(--text-primary); font: inherit; cursor: pointer; }
 .maplibregl-ctrl-group button + button { border-top: 1px solid var(--edge-hairline); }
 .maplibregl-ctrl-group button:hover { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
-.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right { position: absolute; z-index: 2; right: 10px; display: flex; flex-direction: column; gap: 6px; }
+.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right { position: absolute; z-index: 2; right: 10px; display: flex; flex-direction: column; gap: 8px; }
 .maplibregl-ctrl-top-right { top: 10px; }
 /* the + of the Map destination's main part, across from the zoom */
 .maplibregl-ctrl-top-left { position: absolute; z-index: 2; top: 10px; left: 10px; }
@@ -52,7 +52,7 @@ body { margin: 0; overflow: hidden; }
    transform, so no rule here may set its position (a relative one pushes each marker down by the ones before it). Being
    absolute, it is already what its label is placed against. */
 .pin { --pin: var(--accent-fill); --pin-text: var(--text-on-accent); display: block; width: 30px; height: 30px; padding: 0; border: 0; background: none; color: var(--pin-text); font: inherit; cursor: pointer; transform-origin: 50% 100%; }
-.pin-body { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--surface-panel); border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--pin); box-shadow: 0 2px 6px color-mix(in srgb, black 40%, transparent); }
+.pin-body { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--surface-panel); border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--pin); box-shadow: 0 2px 6px var(--shadow-color); }
 .pin-body .ic { transform: rotate(45deg); font-size: var(--text-14); }
 .pin[data-kind="object"] { --pin: var(--bg-card); --pin-text: var(--text-primary); }
 .pin[data-kind="object"] .pin-body { border-color: var(--accent-fill); }
@@ -62,7 +62,7 @@ body { margin: 0; overflow: hidden; }
 .pin[data-cat] { --tone: var(--accent-fill); } /* script sets --tone: the place's colour, its category's or the category's automatic theme tint */
 .pin[data-cat]:not(.selected) { --pin: var(--tone); --pin-text: var(--tone-ink, var(--surface-page)); } /* --tone-ink: set with an owner-chosen colour */
 .pin[data-cat]:not(.selected) .pin-body { border-color: var(--surface-panel); }
-.pin.selected[data-cat] .pin-body { border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
+.pin.selected[data-cat] .pin-body { border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 40%, transparent), 0 2px 6px var(--shadow-color); }
 .pin.selected { z-index: 2; }
 /* a pin (or a cluster of them) the destination's search text does not match: still there, set back */
 .pin.dim { opacity: 0.35; }
@@ -71,15 +71,15 @@ body { margin: 0; overflow: hidden; }
 .pin.soft:not(.selected) .pin-body .ic { opacity: 0.85; }
 .pin.soft:not(.selected) .pin-label { opacity: 0.8; }
 /* the visit status: a small round badge at the pin's top left (the person mark is on the right), a fill and an icon, its words in the pin's label for a screen reader */
-.pin-badge { position: absolute; left: -6px; top: -6px; z-index: 3; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-primary); box-shadow: 0 1px 3px color-mix(in srgb, black 40%, transparent); pointer-events: none; }
+.pin-badge { position: absolute; left: -6px; top: -6px; z-index: 3; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-primary); box-shadow: 0 1px 3px var(--shadow-color); pointer-events: none; }
 .pin-badge .ic { font-size: var(--text-9); }
 .pin-badge[data-visit="booked"] { color: var(--tint-blue); }
 .pin-badge[data-visit="visited"] { color: var(--tint-green); }
 .pin-badge[data-visit="favorite"] { color: var(--tint-gold); }
 .pin.dim:hover, .pin.dim:focus-visible { opacity: 1; }
-.pin.selected .pin-body { --pin: var(--text-primary); border-color: var(--accent-fill); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-fill) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
+.pin.selected .pin-body { --pin: var(--text-primary); border-color: var(--accent-fill); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-fill) 40%, transparent), 0 2px 6px var(--shadow-color); }
 .pin.selected { --pin-text: var(--surface-page); }
-.pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 6px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--surface-panel) 88%, transparent); color: var(--text-primary); font-size: var(--text-11); line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 8px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--surface-panel) 88%, transparent); color: var(--text-primary); font-size: var(--text-11); line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .pin.dragging { opacity: 0.7; }
 .pin.cluster { width: 38px; height: 38px; }
 .pin.cluster .pin-body { width: 38px; height: 38px; border-radius: var(--radius-round); transform: none; font-weight: var(--weight-strong); font-size: var(--text-13); }
@@ -118,27 +118,27 @@ body { margin: 0; overflow: hidden; }
 
 /* a search result on the map: not saved yet, so a dashed outline and a surface fill, with a soft pulse to invite a click */
 .pin.candidate { --pin: var(--surface-panel); --pin-text: var(--accent-fill); z-index: 1; }
-.pin.candidate .pin-body { border: 2px dashed var(--accent-fill); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-fill) 22%, transparent), 0 2px 6px color-mix(in srgb, black 35%, transparent); animation: candidate-pulse 2.2s ease-in-out infinite; }
+.pin.candidate .pin-body { border: 2px dashed var(--accent-fill); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-fill) 22%, transparent), 0 2px 6px var(--shadow-color); animation: candidate-pulse 2.2s ease-in-out infinite; }
 .pin.candidate:hover .pin-body, .pin.candidate:focus-visible .pin-body { background: var(--accent-fill); color: var(--text-on-accent); }
 .pin.candidate .pin-label { border: 1px dashed var(--accent-fill); }
-@keyframes candidate-pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-fill) 6%, transparent), 0 2px 6px color-mix(in srgb, black 35%, transparent); } }
+@keyframes candidate-pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-fill) 6%, transparent), 0 2px 6px var(--shadow-color); } }
 @media (prefers-reduced-motion: reduce) { .pin.candidate .pin-body { animation: none; } }
 
 /* ---- the callout: the selected place, over the map (the list is the Places module) ---- */
 .callout-box { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(360px, calc(100% - 20px)); pointer-events: none; }
 .callout-box > * { pointer-events: auto; }
-.callout { --tone: var(--accent-fill); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--surface-panel)), var(--surface-panel) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
+.callout { --tone: var(--accent-fill); position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px 16px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--surface-panel)), var(--surface-panel) 70%); box-shadow: 0 12px 32px var(--shadow-color); animation: callout-in 0.16s ease-out; }
 .callout[data-kind="object"] { --tone: var(--text-muted); }
 .callout[data-cat] { --tone: var(--accent-fill); }
 .callout::before { content: ""; position: absolute; left: 14px; top: -1px; width: 36px; height: 4px; border-radius: 0 0 var(--radius-min) var(--radius-min); background: var(--tone); }
-.callout h3 { margin: 4px 30px 0 0; font-size: var(--text-16); line-height: var(--leading-section); overflow-wrap: anywhere; }
+.callout h3 { margin: 4px 32px 0 0; font-size: var(--text-16); line-height: var(--leading-section); overflow-wrap: anywhere; }
 .callout-where { margin: 0; color: var(--text-muted); font-size: var(--text-13); overflow-wrap: anywhere; }
 .callout-where .coords { display: block; font-family: ui-monospace, Menlo, monospace; font-size: var(--text-11); opacity: 0.85; }
-.callout-source { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 8px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); font-size: var(--text-12); }
+.callout-source { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 8px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); font-size: var(--text-12); }
 .callout-source .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-muted); font-size: var(--text-13); cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
 .callout-source .open-link:hover, .callout-source .open-link:focus-visible { background: color-mix(in srgb, var(--accent-fill) 18%, transparent); color: var(--accent); outline: none; }
 .callout-close { position: absolute; top: 8px; right: 8px; }
-.callout-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.callout-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .callout-actions .primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); }
 .app.narrow .callout-box { left: 8px; right: 8px; bottom: 30px; width: auto; }
 @keyframes callout-in { from { opacity: 0; transform: translateY(8px); } }

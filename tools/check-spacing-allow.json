@@ -20,12 +20,6 @@
       "10px": 5,
       "13px": 1
     },
-    "modules/maps/src/maps.css": {
-      "6px": 7,
-      "10px": 3,
-      "14px": 2,
-      "30px": 1
-    },
     "modules/places/src/places.css": {
       "3px": 1,
       "5px": 1,
@@ -95,15 +89,6 @@
       "10px": 4,
       "18px": 1
     },
-    "public/destination.css": {
-      "3px": 2,
-      "10px": 1
-    },
-    "public/diag.css": {
-      "6px": 2,
-      "36px": 1,
-      "44px": 2
-    },
     "public/layout-debug.js": {
       "6px": 1
     },
@@ -114,19 +99,15 @@
     },
     "public/style.css": {
       "-6px": 1,
-      "-7px": 1,
       "-10px": 4,
-      "3px": 12,
-      "5px": 7,
-      "6px": 130,
-      "7px": 5,
-      "10px": 94,
-      "14px": 26,
-      "18px": 15,
-      "28px": 1,
-      "30px": 2,
-      "34px": 1,
-      "38px": 3
+      "3px": 7,
+      "5px": 5,
+      "6px": 65,
+      "7px": 3,
+      "10px": 51,
+      "14px": 13,
+      "18px": 10,
+      "28px": 1
     }
   }
 }

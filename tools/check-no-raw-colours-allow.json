@@ -7,9 +7,6 @@
     "modules/calendar/src/calendar.css": {
       "raw": 1
     },
-    "modules/maps/src/maps.css": {
-      "shadow-scrim": 9
-    },
     "modules/places/src/places.css": {
       "shadow-scrim": 1
     },
@@ -51,8 +48,21 @@
       "raw": 1
     },
     "public/style.css": {
-      "raw": 15,
-      "shadow-scrim": 21
+      "raw": 4,
+      "shadow-scrim": 1
+    }
+  },
+  "reasons": {
+    "public/style.css": {
+      "raw": "The video tile's letterbox is black on purpose (.tile and .tile-screen: video never shows the theme through), the away bubble's white text sits on a dark scrim over live video (no role is drawn for text on a video scrim), and the sign-in QR code stays white on black so a phone can scan it (.mfa-qr).",
+      "shadow-scrim": "The away bubble's dark scrim over live video (.away-bubble), paired with its white text above."
+    },
+    "public/diag.css": {
+      "raw": "The diagnostics page measures the phone's viewport and safe areas. It loads no theme, and its probe bars (red, blue, green, magenta frame) must stay different from each other and from any theme.",
+      "shadow-scrim": "The diagnostics page's translucent readout panel over the probe bars; it loads no theme."
+    },
+    "public/admin.js": {
+      "raw": "A canvas fill used only to turn a computed colour into hex for the theme editor's contrast line; it is never drawn on screen."
     }
   }
 }

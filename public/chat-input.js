@@ -1484,6 +1484,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       body.innerHTML = renderMarkup(String(text || ''));
       return body;
     }
+    body.classList.add('message-stack'); // words and cards a column apart (style.css)
     for (const p of answerParts(text, objects.length)) {
       if (p.summary !== undefined) body.appendChild(objectPreview(objects[p.summary], question || ''));
       else {

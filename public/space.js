@@ -4333,6 +4333,15 @@ function linkKeepEl(entry, look) {
   b.addEventListener('click', () => keepLink(entry, b));
   return b;
 }
+// A body that gets a card under its words: the words into a block of their own and the body a column (.message-stack,
+// style.css), so the card sits one gap under them and nothing stacks a margin on that gap.
+function stackBody(body) {
+  if (body.classList.contains('message-stack')) return;
+  const words = document.createElement('div');
+  words.append(...body.childNodes);
+  if (words.childNodes.length) body.append(words);
+  body.classList.add('message-stack');
+}
 function paintLinkBox(entry) {
   const node = chatMessageNode(entry.id);
   const body = node?.querySelector(':scope > .message-body');
@@ -4341,7 +4350,7 @@ function paintLinkBox(entry) {
   const box = linkBox(entry);
   if (had && box) had.replaceWith(box);
   else if (had) had.remove();
-  else if (box) body.appendChild(box);
+  else if (box) { stackBody(body); body.appendChild(box); }
 }
 // Keep (decision 4): the server saves the stored link into the keeper as this person and marks the message kept at
 // once (its bus request may still wait for the keeper to be open), so this page reads "Kept by" from its answer, and
@@ -4445,7 +4454,7 @@ function messageEl(entry, own) {
     if (entry.kind === 'command') look = chatInput.commandLook(entry);
     body.innerHTML = renderMarkup(entry.kind ? entry.text : stripSummaryMarkers(entry.text));
     const link = entry.kind ? null : linkBox(entry);
-    if (link) body.appendChild(link);
+    if (link) { stackBody(body); body.appendChild(link); }
   }
   const el = frameMessage({
     name,

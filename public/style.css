@@ -6908,8 +6908,20 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
   body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) {
     box-sizing: border-box;
     height: var(--status-strip-h);
-    padding-top: 0;
-    padding-bottom: 0;
+    padding: 0;
+    column-gap: 0;
+  }
+
+  /* The strip owns the row's inset: its own var(--space-3) at each end, the module windows' title bar inset under it. The
+     top bar's zone padding and full-bleed margins (.topbar .nav-left / .nav-right, written for the top row) do not reach this
+     row's zones, and an empty right zone takes no room (the strip's end used to sit 84px short of the window's). */
+  body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) > :is(.nav-left, .nav-right) {
+    margin: 0;
+    padding: 0;
+  }
+
+  body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) > .nav-right:has(> :not([hidden], [data-nav-divider], .nav-folded)) {
+    padding-right: var(--space-3);
   }
 }
 

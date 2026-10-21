@@ -214,6 +214,15 @@ async function main() {
         await tab.waitFor('.mod-header .mod-title', '', 45000);
         await sleep(2500);
         judge('Workspace, 1280 px, light', false, await settled(tab, 4));
+        // The status strip (the Journey bar family) owns its row's inset: its first chip var(--space-3) from the window's start and
+        // nothing closer than that to its end (where a fact gave way, the bar does not always take its room back: space.js fitFacts).
+        const stripExpr = `(() => { const s = document.querySelector('.sdk-strip'); if (!s || !s.getClientRects().length) return null; const k = [...s.children].filter((e) => e.getClientRects().length && e.getBoundingClientRect().width > 0); return { left: Math.round(Math.min(...k.map((e) => e.getBoundingClientRect().left))), right: Math.round(innerWidth - Math.max(...k.map((e) => e.getBoundingClientRect().right))) }; })()`;
+        // Read until two readings 300 ms apart agree (the facts give way one by one as the bar finds its room).
+        let strip = null; let prev = '';
+        for (let n = 0; n < 30; n++) { strip = await tab.eval(stripExpr); const key = JSON.stringify(strip); if (key === prev) break; prev = key; await sleep(300); }
+        const rows = [`    strip    in ${strip ? `${strip.left} / ${strip.right}` : 'none'}`];
+        if (!strip || strip.left !== 12 || strip.right < 12) { failures.push({ context: 'Workspace, 1280 px, light', window: 'status strip', what: 'status strip inset', got: strip ? `${strip.left} / ${strip.right}` : 'none', should: '12 / at least 12' }); rows.push(`    !! status strip inset: ${strip ? `${strip.left} / ${strip.right}` : 'none'}, should be 12 / at least 12`); }
+        tables.push({ context: 'Workspace, 1280 px, light', head: '  Status strip', rows, failed: rows.length > 1 });
       } finally { await tab.close(); }
     }]);
     // 2. The Workspace on a phone, dark: each module through the tab bar.

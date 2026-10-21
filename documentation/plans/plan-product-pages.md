@@ -6,7 +6,7 @@ pages and draws the art; server-development, who serves the new addresses and ch
 **Status:** decided by Thomas, 2026-10-21; steps 1 to 4 built the same day (see "Built so far"); step 5 is ready. Thomas: the product page is trying to be about
 everything; "perhaps we make this product page about travel... another about gaming, etc." It follows on from the
 product page redesign (GitHub #212) and waits, for its third use, on the project and mentoring template (GitHub #351).
-The front page headline is decided (decision 21); Thomas still has to approve the lede line proposed under Open questions.
+The front page headline (decision 21), lede and meta description (decision 22) are decided.
 
 ## What it is today
 
@@ -82,7 +82,11 @@ Thomas's. Those numbered 1 to 6 were stated earlier; 7 to 21 were made on 2026-1
     browser's bold.
 21. **The front page headline is C: "One place for the whole group."** The front page's hero text and its
     `<meta name="description">` are reworded around it, chat first and the call optional. Thomas, 2026-10-21. The
-    supporting lede is proposed under Open questions.
+    supporting lede is decision 22.
+22. **The front page lede and meta description are decided.** Thomas, 2026-10-21. Lede: "Chat all week, call when it
+    counts, and keep the plans, the maps and the notes right beside it. Yours, on your own address." Meta description:
+    "A private chat for your group, with a call when you want one and the tools beside it. Self-hosted, on your own
+    address."
 
 ## Built so far
 
@@ -176,16 +180,16 @@ front page, games, projects (decision 19).
 | 2 | The addresses, `pages` in `/api/product`, the preview tool, the header and footer check | server-development | small | Done: `39c709f`, `019f908` |
 | 3 | `/travel`: the travel content moved to its own page, with the `h2` and `b` type change | experience-design | medium | Done: `34fc113`, `f638eee` |
 | 4 | The travel template adds Budget, Polls and To-do | server-development | small | Done: `019f908` |
-| 5 | The front page cut down, its cards linking, the template preselected | experience-design | medium | Ready: 2 and 3 are done and the headline is decided (decision 21) |
-| 6 | A gaming template plan, then its file | product-planner, then server-development | small, then small | The plan is ready to start; the file waits for Thomas to decide it |
+| 5 | The front page cut down, its cards linking, the template preselected | experience-design | medium | Ready: 2 and 3 are done; the headline, lede and description are decided (decisions 21 and 22) |
+| 6 | A gaming template plan, then its file | product-planner, then server-development | small, then small | Plan decided; template build ready. Nothing blocks the file. It uses three values Thomas has not yet confirmed (the remaining words, `opensWith`, `showMap` off; see [plan-template-games](plan-template-games.md)), and the Planner's travel wording is accepted for now. Steps 7 to 9 wait on this step, and on Thomas's approval of the art |
 | 7 | The games hero art, drafted, then approved by Thomas | experience-design, Thomas | medium | Ready to draft, but its look should follow the template's words from 6 |
 | 8 | A gaming seed for screenshots, and the shots | server-development, then experience-design | medium | After 6 |
 | 9 | `/games` | experience-design | medium | After 6 to 8 and Thomas's approval of the art |
 | 10 | `/projects`, the same way as 6 to 9 | as above | large in all | After #351 |
 | 11 | The documentation | content-manager | small | After 5, and again after 9 |
 
-Done: steps 1, 2, 3 and 4. Can start now: step 5 (the front page cut down), and the gaming template file once the
-open questions in [plan-template-games](plan-template-games.md) are answered.
+Done: steps 1, 2, 3 and 4. Can start now: step 5 (the front page cut down) and step 6's template file (the plan is decided; three
+values are still to confirm).
 
 ## Verify
 
@@ -204,13 +208,9 @@ open questions in [plan-template-games](plan-template-games.md) are answered.
 
 ### Open questions
 
-1. **The front page lede (new; Thomas to approve; blocks step 5 only).** The headline is decided: "One place for
-   the whole group." (decision 21). Proposed lede, chat first and the call optional, keeping "Yours and private"
-   true: "Chat all week, call when it counts, and keep the plans, the maps and the notes right beside it. Yours, on
-   your own address." Proposed meta description: "A private chat for your group, with a call when you want one and
-   the tools beside it. Self-hosted, on your own address." The alternative is the lede as first drafted for option
-   C, without the last sentence; then How it works and Yours and private alone say it is self-hosted.
-2. **The gaming template (blocks steps 6 to 9):** its words, modules and phases are in
-   [plan-template-games](plan-template-games.md), where Thomas has decided most of them and seven questions remain.
-3. **Whether the `h2` size and spacing change** with the new Fraunces weight. Decision 20 fixes the face and the
+1. **The gaming template (does not block the file; steps 7 to 9 follow it):** the plan is decided in
+   [plan-template-games](plan-template-games.md). Three items remain **proposed, to confirm** there: the remaining
+   words (owner = game master, aside = whisper, member = player, guest = guest), what a new campaign opens with (chat
+   and Sessions), and `showMap` off.
+2. **Whether the `h2` size and spacing change** with the new Fraunces weight. Decision 20 fixes the face and the
    weights only; experience-design reports what it needed to change.

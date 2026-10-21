@@ -37,7 +37,7 @@ export function topBarTabs({ strip, label = '' }) {
   more.type = 'button';
   more.id = `${id}-more`;
   more.className = 'core-link layout-tabs-more';
-  more.title = 'More tabs';
+  more.dataset.tip = 'More tabs';
   more.setAttribute('aria-label', 'More tabs');
   more.setAttribute('aria-haspopup', 'menu');
   more.setAttribute('aria-expanded', 'false');

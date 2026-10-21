@@ -259,7 +259,7 @@ await test('a choice shows its icon and its word, its word its accessible name',
   assert.equal(glyph.getAttribute('aria-hidden'), 'true');
   assert.equal(btn.querySelector(':scope > .tb-tab-word').textContent, 'Week');
   assert.equal(btn.getAttribute('aria-label'), 'Week');
-  assert.equal(btn.title, '', 'a choice that shows its word needs no tooltip');
+  assert.equal(btn.dataset.tip, undefined, 'a choice that shows its word needs no tooltip');
   const reg = choice(g, { id: 'open', label: 'Open', icon: 'circle', regular: true });
   assert.ok(/fa-regular/.test(reg.querySelector(':scope > .tb-tab-glyph').className));
   const bad = choice(g, { id: 'x', label: 'X', icon: 'not an icon"' });
@@ -273,13 +273,13 @@ await test('wide: the switch keeps its words; narrow: icons only, each word kept
   const plain = choice(g, { id: 'all', label: 'All' });
   sw.fit(box);
   assert.equal(g.classList.contains('tb-tabs-compact'), false, 'compact when the words fit');
-  assert.equal(day.title, '');
+  assert.equal(day.dataset.tip, undefined);
   box.boxWidth = 120; // narrower than the words (about 200), wide enough for the icons
   sw.fit(box);
   assert.equal(g.classList.contains('tb-tabs-compact'), true, 'not compact when the words do not fit');
   for (const [btn, word] of [[day, 'Day'], [agenda, 'Agenda']]) {
     assert.equal(btn.getAttribute('aria-label'), word, `${word}: accessible name lost in icons only`);
-    assert.equal(btn.title, word, `${word}: no tooltip in icons only`);
+    assert.equal(btn.dataset.tip, word, `${word}: no tooltip in icons only`);
     assert.equal(btn.querySelector(':scope > .tb-tab-word').textContent, word, `${word}: the word is gone, not hidden`);
   }
   // A choice without an icon keeps its word: there is no icon for the rule to hide it after.
@@ -294,7 +294,7 @@ await test('wide: the switch keeps its words; narrow: icons only, each word kept
   box.boxWidth = 1000;
   sw.fit(box);
   assert.equal(g.classList.contains('tb-tabs-compact'), false, 'still compact once the words fit again');
-  assert.equal(day.title, '');
+  assert.equal(day.dataset.tip, undefined);
   assert.equal(day.getAttribute('aria-label'), 'Day');
 });
 
@@ -317,7 +317,7 @@ await test('an icon-only choice (iconOnly) always has its word as title and aria
   const { g } = container(400);
   const btn = choice(g, { id: 'grid', label: 'Cards', icon: 'grip', iconOnly: true });
   assert.equal(btn.querySelector(':scope > .tb-tab-word'), null);
-  assert.equal(btn.title, 'Cards');
+  assert.equal(btn.dataset.tip, 'Cards');
   assert.equal(btn.getAttribute('aria-label'), 'Cards');
   assert.ok(btn.classList.contains('tb-tab-icon'));
 });
@@ -362,7 +362,7 @@ await test('host.ui.viewSwitch with `element` draws the shared switch in the pag
   holder.boxWidth = 60;
   sw.fit(holder);
   assert.ok(el.classList.contains('tb-tabs-compact'));
-  assert.equal(again[0].title, 'Open (3)');
+  assert.equal(again[0].dataset.tip, 'Open (3)');
   s.destroy();
 });
 

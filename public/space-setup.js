@@ -569,7 +569,7 @@ export function createSpaceSetup(deps) {
     if (!grid) return;
     const icons = deps.icons();
     const picked = icons.some((i) => i.id === state.draft.linkIcon) ? state.draft.linkIcon : (icons[0] && icons[0].id);
-    grid.innerHTML = icons.map(({ id, classes, label }) => `<button type="button" role="radio" data-icon="${esc(id)}" title="${esc(label || id)}" aria-label="${esc(label || id)}" aria-checked="${id === picked}" tabindex="${id === picked ? 0 : -1}"${id === picked ? ' class="selected"' : ''}><i class="${esc(classes)} fa-fw" aria-hidden="true"></i></button>`).join('');
+    grid.innerHTML = icons.map(({ id, classes, label }) => `<button type="button" role="radio" data-icon="${esc(id)}" data-tip="${esc(label || id)}" aria-label="${esc(label || id)}" aria-checked="${id === picked}" tabindex="${id === picked ? 0 : -1}"${id === picked ? ' class="selected"' : ''}><i class="${esc(classes)} fa-fw" aria-hidden="true"></i></button>`).join('');
   }
   function pickIcon(id, { focus = false } = {}) {
     state.draft.linkIcon = id;

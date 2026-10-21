@@ -316,7 +316,7 @@ export function openHostMenu(trigger, items) {
       more.setAttribute('aria-haspopup', 'menu');
       more.setAttribute('aria-label', `More for ${item.label || ''}`);
       more.setAttribute('aria-expanded', 'false');
-      more.title = 'More';
+      more.dataset.tip = 'More';
       more.tabIndex = -1;
       more.appendChild(iconEl(doc, 'ellipsis-vertical', false, null));
       // The row's own entries are a category's (one code path): a flyout beside the "...", or drilled into on a phone.

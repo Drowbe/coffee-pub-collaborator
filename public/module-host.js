@@ -778,7 +778,7 @@ function drawMoreButton(doc, extraClass, onClick) {
   const more = doc.createElement('button');
   more.type = 'button';
   more.className = extraClass ? `sdk-icon-btn btn-quiet btn-small ${extraClass}` : 'sdk-icon-btn btn-quiet btn-small';
-  more.title = 'More';
+  more.dataset.tip = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
   const i = doc.createElement('i');
@@ -967,7 +967,7 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
       close.type = 'button';
       close.className = 'module-editor-close';
       close.setAttribute('aria-label', 'Close');
-      close.title = 'Close';
+      close.dataset.tip = 'Close';
       close.innerHTML = '<i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i>';
       close.addEventListener('click', () => dismiss());
       frame.parentNode.insertBefore(backdrop, frame);
@@ -1022,7 +1022,7 @@ export function createAddSlot(add, send) {
       add.appendChild(addButton);
     }
     const label = plan.kind === 'direct' ? plan.leaf.label : plan.label;
-    addButton.title = label;
+    addButton.dataset.tip = label;
     addButton.setAttribute('aria-label', label);
     if (plan.kind === 'menu') {
       addButton.setAttribute('aria-haspopup', 'menu');
@@ -1782,7 +1782,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         const b = doc.createElement('button');
         b.type = 'button';
         b.className = `sdk-icon-btn btn-quiet btn-small${item.on ? ' on' : ''}`;
-        b.title = item.title;
+        if (item.title) b.dataset.tip = item.title;
         b.setAttribute('aria-label', item.title || item.id);
         b.setAttribute('aria-pressed', String(item.on));
         b.disabled = item.disabled;

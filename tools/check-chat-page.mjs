@@ -1156,8 +1156,8 @@ test('the composer: the Discussion has no paste box; the Assistant has no format
   for (const id of ['chat-pic', 'chat-bold', 'chat-italic', 'chat-code', 'chat-list']) assert.match(tag(id), /data-for="discussion"/, `${id} is the Discussion's`);
   assert.match(html, /data-for="discussion">\s*<button class="sdk-icon-btn btn-quiet btn-small" id="chat-emoji"/);
   assert.match(html, /data-for="discussion">\s*<button class="sdk-icon-btn btn-quiet btn-small" id="chat-help"/, 'formatting help is the Discussion\'s');
-  assert.match(tag('chat-import-copy'), /data-for="assistant"[^>]*title="Copy prompt"/);
-  assert.match(tag('chat-bring'), /data-for="assistant"[^>]*title="Bring in research"/);
+  assert.match(tag('chat-import-copy'), /data-for="assistant"[^>]*data-tip="Copy prompt"/);
+  assert.match(tag('chat-bring'), /data-for="assistant"[^>]*data-tip="Bring in research"/);
   assert.ok(!/data-for/.test(tag('chat-command')), 'the commands button is in both');
   const paint = fnBody(chat.replace(/^ {2}/gm, ''), 'function paintModeTools() {');
   assert.match(paint, /const off = mine \? !\(assistant && importOk\) : assistant;/, 'in the Assistant the formatting tools go; its two tools show where objects can be kept');

@@ -217,7 +217,7 @@ test('adding follows Places: its permission decides, the phone is shown the list
   assert.match(page, /function letGo\(\) \{ if \(!alive\.signal\.aborted\) alive\.abort\(\); \}/);
   for (const m of page.matchAll(/document\.addEventListener\('([a-z]+)'[^\n]*/g)) assert.match(m[0], /\{ signal: alive\.signal \}\);$/, `the document's ${m[1]} listener is taken off with the map`);
   assert.match(page, /function torn\(\) \{\n    if \(host\.rootElement\.isConnected && \$\('tpl-pin'\)\) return false;\n    letGo\(\);/);
-  assert.match(html, /title="Add a place" aria-label="Add a place"/);
+  assert.match(html, /data-tip="Add a place" aria-label="Add a place"/);
   assert.match(html, />Click the map to place it</);
   // A short note is a toast, never text drawn in the module.
   assert.match(page, /host\.ui\.toast\(String\(text\)\)/);

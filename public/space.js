@@ -807,7 +807,8 @@ function adminToolsFor(participant) {
   mute.type = 'button';
   mute.dataset.action = 'mute';
   mute.className = 'tile-admin-btn';
-  mute.title = 'Mute';
+  mute.dataset.tip = 'Mute';
+  mute.setAttribute('aria-label', mute.dataset.tip);
   mute.hidden = participant.getTrackPublication(Track.Source.Microphone)?.isMuted ?? false;
   mute.innerHTML = '<i class="fa-solid fa-microphone-slash fa-fw" aria-hidden="true"></i>';
   mute.addEventListener('click', async (e) => {
@@ -821,7 +822,8 @@ function adminToolsFor(participant) {
   const kick = document.createElement('button');
   kick.type = 'button';
   kick.className = 'tile-admin-btn danger';
-  kick.title = 'Kick';
+  kick.dataset.tip = 'Kick';
+  kick.setAttribute('aria-label', kick.dataset.tip);
   kick.innerHTML = '<i class="fa-solid fa-user-slash fa-fw" aria-hidden="true"></i>';
   kick.addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -842,7 +844,8 @@ function adminToolsFor(participant) {
     const aside = document.createElement('button');
     aside.type = 'button';
     aside.className = 'tile-admin-btn';
-    aside.title = 'Step aside';
+    aside.dataset.tip = 'Step aside';
+    aside.setAttribute('aria-label', aside.dataset.tip);
     aside.innerHTML = '<i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i>';
     aside.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -855,7 +858,8 @@ function adminToolsFor(participant) {
     const priv = document.createElement('button');
     priv.type = 'button';
     priv.className = 'tile-admin-btn';
-    priv.title = 'Privately';
+    priv.dataset.tip = 'Privately';
+    priv.setAttribute('aria-label', priv.dataset.tip);
     priv.innerHTML = '<i class="fa-solid fa-user-lock fa-fw" aria-hidden="true"></i>';
     priv.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -964,7 +968,8 @@ function screenTileFor(participant) {
     const pip = document.createElement('button');
     pip.type = 'button';
     pip.className = 'tile-pip';
-    pip.title = 'Pop out this screen share';
+    pip.dataset.tip = 'Pop out this screen share';
+    pip.setAttribute('aria-label', pip.dataset.tip);
     pip.innerHTML = '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>';
     pip.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1409,7 +1414,7 @@ function setColumnCollapsed(on, { remember = true } = {}) {
   columnEl.classList.toggle('collapsed', on);
   const b = columnEl.querySelector('#side-column-toggle');
   b.setAttribute('aria-expanded', String(!on));
-  b.title = on ? 'Expand' : 'Collapse';
+  b.dataset.tip = on ? 'Expand' : 'Collapse';
   b.setAttribute('aria-label', on ? 'Show the call and chat' : 'Collapse the call and chat');
   b.querySelector('i').className = `fa-solid fa-angles-${on ? 'right' : 'left'} fa-fw`;
   if (!on && unread) { unread = 0; canvas.setBuiltinUnread('chat', assistantNew); } // opened: the chat is read
@@ -1441,7 +1446,7 @@ function syncRail() {
   const btn = columnEl.querySelector('#side-column-rail-chat');
   const said = total ? `Chat, ${total} unread` : 'Chat';
   btn.setAttribute('aria-label', said);
-  btn.title = said;
+  btn.dataset.tip = said;
   const faces = columnEl.querySelector('#side-column-rail-faces');
   const people = [...tiles.values()].filter((t) => !t.classList.contains('tile-screen'));
   const key = people.map((t) => `${t.dataset.identity}:${t.querySelector('.placeholder')?.getAttribute('src') || ''}`).join('|');
@@ -1504,8 +1509,8 @@ function syncCallPlace() {
   // The titlebar's Pop out, and the conference's own when it floats: Bring back once the call is out of the column.
   const label = outside ? 'Bring the call back' : 'Pop out the call';
   for (const pop of [columnEl?.querySelector('#call-head-popout'), $('conf-popout')]) {
-    if (!pop || pop.title === label) continue;
-    pop.title = label;
+    if (!pop || pop.dataset.tip === label) continue;
+    pop.dataset.tip = label;
     pop.setAttribute('aria-label', label);
     pop.querySelector('i').className = `fa-solid fa-${outside ? 'arrow-left' : 'up-right-from-square'} fa-fw`;
   }
@@ -1673,11 +1678,13 @@ if (callOutEl) {
     if (!src) continue;
     const copy = () => {
       b.className = src.className;
-      b.title = src.title;
-      b.setAttribute('aria-label', src.getAttribute('aria-label') || src.title);
+      b.dataset.tip = src.dataset.tip || '';
+      if (src.dataset.tipKeys) b.dataset.tipKeys = src.dataset.tipKeys;
+      else delete b.dataset.tipKeys;
+      b.setAttribute('aria-label', src.getAttribute('aria-label') || src.dataset.tip || '');
       b.hidden = src.hidden;
     };
-    new MutationObserver(copy).observe(src, { attributes: true, attributeFilter: ['class', 'title', 'hidden', 'aria-label'] });
+    new MutationObserver(copy).observe(src, { attributes: true, attributeFilter: ['class', 'data-tip', 'data-tip-keys', 'hidden', 'aria-label'] });
     copy();
     b.addEventListener('click', () => src.click());
   }
@@ -2939,7 +2946,7 @@ function openIconSheet({ title, current = '', defaultIcon = '', onSave }) {
   const grid = dlg.querySelector('#layout-icon-grid');
   const none = dlg.querySelector('#layout-icon-none');
   const errorEl = dlg.querySelector('#layout-form-error');
-  grid.innerHTML = choices.map((c) => `<button type="button" role="radio" aria-checked="false" tabindex="-1" data-icon-choice="${escapeHtml(c.id)}" aria-label="${escapeHtml(c.label)}" title="${escapeHtml(c.label)}"><i class="fa-solid fa-${escapeHtml(c.id)} fa-fw" aria-hidden="true"></i></button>`).join('');
+  grid.innerHTML = choices.map((c) => `<button type="button" role="radio" aria-checked="false" tabindex="-1" data-icon-choice="${escapeHtml(c.id)}" aria-label="${escapeHtml(c.label)}" data-tip="${escapeHtml(c.label)}"><i class="fa-solid fa-${escapeHtml(c.id)} fa-fw" aria-hidden="true"></i></button>`).join('');
   const radios = () => [...grid.querySelectorAll('[data-icon-choice]')].filter((b) => !b.hidden);
   // The one Tab stop: the icon picked while it shows, else the first that shows.
   function mark() {
@@ -3085,7 +3092,7 @@ const layoutTabsMore = document.createElement('button');
 layoutTabsMore.type = 'button';
 layoutTabsMore.id = 'layout-tabs-more';
 layoutTabsMore.className = 'core-link layout-tabs-more';
-layoutTabsMore.title = 'More layouts';
+layoutTabsMore.dataset.tip = 'More layouts';
 layoutTabsMore.setAttribute('aria-label', 'More layouts');
 layoutTabsMore.setAttribute('aria-haspopup', 'menu');
 layoutTabsMore.setAttribute('aria-expanded', 'false');
@@ -3972,7 +3979,7 @@ function iconButton(icon, title, onClick) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'sdk-icon-btn btn-quiet btn-small';
-  b.title = title;
+  b.dataset.tip = title;
   b.setAttribute('aria-label', title);
   b.innerHTML = `<i class="fa-solid fa-${icon} fa-fw" aria-hidden="true"></i>`;
   b.addEventListener('click', onClick);
@@ -4149,7 +4156,7 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   const more = document.createElement('button');
   more.type = 'button';
   more.className = 'sdk-icon-btn btn-quiet btn-small';
-  more.title = 'More';
+  more.dataset.tip = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
   more.innerHTML = '<i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i>';
@@ -4618,7 +4625,8 @@ function renderReactionTray(list) {
     button.className = 'react';
     button.type = 'button';
     button.dataset.reaction = r.id;
-    button.title = i < 6 ? `${r.label} (${i + 1})` : r.label;
+    button.dataset.tip = i < 6 ? `${r.label} (${i + 1})` : r.label;
+    button.setAttribute('aria-label', button.dataset.tip);
     button.textContent = r.glyph;
     tray.appendChild(button);
   });
@@ -4998,7 +5006,7 @@ async function setPushToTalk(on) {
   prefs.ptt = on;
   savePrefs();
   pttHeld = false;
-  $('mic').title = on ? `Push to talk: hold ${formatHotkey(prefs.pttKey)} (M toggles)` : 'Microphone (M)';
+  $('mic').dataset.tip = on ? `Push to talk: hold ${formatHotkey(prefs.pttKey)} (M toggles)` : 'Microphone';
   if (on && call.state === 'connected') await call.localParticipant.setMicrophoneEnabled(false).catch(() => {});
   reflectMic();
 }
@@ -5182,7 +5190,7 @@ call
     awayMessage = '';
     awayRestartCam = false;
     $('away-toggle').classList.remove('off');
-    $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+    $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
     for (const [, tile] of tiles) tile.remove();
     tiles.clear();
     for (const [, tile] of ghostTiles) tile.remove();
@@ -5619,7 +5627,7 @@ async function stopCall() {
   awayMessage = '';
   awayRestartCam = false;
   $('away-toggle').classList.remove('off');
-  $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+  $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   for (const [, tile] of tiles) tile.remove();
   tiles.clear();
   for (const [, tile] of ghostTiles) tile.remove();
@@ -5654,13 +5662,13 @@ function hangUp() {
 function setNoCall(off) {
   $('conference').classList.toggle('call-off', off); // the section's state; .no-call is the note laid over the tiles
   $('no-call').hidden = !off;
-  $('conf-close').title = off ? 'Close' : 'Leave the call and close';
-  $('conf-close').setAttribute('aria-label', $('conf-close').title);
+  $('conf-close').dataset.tip = off ? 'Close' : 'Leave the call and close';
+  $('conf-close').setAttribute('aria-label', $('conf-close').dataset.tip);
   syncWhoIsInCall();
   const h = $('hangup');
   h.classList.toggle('danger', !off);
   h.classList.toggle('dial', off);
-  h.title = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
+  h.dataset.tip = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
   h.setAttribute('aria-label', off ? 'Join the call' : 'Leave the call');
   h.querySelector('i').className = 'fa-solid fa-phone fa-fw'; // the handset, turned down to hang up (style.css)
 }
@@ -5752,7 +5760,7 @@ async function toggleScreenShare() {
   }
   const on = call.localParticipant.isScreenShareEnabled;
   $('screen-share').classList.toggle('on', on);
-  $('screen-share').title = on ? 'Stop sharing your screen (S)' : 'Share your screen (S)';
+  $('screen-share').dataset.tip = on ? 'Stop sharing your screen' : 'Share your screen';
 }
 
 // What I hear is off while I have muted it (deafened) or am away (setAway): every remote
@@ -5768,7 +5776,7 @@ function applyDeafen() {
   applyHearing();
   $('deafen').classList.toggle('on', !prefs.deafened);
   $('deafen').classList.toggle('off', prefs.deafened);
-  $('deafen').title = prefs.deafened ? 'Unmute what you hear (D)' : 'Mute what you hear (D)';
+  $('deafen').dataset.tip = prefs.deafened ? 'Unmute what you hear' : 'Mute what you hear';
 }
 
 function toggleDeafen() {
@@ -6148,7 +6156,8 @@ function renderChatEmoji(reactions) {
     b.type = 'button';
     b.className = 'chat-emoji-btn';
     b.textContent = r.glyph;
-    b.title = r.label;
+    b.dataset.tip = r.label;
+    b.setAttribute('aria-label', b.dataset.tip);
     b.addEventListener('click', () => {
       const el = $('chat-input');
       const { selectionStart: start, selectionEnd: end, value } = el;
@@ -6249,7 +6258,7 @@ function openFoldedMenu(trigger) {
     if (!el.dataset.folded || el.hidden) continue;
     const btn = el.matches('button') ? el : el.querySelector('.fbtn');
     if (!btn || btn.hidden) continue;
-    entries.push({ icon: rowIcon(btn), label: btn.getAttribute('aria-label') || btn.title, onPick: () => btn.click() });
+    entries.push({ icon: rowIcon(btn), label: btn.getAttribute('aria-label') || btn.dataset.tip || btn.title, onPick: () => btn.click() });
     const caret = el.querySelector('.fbtn-caret');
     if (caret) entries.push({ icon: 'sliders', label: caret.getAttribute('aria-label') || caret.title, onPick: () => caret.click() });
   }
@@ -6266,7 +6275,7 @@ function rowIcon(el) {
 }
 function rowLabel(el) {
   const named = el.matches('button') ? el : el.querySelector('button');
-  return (named && (named.getAttribute('aria-label') || named.title)) || el.getAttribute('aria-label') || 'More';
+  return (named && (named.getAttribute('aria-label') || named.dataset.tip || named.title)) || el.getAttribute('aria-label') || 'More';
 }
 function fitRow(bar) {
   if (!bar) return;
@@ -6579,7 +6588,7 @@ function toggleFullscreen(doc = canvasDoc()) {
 function syncFullscreenButton() {
   const on = !!document.fullscreenElement || !!canvasDoc().fullscreenElement || !!confEl.ownerDocument.fullscreenElement;
   nav.setActive('fullscreen-toggle', on);
-  $('fullscreen-toggle').title = on ? 'Exit full screen (F)' : 'Full screen (F)';
+  $('fullscreen-toggle').dataset.tip = on ? 'Exit full screen (F)' : 'Full screen (F)';
 }
 document.addEventListener('fullscreenchange', syncFullscreenButton);
 
@@ -6638,7 +6647,7 @@ function openPopout() {
     if (!pipWindow) throw new Error('the browser blocked the popup -- allow popups for this site and try again');
     pipWindow.addEventListener('load', () => setUpPopoutWindow(pipWindow), { once: true });
     nav.setActive('popout', true);
-    $('popout').title = 'Pop it back in';
+    $('popout').dataset.tip = 'Pop it back in';
   } catch (err) {
     setStatus(`pop out: ${err.message}`, true);
   }
@@ -6701,7 +6710,7 @@ function setUpPopoutWindow(win) {
     pipWindow = null;
     dropPoppedWatches();
     nav.setActive('popout', false);
-    $('popout').title = 'Pop out into its own window';
+    $('popout').dataset.tip = 'Pop out into its own window';
     wake();
   });
 }
@@ -7519,7 +7528,7 @@ async function setAway(on, message = '') {
   $('cam').classList.toggle('off', !camOn);
   updateCamera(call.localParticipant);
   $('away-toggle').classList.toggle('off', on);
-  $('away-toggle').title = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+  $('away-toggle').dataset.tip = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   await sendAway(on, message);
 }
 

@@ -421,8 +421,10 @@ function apply(el, t) {
   }
   const label = String(t.label || '');
   const title = t.title || (look === 'icon' ? label : '');
-  if (title) el.title = title;
-  else el.removeAttribute('title');
+  // An icon-only tool names itself with the tooltip (data-tip, the same words as its aria-label); a tool with a word keeps a plain hint.
+  el.removeAttribute('title');
+  el.removeAttribute('data-tip');
+  if (title) el.setAttribute(look === 'icon' ? 'data-tip' : 'title', title);
   el.setAttribute('aria-label', label);
   if (t.toggleable) el.setAttribute('aria-pressed', String(Boolean(t.active)));
   else el.removeAttribute('aria-pressed');
@@ -636,7 +638,7 @@ function attachFold(bar, el) {
   more.type = 'button';
   more.id = bar === 'secondary' ? 'subnav-more' : 'topbar-more';
   more.className = 'sdk-icon-btn btn-quiet btn-small nav-more'; // the same "..." as a module's bars (host.ui.moreButton, module-host.js)
-  more.title = 'More';
+  more.dataset.tip = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
   more.setAttribute('aria-expanded', 'false');

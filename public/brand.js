@@ -1,6 +1,7 @@
 import { nav } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
+import '/tooltip.js';
 import { topBarTabs } from '/page-tabs.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
@@ -233,7 +234,7 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
     </div>
     <div class="nav-middle core-nav" id="core-nav"></div>
     <nav class="nav-right links" aria-label="${guest ? 'Page' : 'You'}"></nav>
-    <button class="icon-link nav-toggle" id="nav-toggle" type="button" title="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
+    <button class="icon-link nav-toggle" id="nav-toggle" type="button" data-tip="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
   `;
   nav.attach('primary', header);
   registerSystemTools(header);
@@ -272,7 +273,7 @@ function refreshWords() {
   const caret = byId('spaces-switch');
   if (caret) {
     const text = `Switch ${word('space')}`;
-    caret.title = text;
+    caret.dataset.tip = text;
     caret.setAttribute('aria-label', text);
   }
   if (nav.get('menu-home')) nav.register({ ...nav.get('menu-home'), label: word('home') });
@@ -299,8 +300,8 @@ function registerSystemTools(header) {
     slot.innerHTML = '<a class="core-link nav-slot" id="spaces-link" href="/" target="_top"></a><button type="button" class="core-link nav-slot-caret" id="spaces-switch" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i></button>';
     slot.querySelector('#spaces-link').textContent = word('home');
     const caret = slot.querySelector('#spaces-switch');
-    caret.title = `Switch ${word('space')}`;
-    caret.setAttribute('aria-label', caret.title);
+    caret.dataset.tip = `Switch ${word('space')}`;
+    caret.setAttribute('aria-label', caret.dataset.tip);
     caret.addEventListener('click', () => openSwitcher(caret));
     nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() && !inSpace && !pageTabsInBar });
   }
@@ -405,7 +406,7 @@ async function loadDestinations({ wide, inMenuOnly }) {
       destinationIds.add(tool.id);
       if (!el) continue;
       el.dataset.destination = href;
-      el.title = tool.label;
+      if (!el.dataset.tip) el.title = tool.label;
       if (current) el.setAttribute('aria-current', 'page');
       destinationEls.add(el);
     }
@@ -727,7 +728,7 @@ function paintBell() {
   const bell = byId('notifications-bell');
   if (!bell) return;
   const { count, title } = bellNow();
-  bell.title = title;
+  bell.dataset.tip = title;
   bell.setAttribute('aria-label', title);
   const badge = bell.querySelector('.sdk-badge-micro');
   badge.hidden = !count;

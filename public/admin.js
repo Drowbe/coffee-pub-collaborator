@@ -57,7 +57,8 @@ function buildHomeIconGrid() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset.icon = id;
-    btn.title = label || id;
+    btn.dataset.tip = label || id;
+    btn.setAttribute('aria-label', label || id);
     btn.innerHTML = `<i class="${escapeHtml(classes)} fa-fw" aria-hidden="true"></i>`;
     btn.addEventListener('click', () => {
       selectedHomeIcon = id;
@@ -1436,7 +1437,7 @@ function displayEditor(m) {
   const back = fromT ? "Back to the template's name and icon" : 'Back to its own name and icon';
   const note = !fromT ? '' : own ? (t.name ? `The template's: ${t.name}` : '') : 'From the template';
   const firstIcon = t.icon ? "The template's icon" : 'Its own icon';
-  const iconButton = (id, label, pressed) => `<button type="button" data-display-icon="${escapeHtml(id)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}"${pressed ? ' class="selected"' : ''}><i class="fa-solid fa-${escapeHtml(id || fallbackIcon)} fa-fw" aria-hidden="true"></i></button>`;
+  const iconButton = (id, label, pressed) => `<button type="button" data-display-icon="${escapeHtml(id)}" data-tip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}"${pressed ? ' class="selected"' : ''}><i class="fa-solid fa-${escapeHtml(id || fallbackIcon)} fa-fw" aria-hidden="true"></i></button>`;
   return `<div class="module-display" data-display-id="${escapeHtml(m.id)}" data-display-chosen="${escapeHtml(chosen)}" data-display-fallback="${escapeHtml(fallbackIcon)}" data-display-was-name="${escapeHtml(m.ownDisplayName || '')}" data-display-was-icon="${escapeHtml(chosen)}"${own ? ' data-display-own="1"' : ''} role="group" aria-label="What this ${escapeHtml(word('environment'))} calls it">
       <div class="module-display-head"><span class="field-label">Shown as</span>${note ? `<span class="from-template">${escapeHtml(note)}</span>` : ''}</div>
       <div class="module-display-row">

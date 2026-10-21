@@ -102,7 +102,8 @@ function enhance(wrap) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'slot-paste';
-      btn.title = 'Paste';
+      btn.dataset.tip = 'Paste';
+      btn.setAttribute('aria-label', 'Paste');
       btn.innerHTML = '<i class="fa-solid fa-paste" aria-hidden="true"></i>';
       label.after(btn); // in Tab order: the picture, Paste, then Remove
     }

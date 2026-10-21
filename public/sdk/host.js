@@ -454,7 +454,7 @@
     button.textContent = '';
     button.classList.add('tb-tab');
     button.classList.toggle('tb-tab-icon', iconOnly);
-    button.removeAttribute('title');
+    delete button.dataset.tip;
     delete button.dataset.fitTitle;
     let glyph = null;
     if (icon) {
@@ -470,7 +470,7 @@
       button.appendChild(w);
     }
     button.setAttribute('aria-label', name);
-    if (iconOnly) button.title = name;
+    if (iconOnly) button.dataset.tip = name;
     return glyph;
   }
   // A choice with an icon and a word, in or out of icons only: its word is its accessible name either way, and its
@@ -480,11 +480,11 @@
     if (!wordEl || !button.querySelector(':scope > .tb-tab-glyph')) return;
     const word = wordEl.textContent.trim();
     button.setAttribute('aria-label', word);
-    if (compact && (!button.title || button.dataset.fitTitle)) {
-      button.title = word;
+    if (compact && ((!button.dataset.tip && !button.title) || button.dataset.fitTitle)) {
+      button.dataset.tip = word;
       button.dataset.fitTitle = '1';
     } else if (!compact && button.dataset.fitTitle) {
-      button.removeAttribute('title');
+      delete button.dataset.tip;
       delete button.dataset.fitTitle;
     }
   }
@@ -623,7 +623,7 @@
       b.type = 'button';
       b.className = 'sdk-icon-btn btn-quiet btn-small sdk-editor-close';
       b.setAttribute('aria-label', 'Close');
-      b.title = 'Close';
+      b.dataset.tip = 'Close';
       b.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.05 1.64 8 6.59l4.95-4.95 1.41 1.41L9.41 8l4.95 4.95-1.41 1.41L8 9.41l-4.95 4.95-1.41-1.41L6.59 8 1.64 3.05z"/></svg>';
       deps.icon('xmark').then((svg) => { if (svg) b.innerHTML = svg; }, () => {});
       b.addEventListener('click', () => requestClose());
@@ -1107,6 +1107,7 @@
   const listeners = new Map();
   let info = null;
   const call = env.call;
+  ensureTooltips();
   // The toolbar's view switches (host.ui.viewSwitch), in the order they were made; they share the one toolbar row.
   const switches = [];
   let switchesSig = '';
@@ -1156,7 +1157,7 @@
           if (w && w.textContent !== String(o.label || '')) w.textContent = String(o.label || '');
           else if (b && !w) {
             b.setAttribute('aria-label', String(o.label || o.id));
-            b.title = String(o.label || o.id);
+            b.dataset.tip = String(o.label || o.id);
           }
         });
       }
@@ -1245,6 +1246,20 @@
     if (!o) return;
     const old = o.room !== undefined ? 'room' : OLD_WORDS[o.scope] ? o.scope : null;
     if (old) throw Object.assign(new Error(`${what}: "${old}" is an old name; use ${OLD_WORDS[old]}`), { status: 400 });
+  }
+
+  // The tooltip's script (public/tooltip.js): the page has it already (brand.js); a module in a sandboxed frame asks for it once.
+  // Without it a control still has its name (aria-label); only the label on hover is missing.
+  function ensureTooltips() {
+    try {
+      if (window.__sdkTooltip || window.__sdkTooltipAsked || !document.head) return;
+      window.__sdkTooltipAsked = true;
+      const t = document.createElement('script');
+      t.src = '/tooltip.js';
+      document.head.appendChild(t);
+    } catch (err) {
+      // no label on hover; the control keeps its name
+    }
   }
 
   // A menu's own icons, cached per module instance the same way a module drawing its own would (see
@@ -1880,7 +1895,7 @@
           const b = document.createElement('button');
           b.type = 'button';
           b.className = 'sdk-icon-btn btn-small btn-quiet';
-          b.title = title;
+          b.dataset.tip = title;
           b.setAttribute('aria-label', title);
           b.innerHTML = icon(d);
           wrap.appendChild(b);
@@ -2113,7 +2128,7 @@
         btn.classList.add('sdk-icon-btn', 'btn-quiet', 'btn-small');
         const label = String((o && o.label) || btn.getAttribute('aria-label') || 'More');
         if (!btn.getAttribute('aria-label')) btn.setAttribute('aria-label', label);
-        if (!btn.title) btn.title = label;
+        if (!btn.dataset.tip) btn.dataset.tip = label;
         btn.setAttribute('aria-haspopup', 'menu');
         if (!btn.querySelector('[data-icon], .ic, i, svg')) {
           const ic = document.createElement('span');

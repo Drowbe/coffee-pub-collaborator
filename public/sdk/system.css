@@ -4338,3 +4338,81 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   .sdk-toast[data-state="leaving"] { transform: none; }
 }
 /* toasts:end */
+
+/* ================= Tooltips (design system step 21) =================
+   Source: public/design-system/proposed-tooltips.css, without the .ds-proposed prefix. One label for the page (public/tooltip.js makes it),
+   moved to the control that asks for it. A control that has no visible word (an icon-only button or tab) carries BOTH its name
+   (aria-label) and the same words as data-tip, and optionally data-tip-keys for its shortcut. Text that is cut with an ellipsis can carry
+   data-tip-if-truncated (the label shows only while the text is cut). It shows after 500 ms of hover, at once on keyboard focus, on a long
+   press on touch, and hides on Escape, on leaving and on blur. The inverse of the page: --surface-tooltip as the fill, --text-tooltip as the text. */
+/* tooltips:start */
+:root {
+  --tip-max-w: 240px;
+  --tip-delay: 500ms;
+  --tip-ms: var(--motion-fast);
+  --z-tooltip: 70;
+}
+
+.sdk-tooltip {
+  --arrow-x: 50%; /* where the arrow sits along the label; tooltip.js sets it to the middle of the control */
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-tooltip);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: var(--tip-max-w);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--surface-tooltip);
+  color: var(--text-tooltip);
+  box-shadow: var(--shadow-2);
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+  line-height: 16px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--tip-ms) ease-out, visibility var(--tip-ms);
+}
+.sdk-tooltip[data-show] { opacity: 1; visibility: visible; }
+
+/* The shortcut hint: a small key chip at the end of the label. */
+.sdk-tooltip kbd {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-min);
+  background: color-mix(in srgb, var(--text-tooltip) 22%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+}
+
+/* The arrow (optional): a small square turned 45 degrees, in the same fill, on the side that faces the control. */
+.sdk-tooltip[data-arrow]::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--surface-tooltip);
+  transform: rotate(45deg);
+  left: calc(var(--arrow-x) - 4px);
+  bottom: -3px;
+}
+.sdk-tooltip[data-arrow][data-placement="bottom"]::after { top: -3px; bottom: auto; }
+.sdk-tooltip[data-arrow][data-placement="left"]::after { left: auto; right: -3px; top: calc(50% - 4px); bottom: auto; }
+.sdk-tooltip[data-arrow][data-placement="right"]::after { left: -3px; top: calc(50% - 4px); bottom: auto; }
+
+/* The truncated-text variant: the label shows only while the text is cut. */
+.sdk-truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-tooltip { transition: none; }
+}
+/* tooltips:end */

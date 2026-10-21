@@ -196,7 +196,7 @@ await test('one way to add a place in every context: Where, the same finish, the
   assert.match(page, /state\.search = searchOn\(v\) && !onPicture\(\)/);
   // The target beside Position: tucks the editor (state kept), asks a map to pick, and comes back with the spot or none.
   const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
-  assert.match(html, /id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"/);
+  assert.match(html, /id="f-pick" hidden aria-label="Pick the position on the map" data-tip="Click the map to set the position"/);
   // Only a map open in this page answers (the host's `open`), asked for this page only (`here`): a map in another tab never takes it.
   assert.match(page, /pickAction = list\.find\(\(a\) => a\.name === 'pickPoint' && a\.open === true\)/);
   assert.match(page, /host\.actions\.request\(pickAction\.action, \{\}, \{ wait: true, here: true \}\)/);

@@ -330,9 +330,11 @@ window.__dsLog = [];
   var locale = { language: 'en', clock: '12', currency: 'USD', currencies: ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF', 'SEK'], words: {} };
   function note(t) {
     var layer = document.getElementById('toast-layer');
-    if (!layer) { layer = document.createElement('div'); layer.id = 'toast-layer'; layer.className = 'toast-layer'; layer.style.position = 'static'; layer.style.pointerEvents = 'auto'; document.body.appendChild(layer); }
-    var b = document.createElement('button'); b.type = 'button'; b.className = 'toast toast-note'; b.setAttribute('role', 'status');
-    var s = document.createElement('span'); s.className = 'toast-text'; s.textContent = t; b.appendChild(s); b.addEventListener('click', function () { b.remove(); }); layer.appendChild(b);
+    if (!layer) { layer = document.createElement('div'); layer.id = 'toast-layer'; layer.className = 'sdk-toasts'; layer.style.position = 'static'; layer.style.pointerEvents = 'auto'; document.body.appendChild(layer); }
+    var b = document.createElement('div'); b.className = 'sdk-toast'; b.dataset.kind = 'info'; b.setAttribute('role', 'status');
+    var i = document.createElement('span'); i.className = 'sdk-toast-icon'; i.setAttribute('aria-hidden', 'true'); i.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    var m = document.createElement('div'); m.className = 'sdk-toast-body';
+    var s = document.createElement('span'); s.className = 'sdk-toast-title'; s.textContent = t; m.appendChild(s); b.appendChild(i); b.appendChild(m); b.addEventListener('click', function () { b.remove(); }); layer.appendChild(b);
   }
   window.__dsCall = function (m, p) {
     window.__dsLog.push(m);

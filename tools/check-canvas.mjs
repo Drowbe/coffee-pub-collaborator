@@ -1057,7 +1057,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
       ${helpers}
       return { setAway, toggleCam, restartCamera, showAway, syncCallAttributes, set call(c) { call = c; }, set inCall(v) { inCall = v; }, get isAway() { return isAway; } };
     `)(
-      { Source: { Camera: 'camera' } }, { encode: (text) => text }, () => ({ classList: { toggle() {}, add() {}, remove() {} } }),
+      { Source: { Camera: 'camera' } }, { encode: (text) => text }, () => ({ classList: { toggle() {}, add() {}, remove() {} }, dataset: {} }),
       () => {}, () => {}, () => {}, (identity, on, message) => overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'),
       (text) => { said = text; }, async () => {}, () => ({ deviceId: prefs.camId }), prefs,
     );
@@ -1548,7 +1548,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const bar = html.slice(html.indexOf('id="floatbar"'), html.indexOf('id="floatbar-overflow"'));
   // Pop out is on the call's titlebar (#call-head-popout) and the conference's own (#conf-popout), not the toolbar (Thomas, 2026-10-14).
-  if (!/id="call-head-popout"[^>]*title="Pop out the call"[^>]*aria-label="Pop out the call"/.test(html)) fail('public/space.html', 'the call\'s titlebar has a Pop out button (#call-head-popout, "Pop out the call")');
+  if (!/id="call-head-popout"[^>]*data-tip="Pop out the call"[^>]*aria-label="Pop out the call"/.test(html)) fail('public/space.html', 'the call\'s titlebar has a Pop out button (#call-head-popout, "Pop out the call")');
   for (const id of ['call-popout', 'call-place', 'call-place-wrap', 'settings-toggle']) if (bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar no longer has #${id}; it lives in the titlebar's menus`);
   for (const id of ['call-out', 'call-out-note', 'call-back']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
   // No "Hide the video" (Thomas, 2026-10-14: "I am not sure we need to 'hide the video'... remove it"): no button at
@@ -1579,7 +1579,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!head) fail('public/space.html', 'the column needs the call\'s titlebar (<header class="side-column-call-head" id="call-head">)');
   else {
     if (!/id="call-head-name">Call</.test(head)) fail('public/space.html', 'the call\'s titlebar reads Call (#call-head-name) until the environment names it');
-    if (!/<button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
+    if (!/<button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
   }
   if (html.indexOf('id="call-head"') > html.indexOf('id="side-column-strip"')) fail('public/space.html', 'the call\'s titlebar sits above the call (before #side-column-strip)');
   if (!/openHostMenu\(event\.currentTarget, callMenuItems\)/.test(spaceJs)) fail(F, 'the call\'s "..." opens on the shared menu (openHostMenu, callMenuItems)');

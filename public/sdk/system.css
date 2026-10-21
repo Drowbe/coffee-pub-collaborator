@@ -1705,7 +1705,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 }
 .sdk-cal-cell:hover { background: color-mix(in srgb, var(--text-primary) var(--cal-hover), var(--cal-surface)); }
 .sdk-cal-cell:active { background: color-mix(in srgb, var(--text-primary) var(--cal-press), var(--cal-surface)); }
-.sdk-cal-cell:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-cal-cell:focus-visible { outline: 2px solid var(--cal-focus, var(--focus-ring)); outline-offset: -2px; }
 
 .sdk-cal-n { color: var(--text-muted); font-size: var(--text-12); line-height: 16px; font-variant-numeric: tabular-nums; }
 .sdk-cal-cell:is(:hover, .in-range) .sdk-cal-n { color: var(--cal-dim); }
@@ -1727,7 +1727,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) { background: var(--accent-fill); color: var(--text-on-accent); }
 .sdk-cal-cell:is(.is-selected, [aria-selected="true"]):hover { background: var(--accent-fill-hover); }
 .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-n { color: var(--text-on-accent); font-weight: var(--weight-strong); }
-.sdk-cal-cell:is(.is-selected, [aria-selected="true"]):focus-visible { outline-color: var(--text-on-accent); }
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]) { --cal-focus: var(--text-on-accent); }
 
 /* The day a link opened: the selected fill and a word. */
 .sdk-cal-cell.is-linked { background: var(--fill-selected); }
@@ -2160,11 +2160,11 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 .sdk-daychip.is-today::after { background: var(--day-now); }
 .sdk-daychip:hover { background: var(--chip-fill-hover); }
 .sdk-daychip:active { background: var(--chip-fill-active); }
-.sdk-daychip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-daychip:focus-visible { outline: 2px solid var(--day-focus, var(--focus-ring)); outline-offset: -2px; }
 .sdk-daychip:is(.is-current, [aria-current="true"]) { background: var(--fill-selected); color: var(--day-now); }
 .sdk-daychip:is(.is-current, [aria-current="true"]) > b { color: var(--day-now); }
 .sdk-daychip:is(.is-current, [aria-current="true"]):hover { background: color-mix(in srgb, var(--accent-fill) 36%, transparent); }
-.sdk-daychip:is(.is-current, [aria-current="true"]):focus-visible { outline-color: var(--day-now); }
+.sdk-daychip:is(.is-current, [aria-current="true"]) { --day-focus: var(--day-now); }
 /* In the trip: a 7px dot in the corner. A word for it is in the chip's label. */
 .sdk-daychip-dot { position: absolute; top: var(--space-1); right: var(--space-1); width: 7px; height: 7px; border-radius: var(--radius-round); background: var(--day-now); }
 .sdk-daychip.is-empty > b { color: var(--text-muted); font-weight: var(--weight-medium); }

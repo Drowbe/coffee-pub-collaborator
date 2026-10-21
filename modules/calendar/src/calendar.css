@@ -37,8 +37,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .list { display: flex; flex-direction: column; gap: 0; min-width: 0; max-width: calc(100vw - 20px); }
 .group, .stack > * { min-width: 0; }
 .group h4 { margin: 10px 0 4px; font-size: var(--text-12); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.sdk-cal-agenda .sdk-row-title .sdk-chip-tag { margin-left: var(--space-2); }
-.sdk-cal-agenda .sdk-row-title .ri { margin-right: 5px; }
+.sdk-cal-agenda .sdk-chip-tag { margin-left: var(--space-2); }
+.sdk-cal-agenda .ri { margin-right: 5px; }
 
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
    the window, its padding, its close button and its backdrop. The form is .sdk-form: the SDK draws every field, label, hint,
@@ -60,7 +60,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .links { display: flex; flex-wrap: wrap; gap: 4px; }
 .links .sdk-chip-tag b { font-weight: var(--weight-strong); }
 
-.sdk-cal-event, .sdk-cal-agenda .sdk-row { user-select: none; }
+.sdk-cal-event, .sdk-cal-agenda > button { user-select: none; }
 
 .note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--surface-field); border: 1px solid var(--edge-hairline); }
 .note.bad { border-color: var(--status-danger-fill); }
@@ -80,7 +80,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ext-2 { --tint: var(--tint-purple); }
 .ext-3 { --tint: var(--tint-green); }
 .ext-4 { --tint: var(--tint-orange); }
-.sdk-cal-agenda .sdk-row.is-ext .sdk-chip-tag { --chip-tone: var(--tint, var(--text-muted)); }
+.sdk-cal-agenda > .is-ext .sdk-chip-tag { --chip-tone: var(--tint, var(--text-muted)); }
 .sdk-chip.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); box-shadow: inset 0 0 0 1.5px var(--tint, var(--text-muted)); }
 .sdk-chip.ext.on .dot { background: var(--tint, var(--text-muted)); }
 

@@ -3054,3 +3054,269 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   :is(.sdk-toolbar, .mod-toolbar) .sdk-search { --field-font: var(--text-16); }
 }
 /* modulechrome:end */
+
+/* ================= Dialogs and sheets (design system step 18) =================
+   One shell for everything that opens over the page and asks for attention: the editor window (.sdk-editor, host.ui.editor), the layout
+   sheet, the phase sheet, the background picker and the aside overlay's card. Source: public/design-system/proposed-dialogs.css, with the
+   colour roles; the product's own names are the component, there are no aliases. Three sizes: 360 (a confirm), 560 (a form), 880 (a
+   browse: a list or a grid to choose from; the editor window's large size, the phase sheet, the background picker).
+   Parts, top to bottom: head (title and close), body (scrolls), foot (buttons, right-aligned, Primary last, a hairline above).
+   - Title: Figtree, weight 600, 18px (not the headline face). Close: the Quiet small icon button at the top right.
+   - Surface: --surface-panel, a 1px --edge-hairline, --radius-large, --shadow-3, and the scrim (--scrim, black at 55%) behind it.
+   - The editor window's head (.sdk-editor-head: the form's own heading and the close button) and foot (.sdk-editor-actions) stay while
+     the form scrolls between them; a hairline shows under the head once it has scrolled (the SDK sets data-scrolled on the dialog).
+   - Enter: 200ms ease-out, a fade and an 8px rise. A phone (640px and below): full screen, no radius, no shadow, an opaque backdrop,
+     the safe-area insets; not a bottom sheet.
+   - Layers: a dialog is --z-dialog (40). A menu or popover opened from it is --z-popover, above it. A lifted editor frame (a module in
+     its own frame, public/style.css) is at --z-dialog too.
+   Colours are roles, radii are --radius-* tokens. No state draws a coloured edge, a bar or an underline. */
+/* dialogs:start */
+:root {
+  --dlg-w-confirm: 360px;
+  --dlg-w-form: 560px;
+  --dlg-w-browse: 880px;
+  --dlg-pad-x: var(--space-6);
+  --dlg-max-h: calc(100dvh - 48px);
+}
+
+@media (max-width: 640px) {
+  :root { --dlg-pad-x: var(--space-4); }
+}
+
+/* A lifted editor on a phone takes the phone padding at any page width. */
+.sdk-editor[data-lift="phone"] { --dlg-pad-x: var(--space-4); }
+
+/* ---- The shell ---- */
+:is(.sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card, .aside-overlay-card) {
+  --dlg-w: var(--dlg-w-form);
+  box-sizing: border-box;
+  width: min(var(--dlg-w), 100vw - 32px);
+  max-width: none;
+  max-height: var(--dlg-max-h);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-large);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  line-height: 20px;
+}
+
+/* The editor window is the one dialog that scrolls as a whole: its head and foot are sticky. */
+.sdk-editor { overflow: auto; overscroll-behavior: contain; }
+:is(.sdk-editor-large, .phase-sheet, .bgpick-card) { --dlg-w: var(--dlg-w-browse); }
+.aside-overlay-card { --dlg-w: var(--dlg-w-confirm); }
+:is(.sdk-editor, .layout-sheet, .phase-sheet):focus { outline: none; }
+
+/* A <dialog> that is a flex column while it is open. */
+:is(.layout-sheet, .phase-sheet)[open] { display: flex; flex-direction: column; }
+
+/* The scrim behind a modal dialog. */
+:is(.sdk-editor, .layout-sheet, .phase-sheet)::backdrop { background: var(--scrim); }
+
+/* The layer of a dialog that is not a <dialog> (the background picker's overlay): the scrim, centring the card. */
+.bgpick {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: var(--space-4);
+  background: var(--scrim);
+}
+
+.bgpick-card { display: flex; flex-direction: column; }
+
+/* ---- Head: title and close ---- */
+.sdk-editor-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-bottom: 1px solid transparent;
+  background: var(--surface-panel);
+  transition: border-color var(--motion-fast);
+}
+
+.sdk-editor[data-scrolled] > .sdk-editor-head { border-bottom-color: var(--edge-hairline); }
+
+:is(.sdk-editor-head, .phase-sheet-head, .bgpick-head) {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--space-4) var(--dlg-pad-x);
+}
+
+:is(.sdk-editor-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2) {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--space-0) + 1px) 0; /* the title's 24px line and this make the close button's 30px */
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-18);
+  font-weight: var(--weight-strong);
+  line-height: 24px;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+:is(.sdk-editor-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2):focus { outline: none; }
+
+/* In the phase sheet the line after the title (where we are in the phases) takes the room the title leaves. */
+.phase-sheet-head > h2 { flex: 0 1 auto; }
+
+/* The close hangs 8px into the head's right padding, so its glyph sits the page padding from the edge, as the title does from the left. */
+:is(.sdk-editor-head, .phase-sheet-head, .bgpick-head) > :is(.sdk-editor-close, .phase-sheet-close, .bgpick-close) { flex: none; margin-right: -8px; }
+
+/* ---- Body ---- */
+.sdk-editor > form { margin: 0; padding: 0 var(--dlg-pad-x); }
+
+.layout-form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; margin: 0; }
+
+.layout-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  padding: var(--space-4) var(--dlg-pad-x);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.phase-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 var(--dlg-pad-x) var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bgpick-body { flex: 1 1 auto; min-height: 0; box-sizing: border-box; padding: 0 var(--dlg-pad-x) var(--space-4); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.bgpick-filters { padding: 0 var(--dlg-pad-x) var(--space-2); }
+
+.aside-overlay-card { width: auto; padding: var(--space-6); max-width: min(var(--dlg-w-confirm), calc(100% - 32px)); }
+
+/* ---- Foot: the buttons, right-aligned, Primary last, a hairline above ---- */
+:is(.sdk-editor-actions, .sdk-editor-discard, .bgpick-foot) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  border-top: 1px solid var(--edge-hairline);
+  background: var(--surface-panel);
+}
+
+/* The editor's button row is inside its form: it reaches the window's edges and sticks to the bottom while the form scrolls. */
+.sdk-editor-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: var(--space-4) calc(-1 * var(--dlg-pad-x)) 0;
+  padding: var(--space-4) var(--dlg-pad-x);
+}
+
+/* The discard row replaces the button row: a question and two choices, over it. */
+.sdk-editor-discard {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  padding: var(--space-4) var(--dlg-pad-x);
+}
+
+.sdk-editor-discard-text { flex: 1 1 auto; margin: 0; color: var(--text-primary); font-weight: var(--weight-strong); text-align: left; }
+
+.bgpick-foot { padding: var(--space-4) var(--dlg-pad-x); }
+.bgpick-foot .grow { flex: 1 1 0; }
+
+/* ---- A lifted editor: the host lifts the frame of a sandboxed module, exactly the editor's size, and the dialog fills it. ---- */
+.sdk-editor.sdk-editor-lifted {
+  position: fixed;
+  top: 0;
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sdk-editor.sdk-editor-lifted::backdrop { background: var(--surface-page); }
+
+/* ---- A phone: full screen ---- */
+@media (max-width: 640px) {
+  :is(.sdk-editor:not(.sdk-editor-lifted), .layout-sheet, .phase-sheet) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* The top inset is the head's own (a sticky head sits at the dialog's edge), the bottom one the foot's. */
+  .sdk-editor:not(.sdk-editor-lifted) > .sdk-editor-head { padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px)); }
+  :is(.layout-sheet, .phase-sheet) { padding-top: env(safe-area-inset-top, 0px); }
+
+  :is(.sdk-editor:not(.sdk-editor-lifted), .layout-sheet, .phase-sheet)::backdrop { background: var(--surface-page); }
+
+  .bgpick { padding: 0; background: var(--surface-page); }
+
+  .bgpick-card {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sdk-editor-actions, .sdk-editor-discard { padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ---- Enter: a fade and an 8px rise ---- */
+@media (prefers-reduced-motion: no-preference) {
+  :is(.sdk-editor, .layout-sheet, .phase-sheet)[open] { animation: sdk-dialog-in var(--motion-base) var(--ease-out); }
+  :is(.sdk-editor, .layout-sheet, .phase-sheet)[open]::backdrop { animation: sdk-dialog-fade var(--motion-base) var(--ease-out); }
+  .bgpick-card { animation: sdk-dialog-in var(--motion-base) var(--ease-out); }
+
+  @keyframes sdk-dialog-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes sdk-dialog-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+/* dialogs:end */

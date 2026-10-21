@@ -142,12 +142,12 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   dlg.className = 'phase-sheet';
   dlg.setAttribute('aria-labelledby', 'phase-sheet-title');
   dlg.innerHTML = `
-    <div class="phase-sheet-body action-content">
     <div class="phase-sheet-head">
       <h2 id="phase-sheet-title">Phases</h2>
       <p class="phase-sheet-now"></p>
-      <button type="button" class="phase-sheet-close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+      <button type="button" class="sdk-icon-btn btn-quiet btn-small phase-sheet-close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
     </div>
+    <div class="phase-sheet-body action-content">
     <ul class="phase-sheet-facts" aria-label="Facts" hidden></ul>
     <div class="sdk-phase-strip">
       <ol class="sdk-phase-bands" aria-label="The phases in order"></ol>

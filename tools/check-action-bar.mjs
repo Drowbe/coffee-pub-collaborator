@@ -186,9 +186,10 @@ test('the lifted editor window (a module in a frame): a click on the host\'s bac
 
 test('the model stays: the editor window asks "Discard your changes?" and sticks its button row to the bottom', () => {
   const host = read('public/sdk/host.js');
-  const hostCss = read('public/sdk/host.css');
+  const dialogs = read('public/sdk/system.css'); // the Dialogs block
   assert.match(host, /Discard your changes\?/);
-  assert.match(hostCss, /\.sdk-editor-actions,\n\.sdk-editor-discard \{\s*\n\s*position: sticky;\s*\n\s*bottom: 0;/);
+  assert.match(dialogs, /\.sdk-editor-actions \{\s*\n\s*position: sticky;\s*\n\s*bottom: 0;/);
+  assert.match(dialogs, /\.sdk-editor-discard \{\s*\n\s*position: sticky;\s*\n\s*bottom: 0;/);
 });
 
 if (failed) {

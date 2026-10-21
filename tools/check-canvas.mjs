@@ -1827,7 +1827,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!tabbarRule || !/position:\s*(relative|sticky|fixed|absolute)/.test(tabbarRule.body)) fail(S, 'on a phone the tab bar (body.in-space .subnav) must be positioned, with a z-index, to stack over the floating layer');
   if (!(tabbar > layerPhone)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must be above the floating layer (${layerPhone})`);
   if (!(tabbar < zMenu)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must stay under an editor's lift and the menus (--z-menu, ${zMenu})`);
-  if (num(zOf(phoneRules, '.module-layer:has(.module-editor-lifted)')) !== zMenu) fail(S, 'on a phone the floating layer rises to the menus\' level (var(--z-menu)) while it holds a lifted editor');
+  if (num(zOf(wideRules, '.module-layer:has(.module-editor-lifted)')) !== zTok('dialog')) fail(S, 'the floating layer rises to the dialog layer (var(--z-dialog)) while it holds a lifted editor');
   // Dock at a phone's width: the resize moves the floating modules (placeForWidth) before a box is fitted to the new width.
   const bind = canvasJs.slice(canvasJs.indexOf('  function bindDoc(doc) {'), canvasJs.indexOf('  bindDoc(document);'));
   const crossing = bind.indexOf('placeForWidth(narrow)');

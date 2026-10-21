@@ -97,7 +97,6 @@ body { margin: 0; overflow: hidden; }
 .rs-body { position: relative; }
 /* #editor is a <dialog> the SDK draws as the editor window (host.ui.editor): the box, its padding, the backdrop and the
    sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. */
-#editor-title { margin: 0; padding-right: var(--space-7); }
 #f-delete { margin-left: auto; }
 .icon-choices { display: flex; flex-wrap: wrap; gap: 4px; }
 .icon-choice { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 4px 2px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font: inherit; font-size: var(--text-11); line-height: var(--leading-title); cursor: pointer; }

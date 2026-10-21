@@ -128,8 +128,7 @@ function pageHtml(fx, hostCssUrl) {
   const sdkUrl = hostCssUrl.replace(/host\.css$/, 'host.js');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="${hostCssUrl.replace(/sdk\/host\.css$/, 'style.css')}"><link rel="stylesheet" href="${hostCssUrl.replace(/host\.css$/, 'system.css')}"><link rel="stylesheet" href="${hostCssUrl}">${fx.mount ? `<script data-host-sdk src="${sdkUrl}"></script>` : ''}<style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
-<body><dialog class="sdk-editor" id="fx-dialog"><div class="sdk-editor-body">${fx.formHtml}</div>
-<div class="sdk-editor-actions"><button type="button" class="btn">Cancel</button></div></dialog>
+<body><dialog class="sdk-editor" id="fx-dialog">${fx.formHtml}</dialog>
 <script>
 const q = new URLSearchParams(location.search);
 document.documentElement.dataset.themeMode = q.get('mode') || 'light';

@@ -606,12 +606,19 @@
       watcher.observe(deps.root, { childList: true, subtree: true });
     };
     const unwatch = () => { if (watcher) { watcher.disconnect(); watcher = null; } };
-    // The close button, in a zero-height sticky block so it stays in the top right corner while the form scrolls. Made
-    // again when missing: a module may replace the dialog's content on each open (the Planner clones a template into it).
+    // The head: the form's own heading (moved here, once) and the close button, in a sticky strip, so they stay at the top
+    // while the form scrolls under them. Made again when missing: a module may replace the dialog's content on each open
+    // (the Planner clones a template into it), and the new form brings its heading.
     const corner = () => {
-      if (dialog.querySelector(':scope > .sdk-editor-corner')) return;
-      const c = doc.createElement('div');
-      c.className = 'sdk-editor-corner';
+      let c = dialog.querySelector(':scope > .sdk-editor-head');
+      const title = dialog.querySelector(':scope > form > :is(h1, h2, h3, h4), :scope > :is(h1, h2, h3, h4)');
+      if (c) {
+        if (title) { const old = c.querySelector('.sdk-editor-title'); if (old && old !== title) old.remove(); title.classList.add('sdk-editor-title'); c.prepend(title); }
+        return;
+      }
+      c = doc.createElement('div');
+      c.className = 'sdk-editor-head';
+      if (title) { title.classList.add('sdk-editor-title'); c.appendChild(title); }
       const b = doc.createElement('button');
       b.type = 'button';
       b.className = 'sdk-icon-btn btn-quiet btn-small sdk-editor-close';
@@ -632,7 +639,7 @@
       dialog.setAttribute('aria-labelledby', h.id);
     };
     const focusIn = (el) => {
-      const own = (f) => !f.closest('.sdk-editor-corner, .sdk-editor-discard');
+      const own = (f) => !f.closest('.sdk-editor-head, .sdk-editor-discard');
       const target = el && el.nodeType === 1 && dialog.contains(el) && visible(el) ? el
         : [...dialog.querySelectorAll(EDITOR_FIELD)].find((f) => own(f) && visible(f)) || dialog;
       try { target.focus(); } catch (err) { /* not focusable */ }
@@ -707,6 +714,9 @@
       requestClose();
     });
     dialog.addEventListener('focusin', (e) => { lastFocus = e.target; });
+    // A hairline shows under the head once the form has scrolled (data-scrolled, read by the Dialogs block).
+    const scrolled = () => dialog.toggleAttribute('data-scrolled', dialog.scrollTop > 0);
+    dialog.addEventListener('scroll', scrolled, { passive: true });
     dialog.addEventListener('close', () => {
       unwatch();
       deps.opened.delete(dialog);
@@ -737,6 +747,7 @@
         const arg = a || {};
         if (arg.returnTo !== undefined) returnTo = arg.returnTo;
         corner();
+        dialog.removeAttribute('data-scrolled');
         label();
         if (!dialog.open) {
           before = active();

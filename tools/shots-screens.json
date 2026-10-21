@@ -1708,6 +1708,46 @@
    "url": "/modules/stream",
    "wait": "#module-frame >>> *",
    "tier": "core"
+  },
+  {
+   "id": "space-layout-save-sheet",
+   "family": "Dialogs and sheets",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#modules-toggle"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Save this layout"
+    },
+    {
+     "wait": "dialog.layout-sheet[open]"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "profile-background-picker",
+   "family": "Dialogs and sheets",
+   "as": "mia",
+   "url": "/profile#profile",
+   "wait": "#background-library",
+   "steps": [
+    {
+     "click": "#background-library"
+    },
+    {
+     "wait": ".bgpick-card"
+    }
+   ],
+   "tier": "state"
   }
  ]
 }

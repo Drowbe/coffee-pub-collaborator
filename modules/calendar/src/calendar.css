@@ -76,7 +76,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
    the window, its padding, its close button and its backdrop. The form is .sdk-form: the SDK draws every field, label, hint,
    row and tick box, so this file has no field rule. */
-#editor-title { margin: 0; padding-right: var(--space-7); }
 #f-delete { margin-left: auto; }
 .detail { white-space: pre-wrap; color: var(--text-muted); font-size: var(--text-13); }
 

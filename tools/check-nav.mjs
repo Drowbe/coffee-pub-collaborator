@@ -563,7 +563,7 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   assert.match(space, /title: 'Save this layout',\n\s*share: layoutList\.canShare \? false : null,/);
   assert.match(space, /title: 'Rename',\n\s*name: layout\.name,/);
   // The look: the menu's own for the entries; the sheet from the tokens.
-  assert.match(css, /\.layout-sheet \{[^}]*background: var\(--bg-section\);/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /:is\(\.sdk-editor, \.layout-sheet, [^)]*\) \{[^}]*background: var\(--surface-panel\);/, 'the sheet is the dialog shell (the Dialogs block of system.css)');
   assert.ok(fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8').includes("tag.className = 'sdk-chip-tag';"), 'a menu entry\'s tag is the Chips tag');
   assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /\.host-menu-mark \{[^}]*color: var\(--text-muted\);/);
   // An aside has no layouts.

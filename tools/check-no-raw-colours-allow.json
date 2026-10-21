@@ -51,11 +51,11 @@
       "raw": 1
     },
     "public/sdk/host.css": {
-      "shadow-scrim": 2
+      "shadow-scrim": 1
     },
     "public/style.css": {
       "raw": 15,
-      "shadow-scrim": 30
+      "shadow-scrim": 22
     }
   }
 }

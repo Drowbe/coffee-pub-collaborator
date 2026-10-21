@@ -101,7 +101,6 @@ body { margin: 0; overflow: hidden; }
 /* ---- the cost: the editor window. #editor is a <dialog> the SDK draws (host.ui.editor): the box, its padding, the backdrop
    and the sticky button row (.sdk-editor-actions) are the SDK's, and the form is .sdk-form: the SDK draws every field, label,
    hint, row and tick box. This file only says which parts the form has. ---- */
-#editor-title, #target-editor-title { margin: 0; padding-right: var(--space-7); }
 #f-delete { margin-left: auto; }
 
 /* phones and narrow windows: the script sets .narrow on .app from the module's width (under 520 px) */

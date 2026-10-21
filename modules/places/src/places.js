@@ -1006,7 +1006,7 @@
       fillWhere(w, false);
       const ro = clone('tpl-readonly');
       fill(ro, { type: (typeOf(shown.type) || typeOf(DEFAULT_TYPE) || {}).label || 'None', status: (statusOf(shown.status) || {}).label || 'None', address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
-      $('editor-title').after(ro);
+      $('form').prepend(ro); // first in the form: the title is in the window's head
     }
     // Where it is, and what uses it.
     // The target beside Position: only for a place being added or changed in the form, and only while a map can answer.

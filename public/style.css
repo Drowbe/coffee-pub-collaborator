@@ -2318,57 +2318,9 @@ label.switch-row.disabled:hover {
   display: none;
 }
 
-/* Save this layout's sheet, and Rename's (space.js, openLayoutSheet): a small <dialog> in the editor window's look
-   (host.css .sdk-editor, as the phase sheet is), its form Name, the share switch, the server's refusal, then the action
-   bar (action-bar:start above) locked to the bottom with Save and Cancel. */
-.layout-sheet {
-  box-sizing: border-box;
-  width: min(360px, 100vw - 32px);
-  max-width: none;
-  max-height: calc(100dvh - 48px);
-  margin: auto;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  background: var(--bg-section);
-  color: var(--text);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-}
-
-.layout-sheet[open] {
-  display: flex;
-  flex-direction: column;
-}
-
-.layout-sheet::backdrop {
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-}
-
-.layout-sheet:focus {
-  outline: none;
-}
-
-.layout-sheet-title {
-  margin: 0 0 4px;
-  font-size: var(--text-18);
-}
-
-.layout-form {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  margin: 0;
-}
-
-.layout-form-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 16px 12px;
-}
-
+/* Save this layout's sheet, and Rename's (space.js, openLayoutSheet): a <dialog> in the dialog shell (the Dialogs block of
+   /sdk/system.css: 560 wide), its form Name, the share switch, the server's refusal, then the action bar (action-bar:start
+   above) locked to the bottom with Save and Cancel. */
 .layout-field {
   display: flex;
   flex-direction: column;
@@ -2407,10 +2359,6 @@ label.switch-row.disabled:hover {
   margin: 0;
   color: var(--text-dim);
   font-size: var(--text-12);
-}
-
-.layout-icon-sheet {
-  width: min(400px, 100vw - 32px);
 }
 
 .layout-icon-grid {
@@ -4905,20 +4853,14 @@ span.message-vis {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--scrim);
 }
 
 .aside-overlay-card {
-  background: color-mix(in srgb, var(--bg-section) 97%, transparent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   align-items: center;
-  max-width: min(360px, calc(100% - 32px));
   text-align: center;
 }
 
@@ -5854,16 +5796,18 @@ body.conference-window {
 
 /* On a phone the top bar (20, with its menu) and the tab bar are always above the canvas (GitHub #268): the layer goes
    under them. canvas.js docks every module that can dock as the window crosses 640px (placeForWidth), so only one that
-   can only float is left here. While one of its frames is lifted for an editor, the layer rises to the menus' level, so
+   can only float is left here. While one of its frames is lifted for an editor, the layer rises to the dialog layer, so
    the editor's sheet covers the page as it does from a docked module. */
 @media (max-width: 640px) {
   .module-layer {
     z-index: calc(var(--z-bar) - 1);
   }
 
-  .module-layer:has(.module-editor-lifted) {
-    z-index: var(--z-menu);
-  }
+}
+
+/* While one of its frames is lifted for an editor, the layer rises to the dialog layer, at any width. */
+.module-layer:has(.module-editor-lifted) {
+  z-index: var(--z-dialog);
 }
 
 /* A floating module: where it sits and its least size. Its look (the window's step, the hairline, the large corner, --shadow-2)
@@ -6049,16 +5993,17 @@ body.conference-window {
    viewport less 48 px, and the dialog inside fills it (.sdk-editor-lifted in /sdk/host.css), so the frame is the
    window; a full-screen sheet at 640 px and below, padded by the safe areas. Behind it the backdrop (the editor's tint)
    and, as the host's own way out, a Close button in the page's top corner (top left on a phone, where the sheet's own
-   Close is at the top right). All at the menus' level: above the floating layer (a docked module's lift must clear the
-   floating modules) and under the pages opened over the call. Colours from the tokens. */
+   Close is at the top right). All at the dialog layer (--z-dialog): above the floating layer (a docked module's lift must clear the
+   floating modules), the menus and the pages opened over the call. Sizes, surface, shadow and scrim are the Dialogs block's
+   (/sdk/system.css). Colours from the tokens. */
 .module-editor-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100dvh;
-  z-index: var(--z-menu);
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  z-index: var(--z-dialog);
+  background: var(--scrim);
 }
 
 iframe.module-editor-lifted {
@@ -6066,40 +6011,40 @@ iframe.module-editor-lifted {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(560px, 100vw - 32px);
+  width: min(var(--dlg-w-form), 100vw - 32px);
   height: min(var(--lift-h, 100dvh), 100dvh - 48px);
   min-height: 0;
-  z-index: var(--z-menu);
-  border: 1px solid var(--border);
+  z-index: var(--z-dialog);
+  border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-large);
-  background: var(--bg);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-3);
 }
 
 iframe.module-editor-lifted.module-editor-lifted-large {
-  width: min(880px, 100vw - 32px);
+  width: min(var(--dlg-w-browse), 100vw - 32px);
 }
 
 .module-editor-close {
   position: fixed;
   top: 12px;
   right: 12px;
-  z-index: var(--z-menu);
+  z-index: var(--z-dialog);
   width: 36px;
   height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-round);
-  background: var(--bg-section);
-  color: var(--text);
+  background: var(--surface-panel);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .module-editor-close:hover {
-  background: var(--surface-hover);
+  background: var(--menu-hover);
 }
 
 .module-editor-close:focus-visible {
@@ -6122,7 +6067,7 @@ iframe.module-editor-lifted.module-editor-lifted-large {
   }
 
   .module-editor-backdrop {
-    background: var(--bg);
+    background: var(--surface-page);
   }
 
   .module-editor-close {
@@ -6137,7 +6082,7 @@ iframe.module-editor-lifted.module-editor-lifted-large {
 @media (prefers-reduced-motion: no-preference) {
   .module-editor-backdrop,
   iframe.module-editor-lifted {
-    animation: module-editor-lift 0.15s ease-out;
+    animation: module-editor-lift var(--motion-base) var(--ease-out);
   }
 
   @keyframes module-editor-lift {
@@ -7273,14 +7218,8 @@ body.chat-window {
 .ai-meter.warn span { background: var(--danger); }
 
 /* the pre-made background picker (public/background-picker.js) */
-.bgpick { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, black 60%, transparent); }
-.bgpick-card { display: flex; flex-direction: column; width: min(880px, 100%); max-height: min(720px, 100%); background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-large); box-shadow: 0 20px 60px color-mix(in srgb, black 50%, transparent); overflow: hidden; }
-.bgpick-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 8px; }
-.bgpick-head h2 { margin: 0; font-size: var(--text-18); flex: 1; }
-.bgpick-close { width: 32px; height: 32px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); cursor: pointer; }
-.bgpick-close:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
-.bgpick-filters { display: flex; flex-direction: column; gap: 6px; padding: 0 16px 8px; }
-.bgpick-body { flex: 1; min-height: 160px; overflow: auto; padding: 4px 16px 12px; }
+.bgpick-filters { display: flex; flex-direction: column; gap: 6px; }
+.bgpick-body { min-height: 160px; }
 .bgpick-msg { padding: 24px 0; text-align: center; }
 .bgpick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .bgpick-tile { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 2px solid transparent; border-radius: var(--radius-large); background: var(--bg-card); color: var(--text); font: inherit; font-size: var(--text-12); text-align: left; cursor: pointer; transition: border-color 0.12s ease, transform 0.12s ease; }
@@ -7289,11 +7228,9 @@ body.chat-window {
 .bgpick-tile:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); transform: translateY(-1px); }
 .bgpick-tile[aria-pressed="true"] { background: var(--selected-bg); }
 .bgpick-tile[aria-pressed="true"] span { color: var(--text); font-weight: var(--weight-strong); }
-.bgpick-foot { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--border); }
-.bgpick-foot .grow { flex: 1; }
 .bgpick-picked { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .bgpick-tile { transition: none; } .bgpick-tile:hover { transform: none; } }
-@media (max-width: 640px) { .bgpick { padding: 0; align-items: flex-end; } .bgpick-card { width: 100%; max-height: 92%; border-radius: var(--radius-large) var(--radius-large) 0 0; } .bgpick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .bgpick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .slot-library { margin-top: 6px; }
 
 /* the AI service panel: its labels, and the model list */
@@ -8094,58 +8031,9 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
    current one), an undated phase a small dashed stub, the "today" line in the band today falls in. Under it one row
    per phase: name, Start, End, length, Skip; an undated row reads Not scheduled with Add dates. A row and its band
    light together on hover or focus. On a phone the rows stack (name, then start and end side by side) at 44 px. */
-.phase-sheet {
-  box-sizing: border-box;
-  width: min(760px, 100vw - 32px);
-  max-width: none;
-  max-height: calc(100dvh - 48px);
-  margin: auto;
-  padding: 0;
-  overflow: hidden; /* the body scrolls; the action bar stays at the bottom */
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  background: var(--bg-section);
-  color: var(--text);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-}
-
-.phase-sheet[open] {
-  display: flex;
-  flex-direction: column;
-}
-
-.phase-sheet-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.phase-sheet::backdrop {
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-}
-
-.phase-sheet:focus {
-  outline: none;
-}
-
-.phase-sheet-head {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  padding-right: 40px;
-}
-
-.phase-sheet-head h2 {
-  margin: 0;
-  font-size: var(--text-18);
-}
-
 .phase-sheet-now {
   flex: 1 1 auto;
+  align-self: center;
   margin: 0;
   color: var(--text-dim);
 }
@@ -8219,35 +8107,6 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
 }
 
 .phase-sheet-fact:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.phase-sheet-close {
-  position: absolute;
-  top: -6px;
-  right: -8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--text-dim);
-  font: inherit;
-  cursor: pointer;
-}
-
-.phase-sheet-close:hover {
-  background: color-mix(in srgb, var(--text) 10%, var(--bg-section));
-  color: var(--text);
-}
-
-.phase-sheet-close:focus-visible {
-  color: var(--text);
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -8453,39 +8312,6 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
 }
 
 @media (max-width: 640px) {
-  .phase-sheet {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100dvh;
-    max-height: none;
-    margin: 0;
-    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px); /* the bar keeps the bottom's */
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .phase-sheet-body {
-    padding: 12px;
-  }
-
-  .phase-sheet::backdrop {
-    background: var(--bg);
-  }
-
-  .phase-sheet-close {
-    top: 0;
-    right: 0;
-    width: 44px;
-    height: 44px;
-  }
-
-  .phase-sheet-head {
-    padding-right: 48px;
-  }
-
   .phase-rows-head {
     display: none;
   }
@@ -8575,10 +8401,10 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
   flex-direction: column;
   box-sizing: border-box;
   width: min(380px, 100vw);
-  border-left: 1px solid var(--border);
-  background: var(--bg-section);
-  color: var(--text);
-  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.35);
+  border-left: 1px solid var(--edge-hairline);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-3);
 }
 
 .space-setup[hidden] {
@@ -8601,7 +8427,9 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
 
 .setup-head h2 {
   margin: 0;
+  font-family: var(--font-ui);
   font-size: var(--text-18);
+  font-weight: var(--weight-strong);
 }
 
 .setup-which {

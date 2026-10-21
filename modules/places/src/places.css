@@ -46,7 +46,6 @@ body { margin: 0; overflow: hidden; }
 /* ---- the place: the editor window (read-only for a viewer, a form for an editor). #editor is a <dialog> the SDK draws
    (host.ui.editor): the box, its padding, the backdrop and the sticky button row (.sdk-editor-actions) are the SDK's;
    the form only lays out its fields. ---- */
-#editor-title { margin: 0; padding-right: var(--space-7); }
 #f-delete { margin-left: auto; }
 .editor-links { display: flex; flex-wrap: wrap; gap: 6px; }
 .used-by { display: flex; flex-direction: column; gap: 4px; }

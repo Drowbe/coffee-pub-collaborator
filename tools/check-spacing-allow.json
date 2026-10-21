@@ -84,8 +84,7 @@
     },
     "modules/travel/src/travel-lib-editor.css": {
       "6px": 1,
-      "10px": 2,
-      "36px": 1
+      "10px": 2
     },
     "modules/travel/src/travel-widget.css": {
       "5px": 1
@@ -126,11 +125,11 @@
       "-10px": 4,
       "3px": 21,
       "5px": 7,
-      "6px": 149,
+      "6px": 148,
       "7px": 5,
       "9px": 1,
-      "10px": 105,
-      "14px": 30,
+      "10px": 103,
+      "14px": 27,
       "18px": 16,
       "28px": 1,
       "30px": 2,

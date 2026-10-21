@@ -16,7 +16,7 @@ export function pickBackground({ title = 'Choose a background' } = {}) {
     root.setAttribute('aria-label', title);
     root.innerHTML = `
       <div class="bgpick-card">
-        <header class="bgpick-head"><h2>${escapeHtml(title)}</h2><button class="bgpick-close" type="button" data-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
+        <header class="bgpick-head"><h2>${escapeHtml(title)}</h2><button class="sdk-icon-btn btn-quiet btn-small bgpick-close" type="button" data-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
         <div class="bgpick-filters" hidden>
           <div class="sdk-chips" data-group="theme" role="group" aria-label="Theme"></div>
           <div class="sdk-chips" data-group="style" role="group" aria-label="Style"></div>

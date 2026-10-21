@@ -43,7 +43,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* the form for a new poll: #editor is a <dialog> the SDK draws as the editor window (host.ui.editor), which gives the
    box, its padding, the backdrop and the sticky button row (.sdk-editor-actions). The form is .sdk-form: the SDK draws every
    field, label, hint, row and tick box. Here only the rows of options, which the script adds. */
-#editor-title { margin: 0; padding-right: var(--space-7); }
 #f-options { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .opts-more { margin-top: 8px; }
 .opt-row { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }

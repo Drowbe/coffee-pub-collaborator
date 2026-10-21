@@ -7,7 +7,6 @@
  */
 /* the fields for the chosen type: a field shows only for the types in its data-types */
 [data-types]:not(.on-type) { display: none; }
-#editor-title, #day-title { margin: 0; padding-right: 36px; }
 /* a wrapper that only carries data-types: its children are the form's own rows */
 .roundtrip { display: contents; }
 #f-delete { margin-left: auto; }

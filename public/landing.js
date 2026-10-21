@@ -33,7 +33,7 @@ const fill = (sel, text) => { for (const el of document.querySelectorAll(sel)) e
   });
 })();
 
-let product = { name: 'Coffee Pub', contact: null, baseDomain: '', version: '' };
+let product = { name: 'Coffee Pub', contact: null, baseDomain: '', productDomain: '', version: '' };
 try {
   const res = await fetch('/api/product');
   if (res.ok) product = { ...product, ...(await res.json()) };
@@ -120,7 +120,9 @@ const navSignin = document.getElementById('nav-signin');
     return;
   }
   // the one this browser was last in, if it is still here
-  const recent = cookie('env_hint').split(',').map((s) => s.trim()).find((s) => environments.some((e) => e.slug === s));
+  // env_hint is set on the base domain: a product page on another site cannot read it
+  const onBase = Boolean(product.baseDomain) && (location.hostname === product.baseDomain || location.hostname.endsWith(`.${product.baseDomain}`));
+  const recent = !onBase ? undefined : cookie('env_hint').split(',').map((s) => s.trim()).find((s) => environments.some((e) => e.slug === s));
   if (recent) {
     select.value = recent;
     const env = environments.find((e) => e.slug === recent);
@@ -230,20 +232,32 @@ if (!signup) {
     if (wantedInput) wantedInput.checked = true;
     templateBox.hidden = false;
   }
+  // Each keystroke is checked against GET /api/product/address, after a short pause so a fast typist sends one request.
   let checkToken = 0;
-  slugInput.addEventListener('input', async () => {
+  let checkTimer = null;
+  const say = (text, bad) => { slugNote.textContent = text; slugNote.classList.toggle('error', Boolean(bad)); };
+  const hint = 'Letters, digits and hyphens, 3 to 30; it cannot be changed later.';
+  slugInput.addEventListener('input', () => {
     slugInput.value = slugInput.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
     const slug = slugInput.value;
-    if (!slugOk(slug)) { slugNote.textContent = 'Letters, digits and hyphens, 3 to 30; it cannot be changed later.'; slugNote.classList.remove('error'); return; }
+    clearTimeout(checkTimer);
     const mine = ++checkToken;
-    try {
-      const res = await fetch(`/api/product/environment?slug=${encodeURIComponent(slug)}`);
-      if (mine !== checkToken) return;
-      if (res.ok) { slugNote.textContent = `${slug}.${product.baseDomain} is taken.`; slugNote.classList.add('error'); }
-      else { slugNote.textContent = `${slug}.${product.baseDomain} is free.`; slugNote.classList.remove('error'); }
-    } catch (err) {
-      // the server says on submit
-    }
+    if (!slugOk(slug)) { say(hint); return; }
+    checkTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/product/address?slug=${encodeURIComponent(slug)}`);
+        if (mine !== checkToken) return;
+        if (!res.ok) return; // too many checks (429) or none here: the server says on submit
+        const data = await res.json();
+        if (mine !== checkToken) return;
+        if (data.free) say(`${slug}.${product.baseDomain} is free.`);
+        else if (data.reason === 'reserved') say(`"${slug}" is reserved. Pick another.`, true);
+        else if (data.reason === 'taken') say(`${slug}.${product.baseDomain} is taken.`, true);
+        else say(hint);
+      } catch (err) {
+        // the server says on submit
+      }
+    }, 250);
   });
   signup.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -260,7 +274,7 @@ if (!signup) {
       const res = await fetch('/api/product/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `could not create it (${res.status})`);
-      status.textContent = 'Made. Taking you there...';
+      status.textContent = `Made. Taking you to ${body.slug}.${product.baseDomain} to sign in...`;
       location.href = data.url || envUrl(body.slug, '/login');
     } catch (err) {
       status.classList.add('error');

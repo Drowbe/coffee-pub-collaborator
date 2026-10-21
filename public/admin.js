@@ -2450,7 +2450,11 @@ async function loadEnvironment() {
   try {
     envInfo = await api('GET', '/api/environment');
     // The product page's address (Upgrade goes to its plans): the public product facts carry the base domain.
-    if (!envInfo.baseDomain) envInfo.baseDomain = (await api('GET', '/api/product').catch(() => ({}))).baseDomain || '';
+    if (!envInfo.baseDomain || !envInfo.productDomain) {
+      const facts = await api('GET', '/api/product').catch(() => ({}));
+      if (!envInfo.baseDomain) envInfo.baseDomain = facts.baseDomain || '';
+      envInfo.productDomain = facts.productDomain || envInfo.productDomain || '';
+    }
   } catch (err) {
     card.hidden = true;
     return;
@@ -2486,7 +2490,7 @@ function renderEnvironment() {
     banner.hidden = false;
   } else banner.hidden = true;
   const up = $('env-upgrade');
-  if (e.baseDomain) { up.href = `${location.protocol}//${e.baseDomain}${location.port ? ':' + location.port : ''}/#plans`; up.hidden = false; } else up.hidden = true;
+  if (e.baseDomain) { up.href = `${location.protocol}//${e.productDomain || e.baseDomain}${location.port ? ':' + location.port : ''}/#plans`; up.hidden = false; } else up.hidden = true;
   const requested = Boolean(e.deleteRequestedAt);
   $('env-delete').hidden = requested;
   $('env-delete-cancel').hidden = !requested;

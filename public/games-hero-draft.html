@@ -28,8 +28,10 @@
     .g-table { fill: var(--l-sand); }
     .g-mat { fill: var(--l-teal-soft); }
     .g-grid { stroke: var(--l-surface); stroke-width: 1.5; opacity: 0.6; fill: none; }
+    .g-water { fill: var(--l-sea); } .g-wave { fill: none; stroke: var(--l-surface); stroke-width: 2.5; stroke-linecap: round; opacity: 0.7; }
+    .g-wood-patch { fill: var(--l-teal); opacity: 0.3; } .g-rise { fill: var(--l-sand); opacity: 0.7; } .g-tree { fill: var(--l-teal); }
     .g-floor { fill: var(--l-surface); opacity: 0.55; }
-    .g-wall { fill: none; stroke: var(--l-ink); stroke-width: 2.5; stroke-linecap: square; stroke-linejoin: miter; }
+    .g-wall { fill: none; stroke: var(--l-ink); stroke-width: 2.5; stroke-linejoin: round; }
     .g-threat { fill: var(--l-coral); opacity: 0.16; }
     .g-ring { fill: none; stroke: var(--l-coral); stroke-width: 3; }
     .g-ring2 { fill: none; stroke: var(--l-coral); stroke-width: 1.5; stroke-dasharray: 4 6; }
@@ -44,7 +46,6 @@
     .g-line { stroke: var(--l-night); stroke-width: 2.5; stroke-linejoin: round; }
     .g-shade { fill: var(--l-night); }
     .g-edge { fill: none; stroke: var(--l-night); stroke-width: 2.5; stroke-linejoin: round; }
-    .g-num { fill: var(--l-night); font: 700 15px "Figtree", "Figtree Fallback", system-ui, sans-serif; }
     .g-sheet { fill: var(--l-surface); stroke: var(--l-line); stroke-width: 2; }
     .g-sheet-head { fill: var(--l-night); }
     .g-box { fill: none; stroke: var(--l-line); stroke-width: 2; }
@@ -57,22 +58,29 @@
   <!-- The two pictures, drawn once and shown at both sizes. -->
   <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
-      <clipPath id="g-mat-clip"><rect x="52" y="72" width="406" height="316" rx="16"/></clipPath>
+      <clipPath id="g-mat-clip"><path d="M62 82C140 72 220 82 300 76C360 72 410 80 450 84C460 150 448 230 456 300C460 340 454 368 448 380C360 390 260 378 160 386C110 390 76 386 60 380C50 300 62 220 54 150C52 120 56 98 62 82z"/></clipPath>
       <clipPath id="map-clip"><rect x="20" y="40" width="470" height="380" rx="30"/></clipPath>
     </defs>
 
-    <!-- GAMES (draft): a game table from above. A battle map with a dungeon drawn on it in thin lines (two rooms and the corridors
-         between them), three player miniatures on round bases, a dotted move into the next room where a ringed area and a large
+    <!-- GAMES (draft): a game table from above. A battle map of terrain with a soft edge: a coast, a few trees and a cave drawn in
+         a thin line. Three player miniatures on round bases, a dotted move deeper into the cave where a ringed area and a large
          square marker wait, a character sheet and a pencil at the near edge, a d20 where the sun is, the Sessions card and the call. -->
     <symbol id="art-games" viewBox="0 0 560 470">
-      <!-- the table, and the battle map on it -->
+      <!-- the table, and the battle map on it: a sheet of terrain with a soft edge, a coast down the right, a few trees, and a
+           cave drawn in a thin line, all under the grid -->
       <rect class="g-table" x="20" y="40" width="470" height="380" rx="30"/>
+      <path class="g-mat" d="M62 82C140 72 220 82 300 76C360 72 410 80 450 84C460 150 448 230 456 300C460 340 454 368 448 380C360 390 260 378 160 386C110 390 76 386 60 380C50 300 62 220 54 150C52 120 56 98 62 82z"/>
       <g clip-path="url(#g-mat-clip)">
-        <rect class="g-mat" x="52" y="72" width="406" height="316"/>
-        <path class="g-grid" d="M52 120h406M52 168h406M52 216h406M52 264h406M52 312h406M52 360h406M100 72v316M148 72v316M196 72v316M244 72v316M292 72v316M340 72v316M388 72v316M436 72v316"/>
-        <!-- the dungeon: floors, then walls with the doorways left open -->
-        <path class="g-floor" d="M100 168h96v48h48v-96h144v48h70v48h-70v48H196v48h-96z"/>
-        <path class="g-wall" d="M196 216V168H100V312H196V264M196 216H244M196 264H388V216H458M244 216V120H388V168H458"/>
+        <path class="g-water" d="M470 104C436 118 418 146 426 176C434 206 404 226 410 258C416 286 440 300 470 304z"/>
+        <path class="g-wave" d="M436 150q8-5 16 0t16 0M426 214q8-5 16 0t16 0M432 274q8-5 16 0t16 0"/>
+        <path class="g-wood-patch" d="M54 150C76 140 100 150 104 172C108 196 92 214 70 222C60 226 54 224 54 224z"/>
+        <path class="g-wood-patch" d="M222 92C230 80 256 78 282 84C304 88 330 82 352 90C372 98 380 112 364 120C344 128 318 118 296 124C270 130 236 126 226 114C220 106 218 98 222 92z"/>
+        <path class="g-rise" d="M170 386C176 356 204 334 240 330C268 326 290 312 316 316C340 320 352 340 352 386z"/>
+        <g class="g-tree"><circle cx="68" cy="164" r="7"/><circle cx="86" cy="180" r="6"/><circle cx="66" cy="200" r="6"/>
+          <circle cx="242" cy="98" r="7"/><circle cx="262" cy="110" r="6"/><circle cx="286" cy="96" r="6"/><circle cx="312" cy="108" r="7"/><circle cx="340" cy="100" r="6"/></g>
+        <path class="g-floor" d="M100 226L106 198L128 178L160 166L190 174L210 190L236 184L250 162L276 142L312 128L350 132L384 146L404 176L398 212L382 240L350 258L316 252L292 262L266 278L236 282L206 276L180 286L150 282L122 268L104 250z"/>
+        <path class="g-grid" d="M40 120h430M40 168h430M40 216h430M40 264h430M40 312h430M40 360h430M100 60v340M148 60v340M196 60v340M244 60v340M292 60v340M340 60v340M388 60v340M436 60v340"/>
+        <path class="g-wall" d="M100 226L106 198L128 178L160 166L190 174L210 190L236 184L250 162L276 142L312 128L350 132L384 146L404 176L398 212L382 240L350 258L316 252L292 262L266 278L236 282L206 276L180 286L150 282L122 268L104 250z"/>
       </g>
       <!-- the threat: an area ringed in red, and a large creature's square marker in it -->
       <circle class="g-threat" cx="340" cy="192" r="62"/>
@@ -81,7 +89,7 @@
         <rect class="g-foe" x="-21" y="-21" width="42" height="42" rx="4"/>
         <path class="g-foe-mark" d="M0-9L9 0 0 9-9 0z"/>
       </g>
-      <!-- the move: dotted, from the lead miniature through the doorway -->
+      <!-- the move: dotted, from the lead miniature toward the ring -->
       <path class="g-move" d="M242 240H262L282 220"/>
       <circle class="g-to" cx="290" cy="212" r="6"/>
       <!-- the players' miniatures: a dark base, a coloured top, a ring for the figure's footing -->
@@ -102,12 +110,11 @@
         <path class="g-wood g-line" d="M92-6L112 0 92 6z"/>
         <path class="g-night" d="M105.3-2L112 0 105.3 2z"/>
       </g>
-      <!-- the d20, where the sun is in the travel art: ten faces seen, shaded by the light from the upper left -->
+      <!-- the d20, where the sun is in the travel art: ten faces seen, shaded by the light from the upper left, no number -->
       <g transform="translate(452 90)">
         <path class="h-sun" d="M-33.3 -0.4L12.2 -10.1 -12.7 -40.9zM-33.3 -0.4L-0.3 34.4 12.2 -10.1zM-33.3 -0.4L-12.7 -40.9 -40.7 -15.4zM-12.7 -40.9L12.2 -10.1 33.0 -31.1zM-33.3 -0.4L-33.0 31.1 -0.3 34.4zM-33.3 -0.4L-40.7 -15.4 -33.0 31.1zM12.2 -10.1L-0.3 34.4 40.7 15.4zM40.7 15.4L33.0 -31.1 12.2 -10.1zM-0.3 34.4L-33.0 31.1 12.7 40.9zM12.7 40.9L40.7 15.4 -0.3 34.4z"/>
         <path class="g-shade" opacity="0.12" d="M-33.3 -0.4L12.2 -10.1 -12.7 -40.9z"/><path class="g-shade" opacity="0.12" d="M-33.3 -0.4L-12.7 -40.9 -40.7 -15.4z"/><path class="g-shade" opacity="0.12" d="M-12.7 -40.9L12.2 -10.1 33.0 -31.1z"/><path class="g-shade" opacity="0.26" d="M-33.3 -0.4L-33.0 31.1 -0.3 34.4z"/><path class="g-shade" opacity="0.26" d="M-33.3 -0.4L-40.7 -15.4 -33.0 31.1z"/><path class="g-shade" opacity="0.26" d="M12.2 -10.1L-0.3 34.4 40.7 15.4z"/><path class="g-shade" opacity="0.26" d="M40.7 15.4L33.0 -31.1 12.2 -10.1z"/><path class="g-shade" opacity="0.42" d="M-0.3 34.4L-33.0 31.1 12.7 40.9z"/><path class="g-shade" opacity="0.42" d="M12.7 40.9L40.7 15.4 -0.3 34.4z"/>
         <path class="g-edge" d="M-33.3 -0.4L12.2 -10.1 -12.7 -40.9zM-33.3 -0.4L-0.3 34.4 12.2 -10.1zM-33.3 -0.4L-12.7 -40.9 -40.7 -15.4zM-12.7 -40.9L12.2 -10.1 33.0 -31.1zM-33.3 -0.4L-33.0 31.1 -0.3 34.4zM-33.3 -0.4L-40.7 -15.4 -33.0 31.1zM12.2 -10.1L-0.3 34.4 40.7 15.4zM40.7 15.4L33.0 -31.1 12.2 -10.1zM-0.3 34.4L-33.0 31.1 12.7 40.9zM12.7 40.9L40.7 15.4 -0.3 34.4z"/>
-        <text class="g-num" x="-7.1" y="13.0" text-anchor="middle">20</text>
       </g>
       <!-- the call: the same tile as travel -->
       <g transform="translate(300 292)">

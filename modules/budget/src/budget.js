@@ -13,16 +13,49 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Budget could not start: ' + err.message;
+    showMsg('Budget could not start', err.message, () => location.reload());
     return;
   }
   if (info.context.scope !== 'space') {
-    $('msg').textContent = `${info.module.name} opens in ${word('space', { a: true })}.`;
+    showMsg(`${info.module.name} opens in ${word('space', { a: true })}.`);
     return;
   }
   /*__LIB__*/
@@ -655,31 +688,38 @@
     if (last === 'overview' || last === 'costs' || last === 'settle') state.view = last;
   } catch (err) { /* the default */ }
   viewSwitch = host.ui.viewSwitch({ id: 'view', options: VIEW_OPTIONS(), value: state.view === 'settle' ? 'overview' : state.view, onChange: showView });
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  try {
-    const [people, settings, canTarget] = await Promise.all([
-      host.people().catch(() => []),
-      host.settings.get().catch(() => null),
-      host.budget ? host.budget.can().catch(() => false) : false,
-      loadCosts(),
-      refreshPulled(),
-    ]);
-    state.people = people;
-    state.cats = cleanCategories(settings && settings.categories);
-    state.canTarget = canTarget === true;
-    if (host.space() && host.space().budget) state.target = host.space().budget;
-    host.settings.onChange((v) => { state.cats = cleanCategories(v && v.categories); if (state.loaded) render(); });
-    await Promise.all([...new Set(['plus', 'pen', 'eye', 'trash', 'check', 'tag', 'wallet', 'layer-group', 'calendar-day', 'user', 'arrow-up-right-from-square', ...state.cats.map((c) => c.icon)])].map(wantIcon));
-    state.loaded = true;
-    render();
-    const pullTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(pullTimer); else if (!document.hidden) refreshPulled(); }, 30000);
-    window.addEventListener('focus', refreshPulled);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPulled(); });
-    if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
-  } catch (err) {
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The costs could not load: ' + err.message;
+  let wired = false; // the timers and listeners are set once, however many times it is tried
+  async function load() {
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    try {
+      const [people, settings, canTarget] = await Promise.all([
+        host.people().catch(() => []),
+        host.settings.get().catch(() => null),
+        host.budget ? host.budget.can().catch(() => false) : false,
+        loadCosts(),
+        refreshPulled(),
+      ]);
+      state.people = people;
+      state.cats = cleanCategories(settings && settings.categories);
+      state.canTarget = canTarget === true;
+      if (host.space() && host.space().budget) state.target = host.space().budget;
+      await Promise.all([...new Set(['plus', 'pen', 'eye', 'trash', 'check', 'tag', 'wallet', 'layer-group', 'calendar-day', 'user', 'arrow-up-right-from-square', ...state.cats.map((c) => c.icon)])].map(wantIcon));
+      state.loaded = true;
+      render();
+      if (!wired) {
+        wired = true;
+        host.settings.onChange((v) => { state.cats = cleanCategories(v && v.categories); if (state.loaded) render(); });
+        const pullTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(pullTimer); else if (!document.hidden) refreshPulled(); }, 30000);
+        window.addEventListener('focus', refreshPulled);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPulled(); });
+      }
+      if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
+    } catch (err) {
+      $('app').hidden = true;
+      showMsg('The costs could not load', err.message, load);
+    }
   }
+  await load();
 })();

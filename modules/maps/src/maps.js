@@ -16,12 +16,45 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Maps could not start: ' + err.message;
+    showMsg('Maps could not start', err.message, () => location.reload());
     return;
   }
   // On a space's canvas (or its pop-out): that space's places. On the environment page: every space's the viewer belongs to,
@@ -29,7 +62,7 @@
   // in a space, that space's, through the page's filter there (this space, Mine, the environment's own).
   const inSpace = info.context.scope === 'space';
   if (!inSpace && info.context.scope !== 'environment') {
-    $('msg').textContent = `${info.module.name} could not open here.`;
+    showMsg(`${info.module.name} could not open here.`);
     return;
   }
   const part = (info.context.destination && info.context.destination.part) || null;
@@ -1027,22 +1060,25 @@
 
   // --- start --------------------------------------------------------------------------------------------------------
 
-  try {
-    for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link', 'bookmark', 'calendar-check', 'circle-check', 'star']))) if (name) wantIcon(name);
-    applySettings((await host.settings.get()) || {});
-    await Promise.all([loadFound(), findAdder()]);
-    // Whether a "+" in a titlebar holds the add (an empty list asks, and shows nothing yet).
-    if (host.add) addHosted = Boolean(await host.add.set([]).catch(() => false));
-    setBar();
-    $('msg').hidden = true;
-    $('app').hidden = false;
-    state.started = true;
-    render();
-    startedResolve();
-    await startMap();
-  } catch (err) {
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The map could not load: ' + err.message;
+  async function start() {
+    try {
+      for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link', 'bookmark', 'calendar-check', 'circle-check', 'star']))) if (name) wantIcon(name);
+      applySettings((await host.settings.get()) || {});
+      await Promise.all([loadFound(), findAdder()]);
+      // Whether a "+" in a titlebar holds the add (an empty list asks, and shows nothing yet).
+      if (host.add) addHosted = Boolean(await host.add.set([]).catch(() => false));
+      setBar();
+      $('msg').hidden = true;
+      $('loading').hidden = true;
+      $('app').hidden = false;
+      state.started = true;
+      render();
+      startedResolve();
+      await startMap();
+    } catch (err) {
+      $('app').hidden = true;
+      showMsg('The map could not load', err.message, start);
+    }
   }
+  await start();
 })();

@@ -15,6 +15,39 @@
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
 
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
   const { esc, ymd, parseYmd, objectKey, id: newId } = host.util;
 
   /*__LIB__*/
@@ -23,7 +56,7 @@
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'The to-do list could not start: ' + err.message;
+    showMsg('The to-do list could not start', err.message, () => location.reload());
     return;
   }
   const inSpace = info.context.scope === 'space';
@@ -869,20 +902,24 @@
 
   $('add').hidden = true;
   $('new-form').hidden = true;
-  try {
-    await loadKinds();
-    await loadAskable();
-    await load();
-  } catch (err) {
-    $('msg').textContent = 'The to-do list could not load: ' + err.message;
-    return;
+  async function start() {
+    try {
+      await loadKinds();
+      await loadAskable();
+      await load();
+    } catch (err) {
+      showMsg('The to-do list could not load', err.message, start);
+      return;
+    }
+    if (pickedSpaces) for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
+    showAdd();
+    loaded = true;
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    render();
   }
-  if (pickedSpaces) for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
-  showAdd();
-  loaded = true;
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
+  await start();
   // Other modules say what happens to their objects (a poll closing, say); the host delivers what this module
   // was approved to hear. Each link on a task can carry a rule for an event it may report: tick the task, keep
   // the result in its notes, use it as the title, or link what the object picked. A task from before rules that

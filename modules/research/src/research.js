@@ -12,12 +12,45 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Research could not start: ' + err.message;
+    showMsg('Research could not start', err.message, () => location.reload());
     return;
   }
   const inSpace = info.context.scope === 'space';
@@ -1020,41 +1053,48 @@
   }
   try { const last = localStorage.getItem('research-view'); if (allowed[last]) view = last; } catch (err) { /* the default */ }
   viewSwitch?.set(view);
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
-  try {
-    await ensureLoaded(view);
-    state.people = await host.people().catch(() => []);
-    const applySettings = (v) => { loadTagColors(v); state.previews = Boolean(v && v.linkPreviews); };
-    try { applySettings(await host.settings.get()); } catch (err) { applySettings(null); }
-    host.settings.onChange((v) => { applySettings(v); if (state.loaded) render(); });
-    const choices = $('f-icons');
-    choices.replaceChildren(...NOTE_ICONS.map(([icon, label]) => {
-      const el = clone('tpl-icon-choice');
-      el.dataset.iconName = icon;
-      el.title = label;
-      el.setAttribute('aria-label', label);
-      setIcon(el.querySelector('[data-icon]'), icon);
-      fill(el, { label });
-      return el;
-    }));
-    choices.addEventListener('click', (ev) => {
-      const b = ev.target.closest('[data-action="pick-icon"]');
-      if (!b || !state.editing || state.editing.kind !== 'note') return;
-      state.editing.icon = b.dataset.iconName;
-      paintIconChoices();
-    });
-    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(KIND_ICON), NOTE_ICONS.map(([icon]) => icon)))].filter(Boolean).map(wantIcon));
-    hydrate(choices);
-    state.loaded = true;
+  let wired = false; // the settings and the icon choices are listened to once, however many times it is tried
+  async function load() {
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
     render();
-    loadLinks().catch(() => {});
-    checkAi();
-    if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
-  } catch (err) {
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The research could not load: ' + message(err);
+    try {
+      await ensureLoaded(view);
+      state.people = await host.people().catch(() => []);
+      const applySettings = (v) => { loadTagColors(v); state.previews = Boolean(v && v.linkPreviews); };
+      try { applySettings(await host.settings.get()); } catch (err) { applySettings(null); }
+      if (!wired) host.settings.onChange((v) => { applySettings(v); if (state.loaded) render(); });
+      const choices = $('f-icons');
+      choices.replaceChildren(...NOTE_ICONS.map(([icon, label]) => {
+        const el = clone('tpl-icon-choice');
+        el.dataset.iconName = icon;
+        el.title = label;
+        el.setAttribute('aria-label', label);
+        setIcon(el.querySelector('[data-icon]'), icon);
+        fill(el, { label });
+        return el;
+      }));
+      if (!wired) {
+        choices.addEventListener('click', (ev) => {
+          const b = ev.target.closest('[data-action="pick-icon"]');
+          if (!b || !state.editing || state.editing.kind !== 'note') return;
+          state.editing.icon = b.dataset.iconName;
+          paintIconChoices();
+        });
+      }
+      wired = true;
+      await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(KIND_ICON), NOTE_ICONS.map(([icon]) => icon)))].filter(Boolean).map(wantIcon));
+      hydrate(choices);
+      state.loaded = true;
+      render();
+      loadLinks().catch(() => {});
+      checkAi();
+      if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
+    } catch (err) {
+      $('app').hidden = true;
+      showMsg('The research could not load', message(err), load);
+    }
   }
+  await load();
 })();

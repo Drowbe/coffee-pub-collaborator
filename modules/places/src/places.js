@@ -16,18 +16,51 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Places could not start: ' + err.message;
+    showMsg('Places could not start', err.message, () => location.reload());
     return;
   }
   // On a space's canvas or on the module's own page: a space has its own list; the page has only mine and everyone's.
   const inSpace = info.context.scope === 'space';
   if (!inSpace && info.context.scope !== 'environment') {
-    $('msg').textContent = `${info.module.name} could not open here.`;
+    showMsg(`${info.module.name} could not open here.`);
     return;
   }
   // The Map destination's list: Mine, everyone's and the viewer's spaces' places together, beside the map (in a space,
@@ -1665,41 +1698,46 @@
     if (host.destination) host.destination.onState(takeState);
   }
 
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
-  try {
-    // Everything the viewer may read, at once: this space's (or the view shown), the environment's (its marks fill a space's
-    // list), Mine and the saved list, and the spaces. A guest on a guest link reads only the space: none of the
-    // environment's places and no list of their own.
-    const first = inSpace ? 'space' : asPart ? null : view;
-    await Promise.all([
-      first ? ensureLoaded(first) : null,
-      personal ? ensureLoaded('my').catch(() => {}) : null,
-      personal ? ensureLoaded('global').catch(() => {}) : null,
-      saved ? saved.load().catch(() => {}) : null,
-      personal ? loadSpaces().catch(() => {}) : null,
-    ]);
-    state.people = await host.people().catch(() => []);
-    const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
-    // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).
-    let lastSettings = null;
-    const useSettings = (v) => { lastSettings = v; useSearch(v); useCats(v); catsReadDone(); if (state.loaded) { render(); hydrate(root); } };
-    try { useSettings(await host.settings.get()); } catch (err) { useSettings(null); }
-    host.settings.onChange((v) => useSettings(v));
-    // The picture map set, replaced or cleared while the page is open (host.environment follows it): the outside search, the
-    // dialog's Position wording and links, and the menu (built when it opens, so an open one is closed) follow at once.
-    host.on('environment', () => { host.menu.close(); useSettings(lastSettings); pictureParts(); });
-    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(cats.map((c) => c.icon), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
-    findShowAction();
-    state.loaded = true;
+  let lastSettings = null;
+  let wired = false; // the settings and the environment are listened to once, however many times it is tried
+  async function load() {
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
     render();
-    loadLinks().catch(() => {});
-    if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
-  } catch (err) {
-    catsReadDone();
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The places could not load: ' + err.message;
+    try {
+      // Everything the viewer may read, at once: this space's (or the view shown), the environment's (its marks fill a space's
+      // list), Mine and the saved list, and the spaces. A guest on a guest link reads only the space: none of the
+      // environment's places and no list of their own.
+      const first = inSpace ? 'space' : asPart ? null : view;
+      await Promise.all([
+        first ? ensureLoaded(first) : null,
+        personal ? ensureLoaded('my').catch(() => {}) : null,
+        personal ? ensureLoaded('global').catch(() => {}) : null,
+        saved ? saved.load().catch(() => {}) : null,
+        personal ? loadSpaces().catch(() => {}) : null,
+      ]);
+      state.people = await host.people().catch(() => []);
+      const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
+      // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).
+      const useSettings = (v) => { lastSettings = v; useSearch(v); useCats(v); catsReadDone(); if (state.loaded) { render(); hydrate(root); } };
+      try { useSettings(await host.settings.get()); } catch (err) { useSettings(null); }
+      if (!wired) host.settings.onChange((v) => useSettings(v));
+      // The picture map set, replaced or cleared while the page is open (host.environment follows it): the outside search, the
+      // dialog's Position wording and links, and the menu (built when it opens, so an open one is closed) follow at once.
+      if (!wired) host.on('environment', () => { host.menu.close(); useSettings(lastSettings); pictureParts(); });
+      wired = true;
+      await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(cats.map((c) => c.icon), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
+      findShowAction();
+      state.loaded = true;
+      render();
+      loadLinks().catch(() => {});
+      if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
+    } catch (err) {
+      catsReadDone();
+      $('app').hidden = true;
+      showMsg('The places could not load', err.message, load);
+    }
   }
+  await load();
 })();

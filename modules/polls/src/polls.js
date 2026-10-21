@@ -20,6 +20,39 @@
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
 
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
   const { esc, objectKey, id: newId } = host.util;
 
   /*__LIB__*/
@@ -28,7 +61,7 @@
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Polls could not start: ' + err.message;
+    showMsg('Polls could not start', err.message, () => location.reload());
     return;
   }
   const inSpace = info.context.scope === 'space';
@@ -827,18 +860,22 @@
   const redraw = setInterval(() => { if (!$('app')) return void clearInterval(redraw); render(); announceIfDue(); }, 30000);
 
   $('add').hidden = !canCreate;
-  try {
-    await load();
-  } catch (err) {
-    $('msg').textContent = `${info.module.name} could not load: ${err.message}`;
-    return;
+  async function start() {
+    try {
+      await load();
+    } catch (err) {
+      showMsg(`${info.module.name} could not load`, err.message, start);
+      return;
+    }
+    await loadKinds();
+    await loadActions();
+    resolveOptionLinks();
+    for (const x of [...polls.values()]) syncOptionLinks(x);
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    render();
+    announceIfDue();
   }
-  await loadKinds();
-  await loadActions();
-  resolveOptionLinks();
-  for (const x of [...polls.values()]) syncOptionLinks(x);
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
-  announceIfDue();
+  await start();
 })();

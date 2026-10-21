@@ -5,6 +5,7 @@
 import { renderModuleSettings } from '/module-settings.js';
 import { pickBackground } from '/background-picker.js';
 import '/slot-paste.js'; // paste a picture into any image slot
+import { confirmDialog } from '/confirm.js';
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, hasOwnerRights, isAdminAccount, roleLabel, word, applyWords, maskPassword } from '/brand.js';
 import { formatHotkey, comboFromEvent } from '/hotkeys.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
@@ -332,12 +333,12 @@ $('space-sections').addEventListener('change', (event) => {
     say('image saved');
   });
 });
-$('space-sections').addEventListener('click', (event) => {
+$('space-sections').addEventListener('click', async (event) => {
   const remove = event.target.closest('[data-action="space-remove"]');
   if (remove && editingKey) {
     const section = remove.closest('.space-section');
     const name = section.querySelector('.space-section-title').textContent;
-    if (!window.confirm(`Remove ${user.displayName} from ${name}? They can be added back on the ${word('space')}'s ${word('member', { many: true, cap: true })} tab.`)) return;
+    if (!await confirmDialog({ title: `Remove ${user.displayName} from ${name}?`, message: `They can be added back on the ${word('space')}'s ${word('member', { many: true, cap: true })} tab.`, action: 'Remove', kind: 'destructive' })) return;
     run(async () => {
       user = (await api('DELETE', `/api/spaces/${section.dataset.space}/members/${user.key}`)).user;
       render();
@@ -750,19 +751,19 @@ $('feed-make').addEventListener('click', () => run(async () => {
   sayField($('feed-status'), 'address made');
 }, $('feed-status')));
 $('feed-new').addEventListener('click', () => run(async () => {
-  if (!window.confirm('Make a new address? The old address stops working. Add the new one in Google again.')) return;
+  if (!await confirmDialog({ title: 'Make a new address?', message: 'The old address stops working. Add the new one in Google again.', action: 'Make new', kind: 'destructive' })) return;
   await makeFeed();
   sayField($('feed-status'), 'new address made');
 }, $('feed-status')));
 $('feed-off').addEventListener('click', () => run(async () => {
-  if (!window.confirm('Turn off your everything address? It stops working, and your calendar app stops getting new events.')) return;
+  if (!await confirmDialog({ title: 'Turn off your everything address?', message: 'It stops working, and your calendar app stops getting new events.', action: 'Turn off', kind: 'destructive' })) return;
   await turnOffFeed();
   sayField($('feed-status'), 'address turned off');
 }, $('feed-status')));
 $('feed-copy').addEventListener('click', () => copy(feedUrl, $('feed-status')));
 // An owner turning off someone's everything address.
 $('feed-row-off').addEventListener('click', () => run(async () => {
-  if (!window.confirm(`Turn off ${user.displayName}'s everything address? It stops working. They can make a new one.`)) return;
+  if (!await confirmDialog({ title: `Turn off ${user.displayName}'s everything address?`, message: 'It stops working. They can make a new one.', action: 'Turn off', kind: 'destructive' })) return;
   await api('DELETE', `/api/users/${user.key}/feed`);
   await reload();
   render();
@@ -789,15 +790,15 @@ $('address-list').addEventListener('click', (event) => {
       await makeFeed(spaceId);
       sayField(row.querySelector('[data-status]'), 'address made');
     } else if (button.dataset.action === 'new') {
-      if (!window.confirm(`Make a new address for ${name}? The old address stops working. Add the new one in Google again.`)) return;
+      if (!await confirmDialog({ title: `Make a new address for ${name}?`, message: 'The old address stops working. Add the new one in Google again.', action: 'Make new', kind: 'destructive' })) return;
       await makeFeed(spaceId);
       sayField(row.querySelector('[data-status]'), 'new address made');
     } else if (button.dataset.action === 'off') {
-      if (!window.confirm(`Turn off your address for ${name}? It stops working, and your calendar app stops getting new events.`)) return;
+      if (!await confirmDialog({ title: `Turn off your address for ${name}?`, message: 'It stops working, and your calendar app stops getting new events.', action: 'Turn off', kind: 'destructive' })) return;
       await turnOffFeed(spaceId);
       sayField(row.querySelector('[data-status]'), 'address turned off');
     } else if (button.dataset.action === 'owner-off' && editingKey) {
-      if (!window.confirm(`Turn off ${user.displayName}'s address for ${name}? It stops working. They can make a new one.`)) return;
+      if (!await confirmDialog({ title: `Turn off ${user.displayName}'s address for ${name}?`, message: 'It stops working. They can make a new one.', action: 'Turn off', kind: 'destructive' })) return;
       await api('DELETE', `/api/users/${user.key}/spaces/${encodeURIComponent(spaceId)}/feed`);
       await reload();
       render();
@@ -1028,7 +1029,7 @@ $('external-list').addEventListener('click', (e) => {
     return;
   }
   run(async () => {
-    if (!window.confirm(`Remove ${calendar.name}? Its events stop showing, and its address is deleted here.`)) return;
+    if (!await confirmDialog({ title: `Remove ${calendar.name}?`, message: 'Its events stop showing, and its address is deleted here.', action: 'Remove', kind: 'destructive' })) return;
     await api('DELETE', `/api/me/external-calendars/${encodeURIComponent(id)}`);
     externalSeq += 1; // a read in flight is older than this
     external.calendars = external.calendars.filter((c) => c.id !== id);
@@ -1105,7 +1106,7 @@ $('account-save').addEventListener('click', () => run(async () => {
 }, $('account-status')));
 
 $('account-clear-password').addEventListener('click', () => run(async () => {
-  if (!user.link && !window.confirm(`${user.displayName} has no personal link. Without a password they cannot sign in. Remove it anyway?`)) return;
+  if (!user.link && !await confirmDialog({ title: `${user.displayName} has no personal link. Remove the password anyway?`, message: 'Without a password they cannot sign in.', action: 'Remove', kind: 'destructive' })) return;
   user = (await api('PATCH', `/api/users/${user.key}`, { password: '' })).user;
   render();
   sayField($('account-status'), 'password removed');
@@ -1113,7 +1114,7 @@ $('account-clear-password').addEventListener('click', () => run(async () => {
 
 $('link-copy').addEventListener('click', () => copy(user.link, $('account-status')));
 $('link-new').addEventListener('click', () => run(async () => {
-  if (user.link && !window.confirm('Regenerate the link? The old one stops working.')) return;
+  if (user.link && !await confirmDialog({ title: 'Regenerate the link?', message: 'The old one stops working.', action: 'Regenerate', kind: 'destructive' })) return;
   user = (await api('POST', `/api/users/${user.key}/link`)).user;
   render();
   sayField($('account-status'), user.link ? 'new link made' : 'link created');
@@ -1155,12 +1156,12 @@ $('mute-btn').addEventListener('click', () => run(async () => {
   say('muted');
 }));
 $('kick-btn').addEventListener('click', () => run(async () => {
-  if (!window.confirm(`Kick ${user.displayName} from the call? They can rejoin.`)) return;
+  if (!await confirmDialog({ title: `Kick ${user.displayName} from the call?`, message: 'They can rejoin.', action: 'Kick', kind: 'destructive' })) return;
   await api('POST', `/api/users/${user.key}/kick`);
   say('kicked');
 }));
 $('delete-btn').addEventListener('click', () => run(async () => {
-  if (!window.confirm(`Delete ${user.displayName}? Their images and links go with them.`)) return;
+  if (!await confirmDialog({ title: `Delete ${user.displayName}?`, message: 'Their images and links go with them.', action: 'Delete', kind: 'final' })) return;
   await api('DELETE', `/api/users/${user.key}`);
   location.href = '/admin';
 }));

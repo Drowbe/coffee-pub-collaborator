@@ -5,12 +5,12 @@ body { margin: 0; font: 13px/1.35 ui-monospace, Menlo, monospace; color: #111; }
 #p-top { padding-top: env(safe-area-inset-top); } #p-bottom { padding-bottom: env(safe-area-inset-bottom); }
 #p-left { padding-left: env(safe-area-inset-left); } #p-right { padding-right: env(safe-area-inset-right); }
 #frame { position: fixed; inset: 0; border: 3px solid magenta; box-sizing: border-box; pointer-events: none; z-index: 5; }
-.fx { position: fixed; left: 0; right: 0; height: 36px; line-height: 36px; padding: 0 8px; color: #fff; font-weight: 700; z-index: 6; box-sizing: border-box; }
+.fx { position: fixed; left: 0; right: 0; height: 40px; line-height: 40px; padding: 0 8px; color: #fff; font-weight: 700; z-index: 6; box-sizing: border-box; }
 #fx-top { top: 0; background: #b22; }
 #fx-bottom { bottom: 0; background: #22b; }
-#fx-bottom-env { bottom: env(safe-area-inset-bottom); background: #2a2; margin-bottom: 36px; }
-#out { position: relative; margin: 44px 8px 0; padding: 6px; background: #fffd; white-space: pre-wrap; z-index: 4; }
+#fx-bottom-env { bottom: env(safe-area-inset-bottom); background: #2a2; margin-bottom: 40px; }
+#out { position: relative; margin: 48px 8px 0; padding: 8px; background: #fffd; white-space: pre-wrap; z-index: 4; }
 #tall { height: 2400px; padding: 20px; }
-#back { position: relative; z-index: 7; margin: 44px 8px 0; font-size: 15px; }
+#back { position: relative; z-index: 7; margin: 48px 8px 0; font-size: 16px; }
 #back a { color: #06c; }
-#out { margin-top: 6px; }
+#out { margin-top: 8px; }

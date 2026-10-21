@@ -161,8 +161,14 @@ export function runRatchet({ name, allowFile, about, tally, unit = 'offenders', 
   const update = argv.includes('--update');
   const forceRaise = argv.includes('--force-raise');
   const exists = fs.existsSync(allowPath);
-  const allowed = exists ? JSON.parse(fs.readFileSync(allowPath, 'utf8')).counts || {} : {};
   const found = asObject(tally);
+  const allowJson = exists ? JSON.parse(fs.readFileSync(allowPath, 'utf8')) : {};
+  const allowed = allowJson.counts || {};
+  // `reasons`: file -> key -> why that entry stays on purpose (a recorded exception). --update keeps them; one whose count has reached zero is dropped.
+  const reasons = {};
+  for (const [f, keys] of Object.entries(allowJson.reasons || {})) {
+    for (const [k, why] of Object.entries(keys)) if (found[f]?.[k]) (reasons[f] ||= {})[k] = why;
+  }
 
   const raised = [];
   const dropped = [];
@@ -184,7 +190,7 @@ export function runRatchet({ name, allowFile, about, tally, unit = 'offenders', 
       return;
     }
     if (!raised.length && !dropped.length && exists) { console.log(`${name}: nothing to tighten`); return; }
-    fs.writeFileSync(allowPath, `${JSON.stringify({ about, counts: found }, null, 2)}\n`);
+    fs.writeFileSync(allowPath, `${JSON.stringify(Object.keys(reasons).length ? { about, counts: found, reasons } : { about, counts: found }, null, 2)}\n`);
     console.log(`${name}: allow-list ${exists ? 'rewritten' : 'created'}; ${dropped.length} entr${dropped.length === 1 ? 'y' : 'ies'} lowered, ${raised.length} raised`);
     return;
   }

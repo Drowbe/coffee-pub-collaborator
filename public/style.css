@@ -1575,7 +1575,7 @@ body.in-space .page-scroll {
   line-height: var(--leading-ui);
   pointer-events: none;
   animation: reaction-float 2.2s ease-out forwards;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 2px 6px var(--shadow-color));
 }
 
 @keyframes reaction-float {
@@ -1691,8 +1691,8 @@ body.in-space .page-scroll {
   bottom: 8px;
   padding: 3px 8px;
   border-radius: var(--radius-min);
-  background: color-mix(in srgb, var(--danger) 85%, transparent);
-  color: #fff;
+  background: color-mix(in srgb, var(--status-danger-fill) 85%, transparent);
+  color: var(--status-danger-on-fill);
   font-size: var(--text-12);
 }
 
@@ -2113,7 +2113,7 @@ label.switch-row.disabled:hover {
   border-radius: var(--radius-large);
   border: 1px solid var(--border);
   background: var(--bg-section);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-3);
 }
 
 .module-chooser-list[hidden] {
@@ -2180,7 +2180,7 @@ label.switch-row.disabled:hover {
   font-weight: var(--weight-regular);
   line-height: var(--leading-body);
   white-space: normal;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-3);
   pointer-events: none;
 }
 
@@ -2522,7 +2522,7 @@ button.whoami:focus-visible {
   transform: translate(-50%, -50%);
   border-radius: var(--radius-round);
   object-fit: cover;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-3);
   background: transparent;
 }
 
@@ -2766,7 +2766,7 @@ button.whoami:focus-visible {
 
 .dot.online {
   background: var(--status-ok-mark);
-  box-shadow: 0 0 6px rgba(111, 174, 107, 0.7);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--status-ok-mark) 70%, transparent);
 }
 
 .live {
@@ -3287,11 +3287,6 @@ a.crumb-here:hover {
   border-color: var(--primary-hover);
 }
 
-.fbtn.on:active,
-#away-toggle.off:active {
-  background: color-mix(in srgb, var(--accent) 80%, black);
-}
-
 #mic.on .sdk-mic > span {
   background: color-mix(in srgb, var(--text-on-accent) 35%, transparent);
 }
@@ -3347,12 +3342,8 @@ a.crumb-here:hover {
 }
 
 .fbtn.danger:hover {
-  background: color-mix(in srgb, var(--danger) 82%, white);
-  border-color: color-mix(in srgb, var(--danger) 82%, white);
-}
-
-.fbtn.danger:active {
-  background: color-mix(in srgb, var(--danger) 82%, black);
+  background: color-mix(in srgb, var(--danger) 82%, var(--status-danger-on-fill));
+  border-color: color-mix(in srgb, var(--danger) 82%, var(--status-danger-on-fill));
 }
 
 #hangup:not(.dial) .glyph i,
@@ -3368,8 +3359,8 @@ a.crumb-here:hover {
 }
 
 .fbtn.dial:hover {
-  background: color-mix(in srgb, var(--ok) 82%, white);
-  border-color: color-mix(in srgb, var(--ok) 82%, white);
+  background: color-mix(in srgb, var(--ok) 82%, var(--status-ok-on-fill));
+  border-color: color-mix(in srgb, var(--ok) 82%, var(--status-ok-on-fill));
 }
 
 .no-call {
@@ -4193,7 +4184,7 @@ a.crumb-here:hover {
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--secondary-text);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-1);
   font-size: var(--text-16);
   cursor: pointer;
   display: flex;
@@ -4226,7 +4217,7 @@ a.crumb-here:hover {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--scrim);
   opacity: 0;
   transition: opacity 0.15s ease;
   pointer-events: none;
@@ -4244,7 +4235,7 @@ a.crumb-here:hover {
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--secondary-text);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-1);
   font-size: var(--text-14);
   cursor: pointer;
   display: flex;
@@ -4277,7 +4268,7 @@ a.crumb-here:hover {
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--secondary-text);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-1);
   font-size: var(--text-12);
   cursor: pointer;
   display: flex;
@@ -4471,13 +4462,13 @@ a.crumb-here:hover {
    purpose -- an accidental mix-up here means something meant to be off the
    record ends up in the recording, or vice versa. */
 #aside-confirm-private {
-  border-color: #b8503f;
-  color: #b8503f;
+  border-color: var(--status-danger-fill);
+  color: var(--status-danger-fill);
 }
 
 #aside-confirm-private:hover {
-  background: #b8503f;
-  color: #fff;
+  background: var(--status-danger-fill);
+  color: var(--status-danger-on-fill);
 }
 
 /* --- small windows (pop out, phones) --------------------------------------- */
@@ -4928,7 +4919,7 @@ a.crumb-here:hover {
 }
 
 .icon-row .icon-html.invalid {
-  border-color: #b8503f;
+  border-color: var(--status-danger-fill);
 }
 
 /* Member tiles on a space: click to toggle, lit while in the space (.sdk-member-toggle, system.css) */
@@ -4953,7 +4944,7 @@ html.has-background body {
 }
 
 html.has-background .panel.login {
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 48px var(--shadow-color);
 }
 
 .fields.grow {
@@ -5050,7 +5041,7 @@ html.has-background .panel.login {
   border: 1px solid var(--border);
   border-radius: var(--radius-round);
   background: var(--danger);
-  color: #fff;
+  color: var(--status-danger-on-fill);
   font-size: var(--text-14);
   line-height: var(--leading-ui);
   display: flex;
@@ -5060,7 +5051,7 @@ html.has-background .panel.login {
 }
 
 .slot-remove:hover {
-  background: color-mix(in srgb, var(--danger) 85%, white);
+  background: color-mix(in srgb, var(--danger) 85%, var(--status-danger-on-fill));
 }
 
 /* The icon shows at 24-40px in real use (the header, the sign-in page); a
@@ -6106,7 +6097,7 @@ body.chat-window {
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: var(--radius-large);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-3);
   }
 
   .topbar.menu-open .links > a:not([hidden]),
@@ -6417,7 +6408,7 @@ body.chat-window {
 .reorderable button, .reorderable a, .reorderable input { cursor: pointer; }
 .canvas.reordering, .canvas.reordering * { cursor: grabbing !important; user-select: none; }
 .canvas.reordering iframe { pointer-events: none; }
-.module-lifted { position: relative; z-index: 3; box-shadow: 0 0 0 2px var(--accent), 0 4px 12px color-mix(in srgb, black 25%, transparent); }
+.module-lifted { position: relative; z-index: 3; box-shadow: 0 0 0 2px var(--accent), 0 4px 12px var(--shadow-color); }
 
 /* a list setting (Planner's marker types): a row each with a colour, an icon, a label and tools */
 .list-rows { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
@@ -6428,7 +6419,7 @@ body.chat-window {
 .icon-pick summary { display: flex; align-items: center; justify-content: center; width: 34px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-input, var(--bg-card)); cursor: pointer; list-style: none; }
 .icon-pick summary::-webkit-details-marker { display: none; }
 /* the popover form of the grid, only inside a list row's icon picker; the plain .icon-grid above stays a static grid */
-.icon-pick .icon-grid { position: absolute; z-index: 20; top: 36px; left: 0; display: grid; grid-template-columns: repeat(8, 32px); gap: 2px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-section); box-shadow: 0 10px 28px color-mix(in srgb, black 35%, transparent); }
+.icon-pick .icon-grid { position: absolute; z-index: 20; top: 36px; left: 0; display: grid; grid-template-columns: repeat(8, 32px); gap: 2px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-section); box-shadow: 0 10px 28px var(--shadow-color); }
 .icon-pick .icon-grid button { width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); cursor: pointer; }
 .icon-pick .icon-grid button:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
 @media (max-width: 640px) { .list-row { flex-wrap: wrap; } .list-row [data-f="label"] { flex: 1 1 9em; } .icon-pick .icon-grid { grid-template-columns: repeat(6, 36px); } }
@@ -6501,7 +6492,7 @@ body.chat-window {
 .mfa-scan { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 .mfa-qr svg { display: block; width: 168px; height: 168px; padding: 8px; border-radius: var(--radius-medium); background: #fff; }
 .mfa-key { display: flex; flex-direction: column; gap: 6px; min-width: 220px; flex: 1; }
-.mfa-key .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-13); padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-min); background: var(--bg, #1a1410); word-break: break-all; }
+.mfa-key .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-13); padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-min); background: var(--bg); word-break: break-all; }
 .mfa-key input { max-width: 9em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: var(--tracking-caps); }
 .mfa-codes { list-style: none; margin: 8px 0; padding: 0; columns: 2; gap: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-14); line-height: var(--leading-body); }
 .owner-reset .hint { margin: 0; }
@@ -8040,7 +8031,7 @@ h4.setup-subheading {
   color: var(--text);
   font-size: var(--text-14);
   line-height: var(--leading-body);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-3);
   transform: translateX(-50%);
 }
 

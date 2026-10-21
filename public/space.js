@@ -3324,8 +3324,8 @@ const LAYOUTS = ['grid', 'strip', 'spotlight']; // the actual stored prefs.layou
 const VIEWS = [
   { id: 'grid', layout: 'grid', icon: 'fa-solid fa-table-cells-large' },
   { id: 'strip', layout: 'strip', icon: 'fa-solid fa-grip' },
-  { id: 'focus', layout: 'spotlight', follow: false, icon: 'fa-regular fa-square' },
-  { id: 'spotlight', layout: 'spotlight', follow: true, icon: 'fa-brands fa-square-web-awesome' },
+  { id: 'focus', layout: 'spotlight', follow: false, icon: 'fa-solid fa-expand' },
+  { id: 'spotlight', layout: 'spotlight', follow: true, icon: 'fa-solid fa-bullseye' },
 ];
 
 function currentViewId() {

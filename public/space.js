@@ -519,7 +519,7 @@ function renderSpaces() {
     }
     const members = r.members.map((k) => presenceUsers.get(k)).filter(Boolean);
     card.querySelector('.space-choice-count').textContent = r.isAside ? '' : hereCount(members, r.id);
-    renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
+    renderMembers(card.querySelector('.sdk-members'), members, r.id, Boolean(r.isAside));
   }
   for (const card of [...list.children]) if (card.id !== 'home-add-space' && !keep.has(card.dataset.space)) card.remove();
   renderSpaceListHead();
@@ -578,14 +578,15 @@ function renderMembers(list, members, spaceId, isAside = false) {
     let el = list.querySelector(`[data-key="${CSS.escape(u.key)}"]`);
     if (!el) {
       el = document.createElement('div');
-      el.className = 'member';
+      el.className = 'sdk-member';
       el.dataset.key = u.key;
       const img = document.createElement('img');
       img.alt = '';
+      img.className = 'sdk-member-pic';
       const dot = document.createElement('span');
-      dot.className = 'dot';
+      dot.className = 'sdk-member-dot';
       const name = document.createElement('span');
-      name.className = 'member-name';
+      name.className = 'sdk-member-name';
       el.append(img, dot, name);
       list.appendChild(el);
     }
@@ -599,9 +600,8 @@ function renderMembers(list, members, spaceId, isAside = false) {
       img.onerror = () => { img.onerror = null; img.src = profile; };
       img.src = spaceId && spaceId !== LOBBY && !u.key.startsWith(GUEST_PREFIX) ? imgUrl(u.key, slot, { space: spaceId }) : profile;
     }
-    el.querySelector('.member-name').textContent = u.displayName;
-    el.querySelector('.dot').classList.toggle('online', here);
-    el.classList.toggle('online', here);
+    el.querySelector('.sdk-member-name').textContent = u.displayName;
+    el.querySelector('.sdk-member-dot').hidden = !here; // the online dot; an offline person has none
     // In the call: a small mark beside the online dot, with its own words, never the colour alone.
     const calling = here && Boolean(u.inCall);
     let mark = el.querySelector('.call-mark');
@@ -610,7 +610,7 @@ function renderMembers(list, members, spaceId, isAside = false) {
       mark.className = 'call-mark';
       mark.setAttribute('role', 'img');
       mark.innerHTML = '<i class="fa-solid fa-video" aria-hidden="true"></i>'; // the same mark as Who's around
-      el.querySelector('.dot').after(mark);
+      el.querySelector('.sdk-member-dot').after(mark);
     } else if (!calling && mark) {
       mark.remove();
     }

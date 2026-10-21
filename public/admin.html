@@ -115,14 +115,15 @@
           <a class="icon-link" href="#" onclick="return false" title="Sample icon"><i class="fa-solid fa-comments fa-fw" aria-hidden="true"></i></a>
         </div>
         </div>
-        <div class="members">
-          <div class="member online">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
-            <span class="member-name">Online</span>
+        <div class="sdk-members">
+          <div class="sdk-member">
+            <img class="sdk-member-pic" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
+            <span class="sdk-member-dot"></span>
+            <span class="sdk-member-name">Online</span>
           </div>
-          <div class="member">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
-            <span class="member-name">Offline</span>
+          <div class="sdk-member">
+            <img class="sdk-member-pic" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
+            <span class="sdk-member-name">Offline</span>
           </div>
         </div>
       </div>
@@ -217,7 +218,7 @@
       <div class="panel">
         <h2>Roles</h2>
         <p class="hint" data-fill>What each kind of person can do. {Owners} and the admin can do everything, and that can't be turned down. {Moderator} is what someone gets in any {space} where they're marked {Moderator} on their profile's {Spaces} tab. {Guest} is everyone who comes in from {a space}'s {guest} link. Changes save as you click.</p>
-        <div class="roles-scroll"><table class="roles-table" id="roles-table"></table></div>
+        <div class="sdk-table-wrap"><table class="sdk-table" id="roles-table" aria-label="What each kind of person can do"></table></div>
         <p class="status" id="roles-status"></p>
         <p class="hint" data-fill>Kicking, muting, {guest} links and {asides} are enforced by the server. Chat, pictures, reactions and screen sharing are enforced by the page itself (they travel between browsers, not through the server), so they hold for honest use, not for someone determined to get around them.</p>
       </div>

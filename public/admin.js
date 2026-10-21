@@ -337,17 +337,17 @@ const ROLE_COLUMNS = ['owner', 'moderator', 'member', 'guest'];
 
 function renderRoles({ permissions, roles }) {
   const label = (role) => word(role, { cap: true });
-  const rows = ['<thead><tr><th></th>' + ROLE_COLUMNS.map((role) => `<th>${escapeHtml(label(role))}</th>`).join('') + '</tr></thead><tbody>'];
+  const rows = ['<thead><tr><th scope="col"><span class="visually-hidden">What they can do</span></th>' + ROLE_COLUMNS.map((role) => `<th scope="col" class="is-center">${escapeHtml(label(role))}</th>`).join('') + '</tr></thead><tbody>'];
   let group = null;
   for (const p of permissions) {
     if (p.group !== group) {
       group = p.group;
-      rows.push(`<tr class="roles-group"><th colspan="${ROLE_COLUMNS.length + 1}">${escapeHtml(group)}</th></tr>`);
+      rows.push(`<tr class="sdk-table-group"><th scope="colgroup" colspan="${ROLE_COLUMNS.length + 1}">${escapeHtml(group)}</th></tr>`);
     }
     rows.push(`<tr><th scope="row">${escapeHtml(p.label)}</th>` + ROLE_COLUMNS.map((role) => {
       const noGuestAi = role === 'guest' && p.key === 'useAi'; // the server refuses guests whatever the box says
       const locked = role === 'owner' || noGuestAi;
-      return `<td><input type="checkbox" data-role="${role}" data-perm="${p.key}" ${(roles[role] || {})[p.key] && !noGuestAi ? 'checked' : ''} ${locked ? `disabled title="${escapeHtml(noGuestAi ? `${word('guest', { many: true, cap: true })} can never use AI` : `${word('owner', { many: true, cap: true })} can always do this`)}"` : ''} aria-label="${escapeHtml(p.label)}, ${escapeHtml(label(role))}"></td>`;
+      return `<td class="is-center"><input type="checkbox" data-role="${role}" data-perm="${p.key}" ${(roles[role] || {})[p.key] && !noGuestAi ? 'checked' : ''} ${locked ? `disabled title="${escapeHtml(noGuestAi ? `${word('guest', { many: true, cap: true })} can never use AI` : `${word('owner', { many: true, cap: true })} can always do this`)}"` : ''} aria-label="${escapeHtml(p.label)}, ${escapeHtml(label(role))}"></td>`;
     }).join('') + '</tr>');
   }
   rows.push('</tbody>');
@@ -1151,22 +1151,22 @@ function renderInviteSpaces() {
     let label = container.querySelector(`[data-space="${CSS.escape(space.id)}"]`);
     if (!label) {
       label = document.createElement('label');
-      label.className = 'member member-toggle';
+      label.className = 'sdk-member sdk-member-toggle';
       label.dataset.space = space.id;
       const input = document.createElement('input');
       input.type = 'checkbox';
       const name = document.createElement('span');
-      name.className = 'member-name';
+      name.className = 'sdk-member-name';
       label.append(input, name);
       container.appendChild(label);
     }
-    label.querySelector('.member-name').textContent = space.name;
+    label.querySelector('.sdk-member-name').textContent = space.name;
   }
   for (const label of [...container.children]) if (!keep.has(label.dataset.space)) label.remove();
 }
 
 $('invite-spaces').addEventListener('change', (event) => {
-  event.target.closest('.member-toggle')?.classList.toggle('online', event.target.checked);
+  event.target.closest('.sdk-member-toggle')?.classList.toggle('is-on', event.target.checked);
 });
 
 $('make-invite').addEventListener('click', async () => {

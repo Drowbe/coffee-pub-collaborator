@@ -1338,6 +1338,215 @@
 }
 /* cards:end */
 
+/* ================= Tables and member tiles (design system step 35) =================
+   One small table (the roles table, the files tables, the Set up and Manage tables) and the member tile. Source:
+   public/design-system/proposed-tables.css, with the colour roles. The Manage lists are the Cards family's rows and cards.
+   - Header: 12px, weight 600, capitals with --ls-label, --text-muted, a 1px hairline under it. No accent colour. Sticky at the top of a
+     scrolling table, with the table's surface behind it.
+   - Cells: 8px by 10px, a 1px hairline under each row, 13px. The first cell of a row can be a row header (th scope="row").
+   - Hover is the text colour at 8% over the surface; selected (aria-selected="true" or .is-selected) is the accent at 28% over the surface,
+     opaque so a sticky column hides what scrolls under it. Both are fills; no edge changes.
+   - Group row (.sdk-table-group): a neutral fill with the group's name in the text colour, 12px, weight 600. Not accent text.
+   - Numbers (.num): right-aligned, tabular figures. A tick column (.sdk-table-check) is 40px, 44px on a phone.
+   - Sort: a button (.sdk-sort) in the header with an icon, and aria-sort on the th.
+   - Phone: the table sits in .sdk-table-wrap, which scrolls sideways, and its first column stays.
+   - Member tile (.sdk-member): a picture and a name; online is a 7px dot with a ring in the tile's colour, never a coloured border. A tile
+     that turns a person on or off (.sdk-member-toggle) is on with the selected fill, off at 45% strength.
+   Classes: .sdk-table-wrap .sdk-table .sdk-table-group .sdk-table-check .sdk-table-sub .sdk-table-dim .sdk-table-count .sdk-table-empty
+   .sdk-sort; .sdk-members .sdk-member .sdk-member-pic .sdk-member-name .sdk-member-dot .sdk-member-toggle.
+   The loading row (the States family's skeleton bars) comes with that family. tools/check-design-system-tables.mjs holds the drawing. */
+/* tables:start */
+:root {
+  --tbl-surface: var(--surface-panel);
+  --tbl-hover: 8%;
+  --tbl-cell-y: var(--space-2);
+  --tbl-cell-x: calc(var(--space-2) + var(--space-0)); /* 10px: 8 + 2 */
+  /* Muted text on a hovered or grouped row: a little stronger, because the plain muted colour is under 4.5 to 1 there in the light mode. */
+  --tbl-dim: color-mix(in srgb, var(--text-muted) 55%, var(--text-primary));
+}
+
+/* ---- the scroll box ---- */
+.sdk-table-wrap { max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.sdk-table-wrap.is-tall { max-height: 220px; overflow-y: auto; }
+
+/* ---- the table ---- */
+.sdk-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text-primary);
+  font-size: var(--text-13);
+  line-height: 18px;
+  text-align: left;
+}
+.sdk-table :is(th, td) {
+  box-sizing: border-box;
+  padding: var(--tbl-cell-y) var(--tbl-cell-x);
+  border: 0;
+  border-bottom: 1px solid var(--edge-hairline);
+  background: var(--tbl-surface);
+  vertical-align: middle;
+  font-size: var(--text-13);
+  text-transform: none;
+  letter-spacing: normal;
+  transition: background var(--motion-fast);
+}
+.sdk-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sdk-table tbody th[scope="row"] { font-weight: var(--weight-regular); text-align: left; }
+
+/* Hover, selected. */
+.sdk-table tbody tr:hover > :is(td, th) { background: color-mix(in srgb, var(--text-primary) var(--tbl-hover), var(--tbl-surface)); }
+.sdk-table tbody tr:is([aria-selected="true"], .is-selected) > :is(td, th) { background: color-mix(in srgb, var(--accent-fill) 28%, var(--tbl-surface)); }
+.sdk-table tbody tr:is([aria-selected="true"], .is-selected):hover > :is(td, th) { background: color-mix(in srgb, var(--accent-fill) 38%, var(--tbl-surface)); }
+.sdk-table tbody tr:is([aria-selected="true"], .is-selected) :is(.sdk-table-sub, .sdk-table-dim) { color: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted)); }
+
+/* A row that opens something takes the focus outline: 2px, inside the cell edge. */
+.sdk-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-table tbody tr[tabindex] { cursor: pointer; outline: none; }
+
+/* Group row: a neutral fill and the group's name. */
+.sdk-table-group > :is(th, td) {
+  padding-top: var(--tbl-cell-y);
+  padding-bottom: var(--tbl-cell-y);
+  background: color-mix(in srgb, var(--text-primary) 8%, var(--tbl-surface));
+  color: var(--text-primary);
+  font-size: var(--text-12);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  letter-spacing: var(--ls-label);
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--edge-hairline);
+}
+.sdk-table-group:hover > :is(th, td) { background: color-mix(in srgb, var(--text-primary) 8%, var(--tbl-surface)); }
+.sdk-table-group .sdk-table-count { margin-left: var(--space-2); color: var(--tbl-dim); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.sdk-table tbody tr:hover :is(.sdk-table-sub, .sdk-table-dim) { color: var(--tbl-dim); }
+
+/* Numbers and centred ticks. */
+.sdk-table :is(th, td).num { text-align: right; font-variant-numeric: tabular-nums; }
+.sdk-table :is(th, td).is-center { text-align: center; }
+.sdk-table :is(th, td).sdk-table-check { width: 40px; padding-right: 0; text-align: center; }
+.sdk-table :is(th, td).sdk-table-check input { vertical-align: middle; }
+.sdk-table .sdk-table-sub { display: block; color: var(--text-muted); font-size: var(--text-12); line-height: 16px; }
+.sdk-table .sdk-table-dim { color: var(--text-muted); }
+
+/* A sortable header: a button with the word and an icon. */
+.sdk-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 24px;
+  margin: calc(-1 * var(--space-1));
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.sdk-sort:hover { background: color-mix(in srgb, var(--text-primary) 10%, transparent); color: var(--text-primary); }
+.sdk-sort:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-sort > i { font-size: var(--text-11); opacity: 0.6; }
+.sdk-table thead th:is([aria-sort="ascending"], [aria-sort="descending"]) { color: var(--text-primary); }
+th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > i { opacity: 1; }
+.num .sdk-sort { flex-direction: row-reverse; }
+
+/* The empty row. */
+.sdk-table-empty > td { padding: var(--space-6) var(--space-4); color: var(--text-muted); text-align: center; background: var(--tbl-surface); }
+.sdk-table tbody tr.sdk-table-empty:hover > td { background: var(--tbl-surface); }
+
+/* A phone: the first column stays while the rest scrolls; the tick column keeps a 44px target. */
+@media (max-width: 640px) {
+  .sdk-table-wrap :is(th, td):first-child { position: sticky; left: 0; z-index: 1; }
+  .sdk-table-wrap thead th:first-child { z-index: 3; }
+  .sdk-table-wrap .sdk-table { width: max-content; min-width: 100%; }
+  .sdk-table-wrap :is(td, th).sdk-table-check { width: 44px; }
+}
+
+/* ---- the member tile: a picture and a name; online is a dot, never a coloured edge ---- */
+.sdk-members { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.sdk-members:empty { display: none; }
+.sdk-member {
+  --s: var(--surface-card);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  width: 72px;
+  margin: 0;
+  padding: var(--space-1);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--s);
+  color: var(--text-primary);
+  font: inherit;
+  box-shadow: none;
+  outline: none;
+  transition: background var(--motion-fast), opacity var(--motion-fast);
+}
+/* A tile inside a card takes the next step, as a row does. */
+:where(.sdk-card, .space-choice) .sdk-member { --s: var(--surface-field); }
+.sdk-member-pic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-medium);
+  object-fit: cover;
+  background: color-mix(in srgb, var(--tint, var(--text-muted)) 22%, var(--surface-panel));
+  color: color-mix(in srgb, var(--tint, var(--text-muted)) 45%, var(--text-primary));
+  font-size: var(--text-22);
+  font-weight: var(--weight-strong);
+  line-height: 1;
+}
+.sdk-member-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-12); line-height: 16px; }
+/* Online: a 7px dot with a 2px ring in the tile's colour. Its word is hidden text. */
+.sdk-member-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  box-sizing: content-box;
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--s);
+  border-radius: var(--radius-round);
+  background: var(--status-ok-mark);
+}
+.sdk-member:is(button, label) { cursor: pointer; }
+.sdk-member:is(button, label):hover { background: color-mix(in srgb, var(--text-primary) 8%, var(--s)); }
+.sdk-member:is(button, label):focus-visible, .sdk-member-toggle:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+/* A tile that turns a person on or off in a space: on is the selected fill, off is 45% strength. */
+.sdk-member-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.sdk-member.sdk-member-toggle:is(.is-on, [aria-pressed="true"]) { background: var(--fill-selected); }
+.sdk-member-toggle:not(.is-on):not([aria-pressed="true"]) { opacity: 0.45; }
+.sdk-member-toggle:not(.is-on):not([aria-pressed="true"]):hover { opacity: 1; }
+.sdk-member-toggle.is-locked { cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-table :is(th, td), .sdk-member { transition: none; }
+}
+/* tables:end */
+
 /* ================= Fields and forms (design system step 13) =================
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the

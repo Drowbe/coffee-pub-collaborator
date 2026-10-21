@@ -1512,7 +1512,7 @@ body.in-space .page-scroll {
   align-self: start;
 }
 
-.space-choice .members {
+.space-choice .sdk-members {
   grid-area: members;
   align-self: start;
 }
@@ -1554,53 +1554,10 @@ body.in-space .page-scroll {
 }
 
 /* Who belongs to a space, with a dot for those in it right now. */
-.members {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.members:empty {
-  display: none;
-}
-
-.member {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 72px;
-  padding: 6px 6px 4px; /* 6px around the picture on top, left and right */
-  border-radius: var(--radius-medium);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-}
-
-.member.online {
-  border-color: color-mix(in srgb, var(--ok) 50%, var(--border));
-}
-
-.member img {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: var(--radius-medium);
-  object-fit: cover;
-  background: var(--bg-section);
-}
-
-.member .dot {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  width: 7px;
-  height: 7px;
-  border: 2px solid var(--bg-card);
-  box-sizing: content-box;
-}
+/* The member tile, its picture, name and online dot, and the row of them (.sdk-members) are system.css (Tables). */
 
 /* In the call: a small camera (the conference's icon, as in Who's around) beside the online dot, with a title; never the colour alone. */
-.member .call-mark {
+.sdk-member .call-mark {
   position: absolute;
   top: 6px;
   right: 22px;
@@ -1610,17 +1567,9 @@ body.in-space .page-scroll {
   width: 15px;
   height: 15px;
   border-radius: var(--radius-round);
-  background: var(--bg-card);
+  background: var(--s);
   color: var(--status-ok-mark);
   font-size: 8px;
-}
-
-.member-name {
-  font-size: var(--text-11);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* A "pull aside" space's join card: no image or member counts worth showing. */
@@ -4956,45 +4905,6 @@ span.message-vis {
    from the SAME custom properties the inputs are editing, scoped to just
    this box (see admin.js's updateThemePreview()) so picking a color shows
    its real effect without recoloring the whole settings page underneath. */
-.roles-scroll {
-  overflow-x: auto;
-}
-
-.roles-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 8px 0;
-}
-
-.roles-table th,
-.roles-table td {
-  padding: 8px 12px;
-  text-align: center;
-  border-bottom: 1px solid var(--border);
-}
-
-.roles-table thead th {
-  color: var(--text-dim);
-  font-size: var(--text-12);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-
-.roles-table tbody th[scope="row"] {
-  text-align: left;
-  font-weight: var(--weight-regular);
-}
-
-.roles-table .roles-group th {
-  text-align: left;
-  padding-top: 16px;
-  color: var(--accent);
-  font-size: var(--text-11);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  border-bottom: none;
-}
-
 .about p {
   margin: 0 0 10px;
 }
@@ -5249,7 +5159,7 @@ span.message-vis {
   margin-bottom: 10px;
 }
 
-.theme-preview .members {
+.theme-preview .sdk-members {
   margin: 0;
 }
 
@@ -5385,37 +5295,10 @@ span.message-vis {
   border-color: #b8503f;
 }
 
-/* Member tiles on a space: click to toggle, lit while in the space */
-.member-toggle {
-  cursor: pointer;
+/* Member tiles on a space: click to toggle, lit while in the space (.sdk-member-toggle, system.css) */
+.sdk-member-toggle {
   text-transform: none;
   letter-spacing: var(--tracking-normal);
-  color: var(--text);
-  transition: opacity 0.15s ease, border-color 0.15s ease;
-}
-
-.member-toggle input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.member-toggle.online {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
-}
-
-.member-toggle:not(.online) {
-  opacity: 0.45;
-}
-
-.member-toggle:hover:not(.locked) {
-  opacity: 1;
-}
-
-.member-toggle.locked {
-  cursor: default;
 }
 
 .slot-pick.wide {
@@ -7148,10 +7031,6 @@ body.chat-window {
 .ai-service-head { display: flex; align-items: center; gap: 10px; }
 .shared-files { margin: 6px 0 0; padding-left: 18px; font-size: var(--text-13); }
 .shared-files li { margin: 2px 0; }
-.files-table { width: 100%; border-collapse: collapse; margin: 6px 0; }
-.files-table th, .files-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: var(--text-13); }
-.files-table th { color: var(--text-dim); font-weight: var(--weight-strong); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.files-table td:first-child, .files-table th:first-child { width: 48px; }
 
 /* a choice setting: what the chosen option means, under its list (e.g. a service's terms) */
 .option-help:empty { display: none; }
@@ -7294,11 +7173,9 @@ body.chat-window {
   .external-actions { width: 100%; }
 }
 
-/* The host console's shared map folder: the files table names files in its first column (the generic .files-table
-   keeps a narrow first column for a thumbnail), and the world map address is a label, a field with its button, and
-   the hint under them in sentence case. */
-#shared-files .files-table td:first-child, #shared-files .files-table th:first-child { width: auto; }
-#shared-files .files-table td:last-child, #shared-files .files-table th:last-child { width: 1%; text-align: right; white-space: nowrap; }
+/* The host console's shared map folder: the files table (system.css, Tables) names files in its first column, and the world map
+   address is a label, a field with its button, and the hint under them in sentence case. */
+#shared-files .sdk-table :is(td, th):last-child { width: 1%; text-align: right; white-space: nowrap; }
 .shared-address { display: grid; gap: 4px; margin: 16px 0 4px; }
 .shared-address .row { flex-wrap: nowrap; }
 .shared-address input { flex: 1; min-width: 0; }
@@ -8905,10 +8782,6 @@ h4.setup-subheading {
   flex-wrap: wrap;
 }
 
-.space-setup .files-table {
-  display: block;
-  overflow-x: auto;
-}
 
 .setup-status {
   margin: 8px 0 0; /* clear of the last hint above it */

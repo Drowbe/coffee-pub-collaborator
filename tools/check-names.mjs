@@ -385,8 +385,10 @@ function tokenAt(line, start, end) {
 // THEME_BASE). Their names are fixed and never renamed; the only one that holds a fenced word is surface-panel ("panel",
 // a part of a page, not a module). A hit whose whole token is exactly one of these (the `--` before it is not part of
 // the token) is the role's name, not an old name. Only the exact token: surface-panel-x, module-panel or a bare
-// "panel" are still hits. The same holds for sdk-panel, the Cards family's approved panel class (public/sdk/system.css).
-const APPROVED_ROLE_TOKENS = new Set(['surface-panel', 'sdk-panel']);
+// "panel" are still hits. The same holds for sdk-panel, the Cards family's approved panel class, and the Tables family's sdk-table names (public/sdk/system.css).
+const APPROVED_ROLE_TOKENS = new Set(['surface-panel', 'sdk-panel',
+  // The Tables family's class names (public/sdk/system.css): "table" is the data table here, not a space.
+  'sdk-table', 'sdk-table-wrap', 'sdk-table-group', 'sdk-table-check', 'sdk-table-sub', 'sdk-table-dim', 'sdk-table-count', 'sdk-table-empty']);
 const emptyResults = () => new Map(LEVELS.map((l) => [l.id, { hits: [], allowed: 0 }]));
 function scan(mode, files, allow) {
   const results = emptyResults();

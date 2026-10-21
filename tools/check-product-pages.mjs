@@ -23,8 +23,10 @@ export function blocksOf(html) {
     'viewport': one(html, /<meta name="viewport"[^>]*>/),
     'content security policy': one(html, /<meta http-equiv="Content-Security-Policy"[^>]*>/),
     'stylesheet': one(html, /<link rel="stylesheet" href="\/landing\.css">/),
-    'script': one(html, /<script type="module" src="\/landing\.js"><\/script>/),
+    'script': one(html, /<head>[\s\S]*<script src="\/landing\.js"><\/script>[\s\S]*<\/head>/) && '<script src="/landing.js"></script> in <head>',
+    'theme meta': one(html, /<meta name="color-scheme"[^>]*>\s*<meta name="theme-color"[^>]*>/),
     'brand': one(html, /<a class="brand"[^>]*>[\s\S]*?<\/a>/),
+    'light / dark switch': one(html, /<header class="top">[\s\S]*?<button [^>]*id="theme-switch"[^>]*>[\s\S]*?<\/button>[\s\S]*?<\/header>/) && one(html, /<button [^>]*id="theme-switch"[^>]*>[\s\S]*?<\/button>/),
     'sign in button': one(html, /<a [^>]*id="nav-signin"[^>]*>[\s\S]*?<\/a>/),
     'get started button': one(html, /<a [^>]*data-contact-link[^>]*>[\s\S]*?<\/a>/),
     'sign-in section': one(html, /<section id="signin"[\s\S]*?<\/section>/),
@@ -89,6 +91,29 @@ test('it fails on a missing sign-in section, a changed brand and a shared title'
   assert.ok(found.some((p) => /a\.html: the sign-in section is missing/.test(p)), found.join(' | '));
   assert.ok(found.some((p) => /a\.html: the brand is missing/.test(p)), found.join(' | '));
   assert.ok(found.some((p) => /Two pages share a <title>/.test(p)), found.join(' | '));
+});
+test('it fails on a page without the Light / Dark switch, or with the script out of <head>', () => {
+  const front = pages['landing.html'];
+  const bare = front.replace(/<button [^>]*id="theme-switch"[\s\S]*?<\/button>/, '').replace('<script src="/landing.js"></script>', '').replace('</body>', '<script src="/landing.js"></script></body>');
+  const found = problemsOf({ 'landing.html': front, 'b.html': bare.replace('<title', '<title data-x="1"').replace(/<meta name="description" content="[^"]*"/, '<meta name="description" content="Other."') });
+  assert.ok(found.some((p) => /b\.html: the light \/ dark switch is missing/.test(p)), found.join(' | '));
+  assert.ok(found.some((p) => /b\.html: the script is missing/.test(p)), found.join(' | '));
+});
+
+// Light by default, whatever the browser prefers: dark is keyed on <html data-theme="dark">, which landing.js sets before the
+// first paint from the visitor's own choice, never on prefers-color-scheme; the switch names what it turns the page to.
+test('light or dark is chosen, not followed from the browser', () => {
+  const css = fs.readFileSync(path.join(PUBLIC, 'landing.css'), 'utf8');
+  const js = fs.readFileSync(path.join(PUBLIC, 'landing.js'), 'utf8');
+  assert.ok(!/prefers-color-scheme/.test(css), 'landing.css follows prefers-color-scheme');
+  assert.ok(/:root\[data-theme="dark"\] \.landing \{[^}]*--l-bg:/.test(css), 'landing.css: the dark palette is not keyed on [data-theme="dark"]');
+  for (const f of files) assert.ok(!/prefers-color-scheme/.test(pages[f]), `${f} follows prefers-color-scheme`);
+  for (const f of files) assert.ok(/<meta name="color-scheme" content="light">/.test(pages[f]), `${f}: color-scheme is not light`);
+  for (const f of files) assert.ok(/id="theme-switch"[^>]*aria-label="Dark"[^>]*title="Dark"/.test(pages[f]), `${f}: the switch has no name`);
+  const early = js.slice(0, js.indexOf('function themeSwitch'));
+  assert.ok(/^setTheme\(savedTheme\(\)\);$/m.test(early), 'landing.js does not set the theme before the page is read');
+  assert.ok(/localStorage\.getItem[\s\S]*catch/.test(early), 'landing.js: reading the saved theme is not wrapped');
+  assert.ok(/return 'light';/.test(early), 'landing.js: light is not the default');
 });
 
 // The sign-up name note (public/landing.js slugChecker) and the host console's Sign-up line (public/host.js signupFact),

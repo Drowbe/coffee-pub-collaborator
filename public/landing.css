@@ -20,16 +20,17 @@
   --radius-min: 6px; --radius-small: 10px; --radius-medium: 14px; --radius-large: 20px; --radius-round: 999px; /* the product's names for the five radii, with this page's own values */
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  .landing {
-    --l-bg: #0E1A2B; --l-band: #13243B; --l-surface: #182C47; --l-line: #2A4162;
-    --l-text: #F4ECDD; --l-dim: #B9C3D3; --l-ink: #F4ECDD;
-    --l-teal: #5CC8CF; --l-on-teal: #0E1A2B; --l-teal-hover: #7FD6DB; --l-teal-text: #7FD6DB; --l-teal-soft: #1B4252; --l-sea: #1F5566;
-    --l-coral-text: #FF9C86; --l-coral: #FF8264; --l-coral-soft: #4A2B2E;
-    --l-sand: #3A4458; --l-night: #0A1424; --l-night-2: #1B3250; --l-on-night: #F4ECDD;
-    --l-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.4);
-    color-scheme: dark;
-  }
+/* Dark is chosen, never followed from the browser: landing.js sets <html data-theme> before the first paint (light unless
+   this browser picked dark with the header's switch). */
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="dark"] .landing {
+  --l-bg: #0E1A2B; --l-band: #13243B; --l-surface: #182C47; --l-line: #2A4162;
+  --l-text: #F4ECDD; --l-dim: #B9C3D3; --l-ink: #F4ECDD;
+  --l-teal: #5CC8CF; --l-on-teal: #0E1A2B; --l-teal-hover: #7FD6DB; --l-teal-text: #7FD6DB; --l-teal-soft: #1B4252; --l-sea: #1F5566;
+  --l-coral-text: #FF9C86; --l-coral: #FF8264; --l-coral-soft: #4A2B2E;
+  --l-sand: #3A4458; --l-night: #0A1424; --l-night-2: #1B3250; --l-on-night: #F4ECDD;
+  --l-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -74,6 +75,15 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .top-links > a:not(.btn) { padding: 8px 12px; color: var(--l-dim); font-size: 15px; font-weight: 500; text-decoration: none; border-radius: var(--radius-small); }
 .top-links > a:not(.btn):hover { color: var(--l-text); }
 .hide-small { display: none; }
+/* Light / Dark: the system's quiet small icon button (no edge, the dim text, a quiet fill on hover), at the bar's height.
+   Shown once landing.js has set data-theme, so without the script there is no switch that does nothing. */
+.theme-switch { display: none; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-small); background: transparent; color: var(--l-dim); cursor: pointer; transition: background-color 0.15s, color 0.15s; }
+:root[data-theme] .theme-switch { display: inline-grid; }
+.theme-switch:hover { background: color-mix(in srgb, var(--l-text) 10%, transparent); color: var(--l-text); }
+.theme-switch:active { background: color-mix(in srgb, var(--l-text) 16%, transparent); }
+.theme-switch svg { width: 18px; height: 18px; fill: currentColor; }
+.theme-switch .theme-light, :root[data-theme="dark"] .theme-switch .theme-dark { display: none; }
+:root[data-theme="dark"] .theme-switch .theme-light { display: block; }
 
 /* --- sections --------------------------------------------------------------------------------------------------- */
 .landing main { display: block; }
@@ -331,12 +341,13 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
   .top { padding: 8px 12px; gap: 8px; }
   .top-links { gap: 8px; }
   .top-links .btn { min-height: 38px; padding: 0 12px; font-size: 14px; }
+  .theme-switch { width: 38px; height: 38px; }
   .brand { font-size: 16px; gap: 8px; }
   .brand-mark { width: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .landing .btn { transition: none; }
+  .landing .btn, .theme-switch { transition: none; }
 }
 
 /* The font faces: the same six rules as public/sdk/system.css, word for word (tools/check-system-css.mjs holds them equal). This page

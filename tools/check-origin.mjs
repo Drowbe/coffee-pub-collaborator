@@ -347,6 +347,24 @@ try {
       // A host under the product host is nothing.
       assert.equal((await at('GET', `aaa.${PRODUCT}`, '/')).status, 404);
     });
+    await test('PRODUCT_DOMAIN: a non-numeric port in the Host header never reaches a Location', async () => {
+      for (const h of [`${BASE}:@evil.com`, `${BASE}:80@evil.com`, `${BASE}:x`, `${BASE}:123456`, `${BASE}:`]) {
+        const r = await at('GET', BASE, '/x?y=1', { headers: { host: h } });
+        if (r.location) {
+          const u = new URL(r.location);
+          assert.ok([PRODUCT, BASE].includes(u.hostname) && !u.username && !u.password, `${h} -> ${r.location}`);
+          assert.ok(!r.location.includes('evil.com'), r.location);
+        } else assert.ok(r.status >= 400 || r.status === 200, `${h} -> ${r.status}`);
+      }
+      const ok = await at('GET', BASE, '/x', { headers: { host: `${BASE}:${p2}` } });
+      assert.equal(ok.location, `http://${PRODUCT}:${p2}/x`, 'a numeric port is still carried');
+    });
+    await test('PRODUCT_DOMAIN: on the product host every /api/ path outside the listed ones is 404, raw traversal included', async () => {
+      for (const p of ['/api/me', '/api/product/../me', '/fa/../api/me', '/fonts/../api/me', '/api/product/environment/../../me', '/api/%2e%2e/api/me', '/api/product/environments/../../me', '/api/modules', '/api/host/environments']) {
+        const r = await at('GET', PRODUCT, p);
+        assert.equal(r.status, 404, `${p} -> ${r.status}`);
+      }
+    });
     await test('PRODUCT_DOMAIN: the bare base domain redirects (302) to the product host, path and query kept, for every path', async () => {
       for (const p of ['/', '/travel?x=1&y=two', '/api/product', '/anything/at/all?q=1']) {
         const r = await at('GET', BASE, p);

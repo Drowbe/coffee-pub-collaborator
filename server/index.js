@@ -2733,7 +2733,8 @@ hostRouter.use((_req, res) => res.status(404).json({ error: 'not found' }));
 // real proxy (the port is implicit there), but wrong for local development at some other port than 80/443.
 function requestPort(req) {
   const requestHost = req.get('host') || '';
-  return requestHost.includes(':') && !requestHost.endsWith(']') ? requestHost.slice(requestHost.lastIndexOf(':')) : '';
+  const port = requestHost.includes(':') && !requestHost.endsWith(']') ? requestHost.slice(requestHost.lastIndexOf(':')) : '';
+  return /^:\d{1,5}$/.test(port) ? port : ''; // anything else is dropped, never put into a Location
 }
 function redirectToHost(req, res, status, newHost) {
   return res.redirect(status, `${auth.isSecure(req) ? 'https' : 'http'}://${newHost}${newHost.includes(':') ? '' : requestPort(req)}${req.originalUrl}`);

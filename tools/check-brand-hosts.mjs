@@ -3,7 +3,7 @@
  * check-brand-hosts.mjs -- no Coffee Pub domain or real deployment host in the code a stand-alone buyer installs
  * (documentation/plans/plan-domains.md, step 5 and "tools/check-names.mjs").
  *
- * Searched: server/, public/, modules/, templates/, tools/, the Dockerfile, docker-compose.yml and package.json.
+ * Searched: server/, public/, modules/, templates/, tools/, .github/, the Dockerfile, docker-compose.yml and package.json.
  * Not searched: documentation/ (plans and guides may name the install), this check and its allow-list.
  * Looked for: the brand's domains (the brand name followed by a top-level domain, any case, so a subdomain of one
  * counts too) and the host label of the real deployment. Use example.com or localhost in examples and tests.
@@ -27,10 +27,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BRAND = ['coffee', 'pub'].join('');
 const DEPLOYMENT = ['the', 'pub'].join('');
 const PATTERNS = [new RegExp(`${BRAND}\\.[a-z]{2,}`, 'gi'), new RegExp(`\\b${DEPLOYMENT}\\b`, 'gi')];
-const TARGETS = ['server', 'public', 'modules', 'templates', 'tools', 'Dockerfile', 'docker-compose.yml', 'package.json'];
+const TARGETS = ['server', 'public', 'modules', 'templates', 'tools', '.github', 'Dockerfile', 'docker-compose.yml', 'package.json'];
 const SKIP_DIRS = new Set(['node_modules', '.git', '.wiki-build']);
 const SKIP_FILES = new Set(['tools/check-brand-hosts.mjs', 'tools/check-brand-hosts-allow.json']);
-const BINARY = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|zip|pmtiles|mp3|mp4|pdf|svg)$/i;
+const BINARY = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|zip|pmtiles|mp3|mp4|pdf)$/i;
 
 function walk(root, rel, out) {
   const abs = path.join(root, rel);

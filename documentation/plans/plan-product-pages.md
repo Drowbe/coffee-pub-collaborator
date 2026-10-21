@@ -8,6 +8,8 @@ everything; "perhaps we make this product page about travel... another about gam
 product page redesign (GitHub #212) and waits, for its third use, on the project and mentoring template (GitHub #351).
 The front page headline (decision 21), lede and meta description (decision 22) are decided.
 
+**Where the pages live:** at `PRODUCT_DOMAIN`, the bare `BASE_DOMAIN` when it is unset; see [plan-domains](plan-domains.md).
+
 ## What it is today
 
 - **One page.** `public/landing.html` (361 lines), `public/landing.css` and `public/landing.js`. The server sends it

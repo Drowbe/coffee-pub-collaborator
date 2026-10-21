@@ -2,6 +2,8 @@
 
 **Status:** decided September 23, 2026 (the shape, the seam, the URL, the roles, and the ten questions at the end, answered by the author). **Built:** phase 1 (September 23, 2026) and phases 2 to 5 (September 24, 2026); what is left and unverified is in [TODO](../TODO.md), "Environments: what is left after phases 2 to 5". Kept as the historical record of the decisions. It still uses the words of its time: since the [Names plan](plan-names.md) the code says environment, not tenant (`DATA_DIR/environments/`, `/api/host/environments`, `MIGRATE_ENVIRONMENT_SLUG`), and a call's name is no longer built from a stored setting; how the code works now is in [architecture-environments](../architecture/architecture-environments.md).
 
+**Addresses:** where the product pages, the console and the environments live, and which names are reserved, is decided in [plan-domains](plan-domains.md); `PRODUCT_DOMAIN` can put the product pages on a host of their own.
+
 ## What it is for
 
 One deployment serving several paying groups, each with its own people, spaces, settings and modules, sold as an environment plus a set of modules, reached at its own address. And the same software still sold and given away as a self-hosted install, where there is one group and nobody thinks about tenants at all.

@@ -55,7 +55,7 @@ working. The rest are derived with `color-mix`.
 | `--shade` | recessed areas |
 | `--ok`, `--danger` | status colors |
 | `--on-danger` | the glyph or text on a solid `--danger` or `--ok` button (the call's leave button, dial back in); `#fff`, and the theme editor does not set it |
-| `--selected-bg` | the fill of a selected, on, active or current control: 28% of `--accent` over what is behind it, `color-mix(in srgb, var(--accent) 28%, transparent)`. Derived, so it follows a theme's accent. Also defined in the SDK's `host.css`, so a module has it |
+| `--selected-bg` | the fill of a selected, on, active or current control: 28% of `--accent` over what is behind it, `color-mix(in srgb, var(--accent) 28%, transparent)`. Derived, so it follows a theme's accent |
 | `--danger-text`, `--accent-hover` | lightened forms of danger and accent |
 
 ## Rules

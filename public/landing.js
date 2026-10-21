@@ -188,9 +188,39 @@ if (Array.isArray(product.plans) && product.plans.length && document.getElementB
   }));
 }
 
+// Each keystroke is checked against GET /api/product/address, after a short pause so a fast typist sends one request.
+// Every keystroke first puts the shape hint back, so an earlier answer never stays up for a different name; a reply that
+// is not ok (too many checks, 429, or none here) leaves the hint, and the server says on submit. Kept apart from the page
+// so tools/check-product-pages.mjs can run it with stubs.
+function slugChecker({ say, hint, slugOk, baseDomain, get, wait, cancel }) {
+  let token = 0;
+  let timer = null;
+  return (slug) => {
+    cancel(timer);
+    const mine = ++token;
+    say(hint);
+    if (!slugOk(slug)) return;
+    timer = wait(async () => {
+      try {
+        const res = await get(slug);
+        if (mine !== token) return;
+        if (!res.ok) { say(hint); return; }
+        const data = await res.json();
+        if (mine !== token) return;
+        if (data.free) say(`${slug}.${baseDomain} is free.`);
+        else if (data.reason === 'reserved') say(`"${slug}" is reserved. Pick another.`, true);
+        else if (data.reason === 'taken') say(`${slug}.${baseDomain} is taken.`, true);
+        else say(hint);
+      } catch (err) {
+        say(hint); // the server says on submit
+      }
+    }, 250);
+  };
+}
+
 // --- Sign-up: an environment of your own ---------------------------------------------------------------------------
 // POST /api/product/signup makes it on the free plan and answers its address. Off (SIGNUP=off, or no base domain), the
-// section falls back to asking. The slug is checked as it is typed against the public environment lookup.
+// section falls back to asking. The slug is checked as it is typed against the address check (GET /api/product/address).
 const signup = document.getElementById('signup-form');
 const ask = document.getElementById('start-ask');
 const startLede = document.getElementById('start-lede');
@@ -232,32 +262,12 @@ if (!signup) {
     if (wantedInput) wantedInput.checked = true;
     templateBox.hidden = false;
   }
-  // Each keystroke is checked against GET /api/product/address, after a short pause so a fast typist sends one request.
-  let checkToken = 0;
-  let checkTimer = null;
   const say = (text, bad) => { slugNote.textContent = text; slugNote.classList.toggle('error', Boolean(bad)); };
   const hint = 'Letters, digits and hyphens, 3 to 30; it cannot be changed later.';
+  const checkSlug = slugChecker({ say, hint, slugOk, baseDomain: product.baseDomain, get: (slug) => fetch(`/api/product/address?slug=${encodeURIComponent(slug)}`), wait: setTimeout, cancel: clearTimeout });
   slugInput.addEventListener('input', () => {
     slugInput.value = slugInput.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    const slug = slugInput.value;
-    clearTimeout(checkTimer);
-    const mine = ++checkToken;
-    if (!slugOk(slug)) { say(hint); return; }
-    checkTimer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/product/address?slug=${encodeURIComponent(slug)}`);
-        if (mine !== checkToken) return;
-        if (!res.ok) return; // too many checks (429) or none here: the server says on submit
-        const data = await res.json();
-        if (mine !== checkToken) return;
-        if (data.free) say(`${slug}.${product.baseDomain} is free.`);
-        else if (data.reason === 'reserved') say(`"${slug}" is reserved. Pick another.`, true);
-        else if (data.reason === 'taken') say(`${slug}.${product.baseDomain} is taken.`, true);
-        else say(hint);
-      } catch (err) {
-        // the server says on submit
-      }
-    }, 250);
+    checkSlug(slugInput.value);
   });
   signup.addEventListener('submit', async (e) => {
     e.preventDefault();

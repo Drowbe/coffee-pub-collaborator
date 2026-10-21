@@ -223,9 +223,16 @@ $('shared-files').addEventListener('click', async (e) => {
   } catch (err) { say($('shared-status'), err.message, true); }
 });
 
+// The Sign-up line of the host's facts: on at the product host (the base domain unless PRODUCT_DOMAIN is another), free plan.
+function signupFact(s) {
+  if (s.signup === false) return 'off (SIGNUP=off)';
+  const where = s.productDomain && s.productDomain !== s.baseDomain ? s.productDomain : '';
+  return where ? `on, at ${where}, on the free plan` : 'on, at the base domain, on the free plan';
+}
+
 function renderFacts() {
   const webhook = settings.baseDomain ? `${location.protocol}//admin.${settings.baseDomain}${location.port ? ':' + location.port : ''}/api/host/billing` : '';
-  $('host-facts').innerHTML = `<dt>Base domain</dt><dd>${escapeHtml(settings.baseDomain || '(none: one environment)')}</dd><dt>Product pages</dt><dd>${escapeHtml(settings.productDomain || settings.baseDomain || '(none)')}</dd><dt>Version</dt><dd>${escapeHtml(settings.version || '')}</dd><dt>Environments</dt><dd>${environments.length}</dd><dt>Sign-up</dt><dd>${settings.signup === false ? 'off (SIGNUP=off)' : 'on, at the base domain, on the free plan'}</dd><dt>Billing webhook</dt><dd>${webhook ? `<code>${escapeHtml(webhook)}</code>, a JSON body { slug, plan, event: paid | lapsed | cancelled } signed with <code>BILLING_SECRET</code> (x-billing-signature, HMAC-SHA256 of the body, hex)${settings.billingSecretSet === false ? '; <strong>BILLING_SECRET is not set</strong>, so the webhook refuses everything' : ''}` : 'needs a base domain'}</dd>`;
+  $('host-facts').innerHTML = `<dt>Base domain</dt><dd>${escapeHtml(settings.baseDomain || '(none: one environment)')}</dd><dt>Product pages</dt><dd>${escapeHtml(settings.productDomain || settings.baseDomain || '(none)')}</dd><dt>Version</dt><dd>${escapeHtml(settings.version || '')}</dd><dt>Environments</dt><dd>${environments.length}</dd><dt>Sign-up</dt><dd>${escapeHtml(signupFact(settings))}</dd><dt>Billing webhook</dt><dd>${webhook ? `<code>${escapeHtml(webhook)}</code>, a JSON body { slug, plan, event: paid | lapsed | cancelled } signed with <code>BILLING_SECRET</code> (x-billing-signature, HMAC-SHA256 of the body, hex)${settings.billingSecretSet === false ? '; <strong>BILLING_SECRET is not set</strong>, so the webhook refuses everything' : ''}` : 'needs a base domain'}</dd>`;
 }
 
 function refusedCopy() {

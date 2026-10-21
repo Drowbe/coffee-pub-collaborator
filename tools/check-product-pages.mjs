@@ -91,4 +91,39 @@ test('it fails on a missing sign-in section, a changed brand and a shared title'
   assert.ok(found.some((p) => /Two pages share a <title>/.test(p)), found.join(' | '));
 });
 
+// The sign-up name note (public/landing.js slugChecker) and the host console's Sign-up line (public/host.js signupFact),
+// run from their source with stubs.
+const fromSource = (file, name) => {
+  const src = fs.readFileSync(path.join(PUBLIC, file), 'utf8');
+  const m = new RegExp(`^function ${name}\\([\\s\\S]*?^}$`, 'm').exec(src);
+  assert.ok(m, `${name} in public/${file}`);
+  return new Function(`${m[0]}; return ${name};`)();
+};
+const slugChecker = fromSource('landing.js', 'slugChecker');
+const signupFact = fromSource('host.js', 'signupFact');
+{
+  const timers = [];
+  const wait = (fn) => { timers.push(fn); return timers.length; };
+  const cancel = (id) => { if (id) timers[id - 1] = null; };
+  const run = async () => { for (const [i, fn] of timers.entries()) if (fn) { timers[i] = null; await fn(); } };
+  let note = '';
+  let reply = { ok: true, json: async () => ({ free: true }) };
+  const check = slugChecker({ say: (t) => { note = t; }, hint: 'HINT', slugOk: (s) => /^[a-z0-9-]{3,30}$/.test(s), baseDomain: 'x.test', get: async () => reply, wait, cancel });
+  check('abc'); await run();
+  assert.equal(note, 'abc.x.test is free.');
+  check('abcd'); assert.equal(note, 'HINT', 'typing clears the old answer during the pause');
+  reply = { ok: false, json: async () => ({}) };
+  await run();
+  assert.equal(note, 'HINT', 'a 429 leaves no answer for an earlier name');
+  reply = { ok: true, json: async () => ({ free: true }) };
+  check('abcde'); check('ab'); await run();
+  assert.equal(note, 'HINT', 'a name too short shows the hint');
+  n += 1;
+}
+test('the host Sign-up line names the product host when it is not the base domain', () => {
+  assert.equal(signupFact({ signup: true, baseDomain: 'a.test', productDomain: 'a.test' }), 'on, at the base domain, on the free plan');
+  assert.equal(signupFact({ signup: true, baseDomain: 'a.test', productDomain: 'p.a.test' }), 'on, at p.a.test, on the free plan');
+  assert.equal(signupFact({ signup: false, baseDomain: 'a.test', productDomain: 'p.a.test' }), 'off (SIGNUP=off)');
+});
+
 console.log(`check-product-pages: ${n} OK (${files.join(', ')})`);

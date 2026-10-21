@@ -21,7 +21,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, TAB_GAP, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, tabBarZones, phoneTabs, phoneFold, TAB_MIN, TAB_GAP, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
 // Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
@@ -47,6 +47,18 @@ const test = (name, fn) => {
 const ids = (groups) => groups.map((g) => g.map((t) => t.id));
 // The status strip's block of style.css (status-strip:start to :end).
 const stripCssOf = (css) => css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
+
+test('the space bar on a phone: the "..." follows the module tabs in the left zone, so the keyboard order is the screen order', () => {
+  const click = () => {};
+  const byZone = {
+    left: [{ id: 'module-chooser', group: 'modules', order: 1, zone: 'left' }, { id: 'join-call', group: 'call', groupOrder: 1.5, order: 1, zone: 'left' }, { id: 'who-here', group: 'people', groupOrder: 2, order: 1, zone: 'left' }],
+    right: [{ id: 'rejoin-call', order: 52, zone: 'right', onClick: click }, { id: 'subnav-more', group: 'leave', order: 998, afterTabs: true, zone: 'right' }, { id: 'leave-space', group: 'leave', groupOrder: 999, order: 999, zone: 'right', onClick: click }],
+  };
+  const z = tabBarZones(byZone);
+  const ids = [...arrange(z.left), ...arrange(z.right)].flat().map((t) => t.id);
+  assert.deepEqual(ids, ['module-chooser', 'subnav-more', 'join-call', 'who-here', 'rejoin-call', 'leave-space']);
+  assert.deepEqual(tabBarZones({ left: [], right: [{ id: 'x', order: 1 }] }), { left: [], right: [{ id: 'x', order: 1 }] }, 'a tool that does not say afterTabs stays');
+});
 
 test('the bands: 1-10 core, 11-50 secondary, 51-100 utility, 101-998 a module, 999 last', () => {
   assert.equal(bandOf(1), 'core');
@@ -1327,7 +1339,8 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.match(cssW, /--topbar-gap: 4px;/);
   assert.match(cssW, /@media \(min-width: 641px\) \{\n\s*\.topbar > \.nav-right \{\n\s*gap: var\(--topbar-gap\);/);
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
-  assert.match(src, /const wide = !fold && bar === 'primary';\n\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
+  assert.match(src, /const wide = !fold && bar === 'primary';\n(?:.*\n)?\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
+  assert.match(src, /bar === 'secondary' && view && typeof view\.matchMedia === 'function' && view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) Object\.assign\(byZone, tabBarZones\(byZone\)\)/, 'the space bar on a phone draws the "..." after the module tabs');
   assert.match(src, /flattenRuns\(list, doc, \{ divide: wide \}\)/, 'a divider between the two runs, in the top bar only');
   // setWorkspace: a Workspace tool registered on either bar goes to the bar named; the "..." stays its bar's own.
   register({ id: 'ws-test-a', bar: 'secondary', zone: 'right', icon: 'x', label: 'x', workspace: 'only', order: 11 });
@@ -1356,7 +1369,7 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   // The top bar's own "...": #topbar-more, last of the Workspace run, never folds, never moves.
   assert.match(src, /more\.id = bar === 'secondary' \? 'subnav-more' : 'topbar-more';/);
   assert.match(src, /register\(\{ bar, zone: 'right', group: 'more', groupOrder: 999, id: 'topbar-more', order: 998, fold: false, workspace: 'every', more: bar, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/);
-  assert.match(src, /register\(\{ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/, 'the space bar\'s "..." as before');
+  assert.match(src, /register\(\{ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, afterTabs: true, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/, 'the space bar\'s "..." as before');
   assert.match(src, /attachFold\(bar, el\);\n\s*draw\(bar\);/, 'both bars get a "..."');
   // The space page: Layout, Full screen and Pop out show on every layout tab, not in an aside; Pull participants back
   // in every view; Rejoin call only where the bar is the tab bar (the top bar's aside-rejoin is the other); the view and the

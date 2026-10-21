@@ -286,6 +286,20 @@ export function phoneZones(byZone) {
   };
 }
 
+// The space bar on a phone is the tab bar, and the screen's order is the module tabs, the "...", Join, Online, then Leave
+// (system.css, tabbar block). The "..." is registered in the right zone, before Leave, for the wider bar; a tool that says
+// `afterTabs` moves into the left zone right after the module chooser here, so the keyboard goes in the order the screen
+// shows. Pure, for check-nav.
+export function tabBarZones(byZone) {
+  const moved = (t) => t.afterTabs === true;
+  const chooser = byZone.left.find((t) => t.group === 'modules');
+  const order = chooser ? orderOf(chooser) + 0.5 : 0.5;
+  return {
+    left: [...byZone.left, ...byZone.right.filter(moved).map((t) => ({ ...t, zone: 'left', group: 'modules', groupOrder: undefined, order }))],
+    right: byZone.right.filter((t) => !moved(t)),
+  };
+}
+
 // The top bar wider than a phone (plan-one-bar.md, step 7, Thomas 2026-10-13: the space bar's controls in the top bar):
 // the Workspace's tools (`workspace`, and the bar's own "...", which folds them) sit nearest the middle of the bar,
 // after the bar's own in the left zone and before them in the right (Pull participants back, a module's tools and the
@@ -327,6 +341,7 @@ export function draw(bar) {
     for (const d of zone.querySelectorAll(':scope > [data-nav-divider]')) d.remove();
   }
   const wide = !fold && bar === 'primary';
+  if (bar === 'secondary' && view && typeof view.matchMedia === 'function' && view.matchMedia('(max-width: 640px)').matches) Object.assign(byZone, tabBarZones(byZone));
   const runs = fold ? phoneZones(byZone) : wide ? wideZones(byZone) : { left: [byZone.left], right: [byZone.right], bar: [] };
   for (const [z, list] of Object.entries(runs)) if (targets[z]) place(targets[z], flattenRuns(list, doc, { divide: wide }));
   scheduleFit(bar);
@@ -652,7 +667,7 @@ function attachFold(bar, el) {
   folds[bar] = fold;
   // The space bar's: just before Leave, in its group, so the divider before Leave's group comes before it too. The top
   // bar's: last of the Workspace's run (`more` marks it the bar's own, so setWorkspace never moves it).
-  if (bar === 'secondary') register({ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
+  if (bar === 'secondary') register({ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, afterTabs: true, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
   else register({ bar, zone: 'right', group: 'more', groupOrder: 999, id: 'topbar-more', order: 998, fold: false, workspace: 'every', more: bar, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
 }
 

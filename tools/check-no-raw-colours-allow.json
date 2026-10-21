@@ -8,7 +8,7 @@
       "raw": 1
     },
     "modules/maps/src/maps.css": {
-      "shadow-scrim": 10
+      "shadow-scrim": 9
     },
     "modules/places/src/places.css": {
       "shadow-scrim": 2
@@ -24,7 +24,7 @@
       "shadow-scrim": 2
     },
     "modules/stream/src/stream.css": {
-      "raw": 8
+      "raw": 7
     },
     "modules/travel/src/travel-lib-cards.css": {
       "shadow-scrim": 2
@@ -52,7 +52,7 @@
     },
     "public/style.css": {
       "raw": 15,
-      "shadow-scrim": 22
+      "shadow-scrim": 21
     }
   }
 }

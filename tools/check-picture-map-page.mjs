@@ -44,7 +44,7 @@ test('after an upload or a Clear the settings are read again; Clear and delete n
 test('the file list says Picture or Map data from kinds, and nothing when absent', () => {
   assert.match(ms, /KIND_WORDS = \{ picture: 'Picture', vector: 'Map data' \}/);
   assert.match(ms, /\(def\.kinds \|\| \{\}\)\[n\]/);
-  assert.match(ms, /hasKinds \? '<th>Type<\/th>' : ''/);
+  assert.match(ms, /hasKinds \? '<th scope="col">Type<\/th>' : ''/);
   assert.match(host, /KIND_WORDS = \{ picture: 'Picture', vector: 'Map data' \}/);
   assert.match(host, /files\.some\(\(f\) => f\.kind\)/);
   assert.match(host, /KIND_WORDS\[f\.kind\] \|\| ''/);

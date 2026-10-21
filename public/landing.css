@@ -241,6 +241,11 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .phones img { width: 100%; border-radius: var(--radius-large); border: 1px solid var(--l-line); box-shadow: var(--l-shadow); }
 .phones figcaption { margin-top: 12px; text-align: center; color: var(--l-dim); font-size: 15px; }
 .phones:focus-visible { outline-offset: 0; }
+/* A page with one phone screenshot puts it beside the words (a .feature row) instead of alone in a row. */
+.phone-one { margin-top: 0; }
+.phone-shot { width: min(240px, 62vw); margin: 0 auto; }
+.phone-shot img { width: 100%; border-radius: var(--radius-large); border: 1px solid var(--l-line); box-shadow: var(--l-shadow); }
+.phone-shot figcaption { margin-top: 12px; text-align: center; color: var(--l-dim); font-size: 15px; }
 
 /* --- how, private, plans ---------------------------------------------------------------------------------------- */
 .steps { display: grid; gap: 16px; margin: 0 auto; padding: 0; list-style: none; counter-reset: none; }

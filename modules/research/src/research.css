@@ -10,34 +10,31 @@ body { margin: 0; overflow: hidden; }
 [hidden] { display: none !important; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.msg { padding: 16px; color: var(--text-dim); }
-.error { margin: 0; color: var(--danger); }
+.msg { padding: 16px; color: var(--text-muted); }
+.error { margin: 0; color: var(--status-danger-text); }
 .rs { position: relative; }
-.rs-search > .ic { font-size: var(--text-13); }
 .rcard .ic svg { width: 1em; height: 1em; }
 /* the card the model writes inside its answer: drawn inline, kept only when the person keeps or drags it */
 /* Ask: what the answer may use, and the note under a card about where it came from */
 .pick-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pick-kind { color: var(--text-dim); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.pick-kind { color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 
 /* ================= the Research pane: header, filters, cards ================= */
-.rs { display: flex; flex-direction: column; height: 100%; background: var(--bg); color: var(--text); font-size: var(--text-14); }
+.rs { display: flex; flex-direction: column; height: 100%; background: var(--surface-page); color: var(--text-primary); font-size: var(--text-14); }
 .rs-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px 6px; }
 .rs-head h1 { margin: 0; font-size: var(--text-18); }
 .rs-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 14px 8px; }
-.rs-search { position: relative; flex: 1; min-width: 180px; max-width: 360px; }
-.rs-search input { width: 100%; padding: 6px 10px 6px 30px; }
-.rs-search > .ic { position: absolute; left: 10px; top: 9px; color: var(--text-dim); }
+.rs-search { flex: 1; min-width: 180px; max-width: 360px; }
 /* Filters: small rounded rectangles, never pills. The kind row is always there; the tag row shows only the tags chosen
    in the toolbar's Tags chooser, each with an x to drop it. */
 .rs-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 14px 8px; }
-.rs-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: var(--text-11); line-height: var(--leading-ui); cursor: pointer; }
-.rs-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.rs-chip.tag { --tag: var(--text-dim); border-color: color-mix(in srgb, var(--tag) 55%, var(--border)); }
+.rs-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-card); color: var(--text-muted); font: inherit; font-size: var(--text-11); line-height: var(--leading-ui); cursor: pointer; }
+.rs-chip.on { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); }
+.rs-chip.tag { --tag: var(--text-muted); border-color: color-mix(in srgb, var(--tag) 55%, var(--edge-hairline)); }
 .rs-chip.tag::before { content: ""; width: 7px; height: 7px; border-radius: var(--radius-min); background: var(--tag); }
-.rs-chip.tag.on { background: color-mix(in srgb, var(--tag) 30%, var(--bg-card)); color: var(--text); }
-.rs-chip.tag .x { margin-left: 2px; color: var(--text-dim); font-size: var(--text-12); line-height: var(--leading-ui); }
-.rs-chip.tag:hover .x, .rs-chip.tag:focus-visible .x { color: var(--text); }
+.rs-chip.tag.on { background: color-mix(in srgb, var(--tag) 30%, var(--surface-card)); color: var(--text-primary); }
+.rs-chip.tag .x { margin-left: 2px; color: var(--text-muted); font-size: var(--text-12); line-height: var(--leading-ui); }
+.rs-chip.tag:hover .x, .rs-chip.tag:focus-visible .x { color: var(--text-primary); }
 .rs-body { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 16px; }
 /* cards pack like masonry: the grid's rows are a fine unit and the script gives each card the span its own height needs
    (see masonry() in research.js), so nothing leaves a hole under a short card; the columns come from auto-fill */
@@ -60,11 +57,11 @@ body { margin: 0; overflow: hidden; }
 .rs.narrow .rs-list .rcard .excerpt { flex-basis: 100%; }
 
 /* a research card: a note, a link (snippet), a photo or a kept answer. Kind hues are turned from the accent like the other card families. */
-.rcard { --turn: 0; --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-card)), color-mix(in srgb, var(--tone) 5%, var(--bg-card))); box-shadow: 0 2px 8px color-mix(in srgb, black 12%, transparent); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-@supports (color: oklch(from red l c h)) { .rcard { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }
+.rcard { --turn: 0; --tone: color-mix(in srgb, var(--accent-fill) 65%, var(--text-primary)); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--surface-card)), color-mix(in srgb, var(--tone) 5%, var(--surface-card))); box-shadow: 0 2px 8px color-mix(in srgb, black 12%, transparent); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+@supports (color: oklch(from red l c h)) { .rcard { --tone: oklch(from var(--accent-fill) l calc(c * 0.95) calc(h + var(--turn))); } }
 .rcard[data-kind="note"] { --turn: 25; } .rcard[data-kind="link"] { --turn: 195; } .rcard[data-kind="photo"] { --turn: 305; } .rcard[data-kind="answer"] { --turn: 255; }
-.rcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.rcard.open { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 2px 8px color-mix(in srgb, black 12%, transparent); }
+.rcard:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.rcard.open { border-color: var(--accent-fill); box-shadow: 0 0 0 1px var(--accent-fill), 0 2px 8px color-mix(in srgb, black 12%, transparent); }
 .rs-grid .rcard:not(.open) .excerpt { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .rs-list .rcard.open .excerpt { display: block; -webkit-line-clamp: unset; flex-basis: 100%; }
 .rcard:hover, .rcard:focus-within { transform: translateY(-1px); border-color: var(--tone); box-shadow: 0 8px 18px color-mix(in srgb, black 20%, transparent); }
@@ -77,32 +74,32 @@ body { margin: 0; overflow: hidden; }
 .rcard .edit { margin-left: auto; }
 .rcard .edit + .menu { margin-left: 0; }
 .rcard h3 { margin: 0; font-size: var(--text-14); line-height: var(--leading-section); overflow-wrap: anywhere; }
-.rcard .excerpt { margin: 0; color: var(--text); opacity: 0.88; line-height: var(--leading-body); overflow-wrap: anywhere; }
+.rcard .excerpt { margin: 0; color: var(--text-primary); opacity: 0.88; line-height: var(--leading-body); overflow-wrap: anywhere; }
 .rcard .excerpt :is(p, ul, ol, blockquote, h1, h2, h3, pre) { margin: 0; }
 .rcard .excerpt :is(h1, h2, h3) { font-size: inherit; }
 .rcard .excerpt p + p, .rcard .excerpt ul, .rcard .excerpt ol, .rcard .excerpt blockquote { margin-top: 4px; }
 .rcard .excerpt ul, .rcard .excerpt ol { padding-left: 1.1em; }
-.rcard .excerpt a { color: var(--accent); }
+.rcard .excerpt a { color: var(--text-accent); }
 .rcard .excerpt code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 .rcard .excerpt pre { white-space: pre-wrap; }
-.rcard .site { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: var(--text-12); }
-.rcard .thumb { display: block; width: calc(100% + 24px); margin: -12px -12px 4px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-large) var(--radius-large) 0 0; background: color-mix(in srgb, var(--tone) 25%, var(--bg-card)); }
-.rcard .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-dim); font-size: var(--text-11); }
+.rcard .site { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--text-12); }
+.rcard .thumb { display: block; width: calc(100% + 24px); margin: -12px -12px 4px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-large) var(--radius-large) 0 0; background: color-mix(in srgb, var(--tone) 25%, var(--surface-card)); }
+.rcard .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-muted); font-size: var(--text-11); }
 .rcard .tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.rcard .tag { --tag: var(--text-dim); display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--tag) 50%, var(--border)); border-radius: var(--radius-min); font-size: var(--text-11); line-height: 18px; }
+.rcard .tag { --tag: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--tag) 50%, var(--edge-hairline)); border-radius: var(--radius-min); font-size: var(--text-11); line-height: 18px; }
 .rcard .tag::before { content: ""; width: 6px; height: 6px; border-radius: var(--radius-min); background: var(--tag); }
 .rcard .by { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
-.rcard .by span { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent) 30%, var(--bg-card)); color: var(--text); font-size: var(--text-11); font-weight: var(--weight-strong); }
+.rcard .by span { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 30%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
 /* the empty state, and the photo upload */
-.rs-empty { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-dim); }
-.rs-empty > .ic { font-size: var(--text-28); color: var(--accent); }
-.rs-empty h2 { color: var(--text); font-size: var(--text-18); }
-.upload { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 10px; border: 1px dashed var(--accent); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
-.upload .bar { flex: 1; height: 6px; border-radius: var(--radius-round); background: var(--bg-card); overflow: hidden; }
-.upload .bar span { display: block; height: 100%; background: var(--accent); }
+.rs-empty { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
+.rs-empty > .ic { font-size: var(--text-28); color: var(--text-accent); }
+.rs-empty h2 { color: var(--text-primary); font-size: var(--text-18); }
+.upload { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 10px; border: 1px dashed var(--accent-fill); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent-fill) 8%, var(--surface-card)); }
+.upload .bar { flex: 1; height: 6px; border-radius: var(--radius-round); background: var(--surface-card); overflow: hidden; }
+.upload .bar span { display: block; height: 100%; background: var(--accent-fill); }
 .upload .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.upload .step { color: var(--text-dim); font-size: var(--text-12); }
-.pos-ask { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: var(--radius-large); font-size: var(--text-13); }
+.upload .step { color: var(--text-muted); font-size: var(--text-12); }
+.pos-ask { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--edge-hairline)); border-radius: var(--radius-large); font-size: var(--text-13); }
 .pos-ask .grow { flex: 1; }
 .rs.narrow .rs-grid { grid-template-columns: minmax(0, 1fr); }
 .rs.narrow .rs-tools { flex-wrap: nowrap; }
@@ -114,67 +111,56 @@ body { margin: 0; overflow: hidden; }
 .rs-body { position: relative; }
 /* #editor is a <dialog> the SDK draws as the editor window (host.ui.editor): the box, its padding, the backdrop and the
    sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. */
-.editor-card { display: flex; flex-direction: column; gap: 10px; }
-.editor-card h3 { margin: 0; padding-right: 32px; font-size: var(--text-18); }
-.editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: var(--text-12); }
-.editor-card input:not([type="checkbox"]), .editor-card textarea { width: 100%; }
-.editor-card label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: var(--text-14); }
-.editor-card input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
-.editor-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
-.icon-field { display: flex; flex-direction: column; gap: 6px; }
+#editor-title { margin: 0; padding-right: var(--space-7); }
+#f-delete { margin-left: auto; }
 .icon-choices { display: flex; flex-wrap: wrap; gap: 4px; }
-.icon-choice { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 4px 2px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg); color: var(--text-dim); font: inherit; font-size: var(--text-11); line-height: var(--leading-title); cursor: pointer; }
-.icon-choice .ic { color: var(--text); font-size: var(--text-16); }
-.icon-choice.on { background: color-mix(in srgb, var(--accent) 16%, var(--bg)); color: var(--text); }
+.icon-choice { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 4px 2px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font: inherit; font-size: var(--text-11); line-height: var(--leading-title); cursor: pointer; }
+.icon-choice .ic { color: var(--text-primary); font-size: var(--text-16); }
+.icon-choice.on { background: color-mix(in srgb, var(--accent-fill) 16%, var(--surface-page)); color: var(--text-primary); }
 .field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .format-bar { display: inline-flex; align-items: center; gap: 2px; }
-.format-bar button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); cursor: pointer; }
-.format-bar button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.format-bar button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-primary); cursor: pointer; }
+.format-bar button:hover { background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
 .format-bar button:disabled { opacity: 0.4; cursor: default; }
 /* A link's address and title sit beside the page's picture. Notes and answers keep a plain title, so the row is only a row for a link. */
 .link-identity { display: contents; }
-.editor-card[data-kind="link"] .link-identity { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 12px; align-items: stretch; }
-.editor-card[data-kind="link"] .link-identity-fields { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.link-shot { position: relative; display: flex; align-items: center; justify-content: center; min-height: 104px; border-radius: var(--radius-large); overflow: hidden; background: color-mix(in srgb, var(--text) 8%, var(--bg)); }
+#form[data-kind="link"] .link-identity { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: var(--field-gap); align-items: stretch; }
+.link-identity-fields { margin: 0; }
+.link-shot { position: relative; display: flex; align-items: center; justify-content: center; min-height: 104px; border-radius: var(--radius-large); overflow: hidden; background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-page)); }
 .link-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.link-shot-empty { font-size: var(--text-40); color: var(--text-dim); }
-.editor-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.editor-buttons .grow { flex: 1; }
+.link-shot-empty { font-size: var(--text-40); color: var(--text-muted); }
 /* one form for the four kinds: a row shows only for the kinds listed in its data-kinds */
-.editor-card[data-kind="note"] [data-kinds]:not([data-kinds~="note"]),
-.editor-card[data-kind="link"] [data-kinds]:not([data-kinds~="link"]),
-.editor-card[data-kind="photo"] [data-kinds]:not([data-kinds~="photo"]),
-.editor-card[data-kind="answer"] [data-kinds]:not([data-kinds~="answer"]) { display: none; }
-.conflict-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-medium); font-size: var(--text-12); }
+#form[data-kind="note"] [data-kinds]:not([data-kinds~="note"]),
+#form[data-kind="link"] [data-kinds]:not([data-kinds~="link"]),
+#form[data-kind="photo"] [data-kinds]:not([data-kinds~="photo"]),
+#form[data-kind="answer"] [data-kinds]:not([data-kinds~="answer"]) { display: none; }
+.conflict-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--status-danger-fill); border-radius: var(--radius-medium); font-size: var(--text-12); }
 .conflict-bar span { flex: 1 1 100%; }
-.with-button { display: flex; gap: 6px; align-items: stretch; }
-.with-button input { flex: 1; min-width: 0; }
 /* a photo whose file is gone: the picture 404s, so the crop shows a quiet placeholder */
 .rcard .thumb.missing { object-fit: none; display: flex; }
-.rcard .thumb.missing { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-dim) 10%, transparent) 0 8px, transparent 8px 16px), color-mix(in srgb, var(--tone) 12%, var(--bg-card)); }
+.rcard .thumb.missing { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 10%, transparent) 0 8px, transparent 8px 16px), color-mix(in srgb, var(--tone) 12%, var(--surface-card)); }
 /* dragging something from another module over the pane */
-.rs.drop-target::after { content: ""; position: absolute; inset: 6px; z-index: 40; border: 2px dashed var(--accent); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 6%, transparent); pointer-events: none; }
-.drop-hint { position: absolute; left: 50%; bottom: 72px; z-index: 41; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--radius-round); background: var(--accent); color: var(--on-accent); font-weight: var(--weight-strong); box-shadow: 0 8px 22px color-mix(in srgb, black 35%, transparent); pointer-events: none; }
+.rs.drop-target::after { content: ""; position: absolute; inset: 6px; z-index: 40; border: 2px dashed var(--accent-fill); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent-fill) 6%, transparent); pointer-events: none; }
+.drop-hint { position: absolute; left: 50%; bottom: 72px; z-index: 41; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--radius-round); background: var(--accent-fill); color: var(--text-on-accent); font-weight: var(--weight-strong); box-shadow: 0 8px 22px color-mix(in srgb, black 35%, transparent); pointer-events: none; }
 /* where a card is used: small pills along the foot of the card, above a dashed rule */
-.rcard .backlinks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; padding-top: 6px; border-top: 1px dashed color-mix(in srgb, var(--tone) 35%, var(--border)); }
-.backlink { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 22px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: var(--radius-small); background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); color: var(--text); font: inherit; font-size: var(--text-11); cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.backlink .ic { color: var(--accent); font-size: var(--text-11); }
-.backlink:hover, .backlink:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
-.backlink.more { cursor: default; color: var(--text-dim); background: none; border-style: dashed; }
+.rcard .backlinks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; padding-top: 6px; border-top: 1px dashed color-mix(in srgb, var(--tone) 35%, var(--edge-hairline)); }
+.backlink { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 22px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent-fill) 40%, var(--edge-hairline)); border-radius: var(--radius-small); background: color-mix(in srgb, var(--accent-fill) 10%, var(--surface-card)); color: var(--text-primary); font: inherit; font-size: var(--text-11); cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.backlink .ic { color: var(--text-accent); font-size: var(--text-11); }
+.backlink:hover, .backlink:focus-visible { border-color: var(--accent-fill); color: var(--text-accent); outline: none; }
+.backlink.more { cursor: default; color: var(--text-muted); background: none; border-style: dashed; }
 .asked p { margin: 2px 0 8px; overflow-wrap: anywhere; }
 .links { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.link { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg); color: var(--text-dim); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.link { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .link.gone { opacity: 0.6; font-style: italic; }
 .rs-body .skeleton { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.skel { height: 96px; border-radius: var(--radius-large); background: linear-gradient(90deg, var(--bg-card), color-mix(in srgb, var(--bg-card) 80%, var(--text)), var(--bg-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.skel { height: 96px; border-radius: var(--radius-large); background: linear-gradient(90deg, var(--surface-card), color-mix(in srgb, var(--surface-card) 80%, var(--text-primary)), var(--surface-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } .rcard { transition: none; } .rcard:hover { transform: none; } }
-.upload progress { flex: 1; height: 6px; appearance: none; border: 0; border-radius: var(--radius-round); background: var(--bg-card); overflow: hidden; }
-.upload progress::-webkit-progress-bar { background: var(--bg-card); }
-.upload progress::-webkit-progress-value { background: var(--accent); }
-.upload progress::-moz-progress-bar { background: var(--accent); }
-.upload .step[data-error] { color: var(--danger); }
+.upload progress { flex: 1; height: 6px; appearance: none; border: 0; border-radius: var(--radius-round); background: var(--surface-card); overflow: hidden; }
+.upload progress::-webkit-progress-bar { background: var(--surface-card); }
+.upload progress::-webkit-progress-value { background: var(--accent-fill); }
+.upload progress::-moz-progress-bar { background: var(--accent-fill); }
+.upload .step[data-error] { color: var(--status-danger-text); }
 /* Ask is a panel over the pane (the whole pane on a phone) */
 .rs.narrow .rs-chip { height: 28px; font-size: var(--text-12); }
-/* the editor window is a sheet on a phone (the window's width, not the module's): 16 px fields, so iOS does not zoom */
-@media (max-width: 640px) { .editor-card input, .editor-card textarea { font-size: var(--text-16); } }
+

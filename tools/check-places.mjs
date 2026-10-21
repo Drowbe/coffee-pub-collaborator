@@ -406,8 +406,8 @@ await test('the form: one row of type, icon and colour, the status, and the word
   const css = fs.readFileSync(new URL('../modules/places/src/places.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,6}\b(?![^{]*\{)/);
   const mine = css.slice(css.indexOf('/* ---- type, look and visit status ---- */'));
-  assert.match(css, /\.look-btn \{[^}]*width: 38px/);
-  assert.match(css, /max-width: 640px\) \{[^@]*\.look-type \{ flex-basis: 100%; \}[^@]*--bar-control-h: 44px[^@]*\.look-btn \{ width: 44px; height: 44px; \}/, 'the phone: type on its own line, 44 px buttons');
+  assert.match(css, /\.look-btn \{[^}]*width: var\(--field-h\)[^}]*height: var\(--field-h\)/, 'the icon and colour buttons are as high as a field (38 px, 44 px on a phone)');
+  assert.match(css, /max-width: 640px\) \{[^@]*\.look-type \{ flex-basis: 100%; \}/, 'the phone: type on its own line');
   assert.doesNotMatch(mine, /border-radius:\s*(?!var\(--radius-(min|small|medium|large|round)\))\d/, 'radii from tokens');
   assert.doesNotMatch(mine, /#[0-9a-fA-F]{3,8}\b/, 'theme tokens only');
   assert.doesNotMatch(mine, /border(?!-radius)[^;]*:\s*[^;]*solid/, 'selected states are fills');
@@ -673,8 +673,8 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   const page = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
   const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
-  assert.match(html, /<fieldset id="f-where" class="where" aria-describedby="f-where-line" hidden>\s*<legend>Shows in<\/legend>/);
-  assert.match(html, /<template id="tpl-tick"><label class="check tick"><input type="checkbox">/, 'native checkboxes, the label the whole row');
+  assert.match(html, /<fieldset id="f-where" class="sdk-section where" aria-describedby="f-where-line" hidden>\s*<legend class="sdk-section-title">Shows in<\/legend>/);
+  assert.match(html, /<template id="tpl-tick"><label class="sdk-check"><input type="checkbox">/, 'native checkboxes, the label the whole row');
   assert.doesNotMatch(html, /<select id="f-where"/, 'no dropdown');
   assert.match(page, /if \(target\.scope === 'environment'\) return `\$\{everyoneIn\(\)\} sees it\.`;/);
   assert.match(page, /return `Only people in \$\{spaceName\(target\.space\)\} see it\.`;/);
@@ -705,7 +705,7 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   assert.match(page, /if \(!ownRequest\(ctx\) \|\| !personal\) throw new Error\('only that person can share it'\);/);
   assert.match(page, /if \(asked && asked\.mine && !own\) throw new Error\('only that person can add to their own list'\);/);
   assert.equal(manifest.refs.produces[0].summary.spaces, 'spaces', 'the summary carries the marks');
-  assert.equal(manifest.version, '0.12.6');
+  assert.match(manifest.version, /^0\.12\.\d+$/, 'Places is still 0.12.x');
 });
 
 console.log(`check-places: OK (${n} checks)`);

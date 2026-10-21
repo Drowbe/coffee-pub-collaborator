@@ -296,7 +296,7 @@ await test('a plain click on a card opens or closes it to read; the editor is th
   assert.match(keys, /ev\.key === 'Enter' \|\| ev\.key === ' '\) \{[^}]*toggleCard/, 'Enter and Space toggle');
   assert.doesNotMatch(keys, /\.click\(\)/, 'a key no longer fakes a click');
   assert.match(html, /<button class="edit sdk-icon-btn btn-quiet btn-small"[^>]*data-action="edit"/, 'the card has an edit button');
-  assert.match(css, /\.rcard:focus-visible \{ outline: 2px solid var\(--accent\)/, 'a visible focus state');
+  assert.match(css, /\.rcard:focus-visible \{ outline: 2px solid var\(--accent-fill\)/, 'a visible focus state');
   assert.match(css, /\.rcard\.open \{/, 'an open card looks open');
 });
 

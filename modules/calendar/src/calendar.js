@@ -874,7 +874,7 @@
     fillWhere(x);
     // One of the person's other calendars: what it is and when, nothing to remind, repeat or link.
     const outside = Boolean(x && isExternal(x));
-    for (const el of [$('f-remind').closest('label'), $('f-repeat').closest('.row'), $('f-desc').closest('label')]) el.hidden = outside;
+    for (const el of [$('f-remind').closest('.sdk-field'), $('f-repeat-row'), $('f-desc').closest('.sdk-field')]) el.hidden = outside;
     // Read only in a place where the viewer may not add events: say why (on the environment page, where it can differ).
     const why = outside ? `From your ${externalName(x.calendar)} calendar. Only you see this.`
       : readOnly && !inSpace && x ? `Only people who can add events in ${placeName(x.scope, x.spaceId)} can change this.` : '';

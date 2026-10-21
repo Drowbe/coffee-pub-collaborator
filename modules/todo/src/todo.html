@@ -27,30 +27,29 @@
   <main id="body" class="body"></main>
 
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card">
+    <form id="form" class="sdk-form">
       <h3 id="editor-title">New task</h3>
-      <label id="f-where-wrap" hidden>Where<select id="f-where"></select></label>
-      <p class="hint" id="f-readonly" hidden></p>
-      <label>Task<input id="f-title" type="text" maxlength="200" required></label>
-      <label>Notes<textarea id="f-notes" rows="3" maxlength="1000"></textarea></label>
-      <div class="row">
-        <label>Due<input id="f-due" type="date"></label>
-        <label class="check" id="f-remind-wrap"><input id="f-remind" type="checkbox"> Remind people at 9:00 that day</label>
+      <label class="sdk-field" id="f-where-wrap" hidden><span class="sdk-label">Where</span><select id="f-where"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-hint" id="f-readonly" hidden></div>
+      <label class="sdk-field"><span class="sdk-label">Task</span><input id="f-title" type="text" maxlength="200" required><span class="sdk-hint"></span></label>
+      <label class="sdk-field"><span class="sdk-label">Notes</span><textarea id="f-notes" rows="3" maxlength="1000"></textarea><span class="sdk-hint"></span></label>
+      <div class="sdk-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-due-label"><span class="sdk-label" id="f-due-label">Due</span><input id="f-due" type="date" aria-labelledby="f-due-label"><span class="sdk-hint"></span></div>
       </div>
-      <div class="links-edit" id="f-links-wrap">
-        <span class="lbl">Linked</span>
+      <div class="sdk-checks" id="f-remind-wrap"><label class="sdk-check"><input id="f-remind" type="checkbox"><span>Remind people at 9:00 that day</span></label></div>
+      <div class="sdk-field" id="f-links-wrap" role="group" aria-labelledby="f-links-label">
+        <span class="sdk-label" id="f-links-label">Linked</span>
         <div id="f-links" class="links"></div>
         <input id="f-link-search" type="text" maxlength="100" placeholder="Link an event or poll: type to search" aria-label="Search events and polls to link">
         <div id="f-link-results" class="results"></div>
-        <div id="f-rules" class="rules"></div>
       </div>
-      <label class="check"><input id="f-done" type="checkbox"> Done</label>
-      <p class="hint" id="f-by"></p>
-      <p class="error" id="f-error" hidden></p>
-      <div class="row buttons sdk-editor-actions">
+      <div id="f-rules"></div>
+      <div class="sdk-checks"><label class="sdk-check"><input id="f-done" type="checkbox"><span>Done</span></label></div>
+      <div class="sdk-hint" id="f-by"></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
         <button class="btn btn-primary" type="button" id="f-save">Save</button>
         <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
-        <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
       </div>
     </form>

@@ -621,7 +621,7 @@
 
   // --- the dialog for one place -------------------------------------------------------------------------------------
 
-  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('editor-buttons') && !n.classList.contains('readonly') && !n.classList.contains('conflict-bar'));
+  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('sdk-editor-actions') && !n.classList.contains('readonly') && !n.classList.contains('conflict-bar'));
 
   // --- Shows in: where a place shows, and so where it is kept --------------------------------------------------------
   // A tick per place it can show: Everyone in <environment>, this space (in a space), the other spaces where the viewer may
@@ -669,7 +669,6 @@
     input.value = value;
     input.checked = Boolean(checked);
     input.disabled = !enabled;
-    el.classList.toggle('disabled', !enabled);
     fill(el, { label, hint: hint || '' });
     return el;
   }
@@ -706,12 +705,14 @@
     const box = $('f-owners');
     box.replaceChildren(...state.people.map((person) => {
       const label = document.createElement('label');
-      label.className = 'check';
+      label.className = 'sdk-check';
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.value = person.key;
       input.checked = selected.includes(person.key);
-      label.append(input, document.createTextNode(' ' + person.name));
+      const name = document.createElement('span');
+      name.textContent = person.name;
+      label.append(input, name);
       return label;
     }));
   }
@@ -1068,7 +1069,7 @@
     e.conflict = { theirs, version };
     const bar = clone('tpl-conflict');
     fill(bar, { text: 'Someone changed this place while you were editing.' });
-    $('form').querySelector('.editor-buttons').before(bar);
+    $('form').querySelector('.sdk-editor-actions').before(bar);
     editorError('');
   }
   $('form').addEventListener('click', (ev) => {
@@ -1091,7 +1092,7 @@
     for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
     const bar = clone('tpl-narrow');
     fill(bar, { text });
-    $('form').querySelector('.editor-buttons').before(bar);
+    $('form').querySelector('.sdk-editor-actions').before(bar);
     bar.querySelector('[data-action="take-away"]').focus();
   }
   $('form').addEventListener('click', (ev) => {

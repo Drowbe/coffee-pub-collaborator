@@ -637,7 +637,7 @@ test('calendar: an event in a list is a full-width row with a time that never wr
   assert.equal(lib.whenText({ ...ev, end: 'x' }, at(11, 0), at(11, 30), true), '11 AM \u2013 11:30 AM', 'narrow: minutes drop only when they are 00');
   assert.equal(lib.whenText({ ...ev, end: 'x' }, at(20, 25), at(21, 50), true), '8:25 PM \u2013 9:50 PM');
   const css = src('calendar.css');
-  assert.match(css, /\.item \{[^}]*border: 0; border-bottom: 1px solid var\(--border\); border-radius: 0;/, 'the row has a hairline, not a box');
+  assert.match(css, /\.item \{[^}]*border: 0; border-bottom: 1px solid var\(--edge-hairline\); border-radius: 0;/, 'the row has a hairline, not a box');
   assert.match(css, /\.item \.when \{[^}]*white-space: nowrap;/, 'the time never wraps');
   assert.match(css, /\.item \.what strong \{[^}]*text-overflow: ellipsis; white-space: nowrap;/, 'the title is one line with an ellipsis');
 });

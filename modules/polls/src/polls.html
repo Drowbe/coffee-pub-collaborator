@@ -24,20 +24,22 @@
 
   <!-- the form for a new poll: an editor window over everything (host.ui.editor), never clipped by the module's box -->
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card">
-      <h3>New poll</h3>
-      <label>Question<input id="f-question" type="text" maxlength="200" required></label>
-      <div class="opts-edit">
-        <span class="lbl">Options</span>
+    <form id="form" class="sdk-form">
+      <h3 id="editor-title">New poll</h3>
+      <label class="sdk-field"><span class="sdk-label">Question</span><input id="f-question" type="text" maxlength="200" required><span class="sdk-hint"></span></label>
+      <div class="sdk-field" role="group" aria-labelledby="f-options-label">
+        <span class="sdk-label" id="f-options-label">Options</span>
         <div id="f-options"></div>
-        <button class="btn btn-small" id="f-more" type="button">Add option</button>
+        <div class="opts-more"><button class="btn btn-small" id="f-more" type="button">Add option</button></div>
       </div>
-      <label class="check"><input id="f-multi" type="checkbox"> Allow more than one choice</label>
-      <label class="check"><input id="f-addable" type="checkbox"> Let people add options</label>
-      <label>Closes (optional)<input id="f-closes" type="datetime-local"></label>
-      <label class="check"><input id="f-notify" type="checkbox"> Tell people about it</label>
-      <p class="error" id="f-error" hidden></p>
-      <div class="row buttons sdk-editor-actions">
+      <div class="sdk-checks"><label class="sdk-check"><input id="f-multi" type="checkbox"><span>Allow more than one choice</span></label><label class="sdk-check"><input id="f-addable" type="checkbox"><span>Let people add options</span></label></div>
+      <div class="sdk-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-closes-label"><span class="sdk-label" id="f-closes-label">Closes <span class="sdk-optional">(optional)</span></span><input id="f-closes" type="date" aria-labelledby="f-closes-label"><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s"><span class="sdk-label">at</span><input id="f-closes-time" type="time"><span class="sdk-hint"></span></label>
+      </div>
+      <div class="sdk-checks"><label class="sdk-check"><input id="f-notify" type="checkbox"><span>Tell people about it</span></label></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
         <button class="btn btn-primary" type="button" id="f-save">Start poll</button>
         <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
       </div>

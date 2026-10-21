@@ -557,7 +557,7 @@
       const c = summaries.get(objectKey(r));
       for (const ev of kindEvents.get(r.module + ':' + r.kind) || []) {
         const chosen = (editingRules[objectKey(r)] || {})[ev.name] || '';
-        rows.push(`<label class="rule"><span>${esc(c && !c.error ? c.title : `That ${word('object')}`)}: ${esc(ev.label)}</span><select data-rule="${esc(objectKey(r))}|${esc(ev.name)}" ${readOnly ? 'disabled' : ''}><option value="">Do nothing</option>${outcomesFor(ev).map((o) => `<option value="${o.id}"${o.id === chosen ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>`);
+        rows.push(`<label class="sdk-field"><span class="sdk-label">${esc(c && !c.error ? c.title : `That ${word('object')}`)}: ${esc(ev.label)}</span><select data-rule="${esc(objectKey(r))}|${esc(ev.name)}" ${readOnly ? 'disabled' : ''}><option value="">Do nothing</option>${outcomesFor(ev).map((o) => `<option value="${o.id}"${o.id === chosen ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select><span class="sdk-hint"></span></label>`);
       }
     }
     $('f-rules').innerHTML = rows.join('');

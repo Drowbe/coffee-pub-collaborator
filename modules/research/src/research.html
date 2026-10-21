@@ -22,7 +22,7 @@
   </header>
   <!-- whose research (Mine/This space): host.ui.viewSwitch draws it in the toolbar, not here. Mine needs a signed-in person, so a guest has only This space (the script skips the switch entirely then). -->
   <div class="rs-tools">
-    <div class="rs-search"><span class="ic" data-icon="magnifying-glass"></span><input id="filter" type="search" maxlength="100" placeholder="Search research" aria-label="Search research" autocomplete="off"></div>
+    <div class="sdk-search rs-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="filter" type="search" maxlength="100" placeholder="Search research" aria-label="Search research" autocomplete="off"></div>
   </div>
   <div class="rs-chips" id="kinds" role="group" aria-label="Kind">
     <button class="rs-chip on" type="button" data-kind="">All</button>
@@ -39,34 +39,33 @@
 
 
   <!-- an object, in the editor window (host.ui.editor: a modal dialog over everything, never clipped by the module's box).
-       One form for all four kinds: the script sets data-kind on .editor-card and the CSS shows the rows that kind uses. -->
+       One form for all four kinds: the script sets data-kind on the form and the CSS shows the rows that kind uses. -->
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card" data-kind="note">
+    <form id="form" class="sdk-form" data-kind="note">
       <h3 id="editor-title">Note</h3>
       <div class="link-identity" data-kinds="note link answer">
-        <div class="link-identity-fields">
-          <label data-kinds="link">Address<input id="f-url" name="url" type="url" maxlength="500" placeholder="https://" autocomplete="off"><span class="hint" id="f-url-note"></span></label>
-          <label data-kinds="note link answer">Title<input id="f-title" name="title" type="text" maxlength="120"></label>
+        <div class="link-identity-fields sdk-section">
+          <label class="sdk-field" data-kinds="link"><span class="sdk-label">Address</span><input id="f-url" name="url" type="url" maxlength="500" placeholder="https://" autocomplete="off"><span class="sdk-hint" id="f-url-note"></span></label>
+          <label class="sdk-field" data-kinds="note link answer"><span class="sdk-label">Title</span><input id="f-title" name="title" type="text" maxlength="120"><span class="sdk-hint"></span></label>
         </div>
         <div class="link-shot" id="f-preview" data-kinds="link"><img id="f-preview-img" alt="" hidden><span class="link-shot-empty ic" data-icon="user" aria-hidden="true"></span></div>
       </div>
-      <div class="icon-field" data-kinds="note"><span class="hint">Type</span><div class="icon-choices" id="f-icons"></div></div>
-      <label data-kinds="photo">Caption<input id="f-caption" name="caption" type="text" maxlength="200"></label>
-      <label data-kinds="note answer"><span class="field-head"><span data-slot="body-label">Note</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea></label>
-      <label data-kinds="link"><span class="field-head"><span>What to remember from it</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span><textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea></label>
-      <label data-kinds="note link photo answer">Tags<span class="with-button"><input id="f-tags" name="tags" type="text" maxlength="200" placeholder="words, separated by commas" list="tag-list" autocomplete="off"><button type="button" class="btn" data-action="suggest-tags" hidden><span class="ic" data-icon="wand-magic-sparkles"></span> Suggest tags</button></span></label>
+      <div class="sdk-field" data-kinds="note" role="group" aria-labelledby="f-icons-label"><span class="sdk-label" id="f-icons-label">Type</span><div class="icon-choices" id="f-icons"></div></div>
+      <label class="sdk-field" data-kinds="photo"><span class="sdk-label">Caption</span><input id="f-caption" name="caption" type="text" maxlength="200"><span class="sdk-hint"></span></label>
+      <label class="sdk-field" data-kinds="note answer"><span class="sdk-label"><span class="field-head"><span data-slot="body-label">Note</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span></span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea><span class="sdk-hint"></span></label>
+      <label class="sdk-field" data-kinds="link"><span class="sdk-label"><span class="field-head"><span>What to remember from it</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span></span><textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea><span class="sdk-hint"></span></label>
+      <div class="sdk-field" data-kinds="note link photo answer" role="group" aria-labelledby="f-tags-label"><span class="sdk-label" id="f-tags-label">Tags</span><span class="sdk-group"><input id="f-tags" name="tags" type="text" maxlength="200" placeholder="words, separated by commas" list="tag-list" autocomplete="off" aria-labelledby="f-tags-label"><button type="button" class="sdk-btn" data-action="suggest-tags" hidden><span class="ic" data-icon="wand-magic-sparkles"></span> Suggest tags</button></span><span class="sdk-hint"></span></div>
       <datalist id="tag-list"></datalist>
-      <div class="editor-row" data-kinds="note link">
-        <label>Place<input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="hint" id="f-point-note"></span></label>
-        <label>Date<input id="f-date" name="date" type="date"></label>
+      <div class="sdk-row" data-kinds="note link">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Place</span><input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="sdk-hint" id="f-point-note"></span></label>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Date</span><input id="f-date" name="date" type="date" aria-labelledby="f-date-label"><span class="sdk-hint"></span></div>
       </div>
-      <div class="asked" data-kinds="answer" id="f-asked" hidden><div class="hint">Asked</div><p data-slot="asked"></p><div class="hint">From</div><div class="links" data-slot="sources"></div></div>
-      <p class="hint" id="f-by"></p>
-      <p class="error" id="f-error" hidden></p>
-      <div class="editor-buttons sdk-editor-actions">
+      <div class="asked" data-kinds="answer" id="f-asked" hidden><div class="sdk-hint">Asked</div><p data-slot="asked"></p><div class="sdk-hint">From</div><div class="links" data-slot="sources"></div></div>
+      <div class="sdk-hint" id="f-by"></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
         <button class="btn btn-primary" type="submit" id="f-save">Save</button>
         <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
-        <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Remove</button>
       </div>
     </form>

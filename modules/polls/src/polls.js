@@ -558,13 +558,16 @@
     desc.maxLength = 140;
     desc.placeholder = 'Detail (optional)';
     const dateWrap = document.createElement('div');
-    dateWrap.className = 'o-datewrap';
+    dateWrap.className = 'o-datewrap sdk-field';
     const date = document.createElement('input');
     date.type = 'date';
     date.className = 'o-date';
     date.title = 'A date this option stands for (optional)';
     date.setAttribute('aria-label', 'Date (optional)');
-    dateWrap.appendChild(date);
+    // The date picker writes the weekday into the hint of the field it is in: each option's date is a field of its own.
+    const weekday = document.createElement('span');
+    weekday.className = 'sdk-hint';
+    dateWrap.append(date, weekday);
     row.append(name, desc, dateWrap);
     $('f-options').appendChild(row);
     host.ui.datePicker(date, { clearable: true });
@@ -573,6 +576,9 @@
   }
 
   const closesPicker = host.ui.datePicker($('f-closes'), { clearable: true });
+  // The closing time is a day and a time (12:00 when the day has no time), kept together as 'YYYY-MM-DDTHH:MM'.
+  const closesValue = () => ($('f-closes').value ? `${$('f-closes').value}T${$('f-closes-time').value || '12:00'}` : '');
+  const setCloses = (v) => { const [day, time] = String(v || '').split('T'); $('f-closes').value = day || ''; $('f-closes-time').value = time || '12:00'; };
   // The form opens as the editor window (host.ui.editor): over everything, sized to the form, a sheet on a phone. What
   // the form held when it opened, as text, so Escape and Close can ask "Discard your changes?" only after something changed.
   let opened = null;
@@ -581,7 +587,7 @@
     options: [...$('f-options').children].map((r) => [r.querySelector('.o-text').value, r.querySelector('.o-desc').value, r.querySelector('.o-date').value]),
     multi: $('f-multi').checked,
     addable: $('f-addable').checked,
-    closes: $('f-closes').value,
+    closes: closesValue(),
     notify: $('f-notify').checked,
   });
   const editor = host.ui.editor($('editor'), {
@@ -604,10 +610,10 @@
     // A quick add fills the question, and the closing time when a day was typed (12:00 unless a time was).
     $('f-question').value = (prefill && prefill.title) || '';
     const closes = prefill && prefill.closes ? prefill.closes : prefill && prefill.date ? prefill.date + 'T' + (prefill.time || '12:00') : '';
-    $('f-closes').value = closes && new Date(closes).getTime() > Date.now() ? closes : '';
+    setCloses(closes && new Date(closes).getTime() > Date.now() ? closes : '');
     if (!$('f-closes').value && prefs.closeAfterDays > 0) {
       const d = new Date(Date.now() + prefs.closeAfterDays * 24 * 60 * 60 * 1000);
-      $('f-closes').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T12:00`;
+      setCloses(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T12:00`);
     }
     closesPicker.refresh();
     $('f-notify').checked = false;
@@ -635,7 +641,7 @@
     if (new Set(rows.map((o) => o.text.toLowerCase())).size !== rows.length) return showError('Two options are the same.');
     let closesAt = null;
     if ($('f-closes').value) {
-      closesAt = new Date($('f-closes').value).getTime();
+      closesAt = new Date(closesValue()).getTime();
       if (Number.isNaN(closesAt) || closesAt <= Date.now()) return showError('The closing time has to be in the future.');
     }
     const p = {

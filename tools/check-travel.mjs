@@ -1303,7 +1303,7 @@ test('the page: the round trip switch, its mark on a card, and the delete questi
   const html = read('travel.html');
   const js = read('travel.js');
   assert.match(html, /<div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">/, 'every journey but a car offers a round trip');
-  assert.ok(html.includes('<label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox"> Round trip</label>') && !html.includes('role="switch"'), 'a tick box in the form, not a switch (the form standard)');
+  assert.ok(html.includes('<label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label>'), 'an on or off setting taken when the form is saved: the switch (fields and forms, Thomas 2026-10-18)');
   for (const id of ['f-return', 'f-back-date', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-number', 'f-back-from', 'f-back-to', 'f-back-fromCode', 'f-back-toCode']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(html.includes('<template id="tpl-card-roundtrip">'));
   for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound']) assert.ok(js.includes(words), words);
@@ -1798,7 +1798,7 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   const js = read('travel.js');
   const css = read('travel.css') + read('travel-lib-editor.css');
   for (const id of ['form', 'day-form']) assert.ok(html.includes(`<form class="sdk-form" id="${id}">`), `${id} is a form of the standard`);
-  for (const old of ['editor-card', 'editor-row', 'editor-buttons', 'editor-people', 'when-pick', 'when-btns', 'when-list', 'when-clear', 'when-phase', 'class="timing', 'class="pairing', 'fieldgroup', 'lenmode', 'dur-head', 'class="hm"', 'endbox', 'class="fl"', 'role="switch"', 'class="check"']) assert.ok(!html.includes(old), `the old ${old} is gone from the markup`);
+  for (const old of ['editor-card', 'editor-row', 'editor-buttons', 'editor-people', 'when-pick', 'when-btns', 'when-list', 'when-clear', 'when-phase', 'class="timing', 'class="pairing', 'fieldgroup', 'lenmode', 'dur-head', 'class="hm"', 'endbox', 'class="fl"', 'class="check"']) assert.ok(!html.includes(old), `the old ${old} is gone from the markup`);
   assert.equal((html.match(/<div class="sdk-editor-actions">/g) || []).length, 3, 'the item, plan and day forms\' button rows stick to the bottom');
   // Every day is a date field with host.ui.datePicker: the list (days by phase, the spots between days) and, where there is no day, its first entry.
   for (const pre of ['f-', 'f-back-']) {

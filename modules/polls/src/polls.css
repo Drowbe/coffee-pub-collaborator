@@ -9,69 +9,63 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .nav h2 { margin: 0 6px 0 0; font-size: var(--text-18); }
 .body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
-.error { margin: 0; color: var(--danger); }
-.error.ok { color: var(--accent); }
-.empty { padding: 24px 8px; color: var(--text-dim); text-align: center; }
+.error { margin: 0; color: var(--status-danger-text); }
+.error.ok { color: var(--text-accent); }
+.empty { padding: 24px 8px; color: var(--text-muted); text-align: center; }
 
 /* a poll */
-.group h4 { display: flex; align-items: center; gap: 4px; margin: 8px 0 4px; font-size: var(--text-12); color: var(--text-dim); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.poll { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-large); margin-bottom: 10px; }
+.group h4 { display: flex; align-items: center; gap: 4px; margin: 8px 0 4px; font-size: var(--text-12); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.poll { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--surface-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-large); margin-bottom: 10px; }
 .poll.closed { opacity: 0.85; }
 .poll h3 { margin: 0; padding-right: 30px; font-size: var(--text-16); overflow-wrap: anywhere; cursor: grab; }
 
 /* Whether to vote, when it closes and who started it stays plain text; only ending or deleting the poll
    itself (the two ways to lose it) sit behind this "..." in the corner, apart from everything else. */
 .menu-btn { position: absolute; top: 8px; right: 8px; }
-.meta { color: var(--text-dim); font-size: var(--text-12); }
-.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--radius-round); font-size: var(--text-11); color: var(--text-dim); }
-.opt { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg); color: var(--text); font: inherit; text-align: left; overflow: hidden; cursor: pointer; }
+.meta { color: var(--text-muted); font-size: var(--text-12); }
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); font-size: var(--text-11); color: var(--text-muted); }
+.opt { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-page); color: var(--text-primary); font: inherit; text-align: left; overflow: hidden; cursor: pointer; }
 .opt:disabled { cursor: default; }
-.opt:not(:disabled):hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-.opt .fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 24%, transparent); pointer-events: none; }
+.opt:not(:disabled):hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
+.opt .fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent-fill) 24%, transparent); pointer-events: none; }
 .opt .name, .opt .num { position: relative; }
 .opt .name { overflow-wrap: anywhere; }
-.opt .name small { display: block; margin-top: 1px; color: var(--text-dim); font-size: var(--text-12); }
-.opt.win { border-color: var(--accent); }
-.opt.win .num { color: var(--accent); font-weight: var(--weight-strong); }
+.opt .name small { display: block; margin-top: 1px; color: var(--text-muted); font-size: var(--text-12); }
+.opt.win { border-color: var(--accent-fill); }
+.opt.win .num { color: var(--text-accent); font-weight: var(--weight-strong); }
 .addopt { display: flex; gap: 6px; }
-.addopt input { flex: 1; min-width: 0; color: var(--text); padding: 6px 8px; }
-.opt .num { flex: none; color: var(--text-dim); font-size: var(--text-12); }
-.opt.mine { border-color: var(--accent); }
-.opt.mine .name::before { content: '\2713 '; color: var(--accent); font-weight: var(--weight-strong); }
-.who { margin: -4px 0 0 2px; color: var(--text-dim); font-size: var(--text-11); overflow-wrap: anywhere; }
+.addopt input { flex: 1; min-width: 0; }
+.opt .num { flex: none; color: var(--text-muted); font-size: var(--text-12); }
+.opt.mine { border-color: var(--accent-fill); }
+.opt.mine .name::before { content: '\2713 '; color: var(--text-accent); font-weight: var(--weight-strong); }
+.who { margin: -4px 0 0 2px; color: var(--text-muted); font-size: var(--text-11); overflow-wrap: anywhere; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* other spaces' polls on the environment page */
 .ri { display: inline-flex; align-items: center; margin-right: 2px; }
 .ri svg { width: 1em; height: 1em; fill: currentColor; }
 .spaces { display: flex; flex-wrap: wrap; gap: 6px; }
-.filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--radius-round); background: none; color: var(--text-dim); font: inherit; font-size: var(--text-12); cursor: pointer; opacity: 0.6; }
-.filter.on { color: var(--text); background: var(--selected-bg); opacity: 1; }
+.filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: none; color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; opacity: 0.6; }
+.filter.on { color: var(--text-primary); background: var(--fill-selected); opacity: 1; }
 
 /* the form for a new poll: #editor is a <dialog> the SDK draws as the editor window (host.ui.editor), which gives the
-   box, its padding, the backdrop and the sticky button row (.sdk-editor-actions); the form only lays out its fields */
-.editor-card { display: flex; flex-direction: column; gap: 10px; }
-.editor-card h3 { margin: 0; padding-right: 32px; }
-.editor-card label { display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--text-12); }
-.editor-card label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: var(--text-14); }
-.editor-card input[type=text], .editor-card input[type=datetime-local] { width: 100%; color: var(--text); }
-.opt-row { display: flex; gap: 6px; width: 100%; }
+   box, its padding, the backdrop and the sticky button row (.sdk-editor-actions). The form is .sdk-form: the SDK draws every
+   field, label, hint, row and tick box. Here only the rows of options, which the script adds. */
+#editor-title { margin: 0; padding-right: var(--space-7); }
+#f-options { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.opts-more { margin-top: 8px; }
+.opt-row { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 .opt-row input { flex: 1; min-width: 0; }
-.opts-edit { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-.opts-edit .lbl { color: var(--text-dim); font-size: var(--text-12); }
-#f-options { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .tag.ref { cursor: pointer; }
-.tag.ref:hover { color: var(--text); border-color: var(--accent); }
-.tag b { color: var(--accent); font-weight: var(--weight-strong); }
-.poll.flash { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.tag.ref:hover { color: var(--text-primary); border-color: var(--accent-fill); }
+.tag b { color: var(--text-accent); font-weight: var(--weight-strong); }
+.poll.flash { border-color: var(--accent-fill); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-fill) 35%, transparent); }
 
-.opt.drop { outline: 2px solid var(--accent); outline-offset: -2px; }
+.opt.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 .optlink { display: flex; align-items: center; gap: 4px; margin: 2px 0 6px 4px; }
 .optlink .tag { margin-left: 0; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .optlink .tag.ref { cursor: pointer; }
-.optlink .x { padding: 0 4px; border: 0; background: none; color: var(--text-dim); font: inherit; cursor: pointer; }
+.optlink .x { padding: 0 4px; border: 0; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
 
-.opt-row { flex-wrap: wrap; }
 .o-datewrap { flex: 1 1 100%; }

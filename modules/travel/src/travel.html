@@ -66,7 +66,7 @@
   </div>
   <!-- "Pick a date..." at the end of Move to another day: a date field under the item's button, Move or Enter picks -->
   <form id="date-pop" class="menu date-pop" role="dialog" aria-label="Move to a date" hidden>
-    <label>Move to<input id="date-pop-input" type="date" required></label>
+    <label class="sdk-field"><span class="sdk-label">Move to</span><input id="date-pop-input" type="date" required></label>
     <div class="date-pop-buttons"><button class="btn btn-primary" id="date-pop-go" type="submit">Move</button><button class="btn" id="date-pop-cancel" type="button">Cancel</button></div>
   </form>
 </div>
@@ -228,7 +228,7 @@
     </fieldset>
 
     <div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">
-      <div class="sdk-checks"><label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox"> Round trip</label></div>
+      <div class="sdk-checks"><label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label></div>
       <p class="sdk-hint" id="f-roundtrip-note" hidden></p>
       <fieldset class="sdk-section return-leg" id="f-return" hidden><legend class="sdk-section-title">Return</legend>
         <div class="sdk-section lookup" id="f-back-lookup" data-types="flight" role="group" aria-label="Look up the return flight" hidden>

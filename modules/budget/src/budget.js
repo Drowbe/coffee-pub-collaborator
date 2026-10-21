@@ -490,7 +490,7 @@
     $('f-readonly').textContent = readOnly ? `You can look at the costs but not change them.` : '';
     hide($('f-readonly'), !readOnly);
     $('f-title').value = shown.title;
-    for (const u of $('form').querySelectorAll('[data-slot="unit"]')) u.textContent = `(${currencyCode()})`;
+    for (const u of $('form').querySelectorAll('[data-slot="unit"]')) u.textContent = currencyCode();
     $('f-planned').value = amountText(shown.planned);
     $('f-actual').value = amountText(shown.actual);
     // A category taken off the list shows as Other and is kept as it was until another is chosen.
@@ -513,7 +513,7 @@
     $('f-by').textContent = shown.by ? `Added by ${nameOf(shown.by) || 'someone'}` : '';
     state.editing.ref = shown.ref;
     editorError('');
-    $('f-fields').disabled = readOnly;
+    for (const el of $('form').querySelectorAll('input, select, textarea')) el.disabled = readOnly;
     hide($('f-save'), readOnly);
     hide($('f-cancel'), readOnly);
     hide($('f-delete'), readOnly || !id);

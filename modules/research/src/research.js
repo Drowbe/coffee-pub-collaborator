@@ -485,6 +485,7 @@
   const formSnapshot = () => JSON.stringify([$('f-title').value, $('f-caption').value, $('f-url').value, $('f-body').value, $('f-excerpt').value, $('f-tags').value, $('f-point').value, $('f-date').value, state.editing ? state.editing.icon : '']);
   const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
   const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { state.editing = null; } });
+  const datePicker = host.ui.datePicker($('f-date'), { clearable: true }); // its weekday shows in the field's hint
   function paintIconChoices() {
     const icon = state.editing && state.editing.kind === 'note' ? noteIcon(state.editing.icon) : '';
     for (const b of $('f-icons').querySelectorAll('[data-action="pick-icon"]')) {
@@ -635,6 +636,7 @@
     $('f-by').textContent = it.by ? `Added by ${nameOf(it.by) || 'someone'}${it.at ? ' on ' + dayText(it.at.slice(0, 10)) : ''}` : '';
     editorError('');
     setFormEditable(canEdit);
+    datePicker.refresh();
     hide($('f-save'), !canEdit);
     hide($('form').querySelector('[data-action="suggest-tags"]'), !(state.ai && canEdit && id && kind !== 'photo'));
     hide($('f-delete'), !id || !cur || !mayRemove(cur));
@@ -674,7 +676,7 @@
     e.conflict = { version };
     const bar = clone('tpl-conflict');
     fill(bar, { text: 'Someone changed this while you were editing.' });
-    $('form').querySelector('.editor-buttons').before(bar);
+    $('form').querySelector('.sdk-editor-actions').before(bar);
     editorError('');
   }
   $('form').addEventListener('click', (ev) => {

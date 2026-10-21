@@ -253,7 +253,7 @@ test('a pin takes the place\'s colour, else its category\'s, else the category\'
   assert.match(page, /a\.name === 'categoryColors' && a\.open === true/, 'asked of the Places in this page');
   assert.match(page, /host\.actions\.request\(action\.action, \{\}, \{ wait: true, here: true \}\)/);
   assert.ok(!/% 360/.test(page) && !page.includes('BUILT_IN_CATS'), 'no hash hue');
-  assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--bg\)\); \}/);
+  assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--surface-page\)\); \}/);
   assert.ok(!/--turn|oklch/.test(css), 'no turned hues in the stylesheet');
   const places = fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8'); // the colour rule moved into Places' library (0.11.0)
   assert.match(places, /const AUTO_COLOR = '#888888';/);

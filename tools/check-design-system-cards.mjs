@@ -126,6 +126,22 @@ const cardsProbe = async () => {
       if (!/Exception, kept/.test(d.body.textContent)) bad('the Calendar exception is not flagged "Exception, kept" in its frame'); } }
   // Surface steps, corners and the hairline, on the real components.
   // Paddings (decided 2026-10-21, on the spacing scale): panel 16 at every width, card 12, row 8 by 10 (8 + 2), Home card 20.
+  // The banded card (decided 2026-10-21): one hairline box, a 30px band (31 with its hairline) shaded from the role over the box's own surface, a hairline under it, the same band on a chat message.
+  { const d = get('Cards, object box with a head band'); const boxes = d ? [...d.querySelectorAll('.sdk-card-banded')] : []; const border = d && tok(d, 'var(--border)');
+    if (boxes.length < 4) bad(`the head band frame shows ${boxes.length} banded boxes, expected 4 (two objects, two chat messages)`);
+    if (!boxes.some((b) => b.matches('.sdk-message'))) bad('the head band frame shows no chat message as an instance');
+    const hs = new Set();
+    for (const b of boxes) { const c = cs(b); const head = b.querySelector(':scope > :is(.sdk-card-head, .sdk-message-head)'); const body = b.querySelector(':scope > :is(.sdk-card-body, .sdk-message-body)');
+      if (!head || !body) { bad('a banded box has no head band or no body'); continue; }
+      for (const s of ['Top', 'Right', 'Bottom', 'Left']) if (c['border' + s + 'Width'] !== '1px' || c['border' + s + 'Color'] !== border) bad(`a banded box ${s.toLowerCase()} edge is not the 1px --border hairline`);
+      if (c.borderTopLeftRadius !== rTok(d, '--radius-medium')) bad('a banded box is not --radius-medium');
+      const hc = cs(head); hs.add(Math.round(head.getBoundingClientRect().height * 10) / 10);
+      if (hc.borderBottomWidth !== '1px' || hc.borderBottomColor !== border) bad('a head band has no hairline under it');
+      const probe = d.createElement('span'); probe.style.backgroundColor = 'var(--card-head-fill)'; b.appendChild(probe); const want = cs(probe).backgroundColor; probe.remove();
+      if (hc.backgroundColor !== want || hc.backgroundColor === c.backgroundColor) bad(`a head band is ${hc.backgroundColor}, not --card-head-fill (${want}) a step off the box`);
+      if (!b.matches('.sdk-message') && want !== tok(d, 'color-mix(in srgb, var(--text) 6%, var(--bg-card))', 'backgroundColor')) bad('the neutral band is not --text 6% over --bg-card');
+      if (cs(body).paddingLeft !== '12px' || cs(body).paddingTop !== '8px' || cs(body).backgroundColor !== 'rgba(0, 0, 0, 0)') bad('a banded body is not on the box\'s own surface 8px 12px in'); }
+    if (hs.size > 1) bad(`the head bands differ in height (${[...hs].join(', ')})`); else if (hs.size && Math.abs([...hs][0] - 31) > 0.6) bad(`a head band is ${[...hs][0]}px, expected 31 (30 and its hairline)`); }
   { const d = get('Cards, nested rows'); const pn = d.querySelector('.sdk-panel'), cd = d.querySelector('.sdk-card'), rw = d.querySelector('.sdk-panel > .pm-cd-two > div > .sdk-list > .sdk-row') || d.querySelector('.sdk-row');
     if (cs(pn).paddingTop !== '16px' || cs(pn).paddingLeft !== '16px') bad(`the panel padding is ${cs(pn).paddingTop} ${cs(pn).paddingLeft}, expected 16px at every width`);
     if (cs(cd).paddingTop !== '12px' || cs(cd).paddingLeft !== '12px') bad(`the card padding is ${cs(cd).paddingTop} ${cs(cd).paddingLeft}, expected 12px`);

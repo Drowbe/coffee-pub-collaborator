@@ -1184,7 +1184,6 @@
   --card-head-h: var(--btn-h-small); /* the banded card's head band: 30px */
   --card-head-tint: var(--text-primary); /* what the band is shaded with */
   --card-head-step: 6%; /* how much: one step darker than the box's own surface */
-  --card-band-radius: var(--radius-medium);
   --tick-hit: 28px; /* 44px on a phone */
   --tick-edge: -6px;
   --ls-label: 0.04em;
@@ -1261,7 +1260,7 @@
 
 /* ---- the banded card: an object box with a head band (a message, an object with a title row) ----
    One hairline box. The head is a band across the top, a shaded step of the box's own surface (--card-head-tint at
-   --card-head-step over --s), a hairline under it; the body sits on the box's own surface. The band is part of the box,
+   --card-head-step over --s), 30px (--card-head-h) and a hairline under it; the body sits on the box's own surface. The band is part of the box,
    not a nesting level: window > banded card > card. Its head holds a portrait or icon, the title, the meta, and the "..."
    at the right. Aliases: .message (Chat). */
 :where(.sdk-card-banded, .message) {
@@ -1276,7 +1275,7 @@
   margin: 0;
   padding: 0;
   border: 1px solid var(--edge-hairline);
-  border-radius: var(--card-band-radius);
+  border-radius: var(--radius-medium);
   background: var(--s);
   color: var(--text-primary);
   box-shadow: none;
@@ -1287,19 +1286,26 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  box-sizing: border-box;
+  box-sizing: content-box; /* 30px, then the hairline */
   min-width: 0;
   min-height: var(--card-head-h);
-  padding: 0 var(--space-0) 0 var(--space-2);
+  padding: 0 var(--space-0) 0 var(--space-3);
   border-bottom: 1px solid var(--edge-hairline);
-  border-radius: calc(var(--card-band-radius) - 1px) calc(var(--card-band-radius) - 1px) 0 0;
+  border-top-left-radius: var(--radius-medium);
+  border-top-right-radius: var(--radius-medium);
   background: var(--card-head-fill);
 }
 :where(.sdk-card-banded) > .sdk-card-body,
 :where(.message) > .message-body {
   min-width: 0;
-  padding: var(--space-2); /* in line with the head's 8px */
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3); /* 12 in line with the head; a card inside keeps 12 from the edge */
 }
+/* The head's parts in a banded object box: the icon (24px), the title in one line, the meta, then the "..." at the right. */
+.sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: var(--text-12); line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: var(--text-11); }
+.sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: var(--text-12); }
 
 /* ---- the row ---- */
 :where(.sdk-row) {

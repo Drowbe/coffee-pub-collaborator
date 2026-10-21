@@ -348,3 +348,60 @@
 @media (prefers-reduced-motion: reduce) {
   .ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice) { transition: none; }
 }
+
+/* ==== The banded card: an object box with a head band (Thomas, 2026-10-21: chat lost its head bands and ran together) ====
+   One hairline box (--radius-medium). The head is a band across the top: a shaded step of the box's own surface (--card-head-tint at
+   --card-head-step over --s), a 1px hairline under it, 30px high (--card-head-h) plus the hairline, 0 2px 0 12px of padding: a portrait or icon, the title, the
+   meta, and the "..." at the right. The body sits on the box's own surface, 8px 12px 12px in (12 in line with the head, and a card inside keeps 12 from the edge). The band is part of
+   the box, not a nesting level: window > banded card > card. One set of tokens, so a theme or a role moves every banded card at once.
+   Names: .sdk-card-banded (parts .sdk-card-head as the band, .sdk-card-body). Aliases: .sdk-message, .message (Chat; .sdk-message-head and
+   .message-head are the band, .sdk-message-body and .message-body the body). The product's rules: system.css, Cards. */
+.ds-proposed {
+  --card-head-h: 30px;
+  --card-head-tint: var(--text);
+  --card-head-step: 6%;
+}
+
+.ds-proposed :is(.sdk-card-banded, .sdk-message, .message) {
+  --s: var(--bg-card);
+  --card-head-fill: color-mix(in srgb, var(--card-head-tint) var(--card-head-step), var(--s));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--s);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.ds-proposed :is(.sdk-card-banded, .sdk-message, .message) > :is(.sdk-card-head, .sdk-message-head, .message-head) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: content-box;
+  min-width: 0;
+  min-height: var(--card-head-h);
+  padding: 0 2px 0 12px;
+  border-bottom: 1px solid var(--border);
+  border-top-left-radius: var(--radius-medium);
+  border-top-right-radius: var(--radius-medium);
+  background: var(--card-head-fill);
+}
+
+.ds-proposed :is(.sdk-card-banded, .sdk-message, .message) > :is(.sdk-card-body, .sdk-message-body, .message-body) {
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px 12px;
+}
+
+.ds-proposed .sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: 11px; }
+.ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: 12px; }

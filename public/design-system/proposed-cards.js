@@ -51,6 +51,14 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     return `<div class="${cls}"${at}>${o.tick ? `<label class="sdk-row-tick"><input type="checkbox"${o.tick === 'on' ? ' checked' : ''} aria-label="Done: ${h(o.title)}"></label>` : ''}${o.icon ? `<span class="sdk-card-icon">${fa(o.icon)}</span>` : ''}<span class="sdk-row-main"><span class="sdk-row-title">${t}</span>${o.sub ? `<span class="sdk-row-sub">${o.sub}</span>` : ''}</span>${o.meta ? `<span class="sdk-row-meta">${o.meta}</span>` : ''}${o.action ? `<button type="button" class="btn btn-small">${o.action}</button>` : ''}${o.menu ? MENU : ''}</div>`;
   };
 
+  // One banded card (an object box with a head band). o: icon, tint, title, meta, body (html), cls, portrait (a letter: a chat head).
+  const banded = (o = {}) => `<div class="sdk-card-banded${o.cls ? ' ' + o.cls : ''}"${o.tint ? ` data-tint="${o.tint}"` : ''}>
+      <div class="sdk-card-head"><div class="sdk-card-main">${o.icon ? `<span class="sdk-card-icon">${fa(o.icon)}</span>` : ''}<h4 class="sdk-card-title">${o.title}</h4>${o.meta ? `<span class="sdk-card-sub">${o.meta}</span>` : ''}</div>${MENU}</div>
+      <div class="sdk-card-body">${o.body}</div>
+    </div>`;
+  // A chat message as an instance of it: the Chat family's markup, the same band.
+  const bandedMsg = (o = {}) => `<div class="sdk-card-banded sdk-message${o.own ? ' own' : ''}"><div class="sdk-message-head"><span class="sdk-message-who"><span class="sdk-message-portrait" aria-hidden="true">${o.who[0]}</span><span class="sdk-message-name">${o.who}</span><time class="sdk-message-time">${o.time}</time></span><span class="sdk-message-tools">${MENU}</span></div><div class="sdk-message-body"><div class="sdk-message-text">${o.text}</div></div></div>`;
+
   const wrap = (inner) => `<div class="ds-proposed">${inner}</div>`;
   const CAPTION = (s) => `<small>${s}</small>`;
 
@@ -111,6 +119,11 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       row({ title: 'Louvre', meta: '9:30', menu: true }), row({ title: 'Lunch at Café Marly', meta: '12:30', menu: true, sel: true }), row({ title: 'Seine walk', meta: '16:00', open: true, menu: true }),
     ].join('') })}</div>
     <div>${CAPTION('Rows on a panel, then a card')}<div class="sdk-list">${row({ title: 'Louvre', meta: '9:30', menu: true })}${row({ title: 'Seine walk', meta: '16:00', menu: true })}${card({ title: 'Notes', body: 'Nothing planned for the evening.' })}</div></div>
+  </div></div>`);
+
+  const bandedBody = () => wrap(`<div class="sdk-panel"><div class="pm-cd-two">
+    <div>${CAPTION('Object boxes')}<div class="sdk-list">${banded({ icon: 'utensils', tint: 'orange', title: 'Lunch at Café Marly', meta: 'Day 2, 12:30', body: '<p class="sdk-card-body">A terrace on the Louvre. Book for four.</p>' })}${banded({ icon: 'landmark', tint: 'blue', title: 'Louvre', meta: 'Day 2, 9:30', body: '<p class="sdk-card-body">Book the timed entry before Friday.</p>' })}</div></div>
+    <div>${CAPTION('Chat messages: the same band')}<div class="sdk-list">${bandedMsg({ who: 'Sam', time: '10:41', text: '<p>Anyone checked the museum hours?</p>' })}${bandedMsg({ who: 'You', own: true, time: '10:42', text: '<p>Open until 9 on Fridays.</p>' })}</div></div>
   </div></div>`);
 
   const phoneBody = () => wrap(`<div class="sdk-panel"><div class="sdk-list-group"><h4 class="sdk-group-head">Today<span class="sdk-group-count">3</span></h4><div class="sdk-list">
@@ -234,7 +247,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="cards-h"><a href="#cards">Cards, panels and rows</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the panel, the card, the row, the group header and the empty state; Home's space card and the ghost slot</span></header>
 <p class="ds-desc"><b>Approved 2026-10-19, from Thomas's decisions of 2026-10-18 and 2026-10-19.</b> (1) One card and one row look: a 1px neutral hairline (<code>--border</code>), no shadow. (2) Hover and selected are quiet fills; selected is <code>--selected-bg</code>. (3) Surfaces step down: page <code>--bg</code>, panel <code>--bg-section</code>, card <code>--bg-card</code>, a row inside a card and a field <code>--bg-input</code>; a row inside a card drops its own edge. (4) The Planner, Places and Research cards lose the gradient, the coloured edge and the lift; the category colour stays on the icon chip and its words. (5) A "..." menu sits in a fixed top-right slot on a card and at the end of a row; a card or row has at most one primary action. (6) A row is 44px high on a phone. (7) Coloured left bars become fills, icons and words, except Calendar's agenda rows and event markers. What was chosen beyond that is listed under "Decided 2026-10-19" (the radii, the paddings, the group header and the ghost slot, which Thomas accepted as a start and may tune later) and "Taken as drawn".</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#cards-anatomy">Anatomy</a><a href="#cards-steps">Surface steps</a><a href="#cards-states">Card states</a><a href="#cards-parts">Card parts</a><a href="#cards-rowstates">Row states</a><a href="#cards-rowparts">Row parts</a><a href="#cards-nested">Rows in a card</a><a href="#cards-phone">On a phone</a><a href="#cards-home">Home card and ghost</a><a href="#cards-bars">Left bars</a><a href="#cards-empty">Empty state and group header</a><a href="#cards-context">In context</a><a href="#cards-contrast">Contrast</a><a href="#cards-map">Today to proposed</a><a href="#cards-alias">Aliases</a><a href="#cards-tokens">Tokens</a><a href="#cards-contract">Markup</a><a href="#cards-widths">Widths</a><a href="#cards-decide">Decided 2026-10-19</a><a href="#cards-taken">Taken as drawn</a></nav>
+<nav class="ds-toc" aria-label="In this family"><a href="#cards-anatomy">Anatomy</a><a href="#cards-steps">Surface steps</a><a href="#cards-states">Card states</a><a href="#cards-parts">Card parts</a><a href="#cards-rowstates">Row states</a><a href="#cards-rowparts">Row parts</a><a href="#cards-nested">Rows in a card</a><a href="#cards-banded">Head band</a><a href="#cards-phone">On a phone</a><a href="#cards-home">Home card and ghost</a><a href="#cards-bars">Left bars</a><a href="#cards-empty">Empty state and group header</a><a href="#cards-context">In context</a><a href="#cards-contrast">Contrast</a><a href="#cards-map">Today to proposed</a><a href="#cards-alias">Aliases</a><a href="#cards-tokens">Tokens</a><a href="#cards-contract">Markup</a><a href="#cards-widths">Widths</a><a href="#cards-decide">Decided 2026-10-19</a><a href="#cards-taken">Taken as drawn</a></nav>
 
 <h4 class="ds-h4" id="cards-anatomy">Anatomy</h4>
 <div data-slot="anatomy"></div>
@@ -271,6 +284,10 @@ ${dim([
 <h4 class="ds-h4" id="cards-nested">Rows in a card</h4>
 <p class="ds-desc">A row inside a card drops its edge, takes <code>--bg-input</code> and the <code>--radius-small</code> corner. A row on a panel keeps the hairline on <code>--bg-card</code> and <code>--radius-medium</code>.</p>
 <div data-slot="nested"></div>
+
+<h4 class="ds-h4" id="cards-banded">Object box with a head band</h4>
+<p class="ds-desc"><b>Decided 2026-10-21 (Thomas).</b> An object box with a title row: one hairline box (<code>--radius-medium</code>), the head a shaded band across the top (<code>--card-head-tint</code> at <code>--card-head-step</code>, 6%, over the box's own surface), a hairline under it, 30px high (<code>--card-head-h</code>) plus the hairline, the portrait or icon, the title, the meta and the "..." at the right. The body sits on the box's own surface, 8px 12px 12px in, so a card inside keeps 12px from the edge. The band is part of the box, not a nesting level: window, then the banded card, then a card. A chat message is one (<code>.sdk-message</code> and <code>.message</code> are aliases); your own message sets the tint to the accent. Names: <code>.sdk-card-banded</code>, parts <code>.sdk-card-head</code> (the band) and <code>.sdk-card-body</code>.</p>
+<div data-slot="banded"></div>
 
 <h4 class="ds-h4" id="cards-phone">On a phone (390 wide)</h4>
 <p class="ds-desc">A row is 44px high. The tick has a 44px hit area; the "..." button keeps its 30px look with a 44px hit area (Buttons). The whole row is a target where it opens something.</p>
@@ -409,6 +426,7 @@ ${tbl(['Drawn', 'Why', 'Other way'], [
     slot('rowstates').appendChild(F(rowStatesBody(), 'Rows, states'));
     slot('rowparts').appendChild(F(rowPartsBody(), 'Rows, parts'));
     slot('nested').appendChild(F(nestedBody(), 'Cards, nested rows'));
+    slot('banded').appendChild(F(bandedBody(), 'Cards, object box with a head band'));
     slot('phone').appendChild(F(phoneBody(), 'Rows, on a phone', { pinWidth: 390 }));
     slot('home').appendChild(F(homeBody(), 'Cards, Home card and ghost'));
     slot('bars').appendChild(F(barsBody(), 'Cards, left bar replacements'));

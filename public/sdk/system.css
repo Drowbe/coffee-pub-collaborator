@@ -1627,6 +1627,252 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 }
 /* tables:end */
 
+/* ================= Calendar cells (design system step 32) =================
+   The Calendar's month, week and day: one cell, the event chip in it, the hour row, and the agenda's rows. Source:
+   public/design-system/proposed-calendar.css, with the colour roles. The date picker keeps the Menus block's .sdk-dp-day (the same values).
+   - Cell (.sdk-cal-cell): the field step (--surface-field: the value the drawing's --bg-card has), a 1px hairline, --radius-medium, 4px padding, at least 74px high (54px in the
+     compact month, 150px in a week). Hover is the text colour at 10% over the cell, pressed 16%; never an edge.
+   - Today (.is-today, aria-current="date"): the accent at 14% over the cell (--fill-today's share), the number bold in the text colour.
+     The chosen day (.is-selected): solid --accent-fill with --text-on-accent. Outside the month (.is-other): 55% opacity. The day a
+     link opened (.is-linked): the selected fill and the word "Linked" (.sdk-cal-word). A drop target (.is-drop): the 2px outline, inside.
+     A module can lay a wash under a cell (--cal-wash: the Calendar's phase wash); every state mixes over it (--cal-surface).
+   - Event chip (.sdk-cal-event): 18px, 11px, --radius-small, its tone (--ev-tone: the accent, or data-tint) at 22% over the cell and
+     the tone mixed 45% into the text for its words. One line in a month, wrapping in a week and a day. "+2 more" is .sdk-cal-more.
+   - The compact month (.sdk-cal-compact): events are 7px dots (ours accent, other calendars dim, markers in their tint); the
+     compact week is a list, the day on the left.
+   - Hour rows (.sdk-cal-hour, .sdk-cal-allday, .sdk-cal-hr): the cell's hairline, corner and hover; "now" (.is-now) is the selected
+     fill and a "Now" status label.
+   - Agenda (.sdk-cal-agenda): its rows are the Cards rows, the time in .sdk-row-meta.
+   - The Calendar exception (Thomas, 2026-10-18; end caps 2026-10-21): the agenda's rows and the chips of other calendars and of
+     markers keep a 3px bar on the left, .sdk-bar-kept: a straight, square-ended block (::before, a real box, not a border or an inset
+     shadow) the full height of the box, in --tint, and the box is square on that side. Nowhere else.
+   tools/check-design-system-calendar.mjs holds the drawing. */
+/* calendar:start */
+:root {
+  --cal-cell-h: 74px;
+  --cal-chip-h: 18px;
+  --cal-hover: 10%;
+  --cal-press: 16%;
+  --cal-today: 14%; /* --fill-today's share of the accent */
+  --cal-tint: 22%;
+  --cal-out: 0.55;
+  --cal-bar: 3px; /* the kept bar */
+  /* Muted text on a fill (hover, today, another calendar's chip): a little stronger, as the plain muted colour is under 4.5 to 1 there in the light mode. */
+  --cal-dim: color-mix(in srgb, var(--text-muted) 55%, var(--text-primary));
+}
+
+/* ---- the grids ---- */
+.sdk-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+  min-width: 0;
+}
+.sdk-cal-dow {
+  min-width: 0;
+  padding: var(--space-0) var(--space-1) var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: 14px;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+/* ---- the cell ---- */
+.sdk-cal-cell {
+  --cal-surface: var(--cal-wash, var(--surface-field)); /* a module may lay a wash under the cell (--cal-wash) */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--cal-cell-h);
+  margin: 0;
+  padding: var(--space-1);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--cal-surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+  outline: none;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.sdk-cal-cell:hover { background: color-mix(in srgb, var(--text-primary) var(--cal-hover), var(--cal-surface)); }
+.sdk-cal-cell:active { background: color-mix(in srgb, var(--text-primary) var(--cal-press), var(--cal-surface)); }
+.sdk-cal-cell:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.sdk-cal-n { color: var(--text-muted); font-size: var(--text-12); line-height: 16px; font-variant-numeric: tabular-nums; }
+.sdk-cal-cell:is(:hover, .in-range) .sdk-cal-n { color: var(--cal-dim); }
+
+/* Today: the selected fill at half strength; the number bold in the text colour. */
+.sdk-cal-cell.is-today { background: color-mix(in srgb, var(--accent-fill) var(--cal-today), var(--cal-surface)); }
+.sdk-cal-cell.is-today .sdk-cal-n { color: var(--text-primary); font-weight: var(--weight-strong); }
+.sdk-cal-cell.is-today:hover { background: color-mix(in srgb, var(--text-primary) var(--cal-press), color-mix(in srgb, var(--accent-fill) var(--cal-today), var(--cal-surface))); }
+
+/* A range: the quiet fill. */
+.sdk-cal-cell.in-range { background: color-mix(in srgb, var(--text-primary) var(--cal-hover), var(--cal-surface)); }
+.sdk-cal-cell.in-range:hover { background: color-mix(in srgb, var(--text-primary) var(--cal-press), var(--cal-surface)); }
+
+/* Outside the month. */
+.sdk-cal-cell.is-other { opacity: var(--cal-out); }
+.sdk-cal-cell.is-other:hover { opacity: 0.85; }
+
+/* The chosen day: the one solid accent. Its focus outline is the text on the accent (an accent outline cannot show on an accent fill). */
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]) { background: var(--accent-fill); color: var(--text-on-accent); }
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]):hover { background: var(--accent-fill-hover); }
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-n { color: var(--text-on-accent); font-weight: var(--weight-strong); }
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]):focus-visible { outline-color: var(--text-on-accent); }
+
+/* The day a link opened: the selected fill and a word. */
+.sdk-cal-cell.is-linked { background: var(--fill-selected); }
+.sdk-cal-cell.is-linked .sdk-cal-n { color: var(--text-primary); font-weight: var(--weight-strong); }
+
+/* A drop target while something is dragged over: the 2px outline, drawn inside. */
+:is(.sdk-cal-cell, .sdk-cal-event, .sdk-cal-agenda .sdk-row).is-drop { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+/* The word in a cell ("Linked"): a status label small enough for a cell. */
+.sdk-cal-cell > .sdk-cal-word {
+  align-self: flex-start;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0 calc(var(--space-1) + var(--space-0));
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--text-primary) var(--cal-hover), transparent);
+  color: var(--text-primary);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- the chips in a cell: the Chips family's tag, small ---- */
+.sdk-cal-chips { display: flex; flex-direction: column; gap: var(--space-0); min-width: 0; }
+.sdk-cal-event {
+  --ev-tone: var(--accent-fill);
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--cal-chip-h);
+  margin: 0;
+  padding: 0 calc(var(--space-1) + var(--space-0));
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--ev-tone) var(--cal-tint), var(--cal-surface, var(--surface-field)));
+  color: color-mix(in srgb, var(--ev-tone) 45%, var(--text-primary));
+  font: inherit;
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  line-height: 16px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  outline: none;
+}
+.sdk-cal-event[data-tint] { --ev-tone: var(--tint, var(--accent-fill)); }
+.sdk-cal-event.is-environment { --ev-tone: var(--text-muted); }
+.sdk-cal-event:hover { background: color-mix(in srgb, var(--ev-tone) 36%, var(--cal-surface, var(--surface-field))); }
+.sdk-cal-event:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+:is(.sdk-cal-week, .sdk-cal-hours, .sdk-cal-allday) .sdk-cal-event, .sdk-cal-event.is-wrap { white-space: normal; overflow-wrap: anywhere; }
+.sdk-cal-more { color: var(--text-muted); font-size: var(--text-11); line-height: 14px; }
+
+/* An event on the chosen day (solid accent): the chip reads against the accent, not tinted by it. */
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: color-mix(in srgb, var(--text-primary) 22%, var(--accent-fill)); color: var(--text-on-accent); }
+
+/* The exception, kept: the 3px bar on the left of a Calendar agenda row and of the chips of other calendars and markers (Thomas, 2026-10-18).
+   A straight, square-ended block the full height of the box (it covers the box's own 1px edge, --bar-bleed); the box is square on that side. */
+.sdk-bar-kept { --bar-bleed: 1px; padding-left: calc(var(--row-pad-x) + var(--cal-bar)); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.sdk-bar-kept::before { content: ""; position: absolute; left: calc(-1 * var(--bar-bleed)); top: calc(-1 * var(--bar-bleed)); bottom: calc(-1 * var(--bar-bleed)); width: var(--cal-bar); border-radius: 0; background: var(--tint, var(--accent-fill)); pointer-events: none; }
+/* The chip with the bar: a quiet neutral fill; markers in their tint (the compact month's dots). */
+.sdk-cal-event.sdk-bar-kept { --bar-bleed: 0px; --ev-tone: var(--tint, var(--text-muted)); border-width: 0; padding-left: calc(var(--space-2) + var(--space-0) / 2); background: color-mix(in srgb, var(--text-muted) 12%, var(--cal-surface, var(--surface-field))); color: var(--cal-dim); }
+.sdk-cal-event.sdk-bar-kept:hover { background: color-mix(in srgb, var(--text-muted) 22%, var(--cal-surface, var(--surface-field))); color: var(--text-primary); }
+.sdk-cal-event.sdk-bar-kept.is-marker { color: var(--text-primary); }
+:is(.sdk-cal-event, .sdk-cal-agenda .sdk-row).is-past { opacity: var(--cal-out); }
+:is(.sdk-cal-event, .sdk-cal-agenda .sdk-row).is-past:hover { opacity: 0.85; }
+
+/* ---- the week, the compact month and week ---- */
+.sdk-cal-week { --cal-cell-h: 150px; }
+.sdk-cal-week .sdk-cal-n { font-size: var(--text-11); font-weight: var(--weight-strong); letter-spacing: var(--ls-label); text-transform: uppercase; }
+.sdk-cal-week .sdk-cal-n b { margin-left: var(--space-0); color: var(--text-primary); font-size: var(--text-14); font-weight: var(--weight-strong); letter-spacing: normal; }
+.sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-n b { color: var(--text-on-accent); }
+.sdk-cal-compact .sdk-cal-grid { --cal-cell-h: 54px; }
+.sdk-cal-compact .sdk-cal-chips { flex-direction: row; flex-wrap: wrap; gap: var(--space-1); }
+.sdk-cal-compact .sdk-cal-event { width: 7px; min-width: 7px; height: 7px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-round); background: var(--ev-tone); font-size: var(--text-11); line-height: 7px; color: transparent; overflow: hidden; }
+.sdk-cal-compact .sdk-cal-event > * { display: none; }
+.sdk-cal-compact .sdk-cal-event.is-environment { background: var(--text-muted); }
+.sdk-cal-compact .sdk-cal-event.sdk-bar-kept { width: 7px; padding: 0; background: var(--ev-tone); color: transparent; }
+.sdk-cal-compact .sdk-cal-event.sdk-bar-kept::before { display: none; }
+.sdk-cal-compact .sdk-cal-event.sdk-bar-kept.is-ext { background: var(--text-muted); }
+.sdk-cal-compact .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: var(--text-on-accent); }
+/* A compact week is a list: the day on the left, its events beside it. */
+.sdk-cal-compact .sdk-cal-week { grid-template-columns: minmax(0, 1fr); }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-cell { --cal-cell-h: 0px; flex-direction: row; align-items: flex-start; gap: calc(var(--space-2) + var(--space-0)); }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-n { flex: none; width: 52px; }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-chips { flex: 1 1 auto; flex-direction: column; gap: var(--space-0); }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-event { width: 100%; height: auto; min-height: var(--cal-chip-h); padding: 0 calc(var(--space-1) + var(--space-0)); border-radius: var(--radius-small); background: color-mix(in srgb, var(--ev-tone) var(--cal-tint), var(--cal-surface, var(--surface-field))); line-height: 16px; color: color-mix(in srgb, var(--ev-tone) 45%, var(--text-primary)); overflow: visible; }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-event > * { display: revert; }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-event.sdk-bar-kept { border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: calc(var(--space-2) + var(--space-0) / 2); background: color-mix(in srgb, var(--text-muted) 12%, var(--cal-surface, var(--surface-field))); color: var(--cal-dim); }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-event.sdk-bar-kept::before { display: block; }
+.sdk-cal-compact .sdk-cal-week .sdk-cal-event.sdk-bar-kept.is-marker { color: var(--text-primary); }
+
+/* ---- the agenda: rows are Cards rows; the bar is the declared exception ---- */
+.sdk-cal-agenda { display: flex; flex-direction: column; gap: var(--gap-in); min-width: 0; }
+.sdk-cal-agenda .sdk-row-meta { width: 21ch; text-align: left; color: color-mix(in srgb, var(--accent-fill) 55%, var(--text-primary)); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
+.sdk-cal-agenda .sdk-row:is(.is-ext, .is-marker) .sdk-row-meta { color: var(--text-muted); }
+.sdk-cal-compact .sdk-cal-agenda .sdk-row-meta { width: 18ch; }
+@media (max-width: 640px) {
+  .sdk-cal-agenda .sdk-row { flex-wrap: wrap; row-gap: 0; }
+  .sdk-cal-agenda .sdk-row-meta { order: 3; width: 100%; }
+}
+
+/* ---- the day view: an all-day row, then a column of hours (each a row-shaped cell) ---- */
+.sdk-cal-hours { display: flex; flex-direction: column; gap: var(--space-0); min-width: 0; }
+:is(.sdk-cal-hour, .sdk-cal-allday) {
+  --cal-surface: var(--surface-field);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 34px;
+  margin: 0;
+  padding: var(--space-1) calc(var(--space-1) + var(--space-0));
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--cal-surface);
+  color: var(--text-primary);
+  font: inherit;
+  outline: none;
+  transition: background var(--motion-fast);
+}
+.sdk-cal-allday { min-height: 0; }
+.sdk-cal-hour { cursor: pointer; }
+.sdk-cal-hour:hover { background: color-mix(in srgb, var(--text-primary) var(--cal-hover), var(--cal-surface)); }
+.sdk-cal-hour:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-cal-hr { flex: none; width: 66px; padding-top: 1px; color: var(--text-muted); font-size: var(--text-11); line-height: 16px; font-variant-numeric: tabular-nums; }
+/* "Now": the selected fill and a word, so it does not depend on colour. */
+.sdk-cal-hour.is-now { background: var(--fill-selected); }
+.sdk-cal-hour.is-now .sdk-cal-hr { color: var(--text-primary); font-weight: var(--weight-strong); }
+:is(.sdk-cal-hour, .sdk-cal-allday) > .sdk-cal-chips { flex: 1 1 auto; }
+.sdk-cal-hour > .sdk-status { flex: none; margin-left: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sdk-cal-cell, .sdk-cal-hour) { transition: none; }
+}
+/* calendar:end */
+
 /* ================= Fields and forms (design system step 13) =================
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the

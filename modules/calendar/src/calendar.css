@@ -9,38 +9,12 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .nav h2 { margin: 0 0 0 6px; font-size: var(--text-18); }
 .body { flex: 1; min-height: 0; overflow: auto; }
 
-/* month */
-.month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.dow { padding: 2px 4px; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.day { min-height: 74px; padding: 4px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
-.day:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
-.day.other { opacity: 0.55; }
-.day.today { background: var(--fill-selected); }
-.day.today.ph { background: color-mix(in srgb, var(--accent-fill) 28%, color-mix(in srgb, var(--ph) 16%, var(--bg-card))); }
-.day .n { font-size: var(--text-12); color: var(--text-muted); }
-.day.today .n { color: var(--accent); font-weight: var(--weight-strong); }
-.chip { display: block; width: 100%; padding: 1px 5px; border: 0; border-radius: var(--radius-min); background: color-mix(in srgb, var(--accent-fill) 22%, transparent); color: var(--text-primary); font: inherit; font-size: var(--text-11); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.chip:hover { background: color-mix(in srgb, var(--accent-fill) 38%, transparent); }
-.chip.environment { background: color-mix(in srgb, var(--text-muted) 25%, transparent); }
-.more { font-size: var(--text-11); color: var(--text-muted); }
-.compact .month .day { min-height: 54px; }
-.compact .month .chip { font-size: 0; height: 6px; padding: 0; width: 6px; border-radius: var(--radius-round); display: inline-block; margin-right: 2px; background: var(--accent-fill); }
-.compact .month .chip.environment { background: var(--text-muted); }
-.compact .month .day .chips { display: flex; flex-wrap: wrap; }
+/* The month, the week and the day: the cell, the event chip, the hour row and the agenda's rows are the design system's Calendar
+   block (system.css, .sdk-cal-*; the agenda rows are the Cards rows with the kept bar, .sdk-bar-kept). Only the Calendar's own
+   layout and its phase wash are here. */
 
-/* week */
-.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.week .day { min-height: 150px; }
-.week .day .n { font-size: var(--text-12); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.week .day .n b { font-size: var(--text-14); color: var(--text-primary); }
-.week .day.today .n b { color: var(--accent); }
-.week .chip { white-space: normal; overflow-wrap: anywhere; margin-bottom: 2px; }
-.compact .week { grid-template-columns: minmax(0, 1fr); }
-.compact .week .day { min-height: 0; flex-direction: row; align-items: flex-start; gap: 10px; }
-.compact .week .day .n { flex: none; width: 52px; }
-.compact .week .day .chips { flex: 1; min-width: 0; }
-
-/* phases: a day in a dated phase has a soft wash of the phase's tint (the border stays the neutral one); its first day names it */
+/* phases: a day in a dated phase has a soft wash of the phase's tint (the border stays the neutral one); its first day names it.
+   The wash is laid under the cell (--cal-wash, the Calendar block), so today, hover and the chosen day mix over it. */
 .ph-blue { --ph: var(--tint-blue); }
 .ph-green { --ph: var(--tint-green); }
 .ph-teal { --ph: var(--tint-teal); }
@@ -49,28 +23,22 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ph-pink { --ph: var(--tint-pink); }
 .ph-gold { --ph: var(--tint-gold); }
 .ph-red { --ph: var(--tint-red); }
-.day, .phasehead { position: relative; }
-.day.ph, .phasehead.ph { background: color-mix(in srgb, var(--ph) 16%, var(--bg-card)); }
+.phasehead { position: relative; }
+.sdk-cal-cell.ph { --cal-wash: color-mix(in srgb, var(--ph) 16%, var(--surface-field)); }
+.phasehead.ph { background: color-mix(in srgb, var(--ph) 16%, var(--surface-field)); }
 .ph-name { display: block; min-width: 0; font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-title); color: color-mix(in srgb, var(--ph) 55%, var(--text-primary)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.month .day .ph-name { position: absolute; top: 3px; left: 26px; right: 4px; text-align: right; pointer-events: none; }
-.week .day .ph-name { white-space: normal; overflow-wrap: anywhere; text-transform: none; letter-spacing: var(--tracking-normal); margin-top: 1px; }
-.phasehead { padding: 3px 6px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
+.sdk-cal-grid:not(.sdk-cal-week) .sdk-cal-cell .ph-name { position: absolute; top: 3px; left: 26px; right: 4px; text-align: right; pointer-events: none; }
+.sdk-cal-week .sdk-cal-cell .ph-name { white-space: normal; overflow-wrap: anywhere; text-transform: none; letter-spacing: var(--tracking-normal); margin-top: 1px; }
+.sdk-cal-cell.is-selected .ph-name { color: var(--text-on-accent); }
+.phasehead { padding: 3px 6px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
 .phasehead .ph-name { font-size: var(--text-12); }
 
-/* list */
+/* list: the days' headings; each event is a Cards row with the kept bar (.sdk-cal-agenda, system.css) */
 .list { display: flex; flex-direction: column; gap: 0; min-width: 0; max-width: calc(100vw - 20px); }
 .group, .stack > * { min-width: 0; }
 .group h4 { margin: 10px 0 4px; font-size: var(--text-12); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-/* An event in a list is a full-width row: the time in a column that never wraps, the title on one line (ellipsis, the whole
-   text in the tooltip), the event's tint as a fill block on the left, a hairline between rows. */
-.item { display: flex; gap: 12px; align-items: center; width: 100%; padding: 7px 10px 7px 13px; background: transparent; border: 0; border-bottom: 1px solid var(--edge-hairline); border-radius: 0; box-shadow: inset 3px 0 0 var(--accent-fill); color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
-.item:hover { background: color-mix(in srgb, var(--accent-fill) 12%, transparent); }
-.item:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -2px; background: color-mix(in srgb, var(--accent-fill) 12%, transparent); }
-.item .when { flex: none; width: 21ch; color: var(--accent); font-weight: var(--weight-strong); font-size: var(--text-12); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.compact .item .when { width: 18ch; }
-.item .what { flex: 1; min-width: 0; }
-.item .what strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
-.item .sdk-chip-tag { margin-left: var(--space-2); }
+.sdk-cal-agenda .sdk-row-title .sdk-chip-tag { margin-left: var(--space-2); }
+.sdk-cal-agenda .sdk-row-title .ri { margin-right: 5px; }
 
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
    the window, its padding, its close button and its backdrop. The form is .sdk-form: the SDK draws every field, label, hint,
@@ -78,7 +46,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 #f-delete { margin-left: auto; }
 .detail { white-space: pre-wrap; color: var(--text-muted); font-size: var(--text-13); }
 
-.chip .rep, .item .rep { opacity: 0.8; margin-right: 2px; }
+.rep { opacity: 0.8; margin-right: 2px; }
 /* A narrow pane (docked beside the video and chat): the month on top, that month's list beneath. */
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .stack .list-title { margin: 6px 0 0; font-size: var(--text-13); color: var(--text-muted); }
@@ -87,75 +55,44 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* Other spaces' events on the environment page: the space's icon, and a row to show or hide each space. */
 .ri { display: inline-flex; align-items: center; margin-right: 3px; }
 .ri svg { width: 1em; height: 1em; fill: currentColor; }
-.compact .chip .ri { display: none; }
 
 /* What points at an event (a task, say), from other modules. */
 .links { display: flex; flex-wrap: wrap; gap: 4px; }
 .links .sdk-chip-tag b { font-weight: var(--weight-strong); }
 
-.chip, .item { user-select: none; }
+.sdk-cal-event, .sdk-cal-agenda .sdk-row { user-select: none; }
 
-.day.drop, .item.drop, .chip.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
-.note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--bg-card); border: 1px solid var(--edge-hairline); }
-.note.bad { border-color: var(--status-danger-fill, #c0574a); }
-.day.pick { border-color: var(--accent-fill); box-shadow: 0 0 0 2px var(--accent-fill); }
+.note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--surface-field); border: 1px solid var(--edge-hairline); }
+.note.bad { border-color: var(--status-danger-fill); }
 
 /* The day view: an all-day row, then a column of hours (as one day of the week). */
 .dayview { display: flex; flex-direction: column; gap: 6px; }
-.hours { display: flex; flex-direction: column; gap: 2px; }
-.allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
-.hour { min-height: 34px; cursor: pointer; }
-.hour:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
-.hour.now { border-color: var(--accent-fill); }
-.hr { flex: none; width: 66px; padding-top: 1px; color: var(--text-muted); font-size: var(--text-11); }
-.allday .chips, .hour .chips { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.dayview .chip { white-space: normal; overflow-wrap: anywhere; }
 /* The day's phase bar stays at the top of the scroll; scrollDay() stops the first row just beneath it. */
 .dayview .phasehead { position: sticky; top: 0; z-index: 2; }
 
-/* As a part of the Calendar destination: the selected day, and the Agenda's end line. */
-.day.sel { background: color-mix(in srgb, var(--accent-fill) 22%, var(--bg-card)); }
-.day:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+/* As a part of the Calendar destination. */
 .app.part { padding: 8px; }
-.item .what strong .ri { margin-right: 5px; }
 
-/* The person's own other calendars (plan-google-calendar.md, Part 2): read only and muted, each calendar's tint on a thin
-   edge only (design-theme.md, "Tints"), in the same order as the destination's filter. */
-.ext-0 { --ext: var(--tint-blue); }
-.ext-1 { --ext: var(--tint-teal); }
-.ext-2 { --ext: var(--tint-purple); }
-.ext-3 { --ext: var(--tint-green); }
-.ext-4 { --ext: var(--tint-orange); }
-.chip.ext { padding-left: 7px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); color: var(--text-muted); font-style: italic; box-shadow: inset 3px 0 0 var(--ext, var(--text-muted)); }
-.chip.ext:hover { background: color-mix(in srgb, var(--text-muted) 22%, transparent); color: var(--text-primary); }
-.compact .month .chip.ext { padding: 0; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-muted)); }
-.item.ext { box-shadow: inset 3px 0 0 var(--ext, var(--text-muted)); }
-.item.ext .when { color: var(--text-muted); }
-.item.ext .what strong { font-weight: var(--weight-medium); font-style: italic; }
-.item.ext .sdk-chip-tag { --chip-tone: var(--ext, var(--text-muted)); font-style: normal; }
-.sdk-chip.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-muted)); }
-.sdk-chip.ext.on .dot { background: var(--ext, var(--text-muted)); }
+/* The person's own other calendars (plan-google-calendar.md, Part 2): read only and muted, each calendar's tint on the kept
+   bar only (design-theme.md, "Tints"), in the same order as the destination's filter. */
+.ext-0 { --tint: var(--tint-blue); }
+.ext-1 { --tint: var(--tint-teal); }
+.ext-2 { --tint: var(--tint-purple); }
+.ext-3 { --tint: var(--tint-green); }
+.ext-4 { --tint: var(--tint-orange); }
+.sdk-cal-agenda .sdk-row.is-ext .sdk-chip-tag { --chip-tone: var(--tint, var(--text-muted)); }
+.sdk-chip.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); box-shadow: inset 0 0 0 1.5px var(--tint, var(--text-muted)); }
+.sdk-chip.ext.on .dot { background: var(--tint, var(--text-muted)); }
 
 /* Markers (plan-calendar-markers.md): other modules' objects with a date, a task due or a poll's closing time. Not
-   events: the module's icon and a thin edge in its tint (design-theme.md, "Tints"), a quiet background, dimmed once past. */
-.tint-gold { --mk: var(--tint-gold); }
-.tint-blue { --mk: var(--tint-blue); }
-.tint-green { --mk: var(--tint-green); }
-.tint-teal { --mk: var(--tint-teal); }
-.tint-purple { --mk: var(--tint-purple); }
-.tint-red { --mk: var(--tint-red); }
-.tint-orange { --mk: var(--tint-orange); }
-.tint-pink { --mk: var(--tint-pink); }
-.chip.marker { padding-left: 7px; background: color-mix(in srgb, var(--text-muted) 10%, transparent); box-shadow: inset 3px 0 0 var(--mk, var(--text-muted)); }
-.chip.marker:hover { background: color-mix(in srgb, var(--text-muted) 22%, transparent); }
-.chip.marker.past, .item.marker.past { opacity: 0.55; }
-.chip.marker.past:hover, .item.marker.past:hover { opacity: 0.85; }
+   events: the module's icon and the kept bar in its tint (design-theme.md, "Tints"), a quiet background, dimmed once past. */
+.tint-gold { --tint: var(--tint-gold); }
+.tint-blue { --tint: var(--tint-blue); }
+.tint-green { --tint: var(--tint-green); }
+.tint-teal { --tint: var(--tint-teal); }
+.tint-purple { --tint: var(--tint-purple); }
+.tint-red { --tint: var(--tint-red); }
+.tint-orange { --tint: var(--tint-orange); }
+.tint-pink { --tint: var(--tint-pink); }
 .mi { display: inline-flex; align-items: center; margin-right: 4px; vertical-align: -0.1em; }
-.mi svg { width: 1em; height: 1em; fill: var(--mk, var(--text-muted)); }
-.chip.marker:focus-visible, .item.marker:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
-.compact .month .chip.marker { padding: 0; border-radius: var(--radius-min); background: var(--mk, var(--text-muted)); box-shadow: none; }
-.compact .month .chip.marker.past { opacity: 0.45; }
-.compact .chip .mi { display: none; }
-.item.marker { box-shadow: inset 3px 0 0 var(--mk, var(--text-muted)); }
-.item.marker .when { color: var(--text-muted); }
-.item.marker .what strong { font-weight: var(--weight-medium); }
+.mi svg { width: 1em; height: 1em; fill: var(--tint, var(--text-muted)); }

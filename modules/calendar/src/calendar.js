@@ -212,17 +212,19 @@
 
   // --- drawing -------------------------------------------------------------
 
-  const isCompact = () => $('app').classList.contains('compact');
+  const isCompact = () => $('app').classList.contains('sdk-cal-compact');
 
   const externalClass = (x) => `ext-${externalCalendars.get(x.calendar) ? externalCalendars.get(x.calendar).tint : 0}`;
   function chipHtml({ x, start, cont }) {
     if (isMarker(x)) return markerChipHtml(x, start);
     // A multi-day event shows its time on the first day and an arrow on the days after.
     const label = cont ? '\u2192 ' + x.ev.title : (x.ev.allDay ? '' : timeText(start) + ' ') + x.ev.title;
-    if (isExternal(x)) return `<button class="chip ext ${externalClass(x)}" data-open="${esc(x.key)}" title="${esc(`${x.ev.title} (${externalName(x.calendar)})`)}">${esc(label)}</button>`;
-    return `<button class="chip ${x.scope === 'environment' && inSpace ? 'environment' : ''}" data-open="${esc(x.key)}" title="${esc(x.ev.title)}">${spaceIcon(x)}${x.ev.repeat ? '<span class="rep">&#8635;</span>' : ''}${esc(label)}</button>`;
+    if (isExternal(x)) return `<button class="sdk-cal-event sdk-bar-kept is-ext ${externalClass(x)}" data-open="${esc(x.key)}" title="${esc(`${x.ev.title} (${externalName(x.calendar)})`)}">${esc(label)}</button>`;
+    return `<button class="sdk-cal-event${x.scope === 'environment' && inSpace ? ' is-environment' : ''}" data-open="${esc(x.key)}" title="${esc(x.ev.title)}">${spaceIcon(x)}${x.ev.repeat ? '<span class="rep">&#8635;</span>' : ''}${esc(label)}</button>`;
   }
 
+  // A day's cell: its phase wash, outside the month, today, the chosen day (as the destination's calendar).
+  const cellClass = (day, ph, today, sel, other) => `sdk-cal-cell${ph.cls}${other ? ' is-other' : ''}${ymd(day) === today ? ' is-today' : ''}${ymd(day) === sel ? ' is-selected' : ''}`;
   function monthGrid() {
     const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
     const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
@@ -240,17 +242,17 @@
     }
     const today = ymd(new Date());
     const sel = selectedDay();
-    let html = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => `<div class="dow">${d}</div>`).join('');
+    let html = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => `<div class="sdk-cal-dow">${d}</div>`).join('');
     for (let i = 0; i < 42; i += 1) {
       const day = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
       const list = byDay.get(ymd(day)) || [];
       const shown = isCompact() ? list : list.slice(0, 3);
       const ph = phaseFor(ymd(day), i === 0);
-      html += `<div class="day${ph.cls} ${day.getMonth() !== cursor.getMonth() ? 'other' : ''} ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}>
-        <span class="n">${day.getDate()}</span>${phaseNameHtml(ph)}<div class="chips">${shown.map(chipHtml).join('')}</div>
-        ${shown.length < list.length ? `<span class="more">+${list.length - shown.length} more</span>` : ''}</div>`;
+      html += `<div class="${cellClass(day, ph, today, sel, day.getMonth() !== cursor.getMonth())}" data-day="${ymd(day)}"${ymd(day) === today ? ' aria-current="date"' : ''}${dayKeys(day)}>
+        <span class="sdk-cal-n">${day.getDate()}</span>${phaseNameHtml(ph)}<div class="sdk-cal-chips">${shown.map(chipHtml).join('')}</div>
+        ${shown.length < list.length ? `<span class="sdk-cal-more">+${list.length - shown.length} more</span>` : ''}</div>`;
     }
-    return `<div class="month">${html}</div>`;
+    return `<div class="sdk-cal-grid">${html}</div>`;
   }
 
   // Occurrences as a list grouped by day.
@@ -265,9 +267,9 @@
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push(occ);
     }
-    return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => (isMarker(x) ? markerItemHtml(x, start, agenda) : `
-      <button class="item${isExternal(x) ? ` ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}" title="${esc(`${whenFull(x.ev, start, end)}  ${x.ev.title}${x.ev.desc ? ' - ' + x.ev.desc.slice(0, 120) : ''}`)}"><span class="when">${esc(whenText(x.ev, start, end, isCompact()))}</span>
-        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="sdk-chip-tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="sdk-chip-tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="sdk-chip-tag">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="sdk-chip-tag" data-tone="custom">${esc(externalName(x.calendar))}</span>` : ''}</strong></span></button>`)).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
+    return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4><div class="sdk-cal-agenda">${g.map(({ x, start, end }) => (isMarker(x) ? markerItemHtml(x, start, agenda) : `
+      <button type="button" class="sdk-row sdk-bar-kept${isExternal(x) ? ` is-ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}" title="${esc(`${whenFull(x.ev, start, end)}  ${x.ev.title}${x.ev.desc ? ' - ' + x.ev.desc.slice(0, 120) : ''}`)}"><span class="sdk-row-meta">${esc(whenText(x.ev, start, end, isCompact()))}</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="sdk-chip-tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="sdk-chip-tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="sdk-chip-tag">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="sdk-chip-tag" data-tone="custom">${esc(externalName(x.calendar))}</span>` : ''}</span></span></button>`)).join('')}</div></div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
   }
 
   function monthList() {
@@ -309,9 +311,9 @@
       const day = addDays(start, i);
       const list = byDay.get(ymd(day)) || [];
       const ph = phaseFor(ymd(day), i === 0);
-      html += `<div class="day${ph.cls} ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}><span class="n">${esc(day.toLocaleDateString([], { weekday: 'short' }))} <b>${day.getDate()}</b>${phaseNameHtml(ph)}</span><div class="chips">${list.map(chipHtml).join('')}</div></div>`;
+      html += `<div class="${cellClass(day, ph, today, sel, false)}" data-day="${ymd(day)}"${ymd(day) === today ? ' aria-current="date"' : ''}${dayKeys(day)}><span class="sdk-cal-n">${esc(day.toLocaleDateString([], { weekday: 'short' }))} <b>${day.getDate()}</b>${phaseNameHtml(ph)}</span><div class="sdk-cal-chips">${list.map(chipHtml).join('')}</div></div>`;
     }
-    return `<div class="week">${html}</div>`;
+    return `<div class="sdk-cal-grid sdk-cal-week">${html}</div>`;
   }
   function weekTitle() {
     const s = weekStart();
@@ -337,12 +339,12 @@
     }
     const k = ymd(start);
     const ph = phaseFor(k, true);
-    let html = `${ph.label ? `<div class="phasehead ph ph-${esc(phaseOnDay(phaseBands, k).tint)}"><small class="ph-name">${esc(ph.label)}</small></div>` : ''}<div class="allday"><span class="hr">All day</span><div class="chips">${allDay.map(chipHtml).join('')}</div></div><div class="hours">`;
+    let html = `${ph.label ? `<div class="phasehead ph ph-${esc(phaseOnDay(phaseBands, k).tint)}"><small class="ph-name">${esc(ph.label)}</small></div>` : ''}<div class="sdk-cal-allday"><span class="sdk-cal-hr">All day</span><div class="sdk-cal-chips">${allDay.map(chipHtml).join('')}</div></div><div class="sdk-cal-hours">`;
     const now = new Date();
     for (let h = 0; h < 24; h += 1) {
       const at = new Date(start.getFullYear(), start.getMonth(), start.getDate(), h);
       const current = ymd(now) === k && now.getHours() === h;
-      html += `<div class="hour${current ? ' now' : ''}" data-day="${k}" data-hour="${h}"><span class="hr">${esc(timeText(at))}</span><div class="chips">${(byHour.get(h) || []).map(chipHtml).join('')}</div></div>`;
+      html += `<div class="sdk-cal-hour${current ? ' is-now' : ''}" data-day="${k}" data-hour="${h}"><span class="sdk-cal-hr">${esc(timeText(at))}</span><div class="sdk-cal-chips">${(byHour.get(h) || []).map(chipHtml).join('')}</div>${current ? '<span class="sdk-status" data-tone="info"><span class="sdk-chip-label">Now</span></span>' : ''}</div>`;
     }
     return `<div class="dayview">${html}</div></div>`;
   }
@@ -352,9 +354,9 @@
     const k = ymd(anchor);
     if (scrolledFor === k) return;
     scrolledFor = k;
-    const first = root.querySelector('.hours .hour .chip');
-    const now = root.querySelector('.hours .hour.now');
-    const row = (first && first.closest('.hour')) || now || root.querySelector('.hours .hour[data-hour="7"]');
+    const first = root.querySelector('.sdk-cal-hours .sdk-cal-hour .sdk-cal-event');
+    const now = root.querySelector('.sdk-cal-hours .sdk-cal-hour.is-now');
+    const row = (first && first.closest('.sdk-cal-hour')) || now || root.querySelector('.sdk-cal-hours .sdk-cal-hour[data-hour="7"]');
     const body = $('body');
     if (!row || !body) return;
     // The phase bar sticks to the top of the scroll, so the row stops just beneath it, not under it.
@@ -597,7 +599,7 @@
   }
   function markerChipHtml(x, start) {
     const past = markerPast(x);
-    return `<button type="button" class="chip marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}">${markerIconHtml(x)}${markerSpaceIcon(x)}${esc(markerText(x, start, past))}</button>`;
+    return `<button type="button" class="sdk-cal-event sdk-bar-kept is-marker${past ? ' is-past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}">${markerIconHtml(x)}${markerSpaceIcon(x)}${esc(markerText(x, start, past))}</button>`;
   }
   function markerItemHtml(x, start, agenda) {
     const past = markerPast(x);
@@ -605,8 +607,8 @@
     const when = x.ev.allDay ? said : `${said} ${timeText(start)}`;
     const r = x.marker.ref.scope === 'space' && !inSpace ? spaceInfo.get(x.marker.ref.space) : null;
     const name = x.marker.module && x.marker.module.name ? String(x.marker.module.name) : '';
-    return `<button type="button" class="item marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}"><span class="when">${esc(isCompact() ? when.replace(/:00(?=\s?[AP]M)/i, '') : when)}</span>
-      <span class="what"><strong>${markerIconHtml(x)}${agenda ? markerSpaceIcon(x) : ''}${esc(x.ev.title)}${name ? `<span class="sdk-chip-tag">${esc(name)}</span>` : ''}${!agenda && r ? `<span class="sdk-chip-tag">${spaceIcon({ scope: 'spaces', spaceId: r.id })} ${esc(r.name)}</span>` : ''}</strong></span></button>`;
+    return `<button type="button" class="sdk-row sdk-bar-kept is-marker${past ? ' is-past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}"><span class="sdk-row-meta">${esc(isCompact() ? when.replace(/:00(?=\s?[AP]M)/i, '') : when)}</span>
+      <span class="sdk-row-main"><span class="sdk-row-title">${markerIconHtml(x)}${agenda ? markerSpaceIcon(x) : ''}${esc(x.ev.title)}${name ? `<span class="sdk-chip-tag">${esc(name)}</span>` : ''}${!agenda && r ? `<span class="sdk-chip-tag">${spaceIcon({ scope: 'spaces', spaceId: r.id })} ${esc(r.name)}</span>` : ''}</span></span></button>`;
   }
   // A marker opens its object in its own module, as a link does; Ctrl or Cmd asks for a new tab where the page can.
   function openMarker(key, e) {
@@ -833,11 +835,16 @@
       anchor = d;
       if (!part) view = 'month'; // as a part the page's bar has the view
       render();
-      const cell = root.querySelector(`.day[data-day="${m[1]}"]`);
+      const cell = root.querySelector(`.sdk-cal-cell[data-day="${m[1]}"]`);
       if (cell) {
-        cell.classList.add('pick');
+        // The day the link opened: the selected fill and the word, for a moment.
+        const word = document.createElement('span');
+        word.className = 'sdk-cal-word';
+        word.textContent = 'Linked';
+        cell.querySelector('.sdk-cal-n').after(word);
+        cell.classList.add('is-linked');
         cell.scrollIntoView({ block: 'center' });
-        setTimeout(() => cell.classList.remove('pick'), 2500);
+        setTimeout(() => { cell.classList.remove('is-linked'); word.remove(); }, 2500);
       }
     });
   }
@@ -1217,7 +1224,7 @@
     const cell = el.closest('[data-day]');
     return cell ? { el: cell, event: null, day: cell.dataset.day } : null;
   };
-  const clearDrop = () => { for (const e of root.querySelectorAll('.drop')) e.classList.remove('drop'); };
+  const clearDrop = () => { for (const e of root.querySelectorAll('.is-drop')) e.classList.remove('is-drop'); };
   // What a drop can do is the one shared decision (host.objects.dropMenu): this module says what is under the
   // pointer (the day, and the event when dropped on one) and offers its own (make an event of it); the SDK adds
   // whatever the modules around offer for an object of that kind, filled from the same context.
@@ -1230,7 +1237,7 @@
         clearDrop();
         if (!foreign(ref, dragged)) return;
         const spot = dropSpot(pt);
-        if (spot) spot.el.classList.add('drop');
+        if (spot) spot.el.classList.add('is-drop');
       },
       leave: clearDrop,
       drop: async (ref, pt, dragged) => {
@@ -1306,11 +1313,11 @@
     } else if (canAdd()) openEditor(null, day.dataset.day);
   });
   root.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && part === 'main' && e.target.matches && e.target.matches('.day[data-day]')) {
+    if ((e.key === 'Enter' || e.key === ' ') && part === 'main' && e.target.matches && e.target.matches('.sdk-cal-cell[data-day]')) {
       e.preventDefault();
       const k = e.target.dataset.day;
       e.target.click();
-      const again = root.querySelector(`.day[data-day="${k}"]`);
+      const again = root.querySelector(`.sdk-cal-cell[data-day="${k}"]`);
       if (again) again.focus();
     }
   });
@@ -1320,7 +1327,7 @@
   const fit = () => {
     const w = host.rootElement.clientWidth;
     if (!w) return;
-    $('app').classList.toggle('compact', w < 520);
+    $('app').classList.toggle('sdk-cal-compact', w < 520);
   };
   // A calendar that was just closed (in the page, its elements go before its root stops resizing) has nothing to draw.
   new ResizeObserver(() => { if (!$('app')) return; fit(); render(); }).observe(host.rootElement);

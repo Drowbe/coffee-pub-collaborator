@@ -93,12 +93,14 @@ await test('pages: the Calendar draws markers as chips, by the filter, in every 
   assert.match(js, /return `\$\{past \? 'Closed' : 'Closes'\}\$\{x\.ev\.allDay \? '' : ` \$\{timeText\(start\)\}`\}: \$\{x\.ev\.title\}`;/);
   assert.match(js, /const said = x\.due \? \(past \? 'Overdue' : 'Due'\) : past \? 'Closed' : 'Closes';/, 'a list row says it the same way');
   assert.match(js, /const markerPast = \(x\) => \(x\.ev\.allDay \? x\.ev\.start < ymd\(new Date\(\)\) : x\.ev\.start <= Date\.now\(\)\);/);
-  assert.match(css, /\.chip\.marker\.past, \.item\.marker\.past \{ opacity: 0\.55; \}/);
+  assert.match(js, /class="sdk-cal-event sdk-bar-kept is-marker\$\{past \? ' is-past' : ''\}/, 'a chip with the kept bar, dimmed once past');
+  assert.match(js, /class="sdk-row sdk-bar-kept is-marker\$\{past \? ' is-past' : ''\}/, 'and a row');
+  assert.match(read('public/sdk/system.css'), /:is\(\.sdk-cal-event, \.sdk-cal-agenda \.sdk-row\)\.is-past \{ opacity: var\(--cal-out\); \}/, 'past ones at 55% (the Calendar block)');
   // The module's tint on the edge and icon only (design-theme.md, "Tints"), from the eight, as the host sends it.
   assert.match(js, /const tint = TINTS\.includes\(m\.module\.color\) \? m\.module\.color : null;/);
   // The module's icon as the host sends it (a guest cannot ask the host for icons), asked for only when it is not.
   assert.match(js, /typeof m\.module\.svg === 'string' && m\.module\.svg\.includes\('<svg'\)[^\n]*markerIcons\.set\(m\.module\.icon, m\.module\.svg\);\n\s+else wantIcon\(m\.module\.icon\);/);
-  for (const t of ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink']) assert.ok(css.includes(`.tint-${t} { --mk: var(--tint-${t}); }`), t);
+  for (const t of ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink']) assert.ok(css.includes(`.tint-${t} { --tint: var(--tint-${t}); }`), t);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css.slice(css.indexOf('/* Markers'))), 'no colour that is not a token');
   // The filter: the environment's page draws a switch per kind in its row, a space in the toolbar's menu, a part takes
   // the page's (markersOff), and only the space's own markers in a space.

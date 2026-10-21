@@ -405,7 +405,7 @@
      "until": "button.tb-tab.on"
     },
     {
-     "click": "div.module-root.dest-part-root >>> button.item",
+     "click": "div.module-root.dest-part-root >>> button.sdk-row",
      "text": "Pack the suitcases"
     },
     {

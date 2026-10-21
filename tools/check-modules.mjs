@@ -611,7 +611,8 @@ test('calendar: a day wears its phase (the same rule as the Planner): inside, fi
   assert.equal(lib.phaseOnDay([], '2026-10-05'), null, 'no phases, nothing');
   const css = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.css'), 'utf8');
   for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);
-  assert.match(css, /\.day\.ph, \.phasehead\.ph \{ background: [^;]*var\(--ph\)/, 'a wash of the tint');
+  assert.match(css, /\.sdk-cal-cell\.ph \{ --cal-wash: [^;]*var\(--ph\)/, 'a wash of the tint, under the cell');
+  assert.match(css, /\.phasehead\.ph \{ background: [^;]*var\(--ph\)/, 'and under the day view\'s phase bar');
   assert.doesNotMatch(css.slice(css.indexOf('/* phases:'), css.indexOf('/* list */')), /(border|outline|box-shadow)[^;]*var\(--ph\)/, 'a phase never draws a coloured border or outline');
   assert.doesNotMatch(css.slice(css.indexOf('/* phases:'), css.indexOf('/* list */')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
 });
@@ -636,10 +637,13 @@ test('calendar: an event in a list is a full-width row with a time that never wr
   assert.equal(lib.whenText({ ...ev, end: 'x' }, at(11, 0), at(11, 30)), '11:00 AM \u2013 11:30 AM');
   assert.equal(lib.whenText({ ...ev, end: 'x' }, at(11, 0), at(11, 30), true), '11 AM \u2013 11:30 AM', 'narrow: minutes drop only when they are 00');
   assert.equal(lib.whenText({ ...ev, end: 'x' }, at(20, 25), at(21, 50), true), '8:25 PM \u2013 9:50 PM');
-  const css = src('calendar.css');
-  assert.match(css, /\.item \{[^}]*border: 0; border-bottom: 1px solid var\(--edge-hairline\); border-radius: 0;/, 'the row has a hairline, not a box');
-  assert.match(css, /\.item \.when \{[^}]*white-space: nowrap;/, 'the time never wraps');
-  assert.match(css, /\.item \.what strong \{[^}]*text-overflow: ellipsis; white-space: nowrap;/, 'the title is one line with an ellipsis');
+  // The row is the Cards row (system.css) with the Calendar's kept bar; its time is the row's meta, its title the row's title.
+  const sys = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  const js = src('calendar.js');
+  assert.match(js, /<div class="sdk-cal-agenda">\$\{g\.map/, 'a day\'s events are the agenda\'s rows');
+  assert.match(js, /class="sdk-row sdk-bar-kept\$\{isExternal\(x\)/, 'each a Cards row with the kept bar');
+  assert.match(sys, /\.sdk-row-meta \{[^}]*white-space: nowrap;/, 'the time never wraps');
+  assert.match(sys, /\.sdk-row-title \{[^}]*text-overflow: ellipsis; white-space: nowrap;/, 'the title is one line with an ellipsis');
 });
 
 test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open on" still opens', () => {
@@ -724,7 +728,7 @@ test('To-do\'s tasks and Polls\' polls are markers on a calendar, read from the 
   assert.match(js, /if \(want\.to - want\.from > 90 \* DAY\) want = need;/, 'never more than the host answers (92 days)');
   assert.match(js, /host\.objects\.open\(x\.marker\.ref/, 'a marker opens its object in its own module');
   assert.ok(!/markerItems\.get\([^)]*\)[^;]*openEditor|openEditor\(markerItems/.test(js), 'never in the event editor');
-  assert.ok(!/data-open="\$\{esc\(x\.key\)\}"[^`]*class="chip marker/.test(js) && /class="chip marker[^`]*data-marker=/.test(js), 'a marker chip is data-marker, never data-open (so never dragged or dropped on as an event)');
+  assert.ok(!/data-open="\$\{esc\(x\.key\)\}"[^`]*class="sdk-cal-event sdk-bar-kept is-marker/.test(js) && /class="sdk-cal-event sdk-bar-kept is-marker[^`]*data-marker=/.test(js), 'a marker chip is data-marker, never data-open (so never dragged or dropped on as an event)');
   assert.ok(!/host\.storage\.set\([^)]*marker/i.test(js), 'nothing about a marker is stored');
 });
 

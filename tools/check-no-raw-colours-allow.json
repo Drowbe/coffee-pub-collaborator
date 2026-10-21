@@ -4,9 +4,6 @@
     "modules/assistant/src/assistant.css": {
       "raw": 1
     },
-    "modules/calendar/src/calendar.css": {
-      "raw": 1
-    },
     "modules/places/src/places.css": {
       "shadow-scrim": 1
     },

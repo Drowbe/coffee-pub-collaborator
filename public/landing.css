@@ -115,6 +115,34 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .h-sheet { fill: var(--l-surface); stroke: var(--l-line); stroke-width: 2; }
 .h-sheet-top { fill: var(--l-teal); } .h-day { fill: var(--l-surface); } .h-line-w { fill: var(--l-on-teal); opacity: 0.9; }
 .h-line { fill: var(--l-line); } .h-dot-a { fill: var(--l-teal); } .h-dot-b { fill: var(--l-coral); } .h-thread { stroke: var(--l-line); stroke-width: 3; }
+/* The games hero art: its own shapes, in the same palette. Gold (the d20, a miniature, the pencil) is .h-sun; the call and the month reuse the h-* classes. */
+.g-top { fill: var(--l-sand); }
+.g-mat { fill: var(--l-teal-soft); }
+.g-grid { stroke: var(--l-surface); stroke-width: 1.5; opacity: 0.6; fill: none; }
+.g-water { fill: var(--l-sea); } .g-wave { fill: none; stroke: var(--l-surface); stroke-width: 2.5; stroke-linecap: round; opacity: 0.7; }
+.g-wood-patch { fill: var(--l-teal); opacity: 0.3; } .g-rise { fill: var(--l-sand); opacity: 0.7; } .g-tree { fill: var(--l-teal); }
+.g-floor { fill: var(--l-surface); opacity: 0.55; }
+.g-wall { fill: none; stroke: var(--l-ink); stroke-width: 2.5; stroke-linejoin: round; }
+.g-threat { fill: var(--l-coral); opacity: 0.16; }
+.g-ring { fill: none; stroke: var(--l-coral); stroke-width: 3; }
+.g-ring2 { fill: none; stroke: var(--l-coral); stroke-width: 1.5; stroke-dasharray: 4 6; }
+.g-foe { fill: var(--l-night); }
+.g-foe-mark { fill: none; stroke: var(--l-coral); stroke-width: 2.5; stroke-linejoin: miter; }
+.g-move { fill: none; stroke: var(--l-ink); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 0.1 8; }
+.g-to { fill: none; stroke: var(--l-ink); stroke-width: 2.5; }
+.g-base { stroke: var(--l-night); stroke-width: 2.5; }
+.g-teal { fill: var(--l-teal); } .g-night { fill: var(--l-night); } .g-coral { fill: var(--l-coral); }
+.g-bone { fill: var(--l-on-night); }
+.g-rim { fill: none; stroke: var(--l-night); stroke-width: 2.5; opacity: 0.5; } .g-rim-l { fill: none; stroke: var(--l-surface); stroke-width: 2.5; opacity: 0.7; }
+.g-line { stroke: var(--l-night); stroke-width: 2.5; stroke-linejoin: round; }
+.g-shade { fill: var(--l-night); }
+.g-edge { fill: none; stroke: var(--l-night); stroke-width: 2.5; stroke-linejoin: round; }
+.g-sheet { fill: var(--l-surface); stroke: var(--l-line); stroke-width: 2; }
+.g-sheet-head { fill: var(--l-night); }
+.g-box { fill: none; stroke: var(--l-line); stroke-width: 2; }
+.g-rule { fill: var(--l-line); }
+.g-wood { fill: var(--l-sand); }
+.g-cell { fill: var(--l-line); } .g-cell-on { fill: var(--l-coral); }
 @media (prefers-reduced-motion: no-preference) {
   .h-route { animation: marching 1.4s linear infinite; }
 }
@@ -166,6 +194,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 /* --- what you get ----------------------------------------------------------------------------------------------- */
 .feature { display: grid; gap: 24px; align-items: center; margin-top: 40px; }
 .feature-text .spot { margin-bottom: 12px; }
+.feature.solo .feature-text p { max-width: 620px; }
 .feature-text h3 { font-size: clamp(23px, 3.4vw, 30px); }
 .feature-text p { margin-top: 12px; color: var(--l-dim); font-size: 17px; max-width: 520px; }
 .shot { margin: 0; }

@@ -385,14 +385,14 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // Many on a small canvas, more than fit even at the smallest size: every one placed, every one still on the canvas.
   const small = { x: 8, y: 8, w: 684, h: 400 };
   check('twelve on a small canvas', Array.from({ length: 12 }, (_, i) => ({ id: `m${i}`, box: { x: 900 + i * 10, y: -100, w: 500, h: 400 } })), small, { apart: false });
-  // One at a time with no room left (Maps over Research, 2026-10-21): each box tidied alone, the earlier ones passed as `taken`,
+  // One at a time with nowhere free left (Maps over Research, 2026-10-21): each box tidied alone, the earlier ones passed as `taken`,
   // must not land on the same spot as the one before.
   {
     const wall = { x: area.x, y: area.y, w: area.w, h: area.h };
     const placedAlone = [];
     for (let i = 0; i < 3; i += 1) {
       const b = tidyBoxes([{ id: `w${i}`, box: { x: 0, y: 0, w: 440, h: 634 } }], area, [wall, ...placedAlone]).get(`w${i}`);
-      if (placedAlone.some((p) => p.x === b.x && p.y === b.y)) fail('public/snap-grid.js', `no room, tidied one at a time: window ${i} sits on the spot of an earlier one: ${JSON.stringify([...placedAlone, b])}`);
+      if (placedAlone.some((p) => p.x === b.x && p.y === b.y)) fail('public/snap-grid.js', `nowhere free, tidied one at a time: window ${i} sits on the spot of an earlier one: ${JSON.stringify([...placedAlone, b])}`);
       placedAlone.push(b);
     }
   }

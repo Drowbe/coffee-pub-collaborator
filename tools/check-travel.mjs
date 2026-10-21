@@ -855,7 +855,7 @@ test('the page: every journey kind has its colours and is in the kind picker, le
 test('an empty day is a button that opens the day\'s add menu, worded for the pointer', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.match(html, /<template id="tpl-day-empty-add"><li class="day-empty has-add"><button class="day-empty-add" type="button" data-action="day-menu"/, 'the empty day uses the header\'s own day-menu action');
+  assert.match(html, /<template id="tpl-day-empty-add"><li class="day-empty-slot"><button class="sdk-day-empty" type="button" data-action="day-menu"/, 'the empty day uses the header\'s own day-menu action');
   assert.ok(js.includes("matchMedia('(pointer: coarse)')") && js.includes('Nothing planned yet. ${') && js.includes("'Tap' : 'Click'"), 'Click or Tap to add, chosen by the pointer');
   assert.ok(!js.includes('Add something below'), 'the old sentence pointing at a hidden row is gone');
 });
@@ -1143,16 +1143,16 @@ test('the When choice reaches the whole timeline: a note dated before the trip i
   assert.match(fn, /after\.forEach/, 'and days after the last');
 });
 
-test('the Planner and the Calendar draw a phase only as a wash and a name, in theme tints', () => {
+test('the Planner draws a phase as a label in its tint on the day (no wash, design system step 34), the Calendar as a wash and a name, in theme tints', () => {
   const css = read('travel-lib-cards.css');
   for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);
   const rules = css.slice(css.indexOf('/* phases:'));
-  assert.match(rules, /\.day2\.in-phase \.day-head2 \{ background: [^;]*var\(--ph\)/, 'the day header takes a wash of the tint');
-  assert.match(rules, /\.daychip\.in-phase:not\(\[aria-current="true"\]\) \{ background: [^;]*var\(--ph\)/, 'and so does the strip chip');
+  assert.match(css, /\.sdk-day-labels > \.sdk-chip-tag\[data-tone="custom"\] \{ --chip-tone: var\(--ph\);/, 'the day\'s phase label takes the tint');
+  assert.doesNotMatch(css, /\.sdk-day[^{]*\{[^}]*background: [^;]*var\(--ph\)|daychip[^{]*\{[^}]*background: [^;]*var\(--ph\)/, 'no wash on the day\'s head or the strip chip');
   assert.doesNotMatch(rules, /(border|outline|box-shadow)[^;]*var\(--ph\)/, 'a phase never draws a coloured border or outline');
   assert.doesNotMatch(css.slice(css.indexOf('/* phases:')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
   assert.match(read('travel.js'), /phaseOnDay\(plan\.bands\(\), day\)/, 'the day header asks for its phase');
-  assert.match(read('travel.js'), /phaseOnDay\(bandList, day\)/, 'and so does the strip chip');
+  assert.match(read('travel.js'), /phaseOnDay\(bandList, day\)/, 'and so does the strip chip (its name in the chip\'s label)');
 });
 
 test('days run from the earliest date to the latest, and there are none without one', () => {
@@ -2056,12 +2056,12 @@ test('the day header: Add sits beside the "...", which opens Move all to... and 
   const html = read('travel.html');
   const js = read('travel.js');
   const head = html.slice(html.indexOf('<template id="tpl-day-head">'), html.indexOf('</template>', html.indexOf('<template id="tpl-day-head">')));
-  assert.ok(/class="day-actions"><button[^>]*day-add[^>]*data-action="day-menu"[^>]*>[^]*Add<\/button><button[^>]*data-action="day-more"/.test(head), 'Add (the old per-day add action) then the "..."');
+  assert.ok(/class="sdk-day-actions"><button[^>]*day-add[^>]*data-action="day-menu"[^>]*>[^]*Add<\/span><\/button><button[^>]*data-action="day-more"/.test(head), 'Add (the old per-day add action) then the "..."');
   assert.ok(js.includes("action === 'day-more'") && js.includes("label: 'Move all to…'") && js.includes("label: 'Clear this day'"));
   assert.ok(js.includes('host.menu.show({\n      id: `day-more-${day}`'), 'the shared menu');
   assert.ok(js.includes('Also move every day after this one by the same amount.') || html.includes('Also move every day after this one by the same amount.'));
   assert.ok(html.includes('id="day-dialog"') && js.includes("'Unschedule'") && js.includes("'Keep'"));
-  assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.day-actions\'), true);'), 'only people who can edit see them');
+  assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.sdk-day-actions\'), true);'), 'only people who can edit see them');
 });
 
 test('the titlebar names the module as this environment shows it (Itinerary), never the trip\'s name', () => {

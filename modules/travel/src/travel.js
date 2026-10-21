@@ -502,17 +502,17 @@
     el.id = `day-${day}`;
     el.dataset.day = day;
     el.dataset.index = String(index + 1);
-    el.classList.toggle('today', day === ymd(new Date()));
+    const isToday = day === ymd(new Date());
     const all = entriesFor(day, days, by);
     // A marker with no time is about the whole day ("Travel day", "Free day"): a tag in the day's header, not a row.
     const tags = all.filter((e) => e.item.kind === 'block' && !e.item.time);
     const entries = all.filter((e) => !tags.includes(e));
     const head = clone('tpl-day-head');
-    if (!canEdit) hide(head.querySelector('.day-actions'), true);
+    if (!canEdit) hide(head.querySelector('.sdk-day-actions'), true);
     const d = parseYmd(day);
     fill(head, { daynum: String(d.getDate()), daymonth: `${d.toLocaleDateString([], { weekday: 'short' })} · ${d.toLocaleDateString([], { month: 'short' })}`, position: dayNumber(day, days) ? `Day ${dayNumber(day, days)} of ${numberedDays(days).length}` : '', summary: daySummary(entries) });
-    const tagBox = head.querySelector('.day-tags');
-    hide(tagBox, !tags.length);
+    // The labels under the title: the phase, "Today", then the whole-day markers.
+    const tagBox = head.querySelector('.sdk-day-labels');
     for (const { item } of tags) {
       const type = markerType(item.type);
       const tag = clone('tpl-day-tag');
@@ -525,7 +525,7 @@
       tag.title = item.notes || '';
       tagBox.append(tag);
     }
-    // A day in a dated phase has a wash of the phase's tint on its header and the phase's name beside the date (nothing otherwise).
+    // A day in a dated phase wears the phase's name as a label in its tint (no wash); today says so in words.
     const ph = phaseOnDay(plan.bands(), day);
     if (ph && ph.tint) {
       el.classList.add('in-phase', `ph-${ph.tint}`);
@@ -534,8 +534,16 @@
       tag.dataset.tone = 'custom';
       tag.textContent = ph.label;
       tag.title = `${ph.label}${ph.first ? ' starts' : ''}`;
-      head.querySelector('.dmeta').prepend(tag);
+      tagBox.prepend(tag);
     }
+    if (isToday) {
+      const now = document.createElement('span');
+      now.className = 'sdk-chip-tag';
+      now.dataset.tone = 'info';
+      now.textContent = 'Today';
+      tagBox.insertBefore(now, tagBox.querySelector('.sdk-mk-tag'));
+    }
+    hide(tagBox, !tagBox.children.length);
     el.prepend(head);
     const list = el.querySelector('.timeline');
     if (!entries.length) {
@@ -543,7 +551,7 @@
       // who cannot edit gets the plain sentence. The word follows the pointer, not the width.
       if (canEdit) {
         const empty = clone('tpl-day-empty-add');
-        const b = empty.querySelector('.day-empty-add');
+        const b = empty.querySelector('.sdk-day-empty');
         b.textContent = `Nothing planned yet. ${matchMedia('(pointer: coarse)').matches ? 'Tap' : 'Click'} to add.`;
         b.title = `Add to ${dayShort(day)}`;
         list.append(empty);
@@ -563,7 +571,6 @@
     });
     if (!entries.length) el.classList.add('is-empty');
     // The days the trip itself covers (from the first booked item to the last) are marked, for their badge.
-    if (inTrip(day)) el.classList.add('in-trip');
     const add = el.querySelector('.add-row');
     add.dataset.day = day;
     add.setAttribute('aria-label', `Add to ${dayShort(day)}`);
@@ -865,7 +872,7 @@
     const el = clone('tpl-gap');
     el.dataset.from = run[0];
     el.dataset.to = run[run.length - 1];
-    fill(el, { count: String(run.length) });
+    fill(el, { count: String(run.length), word: run.length === 1 ? 'day between' : 'days between' });
     const count = slot(el, 'count');
     if (count) count.title = `${run.length} day${run.length === 1 ? '' : 's'} between`;
     if (!canEdit) hide(el.querySelector('[data-action="gap-add"]'), true);
@@ -1006,7 +1013,7 @@
     $('day-form').addEventListener('input', refresh);
     $('day-form').addEventListener('change', refresh);
     refresh();
-    dayEditor.open({ focus: moving ? $('day-to') : $('day-cancel'), returnTo: () => root.querySelector(`.day2[data-day="${CSS.escape(day)}"] [data-action="day-more"]`) || from });
+    dayEditor.open({ focus: moving ? $('day-to') : $('day-cancel'), returnTo: () => root.querySelector(`.sdk-day[data-day="${CSS.escape(day)}"] [data-action="day-more"]`) || from });
   }
   $('day-dialog').addEventListener('click', (e) => { if (e.target.closest('#day-cancel')) dayEditor.cancel(); });
   $('day-dialog').addEventListener('submit', async (e) => {
@@ -1103,11 +1110,14 @@
       const chip = clone('tpl-daychip');
       chip.dataset.day = day;
       chip.classList.toggle('is-empty', empties.has(day));
-      chip.classList.toggle('in-trip', inTrip(day));
-      chip.classList.toggle('today', day === today);
+      chip.classList.toggle('is-today', day === today);
       const ph = phaseOnDay(bandList, day);
-      if (ph && ph.tint) { chip.classList.add('in-phase', `ph-${ph.tint}`); chip.title = ph.label; }
+      if (ph && ph.tint) chip.title = ph.label;
       fill(chip, { weekday: parseYmd(day).toLocaleDateString([], { weekday: 'short' }), day: parseYmd(day).getDate() });
+      // In the trip: a dot in the corner, and the words in the chip's label.
+      const words = [parseYmd(day).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }), day === today ? 'today' : '', inTrip(day) ? 'in the trip' : '', ph && ph.label ? ph.label : ''].filter(Boolean);
+      chip.setAttribute('aria-label', words.join(', '));
+      if (inTrip(day)) { const dot = document.createElement('span'); dot.className = 'sdk-daychip-dot'; dot.setAttribute('aria-hidden', 'true'); chip.append(dot); }
       strip.append(chip);
     }
   }
@@ -1516,11 +1526,11 @@
 
   function markCurrent(day) {
     if (day) { state.currentDay = day; syncStatus(); }
-    for (const c of root.querySelectorAll('.daychip')) { if (c.dataset.day === day) c.setAttribute('aria-current', 'true'); else c.removeAttribute('aria-current'); }
-    for (const d of root.querySelectorAll('.day2[data-day]')) d.classList.toggle('current', Boolean(day) && d.dataset.day === day);
+    for (const c of root.querySelectorAll('.sdk-daychip')) { if (c.dataset.day === day) c.setAttribute('aria-current', 'true'); else c.removeAttribute('aria-current'); }
+    for (const d of root.querySelectorAll('.sdk-day[data-day]')) d.classList.toggle('is-current', Boolean(day) && d.dataset.day === day);
     // keep the chosen chip in view inside the strip (the strip alone scrolls, never the page)
     const strip = $('daystrip');
-    const chip = strip && strip.querySelector('.daychip[aria-current="true"]');
+    const chip = strip && strip.querySelector('.sdk-daychip[aria-current="true"]');
     if (chip) {
       const left = chip.offsetLeft - strip.offsetLeft;
       if (left < strip.scrollLeft || left + chip.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: left - (strip.clientWidth - chip.offsetWidth) / 2 });
@@ -1538,7 +1548,7 @@
   $('daystrip').addEventListener('scroll', stripArrows, { passive: true });
   new ResizeObserver(stripArrows).observe($('daystrip'));
   $('body').addEventListener('scroll', () => {
-    const days = [...root.querySelectorAll('.day2[data-day]')].filter((d) => d.dataset.day);
+    const days = [...root.querySelectorAll('.sdk-day[data-day]')].filter((d) => d.dataset.day);
     const top = $('body').getBoundingClientRect().top;
     const first = days.find((d) => d.getBoundingClientRect().bottom > top + 24);
     if (first) markCurrent(first.dataset.day);
@@ -1723,7 +1733,7 @@
   const clearDrop = (keepJoints) => {
     if (lastTarget) lastTarget.removeAttribute('data-drop');
     lastTarget = null;
-    for (const d of root.querySelectorAll('.day2.drop-target, .joint.drop-target, .timeline.between.drop-target')) d.classList.remove('drop-target');
+    for (const d of root.querySelectorAll('.sdk-day.drop-target, .joint.drop-target, .timeline.between.drop-target')) d.classList.remove('drop-target');
     for (const d of root.querySelectorAll('.row.entry.dragging')) d.classList.remove('dragging');
     if (!keepJoints) closeJoints();
   };
@@ -1738,9 +1748,9 @@
       const row = el.closest('.timeline.between .row.entry');
       return { after: line.dataset.after, el: line, row, where: row ? half(row) : null };
     }
-    const dayEl = el.closest('.day2');
+    const dayEl = el.closest('.sdk-day');
     if (!dayEl) return null;
-    const row = el.closest('.day2 .row.entry');
+    const row = el.closest('.sdk-day .row.entry');
     return { date: dayEl.dataset.day, el: dayEl, row, where: row ? half(row) : null };
   }
   // Light a spot as the drop target, with the entry under the pointer and the side the item would go on.
@@ -2192,7 +2202,7 @@
     if (!ed) return null;
     if (ed.el && ed.el.isConnected) return ed.el;
     if (ed.id) { const row = objectControl(ed.id); if (row) return row; }
-    if (ed.date) { const day = root.querySelector(`.day2[data-day="${CSS.escape(ed.date)}"] [data-action="day-menu"]`); if (day) return day; }
+    if (ed.date) { const day = root.querySelector(`.sdk-day[data-day="${CSS.escape(ed.date)}"] [data-action="day-menu"]`); if (day) return day; }
     return null;
   };
   const editor = host.ui.editor($('editor'), {
@@ -2890,10 +2900,10 @@
     } else if (action === 'edit-leg' && li) {
       openItemEditor(li.dataset.id, b);
     } else if (action === 'day-menu') {
-      const dayEl = b.closest('.day2');
+      const dayEl = b.closest('.sdk-day');
       if (dayEl) openAddMenu(b, { date: dayEl.dataset.day });
     } else if (action === 'day-more') {
-      const dayEl = b.closest('.day2');
+      const dayEl = b.closest('.sdk-day');
       if (dayEl) openDayMore(b, dayEl.dataset.day);
     } else if (action === 'gap-add') {
       openAddMenu(b, { after: jointOfButton(b) }, { gap: Boolean(b.closest('.gap')) });
@@ -2921,7 +2931,7 @@
       attempt(async () => { await plan.updateItem(li.dataset.id, c.patch); state.conflicts.delete(li.dataset.id); redraw(); });
     } else if (action === 'add-suggestion') {
       const s = b.closest('.suggestion');
-      const day = b.closest('.day2');
+      const day = b.closest('.sdk-day');
       if (s && day) attempt(async () => { await plan.addLink(JSON.parse(s.dataset.ref), { date: day.dataset.day }); await plan.suggest(); });
     }
   });

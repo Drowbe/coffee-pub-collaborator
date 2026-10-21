@@ -2020,6 +2020,182 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 }
 /* markers:end */
 
+/* ================= Day cards and day chips (design system step 34) =================
+   The Planner's day card, its day chip in the strip, and the count of the days between two days. Source:
+   public/design-system/proposed-days.css, with the colour roles.
+   - Day card (.sdk-card.sdk-day): the Cards family's card (a hairline, no shadow, no gradient, --radius-large, 12px padding).
+     Head (.sdk-day-head): one row, no fill: the date block, the title and summary (.sdk-day-main), the labels (.sdk-day-labels: the
+     phase, "Today", the marker day tags), the actions (.sdk-day-actions). The date block (.sdk-day-date) is a neutral inner fill (the
+     text colour at 8% over the card), the day 22px weight 600 and the weekday 11px in capitals; never a solid accent block.
+   - Current (.is-current): the selected fill, opaque (so a sticky head hides what scrolls under it); no edge, ring or glow. Today is
+     only the word. A drop target (.is-drop): the 2px outline inside. An empty day (.sdk-day-empty): one quiet dashed button, 44px.
+   - Day chip (.sdk-daychip): 40px high (44px on a phone), a neutral fill, the quiet fill on hover; current (aria-current="true") the
+     selected fill with the number in the accent mix; today a 4px dot under the number (the same line on every chip, so heights
+     match); in the trip a 7px dot in the corner (.sdk-daychip-dot) with its words in the label. No lift, shadow or coloured edge.
+   - Days between (.sdk-daygap, .sdk-gapcount): a 24px neutral round count with its word. (The drawing's .sdk-gap is the Journey
+     bar's empty slice in the product, so the row is .sdk-daygap.)
+   tools/check-design-system-days.mjs holds the drawing. */
+/* days:start */
+:root {
+  --day-date-w: 48px;
+  --day-block-fill: color-mix(in srgb, var(--text-primary) 8%, transparent); /* over the card, or the current card's fill */
+  --chip-h-day: 40px; /* 44px on a phone */
+  /* Muted text on a fill (the date block, a day chip): a little stronger, as the plain muted colour is under 4.5 to 1 there in the light mode. */
+  --day-dim: color-mix(in srgb, var(--text-muted) 55%, var(--text-primary));
+  --day-now: color-mix(in srgb, var(--accent-fill) 55%, var(--text-primary));
+}
+@media (max-width: 640px) {
+  :root { --chip-h-day: 44px; }
+}
+
+/* ---- the card's head ---- */
+.sdk-day-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.sdk-day-date {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--day-date-w);
+  min-height: var(--day-date-w);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: var(--day-block-fill);
+  color: var(--text-primary);
+  line-height: 1;
+}
+.sdk-day-date > b { font-size: var(--text-22); font-weight: var(--weight-strong); line-height: 26px; font-variant-numeric: tabular-nums; }
+.sdk-day-date > span { color: var(--day-dim); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: 14px; letter-spacing: var(--ls-label); text-transform: uppercase; opacity: 1; }
+.sdk-day-main { flex: 1 1 140px; min-width: 0; }
+.sdk-day-main > :is(h2, h3, h4, .sdk-card-title) { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: 20px; }
+.sdk-day-main > :is(p, .sdk-card-sub) { margin: 0; color: var(--text-muted); font-size: var(--text-12); line-height: 16px; }
+.sdk-day-labels { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) calc(var(--space-1) + var(--space-0)); margin-top: calc(var(--space-1) + var(--space-0)); min-width: 0; }
+.sdk-day-labels:empty, .sdk-day-labels[hidden] { display: none; }
+.sdk-day-actions { flex: none; display: flex; align-items: center; gap: var(--space-1); margin-left: auto; }
+.sdk-day-head > .sdk-badge { flex: none; }
+
+/* ---- the card, when current: the selected fill, opaque. Nothing else changes. ---- */
+.sdk-day { --s: var(--day-step, var(--surface-card)); --chip-surface: var(--s); } /* a page may put the card on another step (--day-step) */
+.sdk-day.is-current { background: color-mix(in srgb, var(--accent-fill) 28%, var(--s)); }
+.sdk-day.is-drop { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-day .sdk-card-list { margin-top: var(--space-1); }
+
+/* An empty day: one quiet button, a dashed neutral hairline like the Cards ghost. */
+.sdk-day-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--edge-hairline);
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-13);
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+}
+.sdk-day-empty:hover { background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-card)); color: var(--text-primary); }
+.sdk-day-empty:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-day.is-drop .sdk-day-empty { color: var(--text-primary); }
+
+/* The Add button's word goes on a phone; the plus and the name stay. */
+@media (max-width: 640px) {
+  .sdk-day-add .sdk-day-add-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .sdk-day-head { align-items: flex-start; }
+}
+
+/* ---- the day chip ---- */
+.sdk-daystrip { display: flex; align-items: stretch; gap: calc(var(--space-1) + var(--space-0)); min-width: 0; padding: var(--space-0); overflow-x: auto; scrollbar-width: thin; }
+.sdk-daychip {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 46px;
+  min-height: var(--chip-h-day);
+  margin: 0;
+  padding: var(--space-0) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: var(--chip-fill);
+  color: var(--day-dim);
+  font: inherit;
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  line-height: 14px;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  cursor: pointer;
+  overflow: visible;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+.sdk-daychip > b { color: var(--text-primary); font-size: var(--text-14); font-weight: var(--weight-strong); line-height: 18px; font-variant-numeric: tabular-nums; }
+/* The line under the number is always there, so a day with a today dot and one without are the same height. */
+.sdk-daychip::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: var(--radius-round); background: transparent; }
+.sdk-daychip.is-today::after { background: var(--day-now); }
+.sdk-daychip:hover { background: var(--chip-fill-hover); }
+.sdk-daychip:active { background: var(--chip-fill-active); }
+.sdk-daychip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-daychip:is(.is-current, [aria-current="true"]) { background: var(--fill-selected); color: var(--day-now); }
+.sdk-daychip:is(.is-current, [aria-current="true"]) > b { color: var(--day-now); }
+.sdk-daychip:is(.is-current, [aria-current="true"]):hover { background: color-mix(in srgb, var(--accent-fill) 36%, transparent); }
+.sdk-daychip:is(.is-current, [aria-current="true"]):focus-visible { outline-color: var(--day-now); }
+/* In the trip: a 7px dot in the corner. A word for it is in the chip's label. */
+.sdk-daychip-dot { position: absolute; top: var(--space-1); right: var(--space-1); width: 7px; height: 7px; border-radius: var(--radius-round); background: var(--day-now); }
+.sdk-daychip.is-empty > b { color: var(--text-muted); font-weight: var(--weight-medium); }
+
+/* ---- the days between two days ---- */
+.sdk-daygap { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; margin: 0; color: var(--text-muted); font-size: var(--text-12); line-height: 16px; }
+.sdk-gapcount {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--text-primary) 14%, var(--surface-panel));
+  color: var(--text-primary);
+  font-size: var(--text-12);
+  font-weight: var(--weight-strong);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sdk-daychip, .sdk-day-empty) { transition: none; }
+}
+/* days:end */
+
 /* ================= Fields and forms (design system step 13) =================
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the

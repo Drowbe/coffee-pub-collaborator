@@ -123,8 +123,8 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .g-wood-patch { fill: var(--l-teal); opacity: 0.3; } .g-rise { fill: var(--l-sand); opacity: 0.7; } .g-tree { fill: var(--l-teal); }
 .g-floor { fill: var(--l-surface); opacity: 0.55; }
 .g-wall { fill: none; stroke: var(--l-ink); stroke-width: 2.5; stroke-linejoin: round; }
-.g-threat { fill: var(--l-coral); opacity: 0.16; }
-.g-ring { fill: none; stroke: var(--l-coral); stroke-width: 3; }
+.g-threat { fill: var(--l-coral); opacity: 0.14; }
+.g-ring { fill: none; stroke: var(--l-coral); stroke-width: 2; }
 .g-ring2 { fill: none; stroke: var(--l-coral); stroke-width: 1.5; stroke-dasharray: 4 6; }
 .g-foe { fill: var(--l-night); }
 .g-foe-mark { fill: none; stroke: var(--l-coral); stroke-width: 2.5; stroke-linejoin: miter; }

@@ -279,7 +279,7 @@ export function createSpaceSetup(deps) {
         </div>
         <p class="hint">Shown with its name on Home.</p>`));
     parts.push(sectionHtml('name', 'Name', '<label class="setup-field"><span class="visually-hidden">Name</span><input type="text" id="setup-name" maxlength="40" autocomplete="off"></label><p class="hint">Shown in the bar and on Home.</p>'));
-    parts.push(sectionHtml('description', 'Description', `<label class="setup-field"><span class="visually-hidden">Description</span><textarea id="setup-description" rows="3" maxlength="300"></textarea></label><p class="hint">A line or two about this ${esc(spaceWord())}.</p>`));
+    parts.push(sectionHtml('description', 'Description <span class="sdk-optional">(optional)</span>', `<label class="setup-field"><span class="visually-hidden">Description</span><textarea id="setup-description" rows="3" maxlength="300"></textarea></label><p class="hint">A line or two about this ${esc(spaceWord())}.</p>`));
     parts.push(sectionHtml('faces', 'Faces in the call', `
         <label class="setup-field"><span class="visually-hidden">Faces in the call</span><select id="setup-profile">
           <option value="participants">People's own pictures</option>
@@ -287,12 +287,12 @@ export function createSpaceSetup(deps) {
         </select></label>
         <p class="hint">What each person's tile shows while their camera is off.</p>`));
     const enter = typeof deps.verb === 'function' ? deps.verb('enter') : 'Enter';
-    parts.push(sectionHtml('link', 'Launch link', `<label class="setup-field"><span class="visually-hidden">Launch link</span><input type="url" id="setup-link" maxlength="500" placeholder="https://your-game-or-site.example" autocomplete="off" inputmode="url"></label><p class="hint">A button next to ${esc(enter)} and in the call's toolbar opens it.</p>`));
+    parts.push(sectionHtml('link', 'Launch link <span class="sdk-optional">(optional)</span>', `<label class="setup-field"><span class="visually-hidden">Launch link</span><input type="url" id="setup-link" maxlength="500" placeholder="https://your-game-or-site.example" autocomplete="off" inputmode="url"></label><p class="hint">A button next to ${esc(enter)} and in the call's toolbar opens it.</p>`));
     if ((typeof deps.icons === 'function' ? deps.icons() : []).length) {
       parts.push(sectionHtml('link-icon', '<span id="setup-link-icon-heading">Link icon</span>', '<div class="icon-grid setup-icon-grid" id="setup-link-icon" role="radiogroup" aria-labelledby="setup-link-icon-heading"></div><p class="hint">The icon on the launch link\'s button.</p>'));
     }
     if (!space.isLobby) {
-      parts.push(sectionHtml('calendar', '<span id="setup-calendar-heading">Calendar</span>', `<label class="switch-row"><input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span></label><p class="hint">${esc(word('owner', { many: true, cap: true }))} can publish one calendar with every ${esc(spaceWord())}'s events. Turn this off to leave this ${esc(spaceWord())} out.</p>`, { hidden: true }));
+      parts.push(sectionHtml('calendar', '<span id="setup-calendar-heading">Calendar</span>', `<label class="switch-row"><input type="checkbox" class="sdk-switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span></label><p class="hint">${esc(word('owner', { many: true, cap: true }))} can publish one calendar with every ${esc(spaceWord())}'s events. Turn this off to leave this ${esc(spaceWord())} out.</p>`, { hidden: true }));
       parts.push(sectionHtml('danger', `Delete this ${esc(spaceWord())}`, `
         <button type="button" class="btn btn-small btn-danger" id="setup-delete" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-trash fa-fw" aria-hidden="true"></i> Delete ${esc(spaceWord())}</button>
         <p class="hint">Happens at once; it does not wait for Save.</p>
@@ -329,7 +329,7 @@ export function createSpaceSetup(deps) {
     parts.push(sectionHtml('members', `<span id="setup-members-heading">${esc(membersWord(true))}</span>`, space.isLobby
       ? `<p class="hint">Everyone belongs to the ${esc(space.name || 'Lobby')}.</p>`
       : `<div class="setup-members" id="setup-members" role="group" aria-labelledby="setup-members-heading"></div><p class="hint">Who is in this ${esc(spaceWord())}. Saved with Save.</p>`));
-    parts.push(sectionHtml('guests', esc(guests), `<label class="switch-row"><input type="checkbox" class="switch" role="switch" id="setup-allow-guests"><span class="switch-name">Allow ${esc(guests)}</span></label><p class="hint">Whether a ${esc(guest)} link can be used here. Saved with Save.</p>`));
+    parts.push(sectionHtml('guests', esc(guests), `<label class="switch-row"><input type="checkbox" class="sdk-switch" role="switch" id="setup-allow-guests"><span class="switch-name">Allow ${esc(guests)}</span></label><p class="hint">Whether a ${esc(guest)} link can be used here. Saved with Save.</p>`));
     parts.push(sectionHtml('links', 'Links', `
         <p class="hint setup-links-hint">These work at once; they are not part of Save.</p>
         <h4 class="setup-subheading">Invite to sign up</h4>
@@ -420,7 +420,7 @@ export function createSpaceSetup(deps) {
     const parts = [];
     if (state.owner) {
       parts.push(sectionHtml('module-list', esc(modulesWord(true)), `${space.isLobby ? `<p class="hint">${esc(space.name || 'The Lobby')} keeps only chat, the call and ${esc(modulesWord())} made for it.</p>` : ''}<ul class="setup-module-list" id="setup-module-list"><li class="hint">Loading…</li></ul><p class="hint">Every ${esc(word('module'))} that is turned on is in every ${esc(spaceWord())}. Turn one on or off on the ${esc(modulesWord(true))} tab of Manage.</p>`));
-      parts.push(sectionHtml('ai', '<i class="fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i> AI', `<label class="switch-row"><input type="checkbox" class="switch" role="switch" id="setup-ai-off"><span class="switch-name">Turn AI off in this ${esc(spaceWord())}</span></label><p class="hint">${esc(modulesWord(true))} here can use the server's AI service to summarise and answer questions. Turned off, nobody here can, whatever the roles allow. Saved with Save.</p>`, { hidden: true }));
+      parts.push(sectionHtml('ai', '<i class="fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i> AI', `<label class="switch-row"><input type="checkbox" class="sdk-switch" role="switch" id="setup-ai-off"><span class="switch-name">Turn AI off in this ${esc(spaceWord())}</span></label><p class="hint">${esc(modulesWord(true))} here can use the server's AI service to summarise and answer questions. Turned off, nobody here can, whatever the roles allow. Saved with Save.</p>`, { hidden: true }));
     }
     parts.push(sectionHtml('module-settings', `${esc(word('module', { cap: true }))} settings`, `<p class="hint">What each ${esc(word('module'))} does in this ${esc(spaceWord())}. Saved with Save; deleting a file happens at once.</p><div class="setup-module-settings" id="setup-module-settings"><p class="hint">Loading…</p></div>`));
     return parts.join('');
@@ -589,7 +589,7 @@ export function createSpaceSetup(deps) {
     if (!list) return;
     const chosen = new Set(state.draft.members);
     if (!state.users) { list.innerHTML = '<p class="hint">Loading…</p>'; return; }
-    list.innerHTML = state.users.map((u) => `<label class="switch-row setup-member"><input type="checkbox" class="switch" role="switch" data-member="${esc(u.key)}"${chosen.has(u.key) ? ' checked' : ''}><img class="setup-member-face" alt="" src="/img/${encodeURIComponent(u.key)}/profile"><span class="switch-name">${esc(u.displayName || u.key)}</span></label>`).join('');
+    list.innerHTML = state.users.map((u) => `<label class="switch-row setup-member"><input type="checkbox" class="sdk-switch" role="switch" data-member="${esc(u.key)}"${chosen.has(u.key) ? ' checked' : ''}><img class="setup-member-face" alt="" src="/img/${encodeURIComponent(u.key)}/profile"><span class="switch-name">${esc(u.displayName || u.key)}</span></label>`).join('');
     wireSwitchList(list);
   }
 
@@ -747,6 +747,7 @@ export function createSpaceSetup(deps) {
       p.textContent = mine;
       p.hidden = !mine;
       row.classList.toggle('has-problem', Boolean(mine));
+      for (const d of row.querySelectorAll('.phase-date')) { if (mine) d.setAttribute('aria-invalid', 'true'); else d.removeAttribute('aria-invalid'); }
     }
   }
   function phaseAnswer(id, answer, said) {

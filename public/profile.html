@@ -50,10 +50,10 @@
           <div class="fact"><span class="fact-key">Password</span><span class="fact-value" id="f-password"></span></div>
         </div>
         <div class="facts" id="account-fields" hidden>
-          <label class="fact">Display name<input id="e-name" type="text" maxlength="40"></label>
-          <label class="fact">Username<input id="e-login" type="text" maxlength="40" autocapitalize="off"></label>
-          <label class="fact">Role<select id="e-role" data-fill><option value="member">{Member}</option><option value="owner">{Owner}</option></select><span class="hint" id="e-role-note" hidden></span></label>
-          <label class="fact">New password<span class="row reveal-row"><input id="e-password" aria-label="New password" type="password" maxlength="200" placeholder="leave empty to keep" autocomplete="new-password"><button class="btn btn-small" type="button" data-reveal="e-password" aria-pressed="false">Show</button></span></label>
+          <label class="sdk-field"><span class="sdk-label">Display name</span><input id="e-name" type="text" maxlength="40"></label>
+          <label class="sdk-field"><span class="sdk-label">Username</span><input id="e-login" type="text" maxlength="40" autocapitalize="off"></label>
+          <label class="sdk-field"><span class="sdk-label">Role</span><select id="e-role" data-fill><option value="member">{Member}</option><option value="owner">{Owner}</option></select><span class="sdk-hint" id="e-role-note" hidden></span></label>
+          <label class="sdk-field"><span class="sdk-label">New password <span class="sdk-optional">(optional)</span></span><span class="row reveal-row"><input id="e-password" aria-label="New password" type="password" maxlength="200" placeholder="leave empty to keep" autocomplete="new-password"><button class="btn btn-small" type="button" data-reveal="e-password" aria-pressed="false">Show</button></span></label>
         </div>
         <div class="row" id="account-save-row" hidden>
           <button class="btn btn-primary btn-small" id="account-save" type="button">Save</button>

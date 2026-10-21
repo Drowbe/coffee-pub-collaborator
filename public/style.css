@@ -229,29 +229,12 @@ a {
   text-decoration: none;
 }
 
-/* Focus: the accent, not the browser's default blue. Text fields get a soft
-   ring; buttons and links an outline that only shows for keyboard focus. */
-input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']):focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
+/* Focus: the accent, not the browser's default blue. A field's focus is in system.css (the Fields block); buttons
+   and links get an outline that only shows for keyboard focus. */
 button:focus-visible,
-a:focus-visible,
-input[type='checkbox']:focus-visible,
-input[type='radio']:focus-visible,
-input[type='range']:focus-visible {
-  outline: 2px solid var(--accent);
+a:focus-visible {
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-
-input[type='checkbox'],
-input[type='radio'],
-input[type='range'] {
-  accent-color: var(--accent);
 }
 
 a:hover {
@@ -992,11 +975,10 @@ body.host-console .grow {
 /* form:start -- the form standard (documentation/plans/plan-form-standard.md): one look for every field of a form, so a
    module and an app page draw the same field. These rules are word for word the same in public/style.css and
    public/sdk/host.css; a form puts .sdk-form on its <form> and writes no field CSS of its own.
-   Tokens (layout, no theme sets them): --field-h (38px, 44px on a phone) is the height of every one-line control (text,
-   number, date, time, select, the kind picker, a button in a field); --field-pad-x the side padding; --field-font the text
-   in a field (16px on a phone, so iOS does not zoom); --field-gap between fields and rows; --label-size and --label-gap a
-   label and its distance to the field; --section-gap above a section. On a phone they change inside a form only (the page
-   at 640px or less, or a lifted editor window that says data-lift="phone"), so a control outside a form keeps its size.
+   The LOOK of a field (the edge, the fill, the focus, the placeholder, the error, the tick box, radio and switch, the label,
+   hint and error lines) is the Fields block of public/sdk/system.css; this block is the LAYOUT: rows, columns, groups and
+   sections. The tokens --field-h (38px, 44px on a phone), --field-pad-x, --field-font, --label-size, --label-gap and --check-h
+   are in system.css; --field-gap between fields and rows and --section-gap above a section are here.
    Classes:
      .sdk-form     the <form>: a column of rows; its width, not the page's, sets the columns of its rows (container query).
      .sdk-field    one field: <label class="sdk-field"><span class="sdk-label">Title</span><input><span class="sdk-hint"></span></label>.
@@ -1017,25 +999,8 @@ body.host-console .grow {
                    .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
                    .sdk-form-error a refusal that is not one field's. */
 :root {
-  --field-h: 38px;
-  --field-pad-x: 10px;
-  --field-font: var(--text-14);
   --field-gap: 12px;
-  --label-size: var(--text-12);
-  --label-gap: 4px;
   --section-gap: 20px;
-}
-
-@media (max-width: 640px) {
-  .sdk-form {
-    --field-h: 44px;
-    --field-font: var(--text-16);
-  }
-}
-
-.sdk-editor[data-lift="phone"] .sdk-form {
-  --field-h: 44px;
-  --field-font: var(--text-16);
 }
 
 .sdk-form {
@@ -1046,87 +1011,10 @@ body.host-console .grow {
   min-width: 0;
 }
 
-.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea) {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 0 var(--field-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--field-font);
-}
-
-.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select) {
-  height: var(--field-h);
-}
-
-.sdk-form textarea {
-  padding: 8px var(--field-pad-x);
-  line-height: var(--leading-body);
-  min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
-  resize: vertical;
-}
-
-.sdk-form :is(input, select, textarea):focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-form :is(input, select, textarea):disabled {
-  opacity: 0.6;
-}
-
-.sdk-form input[aria-invalid="true"],
-.sdk-form select[aria-invalid="true"],
-.sdk-form textarea[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-
-.sdk-form input[type="checkbox"],
-.sdk-form input[type="radio"] {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
 .sdk-field {
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.sdk-label {
-  display: block;
-  padding-bottom: var(--label-gap);
-  color: var(--text-dim);
-  font-size: var(--label-size);
-  font-weight: var(--weight-medium);
-  line-height: 16px;
-}
-
-.sdk-hint,
-.sdk-error {
-  display: block;
-  padding-top: var(--label-gap);
-  color: var(--text-dim);
-  font-size: var(--label-size);
-  line-height: 16px;
-}
-
-.sdk-hint:empty,
-.sdk-error:empty {
-  display: none;
-}
-
-.sdk-error {
-  color: var(--danger-text, var(--danger));
 }
 
 .sdk-row {
@@ -1261,22 +1149,6 @@ body.host-console .grow {
   gap: 0 var(--field-gap);
 }
 
-.sdk-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  cursor: pointer;
-}
-
-@media (max-width: 640px) {
-  .sdk-form .sdk-check { min-height: 44px; }
-}
-
-.sdk-editor[data-lift="phone"] .sdk-form .sdk-check {
-  min-height: 44px;
-}
-
 .sdk-people {
   display: flex;
   flex-wrap: wrap;
@@ -1305,14 +1177,13 @@ body.host-console .grow {
   pointer-events: none;
 }
 
-.sdk-people > label:has(input:focus-visible),
-.sdk-check:has(input:focus-visible) {
+.sdk-people > label:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
 .sdk-form-error {
-  color: var(--danger-text, var(--danger));
+  color: var(--status-danger-text);
   font-size: var(--label-size);
 }
 
@@ -1320,23 +1191,6 @@ body.host-console .grow {
   display: none;
 }
 /* form:end */
-
-select {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  color: var(--text);
-  padding: 6px 8px;
-  font: inherit;
-}
-
-/* Every checkbox and slider in the app draws with the theme's own accent,
-   not the browser's native blue -- set once here rather than per page. */
-input[type="checkbox"],
-input[type="radio"],
-input[type="range"] {
-  accent-color: var(--accent);
-}
 
 /* The join screen: the spaces I may join, one card each, on a grid that
    wraps. Each card is built like the sign-in box. */
@@ -1962,16 +1816,6 @@ body.in-space .page-scroll {
   letter-spacing: var(--tracking-caps);
 }
 
-.join input {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  color: var(--text);
-  padding: 8px 10px;
-  font: inherit;
-  font-size: var(--text-14);
-}
-
 .join .hint {
   color: var(--text-dim);
   font-size: var(--text-12);
@@ -2098,40 +1942,15 @@ body.in-space .page-scroll {
   letter-spacing: var(--tracking-caps);
 }
 
+/* A label above its field: the field label's look (system.css, .sdk-label), in sentence case. */
 .panel label,
 .fields label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  color: var(--text-dim);
-  font-size: var(--text-12);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-
-.panel input[type="text"],
-.panel input[type="password"],
-.panel input[type="number"],
-.panel input[type="email"],
-.panel input[type="url"],
-.panel textarea,
-.fields input[type="text"],
-.fields input[type="password"],
-.fields input[type="number"],
-.fields input[type="email"],
-.fields input[type="url"],
-.fields select,
-.fields textarea {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  color: var(--text);
-  padding: 8px 10px;
-  font: inherit;
-  font-size: var(--text-14);
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-  max-width: none;
+  gap: var(--label-gap);
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  font-weight: var(--weight-medium);
 }
 
 .panel .hint,
@@ -2425,8 +2244,7 @@ body.in-space .subnav {
 /* the canvas-level snap's grid-size slider, beside its switch while the switch is on (the nav-bar registry places it) */
 .subnav-tools input[type="range"] {
   width: 84px;
-  margin: 0;
-  accent-color: var(--accent);
+  height: var(--space-6);
 }
 
 .subnav .icon-link {
@@ -2456,8 +2274,7 @@ body.in-space .subnav {
   white-space: nowrap;
 }
 
-.subnav-modules .modules-menu-item::before,
-input.switch {
+.subnav-modules .modules-menu-item::before {
   content: "";
   flex: none;
   width: 22px;
@@ -2477,28 +2294,10 @@ input.switch {
   color: var(--header-text);
 }
 
-.subnav-modules .modules-menu-item.on::before,
-input.switch:checked {
+.subnav-modules .modules-menu-item.on::before {
   background:
     radial-gradient(circle at 16px 50%, var(--on-accent) 4px, transparent 4.5px),
     var(--accent);
-}
-
-/* The same switch as a checkbox (<input type="checkbox" class="switch" role="switch">), for a list of choices off the
-   space bar (Opens with in space settings): the page's text colour for its ink. */
-input.switch {
-  --switch-ink: var(--text);
-  appearance: none;
-  -webkit-appearance: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-}
-
-input.switch:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* One row of a switch list (switch-list.js): the switch, the module's icon and name, a note, a count. The same rows in the
@@ -2524,16 +2323,12 @@ label.switch-row:hover {
 
 /* On and fixed (a module on for every space): it can't be switched here. */
 label.switch-row.disabled {
+  color: var(--text-muted);
   cursor: default;
-  opacity: 0.6;
 }
 
 label.switch-row.disabled:hover {
   background: none;
-}
-
-input.switch:disabled {
-  cursor: default;
 }
 
 .switch-row .switch-name {
@@ -2759,24 +2554,6 @@ input.switch:disabled {
   font-size: var(--text-12);
 }
 
-.layout-field input[type="text"] {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-13);
-}
-
-.layout-field input[type="text"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
-}
-
 .layout-form label.switch-row {
   padding-left: 0;
   padding-right: 0;
@@ -2785,7 +2562,7 @@ input.switch:disabled {
 .layout-form-error {
   margin: 0;
   max-width: 280px;
-  color: var(--danger-text);
+  color: var(--status-danger-text);
   font-size: var(--text-12);
   line-height: var(--leading-body);
 }
@@ -2807,24 +2584,6 @@ input.switch:disabled {
   margin: 0;
   color: var(--text-dim);
   font-size: var(--text-12);
-}
-
-.layout-field input[type="search"] {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-13);
-}
-
-.layout-field input[type="search"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
 }
 
 .layout-icon-sheet {
@@ -3096,39 +2855,6 @@ button.whoami:focus-visible {
   font-size: var(--text-13);
 }
 
-/* The editable version of the same grid (#account-fields) reuses .facts/
-   .fact for the box itself -- .panel's own input styling (and .fields'
-   now-unmatched select styling) would otherwise draw a second box inside
-   the one .fact already draws, or leave the select with none at all. */
-#account-fields input[type="text"],
-#account-fields input[type="password"],
-#account-fields select {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-13);
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-}
-
-/* A field that can't be changed here (the admin's username and role) reads as fixed. */
-#account-fields input:disabled,
-#account-fields select:disabled {
-  color: var(--text-dim);
-  cursor: not-allowed;
-}
-
-/* Why a field can't be changed (the admin's role), under it in the same box: plain words, not the label's capitals. */
-#account-fields .hint {
-  margin: 0;
-  font-size: var(--text-12);
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-}
-
-
 .tile .placeholder {
   position: absolute;
   inset: 0;
@@ -3306,25 +3032,28 @@ button.whoami:focus-visible {
 /* A hotkey field looks like the other .fields inputs at rest, then turns
    into an obvious "waiting for you to press something" state once clicked. */
 .hotkey-input {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  box-sizing: border-box;
+  height: var(--field-h);
+  padding: 0 var(--field-pad-x);
+  border: 1px solid var(--edge-field);
   border-radius: var(--radius-small);
-  color: var(--text);
-  padding: 8px 10px;
+  background: var(--surface-field);
+  color: var(--text-primary);
   font: inherit;
-  font-size: var(--text-14);
+  font-size: var(--field-font);
   text-align: left;
   cursor: pointer;
 }
 
 .hotkey-input:hover {
-  border-color: var(--accent);
+  background: var(--field-fill-hover);
 }
 
 .hotkey-input.recording {
-  border-color: var(--accent);
-  color: var(--text-dim);
-  font-style: italic;
+  border-color: var(--focus-ring);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  color: var(--text-muted);
 }
 
 .fields .check,
@@ -4610,7 +4339,6 @@ span.message-vis {
 
 .chat-import-row > input {
   margin-top: 14px;
-  accent-color: var(--accent);
 }
 
 .chat-import-row .chat-object {
@@ -4746,14 +4474,9 @@ span.message-vis {
 
 .message .chat-object-day input,
 .chat-import-sameday input {
+  width: auto;
   min-width: 0;
   max-width: 100%;
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
   color-scheme: dark;
 }
 
@@ -5161,6 +4884,7 @@ span.message-vis {
 
 .popover input[type="range"] {
   width: 100%;
+  height: var(--space-6);
 }
 
 .checks {
@@ -6088,13 +5812,6 @@ html.has-background .panel.login {
 
 .check input[type="number"] {
   width: 64px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  color: var(--text);
-  padding: 6px 8px;
-  font: inherit;
-  font-size: var(--text-14);
 }
 
 @media (max-width: 600px) {
@@ -6141,16 +5858,6 @@ html.has-background .panel.login {
 
 .slot > span:not(.unset) {
   font-size: var(--text-12);
-}
-
-input[type="color"] {
-  width: 32px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-min);
-  background: var(--bg-input);
-  cursor: pointer;
 }
 
 /* checkbox and picture labels inside panels keep normal text */
@@ -6227,7 +5934,7 @@ input[type="color"] {
   margin: 0;
 }
 
-/* A module's switch in its card's head (#264): today's switch (input.switch) and its word, kept on one line. */
+/* A module's switch in its card's head (#264): the switch (input.sdk-switch) and its word, kept on one line. */
 .module-toggle {
   display: inline-flex;
   white-space: nowrap;
@@ -6749,7 +6456,7 @@ body.conference-window {
 
 .tb-slider input[type="range"] {
   width: 90px;
-  accent-color: var(--accent);
+  height: var(--space-6);
 }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
@@ -6869,7 +6576,7 @@ body.conference-window {
   letter-spacing: var(--tracking-caps);
 }
 
-/* A switch item (`toggle`): the same switch as the Show list's and Opens with's (input.switch, above), drawn as a span
+/* A switch item (`toggle`): the same switch as the Show list's and Opens with's (input.sdk-switch, in system.css), drawn as a span
    before the icon, on while the item is checked. The menu's ink for the track. */
 .host-menu {
   --switch-ink: var(--text);
@@ -6983,7 +6690,7 @@ body.conference-window {
 .host-menu-range input[type="range"] {
   flex: 1;
   min-width: 90px;
-  accent-color: var(--accent);
+  height: var(--space-6);
 }
 
 .host-menu .module-chooser-note {
@@ -8293,7 +8000,6 @@ body.module-page .module-status {
 /* a list setting (Planner's marker types): a row each with a colour, an icon, a label and tools */
 .list-rows { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .list-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-card); }
-.list-row input[type="color"] { flex: none; width: 34px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-small); background: none; cursor: pointer; }
 .list-row [data-f="label"] { flex: 1; min-width: 0; }
 .list-tools { display: flex; align-items: center; gap: 4px; flex: none; }
 .icon-pick { position: relative; flex: none; }
@@ -8370,10 +8076,9 @@ body.module-page .module-status {
 @media (max-width: 640px) { .bgpick { padding: 0; align-items: flex-end; } .bgpick-card { width: 100%; max-height: 92%; border-radius: var(--radius-large) var(--radius-large) 0 0; } .bgpick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .slot-library { margin-top: 6px; }
 
-/* the AI service panel: every field styled alike (the url and number boxes were plain), and the model list */
-.ai-fields input[type="url"], .ai-fields input[type="number"], .ai-fields input[type="text"], .ai-fields input[type="password"], .ai-fields select { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-small); color: var(--text); padding: 8px 10px; font: inherit; font-size: var(--text-14); text-transform: none; letter-spacing: var(--tracking-normal); width: 100%; }
-.ai-fields > label, .ai-label { color: var(--text-dim); font-size: var(--text-12); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.ai-fields > label .hint, .ai-label .hint { text-transform: none; letter-spacing: var(--tracking-normal); font-weight: var(--weight-regular); }
+/* the AI service panel: its labels, and the model list */
+.ai-fields > label, .ai-label { color: var(--text-muted); font-size: var(--label-size); font-weight: var(--weight-medium); }
+.ai-fields > label .hint, .ai-label .hint { font-weight: var(--weight-regular); }
 .ai-label { margin-bottom: 4px; }
 .ai-model-row { display: flex; gap: 8px; align-items: stretch; }
 .ai-model-row select, .ai-model-row input { flex: 1; min-width: 0; }
@@ -10119,32 +9824,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 }
 
 .phase-sheet .phase-date {
-  box-sizing: border-box;
   width: 150px;
-  min-height: 34px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-14);
-}
-
-.phase-sheet .phase-date:focus-visible {
-  border-color: var(--accent);
-  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  outline-offset: 0;
-}
-
-.phase-sheet .phase-date:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.phase-sheet .phase-date::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: 0.7;
 }
 
 .phase-row-days {
@@ -10186,10 +9866,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   font-size: var(--text-13);
   font-weight: var(--weight-strong);
   color: var(--danger-text);
-}
-
-.phase-row.has-problem .phase-date {
-  border-color: var(--danger);
 }
 
 .phase-sheet-hint {
@@ -10299,8 +9975,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   .phase-sheet .phase-date,
   .phase-first .phase-date {
     width: 100%;
-    min-height: 44px;
-    font-size: var(--text-16); /* no zoom on a phone */
   }
 
   .phase-row-off {
@@ -10446,31 +10120,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   display: block;
 }
 
-.setup-field input[type="text"],
-.setup-field input[type="url"],
-.setup-field input[type="number"],
-.setup-field textarea,
-.setup-field select {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-14);
-}
-
-.setup-field input[type="text"]:focus-visible,
-.setup-field input[type="url"]:focus-visible,
-.setup-field input[type="number"]:focus-visible,
-.setup-field textarea:focus-visible,
-.setup-field select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
-}
-
 /* The budget (#216): the amount and its currency side by side, the currency under it when the panel is narrow. */
 .setup-budget {
   display: flex;
@@ -10540,12 +10189,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 .setup-picture-pick:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-.setup-field textarea {
-  resize: vertical;
-  min-height: 4.5em;
-  line-height: var(--leading-body);
 }
 
 .setup-icon-grid button:focus-visible {
@@ -10809,27 +10452,8 @@ h4.setup-subheading {
 }
 
 .space-setup .phase-date {
-  box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 34px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-14);
-}
-
-.space-setup .phase-date:focus-visible {
-  border-color: var(--accent);
-  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  outline-offset: 0;
-}
-
-.space-setup .phase-date:disabled {
-  opacity: 0.6;
 }
 
 .setup-phases-status {
@@ -10903,27 +10527,6 @@ h4.setup-subheading {
   gap: 8px;
 }
 
-.space-setup .module-setting input[type="text"],
-.space-setup .module-setting input[type="url"],
-.space-setup .module-setting input[type="number"],
-.space-setup .module-setting select {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-14);
-}
-
-.space-setup .module-setting input:focus-visible,
-.space-setup .module-setting select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
-}
-
 .space-setup .list-row {
   flex-wrap: wrap;
 }
@@ -10981,14 +10584,6 @@ h4.setup-subheading {
     padding-top: env(safe-area-inset-top, 0px);
   }
 
-  .setup-field input[type="text"],
-  .setup-field input[type="url"],
-  .setup-field textarea,
-  .setup-field select {
-    min-height: 44px;
-    font-size: var(--text-16); /* a phone does not zoom */
-  }
-
   .setup-icon-grid button {
     width: 44px;
     height: 44px;
@@ -11005,15 +10600,6 @@ h4.setup-subheading {
   #setup-opens-with-layout-stop,
   .setup-choice {
     min-height: 44px;
-  }
-
-  .space-setup .phase-date,
-  .space-setup .module-setting input[type="text"],
-  .space-setup .module-setting input[type="url"],
-  .space-setup .module-setting input[type="number"],
-  .space-setup .module-setting select {
-    min-height: 44px;
-    font-size: var(--text-16); /* a phone does not zoom */
   }
 
   .setup-workspace-content {

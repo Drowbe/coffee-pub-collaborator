@@ -279,6 +279,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       p.textContent = mine;
       p.hidden = !mine;
       row.classList.toggle('has-problem', Boolean(mine));
+      for (const d of row.querySelectorAll('.phase-date')) { if (mine) d.setAttribute('aria-invalid', 'true'); else d.removeAttribute('aria-invalid'); }
     }
   }
 

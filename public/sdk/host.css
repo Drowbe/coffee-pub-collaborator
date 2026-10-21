@@ -96,25 +96,6 @@ a {
 }
 
 
-input,
-textarea,
-select {
-  background: var(--bg-input);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  padding: 6px 8px;
-  font: inherit;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -132,11 +113,10 @@ select:focus {
 /* form:start -- the form standard (documentation/plans/plan-form-standard.md): one look for every field of a form, so a
    module and an app page draw the same field. These rules are word for word the same in public/style.css and
    public/sdk/host.css; a form puts .sdk-form on its <form> and writes no field CSS of its own.
-   Tokens (layout, no theme sets them): --field-h (38px, 44px on a phone) is the height of every one-line control (text,
-   number, date, time, select, the kind picker, a button in a field); --field-pad-x the side padding; --field-font the text
-   in a field (16px on a phone, so iOS does not zoom); --field-gap between fields and rows; --label-size and --label-gap a
-   label and its distance to the field; --section-gap above a section. On a phone they change inside a form only (the page
-   at 640px or less, or a lifted editor window that says data-lift="phone"), so a control outside a form keeps its size.
+   The LOOK of a field (the edge, the fill, the focus, the placeholder, the error, the tick box, radio and switch, the label,
+   hint and error lines) is the Fields block of public/sdk/system.css; this block is the LAYOUT: rows, columns, groups and
+   sections. The tokens --field-h (38px, 44px on a phone), --field-pad-x, --field-font, --label-size, --label-gap and --check-h
+   are in system.css; --field-gap between fields and rows and --section-gap above a section are here.
    Classes:
      .sdk-form     the <form>: a column of rows; its width, not the page's, sets the columns of its rows (container query).
      .sdk-field    one field: <label class="sdk-field"><span class="sdk-label">Title</span><input><span class="sdk-hint"></span></label>.
@@ -157,25 +137,8 @@ select:focus {
                    .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
                    .sdk-form-error a refusal that is not one field's. */
 :root {
-  --field-h: 38px;
-  --field-pad-x: 10px;
-  --field-font: var(--text-14);
   --field-gap: 12px;
-  --label-size: var(--text-12);
-  --label-gap: 4px;
   --section-gap: 20px;
-}
-
-@media (max-width: 640px) {
-  .sdk-form {
-    --field-h: 44px;
-    --field-font: var(--text-16);
-  }
-}
-
-.sdk-editor[data-lift="phone"] .sdk-form {
-  --field-h: 44px;
-  --field-font: var(--text-16);
 }
 
 .sdk-form {
@@ -186,87 +149,10 @@ select:focus {
   min-width: 0;
 }
 
-.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea) {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 0 var(--field-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--field-font);
-}
-
-.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select) {
-  height: var(--field-h);
-}
-
-.sdk-form textarea {
-  padding: 8px var(--field-pad-x);
-  line-height: var(--leading-body);
-  min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
-  resize: vertical;
-}
-
-.sdk-form :is(input, select, textarea):focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-form :is(input, select, textarea):disabled {
-  opacity: 0.6;
-}
-
-.sdk-form input[aria-invalid="true"],
-.sdk-form select[aria-invalid="true"],
-.sdk-form textarea[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-
-.sdk-form input[type="checkbox"],
-.sdk-form input[type="radio"] {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
 .sdk-field {
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.sdk-label {
-  display: block;
-  padding-bottom: var(--label-gap);
-  color: var(--text-dim);
-  font-size: var(--label-size);
-  font-weight: var(--weight-medium);
-  line-height: 16px;
-}
-
-.sdk-hint,
-.sdk-error {
-  display: block;
-  padding-top: var(--label-gap);
-  color: var(--text-dim);
-  font-size: var(--label-size);
-  line-height: 16px;
-}
-
-.sdk-hint:empty,
-.sdk-error:empty {
-  display: none;
-}
-
-.sdk-error {
-  color: var(--danger-text, var(--danger));
 }
 
 .sdk-row {
@@ -401,22 +287,6 @@ select:focus {
   gap: 0 var(--field-gap);
 }
 
-.sdk-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  cursor: pointer;
-}
-
-@media (max-width: 640px) {
-  .sdk-form .sdk-check { min-height: 44px; }
-}
-
-.sdk-editor[data-lift="phone"] .sdk-form .sdk-check {
-  min-height: 44px;
-}
-
 .sdk-people {
   display: flex;
   flex-wrap: wrap;
@@ -445,14 +315,13 @@ select:focus {
   pointer-events: none;
 }
 
-.sdk-people > label:has(input:focus-visible),
-.sdk-check:has(input:focus-visible) {
+.sdk-people > label:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
 .sdk-form-error {
-  color: var(--danger-text, var(--danger));
+  color: var(--status-danger-text);
   font-size: var(--label-size);
 }
 
@@ -461,14 +330,10 @@ select:focus {
 }
 /* form:end */
 
-/* datepicker:start -- the date picker (host.ui.datePicker): the month grid (.sdk-dp) and the field's button and weekday. In a
-   .sdk-form the field is a .sdk-group of the input, a .sdk-icon-btn (the calendar) and, with the `list` option, a second
-   .sdk-icon-btn (the list), and the weekday is the field's .sdk-hint; outside a .sdk-form the button is a small one (30px,
-   the weekday line in .tv-dow-hint). Today in the month is a fill, never a border. These rules were in host.js. */
-.sdk-datefield { display: flex; gap: 4px; align-items: center; }
-.sdk-datefield input { flex: 1; min-width: 0; }
-.sdk-datefield input::-webkit-calendar-picker-indicator { display: none; }
-.sdk-form .sdk-datefield { gap: 8px; height: var(--field-h); }
+/* datepicker:start -- the date picker (host.ui.datePicker): the month grid (.sdk-dp) and the weekday. The field is a .sdk-datefield of
+   the input and the calendar button (and, with the `list` option, a second button, the list); the buttons sit inside the field's
+   trailing edge (the Fields block of system.css). In a .sdk-form the wrapper is also a .sdk-group and the weekday is the field's
+   .sdk-hint; outside one the weekday line is .tv-dow-hint. Today in the month is a fill, never a border. These rules were in host.js. */
 .tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: var(--text-11); font-weight: var(--weight-strong); }
 .sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
 .sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }

@@ -269,7 +269,7 @@ async function wireHostSections(m, name, live = () => true) {
       const label = document.createElement('label');
       label.className = 'check';
       const input = document.createElement('input');
-      Object.assign(input, { id: `set-show-${d.id}`, type: 'checkbox', className: 'switch' });
+      Object.assign(input, { id: `set-show-${d.id}`, type: 'checkbox', className: 'sdk-switch' });
       input.setAttribute('role', 'switch');
       input.setAttribute('aria-describedby', `show-${d.id}-hint`);
       label.append(input, ' Show in the top bar');

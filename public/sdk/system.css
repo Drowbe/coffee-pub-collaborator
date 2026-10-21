@@ -3,7 +3,7 @@
 
    STATE: tokens, colour roles and font faces only. The colour roles are live (the old colour tokens in style.css are defined from
    them), and so are the fonts and the type scale (step 11: style.css sets --font-ui on the page and --font-display on display text;
-   the sizes, weights, leading and tracking of style.css, host.css and the bundled modules read the type tokens). Later steps move one component family at a time onto these names. No element rules, no component rules, no `body` or `input`.
+   the sizes, weights, leading and tracking of style.css, host.css and the bundled modules read the type tokens). Later steps move one component family at a time onto these names. Outside a family's block there are no element or component rules; a family block (between its start and end markers, `<id>:start` and `<id>:end`) may hold them, and the Fields block holds the rules on the bare `input`, `select` and `textarea`, written in `:where()` so they carry no weight.
 
    Loaded by every app page AFTER style.css and theme.css (so it can only add names, never beat a rule), and by in-page modules
    through module-host.js (their `:root` blocks are dropped there; the tokens reach a shadow root by inheriting from the page).
@@ -719,3 +719,600 @@
   :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) { transition: none; }
 }
 /* tabs:end */
+
+/* ================= Fields and forms (design system step 13) =================
+   One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
+   switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the
+   product's own (.sdk-form .sdk-field .sdk-label .sdk-hint .sdk-error .sdk-group .sdk-check .sdk-switch); the layout of rows and columns
+   stays in the form block of style.css and host.css, this block is the look.
+   The rules are on the bare elements (input, select, textarea), so every form that has them gets the look with no markup change, and
+   they are written in :where() (no weight): a component that is not a form field (the chat composer, the combobox in the kind picker,
+   the space name in the top bar) keeps its own look by naming it in a rule of its own, with no fight over order or weight.
+   - Edge: the hairline (--edge-field) on the --surface-field fill, --radius-small, --field-h high (38px; 44px on a phone).
+   - Focus: a 2px accent line drawn over the hairline (outline, offset -2px) and a soft 2px ring, equal on all four sides at any display
+     scale. Placeholder: --text-muted. Error: aria-invalid="true" gives the 2px danger line; the words are the .sdk-error line below.
+   - Disabled: half strength and a not-allowed cursor. Read-only: no fill, the same edge, text at full strength.
+   - Hover is a fill, never an edge. The only coloured edges are the focus and the error, and they are states, not stripes.
+   Optional is written in the label, "(optional)", on fields that may be left empty; a required field says nothing. No asterisks. */
+/* fields:start */
+:root {
+  --field-h: 38px; /* 44px on a phone */
+  --field-pad-x: var(--space-2);
+  --field-font: var(--text-14); /* 16px on a phone, so iOS does not zoom */
+  --label-size: var(--text-12);
+  --label-gap: var(--space-1);
+  --check-h: 32px; /* the row of a tick box, radio or switch; 44px on a phone */
+  --field-fill-hover: color-mix(in srgb, var(--surface-field) 93%, var(--text-primary));
+  --field-ring: color-mix(in srgb, var(--focus-ring) 30%, transparent);
+  --field-ring-danger: color-mix(in srgb, var(--status-danger-fill) 30%, transparent);
+  --field-mark: color-mix(in srgb, var(--text-primary) 24%, transparent);
+}
+
+@media (max-width: 640px) {
+  :root { --field-h: 44px; --field-font: var(--text-16); --check-h: 44px; }
+}
+
+/* A lifted editor window on a phone takes the phone height at any page width. */
+.sdk-editor[data-lift="phone"] { --field-h: 44px; --field-font: var(--text-16); --check-h: 44px; }
+
+/* The box. One rule for text, number, date, time, search, list and text area. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px var(--field-pad-x);
+  border: 1px solid var(--edge-field);
+  border-radius: var(--radius-small);
+  background: var(--surface-field);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: normal;
+  outline: none;
+  box-shadow: none;
+  transition: background var(--motion-fast);
+}
+
+/* One line: --field-h high, the text centred in it. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select) {
+  height: var(--field-h);
+  padding: 0 var(--field-pad-x);
+}
+
+/* The text area: three lines at least, the label's width. */
+:where(textarea) {
+  min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
+  line-height: 1.4;
+  resize: vertical;
+}
+
+/* The placeholder is the dim text colour, the same in light and dark. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* Hover: a fill. The edge keeps its colour. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):where(:hover:not(:disabled):not([readonly])) {
+  background: var(--field-fill-hover);
+}
+
+/* Read-only: no fill, the same edge, text at full strength. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):where([readonly]) {
+  background: transparent;
+}
+
+/* Focus: the accent line and a soft 2px ring, on every field. The line is a 2px outline drawn over the 1px border (offset -2px), so the box
+   keeps its size, and not a 1px colour change of the border: a hairline snaps to whole device pixels differently on each side at a
+   fractional display scale (Windows 125%, 150%) and while the page scrolls, and then shows on two sides only. A 2px line always holds a
+   whole pixel of its colour, on all four sides. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):where(:focus) {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--field-ring);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Error: the danger line, drawn the same way as the focus; the words are the .sdk-error line below. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):where([aria-invalid="true"]) {
+  border-color: var(--status-danger-fill);
+  outline: 2px solid var(--status-danger-fill);
+  outline-offset: -2px;
+}
+
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):where([aria-invalid="true"]:focus) {
+  border-color: var(--status-danger-fill);
+  box-shadow: 0 0 0 2px var(--field-ring-danger);
+}
+
+/* Disabled: reduced strength, and the cursor says so. */
+:where(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):where(:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--surface-field);
+}
+
+/* A list: no native arrow; the arrow is drawn from the dim text colour. */
+:where(select) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--space-8);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 19px) 50%, calc(100% - 14px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/* A list that still says "Choose": its words are dim, as a placeholder is. */
+:where(select:has(option[value=""]:checked)) {
+  color: var(--text-muted);
+}
+
+:where(select option) {
+  color: var(--text-primary);
+}
+
+:where(select):where(:hover:not(:disabled)) {
+  background-color: var(--field-fill-hover);
+}
+
+:where(select):where(:disabled) {
+  background-color: var(--surface-field);
+}
+
+/* A number: no stepper. A time, and a date in a .sdk-datefield: the browser's own picker icon is hidden (a bare date field keeps it); the calendar button sits inside the field (below). */
+:where(input[type="number"]) {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator,
+.sdk-datefield > input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+input:is([type="date"], [type="time"])::-webkit-datetime-edit-fields-wrapper,
+input:is([type="date"], [type="time"])::-webkit-datetime-edit {
+  padding: 0;
+}
+
+/* A date (or time) with a picker button: ONE field. The wrapper is .sdk-datefield (host.ui.datePicker writes it); it holds the input and
+   the calendar button (a .sdk-icon-btn.btn-small.btn-quiet; a second one, the list, may follow). The input is the whole box: one border,
+   one fill, one focus line. The button is laid inside the trailing edge with the same inset above, below and at the right, so it sits in
+   the middle of the field's height, and the text never runs under it (padding-right). On a phone the button keeps its look and its small
+   button hit area gives it a 44px target. Hover is a fill; the button's own focus is a 2px ring inside it, and the field draws its line too. */
+.sdk-datefield:has(> input ~ .sdk-icon-btn) {
+  --dp-btn: 30px;
+  --dp-inset: calc((var(--field-h) - var(--dp-btn)) / 2);
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.sdk-datefield:has(> input ~ .sdk-icon-btn) > input {
+  width: 100%;
+  padding-right: calc(var(--dp-inset) + var(--dp-btn) + 6px);
+}
+
+.sdk-datefield:has(> input ~ .sdk-icon-btn ~ .sdk-icon-btn) > input {
+  padding-right: calc(var(--dp-inset) + 2 * var(--dp-btn) + 8px);
+}
+
+.sdk-datefield:has(> input ~ .sdk-icon-btn) > .sdk-icon-btn {
+  --btn-h: var(--dp-btn);
+  --btn-icon: var(--icon-14);
+  position: absolute;
+  top: var(--dp-inset);
+  right: var(--dp-inset);
+  width: var(--dp-btn);
+  height: var(--dp-btn);
+  /* The calendar glyph's ink sits about half a pixel above its box; this brings it to the middle of the field. */
+  padding-top: 1px;
+}
+
+.sdk-datefield:has(> input ~ .sdk-icon-btn ~ .sdk-icon-btn) > .sdk-icon-btn:nth-of-type(1) {
+  right: calc(var(--dp-inset) + var(--dp-btn) + 2px);
+}
+
+.sdk-datefield:has(> input ~ .sdk-icon-btn) > .sdk-icon-btn:focus-visible {
+  outline-offset: -2px;
+  background: var(--b-bg-h);
+  color: var(--b-fg-h);
+}
+
+/* The field's one line shows when the input or the button has the focus. */
+.sdk-datefield:has(> .sdk-icon-btn:focus-visible) > input {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--field-ring);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Search: one field with the magnifier inside, at the same height as any field. */
+:is(.sdk-search, .map-search) {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+:is(.sdk-search, .map-search) > :is(i, svg) {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  width: var(--icon-14);
+  height: var(--icon-14);
+  margin: 0;
+  font-size: var(--icon-14);
+  line-height: var(--icon-14);
+  text-align: center;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* The magnifier sits 12px in and is 14px wide; the text starts 36px in. */
+:is(.sdk-search, .map-search) > input {
+  padding-left: calc(var(--space-9) - var(--space-3));
+}
+
+:is(.sdk-search, .map-search) > input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* A file: the field is the box, the chooser is a small Secondary button inside it. */
+:where(input[type="file"]) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0 var(--field-pad-x) 0 var(--space-1);
+  border: 1px solid var(--edge-field);
+  border-radius: var(--radius-small);
+  background: var(--surface-field);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: normal;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  height: calc(var(--field-h) - 12px);
+  margin: 0 var(--field-pad-x) 0 0;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-min);
+  background: var(--fill-secondary);
+  color: var(--text-on-secondary);
+  font: inherit;
+  font-size: var(--field-font);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+input[type="file"]:hover:not(:disabled)::file-selector-button {
+  background: var(--fill-secondary-hover);
+}
+
+:where(input[type="file"]):where(:focus) {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--field-ring);
+  outline: none;
+}
+
+:where(input[type="file"]):where(:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A colour: a swatch in the same box. */
+:where(input[type="color"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(var(--field-h) * 1.5);
+  height: var(--field-h);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--edge-field);
+  border-radius: var(--radius-small);
+  background: var(--surface-field);
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--radius-min);
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: var(--radius-min);
+}
+
+:where(input[type="color"]):where(:hover:not(:disabled)) {
+  background: var(--field-fill-hover);
+}
+
+:where(input[type="color"]):where(:focus) {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--field-ring);
+  outline: none;
+}
+
+:where(input[type="color"]):where(:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A slider: a 4px track from the text colour, a 16px accent thumb. One look. */
+:where(input[type="range"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--field-mark);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--field-mark);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: calc((4px - 16px) / 2); /* the thumb centred on the 4px track */
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent-fill);
+  box-shadow: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent-fill);
+  box-shadow: none;
+}
+
+input[type="range"]:hover:not(:disabled)::-webkit-slider-thumb {
+  background: var(--accent-fill-hover);
+}
+
+input[type="range"]:hover:not(:disabled)::-moz-range-thumb {
+  background: var(--accent-fill-hover);
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--field-ring);
+}
+
+:where(input[type="range"]):where(:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The label above, the hint and the error below. 12px, dim, 4px from the field. Optional is written in the label. */
+.sdk-label {
+  display: block;
+  padding-bottom: var(--label-gap);
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  font-weight: var(--weight-medium);
+  line-height: 16px;
+}
+
+.sdk-optional {
+  font-weight: var(--weight-regular);
+}
+
+:is(.sdk-hint, .sdk-error) {
+  display: block;
+  padding-top: var(--label-gap);
+  color: var(--text-muted);
+  font-size: var(--label-size);
+  line-height: 16px;
+}
+
+.sdk-error {
+  color: var(--status-danger-text);
+}
+
+:is(.sdk-hint, .sdk-error):empty {
+  display: none;
+}
+
+.sdk-field:has(:disabled) > .sdk-label {
+  opacity: 0.5;
+}
+
+/* Tick box and radio: 16px, drawn from tokens. Unchecked is the field's fill and a dim edge; checked is the accent fill with the mark. */
+:where(input[type="checkbox"], input[type="radio"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--text-muted);
+  border-radius: var(--radius-min);
+  background: var(--surface-field);
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  transition: background var(--motion-fast);
+}
+
+:where(input[type="radio"]) {
+  border-radius: var(--radius-round);
+}
+
+input:is([type="checkbox"], [type="radio"])::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--text-on-accent);
+  transform: scale(0);
+  transition: transform var(--motion-fast);
+}
+
+input[type="checkbox"]::before {
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="radio"]::before {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-round);
+}
+
+:where(input[type="checkbox"], input[type="radio"]):where(:checked) {
+  border-color: transparent;
+  background: var(--accent-fill);
+}
+
+input:is([type="checkbox"], [type="radio"]):checked::before {
+  transform: scale(1);
+}
+
+:where(input[type="checkbox"], input[type="radio"]):where(:hover:not(:disabled):not(:checked)) {
+  background: var(--field-fill-hover);
+}
+
+:where(input[type="checkbox"], input[type="radio"]):where(:checked:hover:not(:disabled)) {
+  background: var(--accent-fill-hover);
+}
+
+/* The keyboard ring is the one the buttons use: 2px accent, 2px off the box. */
+:where(input[type="checkbox"], input[type="radio"]):where(:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+:where(input[type="checkbox"], input[type="radio"]):where([aria-invalid="true"]) {
+  border-color: var(--status-danger-fill);
+}
+
+:where(input[type="checkbox"], input[type="radio"]):where(:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The switch (on or off settings): 36 by 20, the thumb 14. A tick box with role="switch". */
+input[type="checkbox"].sdk-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--text-muted);
+}
+
+input[type="checkbox"].sdk-switch::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-round);
+  background: var(--surface-field);
+  clip-path: none;
+  transform: none;
+  transition: transform var(--motion-base), background var(--motion-base);
+}
+
+input[type="checkbox"].sdk-switch:hover:not(:disabled):not(:checked) {
+  background: color-mix(in srgb, var(--text-muted) 80%, var(--text-primary));
+}
+
+input[type="checkbox"].sdk-switch:checked {
+  border: 0;
+  background: var(--accent-fill);
+}
+
+input[type="checkbox"].sdk-switch:checked:hover:not(:disabled) {
+  background: var(--accent-fill-hover);
+}
+
+input[type="checkbox"].sdk-switch:checked::before {
+  background: var(--text-on-accent);
+  transform: translateX(16px);
+}
+
+/* A tick box, radio or switch with its words: the whole row is the target. */
+.sdk-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--check-h);
+  font-size: var(--field-font);
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.sdk-check:has(:disabled) {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.sdk-check:has(input:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(input, select, textarea),
+  input::before { transition: none; }
+}
+/* fields:end */

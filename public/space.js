@@ -2642,7 +2642,7 @@ function openLayoutSheet({ title, name = '', share = null, emptyName = '', onSav
       <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
       <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false" maxlength="40"></label>
       <p class="layout-field-hint" id="layout-name-hint" hidden></p>
-      <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
+      <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="sdk-switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
       <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
       </div>
     </form>`;
@@ -2781,7 +2781,7 @@ function openIconSheet({ title, current = '', defaultIcon = '', onSave }) {
     <form class="layout-form" novalidate>
       <div class="layout-form-body action-content">
       <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
-      <label class="layout-field"><span class="layout-field-label">Find an icon</span><input type="search" id="layout-icon-search" autocomplete="off" spellcheck="false" maxlength="40"></label>
+      <label class="layout-field"><span class="layout-field-label">Find an icon</span><span class="sdk-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="layout-icon-search" autocomplete="off" spellcheck="false" maxlength="40"></span></label>
       <div class="icon-grid layout-icon-grid" id="layout-icon-grid" role="radiogroup" aria-label="Icon"></div>
       <p class="layout-field-hint" id="layout-icon-none" role="status" hidden>No icon matches.</p>
       ${defaultIcon ? '<button type="button" class="btn btn-small layout-icon-reset" id="layout-icon-reset">Reset to default</button>' : ''}

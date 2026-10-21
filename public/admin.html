@@ -45,9 +45,9 @@
         <h2>New user</h2>
         <div class="fields">
           <label>Username<input id="new-login" type="text" maxlength="40" required autocapitalize="off" autocomplete="off"></label>
-          <label>Display name<input id="new-name" type="text" maxlength="40" autocomplete="off"></label>
+          <label>Display name <span class="sdk-optional">(optional)</span><input id="new-name" type="text" maxlength="40" autocomplete="off"></label>
           <label>Role<select id="new-role" data-fill><option value="member">{Member}</option><option value="owner">{Owner}</option></select></label>
-          <label>Password<span class="row reveal-row"><input id="new-password" aria-label="Password" type="password" maxlength="200" autocomplete="new-password" placeholder="leave empty for link only"><button class="btn btn-small" type="button" data-reveal="new-password" aria-pressed="false">Show</button></span></label>
+          <label>Password <span class="sdk-optional">(optional)</span><span class="row reveal-row"><input id="new-password" aria-label="Password" type="password" maxlength="200" autocomplete="new-password" placeholder="leave empty for link only"><button class="btn btn-small" type="button" data-reveal="new-password" aria-pressed="false">Show</button></span></label>
           <label class="check"><input id="new-link" type="checkbox" checked> Personal link (no password needed)</label>
         </div>
         <div class="row">

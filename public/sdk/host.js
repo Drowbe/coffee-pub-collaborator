@@ -1861,7 +1861,8 @@
       // weekday of what is in the field shows under it. Works on <input type="date"> and
       // <input type="datetime-local"> (which keeps its time, or takes 12:00 when it has none).
       // datePicker(input, { range: () => [from, to], clearable, list: { label, items, none } }): highlight a span of days, and offer Clear.
-      // In a .sdk-form (the form standard) the field is a .sdk-group with .sdk-field-btn buttons and the weekday in its .sdk-hint.
+      // The field is a .sdk-datefield: the input with the calendar button inside its trailing edge (a small quiet icon button; the Fields block of
+      // system.css). In a .sdk-form it is also a .sdk-group and the weekday is the field's .sdk-hint.
       // `list` adds a second button (in a .sdk-form only) that opens the module's own list of days: items(set) returns host.menu.show
       // entries, an entry `{ label, day: 'YYYY-MM-DD' }` sets that day, `none: 'Unscheduled'` adds a first entry that clears the field.
       // Returns { close, destroy }.
@@ -1874,11 +1875,11 @@
         wrap.className = inForm ? 'sdk-datefield sdk-group' : 'sdk-datefield';
         input.parentNode.insertBefore(wrap, input);
         wrap.appendChild(input);
-        const icon = (d) => `<svg viewBox="0 0 16 16" width="${inForm ? 16 : 14}" height="${inForm ? 16 : 14}" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
+        const icon = (d) => `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
         const mkBtn = (title, d) => {
           const b = document.createElement('button');
           b.type = 'button';
-          b.className = inForm ? 'sdk-icon-btn' : 'sdk-icon-btn btn-small';
+          b.className = 'sdk-icon-btn btn-small btn-quiet';
           b.title = title;
           b.setAttribute('aria-label', title);
           b.innerHTML = icon(d);

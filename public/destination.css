@@ -66,36 +66,9 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   z-index: var(--z-menu);
 }
 
-/* The search (the map): one field on the right of the page bar. */
-.dest-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* The search (the map): one search field (.sdk-search, system.css) on the right of the page bar. */
+.sdk-search.dest-search {
   width: min(380px, 40vw);
-  height: 26px;
-  margin: 2px 0;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text-dim);
-}
-
-.dest-search:focus-within {
-  border-color: var(--accent);
-}
-
-.dest-search input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-13);
 }
 
 /* The parts. */
@@ -255,7 +228,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
     min-width: 0;
   }
 
-  .dest-bar.has-search .nav-right > .dest-search {
+  .dest-bar.has-search .nav-right > .sdk-search.dest-search {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;

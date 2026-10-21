@@ -125,11 +125,11 @@
           <div class="fields">
             <label>Id<input name="id" type="text" class="plan-id" maxlength="20" pattern="[a-z0-9\-]+" required></label>
             <label>Name<input name="name" type="text" maxlength="40" required></label>
-            <label>Members<input name="members" type="number" min="1" placeholder="no cap"></label>
-            <label>Storage (GB)<input name="storageGb" type="number" min="0.5" step="0.5" placeholder="no cap"></label>
-            <label>AI calls a month<input name="aiCallsPerMonth" type="number" min="0" placeholder="no cap"></label>
-            <label>Calls at once<input name="calls" type="number" min="1" placeholder="no cap"></label>
-            <label>Modules<input name="modules" type="text" placeholder="all, or ids separated by spaces"></label>
+            <label>Members <span class="sdk-optional">(optional)</span><input name="members" type="number" min="1" placeholder="no cap"></label>
+            <label>Storage (GB) <span class="sdk-optional">(optional)</span><input name="storageGb" type="number" min="0.5" step="0.5" placeholder="no cap"></label>
+            <label>AI calls a month <span class="sdk-optional">(optional)</span><input name="aiCallsPerMonth" type="number" min="0" placeholder="no cap"></label>
+            <label>Calls at once <span class="sdk-optional">(optional)</span><input name="calls" type="number" min="1" placeholder="no cap"></label>
+            <label>Modules <span class="sdk-optional">(optional)</span><input name="modules" type="text" placeholder="all, or ids separated by spaces"></label>
           </div>
           <div class="row"><button class="btn btn-small danger" data-action="plan-remove" type="button">Remove this plan</button></div>
         </div>
@@ -163,7 +163,7 @@
         <h3>The first owner</h3>
         <div class="fields">
           <label>Login<input id="new-owner-login" type="text" maxlength="40" required autocapitalize="off" autocomplete="off"></label>
-          <label>Display name<input id="new-owner-name" type="text" maxlength="40" autocomplete="off"></label>
+          <label>Display name <span class="sdk-optional">(optional)</span><input id="new-owner-name" type="text" maxlength="40" autocomplete="off"></label>
           <label>Password<span class="row reveal-row"><input id="new-owner-password" aria-label="Password" type="password" maxlength="200" required autocomplete="new-password"><button class="btn btn-small" type="button" data-reveal="new-owner-password" aria-pressed="false">Show</button></span></label>
         </div>
         <p class="hint">The slug is the environment's address and is fixed once made: letters, digits and hyphens, 3 to 30. The owner signs in there with these.</p>
@@ -214,7 +214,7 @@
         <div class="fields">
           <label id="te-id-label">Id<input id="te-id" type="text" maxlength="32" pattern="[a-z][a-z0-9\-]*" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="travel"></label>
           <label>Name<input id="te-name" type="text" maxlength="40" autocomplete="off"></label>
-          <label class="wide">Description<input id="te-description" type="text" maxlength="200" autocomplete="off"></label>
+          <label class="wide">Description <span class="sdk-optional">(optional)</span><input id="te-description" type="text" maxlength="200" autocomplete="off"></label>
         </div>
         <ul class="problems" data-problems="id name description"></ul>
 
@@ -250,7 +250,7 @@
           <div class="fields">
             <label>Lobby name<input id="te-lobby-name" type="text" maxlength="40" placeholder="Lobby"></label>
             <label>New spaces use<select id="te-profile"><option value="">The usual profile</option><option value="roleplaying">Roleplaying</option><option value="participants">Participants</option><option value="characters">Characters</option></select></label>
-            <label class="wide">Lobby description<input id="te-lobby-description" type="text" maxlength="300"></label>
+            <label class="wide">Lobby description <span class="sdk-optional">(optional)</span><input id="te-lobby-description" type="text" maxlength="300"></label>
           </div>
           <p class="hint">What a new space opens, in this order. The ticks are the template's modules, including chat and the conference.</p>
           <div id="te-opens"></div>
@@ -464,10 +464,10 @@
           <label class="modules-list" data-slot="modules-list" hidden>Allowed modules (ids, one per line)<textarea name="moduleIds" rows="3"></textarea></label>
         </div>
         <div class="fields">
-          <label>Members (cap)<input name="members" type="number" min="1" placeholder="no cap"></label>
-          <label>Storage (GB, cap)<input name="storageGb" type="number" min="1" step="0.5" placeholder="no cap"></label>
-          <label>AI calls per month (cap)<input name="aiCallsPerMonth" type="number" min="0" placeholder="no cap"></label>
-          <label>Concurrent calls (cap)<input name="calls" type="number" min="1" placeholder="no cap"></label>
+          <label>Members (cap) <span class="sdk-optional">(optional)</span><input name="members" type="number" min="1" placeholder="no cap"></label>
+          <label>Storage (GB, cap) <span class="sdk-optional">(optional)</span><input name="storageGb" type="number" min="1" step="0.5" placeholder="no cap"></label>
+          <label>AI calls per month (cap) <span class="sdk-optional">(optional)</span><input name="aiCallsPerMonth" type="number" min="0" placeholder="no cap"></label>
+          <label>Concurrent calls (cap) <span class="sdk-optional">(optional)</span><input name="calls" type="number" min="1" placeholder="no cap"></label>
         </div>
         <div class="row">
           <button class="btn btn-primary" type="submit">Save</button>

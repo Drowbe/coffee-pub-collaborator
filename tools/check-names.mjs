@@ -381,6 +381,12 @@ function tokenAt(line, start, end) {
   return line.slice(a, b).replace(/^[./:-]+|[./:-]+$/g, '');
 }
 
+// The colour roles Thomas approved (public/sdk/system.css, documentation/designsystem/design-theme.md, server/store.js
+// THEME_BASE). Their names are fixed and never renamed; the only one that holds a fenced word is surface-panel ("panel",
+// a part of a page, not a module). A hit whose whole token is exactly one of these (the `--` before it is not part of
+// the token) is the role's name, not an old name. Only the exact token: surface-panel-x, module-panel or a bare
+// "panel" are still hits.
+const APPROVED_ROLE_TOKENS = new Set(['surface-panel']);
 const emptyResults = () => new Map(LEVELS.map((l) => [l.id, { hits: [], allowed: 0 }]));
 function scan(mode, files, allow) {
   const results = emptyResults();
@@ -405,6 +411,7 @@ function scanText(file, text, mode, allow, results) {
       if (mode === 'words' && level.wordsIn && !level.wordsIn.some((dir) => file.startsWith(dir))) continue;
       const bucket = results.get(level.id);
       const record = (lineNo, token, lineText) => {
+        if (APPROVED_ROLE_TOKENS.has(token)) return;
         // An entry allows only its own level's hit, by that hit's own token (and its line, when it asks for one).
         const hit = fileAllow.find((e) => (e.level === '*' || e.level === level.id) && e.re.test(token) && (!e.lineRe || e.lineRe.test(lineText)));
         if (hit) { hit.used += 1; bucket.allowed += 1; } else bucket.hits.push({ file, line: lineNo, token });
@@ -869,6 +876,14 @@ function scannerCheck() {
     const words = hitsOf('public/scratch.js', text, 'words', []);
     assert.deepEqual(words.space, ['6:room', '7:room', '8:room']);
     assert.deepEqual(words.table, ['6:table']);
+  });
+
+  test('an approved colour role name (surface-panel) is not an old name, but the bare word and other names built on it still are', () => {
+    const css = ".a { background: var(--surface-panel); border: 1px solid var(--edge-hairline); }\n:root { --surface-panel: #fff; }\n";
+    assert.deepEqual(hitsOf('modules/demo/src/demo.css', css, 'code', []).module, [], 'the role token is ignored in CSS');
+    const js = "const roles = ['surface-panel', 'text-primary'];\nconst bad = 'surface-panel-extra';\nel.className = 'panel';\nel.className = 'module-panel';\nconst x = { panel: 1 };\n";
+    assert.deepEqual(hitsOf('modules/demo/src/demo.js', js, 'code', []).module, ['2:surface-panel-extra', '3:panel', '4:module-panel', '5:panel']);
+    assert.deepEqual(hitsOf('modules/demo/src/demo.css', '.panel { color: red; }\n.module-panel { top: 0; }\n', 'code', []).module, ['1:panel', '2:module-panel']);
   });
 
   test("the AI's items are objects; a menu's items are not", () => {

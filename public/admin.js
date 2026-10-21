@@ -1631,14 +1631,14 @@ $('tab-modules').addEventListener('change', async (event) => {
   const name = AI_NAMES[aiCard.provider] || 'the service';
   let force = false;
   if (aiCard.on) {
-    let ask = { title: 'Disable AI for everyone?', message: 'Modules that use it are told AI is not available. Your setup is kept.', action: 'Disable', kind: 'destructive' };
+    let ask = { title: 'Disable AI for everyone?', message: `${word('module', { many: true, cap: true })} that use it are told AI is not available. Your setup is kept.`, action: 'Disable', kind: 'destructive' };
     if (aiCard.dependents?.length) {
       const names = aiCard.dependents.map((d) => d.name).join(' and ');
       ask = { title: `${names} need${aiCard.dependents.length === 1 ? 's' : ''} the AI service. Turn ${aiCard.dependents.length === 1 ? 'it' : 'them'} off too?`, action: 'Turn off', kind: 'destructive' };
       force = true;
     }
     if (!await confirmDialog(ask)) { input.checked = true; return; }
-  } else if (!await confirmDialog({ title: 'Enable AI?', message: `Modules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`, action: 'Enable' })) { input.checked = false; return; }
+  } else if (!await confirmDialog({ title: 'Enable AI?', message: `${word('module', { many: true, cap: true })} that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`, action: 'Enable' })) { input.checked = false; return; }
   input.disabled = true;
   const status = () => (modulePart === 'ai' ? $('ai-status') : $('modules-status'));
   try {

@@ -487,7 +487,7 @@ await test('the SDK offers host.lookup, and the page that hosts a module answers
 await test("the admin's Flight schedule section: the same parts on the host console and the admin page, each on its own route", () => {
   const read = (name) => fs.readFileSync(path.join(ROOT, 'public', name), 'utf8');
   const shared = read('flight-schedule.js');
-  assert.ok(shared.includes("'Clear all learned flights? Lookups will find nothing until people save flights again.'"), 'Clear all asks first, in the plan\'s words');
+  assert.ok(shared.includes("title: 'Clear all learned flights?'") && shared.includes("message: 'Lookups will find nothing until people save flights again.'") && shared.includes('await confirmDialog(CLEAR_CONFIRM)'), 'Clear all asks first, in the plan\'s words');
   assert.ok(shared.includes('window.confirm(CLEAR_QUESTION)'), 'Clear all waits for the answer');
   assert.ok(shared.includes('`This server has learned ${flights(n)} from saved trips.`'), 'the count, in the plan\'s words');
   assert.ok(shared.includes('`${route}?number=${encodeURIComponent(typed)}`'), 'Forget sends one number');

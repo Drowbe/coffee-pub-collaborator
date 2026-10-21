@@ -834,7 +834,7 @@ test('the place shown is the place sent: fixed on first draw, never moved by a l
   // A single Keep whose place moved on refresh sends nothing and says where it now goes.
   assert.match(draw, /await refreshActions\(\);\n\s*if \(!shown \|\| !before \|\| shown\.id !== before\.id\) \{/);
   // Keep ticked says a moved place before the confirm.
-  assert.match(chat, /if \(!window\.confirm\(`\$\{movedWords\}Keep \$\{what\}\?/);
+  assert.match(chat, /await confirmDialog\(\{ title: `Keep \$\{what\}\?`, message: `\$\{movedWords\}\$\{leftOut\}`/);
 });
 
 test('Keep ticked: a form opens one at a time, a closed module is left out, and what cannot be kept is counted', () => {

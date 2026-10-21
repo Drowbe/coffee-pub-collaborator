@@ -721,6 +721,7 @@
       unwatch();
       deps.opened.delete(dialog);
       lift(false);
+      if (!deps.opened.size) doc.documentElement.removeAttribute('data-dialog-open');
       if (asking) { asking.row.remove(); asking = null; }
       const why = reason === 'done' ? 'done' : 'cancel';
       reason = '';
@@ -756,6 +757,7 @@
           deps.opened.set(dialog, { reopen, dismiss });
           watch();
           lift(true);
+          doc.documentElement.setAttribute('data-dialog-open', ''); // the page behind does not scroll (system.css)
         }
         focusIn(arg.focus);
       },

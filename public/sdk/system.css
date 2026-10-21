@@ -3683,6 +3683,11 @@ span.message-vis {
   background: var(--surface-panel);
 }
 
+/* The page behind an open dialog does not scroll (as confirm.js does for its question): any modal dialog in the page, and an editor window
+   a module opened inside its own box (host.js sets data-dialog-open on the page while one is open). */
+html:has(dialog:modal),
+html[data-dialog-open] { overflow: hidden; }
+
 /* The editor's button row is inside its form: it reaches the window's edges and sticks to the bottom while the form scrolls. */
 .sdk-editor-actions {
   position: sticky;

@@ -32,7 +32,7 @@
       <form id="host-verify" class="fields" hidden>
         <p class="hint" id="host-verify-lede">One more step: the six digits your authenticator app shows, or a recovery code.</p>
         <label>Code<input id="host-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>
-        <label class="check"><input id="host-remember" type="checkbox"> Remember this browser for 30 days</label>
+        <label class="sdk-choice-row"><input id="host-remember" type="checkbox"> Remember this browser for 30 days</label>
         <div class="row">
           <button class="btn btn-primary" type="submit">Sign in</button>
           <button class="btn" type="button" id="host-verify-back">Start over</button>
@@ -267,7 +267,7 @@
 
         <fieldset>
           <legend>Reactions</legend>
-          <label class="check"><input id="te-reactions-on" type="checkbox"> Give reactions</label>
+          <label class="sdk-choice-row"><input id="te-reactions-on" type="checkbox"> Give reactions</label>
           <div id="te-reactions-box" hidden>
             <div class="reactions-list" id="te-reactions"></div>
             <button class="btn btn-small" id="te-reaction-add" type="button">Add reaction</button>
@@ -394,7 +394,7 @@
               <label>Minimum zoom <input type="number" id="region-min-zoom" min="0" max="15" value="0" step="1"></label>
               <label>Maximum zoom <input type="number" id="region-zoom" min="0" max="15" value="14" step="1"></label>
               <label>File name <input type="text" id="region-filename" maxlength="100"></label>
-              <label class="check"><input type="checkbox" id="region-replace"> Replace a file already there with that name</label>
+              <label class="sdk-choice-row"><input type="checkbox" id="region-replace"> Replace a file already there with that name</label>
             </div>
             <p class="hint">Maximum zoom is how much detail the cut keeps, not how far it covers. 10 or below shows towns and the roads between them, not individual streets; 14, the default, shows streets and buildings; 15 is the most detail this can offer. Higher means a far bigger file for the same area. Minimum zoom trims the shallow end: leave it at 0 for a file meant to stand alone, or raise it when a wider, lower-zoom file already covers those zooms. Check size shows the real cost before anything downloads.</p>
             <div class="row">

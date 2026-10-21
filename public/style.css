@@ -1742,8 +1742,8 @@ body.in-space .page-scroll {
 }
 
 /* A label above its field: the field label's look (system.css, .sdk-label), in sentence case. */
-.panel label,
-.fields label {
+.panel label:not(.sdk-choice-row),
+.fields label:not(.sdk-choice-row) {
   display: flex;
   flex-direction: column;
   gap: var(--label-gap);
@@ -2680,17 +2680,6 @@ button.whoami:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
   color: var(--text-muted);
-}
-
-.fields .check,
-.check {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-  font-size: var(--text-13);
-  color: var(--text);
 }
 
 /* A row of checkboxes belongs together, not scattered one per grid cell
@@ -3995,7 +3984,7 @@ a.crumb-here:hover {
   width: min(360px, calc(100% - 24px));
 }
 
-.popover label {
+.popover label:not(.sdk-choice-row) {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -4155,12 +4144,9 @@ a.crumb-here:hover {
   gap: 6px 14px;
 }
 
-/* .popover label defaults to a column (field label above its input), but a
-   checkbox's own label reads left to right: the box, then its text. */
-.popover label.check {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
+.checks > .sdk-choice-row,
+.check-group > .sdk-choice-row {
+  width: auto;
 }
 
 .fbtn.gated .meter {
@@ -4997,10 +4983,6 @@ html.has-background .panel.login {
   resize: vertical;
 }
 
-.check input[type="number"] {
-  width: 64px;
-}
-
 @media (max-width: 600px) {
   .brand-row {
     flex-direction: column;
@@ -5047,18 +5029,7 @@ html.has-background .panel.login {
   font-size: var(--text-12);
 }
 
-/* checkbox and picture labels inside panels keep normal text */
-.panel label.check,
-.fields label.check {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-  font-size: var(--text-13);
-  color: var(--text);
-}
-
+/* picture labels inside panels keep normal text */
 .panel label.slot-pick {
   text-transform: none;
   letter-spacing: var(--tracking-normal);
@@ -6529,7 +6500,6 @@ body.chat-window {
 /* Two-step sign-in (plans/plan-mfa.md): the enrolment block (the QR, the key, the code, then the recovery codes), the
    code page, and the small rows on the profile and the console. */
 .login-step.wide { max-width: 560px; }
-.login label.check { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: var(--tracking-normal); font-size: var(--text-13); }
 .mfa-block { margin: 6px 0 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-card, var(--bg)); }
 .mfa-scan { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 .mfa-qr svg { display: block; width: 168px; height: 168px; padding: 8px; border-radius: var(--radius-medium); background: #fff; }
@@ -6658,10 +6628,10 @@ body.chat-window {
 .template-offer p { margin: 0; }
 .offer-group { display: grid; gap: 4px; min-width: 0; }
 .offer-group .field-label { margin: 0; }
-.template-offer label.check { align-items: flex-start; min-width: 0; }
-.template-offer label.check input { flex: none; margin-top: 2px; }
-.template-offer label.check > span { min-width: 0; overflow-wrap: anywhere; }
-.template-offer label.check .hint { display: block; margin: 0; }
+.template-offer .sdk-choice-row { align-items: flex-start; min-width: 0; padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.template-offer .sdk-choice-row input { flex: none; margin-top: var(--space-0); }
+.template-offer .sdk-choice-row > span { min-width: 0; overflow-wrap: anywhere; }
+.template-offer .sdk-choice-row .hint { display: block; margin: 0; }
 .template-offer .offer-refused { color: var(--text-dim); cursor: default; }
 .module-names { display: grid; }
 .module-name-row { padding: 10px 0 0; border-top: 1px solid var(--border); scroll-margin-top: 80px; }
@@ -6713,7 +6683,7 @@ body.host-console .icon-field i { width: 1.4em; text-align: center; flex: none; 
 body.host-console .template-modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
 body.host-console .phase-row, body.host-console .opens-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
 body.host-console .phase-row input[type="text"] { flex: 1 1 8rem; min-width: 0; }
-body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
+body.host-console .opens-row .sdk-choice-row { flex: 1; width: auto; min-width: 8rem; }
 @media (max-width: 560px) {
   body.host-console .word-row, body.host-console .module-display-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body.host-console .word-row > :first-child, body.host-console .module-display-row > :first-child { grid-column: 1 / -1; }
@@ -6963,7 +6933,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   margin: 0 0 10px 30px;
 }
 
-.switch-list label.check.disabled {
+.switch-list .sdk-choice-row.disabled {
   opacity: 0.6;
   cursor: default;
 }
@@ -8034,17 +8004,11 @@ h4.setup-subheading {
   font-size: var(--text-14);
 }
 
-.space-setup .module-setting > label {
+.space-setup .module-setting > label:not(.sdk-choice-row) {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: var(--text-14);
-}
-
-.space-setup .module-setting > label.check {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
 }
 
 .space-setup .list-row {

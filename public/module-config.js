@@ -268,7 +268,7 @@ async function wireHostSections(m, name, live = () => true) {
     $('cfg-top-bar').hidden = false;
     for (const d of mains) {
       const label = document.createElement('label');
-      label.className = 'check';
+      label.className = 'sdk-choice-row';
       const input = document.createElement('input');
       Object.assign(input, { id: `set-show-${d.id}`, type: 'checkbox', className: 'sdk-switch' });
       input.setAttribute('role', 'switch');

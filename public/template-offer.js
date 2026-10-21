@@ -36,13 +36,13 @@ export function renderOffer(box, { templateName, offer, lobbyName = '', apply, l
   const uid = `offer-${Math.random().toString(36).slice(2, 8)}`;
   const moduleRow = (m) => {
     const why = m.allowed ? '' : sentence(m.why);
-    return `<label class="check${m.allowed ? '' : ' offer-refused'}"><input type="checkbox" data-offer-module="${escapeHtml(m.id)}"${m.allowed ? ' checked' : ' disabled'}> <span><strong>${escapeHtml(m.name || m.id)}</strong>${why ? ` <span class="hint">${escapeHtml(why)}</span>` : ''}</span></label>`;
+    return `<label class="sdk-choice-row${m.allowed ? '' : ' offer-refused'}"><input type="checkbox" data-offer-module="${escapeHtml(m.id)}"${m.allowed ? ' checked' : ' disabled'}> <span><strong>${escapeHtml(m.name || m.id)}</strong>${why ? ` <span class="hint">${escapeHtml(why)}</span>` : ''}</span></label>`;
   };
   const lobbyRow = () => {
     const l = offer.lobby;
     const renames = l.name && l.name !== lobbyName;
     const text = renames ? `Name ${escapeHtml(lobby)} "${escapeHtml(l.name)}"` : `Give ${escapeHtml(lobby)} the template's description`;
-    return `<label class="check"><input type="checkbox" data-offer-lobby> <span>${text}${l.description ? ` <span class="hint">${escapeHtml(l.description)}</span>` : ''}</span></label>`;
+    return `<label class="sdk-choice-row"><input type="checkbox" data-offer-lobby> <span>${text}${l.description ? ` <span class="hint">${escapeHtml(l.description)}</span>` : ''}</span></label>`;
   };
   const profileRow = () => {
     const defaults = offer.spaceDefaults;
@@ -61,21 +61,21 @@ export function renderOffer(box, { templateName, offer, lobbyName = '', apply, l
         ? `A new ${escapeHtml(word('space'))} opens ${names.slice(0, -1).map(escapeHtml).join(', ')} and ${escapeHtml(names[names.length - 1])}`
         : '';
     const text = [profile, opens].filter(Boolean).join('. ');
-    return `<label class="check"><input type="checkbox" data-offer-space-defaults> <span>${text}</span></label>`;
+    return `<label class="sdk-choice-row"><input type="checkbox" data-offer-space-defaults> <span>${text}</span></label>`;
   };
   const reactionsRow = () => {
     const list = offer.reactions;
     const glyphs = list.map((r) => r.glyph).join(' ');
-    return `<label class="check"><input type="checkbox" data-offer-reactions> <span>${list.length ? 'Use its reactions' : 'Turn reactions off'}${glyphs ? ` <span class="offer-glyphs">${escapeHtml(glyphs)}</span>` : ''} <span class="hint">Replaces the reactions you have.</span></span></label>`;
+    return `<label class="sdk-choice-row"><input type="checkbox" data-offer-reactions> <span>${list.length ? 'Use its reactions' : 'Turn reactions off'}${glyphs ? ` <span class="offer-glyphs">${escapeHtml(glyphs)}</span>` : ''} <span class="hint">Replaces the reactions you have.</span></span></label>`;
   };
   const themeRow = () => {
     const t = offer.theme;
-    return `<label class="check"><input type="checkbox" data-offer-theme> <span>Add and use the ${escapeHtml(t.name)} theme${t.author ? ` <span class="hint">by ${escapeHtml(t.author)}</span>` : ''}</span></label>`;
+    return `<label class="sdk-choice-row"><input type="checkbox" data-offer-theme> <span>Add and use the ${escapeHtml(t.name)} theme${t.author ? ` <span class="hint">by ${escapeHtml(t.author)}</span>` : ''}</span></label>`;
   };
   const iconSetRow = () => {
     const names = offer.iconSet;
     const shown = names.slice(0, 12).map((n) => `<i class="fa-solid fa-${escapeHtml(n)} fa-fw" aria-hidden="true"></i>`).join('');
-    return `<label class="check"><input type="checkbox" data-offer-icon-set> <span>Add its ${names.length === 1 ? 'icon' : `${names.length} icons`} to the icon list <span class="offer-icons">${shown}</span></span></label>`;
+    return `<label class="sdk-choice-row"><input type="checkbox" data-offer-icon-set> <span>Add its ${names.length === 1 ? 'icon' : `${names.length} icons`} to the icon list <span class="offer-icons">${shown}</span></span></label>`;
   };
   const any = offerHasChoices(offer);
   box.innerHTML = `

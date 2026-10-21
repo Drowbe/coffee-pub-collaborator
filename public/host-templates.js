@@ -57,7 +57,7 @@ function renderList() {
     return `<li class="sdk-row list-row" data-id="${id}">
       <span class="template-list-name"><strong>${escapeHtml(t.name || t.id)}</strong>${badge} <code>${id}</code>
         <span class="hint">${escapeHtml(SOURCE[t.source] || t.source)}, version ${escapeHtml(String(t.version || 1))}, <span title="${escapeHtml((t.usedBy || []).join(', '))}">used by ${used}</span>${t.hidden ? ', hidden' : ''}</span></span>
-      ${own || bundled ? `<label class="check"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}
+      ${own || bundled ? `<label class="sdk-choice-row"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}
       <a class="btn btn-small" href="/api/host/templates/${encodeURIComponent(t.id)}/export" download>Export</a>
       ${own || bundled ? `<button class="btn btn-small" type="button" data-action="edit">Edit</button>` : ''}
       ${own || bundled ? `<button class="btn btn-small" type="button" data-action="duplicate">Duplicate</button>` : ''}
@@ -269,7 +269,7 @@ async function openEditor(t) {
   previewHome();
   const on = new Set((t && t.modules) || ['chat', 'conference']);
   const ids = [...new Set([...moduleIds, ...on])];
-  $('te-modules').innerHTML = ids.map((id) => `<label class="check"><input type="checkbox" data-module="${escapeHtml(id)}"${on.has(id) ? ' checked' : ''}${id === 'chat' ? ' disabled title="Chat can\'t be switched off yet"' : ''}> ${escapeHtml(moduleName(id))}</label>`).join('');
+  $('te-modules').innerHTML = ids.map((id) => `<label class="sdk-choice-row"><input type="checkbox" data-module="${escapeHtml(id)}"${on.has(id) ? ' checked' : ''}${id === 'chat' ? ' disabled title="Chat can\'t be switched off yet"' : ''}> ${escapeHtml(moduleName(id))}</label>`).join('');
   const names = (t && t.moduleNames) || {};
   const icons = (t && t.moduleIcons) || {};
   $('te-module-display').innerHTML = ids.map((id) => `<div class="module-display-row" data-display="${escapeHtml(id)}"><strong>${escapeHtml(moduleName(id))}</strong>`
@@ -298,7 +298,7 @@ function phaseRow(phase = {}) {
   row.className = 'phase-row';
   row.innerHTML = `<input type="text" data-phase-id maxlength="32" value="${escapeHtml(phase.id || '')}" placeholder="planning" aria-label="Phase id" autocapitalize="off" spellcheck="false">`
     + `<input type="text" data-phase-label maxlength="40" value="${escapeHtml(phase.label || '')}" placeholder="Planning" aria-label="Phase label">`
-    + `<label class="check"><input type="checkbox" data-phase-main${phase.main ? ' checked' : ''}> Main</label>`
+    + `<label class="sdk-choice-row"><input type="checkbox" data-phase-main${phase.main ? ' checked' : ''}> Main</label>`
     + `<span class="list-tools"><button type="button" class="btn btn-small" data-phase="up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>`
     + `<button type="button" class="btn btn-small" data-phase="down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>`
     + `<button type="button" class="btn btn-small danger" data-phase="remove">Remove</button></span>`;
@@ -360,7 +360,7 @@ function renderOpens(saved) {
     ? (saved || [])
     : [...$('te-opens').querySelectorAll('[data-opens]:checked')].map((box) => box.closest('.opens-row').dataset.open));
   const ranked = [...prior.filter((id) => have.has(id)), ...mods.filter((id) => !prior.includes(id))];
-  $('te-opens').innerHTML = ranked.map((id) => `<div class="opens-row" data-open="${escapeHtml(id)}"><label class="check"><input type="checkbox" data-opens${ticked.has(id) ? ' checked' : ''}> ${escapeHtml(moduleName(id))}</label>`
+  $('te-opens').innerHTML = ranked.map((id) => `<div class="opens-row" data-open="${escapeHtml(id)}"><label class="sdk-choice-row"><input type="checkbox" data-opens${ticked.has(id) ? ' checked' : ''}> ${escapeHtml(moduleName(id))}</label>`
     + `<span class="list-tools"><button type="button" class="btn btn-small" data-open-move="up" aria-label="Move ${escapeHtml(moduleName(id))} up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>`
     + `<button type="button" class="btn btn-small" data-open-move="down" aria-label="Move ${escapeHtml(moduleName(id))} down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button></span></div>`).join('');
 }

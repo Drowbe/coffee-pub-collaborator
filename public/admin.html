@@ -48,7 +48,7 @@
           <label>Display name <span class="sdk-optional">(optional)</span><input id="new-name" type="text" maxlength="40" autocomplete="off"></label>
           <label>Role<select id="new-role" data-fill><option value="member">{Member}</option><option value="owner">{Owner}</option></select></label>
           <label>Password <span class="sdk-optional">(optional)</span><span class="row reveal-row"><input id="new-password" aria-label="Password" type="password" maxlength="200" autocomplete="new-password" placeholder="leave empty for link only"><button class="btn btn-small" type="button" data-reveal="new-password" aria-pressed="false">Show</button></span></label>
-          <label class="check"><input id="new-link" type="checkbox" checked> Personal link (no password needed)</label>
+          <label class="sdk-choice-row"><input id="new-link" type="checkbox" checked> Personal link (no password needed)</label>
         </div>
         <div class="row">
           <button class="btn btn-primary" type="submit">Add</button>
@@ -63,7 +63,7 @@
       <div class="panel" id="signup-section">
       <h2>Sign-up</h2>
       <div class="row">
-        <label class="check"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
+        <label class="sdk-choice-row"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
       </div>
       <div class="row">
         <button class="btn btn-primary" id="save-registration" type="button">Save</button>
@@ -140,27 +140,27 @@
       <h3>Header, buttons and icons</h3>
       <p class="hint">Each of these follows the colors above until you set it: leave <strong>Auto</strong> ticked to keep it derived, or untick it to choose the color yourself.</p>
       <div class="fields theme-optional">
-        <div class="theme-opt"><label>Card background<input id="theme-card" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-card"> Auto</label></div>
-        <div class="theme-opt"><label>Header background<input id="theme-header-bg" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-header-bg"> Auto</label></div>
-        <div class="theme-opt"><label>Header text<input id="theme-header-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-header-text"> Auto</label></div>
-        <div class="theme-opt"><label>Branding area background<input id="theme-nav-brand-bg" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-brand-bg"> Auto</label></div>
-        <div class="theme-opt"><label>Branding area text<input id="theme-nav-brand-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-brand-text"> Auto</label></div>
-        <div class="theme-opt"><label>Right side background<input id="theme-nav-right-bg" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-right-bg"> Auto</label></div>
-        <div class="theme-opt"><label>Right side text<input id="theme-nav-right-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-right-text"> Auto</label></div>
-        <div class="theme-opt"><label>Icons<input id="theme-icon" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-icon"> Auto</label></div>
-        <div class="theme-opt"><label>Icon hover<input id="theme-icon-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-icon-hover"> Auto</label></div>
-        <div class="theme-opt"><label>Primary accent hover<input id="theme-primary-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-primary-hover"> Auto</label></div>
-        <div class="theme-opt"><label>Secondary accent<input id="theme-secondary" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary"> Auto</label></div>
-        <div class="theme-opt"><label>Text on secondary<input id="theme-secondary-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary-text"> Auto</label></div>
-        <div class="theme-opt"><label>Secondary accent hover<input id="theme-secondary-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary-hover"> Auto</label></div>
+        <div class="theme-opt"><label>Card background<input id="theme-card" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-card"> Auto</label></div>
+        <div class="theme-opt"><label>Header background<input id="theme-header-bg" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-header-bg"> Auto</label></div>
+        <div class="theme-opt"><label>Header text<input id="theme-header-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-header-text"> Auto</label></div>
+        <div class="theme-opt"><label>Branding area background<input id="theme-nav-brand-bg" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-brand-bg"> Auto</label></div>
+        <div class="theme-opt"><label>Branding area text<input id="theme-nav-brand-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-brand-text"> Auto</label></div>
+        <div class="theme-opt"><label>Right side background<input id="theme-nav-right-bg" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-right-bg"> Auto</label></div>
+        <div class="theme-opt"><label>Right side text<input id="theme-nav-right-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-right-text"> Auto</label></div>
+        <div class="theme-opt"><label>Icons<input id="theme-icon" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-icon"> Auto</label></div>
+        <div class="theme-opt"><label>Icon hover<input id="theme-icon-hover" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-icon-hover"> Auto</label></div>
+        <div class="theme-opt"><label>Primary accent hover<input id="theme-primary-hover" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-primary-hover"> Auto</label></div>
+        <div class="theme-opt"><label>Secondary accent<input id="theme-secondary" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary"> Auto</label></div>
+        <div class="theme-opt"><label>Text on secondary<input id="theme-secondary-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary-text"> Auto</label></div>
+        <div class="theme-opt"><label>Secondary accent hover<input id="theme-secondary-hover" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary-hover"> Auto</label></div>
       </div>
       <h3>Status colors</h3>
       <p class="hint">The colors of an error, a success, a warning and a notice. Leave <strong>Auto</strong> ticked for the standard ones. The text drawn on each, and each one used as text, are picked for you so they read.</p>
       <div class="fields theme-optional">
-        <div class="theme-opt"><label>Danger<input id="theme-status-danger" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-danger"> Auto</label></div>
-        <div class="theme-opt"><label>OK<input id="theme-status-ok" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-ok"> Auto</label></div>
-        <div class="theme-opt"><label>Warning<input id="theme-status-warn" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-warn"> Auto</label></div>
-        <div class="theme-opt"><label>Info<input id="theme-status-info" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-info"> Auto</label></div>
+        <div class="theme-opt"><label>Danger<input id="theme-status-danger" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-danger"> Auto</label></div>
+        <div class="theme-opt"><label>OK<input id="theme-status-ok" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-ok"> Auto</label></div>
+        <div class="theme-opt"><label>Warning<input id="theme-status-warn" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-warn"> Auto</label></div>
+        <div class="theme-opt"><label>Info<input id="theme-status-info" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-info"> Auto</label></div>
       </div>
       <h3>Contrast</h3>
       <p class="hint">How the colors read together, for the theme and mode being edited, as they change. Text needs 4.5 : 1 to be easy to read; a mark (a bar, a ring, a dot) needs 3 : 1 to be seen.</p>
@@ -289,11 +289,11 @@
           <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
         </div>
         <div class="checks">
-          <label class="check"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
-          <label class="check" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
-          <label class="check"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
-          <label class="check"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
-          <label class="check" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
+          <label class="sdk-choice-row"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
+          <label class="sdk-choice-row" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
+          <label class="sdk-choice-row"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
+          <label class="sdk-choice-row"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
+          <label class="sdk-choice-row" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
         </div>
         <div class="row">
           <button class="btn btn-primary" id="save-features" type="button">Save</button>
@@ -564,7 +564,7 @@
           <div class="fields grow">
             <label class="wide"><textarea id="set-login-text" rows="3" maxlength="1000" aria-label="Text on the sign-in page" placeholder="A note under the password field"></textarea></label>
             <div class="wide" id="set-mfa-row">
-              <label class="check"><input type="checkbox" id="set-mfa-required"> Require two-step sign-in for everyone</label>
+              <label class="sdk-choice-row"><input type="checkbox" id="set-mfa-required"> Require two-step sign-in for everyone</label>
               <p class="hint">Off: anyone may set up an authenticator app on their profile, and is then asked for its code. On: everyone must, from their next sign-in.</p>
             </div>
           </div>

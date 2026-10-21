@@ -1303,7 +1303,7 @@ function bundledNeeds(b) {
 // The switch that turns a module, a built-in one or the AI service on and off (#264): one control in place of the
 // Enabled pill and the Disable button, the switch (input.sdk-switch) with its word beside it. Its name says whose it is.
 function enabledSwitch({ id, attr, name, on, disabled = false }) {
-  return `<label class="check module-toggle"><input type="checkbox" class="sdk-switch" role="switch" ${attr}="${escapeHtml(id)}" aria-label="${escapeHtml(name)} enabled"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}> Enabled</label>`;
+  return `<label class="sdk-choice-row module-toggle"><input type="checkbox" class="sdk-switch" role="switch" ${attr}="${escapeHtml(id)}" aria-label="${escapeHtml(name)} enabled"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}> Enabled</label>`;
 }
 
 // An installed module's card, in one of four shapes (#264):

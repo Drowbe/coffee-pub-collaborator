@@ -3074,7 +3074,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
    Names: the contract names (.sdk-window, .sdk-titlebar, .sdk-toolbar, .sdk-status-line and their parts) and the product's own
    names for the same component, which the host draws: the window .module-floating and the docked column .module-docked > .mod-content;
    the title bar .mod-header (on a floating module also .module-floating-head, popped out also .module-titlebar) and the Chat's
-   .chat-head, with .mod-title and .mod-header-tools / .chat-tools; the toolbar .mod-toolbar with .tb-sep, .tb-text, .tb-progress; the
+   .chat-head, with .mod-title and .mod-header-tools / .chat-tools; the toolbar .mod-toolbar with .tb-sep, .tb-text and the progress (.sdk-progress, Progress block); the
    status line .mod-status and its -items, -item, -text, -sep. The old toolbar pill, message button and tinted "+" are retired: a
    band's buttons are the Buttons block's Quiet small (.btn.btn-small.btn-quiet, .sdk-icon-btn.btn-small.btn-quiet), the "+"
    included. Layout (where a window sits, its size, the drag and the resize grip, the phone's touch widths) stays in style.css.
@@ -3248,23 +3248,6 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   height: var(--space-4);
   margin: 0;
   background: var(--edge-hairline);
-}
-
-/* The small progress in a toolbar: 6px high. */
-:is(.sdk-toolbar, .mod-toolbar) > :is(.sdk-progress, .tb-progress) {
-  position: relative;
-  flex: 1 1 80px;
-  min-width: 40px;
-  max-width: 160px;
-  height: 6px;
-  border-radius: var(--radius-min);
-  background: var(--edge-hairline);
-  overflow: hidden;
-}
-:is(.sdk-toolbar, .mod-toolbar) > :is(.sdk-progress, .tb-progress) > :is(.sdk-progress-fill, .tb-progress-fill) {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--accent-fill);
 }
 
 /* ---- the status line ---- */

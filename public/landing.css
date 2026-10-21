@@ -38,6 +38,8 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .landing img { display: block; max-width: 100%; height: auto; }
 .landing :where(h1, h2, h3) { margin: 0; font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
 .landing :where(p) { margin: 0; }
+.landing :where(b) { font-weight: 600; }
+.landing :where(h2) { font-family: "Fraunces", "Fraunces Fallback", Georgia, serif; }
 .landing a { color: var(--l-teal-text); text-underline-offset: 3px; }
 .landing a:hover { text-decoration-thickness: 2px; }
 .landing :focus-visible { outline: 3px solid var(--l-coral); outline-offset: 3px; border-radius: var(--radius-min); }

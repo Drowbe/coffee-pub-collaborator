@@ -42,7 +42,8 @@ try {
 }
 
 fill('[data-product]', product.name);
-document.title = product.name;
+// A use page names its own title: <title data-title="Plan trips together: {name}">; the front page's is the name alone.
+document.title = document.querySelector('title[data-title]')?.dataset.title.replace('{name}', product.name) || product.name;
 for (const img of document.querySelectorAll('[data-product-alt]')) {
   img.alt = product.name;
   // the name in text if the logo cannot load (a host that does not serve the brand folder at its base)
@@ -148,7 +149,7 @@ const capLine = (caps) => {
     Array.isArray(c.modules) ? `${c.modules.length} modules` : 'every module',
   ];
 };
-if (Array.isArray(product.plans) && product.plans.length) {
+if (Array.isArray(product.plans) && product.plans.length && document.getElementById('plans-grid')) {
   const grid = document.getElementById('plans-grid');
   grid.replaceChildren(...product.plans.map((p) => {
     const box = document.createElement('div');
@@ -179,7 +180,9 @@ if (Array.isArray(product.plans) && product.plans.length) {
 const signup = document.getElementById('signup-form');
 const ask = document.getElementById('start-ask');
 const startLede = document.getElementById('start-lede');
-if (signupOpen) {
+if (!signup) {
+  // a use page: its Get started links to the front page's form
+} else if (signupOpen) {
   signup.hidden = false;
   document.querySelector('[data-signup-domain]').textContent = `.${product.baseDomain}`;
   const slugInput = document.getElementById('signup-slug');
@@ -209,6 +212,10 @@ if (signupOpen) {
       return label;
     };
     options.replaceChildren(option('', 'None', 'Start plain: the usual words and settings.'), ...templates.map((t) => option(t.id, t.name || t.id, t.description || '')));
+    // /?template=travel#start (from a use page) chooses that template, when this host offers it; otherwise None stays chosen
+    const wanted = new URLSearchParams(location.search).get('template');
+    const wantedInput = wanted && [...options.querySelectorAll('input')].find((i) => i.value === wanted);
+    if (wantedInput) wantedInput.checked = true;
     templateBox.hidden = false;
   }
   let checkToken = 0;

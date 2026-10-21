@@ -43,7 +43,7 @@
       try { await navigator.clipboard.writeText(accessKey); say('copied'); } catch { say('could not copy'); }
     });
     $('key-regen').addEventListener('click', async () => {
-      if (!window.confirm('Regenerate the access key? Every existing link and the Studio app need the new one.')) return;
+      if (!await host.ui.confirm({ title: 'Regenerate the access key?', message: 'Every existing link and the Studio app need the new one.', action: 'Regenerate', kind: 'destructive' })) return;
       try {
         accessKey = await host.access.regenerate();
         drawKey();

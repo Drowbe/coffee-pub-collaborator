@@ -18,7 +18,7 @@
 
 Thomas's, 2026-10-21.
 
-1. **Template name:** "Games" (`"name": "Games"`), matching the page and the sign-up choice. Description to use: "Run a campaign together: the chat, the calendar for sessions, a campaign planner, quests, lore and polls, and every player as an OBS source." (The planner's name in it follows open question 1.)
+1. **Template name:** "Games" (`"name": "Games"`), matching the page and the sign-up choice. Description to use: "Run a campaign together: the chat, the calendar for sessions, a campaign planner, quests, lore and polls, and every player as an OBS source."
 2. **Space word:** "Campaign" (earlier, [plan-product-pages](plan-product-pages.md) decision 15). The home word follows it and reads "Campaigns".
 3. **Environment word:** group / groups. The environment is what people sign in to: the gaming group.
 4. **Moderator word stays "moderator".** No "co-GM": the template sets no `moderator` word.

@@ -9,7 +9,7 @@
 ```
 <div class="rs [narrow]">                     narrow under 720 px (the script sets it from the pane's width)
   <header class="rs-head">                    hidden when the host titlebar is there: the name goes in host.setTitle ("Research", no count, #191). Kept for a harness with no titlebar: h1[data-slot=own-name] (the Mine/This space switch is in the toolbar, not here)
-  <div class="rs-tools">                      .rs-search (input[type=search])
+  <div class="rs-tools">                      .sdk-search.rs-search (input[type=search])
   <div class="rs-chips">                      kind chips: All, Notes, Links, Photos, Answers (.rs-chip.on)
   <div class="rs-chips">                      the tags chosen as filters, only those (.rs-chip.tag[style=--tag], each with an .x to drop it); the chooser itself is the toolbar's Tags button (host.ui.toolbarButton), a menu of every tag in use with a count
   <main class="rs-body">                      .upload and .pos-ask when needed, then .rs-grid (cards, packed like masonry) or .rs-list (one row each) of .rcard, or .rs-empty
@@ -67,7 +67,7 @@ The script clones these and fills them by hook only: `[data-slot=x]` (its text, 
 - `tpl-conflict` (as in Places: `text`, `use-theirs`, `keep-mine`), `tpl-source` (a pill for an answer's source; `.gone` when it is no longer there).
 - `tpl-chip-tag` (a chosen tag in `#tag-chips`, `--tag`, always `.on`, with its `.x`), `tpl-tag`. Chips are small rounded rectangles (5px), never pills.
 - `tpl-upload` (`.upload`: `name`, `progress`, `step`, `[data-action=retry-upload]`), `tpl-pos-ask` (`text`, `[data-action=keep-position]`, `[data-action=drop-position]`).
-- The dialog is one form, `#form.editor-card[data-kind=note|link|photo|answer]`; each row lists the kinds that show it in `data-kinds`, and the stylesheet hides the rest. Fields: `f-title`, `f-caption` (a photo), `f-url`, `f-body`, `f-excerpt`, `f-tags` (with `#tag-list`), `f-point` and `f-date`, `#f-asked` (an answer kept from Assistant: `asked`, `sources`), `f-by`, `f-error`, `f-save`, `f-cancel`, `f-delete`.
+- The dialog is one form, `#form.sdk-form[data-kind=note|link|photo|answer]`; each row lists the kinds that show it in `data-kinds`, and the stylesheet hides the rest. Fields: `f-title`, `f-caption` (a photo), `f-url`, `f-body`, `f-excerpt`, `f-tags` (with `#tag-list`), `f-point` and `f-date`, `#f-asked` (an answer kept from Assistant: `asked`, `sources`), `f-by`, `f-error`, `f-save`, `f-cancel`, `f-delete`.
 - `#item-menu`: `edit`, `copy-to` (its label reads "Copy to This space" or "Copy to Mine"), `ask-about` ("Research this", hidden unless a module offers `askAssistant`), `delete`.
 - States: `tpl-state-loading`, `tpl-state-empty` (`[data-action=new-note]`, `[data-action=add-photo]`), `tpl-state-noresults` (`[data-action=clear-filter]`).
 

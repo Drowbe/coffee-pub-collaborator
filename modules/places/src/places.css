@@ -11,7 +11,7 @@ body { margin: 0; overflow: hidden; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .msg { padding: 16px; color: var(--text-muted); }
-.error { margin: 0; color: var(--status-danger-text); }
+.error { margin: 0; color: var(--danger); }
 .app { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 0; gap: 8px; position: relative; background: var(--surface-page); }
 
 /* ---- the top: a title, a filter, the categories ---- */
@@ -20,7 +20,7 @@ body { margin: 0; overflow: hidden; }
 .head .count { color: var(--text-muted); font-size: var(--text-12); }
 .head-search { flex: 1; min-width: 180px; max-width: 360px; margin-left: auto; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; height: 26px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: var(--surface-card); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; height: 26px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: var(--bg-card); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
 .chip:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
 .chip[data-cat]:not(.on) .ic { color: var(--tone); }
 .chip.on { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); }
@@ -38,7 +38,7 @@ body { margin: 0; overflow: hidden; }
 
 /* a place: a card in its colour (the script sets --tone: a theme tint, or the colour the owner chose for the category) */
 .place-row, .chip[data-cat], .cat { --tone: var(--accent-fill); --tone-ink: var(--surface-page); }
-.place-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 12px; align-items: start; padding: 12px; border: 1px solid color-mix(in srgb, var(--tone) 36%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--surface-card)), color-mix(in srgb, var(--tone) 5%, var(--surface-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 12%, transparent); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.place-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 12px; align-items: start; padding: 12px; border: 1px solid color-mix(in srgb, var(--tone) 36%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-card)), color-mix(in srgb, var(--tone) 5%, var(--bg-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 12%, transparent); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .place-row:hover, .place-row:focus-within { transform: translateY(-1px); border-color: var(--tone); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 8px 18px color-mix(in srgb, black 20%, transparent); }
 @media (prefers-reduced-motion: reduce) { .place-row { transition: none; } .place-row:hover { transform: none; } }
 .place-row .mark { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-16); box-shadow: 0 2px 6px color-mix(in srgb, var(--tone) 40%, transparent); }
@@ -47,13 +47,13 @@ body { margin: 0; overflow: hidden; }
 .place-row .sub { margin: 1px 0 0; color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }
 .place-row .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; }
 .pinned, .nopos { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-11); color: var(--text-muted); }
-.pinned { color: var(--text-accent); }
+.pinned { color: var(--accent); }
 .owners { display: inline-flex; }
-.owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--surface-card); border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 35%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
+.owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--bg-card); border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 35%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
 .owner:first-child { margin-left: 0; }
 .links { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; max-width: 100%; }
 .link { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.link b { color: var(--text-accent); font-weight: var(--weight-strong); }
+.link b { color: var(--accent); font-weight: var(--weight-strong); }
 .link.gone { opacity: 0.6; font-style: italic; }
 
 /* ---- the place: the editor window (read-only for a viewer, a form for an editor). #editor is a <dialog> the SDK draws
@@ -73,9 +73,9 @@ body { margin: 0; overflow: hidden; }
 /* ---- states ---- */
 .state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
 .state h2 { color: var(--text-primary); font-size: var(--text-18); }
-.state .ic { font-size: var(--text-28); color: var(--text-accent); }
+.state .ic { font-size: var(--text-28); color: var(--accent); }
 .skeleton { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-.skel { height: 64px; border-radius: var(--radius-large); background: linear-gradient(90deg, var(--surface-card), color-mix(in srgb, var(--surface-card) 80%, var(--text-primary)), var(--surface-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.skel { height: 64px; border-radius: var(--radius-large); background: linear-gradient(90deg, var(--bg-card), color-mix(in srgb, var(--bg-card) 80%, var(--text-primary)), var(--bg-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
@@ -89,13 +89,13 @@ body { margin: 0; overflow: hidden; }
 
 /* something from another module dragged over the pane (see the drop target in places.js) */
 .app.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: -4px; }
-.view-note .ic { color: var(--text-accent); }
+.view-note .ic { color: var(--accent); }
 
 /* ---- as the Map destination's panel: no header or bar; Add a place on top, search results above the list ---- */
 .part-head { display: flex; gap: 8px; }
 .scope-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; color: var(--text-muted); font-size: var(--text-11); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scope-mark .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.place-row.selected { background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 30%, var(--surface-card)), color-mix(in srgb, var(--accent-fill) 22%, var(--surface-card))); }
+.place-row.selected { background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 30%, var(--bg-card)), color-mix(in srgb, var(--accent-fill) 22%, var(--bg-card))); }
 .find-more { margin: 14px 0 0; text-align: center; }
 .app.part .found { position: relative; left: auto; right: auto; bottom: auto; flex: none; max-height: 45%; box-shadow: none; }
 .app.part .state { margin-top: 4vh; }
@@ -110,7 +110,7 @@ body { margin: 0; overflow: hidden; }
 .found-rows { overflow: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
 .found-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px; border-radius: var(--radius-large); cursor: pointer; }
 .found-row:hover, .found-row:focus-visible { background: color-mix(in srgb, var(--accent-fill) 10%, transparent); outline: none; }
-.found-row .mark { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 18%, var(--surface-card)); color: var(--text-accent); font-size: var(--text-14); }
+.found-row .mark { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 18%, var(--bg-card)); color: var(--accent); font-size: var(--text-14); }
 .found-row .title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .found-row .sub { margin: 0; color: var(--text-muted); font-size: var(--text-12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .found-row .source { margin: 1px 0 0; display: flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: var(--text-11); opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -134,7 +134,7 @@ body { margin: 0; overflow: hidden; }
 .look-btn:focus-visible, .pick-option:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
 .look-dot { flex: none; width: 18px; height: 18px; border-radius: var(--radius-round); background: var(--tone, var(--tint-blue)); }
 /* the flyout under an icon or colour button: inside the editor window, fixed, a sheet on a phone */
-.pick-pop { position: fixed; z-index: 9999; display: flex; flex-direction: column; gap: 4px; width: 260px; max-height: 340px; padding: 6px; border: 0; border-radius: var(--radius-large); background: var(--surface-card); color: var(--text-primary); box-shadow: 0 0 0 1px var(--edge-hairline), 0 8px 24px rgba(0, 0, 0, 0.45); font-size: var(--text-13); }
+.pick-pop { position: fixed; z-index: 9999; display: flex; flex-direction: column; gap: 4px; width: 260px; max-height: 340px; padding: 6px; border: 0; border-radius: var(--radius-large); background: var(--bg-card); color: var(--text-primary); box-shadow: 0 0 0 1px var(--edge-hairline), 0 8px 24px rgba(0, 0, 0, 0.45); font-size: var(--text-13); }
 .pick-search { flex: none; }
 .pick-list { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; outline: none; }
 .pick-option { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: var(--radius-small); cursor: pointer; }
@@ -146,7 +146,7 @@ body { margin: 0; overflow: hidden; }
 .pick-sep { height: 1px; margin: 3px 4px; background: var(--edge-hairline); }
 .pick-none { padding: 10px 8px; color: var(--text-muted); }
 /* the visit status on a place's row: its icon and word, a small fill */
-.visit { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 24%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); line-height: 18px; white-space: nowrap; }
+.visit { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 24%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); line-height: 18px; white-space: nowrap; }
 .visit .ic { color: var(--tone); }
 @media (max-width: 640px) {
   .status-btn { min-height: 44px; }

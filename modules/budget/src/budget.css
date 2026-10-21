@@ -20,13 +20,13 @@ body { margin: 0; overflow: hidden; }
 .app:not(.narrow) #burn-tile { grid-column: 1 / -1; }
 
 /* ---- tiles ---- */
-.tile { padding: 12px; border-radius: var(--radius-large); background: var(--surface-card); }
+.tile { padding: 12px; border-radius: var(--radius-large); background: var(--bg-card); }
 .tile-title { margin: 0 0 8px; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .target-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .target-head .tile-title { margin: 0; }
 .big { margin: 6px 0 8px; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: var(--leading-title); overflow-wrap: anywhere; }
 .big .of { color: var(--text-muted); font-size: var(--text-14); font-weight: var(--weight-regular); }
-.big.over { color: var(--status-danger-text); }
+.big.over { color: var(--danger); }
 
 /* the bar of spent against the target: a lighter fill for what is only planned, a stronger one for what is paid */
 .bar { position: relative; height: 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text-primary) 12%, transparent); overflow: hidden; }
@@ -37,7 +37,7 @@ body { margin: 0; overflow: hidden; }
 .sums { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px 12px; margin: 10px 0 0; }
 .sum dt { color: var(--text-muted); font-size: var(--text-11); }
 .sum dd { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
-.sum dd.over { color: var(--status-danger-text); }
+.sum dd.over { color: var(--danger); }
 .target .hint { margin-top: 8px; }
 
 /* ---- by category ---- */
@@ -73,7 +73,7 @@ body { margin: 0; overflow: hidden; }
 /* ---- the Costs list ---- */
 .list-tools { display: grid; gap: 8px; margin-bottom: 10px; }
 .tool-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip-btn { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius-round); background: var(--surface-card); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
+.chip-btn { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius-round); background: var(--bg-card); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
 .chip-btn:hover { color: var(--text-primary); }
 .chip-btn.on { background: var(--fill-selected); color: var(--text-primary); }
 .chip-btn span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -81,21 +81,21 @@ body { margin: 0; overflow: hidden; }
 .group-title { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .group-total { font-weight: var(--weight-regular); text-transform: none; letter-spacing: var(--tracking-normal); }
 .rows { display: grid; gap: 6px; }
-.cost-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: var(--radius-large); background: var(--surface-card); }
-.cost-row:hover, .cost-row:focus-within { background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-card)); }
+.cost-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: var(--radius-large); background: var(--bg-card); }
+.cost-row:hover, .cost-row:focus-within { background: color-mix(in srgb, var(--text-primary) 8%, var(--bg-card)); }
 .cost-row.selected { background: var(--fill-selected); }
 .cost-main { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px 4px 10px 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .cost-main .mark { width: 28px; height: 28px; font-size: var(--text-13); }
 .cost-main .main { display: grid; min-width: 0; gap: 1px; }
 .cost-main .title { font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-section); overflow-wrap: anywhere; }
 .cost-main .sub { color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }
-.cost-main .src { justify-self: start; margin-top: 3px; padding: 1px 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text-primary) 10%, var(--surface-card)); color: var(--text-muted); font-size: var(--text-11); overflow-wrap: anywhere; }
+.cost-main .src { justify-self: start; margin-top: 3px; padding: 1px 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-card)); color: var(--text-muted); font-size: var(--text-11); overflow-wrap: anywhere; }
 .cost-row.pulled .mark { opacity: 0.8; }
 .note { grid-column: 1 / -1; padding: 0 2px; }
 .amounts { display: grid; justify-items: end; gap: 1px; }
 .amount { font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; }
 .planned { color: var(--text-muted); font-size: var(--text-11); white-space: nowrap; }
-.paid-mark { color: var(--status-ok-text); }
+.paid-mark { color: var(--ok); }
 
 /* ---- settle up ---- */
 .payment { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: var(--text-14); }
@@ -107,13 +107,13 @@ body { margin: 0; overflow: hidden; }
 .person-name { min-width: 0; overflow-wrap: anywhere; }
 .person-nums { display: grid; justify-items: end; color: var(--text-muted); font-size: var(--text-11); }
 .net { min-width: 72px; text-align: right; font-weight: var(--weight-strong); }
-.net.owed { color: var(--status-ok-text); }
-.net.owes { color: var(--status-danger-text); }
+.net.owed { color: var(--ok); }
+.net.owes { color: var(--danger); }
 
 /* ---- states ---- */
 .state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
 .state h2 { color: var(--text-primary); font-size: var(--text-18); }
-.state .ic { font-size: var(--text-28); color: var(--text-accent); }
+.state .ic { font-size: var(--text-28); color: var(--accent); }
 
 /* ---- the cost: the editor window. #editor is a <dialog> the SDK draws (host.ui.editor): the box, its padding, the backdrop
    and the sticky button row (.sdk-editor-actions) are the SDK's, and the form is .sdk-form: the SDK draws every field, label,

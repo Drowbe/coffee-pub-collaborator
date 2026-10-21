@@ -12,13 +12,13 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* month */
 .month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .dow { padding: 2px 4px; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.day { min-height: 74px; padding: 4px; background: var(--surface-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
+.day { min-height: 74px; padding: 4px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
 .day:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
 .day.other { opacity: 0.55; }
 .day.today { background: var(--fill-selected); }
-.day.today.ph { background: color-mix(in srgb, var(--accent-fill) 28%, color-mix(in srgb, var(--ph) 16%, var(--surface-card))); }
+.day.today.ph { background: color-mix(in srgb, var(--accent-fill) 28%, color-mix(in srgb, var(--ph) 16%, var(--bg-card))); }
 .day .n { font-size: var(--text-12); color: var(--text-muted); }
-.day.today .n { color: var(--text-accent); font-weight: var(--weight-strong); }
+.day.today .n { color: var(--accent); font-weight: var(--weight-strong); }
 .chip { display: block; width: 100%; padding: 1px 5px; border: 0; border-radius: var(--radius-min); background: color-mix(in srgb, var(--accent-fill) 22%, transparent); color: var(--text-primary); font: inherit; font-size: var(--text-11); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .chip:hover { background: color-mix(in srgb, var(--accent-fill) 38%, transparent); }
 .chip.environment { background: color-mix(in srgb, var(--text-muted) 25%, transparent); }
@@ -33,7 +33,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .week .day { min-height: 150px; }
 .week .day .n { font-size: var(--text-12); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .week .day .n b { font-size: var(--text-14); color: var(--text-primary); }
-.week .day.today .n b { color: var(--text-accent); }
+.week .day.today .n b { color: var(--accent); }
 .week .chip { white-space: normal; overflow-wrap: anywhere; margin-bottom: 2px; }
 .compact .week { grid-template-columns: minmax(0, 1fr); }
 .compact .week .day { min-height: 0; flex-direction: row; align-items: flex-start; gap: 10px; }
@@ -50,11 +50,11 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ph-gold { --ph: var(--tint-gold); }
 .ph-red { --ph: var(--tint-red); }
 .day, .phasehead { position: relative; }
-.day.ph, .phasehead.ph { background: color-mix(in srgb, var(--ph) 16%, var(--surface-card)); }
+.day.ph, .phasehead.ph { background: color-mix(in srgb, var(--ph) 16%, var(--bg-card)); }
 .ph-name { display: block; min-width: 0; font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-title); color: color-mix(in srgb, var(--ph) 55%, var(--text-primary)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .month .day .ph-name { position: absolute; top: 3px; left: 26px; right: 4px; text-align: right; pointer-events: none; }
 .week .day .ph-name { white-space: normal; overflow-wrap: anywhere; text-transform: none; letter-spacing: var(--tracking-normal); margin-top: 1px; }
-.phasehead { padding: 3px 6px; background: var(--surface-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
+.phasehead { padding: 3px 6px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
 .phasehead .ph-name { font-size: var(--text-12); }
 
 /* list */
@@ -66,7 +66,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .item { display: flex; gap: 12px; align-items: center; width: 100%; padding: 7px 10px 7px 13px; background: transparent; border: 0; border-bottom: 1px solid var(--edge-hairline); border-radius: 0; box-shadow: inset 3px 0 0 var(--accent-fill); color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
 .item:hover { background: color-mix(in srgb, var(--accent-fill) 12%, transparent); }
 .item:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -2px; background: color-mix(in srgb, var(--accent-fill) 12%, transparent); }
-.item .when { flex: none; width: 21ch; color: var(--text-accent); font-weight: var(--weight-strong); font-size: var(--text-12); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.item .when { flex: none; width: 21ch; color: var(--accent); font-weight: var(--weight-strong); font-size: var(--text-12); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .compact .item .when { width: 18ch; }
 .item .what { flex: 1; min-width: 0; }
 .item .what strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
@@ -98,21 +98,21 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* What points at an event (a task, say), from other modules. */
 .links { display: flex; flex-wrap: wrap; gap: 4px; }
 .links .link { padding: 1px 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font: inherit; font-size: var(--text-11); }
-.links .link b { color: var(--text-accent); font-weight: var(--weight-strong); }
+.links .link b { color: var(--accent); font-weight: var(--weight-strong); }
 .links button.link { cursor: pointer; }
 .links button.link:hover { color: var(--text-primary); border-color: var(--accent-fill); }
 
 .chip, .item { user-select: none; }
 
 .day.drop, .item.drop, .chip.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
-.note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--surface-card); border: 1px solid var(--edge-hairline); }
+.note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--bg-card); border: 1px solid var(--edge-hairline); }
 .note.bad { border-color: var(--status-danger-fill, #c0574a); }
 .day.pick { border-color: var(--accent-fill); box-shadow: 0 0 0 2px var(--accent-fill); }
 
 /* The day view: an all-day row, then a column of hours (as one day of the week). */
 .dayview { display: flex; flex-direction: column; gap: 6px; }
 .hours { display: flex; flex-direction: column; gap: 2px; }
-.allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--surface-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
+.allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
 .hour { min-height: 34px; cursor: pointer; }
 .hour:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
 .hour.now { border-color: var(--accent-fill); }
@@ -123,7 +123,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .dayview .phasehead { position: sticky; top: 0; z-index: 2; }
 
 /* As a part of the Calendar destination: the selected day, and the Agenda's end line. */
-.day.sel { background: color-mix(in srgb, var(--accent-fill) 22%, var(--surface-card)); }
+.day.sel { background: color-mix(in srgb, var(--accent-fill) 22%, var(--bg-card)); }
 .day:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
 .app.part { padding: 8px; }
 .empty.end { padding: 10px 8px; }

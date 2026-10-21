@@ -49,9 +49,9 @@
 .dmeta p { margin: 2px 0 0; color: var(--text-muted); font-size: var(--text-12); }
 /* the whole-day markers ("Travel day"): tags under the summary, each in its marker's colour */
 .day-tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; }
-.daytag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border: 1px solid var(--marker); border-radius: var(--radius-round); background: color-mix(in srgb, var(--marker) 18%, var(--surface-card)); color: var(--text-primary); font: inherit; font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; }
+.daytag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border: 1px solid var(--marker); border-radius: var(--radius-round); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); color: var(--text-primary); font: inherit; font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; }
 .daytag .ic { color: var(--marker); font-size: var(--text-11); }
-.daytag:hover { background: color-mix(in srgb, var(--marker) 30%, var(--surface-card)); }
+.daytag:hover { background: color-mix(in srgb, var(--marker) 30%, var(--bg-card)); }
 .daytag:disabled { cursor: default; }
 /* ---- markers, the line that joins the boxes, the days-between badge ---- */
 /* A marker is a two-part pill: an icon cell and a label cell, in one colour (--marker). The border is the colour, the icon cell is the colour, the
@@ -65,7 +65,7 @@
 .row.marker[data-marker="trip-end"] .markerpill { --turn: 0; }
 .card.block[data-type="free-time"] { --turn: 140; } .card.block[data-type="rest"] { --turn: 225; } .card.block[data-type="buffer"] { --turn: 45; }
 .card.block[data-type="meet-up"] { --turn: 330; } .card.block[data-type="leave-by"] { --turn: 15; }
-.markerpill { display: flex; align-items: stretch; position: relative; margin: 6px 0; min-height: 38px; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--surface-card)); overflow: hidden; box-shadow: none; padding: 0; }
+.markerpill { display: flex; align-items: stretch; position: relative; margin: 6px 0; min-height: 38px; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); overflow: hidden; box-shadow: none; padding: 0; }
 .markerpill::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--marker) 14%, transparent) 0 6px, transparent 6px 12px); pointer-events: none; }
 .mk-icon { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 46px; background: var(--marker); border-right: 1.5px solid color-mix(in srgb, var(--marker) 55%, var(--surface-page)); color: rgba(255, 255, 255, 0.88); font-size: var(--text-16); }
 .mk-label { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
@@ -98,10 +98,10 @@
 /* the days-between badge: a circle with the count on the line, and a + beside it that opens what can be added there */
 .gap { display: flex; align-items: center; margin: 0 0 14px; padding-left: calc(var(--spine-x) - 17px); }
 .gapcount { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--radius-round); border: 2px solid var(--text-muted); background: var(--surface-panel); color: var(--text-primary); font-size: var(--text-14); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
-.gapadd { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 44px; margin-left: -8px; padding: 0 12px 0 16px; border: 1.5px solid var(--text-muted); border-radius: 0 var(--radius-round) var(--radius-round) 0; background: var(--surface-card); color: var(--text-primary); font: inherit; cursor: pointer; z-index: -1; position: relative; }
-.gapadd:hover, .gapadd:focus-visible { border-color: var(--accent-fill); color: var(--text-accent); background: color-mix(in srgb, var(--accent-fill) 12%, var(--surface-card)); }
+.gapadd { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 44px; margin-left: -8px; padding: 0 12px 0 16px; border: 1.5px solid var(--text-muted); border-radius: 0 var(--radius-round) var(--radius-round) 0; background: var(--bg-card); color: var(--text-primary); font: inherit; cursor: pointer; z-index: -1; position: relative; }
+.gapadd:hover, .gapadd:focus-visible { border-color: var(--accent-fill); color: var(--accent); background: color-mix(in srgb, var(--accent-fill) 12%, var(--bg-card)); }
 .dayedge { display: flex; justify-content: center; margin: 0 0 14px; }
-.edge-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed var(--accent-fill); border-radius: var(--radius-large); background: var(--surface-card); }
+.edge-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed var(--accent-fill); border-radius: var(--radius-large); background: var(--bg-card); }
 .edge-form label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); }
 .edge-form input { width: 64px; }
 .emptynote { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 12px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-large); color: var(--text-muted); font-size: var(--text-12); }
@@ -128,11 +128,11 @@
 .row.leg-row .slot { padding: 0 0 6px; }
 .leg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
 .leg:hover { border-color: var(--accent-fill); color: var(--text-primary); }
-.leg .ic { color: var(--text-accent); }
+.leg .ic { color: var(--accent); }
 .leg .dist { opacity: 0.8; }
 
 /* ---- the card, shared ---- */
-.card { position: relative; display: block; border-radius: var(--radius-large); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--edge-hairline)); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 13%, var(--surface-card)), color-mix(in srgb, var(--tone) 6%, var(--surface-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 14%, transparent); transition: transform 0.15s ease, box-shadow 0.15s ease; overflow: hidden; }
+.card { position: relative; display: block; border-radius: var(--radius-large); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--edge-hairline)); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 13%, var(--bg-card)), color-mix(in srgb, var(--tone) 6%, var(--bg-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 14%, transparent); transition: transform 0.15s ease, box-shadow 0.15s ease; overflow: hidden; }
 .card:hover, .card:focus-within { transform: translateY(-1px); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 8px 18px color-mix(in srgb, black 22%, transparent); }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 .badge { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-16); box-shadow: 0 2px 6px color-mix(in srgb, var(--tone) 40%, transparent); }
@@ -148,7 +148,7 @@
 /* a leg of a round trip: a quiet line under the face with the other leg's day, and a warning when the return is before the outbound */
 .card > .card-roundtrip { grid-column: 1 / -1; flex-basis: 100%; width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; padding: 6px 12px; border-top: 1px dashed color-mix(in srgb, var(--tone) 35%, var(--edge-hairline)); color: var(--text-muted); font-size: var(--text-12); }
 .card-roundtrip .ic { color: var(--tone); }
-.card-roundtrip .roundtrip-warn { color: var(--status-danger-text); font-weight: var(--weight-strong); }
+.card-roundtrip .roundtrip-warn { color: var(--danger); font-weight: var(--weight-strong); }
 .card-more summary { display: flex; align-items: center; gap: 6px; padding: 5px 0; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; list-style: none; }
 .card-more summary::-webkit-details-marker { display: none; }
 .card-more summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 0.12s ease; }
@@ -167,11 +167,11 @@
 .note .note-body p + p, .note .note-body ul, .note .note-body ol, .note .note-body blockquote { margin-top: 4px; }
 .card-more dd.note-text ul, .card-more dd.note-text ol,
 .note .note-body ul, .note .note-body ol { padding-left: 1.1em; }
-.card-more dd.note-text a, .note .note-body a { color: var(--text-accent); }
+.card-more dd.note-text a, .note .note-body a { color: var(--accent); }
 .card-more dd.note-text code, .note .note-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 .menu-btn { position: absolute; top: 6px; right: 6px; }
 .owners { display: inline-flex; margin-left: auto; }
-.owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--surface-card); border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 40%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
+.owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--bg-card); border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 40%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
 .owner:first-child { margin-left: 0; }
 
 /* ---- a boarding pass: a flight ---- */
@@ -189,9 +189,9 @@
 .pass .t { margin-top: 2px; font-size: var(--text-13); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 .pass .path { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--tone); }
 .pass .path .line { display: block; width: 100%; border-top: 2px dashed color-mix(in srgb, var(--tone) 55%, transparent); }
-.pass .path .ic { position: absolute; top: -7px; left: 50%; margin-left: -8px; padding: 0 2px; background: color-mix(in srgb, var(--tone) 8%, var(--surface-card)); font-size: var(--text-16); }
+.pass .path .ic { position: absolute; top: -7px; left: 50%; margin-left: -8px; padding: 0 2px; background: color-mix(in srgb, var(--tone) 8%, var(--bg-card)); font-size: var(--text-16); }
 .pass .path .dur { margin-top: 6px; color: var(--text-muted); font-size: var(--text-11); }
-.pass .stub { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 96px; padding: 12px 14px; border-left: 2px dashed color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); background: color-mix(in srgb, var(--tone) 9%, var(--surface-card)); }
+.pass .stub { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 96px; padding: 12px 14px; border-left: 2px dashed color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); background: color-mix(in srgb, var(--tone) 9%, var(--bg-card)); }
 .pass .stub::before, .pass .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--edge-hairline)); }
 .pass .stub::before { top: -9px; }
 .pass .stub::after { bottom: -9px; }
@@ -200,7 +200,7 @@
 .pass .bars { height: 22px; margin-top: 2px; opacity: 0.55; background: repeating-linear-gradient(90deg, var(--text-primary) 0 2px, transparent 2px 4px, var(--text-primary) 4px 5px, transparent 5px 8px, var(--text-primary) 8px 11px, transparent 11px 13px); }
 
 /* ---- a train ticket ---- */
-.ticket .strip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: color-mix(in srgb, var(--tone) 24%, var(--surface-card)); border-bottom: 1px solid color-mix(in srgb, var(--tone) 35%, var(--edge-hairline)); padding-right: 40px; }
+.ticket .strip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: color-mix(in srgb, var(--tone) 24%, var(--bg-card)); border-bottom: 1px solid color-mix(in srgb, var(--tone) 35%, var(--edge-hairline)); padding-right: 40px; }
 .ticket .strip .who { min-width: 0; flex: 1; }
 .ticket .stations { display: grid; grid-template-columns: minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px 14px 4px; }
 .ticket .st b { display: block; font-size: var(--text-14); overflow-wrap: anywhere; }
@@ -208,7 +208,7 @@
 .ticket .st.to { text-align: right; }
 .ticket .track { position: relative; height: 18px; color: var(--tone); }
 .ticket .track::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; border-top: 3px dotted color-mix(in srgb, var(--tone) 55%, transparent); }
-.ticket .track .ic { position: absolute; left: 50%; top: 0; margin-left: -8px; padding: 0 2px; background: color-mix(in srgb, var(--tone) 9%, var(--surface-card)); font-size: var(--text-16); }
+.ticket .track .ic { position: absolute; left: 50%; top: 0; margin-left: -8px; padding: 0 2px; background: color-mix(in srgb, var(--tone) 9%, var(--bg-card)); font-size: var(--text-16); }
 .ticket .foot { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 6px 14px 12px; }
 
 /* ---- a bus, a ferry, a car: a compact transit card ---- */
@@ -219,7 +219,7 @@
 .transit .tm { font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 
 /* ---- a stay: a hotel key band ---- */
-.stay .band { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 40px 12px 14px; background: linear-gradient(120deg, color-mix(in srgb, var(--tone) 34%, var(--surface-card)), color-mix(in srgb, var(--tone) 8%, var(--surface-card))); overflow: hidden; }
+.stay .band { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 40px 12px 14px; background: linear-gradient(120deg, color-mix(in srgb, var(--tone) 34%, var(--bg-card)), color-mix(in srgb, var(--tone) 8%, var(--bg-card))); overflow: hidden; }
 .stay .band::after { content: ""; position: absolute; right: -14px; bottom: -22px; width: 92px; height: 92px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 18%, transparent); }
 .stay .band .main { min-width: 0; flex: 1; position: relative; z-index: 1; }
 .stay .nights { position: relative; z-index: 1; margin-right: -26px; padding: 2px 10px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-11); font-weight: var(--weight-strong); white-space: nowrap; }
@@ -234,7 +234,7 @@
 .stay.mid h3 { font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }
 
 /* ---- the last morning of a stay: a check-out card with the time big on the right ---- */
-.stay.out { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 40px 10px 12px; background: linear-gradient(120deg, color-mix(in srgb, var(--tone) 22%, var(--surface-card)), color-mix(in srgb, var(--tone) 6%, var(--surface-card))); }
+.stay.out { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 40px 10px 12px; background: linear-gradient(120deg, color-mix(in srgb, var(--tone) 22%, var(--bg-card)), color-mix(in srgb, var(--tone) 6%, var(--bg-card))); }
 .stay.out .side { text-align: right; padding-right: 4px; }
 .stay.out .side b { display: block; font-size: var(--text-18); font-variant-numeric: tabular-nums; line-height: var(--leading-ui); }
 .stay.out .side small { color: var(--text-muted); font-size: var(--text-11); }
@@ -255,7 +255,7 @@
 .admit { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 .admit .admit-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 12px 14px; padding-right: 28px; }
 .admit .badge { border-radius: var(--radius-round); width: 40px; height: 40px; }
-.admit .stub { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 10px; border-left: 2px dashed color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); background: color-mix(in srgb, var(--tone) 14%, var(--surface-card)); text-align: center; }
+.admit .stub { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 10px; border-left: 2px dashed color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); background: color-mix(in srgb, var(--tone) 14%, var(--bg-card)); text-align: center; }
 .admit .stub::before, .admit .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--edge-hairline)); }
 .admit .stub::before { top: -9px; }
 .admit .stub::after { bottom: -9px; }
@@ -263,8 +263,8 @@
 .admit .stub b { font-size: var(--text-28); line-height: var(--leading-ui); color: var(--tone); }
 
 /* ---- a note: a sticky note with a folded corner ---- */
-.note { padding: 12px 40px 12px 14px; background: color-mix(in srgb, var(--tone) 20%, var(--surface-card)); border-color: color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%); }
-.note::after { content: ""; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; background: color-mix(in srgb, var(--tone) 40%, var(--surface-card)); border-top-left-radius: var(--radius-small); }
+.note { padding: 12px 40px 12px 14px; background: color-mix(in srgb, var(--tone) 20%, var(--bg-card)); border-color: color-mix(in srgb, var(--tone) 45%, var(--edge-hairline)); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%); }
+.note::after { content: ""; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; background: color-mix(in srgb, var(--tone) 40%, var(--bg-card)); border-top-left-radius: var(--radius-small); }
 .note .note-body { color: var(--text-primary); font-size: var(--text-13); overflow-wrap: anywhere; }
 
 /* ---- a saved place ---- */
@@ -273,17 +273,17 @@
 .placecard .badge .ic { transform: rotate(45deg); }
 
 /* ---- another module's item ---- */
-.linkcard { border-style: dashed; background: color-mix(in srgb, var(--surface-card) 60%, var(--surface-panel)); box-shadow: none; padding: 10px 40px 10px 12px; }
+.linkcard { border-style: dashed; background: color-mix(in srgb, var(--bg-card) 60%, var(--surface-panel)); box-shadow: none; padding: 10px 40px 10px 12px; }
 .linkcard .src { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .linkcard h3 { font-size: var(--text-14); }
 /* opening a linked item in the module that owns it: the "open in a new window" icon, quiet until pointed at */
 .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-muted); font-size: var(--text-12); text-transform: none; letter-spacing: var(--tracking-normal); cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
 .open-link .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.open-link:hover, .open-link:focus-visible { background: color-mix(in srgb, var(--accent-fill) 18%, transparent); color: var(--text-accent); outline: none; }
+.open-link:hover, .open-link:focus-visible { background: color-mix(in srgb, var(--accent-fill) 18%, transparent); color: var(--accent); outline: none; }
 .open-link:active { background: color-mix(in srgb, var(--accent-fill) 30%, transparent); }
 .linkcard .src .open-link { margin-left: auto; }
 /* the item it pointed at is gone (deleted), or this person may not see it: a muted placeholder that says so and offers to remove it, never an editor */
-.linkcard.gone, .linkcard.hidden { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 8px, transparent 8px 16px), var(--surface-card); border-color: color-mix(in srgb, var(--text-muted) 45%, var(--edge-hairline)); cursor: default; }
+.linkcard.gone, .linkcard.hidden { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 8px, transparent 8px 16px), var(--bg-card); border-color: color-mix(in srgb, var(--text-muted) 45%, var(--edge-hairline)); cursor: default; }
 .linkcard.gone h3 { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent); }
 .linkcard.hidden h3 { color: var(--text-muted); font-style: italic; }
 .linkcard .linkstate { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; color: var(--text-muted); font-size: var(--text-12); }
@@ -330,7 +330,7 @@
 .day2.current { border-color: var(--accent-fill); box-shadow: 0 0 0 1px var(--accent-fill), 0 8px 26px color-mix(in srgb, var(--accent-fill) 22%, transparent); }
 .day2.current .dnum { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-fill) 35%, transparent); }
 @media (prefers-reduced-motion: reduce) { .day2 { transition: none; } }
-.day2.today .dmeta h2::after { content: " · today"; color: var(--text-accent); font-weight: var(--weight-medium); }
+.day2.today .dmeta h2::after { content: " · today"; color: var(--accent); font-weight: var(--weight-medium); }
 .day2.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: -2px; }
 .day2.drop-target .day-empty { border-color: var(--accent-fill); color: var(--text-primary); }
 .timeline > .day-empty { margin: 4px 0 8px 12px; }
@@ -352,7 +352,7 @@
   .row.entry .rail:hover .dot { transform: scale(1.5); box-shadow: 0 0 0 3px var(--surface-panel), 0 0 0 5px color-mix(in srgb, var(--tone) 40%, transparent); }
 }
 /* a time block is a .card too, so its pill rules must win over the card's */
-.card.block.markerpill { display: flex; align-items: stretch; gap: 0; min-height: 38px; padding: 0 34px 0 0; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--surface-card)); box-shadow: none; overflow: hidden; }
+.card.block.markerpill { display: flex; align-items: stretch; gap: 0; min-height: 38px; padding: 0 34px 0 0; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); box-shadow: none; overflow: hidden; }
 .card.block.markerpill .mk-icon { align-self: stretch; }
 .mk-label b, .mk-label .mk-len { flex: none; white-space: nowrap; }
 
@@ -391,7 +391,7 @@
 .jointadd { position: absolute; left: var(--spine-x); top: -22px; width: 24px; height: 24px; margin-left: -12px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-11); cursor: pointer; opacity: 0; transform: scale(0.85); transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease; }
 .jointadd .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .days:hover .jointadd, .jointadd:focus-visible { opacity: 0.7; transform: none; }
-.jointadd:hover, .jointadd:focus-visible { opacity: 1; transform: scale(1.1); border-color: var(--accent-fill); color: var(--text-accent); background: color-mix(in srgb, var(--accent-fill) 14%, var(--surface-panel)); outline: none; }
+.jointadd:hover, .jointadd:focus-visible { opacity: 1; transform: scale(1.1); border-color: var(--accent-fill); color: var(--accent); background: color-mix(in srgb, var(--accent-fill) 14%, var(--surface-panel)); outline: none; }
 @media (hover: none) { .jointadd { opacity: 0.6; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .jointadd { transition: none; } }
 
@@ -411,7 +411,7 @@
 
 /* a phase's start or end on the line (drawn from the bar's dates): filled in the phase's tint, no coloured border; every start and every
    end is a marker of its own, never blended with a neighbour's */
-.row.marker.phase .markerpill { --marker: var(--ph); border: 0; background: color-mix(in srgb, var(--ph) 32%, var(--surface-card)); }
+.row.marker.phase .markerpill { --marker: var(--ph); border: 0; background: color-mix(in srgb, var(--ph) 32%, var(--bg-card)); }
 .row.marker.phase .markerpill::before { display: none; }
 .row.marker.phase .mk-icon { border-right: 0; }
 .row.marker.phase .rail .dot { background: var(--ph); }
@@ -428,5 +428,5 @@
 .ph-gold { --ph: var(--tint-gold); }
 .ph-red { --ph: var(--tint-red); }
 .day2.in-phase .day-head2 { background: linear-gradient(180deg, color-mix(in srgb, var(--ph) 34%, var(--surface-panel)), color-mix(in srgb, var(--ph) 18%, var(--surface-panel))); }
-.daychip.in-phase:not(.current) { background: color-mix(in srgb, var(--ph) 20%, var(--surface-card)); }
-.phase-tag { display: inline-block; max-width: 100%; margin-bottom: 3px; padding: 0 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--ph) 45%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+.daychip.in-phase:not(.current) { background: color-mix(in srgb, var(--ph) 20%, var(--bg-card)); }
+.phase-tag { display: inline-block; max-width: 100%; margin-bottom: 3px; padding: 0 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--ph) 45%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }

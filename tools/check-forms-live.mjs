@@ -58,7 +58,7 @@ function formsOf(text, isScript) {
 const GOOD = `<form class="sdk-form" id="fx-form">
   <label class="sdk-field sdk-full"><span class="sdk-label">Title</span><input id="t" type="text" value="Flight to Lisbon"><span class="sdk-hint"></span></label>
   <div class="sdk-row">
-    <div class="sdk-field sdk-m" role="group" aria-labelledby="l-day"><span class="sdk-label" id="l-day">Departure day</span><div class="sdk-datefield sdk-group"><input type="date" id="d" value="2026-10-09" aria-labelledby="l-day"><button type="button" class="sdk-field-btn" aria-label="Open the calendar">&#9633;</button></div><span class="sdk-hint">Fri</span></div>
+    <div class="sdk-field sdk-m" role="group" aria-labelledby="l-day"><span class="sdk-label" id="l-day">Departure day</span><div class="sdk-datefield sdk-group"><input type="date" id="d" value="2026-10-09" aria-labelledby="l-day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar">&#9633;</button></div><span class="sdk-hint">Fri</span></div>
     <label class="sdk-field sdk-s"><span class="sdk-label">Departure time</span><input id="tm" type="time" value="10:30"><span class="sdk-hint"></span></label>
     <div class="sdk-field sdk-m" role="group" aria-labelledby="l-dur"><span class="sdk-label" id="l-dur">Flight time</span><div class="sdk-group sdk-duration"><input id="h" type="text" inputmode="numeric" value="2" aria-label="Hours"><span class="sdk-unit">h</span><input id="mi" type="text" inputmode="numeric" value="30" aria-label="Minutes"><span class="sdk-unit">min</span></div><span class="sdk-hint"></span></div>
   </div>
@@ -127,7 +127,7 @@ window.__mounted = (async () => {
 function pageHtml(fx, hostCssUrl) {
   const sdkUrl = hostCssUrl.replace(/host\.css$/, 'host.js');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="${hostCssUrl}">${fx.mount ? `<script data-host-sdk src="${sdkUrl}"></script>` : ''}<style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
+<link rel="stylesheet" href="${hostCssUrl.replace(/sdk\/host\.css$/, 'style.css')}"><link rel="stylesheet" href="${hostCssUrl.replace(/host\.css$/, 'system.css')}"><link rel="stylesheet" href="${hostCssUrl}">${fx.mount ? `<script data-host-sdk src="${sdkUrl}"></script>` : ''}<style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
 <body><dialog class="sdk-editor" id="fx-dialog"><div class="sdk-editor-body">${fx.formHtml}</div>
 <div class="sdk-editor-actions"><button type="button" class="btn">Cancel</button></div></dialog>
 <script>

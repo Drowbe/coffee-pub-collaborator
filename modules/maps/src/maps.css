@@ -12,7 +12,7 @@ body { margin: 0; overflow: hidden; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .msg { padding: 16px; color: var(--text-muted); }
-.error { margin: 0; color: var(--status-danger-text); }
+.error { margin: 0; color: var(--danger); }
 
 /* ---- the frame: the map fills the pane; what is selected shows in a callout over it ---- */
 .app { position: relative; display: flex; height: 100%; background: var(--surface-page); }
@@ -58,7 +58,7 @@ body { margin: 0; overflow: hidden; }
 .pin { --pin: var(--accent-fill); --pin-text: var(--text-on-accent); display: block; width: 30px; height: 30px; padding: 0; border: 0; background: none; color: var(--pin-text); font: inherit; cursor: pointer; transform-origin: 50% 100%; }
 .pin-body { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--surface-panel); border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--pin); box-shadow: 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin-body .ic { transform: rotate(45deg); font-size: var(--text-14); }
-.pin[data-kind="object"] { --pin: var(--surface-card); --pin-text: var(--text-primary); }
+.pin[data-kind="object"] { --pin: var(--bg-card); --pin-text: var(--text-primary); }
 .pin[data-kind="object"] .pin-body { border-color: var(--accent-fill); }
 
 /* a place's colour (its own, its category's, or the category's automatic theme tint) fills its pin; a summary with no category and no
@@ -96,7 +96,7 @@ body { margin: 0; overflow: hidden; }
 .state { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; color: var(--text-muted); background: var(--surface-page); }
 .state h2 { margin: 0; color: var(--text-primary); font-size: var(--text-18); }
 .state p { margin: 0; max-width: 420px; }
-.state .ic { font-size: var(--text-28); color: var(--text-accent); margin-bottom: 4px; }
+.state .ic { font-size: var(--text-28); color: var(--accent); margin-bottom: 4px; }
 .skel { width: 100%; height: 100%; background: linear-gradient(90deg, var(--surface-panel), color-mix(in srgb, var(--surface-panel) 82%, var(--text-primary)), var(--surface-panel)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
@@ -147,7 +147,7 @@ body { margin: 0; overflow: hidden; }
 .callout-where .coords { display: block; font-family: ui-monospace, Menlo, monospace; font-size: var(--text-11); opacity: 0.85; }
 .callout-source { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 8px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); font-size: var(--text-12); }
 .callout-source .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-muted); font-size: var(--text-13); cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
-.callout-source .open-link:hover, .callout-source .open-link:focus-visible { background: color-mix(in srgb, var(--accent-fill) 18%, transparent); color: var(--text-accent); outline: none; }
+.callout-source .open-link:hover, .callout-source .open-link:focus-visible { background: color-mix(in srgb, var(--accent-fill) 18%, transparent); color: var(--accent); outline: none; }
 .callout-close { position: absolute; top: 8px; right: 8px; }
 .callout-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 .callout-actions .primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--text-on-accent); }

@@ -596,8 +596,9 @@
   let protocol = null;
   function showState(name) {
     const s = $('state');
-    if (!name) { s.hidden = true; s.replaceChildren(); return; }
+    if (!name) { s.hidden = true; s.replaceChildren(); delete s.dataset.kind; return; }
     s.replaceChildren(...parts(name));
+    if (name === 'tpl-state-error') s.dataset.kind = 'error'; else delete s.dataset.kind;
     // This module's name and the places module's, as this environment shows them (host.info's, and the one that
     // offers the place actions); the markup's own words until they are known.
     for (const el of s.querySelectorAll('[data-slot="own-name"]')) el.textContent = info.module.name || el.textContent;

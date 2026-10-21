@@ -12,7 +12,7 @@
   <div class="rs-tools">                      .sdk-search.rs-search (input[type=search])
   <div class="rs-chips">                      kind chips: All, Notes, Links, Photos, Answers (.sdk-chip, .on and aria-pressed)
   <div class="rs-chips">                      the tags chosen as filters, only those (.sdk-chip-removable[style=--chip-tone], each with a .sdk-chip-x button to drop it); the chooser itself is the toolbar's Tags button (host.ui.toolbarButton), a menu of every tag in use with a count
-  <main class="rs-body">                      .upload and .pos-ask when needed, then .rs-grid (cards, packed like masonry) or .rs-list (one row each) of .rcard, or .rs-empty
+  <main class="rs-body">                      .upload and .pos-ask when needed, then .rs-grid (cards, packed like masonry) or .rs-list (one row each) of .rcard, or .sdk-empty
   (no bar of its own)                         adding is the titlebar "+" (host.add.set); a status line at the foot (host.status.set) says how many show (see below)
 ```
 
@@ -51,7 +51,7 @@ Plain words, typed freely, one word each. A list of well-known tags with a colou
 | State | What is drawn |
 |---|---|
 | Loading | a skeleton grid |
-| Nothing yet | `.rs-empty`: an icon, "Nothing here yet", one sentence, and **Write a note** and **Add a photo** |
+| Nothing yet | `.sdk-empty`: an icon, "Nothing here yet", one sentence, and **Write a note** and **Add a photo** |
 | A filter matches nothing | "Nothing matches", with **Show everything** |
 | An upload failed | the `.upload` row turns to an error line with **Try again** |
 

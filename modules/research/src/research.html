@@ -32,7 +32,7 @@
     <button class="sdk-chip" type="button" aria-pressed="false" data-kind="answer"><span class="ic" data-icon="wand-magic-sparkles"></span>Answers</button>
   </div>
   <div class="sdk-chips rs-chips" id="tag-chips" role="group" aria-label="Tag"></div>
-  <p class="error" id="note" hidden></p>
+  <p class="sdk-form-error" id="note" hidden></p>
   <!-- shown while something from another module is dragged over the pane: dropping it starts a note linked to it -->
   <div class="drop-hint" id="drop-hint" hidden><span class="ic" data-icon="note-sticky"></span> Drop to start a note about it</div>
   <main id="body" class="rs-body"></main>
@@ -109,9 +109,9 @@
 <template id="tpl-pos-ask"><div class="pos-ask"><span class="ic" data-icon="location-crosshairs"></span><span class="grow" data-slot="text"></span><button class="btn" type="button" data-action="keep-position">Keep it</button><button class="btn" type="button" data-action="drop-position">Leave it out</button></div></template>
 
 <!-- states -->
-<template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
-<template id="tpl-state-empty"><div class="rs-empty" id="state-empty"><span class="ic" data-icon="book-open"></span><h2>Nothing here yet</h2><p>Keep what you find: a note, a link with the part that mattered, a photo. Tag it so you can find it again, and drag it onto a plan.</p><p><button class="btn btn-primary" type="button" data-action="new-note"><span class="ic" data-icon="note-sticky"></span> Write a note</button> <button class="btn" type="button" data-action="new-link"><span class="ic" data-icon="link"></span> Add a link</button> <button class="btn" type="button" data-action="add-photo"><span class="ic" data-icon="camera"></span> Add a photo</button></p></div></template>
-<template id="tpl-state-noresults"><div class="rs-empty" id="state-noresults"><h2>Nothing matches</h2><p>No research matches your search and filters.</p><p><button class="btn" type="button" data-action="clear-filter">Show everything</button></p></div></template>
+<template id="tpl-state-loading"><div class="sdk-skel-grid" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></template>
+<template id="tpl-state-empty"><div class="sdk-empty" id="state-empty"><span class="ic" data-icon="book-open"></span><h2 class="sdk-empty-title">Nothing here yet</h2><p class="sdk-empty-text">Keep what you find: a note, a link with the part that mattered, a photo. Tag it so you can find it again, and drag it onto a plan.</p><div class="sdk-empty-actions"><button class="btn btn-primary" type="button" data-action="new-note"><span class="ic" data-icon="note-sticky"></span> Write a note</button> <button class="btn" type="button" data-action="new-link"><span class="ic" data-icon="link"></span> Add a link</button> <button class="btn" type="button" data-action="add-photo"><span class="ic" data-icon="camera"></span> Add a photo</button></div></div></template>
+<template id="tpl-state-noresults"><div class="sdk-empty" id="state-noresults"><h2 class="sdk-empty-title">Nothing matches</h2><p class="sdk-empty-text">No research matches your search and filters.</p><div class="sdk-empty-actions"><button class="btn btn-quiet" type="button" data-action="clear-filter">Show everything</button></div></div></template>
 
 <script>
 /*__JS__*/

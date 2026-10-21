@@ -149,8 +149,8 @@
 <template id="tpl-legend"><li class="key"><span class="swatch"></span><span data-slot="label"></span></li></template>
 <template id="tpl-person"><div class="sdk-row person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>
 <template id="tpl-payment"><p class="sdk-row payment"><span class="ic" data-icon="arrow-right"></span><span data-slot="text"></span><b class="pay-amount" data-slot="amount"></b></p></template>
-<template id="tpl-check"><label class="sdk-check"><input type="checkbox"><span data-slot="name"></span></label></template>
-<template id="tpl-state"><div class="state"><span class="ic" data-icon="wallet"></span><h2 data-slot="title"></h2><p data-slot="text"></p><p><button class="btn btn-primary" type="button" data-action="add" hidden><span class="ic" data-icon="plus"></span> Add a cost</button></p></div></template>
+<template id="tpl-check"><label class="sdk-choice-row"><input type="checkbox"><span data-slot="name"></span></label></template>
+<template id="tpl-state"><div class="sdk-empty"><span class="ic" data-icon="wallet"></span><h2 class="sdk-empty-title" data-slot="title"></h2><p class="sdk-empty-text" data-slot="text"></p><div class="sdk-empty-actions"><button class="btn btn-primary" type="button" data-action="add" hidden><span class="ic" data-icon="plus"></span> Add a cost</button></div></div></template>
 
 <script>
 /*__JS__*/

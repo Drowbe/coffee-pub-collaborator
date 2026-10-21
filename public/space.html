@@ -165,7 +165,7 @@
         <section class="no-call-who" aria-labelledby="no-call-who-title">
           <h3 class="no-call-who-title" id="no-call-who-title">Currently on the call</h3>
           <ul class="no-call-list" id="no-call-list"></ul>
-          <p class="no-call-empty" id="no-call-empty">No one is on the call yet. Be the first to join.</p>
+          <p class="sdk-empty-line" id="no-call-empty">No one is on the call yet. Be the first to join.</p>
         </section>
         <p class="no-call-hint no-call-error" id="no-call-error" role="alert" hidden></p>
         <button class="btn btn-primary no-call-join" id="no-call-join" type="button" aria-describedby="call-hint"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> Join the call</button>
@@ -386,8 +386,8 @@
     </aside>
 
     <!-- Shown when nothing is open on the canvas (on a phone: no conference, no chat, no module). -->
-    <div class="canvas-empty" id="canvas-empty" hidden>
-      <p data-fill>Nothing is open. Open {a module} from the {space} bar.</p>
+    <div class="sdk-empty" id="canvas-empty" hidden>
+      <p class="sdk-empty-text" data-fill>Nothing is open. Open {a module} from the {space} bar.</p>
     </div>
 
   </main>

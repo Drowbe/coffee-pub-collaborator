@@ -11,7 +11,6 @@ body { margin: 0; overflow: hidden; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .msg { padding: 16px; color: var(--text-muted); }
-.error { margin: 0; color: var(--danger); }
 .rs { position: relative; }
 .rcard .ic svg { width: 1em; height: 1em; }
 /* the card the model writes inside its answer: drawn inline, kept only when the person keeps or drags it */
@@ -77,9 +76,7 @@ body { margin: 0; overflow: hidden; }
 .rcard .by { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
 .rcard .by span { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 30%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
 /* the empty state, and the photo upload */
-.rs-empty { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
-.rs-empty > .ic { font-size: var(--text-28); color: var(--accent); }
-.rs-empty h2 { color: var(--text-primary); font-size: var(--text-18); }
+.sdk-empty { max-width: 420px; margin: 8vh auto; }
 .upload { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 10px; border: 1px dashed var(--accent-fill); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent-fill) 8%, var(--bg-card)); }
 .upload .bar { flex: 1; height: 6px; border-radius: var(--radius-round); background: var(--bg-card); overflow: hidden; }
 .upload .bar span { display: block; height: 100%; background: var(--accent-fill); }
@@ -135,10 +132,8 @@ body { margin: 0; overflow: hidden; }
 .links { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .link { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .link.gone { opacity: 0.6; font-style: italic; }
-.rs-body .skeleton { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.skel { height: 96px; border-radius: var(--radius-large); background: linear-gradient(90deg, var(--bg-card), color-mix(in srgb, var(--bg-card) 80%, var(--text-primary)), var(--bg-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-@keyframes shimmer { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.rs-body .sdk-skel-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+@media (prefers-reduced-motion: reduce) { .rcard { transition: none; } .rcard:hover { transform: none; } }
 .upload progress { flex: 1; height: 6px; appearance: none; border: 0; border-radius: var(--radius-round); background: var(--bg-card); overflow: hidden; }
 .upload progress::-webkit-progress-bar { background: var(--bg-card); }
 .upload progress::-webkit-progress-value { background: var(--accent-fill); }

@@ -12,7 +12,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .app { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 0; gap: 8px; position: relative; }
 .msg { padding: 16px; color: var(--text-muted); }
-.error { margin: 0; color: var(--danger); }
 
 /* ---- the trip header ---- */
 .trip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 12px; }
@@ -107,12 +106,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .date-pop { position: absolute; z-index: var(--z-popover); min-width: 210px; max-width: calc(100% - 16px); }
 
 /* states */
-.state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
-.state h2 { color: var(--text-primary); font-size: var(--text-18); }
-.skeleton { display: grid; gap: 10px; }
-.skel { height: 54px; border-radius: var(--radius-medium); background: linear-gradient(90deg, var(--bg-card), color-mix(in srgb, var(--bg-card) 80%, var(--text-primary)), var(--bg-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-@keyframes shimmer { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.sdk-empty { max-width: 420px; margin: 8vh auto; }
+.sdk-skel-block { --h: 54px; }
 
 /* ---- phones and narrow panes: the same list, with touch-sized items and the menu instead of the drag handle ---- */
 /* phones and narrow panes: the script sets .narrow on .app from the pane width (under 720 px), not the window's */

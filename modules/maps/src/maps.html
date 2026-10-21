@@ -30,9 +30,9 @@
     <div class="maplibregl-ctrl-bottom-right"><div class="attribution" data-slot="attribution"><span data-slot="osm">&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</span></div></div>
     <div class="sdk-banner" id="banner" data-kind="info" hidden><span class="sdk-banner-icon" data-icon="crosshairs" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text">Click the map to place it</span><button class="btn btn-small sdk-banner-action" type="button" data-action="cancel">Cancel</button></div>
     <div id="callout" class="callout-box" hidden></div>
-    <div id="state" class="state" hidden></div>
+    <div id="state" class="sdk-empty" hidden></div>
   </div>
-  <p class="error" id="note" hidden></p>
+  <p class="sdk-form-error" id="note" hidden></p>
 
 </div>
 <p id="msg" class="hint msg">Loading...</p>
@@ -51,10 +51,10 @@
 <template id="tpl-result"><li><button class="result" type="button"><span class="ic" data-icon="location-dot"></span><span><span data-slot="title"></span><small data-slot="sub"></small></span></button></li></template>
 
 <!-- states that replace the map; the script puts one of these in #state and un-hides it -->
-<template id="tpl-state-loading"><div class="skel"></div></template>
-<template id="tpl-state-nomap"><span class="ic" data-icon="map"></span><h2><span data-slot="own-name">Maps</span> is not set up yet</h2><p><span data-word="owner" data-word-form="a cap"></span> adds map files in Manage. Your places are in the <span data-slot="places-name">Places</span> <span data-word="module"></span>.</p></template>
-<template id="tpl-state-nowebgl"><span class="ic" data-icon="map"></span><h2>This device cannot draw the map</h2><p>Your places are in the <span data-slot="places-name">Places</span> <span data-word="module"></span><span data-slot="maps-app">, and each opens in your own maps app from there</span>.</p></template>
-<template id="tpl-state-error"><span class="ic" data-icon="triangle-exclamation"></span><h2>The map could not load</h2><p>The map file did not answer. Try again, or ask <span data-word="owner" data-word-form="a"></span> to check it.</p><p><button class="btn" type="button" data-action="retry">Try again</button></p></template>
+<template id="tpl-state-loading"><div class="sdk-skel"></div></template>
+<template id="tpl-state-nomap"><span class="ic" data-icon="map"></span><h2 class="sdk-empty-title"><span data-slot="own-name">Maps</span> is not set up yet</h2><p class="sdk-empty-text"><span data-word="owner" data-word-form="a cap"></span> adds map files in Manage. Your places are in the <span data-slot="places-name">Places</span> <span data-word="module"></span>.</p></template>
+<template id="tpl-state-nowebgl"><span class="ic" data-icon="map"></span><h2 class="sdk-empty-title">This device cannot draw the map</h2><p class="sdk-empty-text">Your places are in the <span data-slot="places-name">Places</span> <span data-word="module"></span><span data-slot="maps-app">, and each opens in your own maps app from there</span>.</p></template>
+<template id="tpl-state-error"><span class="ic" data-icon="triangle-exclamation"></span><h2 class="sdk-empty-title">The map could not load</h2><p class="sdk-empty-text">The map file did not answer. Try again, or ask <span data-word="owner" data-word-form="a"></span> to check it.</p><div class="sdk-empty-actions"><button class="btn" type="button" data-action="retry">Try again</button></div></template>
 
 <script>
 /*__JS__*/

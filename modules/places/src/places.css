@@ -11,7 +11,6 @@ body { margin: 0; overflow: hidden; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .msg { padding: 16px; color: var(--text-muted); }
-.error { margin: 0; color: var(--danger); }
 .app { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 0; gap: 8px; position: relative; background: var(--surface-page); }
 
 /* ---- the top: a title, a filter, the categories ---- */
@@ -55,13 +54,9 @@ body { margin: 0; overflow: hidden; }
 .readonly dt { color: var(--text-muted); font-size: var(--text-12); }
 
 /* ---- states ---- */
-.state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
-.state h2 { color: var(--text-primary); font-size: var(--text-18); }
-.state .ic { font-size: var(--text-28); color: var(--accent); }
-.skeleton { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-.skel { height: 64px; border-radius: var(--radius-large); background: linear-gradient(90deg, var(--bg-card), color-mix(in srgb, var(--bg-card) 80%, var(--text-primary)), var(--bg-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.sdk-empty { max-width: 420px; margin: 8vh auto; }
+.sdk-skel-block { --h: 64px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
 /* phones and narrow panes: the script sets .narrow on .app from the pane's width (under 720 px), not the window's */
 .app.narrow .rows { grid-template-columns: minmax(0, 1fr); }
@@ -80,7 +75,7 @@ body { margin: 0; overflow: hidden; }
 .scope-mark .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .find-more { margin: 14px 0 0; text-align: center; }
 .app.part .found { position: relative; left: auto; right: auto; bottom: auto; flex: none; max-height: 45%; box-shadow: none; }
-.app.part .state { margin-top: 4vh; }
+.app.part .sdk-empty { margin-top: 4vh; }
 
 /* ---- find a place: results over the bar at the bottom, when a search address is set ---- */
 .found { position: absolute; left: 12px; right: 12px; bottom: 8px; z-index: 15; max-height: 60%; display: flex; flex-direction: column; background: var(--surface-panel); border: 1px solid var(--edge-hairline); border-radius: var(--radius-large); box-shadow: 0 -8px 28px color-mix(in srgb, black 30%, transparent); overflow: hidden; }

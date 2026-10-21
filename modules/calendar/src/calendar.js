@@ -255,7 +255,7 @@
 
   // Occurrences as a list grouped by day.
   function listHtml(occs, emptyText, floor, end) {
-    if (!occs.length) return `<p class="empty">${emptyText}</p>`;
+    if (!occs.length) return `<p class="sdk-empty">${emptyText}</p>`;
     // The Agenda (the destination's panel) is narrow: a space's icon before the title stands for its name.
     const agenda = part === 'panel';
     const groups = new Map();
@@ -412,7 +412,7 @@
     if (part === 'main') tellPeriod();
     if (view !== 'day') scrolledFor = ''; // back to the day view later opens it at its first event again
     if (nothingPicked()) {
-      $('body').innerHTML = `<p class="empty">${esc(pickOne())}</p>`;
+      $('body').innerHTML = `<p class="sdk-empty">${esc(pickOne())}</p>`;
     } else if (view === 'week') {
       // Week and Month list their events beneath the grid (listUnder); not as the destination's calendar, whose
       // Agenda beside it is that list.
@@ -439,7 +439,7 @@
   let agendaState = null;
   function renderAgenda() {
     if (nothingPicked()) {
-      $('body').innerHTML = `<p class="empty">${esc(pickOne())}</p>`;
+      $('body').innerHTML = `<p class="sdk-empty">${esc(pickOne())}</p>`;
       return;
     }
     const st = agendaState || {};

@@ -4416,3 +4416,160 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   .sdk-tooltip { transition: none; }
 }
 /* tooltips:end */
+
+/* ================= Empty, loading and error states (design system step 22) =================
+   Source: public/design-system/proposed-states.css (and the empty block's box from proposed-cards.css), without the .ds-proposed prefix and
+   the aliases: the markup carries the new names.
+   EMPTY   .sdk-empty        one block, text only, no box: an icon (24px, dim), .sdk-empty-title (16px), .sdk-empty-text, and at most one
+                             button in .sdk-empty-actions (Primary when there is one next step, Quiet when it is a way out). data-kind="error"
+                             is the failed load: a warning icon in the readable red, a heading, a line and a Retry button.
+           .sdk-empty-line   the compact variant for a list or a popover: one line, an icon, the words, at most a small button at the end.
+   LOADING .sdk-skel         one skeleton with ONE shimmer, in shapes: -line, -title, -dot, -block, -row, -card; -list, -grid and -stack lay them out.
+                             The list around it says aria-busy="true". A skeleton for a first load over 300ms; a spinner for everything else.
+           .sdk-spinner      one spinner, 16px (-sm 12px, -lg 20px).
+   ERROR   .sdk-form-error   the line under a field or at the foot of a form (the readable danger mix). .ok makes it a plain note.
+   The shimmer stops, and the spinner slows, when the person asks for less motion. */
+/* states:start */
+:root {
+  --skel-base: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --skel-hi: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  --skel-ms: 1.4s;
+  --spin: 16px;
+  --spin-ms: 0.8s;
+}
+
+@keyframes sdk-shimmer {
+  from { background-position: -100% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes sdk-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Empty ---- */
+.sdk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-14);
+  line-height: 20px;
+  text-align: center;
+}
+.sdk-empty > :is(i, .ic) { margin-bottom: var(--space-2); font-size: var(--icon-24); line-height: 1; color: var(--text-muted); }
+.sdk-empty > .sdk-empty-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-16);
+  font-weight: var(--weight-strong);
+  line-height: 22px;
+}
+.sdk-empty > .sdk-empty-text { margin: 0; max-width: 36ch; }
+.sdk-empty > .sdk-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-3); }
+.sdk-empty > .btn { margin-top: var(--space-3); }
+/* The triangle's tip is at the top of its box and the magnifier is drawn a hair right and low, so the glyph (not the box, which keeps the rhythm above) is moved by what was measured (badgeInk). */
+.sdk-empty > .fa-triangle-exclamation::before { display: inline-block; transform: translateY(0.1em); }
+.sdk-empty > .fa-magnifying-glass::before { display: inline-block; transform: translate(-0.02em, -0.02em); }
+.sdk-empty[data-kind="error"] > :is(i, .ic) { color: var(--status-danger-text); }
+.sdk-empty[hidden] { display: none; }
+
+.sdk-empty-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-13);
+  line-height: 18px;
+}
+.sdk-empty-line > :is(i, .ic) { flex: none; width: 16px; text-align: center; font-size: var(--text-14); }
+.sdk-empty-line[data-kind="error"] { color: var(--status-danger-text); }
+.sdk-empty-line > .btn { margin-left: auto; }
+.sdk-empty-line[hidden] { display: none; }
+
+/* ---- Skeleton: one shimmer, a few shapes ---- */
+.sdk-skel {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: var(--radius-small);
+  background-color: var(--skel-base);
+  background-image: linear-gradient(90deg, transparent, var(--skel-hi), transparent);
+  background-repeat: no-repeat;
+  background-size: 50% 100%;
+  background-position: -100% 0;
+  animation: sdk-shimmer var(--skel-ms) linear infinite;
+}
+.sdk-skel-line { --w: 100%; width: var(--w); height: 12px; }
+.sdk-skel-title { --w: 40%; width: var(--w); height: 16px; }
+.sdk-skel-dot { flex: none; width: 32px; height: 32px; border-radius: var(--radius-round); }
+.sdk-skel-block { width: 100%; height: var(--h, 96px); border-radius: var(--radius-medium); }
+/* The row: a portrait and two lines, as tall as a real row. The card: a picture and two lines. */
+.sdk-skel-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: var(--space-3);
+  border-radius: var(--radius-medium);
+  background: var(--surface-card);
+}
+.sdk-skel-stack { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.sdk-skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  border-radius: var(--radius-medium);
+  background: var(--surface-card);
+}
+.sdk-skel-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.sdk-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2); }
+
+/* ---- Spinner: a ring of the text colour with a gap, turning ---- */
+.sdk-spinner {
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--spin);
+  height: var(--spin);
+  vertical-align: -3px;
+  border-radius: var(--radius-round);
+  background: conic-gradient(from 0deg, transparent 0 12%, currentColor);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+  color: var(--text-muted);
+  animation: sdk-spin var(--spin-ms) linear infinite;
+}
+.sdk-spinner-sm { --spin: 12px; vertical-align: -2px; }
+.sdk-spinner-lg { --spin: 20px; vertical-align: -5px; }
+:is(.btn-primary, .btn-danger.solid) .sdk-spinner { color: inherit; }
+
+/* ---- The error line: under a field, or at the foot of a form ---- */
+.sdk-form-error {
+  margin: 0;
+  color: var(--status-danger-text);
+  font-size: var(--text-12);
+  line-height: 16px;
+}
+.sdk-form-error:empty { display: none; }
+.sdk-form-error[hidden] { display: none; }
+.sdk-form-error.ok { color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-skel { animation: none; background-image: none; }
+  .sdk-spinner { animation-duration: 2.4s; }
+}
+/* states:end */

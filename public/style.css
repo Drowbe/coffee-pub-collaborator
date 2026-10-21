@@ -481,14 +481,13 @@ a:hover {
   overflow-wrap: anywhere;
 }
 
-.bell-notice-from,
-.bell-empty {
+.bell-notice-from {
   color: var(--text-dim);
   font-size: var(--text-12);
 }
 
-.bell-empty {
-  margin: 4px 8px 8px;
+.bell-list .sdk-empty-line {
+  margin: 0 var(--space-2);
 }
 
 /* The phone menu's heading: the environment's name. */
@@ -956,7 +955,7 @@ body.host-console .grow {
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
      .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
                    .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
-                   .sdk-form-error a refusal that is not one field's. */
+                   .sdk-form-error a refusal that is not one field's (system.css, States). */
 :root {
   --field-gap: 12px;
   --section-gap: 20px;
@@ -1108,14 +1107,6 @@ body.host-console .grow {
   gap: 0 var(--field-gap);
 }
 
-.sdk-form-error {
-  color: var(--status-danger-text);
-  font-size: var(--label-size);
-}
-
-.sdk-form-error:empty {
-  display: none;
-}
 /* form:end */
 
 /* The join screen: the spaces I may join, one card each, on a grid that
@@ -3539,13 +3530,6 @@ a.crumb-here:hover {
   white-space: nowrap;
 }
 
-.no-call-empty {
-  margin: 0;
-  font-size: var(--text-14);
-  color: var(--text-dim);
-}
-
-.no-call-empty[hidden],
 .no-call-list[hidden] {
   display: none;
 }
@@ -3656,9 +3640,7 @@ a.crumb-here:hover {
 
 .chat-view-empty {
   margin: auto 0;
-  color: var(--text-muted);
-  font-size: var(--text-12);
-  text-align: center;
+  justify-content: center;
 }
 
 .chat-closed-ask {
@@ -5358,15 +5340,10 @@ body.conference-window {
 }
 
 /* Nothing docked, floating or in a window of its own. */
-.canvas-empty {
+#canvas-empty {
   grid-column: 1 / -1;
   grid-row: 1 / -1;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 24px;
-  color: var(--text-dim);
-  text-align: center;
 }
 
 /* The flexible column takes what is left, so it has no edge to drag. */
@@ -5950,7 +5927,6 @@ body.chat-window {
 .activity-event { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .activity-row[data-level="warn"] { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .activity-row[data-level="warn"] .activity-source, .activity-row[data-level="warn"] .fa-triangle-exclamation { color: var(--danger); }
-.activity-empty { margin: 0; padding: 14px 12px; }
 @media (max-width: 640px) { .activity-row { flex-wrap: wrap; gap: 2px 10px; } .activity-time, .activity-source { width: auto; } .activity-event { flex-basis: 100%; } }
 
 /* --- phone: the space as an app ---------------------------------------------
@@ -6490,8 +6466,7 @@ body.chat-window {
   white-space: nowrap;
 }
 
-.whos-around .dashboard-person-where,
-.whos-around .dashboard-empty {
+.whos-around .dashboard-person-where {
   overflow: hidden;
   color: var(--text-dim);
   font-size: var(--text-12);
@@ -6512,10 +6487,6 @@ body.chat-window {
 
 .whos-around .dashboard-person.is-placed .dashboard-person-where::before {
   background: var(--accent);
-}
-
-.whos-around .dashboard-empty {
-  margin: 0;
 }
 
 .whos-around .dashboard-person-actions {
@@ -6574,14 +6545,9 @@ body.chat-window {
   white-space: nowrap;
 }
 
-#dashboard .dashboard-person-where,
-#dashboard .dashboard-empty {
+#dashboard .dashboard-person-where {
   color: var(--text-dim);
   font-size: var(--text-12);
-}
-
-#dashboard .dashboard-empty {
-  margin: 0;
 }
 
 #dashboard .dashboard-person-call {

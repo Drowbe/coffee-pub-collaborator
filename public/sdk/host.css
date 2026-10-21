@@ -131,7 +131,7 @@ a {
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
      .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
                    .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
-                   .sdk-form-error a refusal that is not one field's. */
+                   .sdk-form-error a refusal that is not one field's (system.css, States). */
 :root {
   --field-gap: 12px;
   --section-gap: 20px;
@@ -283,14 +283,6 @@ a {
   gap: 0 var(--field-gap);
 }
 
-.sdk-form-error {
-  color: var(--status-danger-text);
-  font-size: var(--label-size);
-}
-
-.sdk-form-error:empty {
-  display: none;
-}
 /* form:end */
 
 /* datepicker:start -- the date picker (host.ui.datePicker): the field is a .sdk-datefield of the input and the calendar button (and,

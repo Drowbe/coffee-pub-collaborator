@@ -27,7 +27,7 @@
   <!-- whose places (Mine/This space/Everyone): host.ui.viewSwitch draws it in the toolbar, not here -->
   <p class="view-note" data-slot="view-note" hidden><span class="ic" data-icon="circle-info"></span><span data-slot="text"></span></p>
   <div class="sdk-chips" id="chips" role="group" aria-label="Category"></div>
-  <p class="error" id="note" hidden></p>
+  <p class="sdk-form-error" id="note" hidden></p>
   <main id="body" class="body"></main>
   <!-- the results of a search, over the foot of the pane while there are some (the script fills it from the tpl-found-* templates) -->
   <div id="found" class="found" role="listbox" aria-label="Search results" hidden></div>
@@ -111,7 +111,7 @@
 <!-- find a place: the heading ("Results for", the text) and the rows; a row is a result with a Save button -->
 <template id="tpl-found-head"><div class="found-head"><span data-slot="label">Results for</span><b data-slot="query"></b><span class="grow"></span><button class="found-close" type="button" data-action="close-found" aria-label="Close results"><span class="ic" data-icon="xmark"></span></button></div></template>
 <template id="tpl-found-row"><div class="found-row" role="option" tabindex="0"><span class="mark"><span class="ic" data-icon="location-dot"></span></span><div><h3 class="title" data-slot="title"></h3><p class="sub" data-slot="address"></p><p class="source" data-slot="source"></p></div><button class="btn btn-primary" type="button" data-action="save-found">Save</button></div></template>
-<template id="tpl-found-searching"><div class="found-rows"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div></div></div></template>
+<template id="tpl-found-searching"><div class="found-rows"><div class="sdk-skel-list" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div></template>
 <template id="tpl-found-state"><p class="found-state" data-slot="text"></p></template>
 <!-- visit status in the form: a toggle button per status (aria-pressed) -->
 <template id="tpl-status-btn"><button class="status-btn" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
@@ -126,11 +126,11 @@
 <template id="tpl-conflict"><div class="sdk-banner" data-kind="warn" data-bar="conflict" role="alert"><span class="sdk-banner-icon" data-icon="triangle-exclamation" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text"></span><button class="btn btn-small sdk-banner-action" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small sdk-banner-action" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <template id="tpl-readonly"><div class="readonly"><dl><dt>Type</dt><dd data-slot="type"></dd><dt>Visit</dt><dd data-slot="status"></dd><dt>Address</dt><dd data-slot="address"></dd><dt>Position</dt><dd data-slot="point"></dd><dt>Whose</dt><dd data-slot="owners"></dd></dl><p data-slot="notes"></p></div></template>
 
-<template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
-<template id="tpl-state-empty"><div class="state" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2 data-slot="title">No places yet</h2><p data-slot="text">Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><p><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></p></div></template>
-<template id="tpl-state-none"><div class="state" id="state-none"><p data-slot="text"></p></div></template>
+<template id="tpl-state-loading"><div class="sdk-skel-grid" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></template>
+<template id="tpl-state-empty"><div class="sdk-empty" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2 class="sdk-empty-title" data-slot="title">No places yet</h2><p class="sdk-empty-text" data-slot="text">Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><div class="sdk-empty-actions"><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></div></div></template>
+<template id="tpl-state-none"><div class="sdk-empty" id="state-none"><p class="sdk-empty-text" data-slot="text"></p></div></template>
 <template id="tpl-find-more"><p class="find-more"><button class="btn" type="button" data-action="find-new"><span class="ic" data-icon="magnifying-glass"></span> Search for new places</button></p></template>
-<template id="tpl-state-noresults"><div class="state" id="state-noresults"><h2>Nothing matches</h2><p>No place matches your filter.</p><p><button class="btn" type="button" data-action="clear-filter">Show everything</button></p></div></template>
+<template id="tpl-state-noresults"><div class="sdk-empty" id="state-noresults"><h2 class="sdk-empty-title">Nothing matches</h2><p class="sdk-empty-text">No place matches your filter.</p><div class="sdk-empty-actions"><button class="btn btn-quiet" type="button" data-action="clear-filter">Show everything</button></div></div></template>
 
 <script>
 /*__JS__*/

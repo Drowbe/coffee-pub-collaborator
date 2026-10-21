@@ -35,7 +35,7 @@
       </div>
     </div>
   </header>
-  <p class="error" id="note" hidden></p>
+  <p class="sdk-form-error" id="note" hidden></p>
   <div id="stripbar" class="stripbar">
     <button class="strip-arrow" type="button" data-action="strip-prev" data-tip="Earlier days" aria-label="Earlier days"><span class="ic" data-icon="chevron-left"></span></button>
     <nav id="daystrip" class="daystrip" aria-label="Jump to a day"></nav>
@@ -75,8 +75,8 @@
 </template>
 <template id="tpl-decision"><li class="sdk-row decision"><span class="ic" data-icon=""></span><div class="decision-main"><div class="decision-title" data-slot="title"></div><div class="decision-sub" data-slot="sub"></div><span class="code" data-slot="code"></span></div><button class="btn btn-small" type="button" data-action="open"></button></li></template>
 
-<template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
-<template id="tpl-state-empty-trip"><div class="state" id="state-empty-trip"><p>Nothing on the plan yet. Add something below.</p><form class="add-row"><button class="btn btn-primary" type="submit">Add plan</button></form></div></template>
+<template id="tpl-state-loading"><div class="sdk-skel-list" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></template>
+<template id="tpl-state-empty-trip"><div class="sdk-empty" id="state-empty-trip"><p class="sdk-empty-text">Nothing on the plan yet. Add something below.</p><form class="add-row"><button class="btn btn-primary" type="submit">Add plan</button></form></div></template>
 <template id="tpl-phase-head"><div class="phase-head" data-phase=""><h2 data-slot="label"></h2></div></template>
 <template id="tpl-undated"><section class="undated" id="undated"><h2>Unscheduled</h2></section></template>
 <template id="tpl-undated-group"><div class="undated-group"><h3 data-slot="label"></h3><ul class="decisions"></ul></div></template>

@@ -320,7 +320,7 @@
     const openCount = shown.filter((x) => !x.t.done).length;
     filterSwitch.set(show, FILTERS.map((f) => (f.id === 'open' && openCount ? { ...f, label: `Open (${openCount})` } : f)));
     if (!inSpace && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id))) {
-      $('body').innerHTML = `<p class="empty">Pick at least one in ${esc(word('space', { many: true, cap: true }))}.</p>`;
+      $('body').innerHTML = `<p class="sdk-empty">Pick at least one in ${esc(word('space', { many: true, cap: true }))}.</p>`;
       return;
     }
     let html = '';
@@ -335,7 +335,7 @@
       const done = sorted(shown.filter((x) => x.t.done), true);
       if (done.length) html += `<section class="sdk-list-group">${show === 'all' ? '<h4 class="sdk-group-head">Done</h4>' : ''}<div class="sdk-list">${done.map(taskHtml).join('')}</div></section>`;
     }
-    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
+    $('body').innerHTML = html || `<p class="sdk-empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
   }
 
   function render() {
@@ -356,7 +356,7 @@
       if (hiddenSpaces.has(r.id)) continue;
       html += groupHtml(`${spaceIcon(r.id)} ${esc(r.name)}`, [...tasks.values()].filter((x) => x.scope === 'spaces' && x.spaceId === r.id));
     }
-    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
+    $('body').innerHTML = html || `<p class="sdk-empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
   }
 
   function showNote(text) {

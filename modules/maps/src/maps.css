@@ -12,7 +12,6 @@ body { margin: 0; overflow: hidden; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .msg { padding: 16px; color: var(--text-muted); }
-.error { margin: 0; color: var(--danger); }
 
 /* ---- the frame: the map fills the pane; what is selected shows in a callout over it ---- */
 .app { position: relative; display: flex; height: 100%; background: var(--surface-page); }
@@ -93,13 +92,8 @@ body { margin: 0; overflow: hidden; }
 
 
 /* ---- states that replace the map ---- */
-.state { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center; color: var(--text-muted); background: var(--surface-page); }
-.state h2 { margin: 0; color: var(--text-primary); font-size: var(--text-18); }
-.state p { margin: 0; max-width: 420px; }
-.state .ic { font-size: var(--text-28); color: var(--accent); margin-bottom: 4px; }
-.skel { width: 100%; height: 100%; background: linear-gradient(90deg, var(--surface-panel), color-mix(in srgb, var(--surface-panel) 82%, var(--text-primary)), var(--surface-panel)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-@keyframes shimmer { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+#state { position: absolute; inset: 0; z-index: 4; justify-content: center; padding: var(--space-6); background: var(--surface-page); }
+#state > .sdk-skel { width: 100%; height: 100%; border-radius: 0; }
 
 /* ---- phones and narrow panes ---- */
 /* phones and narrow panes: the script sets .narrow on .app from the pane width (under 720 px), not the window's */
@@ -119,10 +113,8 @@ body { margin: 0; overflow: hidden; }
 
 .app.narrow #banner { bottom: 44px; }
 
-.state p + p { margin-top: 12px; }
-
 /* the loading skeleton fills the map, with no padding around it */
-.state:has(> .skel) { padding: 0; }
+#state:has(> .sdk-skel) { padding: 0; }
 
 /* a place from "mine" (the person scope): a small person mark on the pin, so it is not mistaken for a shared one */
 .pin[data-scope="person"]::after { content: ""; position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border: 2px solid var(--surface-panel); border-radius: var(--radius-round); background: var(--accent-fill) center / 7px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23fff' d='M224 256a128 128 0 1 0 0-256 128 128 0 1 0 0 256zM178 304C80 304 0 384 0 482c0 17 14 30 30 30l388 0c16 0 30-13 30-30 0-98-80-178-178-178l-92 0z'/%3E%3C/svg%3E"); z-index: 3; }

@@ -9,7 +9,6 @@
 .name { font-weight: var(--weight-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .online { font-size: var(--text-12); color: var(--accent, #c8873a); }
 .links { display: flex; gap: 6px; }
-.error { color: #e07a5f; margin: 0; }
 @media (max-width: 560px) {
   .person { grid-template-columns: 32px minmax(0, 1fr); }
   .links { grid-column: 1 / -1; }

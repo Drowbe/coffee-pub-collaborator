@@ -129,12 +129,12 @@ The Bookings and Money views reuse the same list markup: `.sdk-group-head` headi
 
 | State | What the script renders |
 |---|---|
-| Loading | `.app` with the header and `#body > .skeleton[aria-busy=true]` holding four `.skel` |
-| Nothing on the plan | The header stays (the space's name, and the phase line when the template has phases). With no days and no objects, `#body > .state#state-empty-trip` reads "Nothing on the plan yet. Add something below." and, for someone who can edit, a `form.add-row` whose button adds an object with no date. There is no create step |
+| Loading | `.app` with the header and `#body > .sdk-skel-list[aria-busy=true]` holding four `.sdk-skel.sdk-skel-block` |
+| Nothing on the plan | The header stays (the space's name, and the phase line when the template has phases). With no days and no objects, `#body > .sdk-empty#state-empty-trip` reads "Nothing on the plan yet. Add something below." and, for someone who can edit, a `form.add-row` whose button adds an object with no date. There is no create step |
 | Empty day | `ol.items` holds one `li.day-empty.has-add` (`tpl-day-empty-add`) whose `button.day-empty-add[data-action=day-menu]` reads "Nothing planned yet. Click to add." ("Tap to add." when `matchMedia('(pointer: coarse)')` matches; the pointer decides, not the width). It is the same action as the header's "...", so it opens the same add menu for that day, anchored to the row. A viewer who cannot edit gets a plain `li.day-empty` (`tpl-day-empty`) reading "Nothing planned yet." and no button. A day that has things opens nothing from its blank space. The add row stays |
 | Conflict | the item gets `.conflict` and a last child `.sdk-banner[data-kind=warn][data-bar=conflict][role=alert]`: an icon, `.sdk-banner-text` ("Christy changed this while you were editing."), `button.btn.sdk-banner-action[data-action=use-theirs]`, `button.btn.sdk-banner-action[data-action=keep-mine]` |
 | Busy day (20+ items) | nothing special: `.items` scrolls inside a column on a wide pane, the page scrolls on a phone; the day header stays put (sticky) |
-| Error | a `p.error` under the header |
+| Error | a `p.sdk-form-error` under the header |
 
 ## Layout the stylesheet decides
 
@@ -210,7 +210,7 @@ Reference rendering: `design/markers.html` (`?state=normal|edge|hidden`, `?theme
 
 **Days at the ends** (`div.dayedge[data-edge=before|after]`, `tpl-dayedge`): a dashed button "Add days before" above the first day and "Add days after" below the last. Choosing it hides the button and shows `form.edge-form` ("Add [3] days", Add, Cancel; the count is 1 to 30, or fewer when the plan would pass its longest length, said in `#note`). Adding moves the plan's start date back (before) or its end date forward (after) by that many days, so the new days are empty days on the trip, and the planning markers move with them; items and trip markers stay where they were.
 
-**Empty days.** A toggle in the toolbar (`button.tool-empty[data-action=toggle-empty][aria-pressed]`, icon `eye-slash`, tooltip "Hide empty days" or "Show empty days") sits in `.actions` beside the pencil. A day with no items (markers do not count) gets `.is-empty`, and so does its chip in the strip. While the toggle is on, `.app.hide-empty` hides both, and each run of hidden days is one `div.gap` badge on the line (see The line, and the days-between badge); `p.emptynote` is only a fallback where a run cannot be shown. If every day is empty nothing is hidden. The choice is remembered for the person, and the default is off.
+**Empty days.** A toggle in the toolbar (`button.tool-empty[data-action=toggle-empty][aria-pressed]`, icon `eye-slash`, tooltip "Hide empty days" or "Show empty days") sits in `.actions` beside the pencil. A day with no items (markers do not count) gets `.is-empty`, and so does its chip in the strip. While the toggle is on, `.app.hide-empty` hides both, and each run of hidden days is one `div.gap` badge on the line (see The line, and the days-between badge); `p.sdk-empty-line` is only a fallback where a run cannot be shown. If every day is empty nothing is hidden. The choice is remembered for the person, and the default is off.
 
 ### Markers: one pill, one colour (0.7.0; supersedes the earlier coloured bands and the draft time blocks)
 

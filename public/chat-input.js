@@ -1164,7 +1164,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if (!text) { line?.remove(); return; }
     if (!line) {
       line = document.createElement('p');
-      line.className = 'chat-view-empty';
+      line.className = 'sdk-empty-line chat-view-empty';
     }
     // Only when the words differ: setting them again replaces the text node, which the observer below sees as a change
     // and runs syncEmpty again, for ever (the page hangs).

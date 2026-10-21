@@ -71,7 +71,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .item .what { flex: 1; min-width: 0; }
 .item .what strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .item .sdk-chip-tag { margin-left: var(--space-2); }
-.empty { padding: 24px 8px; color: var(--text-muted); text-align: center; }
 
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
    the window, its padding, its close button and its backdrop. The form is .sdk-form: the SDK draws every field, label, hint,
@@ -118,7 +117,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .day.sel { background: color-mix(in srgb, var(--accent-fill) 22%, var(--bg-card)); }
 .day:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
 .app.part { padding: 8px; }
-.empty.end { padding: 10px 8px; }
 .item .what strong .ri { margin-right: 5px; }
 
 /* The person's own other calendars (plan-google-calendar.md, Part 2): read only and muted, each calendar's tint on a thin

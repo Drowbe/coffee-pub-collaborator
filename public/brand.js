@@ -771,7 +771,7 @@ function addToOpenNotices(n) {
   const { list } = noticesOpen;
   let ul = list.querySelector('.bell-notices');
   if (!ul) {
-    list.querySelector('.bell-empty')?.remove();
+    list.querySelector('[data-empty]')?.remove();
     ul = list.ownerDocument.createElement('ul');
     ul.className = 'bell-notices';
     list.appendChild(ul);
@@ -820,7 +820,7 @@ async function toggleNotices(bell) {
   list.setAttribute('role', 'dialog');
   list.setAttribute('aria-label', 'Notifications');
   list.tabIndex = -1;
-  list.innerHTML = '<div class="bell-head">Notifications</div><p class="bell-empty">Loading...</p>';
+  list.innerHTML = '<div class="bell-head">Notifications</div><p class="sdk-empty-line" data-empty><span class="sdk-spinner sdk-spinner-sm" aria-hidden="true"></span> Loading</p>';
   doc.body.appendChild(list);
   bell.setAttribute('aria-expanded', 'true');
   const place = () => {
@@ -874,7 +874,7 @@ async function toggleNotices(bell) {
     for (const n of sorted) parts.push(noticeHtml(n));
     parts.push('</ul>');
   } else if (!updates) {
-    parts.push('<p class="bell-empty">Nothing new.</p>');
+    parts.push('<p class="sdk-empty-line" data-empty>Nothing new.</p>');
   }
   list.innerHTML = parts.join('');
   noticesOpen.loaded = true;

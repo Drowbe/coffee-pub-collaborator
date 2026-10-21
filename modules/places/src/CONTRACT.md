@@ -56,7 +56,7 @@ On its own, "Add a place" is the titlebar "+" (`host.add.set`, one action: it op
 | No places at all | `#body` holds `tpl-state-empty` with `[data-action=add-place]` (hidden for someone who may not edit); the head and chips are hidden |
 | A filter matches nothing | `tpl-state-noresults` with `[data-action=clear-filter]` |
 | Someone changed a place that is open | the conflict bar above |
-| Error | `p#note.error` under the chips |
+| Error | `p#note.sdk-form-error` under the chips |
 
 ## What the map shows
 

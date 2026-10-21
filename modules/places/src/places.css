@@ -108,17 +108,13 @@ body { margin: 0; overflow: hidden; }
 .look-type { flex: 1 1 220px; min-width: 0; }
 .look-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--field-h); height: var(--field-h); padding: 0; border: 0; border-radius: var(--radius-small); background: var(--surface-field); box-shadow: inset 0 0 0 1px var(--edge-hairline); color: var(--tone, var(--text-primary)); font-size: var(--text-16); cursor: pointer; }
 .look-btn:hover, .look-btn[aria-expanded="true"] { background: color-mix(in srgb, var(--accent-fill) 18%, var(--surface-field)); }
-.look-btn:focus-visible, .pick-option:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
+.look-btn:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
 .look-dot { flex: none; width: 18px; height: 18px; border-radius: var(--radius-round); background: var(--tone, var(--tint-blue)); }
 /* the flyout under an icon or colour button: inside the editor window, fixed, a sheet on a phone */
-.pick-pop { position: fixed; z-index: 9999; display: flex; flex-direction: column; gap: 4px; width: 260px; max-height: 340px; padding: 6px; border: 0; border-radius: var(--radius-large); background: var(--bg-card); color: var(--text-primary); box-shadow: 0 0 0 1px var(--edge-hairline), 0 8px 24px rgba(0, 0, 0, 0.45); font-size: var(--text-13); }
+.pick-pop { position: fixed; z-index: var(--z-popover); gap: var(--space-1); width: 260px; max-height: 340px; }
 .pick-search { flex: none; }
 .pick-list { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; outline: none; }
-.pick-option { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: var(--radius-small); cursor: pointer; }
-.pick-option.active { background: color-mix(in srgb, var(--accent-fill) 14%, transparent); }
-.pick-option[aria-selected="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
 .pick-option .ic { color: var(--text-muted); }
-.pick-option[aria-selected="true"] .ic { color: var(--text-on-accent); }
 .pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pick-sep { height: 1px; margin: 3px 4px; background: var(--edge-hairline); }
 .pick-none { padding: 10px 8px; color: var(--text-muted); }
@@ -128,8 +124,7 @@ body { margin: 0; overflow: hidden; }
 @media (max-width: 640px) {
   .status-btn { min-height: 44px; }
   .look-type { flex-basis: 100%; }
-  .pick-pop { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: min(70dvh, 440px); padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); border-radius: var(--radius-large) var(--radius-large) 0 0; background: var(--surface-panel); }
-  .pick-option { min-height: 44px; }
+  .pick-pop { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: min(70dvh, 440px); padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); border-radius: var(--radius-large) var(--radius-large) 0 0; background: var(--surface-menu); }
 }
 
 /* ---- Shows in: a tick per place it can show (everyone, this space, other spaces, Mine), and who will see it. Native

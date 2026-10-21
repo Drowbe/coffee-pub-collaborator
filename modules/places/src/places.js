@@ -806,7 +806,7 @@
     if (openFly && openFly.btn === btn) return closeFly(true);
     closeFly();
     const pop = document.createElement('div');
-    pop.className = 'pick-pop';
+    pop.className = 'sdk-popover sdk-popover-dense pick-pop'; // the SDK's popover surface (the Menus family), placed here
     pop.dataset.for = btn.id;
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', label);
@@ -852,7 +852,7 @@
       const list = all.filter((en) => (en.reset && !q.length) || (!en.reset && (!q.length || q.every((w) => [...words(en.label), ...(en.words || []).flatMap(words)].some((x) => x.startsWith(w))))));
       for (const en of list) {
         const el = document.createElement('div');
-        el.className = 'pick-option';
+        el.className = 'pick-option sdk-kind-option'; // a Menus row (hover, the keyboard cursor, the chosen one)
         el.id = `${btn.id}-o${shown.length}`;
         el.setAttribute('role', 'option');
         el.setAttribute('aria-selected', String(en.id === now));
@@ -862,7 +862,6 @@
         t.className = 'pick-name';
         t.textContent = en.label;
         el.appendChild(t);
-        if (en.id === now) { const c = document.createElement('span'); c.className = 'ic pick-check'; c.dataset.icon = 'check'; el.appendChild(c); }
         const i = shown.length;
         el.addEventListener('mousemove', () => { if (active !== i) mark(i); });
         el.addEventListener('click', () => choose(i));

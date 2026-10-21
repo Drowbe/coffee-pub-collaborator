@@ -3225,7 +3225,7 @@
       const page = createHost({
         call: (method, params) => (method === 'icons.svg'
           ? fetch(`/api/icons/${params.style === 'regular' || params.style === 'brands' ? params.style : 'solid'}/${encodeURIComponent(params.name)}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error('no such icon'))))
-          : Promise.reject(new Error('not in a module'))),
+          : Promise.reject(new Error('not available on a page'))),
         root: document,
         rootElement: document.documentElement,
         elementAt: (pt) => document.elementFromPoint(pt.x, pt.y),

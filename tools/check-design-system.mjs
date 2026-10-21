@@ -312,6 +312,8 @@ async function browse(cdp, label, url, scenarios, shots) {
     } else if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);
     const sideways = await ev('document.documentElement.scrollWidth - document.documentElement.clientWidth');
     if (sideways > 1) problems.push(`${where}: the page scrolls sideways by ${sideways}px`);
+    // Today's page must still be at its top: a live frame that takes focus once scrolled it away and the screenshot showed only empty page.
+    if (!sc.proposed) { const sy = await ev('window.scrollY'); if (sy > 1) problems.push(`${where}: the page is scrolled to ${sy}px when the screenshot is taken (a frame took focus and scrolled it)`); }
     const h = await ev('document.documentElement.scrollHeight');
     const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: sc.width, height: Math.min(h, 2400), scale: 1 } }, sessionId);
     const png = Buffer.from(shot.data, 'base64');

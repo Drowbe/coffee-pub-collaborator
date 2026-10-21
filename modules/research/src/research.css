@@ -131,7 +131,6 @@ body { margin: 0; overflow: hidden; }
 .link { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .link.gone { opacity: 0.6; font-style: italic; }
 .rs-body .sdk-skel-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-@media (prefers-reduced-motion: reduce) { .rcard { transition: none; } .rcard:hover { transform: none; } }
 .upload progress { flex: 1; height: 6px; appearance: none; border: 0; border-radius: var(--radius-round); background: var(--bg-card); overflow: hidden; }
 .upload progress::-webkit-progress-bar { background: var(--bg-card); }
 .upload progress::-webkit-progress-value { background: var(--accent-fill); }

@@ -1,4 +1,8 @@
 {
+  "games": {
+    "version": 1,
+    "fingerprint": "eadd907e96f815dd"
+  },
   "travel": {
     "version": 7,
     "fingerprint": "4dc5799356a292ad"

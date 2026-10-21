@@ -1810,6 +1810,24 @@
     }
    ],
    "tier": "state"
+  },
+  {
+   "id": "games-planner-timeline",
+   "seed": "games",
+   "family": "Games: the Campaign planner",
+   "as": "admin",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "tier": "core"
+  },
+  {
+   "id": "games-obs-character",
+   "seed": "games",
+   "family": "Games: the OBS view",
+   "as": "none",
+   "url": "/view/{mia}?s={key}&kind=character",
+   "wait": "#module-frame >>> #base:not([hidden])",
+   "tier": "state"
   }
  ]
 }

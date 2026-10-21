@@ -114,6 +114,7 @@ try {
     assert.equal(t.phases.find((p) => p.main).id, 'trip');
   });
 
+
   await test('a template that breaks a rule is refused, each with its sentence', () => {
     const with_ = (patch) => ({ ...structuredClone(travelRaw), ...patch });
     const problems = (raw, file = 'travel.json') => templates.problemsOf(raw, { file, bundled });
@@ -329,6 +330,40 @@ try {
     await templates.applyTemplate(env, { ...travel, modules: ['chat', 'polls'], lobby: {}, settings: { clock: '24', allowAsides: false } });
     assert.deepEqual([env.store.settings.conferenceEnabled, env.store.settings.clock, env.store.settings.allowAsides], [false, '24', false]);
     assert.equal(env.modules.enabled('polls') !== null, true);
+  });
+
+  // plan-template-games.md, Decisions (2026-10-21): the games template as decided.
+  await test('the games template is the one decided (plan-template-games.md)', async () => {
+    const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'templates', 'games.json'), 'utf8'));
+    const t = templates.get('games');
+    assert.deepEqual([t.name, t.version, t.description], ['Games', 1, 'Run a campaign together: the chat, the calendar for sessions, a campaign planner, quests, lore and polls, and every player as an OBS source.']);
+    assert.deepEqual(Object.fromEntries(Object.entries(t.words).map(([k, v]) => [k, v.one])), { environment: 'group', space: 'campaign', owner: 'game master', aside: 'whisper', member: 'player' });
+    for (const k of ['moderator', 'guest', 'canvas', 'module', 'object', 'home']) assert.equal(k in raw.words, false, `${k} keeps its word`);
+    assert.deepEqual(t.modules, ['travel', 'calendar', 'polls', 'todo', 'research', 'chat', 'conference']);
+    for (const off of ['places', 'maps', 'budget', 'assistant']) assert.equal(t.modules.includes(off), false, `${off} is not in the template`);
+    assert.deepEqual(t.moduleNames, { travel: 'Campaign planner', calendar: 'Sessions', todo: 'Quests', research: 'Lore' });
+    assert.deepEqual([t.moduleIcons, t.icons.home, t.lobby.name, t.lobby.description], [{ travel: 'scroll' }, 'dice-d20', 'Common room', 'Everyone in every campaign.']);
+    assert.deepEqual(t.settings, { showCalendar: true, showMap: false, calendarFeeds: true });
+    assert.deepEqual(t.phases, [], 'no phases');
+    assert.deepEqual(t.spaceDefaults, { opensWith: ['chat', 'calendar'] });
+    for (const icon of ['dice-d20', 'scroll']) assert.ok(fs.existsSync(path.join(ROOT, 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid', `${icon}.svg`)), `${icon} is a Font Awesome Free solid icon`);
+    assert.deepEqual(templates.problemsOf(raw, { file: 'games.json', bundled }), []);
+    // What a person reads, and what a new group is made with.
+    const env = freshEnvironment('games');
+    env.modules.aiReady = () => true;
+    assert.deepEqual(await templates.applyTemplate(env, t), []);
+    templates.useLive(env.store, t);
+    const w = env.store.resolvedWords();
+    assert.deepEqual([w.environment.one, w.space.one, w.home.one, w.home.many, w.owner.one, w.aside.one, w.member.one, w.moderator.one, w.guest.one], ['group', 'campaign', 'Campaigns', 'Campaigns', 'game master', 'whisper', 'player', 'moderator', 'guest']);
+    assert.equal(env.store.homeIcon, 'dice-d20');
+    assert.deepEqual(['travel', 'calendar', 'todo', 'research'].map((id) => env.store.moduleDisplay(id).name), ['Campaign planner', 'Sessions', 'Quests', 'Lore']);
+    assert.equal(env.store.moduleDisplay('travel').icon, 'scroll');
+    const snap = snapshot(env);
+    assert.deepEqual(snap.lobby, ['Common room', 'Everyone in every campaign.']);
+    assert.deepEqual(snap.settings.spaceDefaults, { opensWith: ['chat', 'calendar'] });
+    for (const id of ['travel', 'calendar', 'polls', 'todo', 'research']) assert.deepEqual(snap.modules[id].slice(1), [true], id);
+    for (const id of ['places', 'maps', 'budget', 'assistant']) assert.equal(snap.modules[id], undefined, `${id} is not installed: offered, off`);
+    assert.equal(env.store.addSpace({ name: 'The Ashen Crown' }).profile, 'roleplaying', 'a new campaign keeps the Participant and Character pictures');
   });
 
   await test('the live part: words, the home icon and module names and icons, the owner\'s over the template\'s', () => {

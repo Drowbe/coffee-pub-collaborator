@@ -245,18 +245,25 @@ try {
     assert.equal(hide.status, 200, hide.text);
     assert.equal((await call('GET', '', '/travel')).status, 404, 'hidden: 404');
     assert.deepEqual((await call('GET', '', '/api/product')).json.pages, []);
-    assert.deepEqual((await call('GET', '', '/api/product')).json.templates, []);
+    // The games template is bundled too, and stays offered; it has no page until public/games.html exists.
+    assert.deepEqual((await call('GET', '', '/api/product')).json.templates.map((t) => t.id), ['games']);
     const show = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: false } });
     assert.equal(show.status, 200, show.text);
     assert.equal((await call('GET', '', '/travel')).status, 200, 'shown again: 200');
     assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/travel', template: 'travel' }]);
   });
-  await test('a host template called games or projects does not make a page without its file', async () => {
-    const made = await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'games', name: 'Games', description: 'A test.', modules: ['chat'] } });
+  await test('the bundled games template, and a host template called projects, do not make a page without its file', async () => {
+    const gamesPage = fs.existsSync(path.join(ROOT, 'public', 'games.html'));
+    assert.equal((await call('GET', '', '/games')).status, gamesPage ? 200 : 404, '/games waits for public/games.html');
+    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'), gamesPage);
+    assert.ok((await call('GET', '', '/api/product')).json.templates.some((t) => t.id === 'games'), 'the games template is offered');
+    assert.equal((await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'games', name: 'Games', description: 'A test.', modules: ['chat'] } })).status, 409, 'its id is taken');
+    const made = await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'projects', name: 'Projects', description: 'A test.', modules: ['chat'] } });
     assert.equal(made.status, 201, made.text);
-    assert.equal((await call('GET', '', '/games')).status, fs.existsSync(path.join(ROOT, 'public', 'games.html')) ? 200 : 404);
-    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'), fs.existsSync(path.join(ROOT, 'public', 'games.html')));
-    await call('DELETE', 'admin', '/api/host/templates/games', { headers: same('admin') });
+    const projectsPage = fs.existsSync(path.join(ROOT, 'public', 'projects.html'));
+    assert.equal((await call('GET', '', '/projects')).status, projectsPage ? 200 : 404);
+    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/projects'), projectsPage);
+    await call('DELETE', 'admin', '/api/host/templates/projects', { headers: same('admin') });
   });
 } finally {
   await new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });

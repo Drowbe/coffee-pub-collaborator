@@ -1,5 +1,9 @@
 // The fixed data tools/shots.mjs takes its screenshots of (documentation/plans/plan-design-system.md, step 1).
 //
+// Two seeds live here, chosen by `--seed=` in tools/shots.mjs: SEEDS.travel (seedServer, seedChat; the default) and SEEDS.games
+// (seedGames, seedGamesChat; the games template, plan-template-games.md, "The seed for the product page screenshots"). Each is
+// { seed(call) -> { trip, second, users, ... }, chat(dataDir, ids) }; the games one also answers `key`, the stream key, for the OBS view.
+//
 // seedServer(call) fills a throwaway server through its API: the travel template, an admin and two members, three modules'
 // worth of everything (Planner, Places, To-do, Polls, Calendar, Budget, Research), two trips, the phases with fixed dates.
 // seedChat(dataDir, ids) then writes the chat (an AI answer with suggestion cards, a message with a link card, ordinary
@@ -11,6 +15,8 @@
 // and are never drawn.
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import fs from 'node:fs';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
@@ -165,3 +171,144 @@ export function seedChat(dataDir, { tripId, users }) {
   }
   h.flush();
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The games seed (plan-template-games.md): the games template, the admin as game master and three players, two campaigns.
+// Invented names throughout; nothing from a published game. Same fixed day as the travel seed, 2026-10-15, a Thursday.
+// ---------------------------------------------------------------------------------------------------------------------
+const GAMES_MODULES = ['travel', 'todo', 'polls', 'calendar', 'research', 'stream'];
+
+// A Character picture for a player: tools/fixtures/shots-games/<login>.png when experience-design has drawn one, else a flat
+// stand-in (a head and shoulders in the player's colour on a clear ground) so the OBS view has something to show. Deterministic.
+const CHARACTER_COLOURS = { mia: [0xc2, 0x5b, 0x3a], sam: [0x3a, 0x7c, 0xa5], lee: [0x6a, 0x8f, 0x3d] };
+const crcLookup = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const crc32 = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcLookup[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+function standInPng(rgb) {
+  const w = 192; const h = 256;
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const head = (x - 96) ** 2 + (y - 90) ** 2 <= 46 ** 2;
+      const body = y >= 150 && ((x - 96) / 80) ** 2 + ((y - 256) / 106) ** 2 <= 1;
+      const o = y * (w * 4 + 1) + 1 + x * 4;
+      if (head || body) { raw[o] = rgb[0]; raw[o + 1] = rgb[1]; raw[o + 2] = rgb[2]; raw[o + 3] = 255; }
+    }
+  }
+  const chunk = (type, data) => { const t = Buffer.from(type, 'latin1'); const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([t, data]))); return Buffer.concat([len, t, data, crc]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
+}
+const characterPicture = (login) => {
+  const drawn = path.join(root, 'tools', 'fixtures', 'shots-games', `${login}.png`);
+  return fs.existsSync(drawn) ? fs.readFileSync(drawn) : standInPng(CHARACTER_COLOURS[login]);
+};
+
+// `call` as for seedServer; a Buffer body is sent as it is, as a PNG (see tools/shots.mjs).
+export async function seedGames(call) {
+  const ok = async (method, url, body, as = 'admin') => {
+    const r = await call(method, url, body, as);
+    if (r.status >= 300) throw new Error(`seed: ${method} ${url} answered ${r.status}: ${JSON.stringify(r.json)}`);
+    return r.json;
+  };
+  await ok('PATCH', '/api/settings', { template: 'games' });
+  const users = {};
+  for (const [login, displayName] of [['mia', 'Mia Alvarez'], ['sam', 'Sam Okafor'], ['lee', 'Lee Chen']]) {
+    const made = await ok('POST', '/api/users', { login, displayName, role: 'member', password: PASSWORD });
+    users[login] = made.user.key;
+  }
+  // Research needs the AI service on; a key and a model are enough, nothing is ever asked of it here.
+  await ok('PUT', '/api/ai', { source: 'custom', provider: 'openai', key: 'sk-shots-not-a-real-key', model: 'gpt-4o-mini', enabled: true });
+  for (const id of GAMES_MODULES) {
+    const had = await call('POST', `/api/modules/bundled/${id}/install`, undefined, 'admin');
+    if (had.status >= 300 && !/already installed/.test(JSON.stringify(had.json))) throw new Error(`seed: installing ${id} answered ${had.status}: ${JSON.stringify(had.json)}`);
+    await ok('PATCH', `/api/modules/${id}`, { enabled: true });
+  }
+  // Each player's Character picture, for the OBS view: the Online one and the Offline one (no call here, so the box shows the Offline one).
+  for (const login of Object.keys(users)) {
+    const png = characterPicture(login);
+    for (const slot of ['character', 'characterOffline']) await ok('PUT', `/api/users/${users[login]}/images/${slot}`, png);
+  }
+  const campaign = (await ok('POST', '/api/spaces', { name: 'The Ashen Crown', description: 'A long campaign of ruined gates, quiet oaths and one stolen crown.', members: [users.mia, users.sam, users.lee] })).space;
+  const oneShot = (await ok('POST', '/api/spaces', { name: 'The Lantern Fair', description: 'A one-shot for a single evening.', members: [users.mia, users.sam] })).space;
+  await ok('PATCH', `/api/users/${users.mia}/spaces/${campaign.id}`, { permissions: { moderator: true } });
+
+  const put = (module, key, value, space = campaign.id, as = 'admin') => ok('PUT', `/api/modules/${module}/data/${encodeURIComponent(key)}?scope=space&space=${space}`, { value }, as);
+  const by = 'Admin';
+
+  // --- The Campaign planner: the campaign's span, and four objects of its own on fixed days. The Sessions, the Quests with
+  // due dates and the open poll join the timeline by themselves.
+  await put('travel', 'trip:main', { title: 'The Ashen Crown', start: day(0), end: day(14) });
+  const plan = [
+    ['a1', { kind: 'note', title: 'Recap of session 13', date: day(0), notes: 'The party crossed the marsh, lost a mule and found the abbey door open. Mia kept the silver key.', order: 1 }],
+    ['a2', { kind: 'stop', type: 'sight', title: 'The Ashen Gate', date: day(7), time: '19:30', minutes: 60, notes: 'A burnt gate that still smells of smoke.', order: 1 }],
+    ['a3', { kind: 'stop', type: 'bar', title: 'The Drowned Lantern', date: day(7), time: '21:00', minutes: 90, notes: 'The cartographer drinks here on Thursdays.', order: 2 }],
+    ['a4', { kind: 'note', title: 'Bring the map for the vault', date: day(14), notes: 'Everyone brings a pencil. The vault map is on the back of the recap.', order: 1 }],
+  ];
+  for (const [id, v] of plan) await put('travel', `plan:${id}`, { by, ...v });
+
+  // --- Sessions (Calendar): every Thursday night from the first of the month, so the last two are done and the next two ahead.
+  const night = (n, h = 19) => `${day(n)}T${String(h).padStart(2, '0')}:00:00.000Z`;
+  await put('calendar', 'event:e1', { id: 'e1', by, title: 'Game night', allDay: false, start: night(-14), end: night(-14, 22), desc: 'The Ashen Crown, every Thursday.', remind: 60, repeat: { every: 'week', until: null } });
+
+  // --- Polls
+  await put('polls', 'poll:q1', { id: 'q1', question: 'Which night for session 14?', options: [{ id: 'o1', text: 'Thursday', date: day(7) }, { id: 'o2', text: 'Friday', date: day(8) }, { id: 'o3', text: 'Saturday', date: day(9) }], multi: true, addable: false, closed: false, closesAt: null, createdAt: Date.parse(`${day(-2)}T10:00:00Z`), by: 'Mia Alvarez', byKey: users.mia });
+  await put('polls', `vote:q1:${users.mia}`, { options: ['o1', 'o2'], name: 'Mia Alvarez', at: Date.parse(`${day(-1)}T10:00:00Z`) }, campaign.id, 'mia');
+  await put('polls', `vote:q1:${users.sam}`, { options: ['o1'], name: 'Sam Okafor', at: Date.parse(`${day(-1)}T11:00:00Z`) }, campaign.id, 'sam');
+  await put('polls', `vote:q1:${users.lee}`, { options: ['o1', 'o3'], name: 'Lee Chen', at: Date.parse(`${day(-1)}T12:00:00Z`) }, campaign.id, 'lee');
+
+  // --- Quests (To-do): five, two done, with due dates.
+  const quests = [
+    ['t1', { title: 'Find the cartographer in Vael', notes: 'She drinks at the Drowned Lantern.', due: day(7) }],
+    ['t2', { title: 'Return the silver key to the abbey', notes: '', due: day(13), remind: true }],
+    ['t3', { title: 'Scout the Ashen Gate', notes: 'Look for another way in.', due: day(6) }],
+    ['t4', { title: "Free the prisoner at Crow's Ford", notes: 'Done in session 12.', due: day(-8), done: true, doneAt: Date.parse(`${day(-7)}T21:00:00Z`) }],
+    ['t5', { title: 'Win the duel at the Drowned Lantern', notes: 'Sam won, barely.', due: day(-1), done: true, doneAt: Date.parse(`${day(-1)}T21:30:00Z`) }],
+  ];
+  for (const [id, v] of quests) await put('todo', `task:${id}`, { id, remind: false, done: false, doneAt: null, createdAt: Date.parse(`${day(-12)}T10:00:00Z`), by, links: [], autoDone: false, ...v });
+
+  // --- Lore (Research): a place, a person, a rumour, a house rule, with tags.
+  const lore = [
+    ['n1', { title: 'The Ashen Gate', body: 'The north gate of Vael, burnt in the old war. The guards will not talk about it.', tags: ['place', 'vael'], icon: 'landmark', at: Date.parse(`${day(-9)}T10:00:00Z`) }],
+    ['n2', { title: 'Odessa Quill', body: 'A cartographer who owes the crown a map and the party a favour.', tags: ['person', 'vael'], icon: 'user', at: Date.parse(`${day(-8)}T10:00:00Z`) }],
+    ['n3', { title: 'The crown is not in the vault', body: 'Heard at the Drowned Lantern: the vault was emptied a year before the fire.', tags: ['rumour'], icon: 'comment', at: Date.parse(`${day(-5)}T10:00:00Z`) }],
+    ['n4', { title: 'House rule: one reroll per night', body: 'Each player may reroll one die per session. Say so before the dice stop.', tags: ['rules'], icon: 'scale-balanced', at: Date.parse(`${day(-20)}T10:00:00Z`) }],
+  ];
+  for (const [id, v] of lore) await put('research', `note:${id}`, { by, ...v });
+
+  const key = (await ok('GET', '/api/settings')).streamKey;
+  return { trip: campaign, second: oneShot, users, key };
+}
+
+// The chat, written to DATA_DIR while the server is stopped: in-character talk with a link card and an Assistant answer, in the
+// Common room (the Lobby) and in the campaign.
+export function seedGamesChat(dataDir, { tripId, users }) {
+  const { ChatHistory } = require(path.join(root, 'server', 'chat-history.js'));
+  const h = new ChatHistory(dataDir);
+  const at = (hh, mm) => Date.parse(`${TODAY}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00Z`);
+  for (const spaceId of ['lobby', tripId]) {
+    const say = (key, who, text, when, extra = {}) => h.add(spaceId, { by: key, who, text, at: when, ...extra });
+    say(users.mia, 'Mia Alvarez', 'I keep the silver key. Nobody touch the abbey door until Thursday.', at(7, 40));
+    say(users.sam, 'Sam Okafor', 'Too late. My character already knocked.', at(7, 44));
+    const link = say(users.lee, 'Lee Chen', 'The map I mean is this one: https://example.com/vael-map', at(7, 50), { link: 'https://example.com/vael-map' });
+    h.setPreview(spaceId, link.id, 'research', { title: 'A map of Vael', description: 'The old town, its four gates and the river that floods the lower streets.', at: at(7, 51) });
+    say(users.mia, 'Mia Alvarez', 'Where does the cartographer drink?', at(8, 10), { kind: 'command', command: 'ai', visibility: 'private' });
+    say(users.mia, 'Mia Alvarez',
+      'From the lore you saved, she drinks at the Drowned Lantern on Thursdays:\n\n{{summary:0}}\n\nThe gate is worth a look first:\n\n{{summary:1}}',
+      at(8, 11), {
+        kind: 'ai',
+        summaries: [
+          { title: 'Odessa Quill', kind: 'note', description: 'A cartographer who owes the crown a map and the party a favour.', date: day(7), tags: ['person'], icon: 'user' },
+          { title: 'The Ashen Gate', kind: 'sight', description: 'The north gate of Vael, burnt in the old war.', place: { name: 'The Ashen Gate' }, date: day(7), tags: ['place'], icon: 'landmark' },
+        ],
+      });
+    say(users.sam, 'Sam Okafor', 'Thursday, then. I will bring snacks.', at(8, 30));
+    say(users.lee, 'Lee Chen', '/poll Which night for session 14?', at(8, 35), { kind: 'command', command: 'poll', module: 'polls' });
+  }
+  h.flush();
+}
+
+export const SEEDS = {
+  travel: { seed: seedServer, chat: seedChat },
+  games: { seed: seedGames, chat: seedGamesChat },
+};
+export const seedChatFor = (name, dataDir, ids) => SEEDS[name].chat(dataDir, ids);

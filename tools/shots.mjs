@@ -46,6 +46,9 @@
 // landing page, the environment banner) need a base domain and are not in the set; nor is anything that needs a person in an
 // aside (the ghost slot on Home) or a request still waiting (a loading skeleton).
 //
+// Seeds: the default seeds the travel template; `--seed=games` seeds the games template (two campaigns, tools/shots-seed.mjs) and runs
+// only the screens that name `"seed": "games"`; a screen with no "seed" belongs to travel. The games run takes {lee} and {key} (the
+// stream key, for the OBS view) as well. Keep the two runs' baselines apart with --dir.
 // Options: --compare, --out=<folder> (render into that folder, as a set to keep), --diff <before> <after> (compare two such folders,
 // no browser needed; differences go to a `diff` folder beside <after>), --only=<id text, several with commas>, --dir=<folder>, --size=<px>, --theme=light|dark, --jobs=<n>
 // (one more than the cores, at most 6, by default), --list (print the table's screens), --dump, --html=<selector>.
@@ -59,12 +62,13 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { seedServer, seedChat, PASSWORD, TODAY } from './shots-seed.mjs';
+import { SEEDS, seedChatFor, PASSWORD, TODAY } from './shots-seed.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); return a ? a.slice(name.length + 3) : null; };
 const COMPARE = args.includes('--compare') && !opt('out');
+const SEED = opt('seed') || 'travel'; // which seed (tools/shots-seed.mjs SEEDS): travel, or games; a screen with a "seed" field runs only for that one
 const ONLY = opt('only'); // screen ids that hold this text (several, with commas)
 const OUT = opt('out');
 const ONLY_SIZE = opt('size');
@@ -272,7 +276,7 @@ async function stopServer(server) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- driving a screen ----
-const fill = (s, ctx) => String(s).replace(/\{(trip|second|mia|sam)\}/g, (_, k) => ctx[k]);
+const fill = (s, ctx) => String(s).replace(/\{(trip|second|mia|sam|lee|key)\}/g, (_, k) => ctx[k]);
 // A selector that may cross into a shadow root: "a >>> b" is b inside the shadow root of a. The bundled modules run in the
 // page, each in a shadow root on #module-frame, so their own buttons are reached with "#module-frame >>> .btn".
 const DEEP = `const __all = (sel) => { let roots = [document]; const parts = String(sel).split('>>>').map((x) => x.trim()); let found = []; parts.forEach((part, i) => { found = []; for (const r of roots) found.push(...r.querySelectorAll(part)); roots = found.map((e) => e.shadowRoot || e); }); return found; };
@@ -463,6 +467,8 @@ async function runScreen(tab, screen, base, cookies, size, modes, ctx) {
 // ---- run ----
 async function main() {
   const list = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'shots-screens.json'), 'utf8'));
+  if (!SEEDS[SEED]) { say(`--seed=${SEED}: there is no such seed (${Object.keys(SEEDS).join(', ')}).`); return 1; }
+  list.screens = list.screens.filter((s) => (s.seed || 'travel') === SEED);
   const screens = list.screens.filter((s) => !ONLY || ONLY.split(',').some((x) => s.id.includes(x)));
   if (args.includes('--list')) {
     for (const s of list.screens) console.log(`${s.id.padEnd(34)} ${(s.family || '').padEnd(28)} ${s.url}`);
@@ -503,9 +509,9 @@ async function main() {
     server = await startServer(dataDir, port, 'first');
     const jars = {};
     const call = async (method, url, body, as = 'admin') => {
-      const headers = { 'content-type': 'application/json', accept: 'application/json' };
+      const headers = { 'content-type': Buffer.isBuffer(body) ? 'image/png' : 'application/json', accept: 'application/json' };
       if (jars[as]) headers.cookie = jars[as].map((c) => `${c.name}=${c.value}`).join('; ');
-      const r = await fetch(server.base + url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+      const r = await fetch(server.base + url, { method, headers, body: body === undefined ? undefined : Buffer.isBuffer(body) ? body : JSON.stringify(body) });
       let json = null; try { json = await r.json(); } catch { /* none */ }
       return { status: r.status, json, res: r };
     };
@@ -516,12 +522,12 @@ async function main() {
     };
     await signIn('admin');
     say('seeding the throwaway environment');
-    const seeded = await seedServer(async (m, u, b, as) => { if (as !== 'admin' && !jars[as]) await signIn(as); return call(m, u, b, as); });
+    const seeded = await SEEDS[SEED].seed(async (m, u, b, as) => { if (as !== 'admin' && !jars[as]) await signIn(as); return call(m, u, b, as); });
     await stopServer(server);
     execSeedChat(dataDir, seeded.trip.id, seeded.users);
     server = await startServer(dataDir, port, 'second');
     await signIn('admin'); await signIn('mia'); await signIn('sam'); await signIn('lee');
-    const ctx = { trip: seeded.trip.id, second: seeded.second.id, mia: seeded.users.mia, sam: seeded.users.sam };
+    const ctx = { trip: seeded.trip.id, second: seeded.second.id, mia: seeded.users.mia, sam: seeded.users.sam, lee: seeded.users.lee, key: seeded.key };
     const cookies = { admin: jars.admin, mia: jars.mia, sam: jars.sam, lee: jars.lee, none: [] };
     browser = await launch(bin);
     const queue = [];
@@ -585,8 +591,8 @@ async function main() {
 
 // The chat is written by a short child process with the same fixed clock as the server.
 function execSeedChat(dataDir, tripId, users) {
-  const code = `import('${path.join(root, 'tools', 'shots-seed.mjs').replace(/\\/g, '/')}').then((m) => m.seedChat(process.env.DATA_DIR, { tripId: process.env.TRIP, users: JSON.parse(process.env.USERS) }))`;
-  const r = spawnSyncNode(['--require', path.join(root, 'tools', 'shots-clock.cjs'), '-e', code], { DATA_DIR: dataDir, TRIP: tripId, USERS: JSON.stringify(users), SHOTS_NOW: `${TODAY}T09:00:00.000Z`, SHOTS_SEED: 'chat' });
+  const code = `import('${path.join(root, 'tools', 'shots-seed.mjs').replace(/\\/g, '/')}').then((m) => m.seedChatFor(process.env.SEED, process.env.DATA_DIR, { tripId: process.env.TRIP, users: JSON.parse(process.env.USERS) }))`;
+  const r = spawnSyncNode(['--require', path.join(root, 'tools', 'shots-clock.cjs'), '-e', code], { DATA_DIR: dataDir, SEED, TRIP: tripId, USERS: JSON.stringify(users), SHOTS_NOW: `${TODAY}T09:00:00.000Z`, SHOTS_SEED: 'chat' });
   if (r.status !== 0) throw new Error('the chat could not be seeded: ' + r.stderr);
 }
 import { spawnSync } from 'node:child_process';

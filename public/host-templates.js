@@ -5,6 +5,7 @@
 import { api, escapeHtml, word } from '/brand.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, VERBS, DEFAULT_VERBS } from '/words.js';
 import { fileText } from '/file-text.js';
+import { confirmDialog } from '/confirm.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (el, text, error = false) => { el.textContent = text; el.classList.toggle('error', error); el.hidden = !text; };
@@ -90,7 +91,7 @@ $('template-list').addEventListener('click', async (e) => {
   } else if (b.dataset.action === 'duplicate') {
     await duplicateTemplate(t);
   } else if (b.dataset.action === 'reset') {
-    if (!window.confirm(`Reset ${t.name || id} to the shipped version? Your edits are removed.`)) return;
+    if (!await confirmDialog({ title: `Reset ${t.name || id} to the shipped version?`, message: 'Your edits are removed.', action: 'Reset', kind: 'destructive' })) return;
     try {
       await api('DELETE', `/api/host/templates/${encodeURIComponent(id)}/edits`);
       closeCompare();
@@ -99,7 +100,7 @@ $('template-list').addEventListener('click', async (e) => {
     } catch (err) { say($('templates-status'), err.message, true); }
   } else if (b.dataset.action === 'delete') {
     if ((t.usedBy || []).length) return say($('templates-status'), `In use by ${t.usedBy.join(', ')}. Hide it instead.`, true);
-    if (!window.confirm(`Delete the ${t.name || id} template?`)) return;
+    if (!await confirmDialog({ title: `Delete the ${t.name || id} template?`, action: 'Delete', kind: 'destructive' })) return;
     try {
       await api('DELETE', `/api/host/templates/${encodeURIComponent(id)}`);
       await reload();
@@ -173,7 +174,7 @@ async function answerUpdate(keep) {
   const id = comparing;
   const t = list.find((x) => x.id === id);
   if (!id || !t) return;
-  if (keep === 'shipped' && !window.confirm(`This drops your edits to ${t.name || id}.`)) return;
+  if (keep === 'shipped' && !await confirmDialog({ title: `Drop your edits to ${t.name || id}?`, action: 'Drop my edits', kind: 'destructive' })) return;
   try {
     await api('POST', `/api/host/templates/${encodeURIComponent(id)}/update`, { keep });
     closeCompare();

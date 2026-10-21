@@ -21,9 +21,9 @@
     "modules/places/src/places.css": {
       "3px": 1,
       "5px": 1,
-      "6px": 8,
+      "6px": 7,
       "7px": 3,
-      "10px": 3,
+      "10px": 2,
       "14px": 3
     },
     "modules/polls/src/polls-widget.css": {
@@ -35,10 +35,9 @@
     },
     "modules/research/src/research.css": {
       "5px": 1,
-      "6px": 7,
+      "6px": 6,
       "7px": 1,
-      "10px": 7,
-      "14px": 4,
+      "10px": 6,
       "74px": 1
     },
     "modules/stream/src/stream-keyed.css": {
@@ -96,7 +95,7 @@
       "-10px": 4,
       "3px": 7,
       "5px": 4,
-      "6px": 64,
+      "6px": 59,
       "7px": 3,
       "10px": 51,
       "14px": 13,

@@ -145,6 +145,83 @@ async function settled(tab, wantWindows = 1) {
 }
 
 const failures = [];
+
+// ---- padding symmetry: a box owns its padding ----
+// Each box of a shared family (below) that has an edge or a fill of its own: its content (the boxes of its children in the flow
+// and its own words) as far from its top edge as from its bottom one, and, where its content fills its width (a card's lines, a
+// chip's words), as far from its left edge as from its right; and the children of a stack (a card's lines, a message's words and
+// cards) one gap apart. A child's margin that adds to the box's padding is what breaks it. Measured to the whole pixel, within 1px.
+// `h: false`: only top and bottom (a band's or a row's content is laid from the start, so its end is wherever the content ends).
+const SYMMETRY_FAMILIES = [
+  { sel: '.message .chat-object, .message .chat-link', name: 'chat card', h: true, stack: '.chat-object' },
+  { sel: '.message .message-body', name: 'message body', h: false, stack: '*', box: false },
+  { sel: '.sdk-card:not(.sdk-card-banded)', name: 'card', h: true },
+  { sel: '.sdk-row', name: 'row', h: false },
+  { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
+  { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
+  { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase' },
+  { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, #dest-bar, .dest-side-head', name: 'band', h: false },
+  { sel: '.sdk-search', name: 'search field', h: false },
+  { sel: '.btn, .tb-tab', name: 'button', h: false },
+];
+// EXCEPTIONS, each with its reason:
+// - a banded box's body (.message-body, .sdk-card-body: 8px under the head band, 12px at the foot) is approved as 8/12/12 (Cards,
+//   the banded card): its top sits against the band, not an edge, so it is not held to top = bottom;
+// - the phase chip (.sdk-strip-phase) starts with its round dot 8px in and ends 10px after its words: the approved optical
+//   correction (public/design-system/proposed-journey.css, the Journey bar family), so it is held to top = bottom only;
+// - a card with its "..." laid in its corner (an absolutely placed small button) keeps room for it at its end (the card's padding
+//   plus the button), so it is held to top = bottom only;
+// - a box that scrolls (its content taller than it) or whose content overflows it is not measured.
+const SYMMETRY = String.raw`((families) => {
+  const R = (e) => e.getBoundingClientRect();
+  const shown = (e) => e && e.getClientRects().length && R(e).width >= 1 && R(e).height >= 1 && getComputedStyle(e).visibility !== 'hidden';
+  const out = [];
+  const allRoots = () => { const list = [document]; const walk = (r) => { for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { list.push(e.shadowRoot); walk(e.shadowRoot); } if (e.tagName === 'IFRAME') { try { const d = e.contentDocument; if (d && d.body) { list.push(d); walk(d); } } catch (x) {} } } }; walk(document); return list; };
+  const roots = allRoots();
+  const label = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + [...e.classList].slice(0, 3).map((c) => '.' + c).join('');
+  for (const f of families) {
+    for (const r of roots) for (const el of r.querySelectorAll(f.sel)) {
+      if (!shown(el) || el.dataset.symmetryChecked) continue;
+      el.dataset.symmetryChecked = '1';
+      const cs = getComputedStyle(el);
+      if (el.scrollHeight > el.clientHeight + 1 && /auto|scroll|hidden/.test(cs.overflowY) && f.name !== 'band') continue;
+      const b = R(el);
+      const inner = { top: b.top + parseFloat(cs.borderTopWidth), bottom: b.bottom - parseFloat(cs.borderBottomWidth), left: b.left + parseFloat(cs.borderLeftWidth), right: b.right - parseFloat(cs.borderRightWidth) };
+      const parts = [];
+      const kids = [...el.children].filter((k) => shown(k) && !['absolute', 'fixed'].includes(getComputedStyle(k).position) && !k.classList.contains('visually-hidden'));
+      for (const k of kids) parts.push(R(k));
+      for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); for (const x of rg.getClientRects()) parts.push(x); }
+      if (!parts.length) continue;
+      const c = { top: Math.min(...parts.map((x) => x.top)), bottom: Math.max(...parts.map((x) => x.bottom)), left: Math.min(...parts.map((x) => x.left)), right: Math.max(...parts.map((x) => x.right)) };
+      const t = Math.round(c.top - inner.top); const bo = Math.round(inner.bottom - c.bottom); const l = Math.round(c.left - inner.left); const ri = Math.round(inner.right - c.right);
+      if (t < 0 || bo < 0 || l < 0 || ri < 0) continue; // content past the edge: overflow, not padding
+      const why = [];
+      if (f.box !== false && Math.abs(t - bo) > 1) why.push('top ' + t + ' / bottom ' + bo);
+      // Left and right only where the content runs from one padding edge to the other (a chip shrunk to its words, a card's
+      // lines); a box wider than its content (a stretched chip, a row) lays it from the start, which is alignment, not padding.
+      const reach = (v, pad) => v <= Math.round(pad) + 1;
+      const cornerBtn = [...el.children].some((k) => getComputedStyle(k).position === 'absolute' && k.matches('.sdk-icon-btn, .sdk-more, .sdk-card-menu, [data-action=menu]'));
+      if (f.box !== false && f.h && !cornerBtn && !(f.hExcept && el.matches(f.hExcept)) && Math.abs(l - ri) > 1 && reach(l, parseFloat(cs.paddingLeft)) && reach(ri, parseFloat(cs.paddingRight))) why.push('left ' + l + ' / right ' + ri);
+      if (f.stack && (f.stack === '*' || el.matches(f.stack)) && kids.length > 2) {
+        const gaps = []; for (let i = 1; i < kids.length; i++) gaps.push(Math.round(R(kids[i]).top - R(kids[i - 1]).bottom));
+        if (Math.max(...gaps) - Math.min(...gaps) > 1) why.push('gaps ' + gaps.join(', '));
+      }
+      if (why.length) out.push({ family: f.name, el: label(el), why: why.join('; '), padding: cs.padding, margins: kids.map((k) => { const m = getComputedStyle(k); return m.marginTop + ' ' + m.marginBottom; }).filter((m) => m !== '0px 0px').slice(0, 3).join(' | ') });
+    }
+  }
+  for (const r of roots) for (const e of r.querySelectorAll('[data-symmetry-checked]')) delete e.dataset.symmetryChecked;
+  return out;
+})(${JSON.stringify(SYMMETRY_FAMILIES)})`;
+const symmetryRows = [];
+async function symmetry(tab, context) {
+  const list = await tab.eval(SYMMETRY).catch((e) => [{ family: 'load', el: '-', why: e.message, padding: '', margins: '' }]);
+  for (const o of list) {
+    const key = `${o.family} ${o.el}: ${o.why}`;
+    if (symmetryRows.some((x) => x.key === key)) continue; // the same box in another view says nothing new
+    symmetryRows.push({ key, context, ...o });
+    failures.push({ context, window: o.el, what: `padding symmetry (${o.family})`, got: o.why, should: 'symmetrical' });
+  }
+}
 const tables = [];
 function judge(context, phone, windows) {
   const want = phone ? WANT.phone : WANT.wide;
@@ -214,6 +291,7 @@ async function main() {
         await tab.waitFor('.mod-header .mod-title', '', 45000);
         await sleep(2500);
         judge('Workspace, 1280 px, light', false, await settled(tab, 4));
+        await symmetry(tab, 'Workspace, 1280 px, light');
         // The status strip (the Journey bar family) owns its row's inset: its first chip var(--space-3) from the window's start and
         // nothing closer than that to its end (where a fact gave way, the bar does not always take its room back: space.js fitFacts).
         const stripExpr = `(() => { const s = document.querySelector('.sdk-strip'); if (!s || !s.getClientRects().length) return null; const k = [...s.children].filter((e) => e.getClientRects().length && e.getBoundingClientRect().width > 0); return { left: Math.round(Math.min(...k.map((e) => e.getBoundingClientRect().left))), right: Math.round(innerWidth - Math.max(...k.map((e) => e.getBoundingClientRect().right))) }; })()`;
@@ -237,6 +315,7 @@ async function main() {
           await sleep(600);
           const wins = (await settled(tab, 1)).filter((w) => w.kind !== 'chat');
           judge(`Workspace, 390 px, dark: ${id}`, true, wins);
+          await symmetry(tab, `Workspace, 390 px, dark: ${id}`);
         }
       } finally { await tab.close(); }
     }]);
@@ -248,7 +327,9 @@ async function main() {
           const tab = await openTab(browser, S, size, mode, url);
           try {
             await sleep(1500);
-            judge(`${url.replace('?space={trip}', '')}, ${size} px, ${mode}`, size <= 640, await settled(tab, 1));
+            const view = `${url.replace('?space={trip}', '')}, ${size} px, ${mode}`;
+            judge(view, size <= 640, await settled(tab, 1));
+            await symmetry(tab, view);
           } finally { await tab.close(); }
         }]);
       }
@@ -267,6 +348,10 @@ async function main() {
         console.log(c);
         for (const t of ts) { console.log(t.head); for (const r of t.rows) console.log(r); }
       }
+    }
+    if (symmetryRows.length) {
+      console.log('Padding symmetry: each box (family, element), what differs, its padding and its children\'s margins (top bottom):');
+      for (const o of symmetryRows) console.log(`  ${o.family.padEnd(24)} ${o.el.padEnd(44)} ${o.why}  padding ${o.padding}${o.margins ? `  child margins ${o.margins}` : ''}  (${o.context})`);
     }
     const windows = tables.length;
     if (failures.length) {

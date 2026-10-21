@@ -5412,6 +5412,7 @@ span.message-vis {
 
 /* The theme chooser never grows wider than its row: a 40-character name would otherwise push a phone's page sideways. */
 #theme-select {
+  width: auto;
   min-width: 0;
   max-width: 100%;
 }

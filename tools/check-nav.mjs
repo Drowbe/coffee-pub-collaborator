@@ -513,7 +513,7 @@ test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s sha
   // host-menu.js: the item kinds the Layout menu needs, in the one shared component.
   for (const needle of ['item.toggle', 'item.radio', 'item.keepOpen', 'item.heading', 'item.element', 'item.more', "'menuitemcheckbox'", "'menuitemradio'", 'export function refreshHostMenu()', 'export function hostMenuOpen(trigger)']) assert.ok(menuJs.includes(needle), `host-menu.js has ${needle}`);
   assert.match(menuJs, /if \(item\.keepOpen \|\| item\.toggle\) \{/, 'a switch or a keepOpen item leaves the menu open and draws it again');
-  // The switch look is the Show list's own (input.switch), in the menu's ink.
+  // The switch look is the Show list's own (input.sdk-switch), in the menu's ink.
   assert.match(css, /\.host-menu-switch \{[\s\S]*?radial-gradient\(circle at 6px 50%, color-mix\(in srgb, var\(--switch-ink\) 70%, transparent\) 4px, transparent 4\.5px\)/);
   assert.match(css, /\.host-menu-item\[aria-checked="true"\] \.host-menu-switch \{[\s\S]*?var\(--accent\);/);
   assert.match(css, /\.host-menu \{\n\s*--switch-ink: var\(--text\);/);
@@ -555,7 +555,7 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   // shown as it says them; a guest never saves.
   const sheet = space.slice(space.indexOf('function openLayoutSheet('), space.indexOf('function openSaveLayout() {'));
   assert.match(sheet, /dlg\.className = 'layout-sheet';/);
-  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', "submit: true,", "ids: { save: 'layout-save', cancel: 'layout-cancel' },"]) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
+  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="sdk-switch" role="switch" id="layout-shared">', "submit: true,", "ids: { save: 'layout-save', cancel: 'layout-cancel' },"]) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
   assert.match(sheet, /querySelector\('#layout-shared-label'\)\.textContent = `For everyone in this \$\{word\('space'\)\}`;/);
   assert.match(sheet, /b\.textContent = 'Replace it';/);
   assert.match(sheet, /dlg\.showModal\(\);/);

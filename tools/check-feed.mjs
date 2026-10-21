@@ -304,7 +304,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   // The switch moved to Calendar's Configure page, with its id (plan-space-calendars.md, section 4); Manage keeps a pointer.
   const configHtml = read('public/module-config.html');
   const configJs = read('public/module-config.js');
-  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
+  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
   assert.ok(ids(configHtml).has('calendar-feeds-hint') && ids(configHtml).has('calendar-feeds-status'));
   assert.ok(!ids(adminHtml).has('set-calendar-feeds') && !ids(adminHtml).has('calendar-feeds-settings'), 'Manage no longer has the switch or its panel');
   assert.ok(!ids(adminHtml).has('calendar-sharing-pointer') && !adminJs.includes('renderSharingPointer'), 'Manage\'s one-release pointer to where it went is gone');
@@ -319,7 +319,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   // The space's Set up panel: In the published calendar, shown only while publishing is on (it was space-settings.html).
   const setupJs = read('public/space-setup.js');
   assert.ok(setupJs.includes("sectionHtml('calendar', "), 'the panel has a calendar section');
-  assert.ok(setupJs.includes('<input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span>'), 'with the In the published calendar switch');
+  assert.ok(setupJs.includes('<input type="checkbox" class="sdk-switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span>'), 'with the In the published calendar switch');
   assert.ok(setupJs.includes("patch.publishCalendar = after.publishCalendar;"), 'saves publishCalendar');
   assert.ok(setupJs.includes("section.hidden = settings.publishedCalendar !== true || !(m && m.enabled);"), 'the section needs publishing on and the module on (no per-space test)');
   assert.doesNotMatch(setupJs, /allSpaces|m\.spaces/, 'Set up no longer reads the per-space availability');

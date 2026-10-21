@@ -228,13 +228,16 @@ try {
   });
   // plan-product-pages.md, decisions 7, 8, 10 and the contract: the use pages at the bare base domain.
   const same = (sub) => ({ cookie: hostCookie, origin: originOf(sub), 'sec-fetch-site': 'same-origin' });
-  await test('/travel answers 200 with its page while the travel template is offered; /games and /projects (no template) answer 404', async () => {
+  await test('/travel and /games answer 200 with their pages while their templates are offered; /projects (no template) answers 404', async () => {
     const travel = await call('GET', '', '/travel', { headers: { accept: 'text/html' } });
     assert.equal(travel.status, 200, travel.text.slice(0, 120));
     assert.equal(travel.text, fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8'), 'the page is public/travel.html');
-    for (const p of ['/games', '/projects', '/travel/', '/travel.html']) assert.equal((await call('GET', '', p)).status, 404, p);
+    const games = await call('GET', '', '/games', { headers: { accept: 'text/html' } });
+    assert.equal(games.status, 200, games.text.slice(0, 120));
+    assert.equal(games.text, fs.readFileSync(path.join(ROOT, 'public', 'games.html'), 'utf8'), 'the page is public/games.html');
+    for (const p of ['/projects', '/travel/', '/travel.html', '/games/', '/games.html']) assert.equal((await call('GET', '', p)).status, 404, p);
     const info = await call('GET', '', '/api/product');
-    assert.deepEqual(info.json.pages, [{ path: '/travel', template: 'travel' }]);
+    assert.deepEqual(info.json.pages, [{ path: '/travel', template: 'travel' }, { path: '/games', template: 'games' }]);
   });
   await test('a use page is only at the bare base domain: an environment and the console do not send it', async () => {
     const file = fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8');
@@ -244,18 +247,23 @@ try {
     const hide = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: true } });
     assert.equal(hide.status, 200, hide.text);
     assert.equal((await call('GET', '', '/travel')).status, 404, 'hidden: 404');
-    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, []);
-    // The games template is bundled too, and stays offered; it has no page until public/games.html exists.
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/games', template: 'games' }], 'games stays');
+    assert.equal((await call('GET', '', '/games')).status, 200, 'games still 200');
     assert.deepEqual((await call('GET', '', '/api/product')).json.templates.map((t) => t.id), ['games']);
+    const hideGames = await call('PATCH', 'admin', '/api/host/templates/games', { headers: same('admin'), body: { hidden: true } });
+    assert.equal(hideGames.status, 200, hideGames.text);
+    assert.equal((await call('GET', '', '/games')).status, 404, 'games hidden: 404');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [], 'both hidden: none');
+    const showGames = await call('PATCH', 'admin', '/api/host/templates/games', { headers: same('admin'), body: { hidden: false } });
+    assert.equal(showGames.status, 200, showGames.text);
     const show = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: false } });
     assert.equal(show.status, 200, show.text);
     assert.equal((await call('GET', '', '/travel')).status, 200, 'shown again: 200');
-    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/travel', template: 'travel' }]);
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/travel', template: 'travel' }, { path: '/games', template: 'games' }]);
   });
-  await test('the bundled games template, and a host template called projects, do not make a page without its file', async () => {
-    const gamesPage = fs.existsSync(path.join(ROOT, 'public', 'games.html'));
-    assert.equal((await call('GET', '', '/games')).status, gamesPage ? 200 : 404, '/games waits for public/games.html');
-    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'), gamesPage);
+  await test('the bundled games template, and a host template called projects, (a template with no file gives no page)', async () => {
+    assert.equal((await call('GET', '', '/games')).status, 200);
+    assert.ok((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'));
     assert.ok((await call('GET', '', '/api/product')).json.templates.some((t) => t.id === 'games'), 'the games template is offered');
     assert.equal((await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'games', name: 'Games', description: 'A test.', modules: ['chat'] } })).status, 409, 'its id is taken');
     const made = await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'projects', name: 'Projects', description: 'A test.', modules: ['chat'] } });

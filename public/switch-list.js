@@ -15,11 +15,12 @@ const ICON = /^[a-z0-9-]{1,40}$/;
 const TINT = /^(gold|blue|green|teal|purple|red|orange|pink)$/;
 export function switchRowHtml({ id, icon, name, on = false, note = '', badge = 0, disabled = false, tint = null }, attr) {
   const n = Number(badge) || 0;
-  return `<label class="switch-row${disabled ? ' disabled' : ''}"><input type="checkbox" class="sdk-switch" role="switch" data-${attr}="${escapeHtml(id)}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
+  return `<label class="sdk-choice-row${disabled ? ' disabled' : ''}">`
     + `<i class="fa-solid fa-${ICON.test(icon || '') ? icon : 'puzzle-piece'} fa-fw" aria-hidden="true"${TINT.test(tint || '') ? ` data-tint="${tint}"` : ''}></i>`
-    + `<span class="switch-name">${escapeHtml(name)}</span>`
-    + (note ? ` <span class="hint">(${escapeHtml(note)})</span>` : '')
-    + (n ? `<span class="sdk-badge">${n > 9 ? '9+' : n}</span>` : '')
+    + `<span class="sdk-choice-text"><span class="sdk-choice-label">${escapeHtml(name)}${n ? ` <span class="sdk-badge">${n > 9 ? '9+' : n}</span>` : ''}</span>`
+    + (note ? `<span class="sdk-choice-desc">${escapeHtml(note)}</span>` : '')
+    + '</span>'
+    + `<input type="checkbox" class="sdk-switch" role="switch" data-${attr}="${escapeHtml(id)}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
     + '</label>';
 }
 

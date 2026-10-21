@@ -2020,53 +2020,7 @@ body.in-space .subnav {
   line-height: var(--leading-ui);
 }
 
-/* One row of a switch list (switch-list.js): the switch, the module's icon and name, a note, a count. The same rows in the
-   space bar's module chooser and Opens with in space settings. */
-label.switch-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 5px 6px;
-  border-radius: var(--radius-medium);
-  color: var(--text);
-  font-size: var(--text-13);
-  text-transform: none;
-  letter-spacing: var(--tracking-normal);
-  cursor: pointer;
-}
-
-label.switch-row:hover {
-  background: var(--surface-hover);
-}
-
-/* On and fixed (a module on for every space): it can't be switched here. */
-label.switch-row.disabled {
-  color: var(--text-muted);
-  cursor: default;
-}
-
-label.switch-row.disabled:hover {
-  background: none;
-}
-
-.switch-row .switch-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.switch-row .hint {
-  margin: 0;
-  white-space: nowrap;
-}
-
-.switch-row .sdk-badge {
-  margin-left: auto;
-}
-
+/* A row of a switch list (switch-list.js) is a choice row (system.css): the module's icon, its name and note, the switch. */
 /* The phone's tab bar's holder (space.js, #modules-menu inside it; canvas.js fills the tabs): drawn only where the
    window is a phone's width (the registry hides it wider, where the Layout menu is the list). */
 .module-chooser {
@@ -2214,11 +2168,6 @@ label.switch-row.disabled:hover {
   gap: 3px;
   color: var(--text-dim);
   font-size: var(--text-12);
-}
-
-.layout-form label.switch-row {
-  padding-left: 0;
-  padding-right: 0;
 }
 
 .layout-form-error {
@@ -8057,9 +8006,7 @@ h4.setup-subheading {
     height: 44px;
   }
 
-  #setup-delete,
-  .setup-members .switch-row,
-  .space-setup .switch-row {
+  #setup-delete {
     min-height: 44px;
   }
 

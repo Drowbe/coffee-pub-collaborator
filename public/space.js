@@ -2786,7 +2786,7 @@ function openLayoutSheet({ title, name = '', share = null, emptyName = '', onSav
       <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
       <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false" maxlength="40"></label>
       <p class="layout-field-hint" id="layout-name-hint" hidden></p>
-      <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="sdk-switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
+      <label class="sdk-choice-row" id="layout-shared-row" hidden><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="sdk-choice-text"><span class="sdk-choice-label" id="layout-shared-label"></span></span><input type="checkbox" class="sdk-switch" role="switch" id="layout-shared"></label>
       <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
       </div>
     </form>`;

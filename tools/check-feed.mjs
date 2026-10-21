@@ -319,7 +319,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   // The space's Set up panel: In the published calendar, shown only while publishing is on (it was space-settings.html).
   const setupJs = read('public/space-setup.js');
   assert.ok(setupJs.includes("sectionHtml('calendar', "), 'the panel has a calendar section');
-  assert.ok(setupJs.includes('<input type="checkbox" class="sdk-switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span>'), 'with the In the published calendar switch');
+  assert.ok(setupJs.includes('<span class="sdk-choice-label">In the published calendar</span></span><input type="checkbox" class="sdk-switch" role="switch" id="setup-publish-calendar">'), 'with the In the published calendar switch');
   assert.ok(setupJs.includes("patch.publishCalendar = after.publishCalendar;"), 'saves publishCalendar');
   assert.ok(setupJs.includes("section.hidden = settings.publishedCalendar !== true || !(m && m.enabled);"), 'the section needs publishing on and the module on (no per-space test)');
   assert.doesNotMatch(setupJs, /allSpaces|m\.spaces/, 'Set up no longer reads the per-space availability');

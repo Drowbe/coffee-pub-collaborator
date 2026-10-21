@@ -20,6 +20,7 @@
    Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or ring. */
 
 .ds-proposed {
+  --surface-chat-own: color-mix(in srgb, var(--accent-fill) 10%, transparent); /* the colour role the product defines in system.css; the Proposed page loads style.css only, so it is drawn here with the same formula */
   --msg-quote-fill: color-mix(in srgb, var(--text) 7%, transparent);
   --msg-portrait: 24px;
   --msg-meta: color-mix(in srgb, var(--text) 78%, var(--text-dim)); /* the time and the command: muted, but readable on the message fills */

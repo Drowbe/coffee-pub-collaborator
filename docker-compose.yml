@@ -58,7 +58,7 @@ services:
       # Several environments on one server (see the getting-started guide, "Environments"): set the base
       # domain, and for ONE start only the environment the data already here becomes.
       # BASE_DOMAIN: "collaborator.CHANGE_ME_DOMAIN"
-      # MIGRATE_ENVIRONMENT_SLUG: "thepub"
+      # MIGRATE_ENVIRONMENT_SLUG: "main"
       # One environment set up for one use, from a template in templates/ (e.g. "travel"): its words, icons, modules
       # and Lobby. Only on a fresh data folder, and only without BASE_DOMAIN (with it, the host console and the
       # sign-up pick a template for each new environment). Ignored, with a line, on data that already exists.

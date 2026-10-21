@@ -713,12 +713,13 @@ $('words-list').addEventListener('click', async (event) => {
 // Language, time and money: the currency list is the one every picker uses (window.hostCurrency, from /sdk/host.js): the
 // common ones first, then every other the server takes, by name, plus whatever is set if it is in neither (so a code chosen
 // elsewhere is shown, not lost). Without the server's list it falls back to the browser's.
+let picker = null; // the searchable list over the select (host.ui.currencySelect's)
 async function fillCurrencies(current) {
   const select = $('set-currency');
-  window.hostCurrency.fill(select, { value: current }); // at once, so Save never sends an empty choice
-  let currencies = null;
-  try { ({ currencies } = await api('GET', '/api/currencies')); } catch (err) { return; }
-  window.hostCurrency.fill(select, { value: select.value || current, currencies });
+  let currencies;
+  try { ({ currencies } = await api('GET', '/api/currencies')); } catch (err) { currencies = undefined; }
+  if (picker) picker.destroy();
+  picker = window.hostCurrency.select(select, { value: current, currencies });
 }
 $('save-locale').addEventListener('click', () => saveSettings({ language: $('set-language').value, clock: $('set-clock').value, currency: $('set-currency').value }, $('locale-status')));
 $('save-features').addEventListener('click', () => saveSettings({

@@ -2036,7 +2036,7 @@
       kindPicker: (el, o) => createKindPicker(el, o, editorDeps),
       // A currency choice in a <select> the module already has: "Common" then "All currencies" by name, from the codes the
       // server takes (host.locale().currencies), with the current value kept and selected even when the server would not
-      // take it now. currencySelect(select, { value, empty, onChange }): `empty` true adds a first "" choice labelled
+      // take it now. currencySelect(select, { value, empty, onChange, currencies }): `currencies` overrides the server's list (a page that has its own); `empty` true adds a first "" choice labelled
       // "Default (<the server's currency>)", or give the label as text; onChange(code) on each change ("" for the default).
       // Call it once ready has resolved. Returns { set(value), value, destroy() }; set() refills with that value selected.
       currencySelect: (select, o) => {
@@ -2044,7 +2044,7 @@
         const fill = (value) => {
           const loc = locale();
           const empty = options.empty === true ? `Default (${loc.currency || 'USD'})` : options.empty;
-          return fillCurrencySelect(select, { value, currencies: loc.currencies, empty });
+          return fillCurrencySelect(select, { value, currencies: options.currencies || loc.currencies, empty });
         };
         fill(options.value);
         const changed = () => { if (typeof options.onChange === 'function') options.onChange(select.value); };
@@ -3212,7 +3212,24 @@
   // rather than a second copy. See host.util.markdown above for what this covers.
   global.hostText = { esc, markdown, plain: plainText, localWhen, detailLines };
   // The currency list likewise, for Manage's Currency (a page, not a module): the same choices a module's currencySelect makes.
-  global.hostCurrency = { fill: fillCurrencySelect, name: currencyName, common: COMMON_CURRENCIES.slice() };
+  global.hostCurrency = {
+    fill: fillCurrencySelect,
+    name: currencyName,
+    common: COMMON_CURRENCIES.slice(),
+    // The same searchable list a module's currencySelect draws, for a page that has no module: select(select, { value, currencies, onChange }).
+    select: (select, o) => {
+      const page = createHost({
+        call: (method, params) => (method === 'icons.svg'
+          ? fetch(`/api/icons/${params.style === 'regular' || params.style === 'brands' ? params.style : 'solid'}/${encodeURIComponent(params.name)}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error('no such icon'))))
+          : Promise.reject(new Error('not in a module'))),
+        root: document,
+        rootElement: document.documentElement,
+        elementAt: (pt) => document.elementFromPoint(pt.x, pt.y),
+        applyTheme: () => {},
+      });
+      return page.host.ui.currencySelect(select, o);
+    },
+  };
   // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),
   // Chat's Private | Shared and a destination's switches all draw and fit with these.
   global.hostSwitch = { fill: fillChoice, fit: fitSwitches, watch: watchSwitches };

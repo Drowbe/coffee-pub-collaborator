@@ -474,7 +474,7 @@
       fill(li, { title: h.title, sub: h.sub });
       const b = li.querySelector('.result');
       b.dataset.i = String(i);
-      b.classList.toggle('on', i === hit);
+      if (i === hit) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
       list.appendChild(li);
     });
     list.hidden = !list.children.length;

@@ -587,7 +587,7 @@ function renderCreateChoices() {
   box.hidden = !offered.length;
   const options = slot(box, 'options');
   const chosen = box.querySelector('input:checked')?.value || '';
-  const option = (id, name, description) => `<label class="template-option"><input type="radio" name="new-template" value="${escapeHtml(id)}"${id === chosen ? ' checked' : ''}><span><strong>${escapeHtml(name)}</strong><span class="hint">${escapeHtml(description)}</span></span></label>`;
+  const option = (id, name, description) => `<label class="sdk-choice-row sdk-choice-boxed"><input type="radio" name="new-template" value="${escapeHtml(id)}"${id === chosen ? ' checked' : ''}><span class="sdk-choice-text"><span class="sdk-choice-label">${escapeHtml(name)}</span><span class="sdk-choice-desc">${escapeHtml(description)}</span></span></label>`;
   options.innerHTML = option('', 'None', 'Start plain: the usual words and settings.')
     + offered.map((t) => option(t.id, t.name || t.id, t.description || '')).join('');
   if (!options.querySelector('input:checked')) options.querySelector('input').checked = true;

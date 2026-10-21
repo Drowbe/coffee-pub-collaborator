@@ -21,10 +21,7 @@ body { margin: 0; overflow: hidden; }
 .map .maplibregl-canvas { outline: none; }
 
 /* what a search found: over the foot of the map, above the bar (the search itself is the host bar's field) */
-.results { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(380px, calc(100% - 20px)); max-height: 55%; overflow: auto; margin: 0; padding: 6px; list-style: none; background: var(--surface-panel); border: 1px solid var(--edge-hairline); border-radius: var(--radius-large); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); }
-.result { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-medium); background: none; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
-.result:hover, .result.on { background: color-mix(in srgb, var(--accent-fill) 16%, transparent); }
-.result small { display: block; color: var(--text-muted); font-size: var(--text-12); }
+.results.sdk-menu { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(380px, calc(100% - 20px)); max-width: none; max-height: 55%; }
 .results .note { padding: 8px 10px; color: var(--text-muted); font-size: var(--text-12); }
 
 /* the search field over the top of the map (the host bar's field when the titlebar + is not drawn); the zoom is across from it */
@@ -147,5 +144,4 @@ body { margin: 0; overflow: hidden; }
 @keyframes callout-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .callout { animation: none; } }
 
-.app.narrow .results { left: 8px; right: 8px; width: auto; }
-.app.narrow .result { min-height: 44px; }
+.app.narrow .results { left: 8px; right: 8px; width: auto; --menu-item-h: 44px; }

@@ -6532,11 +6532,6 @@ body.chat-window {
 .template-choice { margin: 12px 0; padding: 0; border: none; min-width: 0; }
 .template-choice legend { padding: 0; margin-bottom: 4px; color: var(--text); font-size: var(--text-13); font-weight: var(--weight-strong); }
 .template-choice > .hint { margin-bottom: 8px; }
-.template-options { display: grid; gap: 6px; }
-.template-option, .panel .template-option { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-card); color: var(--text); cursor: pointer; text-transform: none; letter-spacing: var(--tracking-normal); font-size: var(--text-13); }
-.template-option input { flex: none; margin: 2px 0 0; }
-.template-option > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.template-option:has(input:checked) { background: var(--selected-bg); }
 /* What a template left out: on the console's environment card and on Manage's Template note. */
 .template-skipped { margin-top: 10px; }
 .template-skipped ul { margin: 4px 0 0; padding-left: 18px; font-size: var(--text-13); line-height: var(--leading-body); }

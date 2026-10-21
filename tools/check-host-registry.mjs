@@ -862,6 +862,10 @@ try {
     assert.ok(clash.message.includes('PRODUCT_DOMAIN=acme.localhost is the address of the "acme" environment. Pick another host for the product pages.'), clash.message);
     const consoleClash = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'admin.localhost' }).then((s) => { server = s; return null; }, (err) => err);
     assert.ok(consoleClash && consoleClash.message.includes("PRODUCT_DOMAIN=admin.localhost is the host console's address. Pick another host for the product pages."), consoleClash?.message);
+    const empty = path.join(liveDir, 'domains-empty');
+    const stoppedEmpty = await startServer(empty, { ...hostedEnv, PRODUCT_DOMAIN: 'admin.localhost' }).then((s) => { server = s; return null; }, (err) => err);
+    assert.ok(stoppedEmpty, 'the start stopped');
+    assert.equal(fs.existsSync(path.join(empty, 'host.json')), false, 'before anything is written');
     // Nonsense is said, and the product pages stay at the bare base.
     server = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'https://product.localhost/' });
     assert.ok(server.output().includes('PRODUCT_DOMAIN=https://product.localhost/ is not a host name'), server.output());

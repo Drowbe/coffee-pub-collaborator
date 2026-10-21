@@ -267,6 +267,14 @@ const moduleActivity = proxyFor('moduleActivity');
 const externalCalendars = proxyFor('externalCalendars');
 function noteActivity(...args) { return currentEnvironment().noteActivity(...args); }
 
+// The product host, the console host and the reserved names (server/domains.js), read before anything is written, so a
+// setting that stops the start leaves the data folder as it was.
+const domains = domainSettings({ baseDomain: BASE_DOMAIN, productDomain: PRODUCT_DOMAIN, reservedSlugs: RESERVED_SLUGS, livekitHost: LIVEKIT_HOST });
+for (const line of domains.warnings) console.warn(line);
+if (domains.stop) {
+  console.error(domains.stop);
+  process.exit(1);
+}
 // The registry of environments (DATA_DIR/host.json): which environments exist, their plans, the host admins. Only
 // built when BASE_DOMAIN is set -- a self-hosted install with no base domain never has this file.
 // The host's Names migration part (documentation/plans/plan-names.md, "The migration") runs first, before
@@ -285,17 +293,10 @@ if (hostRegistry) {
   hostRegistry.setBaseDomain(BASE_DOMAIN);
   hostRegistry.setPreviousBaseDomains(PREVIOUS_BASE_DOMAINS);
 }
-// The product host, the console host and the reserved names (server/domains.js). A name reserved after an environment
-// took it leaves that environment working, said once per start; only the product host's own label stops the start,
-// since the product pages would hide that environment.
-const domains = domainSettings({ baseDomain: BASE_DOMAIN, productDomain: PRODUCT_DOMAIN, reservedSlugs: RESERVED_SLUGS, livekitHost: LIVEKIT_HOST });
-for (const line of domains.warnings) console.warn(line);
-if (domains.stop) {
-  console.error(domains.stop);
-  process.exit(1);
-}
 const PRODUCT_HOST = domains.productHost; // '' without BASE_DOMAIN
 const CONSOLE_HOST = domains.consoleHost; // admin.<BASE_DOMAIN>, '' without it
+// A name reserved after an environment took it leaves that environment working, said once per start; only the product
+// host's own label stops the start, since the product pages would hide that environment.
 if (hostRegistry) {
   hostRegistry.setReservedNames(domains.reservedNames);
   if (domains.productLabel && hostRegistry.findEnvironment(domains.productLabel)) {

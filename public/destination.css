@@ -32,9 +32,41 @@ body.destination-page .subnav {
 body.destination-page .subnav > .nav-left { grid-column: 1; }
 body.destination-page .subnav > .nav-right { grid-column: 2; }
 
-.dest-bar .nav-left {
-  gap: 12px;
-  padding: 4px 0;
+/* The bar is the module window's toolbar band (public/sdk/system.css, modulechrome): --toolbar-h high, its first item
+   var(--space-2) in (var(--space-3) on a phone), the zones without the top bar's own padding and full-bleed margins (style.css
+   .topbar .nav-left/.nav-right, which would otherwise reach this row), its controls the Buttons block's small ones and its
+   search the band's small field (.sdk-search-small, destination.js). On the space's canvas (dest-no-topbar) it also wears the toolbar's colours, so a Calendar or
+   a Map there has the same toolbar as every other module. tools/check-conformance.mjs measures it. */
+body.destination-page .topbar > .dest-bar {
+  box-sizing: border-box;
+  height: var(--toolbar-h);
+  min-height: 0;
+  padding: 0 var(--space-2);
+  column-gap: var(--space-2);
+}
+
+body.destination-page .topbar > .dest-bar > :is(.nav-left, .nav-right) {
+  align-self: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+}
+
+body.dest-no-topbar .topbar > .dest-bar {
+  border-top: 0;
+  border-bottom: 1px solid var(--edge-hairline);
+  background: var(--surface-toolbar);
+}
+
+body.dest-no-topbar .topbar {
+  border-bottom: 0;
+}
+
+
+/* A phone (the screen's, destination.js bandsFollowScreen, not the frame's): more room each side. */
+body.destination-page.dest-phone .topbar > .dest-bar,
+body.destination-page.dest-phone .dest-side-head {
+  padding: 0 var(--space-3);
 }
 
 .dest-tab:focus-visible {
@@ -52,10 +84,7 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
 .dest-filter-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px;
-  font-size: var(--text-12);
+  gap: var(--space-1);
 }
 
 .dest-filter-toggle[aria-expanded="true"] {
@@ -102,9 +131,16 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   display: none;
 }
 
+/* The panel's head is a toolbar band too (the modulechrome toolbar's height, inset, edge and colour). */
 .dest-side-head {
+  display: flex;
+  align-items: center;
   flex: none;
-  padding: 8px 12px 0;
+  box-sizing: border-box;
+  height: var(--toolbar-h);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--edge-hairline);
+  background: var(--surface-toolbar);
 }
 
 .dest-side-head .tb-tabs {
@@ -221,6 +257,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
   body.destination-page .dest-bar.has-search {
     grid-template-columns: auto minmax(0, 1fr);
   }
+
 
   .dest-bar.has-search .nav-right {
     justify-self: stretch;

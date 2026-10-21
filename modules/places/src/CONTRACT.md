@@ -17,7 +17,7 @@
 
 ```
 <div id="app" class="app [narrow]">
-  <header class="head">                     h1[data-slot=own-name] (the name host.info gives, "Places" until then), [data-slot=count], the filter
+  <header class="sdk-toolbar head">         a toolbar band (the window's, system.css): the filter (a band search) and [data-slot=count]; the title bar names the module
   <div id="chips" class="chips">            All, then one chip per category with its count; the shown one has .on
   <main id="body" class="body">             the groups, or a state
   <div id="item-menu" class="menu">         the place menu (hidden)

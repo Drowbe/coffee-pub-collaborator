@@ -12,20 +12,20 @@
     "hash": "f5a390ad46a91557"
   },
   "maps": {
-    "version": "0.9.9",
-    "hash": "05984e52a09e246a"
+    "version": "0.9.10",
+    "hash": "c2c6a2e93dd4ab90"
   },
   "places": {
-    "version": "0.12.11",
-    "hash": "9c047c2f81ceb364"
+    "version": "0.12.12",
+    "hash": "26561ff0e519adad"
   },
   "polls": {
     "version": "1.15.18",
     "hash": "ffad437da11125a0"
   },
   "research": {
-    "version": "0.4.18",
-    "hash": "141e74304e49b99e"
+    "version": "0.4.19",
+    "hash": "c5f6c2afa9dca715"
   },
   "stream": {
     "version": "0.1.14",

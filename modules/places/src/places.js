@@ -72,8 +72,6 @@
   /*__LIB__*/
 
   const canEdit = host.can('edit');
-  // Its heading reads its name as this environment shows it (host.info's: the display name, else its own).
-  for (const el of root.querySelectorAll('[data-slot="own-name"]')) el.textContent = info.module.name;
   // An invented world drawn from a picture (the environment's picture map): there is no real-world position, so nothing here
   // links to a maps app, copies coordinates or talks of latitude, longitude or an address lookup. Read live: it can change.
   const onPicture = () => Boolean(host.environment && host.environment.pictureMap);

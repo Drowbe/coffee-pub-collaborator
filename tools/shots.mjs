@@ -505,30 +505,9 @@ async function main() {
   const entries = [];
   const failures = [];
   try {
-    // Seed through the API, stop, write the chat, start again.
-    server = await startServer(dataDir, port, 'first');
-    const jars = {};
-    const call = async (method, url, body, as = 'admin') => {
-      const headers = { 'content-type': Buffer.isBuffer(body) ? 'image/png' : 'application/json', accept: 'application/json' };
-      if (jars[as]) headers.cookie = jars[as].map((c) => `${c.name}=${c.value}`).join('; ');
-      const r = await fetch(server.base + url, { method, headers, body: body === undefined ? undefined : Buffer.isBuffer(body) ? body : JSON.stringify(body) });
-      let json = null; try { json = await r.json(); } catch { /* none */ }
-      return { status: r.status, json, res: r };
-    };
-    const signIn = async (login) => {
-      const r = await call('POST', '/api/login', { login, password: PASSWORD }, '__none');
-      if (r.status !== 200) throw new Error(`cannot sign in as ${login}: ${r.status}`);
-      jars[login] = r.res.headers.getSetCookie().map((c) => { const [nv] = c.split(';'); const i = nv.indexOf('='); return { name: nv.slice(0, i), value: nv.slice(i + 1) }; });
-    };
-    await signIn('admin');
-    say('seeding the throwaway environment');
-    const seeded = await SEEDS[SEED].seed(async (m, u, b, as) => { if (as !== 'admin' && !jars[as]) await signIn(as); return call(m, u, b, as); });
-    await stopServer(server);
-    execSeedChat(dataDir, seeded.trip.id, seeded.users);
-    server = await startServer(dataDir, port, 'second');
-    await signIn('admin'); await signIn('mia'); await signIn('sam'); await signIn('lee');
-    const ctx = { trip: seeded.trip.id, second: seeded.second.id, mia: seeded.users.mia, sam: seeded.users.sam, lee: seeded.users.lee, key: seeded.key };
-    const cookies = { admin: jars.admin, mia: jars.mia, sam: jars.sam, lee: jars.lee, none: [] };
+    const boot = await bootSeeded(SEED, dataDir, port);
+    server = boot.server;
+    const { ctx, cookies } = boot;
     browser = await launch(bin);
     const queue = [];
     screens.forEach((screen, si) => {
@@ -589,10 +568,42 @@ async function main() {
   }
 }
 
+
+// Starts the throwaway server in dataDir on port, seeds `seedName` through the API (stops, writes the chat, starts again) and
+// signs everyone in. Answers { server, ctx (the seeded ids, for fill()), cookies (by login) }. tools/check-conformance.mjs uses it too.
+async function bootSeeded(seedName, dataDir, port) {
+  let server = await startServer(dataDir, port, 'first');
+  const jars = {};
+  const call = async (method, url, body, as = 'admin') => {
+    const headers = { 'content-type': Buffer.isBuffer(body) ? 'image/png' : 'application/json', accept: 'application/json' };
+    if (jars[as]) headers.cookie = jars[as].map((c) => `${c.name}=${c.value}`).join('; ');
+    const r = await fetch(server.base + url, { method, headers, body: body === undefined ? undefined : Buffer.isBuffer(body) ? body : JSON.stringify(body) });
+    let json = null; try { json = await r.json(); } catch { /* none */ }
+    return { status: r.status, json, res: r };
+  };
+  const signIn = async (login) => {
+    const r = await call('POST', '/api/login', { login, password: PASSWORD }, '__none');
+    if (r.status !== 200) throw new Error(`cannot sign in as ${login}: ${r.status}`);
+    jars[login] = r.res.headers.getSetCookie().map((c) => { const [nv] = c.split(';'); const i = nv.indexOf('='); return { name: nv.slice(0, i), value: nv.slice(i + 1) }; });
+  };
+  try {
+    await signIn('admin');
+    say('seeding the throwaway environment');
+    const seeded = await SEEDS[seedName].seed(async (m, u, b, as) => { if (as !== 'admin' && !jars[as]) await signIn(as); return call(m, u, b, as); });
+    await stopServer(server);
+    execSeedChat(dataDir, seeded.trip.id, seeded.users, seedName);
+    server = await startServer(dataDir, port, 'second');
+    await signIn('admin'); await signIn('mia'); await signIn('sam'); await signIn('lee');
+    const ctx = { trip: seeded.trip.id, second: seeded.second.id, mia: seeded.users.mia, sam: seeded.users.sam, lee: seeded.users.lee, key: seeded.key };
+    const cookies = { admin: jars.admin, mia: jars.mia, sam: jars.sam, lee: jars.lee, none: [] };
+    return { server, ctx, cookies };
+  } catch (e) { await stopServer(server); throw e; }
+}
+
 // The chat is written by a short child process with the same fixed clock as the server.
-function execSeedChat(dataDir, tripId, users) {
+function execSeedChat(dataDir, tripId, users, seedName = SEED) {
   const code = `import('${path.join(root, 'tools', 'shots-seed.mjs').replace(/\\/g, '/')}').then((m) => m.seedChatFor(process.env.SEED, process.env.DATA_DIR, { tripId: process.env.TRIP, users: JSON.parse(process.env.USERS) }))`;
-  const r = spawnSyncNode(['--require', path.join(root, 'tools', 'shots-clock.cjs'), '-e', code], { DATA_DIR: dataDir, SEED, TRIP: tripId, USERS: JSON.stringify(users), SHOTS_NOW: `${TODAY}T09:00:00.000Z`, SHOTS_SEED: 'chat' });
+  const r = spawnSyncNode(['--require', path.join(root, 'tools', 'shots-clock.cjs'), '-e', code], { DATA_DIR: dataDir, SEED: seedName, TRIP: tripId, USERS: JSON.stringify(users), SHOTS_NOW: `${TODAY}T09:00:00.000Z`, SHOTS_SEED: 'chat' });
   if (r.status !== 0) throw new Error('the chat could not be seeded: ' + r.stderr);
 }
 import { spawnSync } from 'node:child_process';
@@ -631,5 +642,5 @@ function compareRuns(baseManifest, entries, failures, started, { baseDir = path.
   return failed ? 1 : 0;
 }
 
-export { decodePng, encodePng, diffImages };
+export { decodePng, encodePng, diffImages, findBrowser, launch, freePort, startServer, stopServer, bootSeeded, Tab, sleep, fill };
 if (process.argv[1] === fileURLToPath(import.meta.url)) main().then((c) => process.exit(c), (e) => { console.error('shots: ERROR ' + (e.stack || e)); process.exit(1); });

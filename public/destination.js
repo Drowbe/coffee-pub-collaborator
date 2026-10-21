@@ -136,10 +136,24 @@ function missing(text) {
   note.hidden = false;
 }
 
+// In the space's frame the page is as narrow as its column (a docked column is narrower than a phone), so a phone's media query
+// would hold there on a wide screen. The module window's bands (the bar, the panel's head) follow the screen the window is on, as
+// every other module's do: `dest-phone` while the page around the frame is a phone's (destination.css). On its own page, the
+// page's own width.
+function bandsFollowScreen() {
+  let top = window;
+  try { if (window.parent !== window && window.parent.matchMedia) top = window.parent; } catch { top = window; }
+  const phone = top.matchMedia('(max-width: 640px)');
+  const put = () => document.body.classList.toggle('dest-phone', phone.matches);
+  put();
+  phone.addEventListener('change', put);
+}
+
 async function start() {
   if (spaceId) document.body.classList.add('dest-in-space');
   if (withoutTopbar) document.body.classList.add('dest-no-topbar');
   else renderTopbar({ location: '' });
+  bandsFollowScreen();
   await loadBranding();
   if (!withoutTopbar) wireOverlayBack();
   if (!guestToken) {
@@ -301,7 +315,7 @@ function webglWorks() {
 // each time); Escape clears it. A pasted position or map link is the parts' to read from `q`.
 async function drawSearch(d) {
   const form = document.createElement('form');
-  form.className = 'sdk-search dest-search';
+  form.className = 'sdk-search sdk-search-small dest-search'; // the band's small field, as in every module's toolbar
   form.setAttribute('role', 'search');
   form.innerHTML = '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="dest-search" maxlength="200" autocomplete="off" enterkeyhint="search">';
   const input = form.querySelector('input');

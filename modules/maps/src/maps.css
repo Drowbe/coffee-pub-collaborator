@@ -25,7 +25,7 @@ body { margin: 0; overflow: hidden; }
 .results .note { padding: 8px 12px; color: var(--text-muted); font-size: var(--text-12); }
 
 /* the search field over the top of the map (the host bar's field when the titlebar + is not drawn); the zoom is across from it */
-.map-search { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(340px, calc(100% - 66px)); }
+.map-search { position: absolute; z-index: 5; top: var(--space-2); left: var(--space-2); width: min(340px, calc(100% - 66px)); }
 .results.under-search { top: 58px; bottom: auto; max-height: calc(100% - 70px); }
 
 /* the notice under the tools: adding a place, a warning */

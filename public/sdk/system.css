@@ -3752,10 +3752,14 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 :is(.sdk-toolbar, .mod-toolbar)[hidden] { display: none; }
 :is(.sdk-toolbar, .mod-toolbar) > * { flex: none; }
 
-/* A search field in a band is the small one: 30px, 13px words (16px on a phone, so the page does not zoom). */
-:is(.sdk-toolbar, .mod-toolbar) .sdk-search {
+/* A search field in a band is the small one: 30px, 13px words (16px on a phone, so the page does not zoom). So is one laid over a
+   map or a picture rather than in a band (.sdk-search-small): every search in a module window is the same field. */
+:is(.sdk-toolbar, .mod-toolbar) .sdk-search,
+.sdk-search.sdk-search-small {
   --field-h: var(--btn-h-small);
   --field-font: var(--text-13);
+}
+:is(.sdk-toolbar, .mod-toolbar) .sdk-search {
   flex: 1 1 140px;
   width: auto;
   min-width: 96px;
@@ -3830,7 +3834,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 /* A phone: more room each side of a toolbar, which scrolls by touch; a search in it at 16px. */
 @media (max-width: 640px) {
   :is(.sdk-toolbar, .mod-toolbar) { padding: 0 var(--space-3); }
-  :is(.sdk-toolbar, .mod-toolbar) .sdk-search { --field-font: var(--text-16); }
+  :is(.sdk-toolbar, .mod-toolbar) .sdk-search, .sdk-search.sdk-search-small { --field-font: var(--text-16); }
 }
 /* modulechrome:end */
 

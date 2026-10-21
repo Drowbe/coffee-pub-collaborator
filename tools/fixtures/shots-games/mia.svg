@@ -1,15 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <!-- Mia, a ranger in a rust hood. Source of mia.png (the games seed's Character picture); render at 256 on a clear ground. -->
-  <path fill="none" stroke="#F4ECDD" stroke-width="2.5" d="M178 92L214 236"/>
-  <path fill="none" stroke="#6B4A2E" stroke-width="8" stroke-linecap="round" d="M178 92c40 20 52 90 36 144"/>
-  <path fill="#C25B3A" d="M24 256c4-60 46-88 104-88s100 28 104 88z"/>
-  <path fill="#6B4A2E" d="M64 196l12-10 120 70h-34z"/>
-  <path fill="#A84A2D" d="M128 30c-52 0-82 40-80 92 0 36 8 62 20 84 18 8 38 12 60 12s42-4 60-12c12-22 20-48 20-84 2-52-28-92-80-92z"/>
-  <ellipse fill="#7A3320" cx="128" cy="124" rx="50" ry="56"/>
-  <rect fill="#C48A55" x="114" y="160" width="28" height="22" rx="8"/>
-  <ellipse fill="#D9A066" cx="128" cy="128" rx="40" ry="45"/>
-  <path fill="#4A2E22" d="M88 120c2-30 18-48 40-48s38 18 40 48c-8-14-22-22-40-22s-32 8-40 22z"/>
-  <circle fill="#E07B5F" opacity="0.55" cx="102" cy="146" r="8"/><circle fill="#E07B5F" opacity="0.55" cx="154" cy="146" r="8"/>
-  <circle fill="#2B1D18" cx="112" cy="130" r="5.5"/><circle fill="#2B1D18" cx="144" cy="130" r="5.5"/>
-  <path fill="none" stroke="#2B1D18" stroke-width="4.5" stroke-linecap="round" d="M114 150q14 12 28 0"/>
-  <circle fill="#E8B04A" stroke="#6B3A1E" stroke-width="4" cx="128" cy="204" r="10"/></svg>
+  <!-- Mia, a ranger in a peaked hood, her player colour rust. Flat and geometric, no features in the face. Source of mia.png
+       (the games seed's Character picture); render at 256 on a clear ground. -->
+  <path fill="#C25B3A" d="M26 256l18-52c10-18 40-28 84-28s74 10 84 28l18 52z"/>
+  <path fill="#A84A2D" d="M128 40l-34 20c-14 12-20 30-20 52v86l54 18 54-18v-86c0-22-6-40-20-52z"/>
+  <path fill="#4E2015" d="M128 72c-20 0-32 16-32 40v58l32 14 32-14v-58c0-24-12-40-32-40z"/>
+  <path fill="#C98E68" d="M128 92c-14 0-22 12-22 30 0 22 10 38 22 44 12-6 22-22 22-44 0-18-8-30-22-30z"/>
+  <path fill="#000" opacity="0.2" d="M128 92c14 0 22 12 22 30 0 22-10 38-22 44z"/>
+  <path fill="#000" opacity="0.28" d="M106 118c4-14 12-22 22-22s18 8 22 22c-6-6-14-9-22-9s-16 3-22 9z"/>
+  <path fill="#6B4A2E" d="M64 192l22-6 98 70h-36z"/>
+  <circle fill="#E8B04A" cx="128" cy="200" r="7"/>
+</svg>

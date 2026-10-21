@@ -23,24 +23,34 @@
     .w1280 .hero-art { width: 472px; max-width: 100%; }
     .w390 .hero-art { width: 350px; max-width: 100%; }
 
-    /* The games art: new shapes, in landing.css's palette. Gold (the d20, a token, the lock) reuses .h-sun; the call tile and the
-       card reuse travel's h-* classes as they are. */
+    /* The games art: new shapes, in landing.css's palette. Gold (the d20, a token, the pencil) reuses .h-sun; the call tile and the
+       Sessions card reuse travel's h-* classes as they are. */
     .g-table { fill: var(--l-sand); }
     .g-mat { fill: var(--l-teal-soft); }
-    .g-grid { stroke: var(--l-surface); stroke-width: 1.5; opacity: 0.75; fill: none; }
-    .g-water { fill: var(--l-sea); }
-    .g-tree { fill: var(--l-teal); stroke: var(--l-night); stroke-width: 2.500; stroke-linejoin: round; }
-    .g-ink { stroke: var(--l-night); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; fill: none; }
-    .g-line { stroke: var(--l-night); stroke-width: 3; stroke-linejoin: round; }
-    .g-face { fill: var(--l-surface); opacity: 0.45; }
-    .g-aura { fill: var(--l-coral-soft); }
-    .g-smile { fill: none; stroke: var(--l-on-night); stroke-width: 3; stroke-linecap: round; }
-    .g-num { fill: var(--l-night); font: 600 18px "Figtree", "Figtree Fallback", system-ui, sans-serif; }
-    .g-base { stroke: var(--l-night); stroke-width: 3; }
-    .g-coral { fill: var(--l-coral); } .g-teal { fill: var(--l-teal); } .g-night { fill: var(--l-night); }
-    .g-in { fill: var(--l-surface); }
-    .g-eye, .g-pip, .g-horn { fill: var(--l-on-night); } .g-pupil { fill: var(--l-night); }
-    .g-cell { fill: var(--l-line); } .g-cell-on { fill: var(--l-coral); } .g-cell-next { fill: var(--l-teal); }
+    .g-grid { stroke: var(--l-surface); stroke-width: 1.5; opacity: 0.6; fill: none; }
+    .g-floor { fill: var(--l-surface); opacity: 0.55; }
+    .g-wall { fill: none; stroke: var(--l-ink); stroke-width: 2.5; stroke-linecap: square; stroke-linejoin: miter; }
+    .g-threat { fill: var(--l-coral); opacity: 0.16; }
+    .g-ring { fill: none; stroke: var(--l-coral); stroke-width: 3; }
+    .g-ring2 { fill: none; stroke: var(--l-coral); stroke-width: 1.5; stroke-dasharray: 4 6; }
+    .g-foe { fill: var(--l-night); }
+    .g-foe-mark { fill: none; stroke: var(--l-coral); stroke-width: 2.5; stroke-linejoin: miter; }
+    .g-move { fill: none; stroke: var(--l-ink); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 0.1 8; }
+    .g-to { fill: none; stroke: var(--l-ink); stroke-width: 2.5; }
+    .g-base { stroke: var(--l-night); stroke-width: 2.5; }
+    .g-teal { fill: var(--l-teal); } .g-night { fill: var(--l-night); } .g-coral { fill: var(--l-coral); }
+    .g-bone { fill: var(--l-on-night); }
+    .g-rim { fill: none; stroke: var(--l-night); stroke-width: 2.5; opacity: 0.5; } .g-rim-l { fill: none; stroke: var(--l-surface); stroke-width: 2.5; opacity: 0.7; }
+    .g-line { stroke: var(--l-night); stroke-width: 2.5; stroke-linejoin: round; }
+    .g-shade { fill: var(--l-night); }
+    .g-edge { fill: none; stroke: var(--l-night); stroke-width: 2.5; stroke-linejoin: round; }
+    .g-num { fill: var(--l-night); font: 700 15px "Figtree", "Figtree Fallback", system-ui, sans-serif; }
+    .g-sheet { fill: var(--l-surface); stroke: var(--l-line); stroke-width: 2; }
+    .g-sheet-head { fill: var(--l-night); }
+    .g-box { fill: none; stroke: var(--l-line); stroke-width: 2; }
+    .g-rule { fill: var(--l-line); }
+    .g-wood { fill: var(--l-sand); }
+    .g-cell { fill: var(--l-line); } .g-cell-on { fill: var(--l-coral); }
   </style>
 </head>
 <body class="landing">
@@ -48,65 +58,56 @@
   <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <clipPath id="g-mat-clip"><rect x="52" y="72" width="406" height="316" rx="16"/></clipPath>
-      <clipPath id="g-token-clip"><circle cx="0" cy="0" r="15"/></clipPath>
-      <path id="g-tree" d="M13 0A6.5 6.5 0 0 1 8.1 10.2A6.5 6.5 0 0 1-2.9 12.7A6.5 6.5 0 0 1-11.7 5.6A6.5 6.5 0 0 1-11.7-5.6A6.5 6.5 0 0 1-2.9-12.7A6.5 6.5 0 0 1 8.1-10.2A6.5 6.5 0 0 1 13 0z"/>
       <clipPath id="map-clip"><rect x="20" y="40" width="470" height="380" rx="30"/></clipPath>
     </defs>
 
-    <!-- GAMES (draft): a game table from above with a battle map on it, three player tokens moving toward a friendly monster,
-         a chest, trees and a pool, a d20 and a d6, the Sessions calendar card and the same call tile as travel. -->
+    <!-- GAMES (draft): a game table from above. A battle map with a dungeon drawn on it in thin lines (two rooms and the corridors
+         between them), three player miniatures on round bases, a dotted move into the next room where a ringed area and a large
+         square marker wait, a character sheet and a pencil at the near edge, a d20 where the sun is, the Sessions card and the call. -->
     <symbol id="art-games" viewBox="0 0 560 470">
       <!-- the table, and the battle map on it -->
       <rect class="g-table" x="20" y="40" width="470" height="380" rx="30"/>
       <g clip-path="url(#g-mat-clip)">
         <rect class="g-mat" x="52" y="72" width="406" height="316"/>
-        <path class="g-water" d="M458 132c-34 4-56 26-52 56 3 24-26 38-22 66 3 22 24 34 44 40l30 8z"/>
         <path class="g-grid" d="M52 120h406M52 168h406M52 216h406M52 264h406M52 312h406M52 360h406M100 72v316M148 72v316M196 72v316M244 72v316M292 72v316M340 72v316M388 72v316M436 72v316"/>
-        <use href="#g-tree" class="g-tree" transform="translate(112 350) scale(1.4)"/>
-        <use href="#g-tree" class="g-tree" transform="translate(152 378) scale(1.1)"/>
-        <use href="#g-tree" class="g-tree" transform="translate(86 392) scale(1.2)"/>
+        <!-- the dungeon: floors, then walls with the doorways left open -->
+        <path class="g-floor" d="M100 168h96v48h48v-96h144v48h70v48h-70v48H196v48h-96z"/>
+        <path class="g-wall" d="M196 216V168H100V312H196V264M196 216H244M196 264H388V216H458M244 216V120H388V168H458"/>
       </g>
-      <!-- a chest to find -->
-      <g transform="translate(244 340) scale(1.15)">
-        <path class="g-coral g-line" d="M-20-6h40v20a4 4 0 0 1-4 4h-32a4 4 0 0 1-4-4z"/>
-        <path class="g-coral g-line" d="M-20-6v-4a10 10 0 0 1 10-10h20a10 10 0 0 1 10 10v4z"/>
-        <rect class="h-sun g-line" x="-5" y="-10" width="10" height="11" rx="2.500"/>
+      <!-- the threat: an area ringed in red, and a large creature's square marker in it -->
+      <circle class="g-threat" cx="340" cy="192" r="62"/>
+      <circle class="g-ring" cx="340" cy="192" r="62"/>
+      <g transform="translate(340 192)">
+        <rect class="g-foe" x="-21" y="-21" width="42" height="42" rx="4"/>
+        <path class="g-foe-mark" d="M0-9L9 0 0 9-9 0z"/>
       </g>
-      <!-- the move, dotted, from a token toward the monster -->
-      <path class="h-route" d="M220 240C248 188 272 236 302 192" fill="none"/>
-      <!-- the monster: friendly, two squares across -->
-      <g transform="translate(340 168)">
-        <circle class="g-aura" r="48"/>
-        <path class="g-horn g-line" d="M-20-26c-12-2-22-12-20-28 6 8 14 12 26 14zM20-26c12-2 22-12 20-28-6 8-14 12-26 14z"/>
-        <circle class="g-night g-base" r="34"/>
-        <circle class="g-eye" cx="-12" cy="-6" r="9"/><circle class="g-eye" cx="12" cy="-6" r="9"/>
-        <circle class="g-pupil" cx="-10" cy="-5" r="4"/><circle class="g-pupil" cx="14" cy="-5" r="4"/>
-        <path class="g-smile" d="M-13 12q13 11 26 0"/>
-        <path class="g-horn" d="M-8 16l3 7 3-5zM8 16l-3 7-3-5z"/>
+      <!-- the move: dotted, from the lead miniature through the doorway -->
+      <path class="g-move" d="M242 240H262L282 220"/>
+      <circle class="g-to" cx="290" cy="212" r="6"/>
+      <!-- the players' miniatures: a dark base, a coloured top, a ring for the figure's footing -->
+      <g transform="translate(220 240)"><circle class="g-night" r="19"/><circle class="g-teal" r="13"/><circle class="g-rim-l" r="7"/></g>
+      <g transform="translate(172 192)"><circle class="g-night" r="19"/><circle class="h-sun" r="13"/><circle class="g-rim" r="7"/></g>
+      <g transform="translate(124 240)"><circle class="g-night" r="19"/><circle class="g-bone" r="13"/><circle class="g-rim" r="7"/></g>
+      <!-- the character sheet and a pencil, at the near edge -->
+      <g transform="translate(56 316) rotate(-6)">
+        <rect class="g-sheet" x="0" y="0" width="124" height="150" rx="6"/>
+        <rect class="g-sheet-head" x="12" y="14" width="64" height="8" rx="2"/>
+        <rect class="g-box" x="12" y="34" width="28" height="24" rx="4"/><rect class="g-box" x="48" y="34" width="28" height="24" rx="4"/><rect class="g-box" x="84" y="34" width="28" height="24" rx="4"/>
+        <rect class="g-box" x="12" y="66" width="28" height="24" rx="4"/><rect class="g-box" x="48" y="66" width="28" height="24" rx="4"/><rect class="g-box" x="84" y="66" width="28" height="24" rx="4"/>
+        <rect class="g-rule" x="12" y="102" width="100" height="4" rx="2"/><rect class="g-rule" x="12" y="116" width="78" height="4" rx="2"/><rect class="g-rule" x="12" y="130" width="90" height="4" rx="2"/>
       </g>
-      <!-- the players' tokens -->
-      <g transform="translate(124 240)">
-        <circle class="h-sun g-base" r="22"/><circle class="g-in" r="15"/>
-        <g clip-path="url(#g-token-clip)"><circle class="h-sun" cx="0" cy="-3" r="6"/><path class="h-sun" d="M-12 16c1-9 6-12 12-12s11 3 12 12z"/></g>
+      <g transform="translate(204 450) rotate(-66)">
+        <rect class="g-coral g-line" x="-14" y="-6" width="14" height="12" rx="2"/>
+        <rect class="h-sun g-line" x="0" y="-6" width="92" height="12"/>
+        <path class="g-wood g-line" d="M92-6L112 0 92 6z"/>
+        <path class="g-night" d="M105.3-2L112 0 105.3 2z"/>
       </g>
-      <g transform="translate(220 240)">
-        <circle class="g-teal g-base" r="22"/><circle class="g-in" r="15"/>
-        <g clip-path="url(#g-token-clip)"><circle class="g-teal" cx="0" cy="-3" r="6"/><path class="g-teal" d="M-12 16c1-9 6-12 12-12s11 3 12 12z"/></g>
-      </g>
-      <g transform="translate(172 288)">
-        <circle class="g-coral g-base" r="22"/><circle class="g-in" r="15"/>
-        <g clip-path="url(#g-token-clip)"><circle class="g-coral" cx="0" cy="-3" r="6"/><path class="g-coral" d="M-12 16c1-9 6-12 12-12s11 3 12 12z"/></g>
-      </g>
-      <!-- the dice: a d20 where the sun is, a d6 at the table's edge -->
-      <g transform="translate(452 90) rotate(8)">
-        <path class="h-sun" d="M0-48L41.6-24V24L0 48-41.6 24V-24z"/>
-        <path class="g-face" d="M0-26L22.5 13H-22.5z"/>
-        <path class="g-ink" d="M0-48L41.6-24V24L0 48-41.6 24V-24zM0-26L22.5 13H-22.5zM0-26V-48M0-26L41.6-24M0-26L-41.6-24M22.5 13L41.6-24M22.5 13L41.6 24M22.5 13L0 48M-22.5 13L-41.6-24M-22.5 13L-41.6 24M-22.5 13L0 48"/>
-        <text class="g-num" x="0" y="8" text-anchor="middle">20</text>
-      </g>
-      <g transform="translate(42 316) rotate(-14)">
-        <rect class="g-coral g-line" x="-21" y="-21" width="42" height="42" rx="10"/>
-        <circle class="g-pip" cx="-9" cy="-9" r="4"/><circle class="g-pip" cx="0" cy="0" r="4"/><circle class="g-pip" cx="9" cy="9" r="4"/>
+      <!-- the d20, where the sun is in the travel art: ten faces seen, shaded by the light from the upper left -->
+      <g transform="translate(452 90)">
+        <path class="h-sun" d="M-33.3 -0.4L12.2 -10.1 -12.7 -40.9zM-33.3 -0.4L-0.3 34.4 12.2 -10.1zM-33.3 -0.4L-12.7 -40.9 -40.7 -15.4zM-12.7 -40.9L12.2 -10.1 33.0 -31.1zM-33.3 -0.4L-33.0 31.1 -0.3 34.4zM-33.3 -0.4L-40.7 -15.4 -33.0 31.1zM12.2 -10.1L-0.3 34.4 40.7 15.4zM40.7 15.4L33.0 -31.1 12.2 -10.1zM-0.3 34.4L-33.0 31.1 12.7 40.9zM12.7 40.9L40.7 15.4 -0.3 34.4z"/>
+        <path class="g-shade" opacity="0.12" d="M-33.3 -0.4L12.2 -10.1 -12.7 -40.9z"/><path class="g-shade" opacity="0.12" d="M-33.3 -0.4L-12.7 -40.9 -40.7 -15.4z"/><path class="g-shade" opacity="0.12" d="M-12.7 -40.9L12.2 -10.1 33.0 -31.1z"/><path class="g-shade" opacity="0.26" d="M-33.3 -0.4L-33.0 31.1 -0.3 34.4z"/><path class="g-shade" opacity="0.26" d="M-33.3 -0.4L-40.7 -15.4 -33.0 31.1z"/><path class="g-shade" opacity="0.26" d="M12.2 -10.1L-0.3 34.4 40.7 15.4z"/><path class="g-shade" opacity="0.26" d="M40.7 15.4L33.0 -31.1 12.2 -10.1z"/><path class="g-shade" opacity="0.42" d="M-0.3 34.4L-33.0 31.1 12.7 40.9z"/><path class="g-shade" opacity="0.42" d="M12.7 40.9L40.7 15.4 -0.3 34.4z"/>
+        <path class="g-edge" d="M-33.3 -0.4L12.2 -10.1 -12.7 -40.9zM-33.3 -0.4L-0.3 34.4 12.2 -10.1zM-33.3 -0.4L-12.7 -40.9 -40.7 -15.4zM-12.7 -40.9L12.2 -10.1 33.0 -31.1zM-33.3 -0.4L-33.0 31.1 -0.3 34.4zM-33.3 -0.4L-40.7 -15.4 -33.0 31.1zM12.2 -10.1L-0.3 34.4 40.7 15.4zM40.7 15.4L33.0 -31.1 12.2 -10.1zM-0.3 34.4L-33.0 31.1 12.7 40.9zM12.7 40.9L40.7 15.4 -0.3 34.4z"/>
+        <text class="g-num" x="-7.1" y="13.0" text-anchor="middle">20</text>
       </g>
       <!-- the call: the same tile as travel -->
       <g transform="translate(300 292)">
@@ -125,9 +126,9 @@
         <circle class="h-day" cx="30" cy="20" r="11"/>
         <rect class="h-line-w" x="52" y="14" width="80" height="9" rx="4.500"/>
         <g transform="translate(14 52)">
-          <rect class="g-cell" x="0" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="0" width="20" height="18" rx="5"/><rect class="g-cell-on" x="100" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="0" width="20" height="18" rx="5"/>
-          <rect class="g-cell" x="0" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="24" width="20" height="18" rx="5"/><rect class="g-cell-next" x="100" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="24" width="20" height="18" rx="5"/>
-          <rect class="g-cell" x="0" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="48" width="20" height="18" rx="5"/><rect class="g-cell-next" x="100" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="48" width="20" height="18" rx="5"/>
+          <rect class="g-cell" x="0" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="100" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="0" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="0" width="20" height="18" rx="5"/>
+          <rect class="g-cell" x="0" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="24" width="20" height="18" rx="5"/><rect class="g-cell-on" x="75" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="100" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="24" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="24" width="20" height="18" rx="5"/>
+          <rect class="g-cell" x="0" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="25" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="50" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="75" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="100" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="125" y="48" width="20" height="18" rx="5"/><rect class="g-cell" x="150" y="48" width="20" height="18" rx="5"/>
         </g>
       </g>
     </symbol>
@@ -178,7 +179,7 @@
 
     <h2>At 1280 wide</h2>
     <div class="pair w1280">
-      <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="A game table from above: a battle map with three player tokens moving toward a friendly monster, a d20 and a d6, the Sessions calendar and a video call with two players."><use href="#art-games"/></svg></div><figcaption><b>Games</b>, the draft</figcaption></figure>
+      <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="A game table from above: a dungeon drawn on a battle map, three miniatures moving toward a ringed area in the next room, a d20, a character sheet and pencil, the Sessions calendar and a video call with two players."><use href="#art-games"/></svg></div><figcaption><b>Games</b>, the draft</figcaption></figure>
       <figure><div class="hero-art"><svg viewBox="0 0 560 470" role="img" aria-label="The travel art: a trip route across a map, with a video call and a day plan."><use href="#art-travel"/></svg></div><figcaption><b>Travel</b>, as it is on /travel</figcaption></figure>
     </div>
 

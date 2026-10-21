@@ -1,16 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <!-- Sam, a wizard with a pointed hat and round glasses. Source of sam.png (the games seed's Character picture); render at 256 on a clear ground. -->
-  <path fill="#3A7CA5" d="M24 256c4-60 46-86 104-86s100 26 104 86z"/>
-  <path fill="#2C5F80" d="M100 172l28 46 28-46z"/>
-  <rect fill="#764A30" x="114" y="164" width="28" height="20" rx="8"/>
-  <circle fill="#8D5A3B" cx="128" cy="138" r="42"/>
-  <path fill="#E9E4DA" d="M88 144c0 36 18 58 40 58s40-22 40-58c-8 12-22 18-40 18s-32-6-40-18z"/>
-  <path fill="none" stroke="#2B1D18" stroke-width="4.5" stroke-linecap="round" d="M116 166q12 9 24 0"/>
-  <circle fill="#2B1D18" cx="113" cy="136" r="5"/><circle fill="#2B1D18" cx="143" cy="136" r="5"/>
-  <circle fill="none" stroke="#2B1D18" stroke-width="3.5" cx="113" cy="136" r="12"/><circle fill="none" stroke="#2B1D18" stroke-width="3.5" cx="143" cy="136" r="12"/>
-  <path fill="none" stroke="#2B1D18" stroke-width="3.5" d="M125 135q3-3 6 0"/>
-  <ellipse fill="#2C5F80" cx="128" cy="106" rx="74" ry="16"/>
-  <path fill="#3A7CA5" d="M80 104L132 22c6-10 18-14 30-8l-8 6c-8-2-12 2-12 8l26 76z"/>
-  <path fill="#E8B04A" d="M84 98c28 8 60 8 88 0l2 10c-30 8-62 8-92 0z"/>
-  <path fill="#E8B04A" d="M134 52l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/>
+  <!-- Sam, a wizard with a wide pointed hat and a long beard, his player colour blue. Flat and geometric, no features in the
+       face. Source of sam.png (the games seed's Character picture); render at 256 on a clear ground. -->
+  <path fill="#3A7CA5" d="M26 256l18-52c10-18 40-28 84-28s74 10 84 28l18 52z"/>
+  <path fill="#2C5F80" d="M98 180l30 60 30-60z"/>
+  <rect fill="#7A4D33" x="116" y="146" width="24" height="36"/>
+  <ellipse fill="#8D5A3B" cx="128" cy="122" rx="26" ry="32"/>
+  <path fill="#000" opacity="0.2" d="M128 90a26 32 0 0 1 0 64z"/>
+  <path fill="#D9D3C7" d="M100 128c8 8 18 12 28 12s20-4 28-12l-8 86-20 18-20-18z"/>
+  <path fill="#000" opacity="0.12" d="M128 140c10 0 20-4 28-12l-8 86-20 18z"/>
+  <path fill="#000" opacity="0.3" d="M102 108c8 4 16 6 26 6s18-2 26-6v-8h-52z"/>
+  <ellipse fill="#2C5F80" cx="128" cy="100" rx="80" ry="13"/>
+  <path fill="#3A7CA5" d="M86 98l44-72c6-10 18-12 28-6l-12 6 22 72z"/>
+  <path fill="#234B66" d="M90 88h76l4 10H86z"/>
 </svg>

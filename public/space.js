@@ -1763,7 +1763,7 @@ placeColumnTools(); // now that the two exist
 // then the bar to its least width; a band shows what fits of its name and icon. On a phone the space bar is the tab bar
 // at the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the header as a
 // slim line under the top row (--status-strip-slim-h): the sentence and the bar as a 2px line along its foot, a dot at
-// today, and a tap on a band says its name and dates. The header moves to a popped-out window with the strip in it. For
+// today, and a long press on a band says its name and dates. The header moves to a popped-out window with the strip in it. For
 // a screen reader the strip is a region, "Status"; the chip's words sit in one polite status, written only when the
 // sentence changes, so the presence poll never makes it speak again; the bar is a group, "Journey", each band named by
 // its name and dates, the pin by today's date.
@@ -1992,7 +1992,6 @@ function layoutJourney() {
     pin.appendChild(stem);
     out.push(pin);
   }
-  hideJourneyTip();
   statusTrack.dataset.mode = lay.tickMode;
   statusTrack.dataset.where = lay.where;
   statusTrack.style.setProperty('--day-w', px(lay.dayW));
@@ -2000,54 +1999,12 @@ function layoutJourney() {
   statusTrack.replaceChildren(...out);
 }
 if (typeof ResizeObserver === 'function') new ResizeObserver(() => layoutJourney()).observe(statusTrack);
-// A band's name and dates: on hover and focus, and for three seconds after a tap (the phone's line has no words). The
-// Tooltips look (system.css, .sdk-journey-tip), above the band when there is room, in the strip's own window.
-let journeyTip = null;
-let journeyTipFor = null;
-let journeyTipTimer = 0;
-function hideJourneyTip() {
-  if (journeyTip) journeyTip.removeAttribute('data-show');
-  if (journeyTipFor) journeyTipFor.removeAttribute('aria-describedby');
-  journeyTipFor = null;
-}
-function showJourneyTip(band, { tapped = false } = {}) {
-  const doc = band.ownerDocument;
-  const win = doc.defaultView || window;
-  if (!journeyTip || journeyTip.ownerDocument !== doc) {
-    journeyTip?.remove();
-    journeyTip = doc.createElement('div');
-    journeyTip.className = 'sdk-journey-tip';
-    journeyTip.id = 'journey-tip';
-    journeyTip.setAttribute('role', 'tooltip');
-    doc.body.appendChild(journeyTip);
-  }
-  hideJourneyTip();
-  journeyTip.textContent = band.dataset.tip;
-  journeyTipFor = band;
-  band.setAttribute('aria-describedby', 'journey-tip');
-  const r = band.getBoundingClientRect();
-  const tw = journeyTip.offsetWidth;
-  const th = journeyTip.offsetHeight;
-  const cx = r.left + r.width / 2;
-  const left = Math.max(4, Math.min(win.innerWidth - tw - 4, cx - tw / 2));
-  const above = r.top - th - 8 >= 4;
-  journeyTip.style.left = `${left}px`;
-  journeyTip.style.top = `${above ? r.top - th - 6 : r.bottom + 6}px`;
-  journeyTip.style.setProperty('--arrow-x', `${Math.max(10, Math.min(tw - 10, cx - left))}px`);
-  journeyTip.dataset.placement = above ? 'top' : 'bottom';
-  journeyTip.setAttribute('data-show', '');
-  win.clearTimeout(journeyTipTimer);
-  if (tapped) journeyTipTimer = win.setTimeout(hideJourneyTip, 3000);
-}
-const tipBand = (event) => (event.target && event.target.closest ? event.target.closest('.sdk-band[data-tip]') : null);
-statusTrack.addEventListener('pointerover', (event) => { const b = tipBand(event); if (b && event.pointerType !== 'touch') showJourneyTip(b); });
-statusTrack.addEventListener('pointerout', (event) => { if (tipBand(event) && event.pointerType !== 'touch') hideJourneyTip(); });
-statusTrack.addEventListener('focusin', (event) => { const b = tipBand(event); if (b) showJourneyTip(b); });
-statusTrack.addEventListener('focusout', hideJourneyTip);
+// A band's name and dates are its tooltip: the shared one (public/tooltip.js, the Tooltips family) reads its data-tip, on
+// hover, on keyboard focus, and on a phone's line on a long press. A band is a way into the phases from the keyboard too
+// wider than a phone, as a press on the bar is with the mouse.
+const barBand = (event) => (event.target && event.target.closest ? event.target.closest('.sdk-band[data-tip]') : null);
 statusTrack.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') hideJourneyTip();
-  // A band is a way into the phases from the keyboard too, as a press is with the mouse (wider than a phone).
-  else if ((event.key === 'Enter' || event.key === ' ') && tipBand(event) && !journeyPhone()) { event.preventDefault(); openPhaseSheetFrom(phaseChip); }
+  if ((event.key === 'Enter' || event.key === ' ') && barBand(event) && !journeyPhone()) { event.preventDefault(); openPhaseSheetFrom(phaseChip); }
 });
 // The chip's words: the sentence's clauses, each after the first its own span with its " · ", so a narrow strip drops
 // them whole from the end (system.css) and the label's text is still the whole sentence.
@@ -2338,10 +2295,9 @@ function openPhaseSheetFrom(opener) {
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
-// A press on the bar opens the phases wider than a phone; on the phone's 2px line a tap on a band shows its name and dates.
-statusTrack.addEventListener('click', (event) => {
-  const band = tipBand(event);
-  if (journeyPhone()) { if (band) showJourneyTip(band, { tapped: true }); return; }
+// A press on the bar opens the phases wider than a phone; the phone's 2px line is for seeing (the chip opens them there).
+statusTrack.addEventListener('click', () => {
+  if (journeyPhone()) return; // the 2px line is for seeing; a long press on a band shows its name and dates
   openPhaseSheetFrom(phaseChip);
 });
 statusToGo.addEventListener('click', () => openPhaseSheetFrom(phaseChip));

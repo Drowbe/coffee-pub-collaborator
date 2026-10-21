@@ -2069,7 +2069,9 @@ test('the status strip: the chip and its journey bar, a tool of the space bar\'s
   // The chip, the days to go and a press on the bar (wider than a phone) open the sheet; on the phone's line a tap on a
   // band says its name and dates.
   assert.match(space, /phaseChip\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/);
-  assert.match(space, /statusTrack\.addEventListener\('click', \(event\) => \{\n\s*const band = tipBand\(event\);\n\s*if \(journeyPhone\(\)\) \{ if \(band\) showJourneyTip\(band, \{ tapped: true \}\); return; \}\n\s*openPhaseSheetFrom\(phaseChip\);/, 'the bar opens the sheet wider than a phone; a tap on the phone\'s line shows a band\'s tooltip');
+  assert.match(space, /statusTrack\.addEventListener\('click', \(\) => \{\n\s*if \(journeyPhone\(\)\) return;[^\n]*\n\s*openPhaseSheetFrom\(phaseChip\);/, 'the bar opens the sheet wider than a phone; the phone\'s line is for seeing');
+  assert.match(space, /band\.dataset\.tip = tip;\n\s*band\.setAttribute\('aria-label', tip\);/, 'a band\'s name and dates are the shared tooltip (data-tip, public/tooltip.js) and its name');
+  assert.ok(!/sdk-journey-tip|showJourneyTip/.test(space + sys), 'no tooltip of its own: the Tooltips family\'s');
   assert.match(space, /statusToGo\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/);
   assert.match(space, /statusToGo\.className = 'sdk-strip-chip sdk-strip-count';/, 'the days to go is a header chip, a button');
   // A region named Status; the chip's words in one polite status, written only when they change; the bar a group named

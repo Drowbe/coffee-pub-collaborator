@@ -2316,13 +2316,13 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
    down through today's slice (--pin-x), ticks under the bar per day, Monday or month, and their dates.
    The strip is 57px wider than a phone (--status-strip-h, style.css: the row's 1px rule and the 56px grid: the pin, the 24px bar,
    the ticks, the dates) and a slim 28px line on a phone (--status-strip-slim-h), where the journey is a 2px line along its foot with
-   a 7px dot at today and a tap on a band shows its name and dates. Every chip in the header is 30px (22px on the slim line) and a
+   a 7px dot at today and a long press on a band shows its name and dates. Every chip in the header is 30px (22px on the slim line) and a
    Chips look: a neutral fill, the countdown's accent fill, the pill's warn tone. Band fills by state: past 12%, ahead 22%, current
    the selected fill with its name in the accent mix and "Now", off a dashed neutral hairline. No coloured edge, ring or bar: the
    journey line, the progress line and the pin's stem are blocks.
    Where it sits (the space bar's row, the header's line on a phone), the row's rule and fill, and the width at which the facts give
-   way are the page's layout: public/style.css, status-strip block. The tooltip (.sdk-journey-tip) is the Tooltips family's look,
-   drawn here for the bands until that family's own block is built (step 21). */
+   way are the page's layout: public/style.css, status-strip block. A band's name and dates are the shared tooltip's (data-tip,
+   public/tooltip.js and the Tooltips block). */
 /* journey:start */
 :root {
   --jr-chip-h: 30px; /* every chip in the header; 22px on the phone's slim line */
@@ -2349,8 +2349,6 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   --jr-now: color-mix(in srgb, var(--accent-fill) 55%, var(--text-bar));
   --jr-muted: color-mix(in srgb, var(--text-bar) 78%, var(--surface-bar-top));
   --jr-pin-fill: color-mix(in srgb, var(--accent-fill) 88%, var(--text-primary)); /* the micro count's fill */
-  --jr-tip-max-w: 240px;
-  --jr-tip-leading: 16px;
   --jr-phase-h: 58px; /* the phases sheet's band; 52px on a phone */
   --jr-phase-h-phone: 52px;
   --jr-phase-label-h: 16px;
@@ -2550,34 +2548,6 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 }
 .sdk-today-stem { position: absolute; top: 100%; left: calc(50% - 1px); width: 2px; height: calc(var(--jr-bar-top) - var(--jr-pin-h) - 1px + var(--jr-band-h)); background: var(--jr-pin-fill); }
 
-/* A band's name and dates, on hover, focus or a tap: the Tooltips look (space.js places it). */
-.sdk-journey-tip {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: var(--z-popover);
-  box-sizing: border-box;
-  width: max-content;
-  max-width: var(--jr-tip-max-w);
-  margin: 0;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-small);
-  background: var(--surface-tooltip);
-  color: var(--text-tooltip);
-  box-shadow: var(--shadow-2);
-  font-size: var(--text-12);
-  font-weight: var(--weight-medium);
-  line-height: var(--jr-tip-leading);
-  overflow-wrap: anywhere;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast);
-}
-.sdk-journey-tip[data-show] { opacity: 1; visibility: visible; }
-.sdk-journey-tip::after { content: ""; position: absolute; left: calc(var(--arrow-x, 50%) - 4px); bottom: -3px; width: 8px; height: 8px; background: var(--surface-tooltip); transform: rotate(45deg); }
-.sdk-journey-tip[data-placement="bottom"]::after { top: -3px; bottom: auto; }
-
 /* ---- the phases sheet's band (the Set up phase band, phase-sheet.js): 58px, the same fills as the journey bar ----
    Each band a fill of its phase's tint by state (past 12%, ahead 22%, current the selected fill with its name in the accent mix
    and "Now"), the neutral hairline, the medium corner; no coloured top edge and no ring. Today is a 2px dashed neutral line
@@ -2638,7 +2608,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   .sdk-strip .sdk-band[data-state="past"] { background: color-mix(in srgb, var(--tint, var(--accent-fill)) 28%, transparent); }
   .sdk-strip .sdk-band[data-state="current"] { background: var(--jr-now); }
   .sdk-strip .sdk-band[data-state="off"] { background: color-mix(in srgb, var(--text-bar) 22%, transparent); }
-  /* A band is reached by a taller invisible area; a tap shows its name and dates. */
+  /* A band is reached by a taller invisible area; a long press shows its name and dates (the shared tooltip). */
   .sdk-strip .sdk-band::after { content: ""; position: absolute; left: 0; right: 0; top: -6px; bottom: -3px; } /* under the chip's middle: a tap there is the chip's */
   .sdk-strip .sdk-journey > :is(.sdk-gap, .sdk-tick, .sdk-tick-label) { display: none; }
   .sdk-strip .sdk-today { top: var(--jr-dot-top); width: var(--jr-dot); min-width: 0; height: var(--jr-dot); padding: 0; overflow: hidden; color: transparent; font-size: 0; }
@@ -2651,7 +2621,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.sdk-strip-chip, .sdk-journey-tip) { transition: none; }
+  .sdk-strip-chip { transition: none; }
 }
 /* journey:end */
 

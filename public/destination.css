@@ -163,7 +163,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
 
 /* Too narrow for the panel beside the main part (in a docked column, a narrow window, or a phone's page): the panel is
    stacked below it, the page scrolling; the panel keeps its own switch. No bottom tabs (only a phone has them). */
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest {
     flex-direction: column;
     overflow-y: auto;
@@ -187,7 +187,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
 /* One scroll for the stacked parts: a part that reports its height (onResize in destination.js) is as tall as its content,
    so the main part, then the panel (its switch and list), follow each other in the page's one scroll, with no scroll of
    their own and no fixed split. A part that does not report (the map) keeps its set height. Not on a phone's tabs. */
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest-main.sized {
     height: auto;
   }

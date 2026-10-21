@@ -621,13 +621,13 @@ a:hover {
 
 /* Between the phone and a wide screen the place never gives way first: your name goes (your picture and its caret
    stay, and the button keeps its name for a screen reader), then the environment's name. */
-@media (min-width: 641px) and (max-width: 1000px) {
+@media (min-width: 641px) and (max-width: 1200px) {
   .topbar button.whoami #whoami {
     display: none;
   }
 }
 
-@media (min-width: 641px) and (max-width: 820px) {
+@media (min-width: 641px) and (max-width: 900px) {
   .topbar .brand-home .brand-name {
     display: none;
   }
@@ -640,9 +640,9 @@ a:hover {
   }
 }
 
-/* From 641 to 820px (where the environment's name goes too) a destination's entry is its icon only, so a long space name
+/* From 641 to 900px (where the environment's name goes too) a destination's entry is its icon only, so a long space name
    in the breadcrumb keeps its room; its name stays the tooltip and what a screen reader says (brand.js). */
-@media (min-width: 641px) and (max-width: 820px) {
+@media (min-width: 641px) and (max-width: 900px) {
   .topbar > .nav-left > .core-link[data-destination] .core-label {
     display: none;
   }
@@ -1316,7 +1316,7 @@ body.in-space .page-scroll {
   cursor: default;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .space-choice-add {
     flex-direction: row; /* a phone: a compact row, the plus and the label */
     min-height: 56px;
@@ -1373,7 +1373,7 @@ body.in-space .page-scroll {
 /* Home's chat dragged wide (space.js, applyHomeChatWidth): with too little room left beside it for the spaces and the
    Modules side by side, the Modules go under the cards (as below 1200px); with almost none, the chat is all there is
    and its edge stays inside the window to drag back. Not at 760px and below, where Home is one column. */
-@media (min-width: 761px) {
+@media (min-width: 901px) {
   .home.chat-wide:not(:has(> .home-chat[hidden])) {
     grid-template-columns: var(--home-chat-w) minmax(0, 1fr);
     grid-template-areas: "chat main" "chat modules";
@@ -1420,7 +1420,7 @@ body.in-space .page-scroll {
 
 /* 760px and below: one column, the spaces first, then the chat at a height of its own, then the Modules. The chat's strip
    and the phone's tabs are plan-home-lobby.md's step 6. */
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .home,
   .home:has(> .home-chat[hidden]),
   .home:has(> .home-modules > .dashboard[hidden]),
@@ -2280,7 +2280,7 @@ body.in-space .topbar {
 }
 
 /* A phone has no use for a pop-out window, and the header has no room for the extra buttons. */
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .subnav #fullscreen-toggle,
   .subnav #popout,
   .subnav .nav-divider {
@@ -2810,7 +2810,7 @@ button.whoami:focus-visible {
   gap: 10px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .topbar {
     flex-wrap: wrap;
     padding-top: calc(4px + env(safe-area-inset-top));
@@ -2970,7 +2970,7 @@ a.crumb-here:hover {
   margin-left: 6px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .topbar .brand {
     flex-wrap: wrap;
     row-gap: 2px;
@@ -4043,7 +4043,7 @@ a.crumb-here:hover {
   margin-top: 4px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .floatbar {
     gap: 6px;
     padding: 6px;
@@ -4971,7 +4971,7 @@ html.has-background .panel.login {
   resize: vertical;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .brand-row {
     flex-direction: column;
   }
@@ -5776,7 +5776,7 @@ body.chat-window {
 /* the first choice, "Its own icon": marked apart from the icons that replace it */
 .module-display .icon-pick .icon-grid [data-display-icon=""] { border: 1px dashed var(--border); }
 .module-display .status:empty { display: none; }
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .module-display-row input[type="text"] { order: -1; flex-basis: 100%; max-width: none; }
   .module-display .icon-pick .icon-grid { grid-template-columns: repeat(6, 36px); }
 }
@@ -6566,14 +6566,14 @@ body.chat-window {
 .word-row label { min-width: 0; }
 .word-row input[type="text"] { width: 100%; min-width: 0; }
 .word-field-label { display: none; }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .word-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .word-row-head { display: none; }
   .word-name { grid-column: 1 / -2; grid-row: 1; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .word-field-label { display: block; }
   .word-row [data-word-reset] { grid-column: -2 / -1; grid-row: 1; justify-self: end; align-self: start; }
 }
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .word-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .word-row label:last-of-type { grid-column: 1 / -1; }
 }
@@ -6672,7 +6672,7 @@ body.host-console .template-modules { display: grid; grid-template-columns: repe
 body.host-console .phase-row, body.host-console .opens-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
 body.host-console .phase-row input[type="text"] { flex: 1 1 8rem; min-width: 0; }
 body.host-console .opens-row .sdk-choice-row { flex: 1; width: auto; min-width: 8rem; }
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   body.host-console .word-row, body.host-console .module-display-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body.host-console .word-row > :first-child, body.host-console .module-display-row > :first-child { grid-column: 1 / -1; }
 }
@@ -6680,7 +6680,7 @@ body.host-console .opens-row .sdk-choice-row { flex: 1; width: auto; min-width: 
 /* Manage > Template > Words: the verb's row under the ten words (addendum 4), one field across the three word columns.
    On a phone it stacks like a word's row: the name and Reset across the top, the field beneath. */
 .verb-row .verb-field { grid-column: 2 / 5; }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .verb-row .verb-field { grid-column: 1 / -1; }
   .verb-row [data-verb-reset] { grid-column: -2 / -1; grid-row: 1; justify-self: end; align-self: start; }
 }

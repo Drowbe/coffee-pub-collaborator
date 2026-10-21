@@ -1569,8 +1569,8 @@ test('no ☰ with nothing in its menu (a guest), and the place outlasts your nam
   assert.match(wire, /new MutationObserver\(syncToggle\)\.observe\(menu, \{ childList: true, subtree: true, attributes: true, attributeFilter: \['hidden'\] \}\)/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\.topbar \.nav-toggle\[hidden\] \{\s*display: none;/, 'the phone rule that shows the button gives way to [hidden]');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1000px\) \{\s*\.topbar button\.whoami #whoami \{\s*display: none;/, 'your name goes first');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar \.brand-home \.brand-name \{\s*display: none;/, 'then the environment\'s');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1200px\) \{\s*\.topbar button\.whoami #whoami \{\s*display: none;/, 'your name goes first');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 900px\) \{\s*\.topbar \.brand-home \.brand-name \{\s*display: none;/, 'then the environment\'s');
   assert.match(css, /\.topbar \.nav-left > \.crumb \{\s*flex: 0 1 auto;\s*min-width: 6em;/, 'the place keeps a few letters and its ellipsis at any width');
 });
 
@@ -1869,13 +1869,13 @@ test('destinations: on a phone the entry is in the menu after the Spaces slot\'s
   const menu = z.right.flatMap((run) => arrange(run).flatMap((g) => g.map((t) => t.id))).filter((id) => id !== 'dest-calendar');
   assert.deepEqual(menu, ['menu-environment', 'menu-home', 'menu-space-a', 'menu-space-b', 'menu-dest-calendar', 'menu-new-space']);
 });
-test('the top bar is two zones: no middle centred from 1001px, the phone\'s place for the bell not drawn wider, the entries icons only from 641 to 820px', () => {
+test('the top bar is two zones: no middle centred from 1001px, the phone\'s place for the bell not drawn wider, the entries icons only from 641 to 900px', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.ok(!/min-width: 1001px/.test(css), 'no 1001px rule centring a middle zone');
   assert.ok(!/\.topbar:has\(> \.nav-middle/.test(css), 'nothing reads what the middle holds');
   assert.match(css, /\n\.topbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the left zone takes what the right does not');
   assert.match(css, /@media \(min-width: 641px\) \{\s*\.topbar > \.nav-middle \{\s*display: none;/, '#core-nav is the phone\'s place only');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar > \.nav-left > \.core-link\[data-destination\] \.core-label \{\s*display: none;/, 'from 641 to 820px the entries in the left zone are their icons only');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 900px\) \{\s*\.topbar > \.nav-left > \.core-link\[data-destination\] \.core-label \{\s*display: none;/, 'from 641 to 900px the entries in the left zone are their icons only');
   assert.ok(!/\.nav-middle \.core-link/.test(css), 'no rule for entries in a middle zone');
   assert.match(css, /\.topbar > \.nav-left > \.core-link\[data-destination\] \{\s*flex: none;/, 'the destinations never shrink');
   // Their names keep the nav text in the branding's zone: the wordmark's larger size is the environment's name's alone

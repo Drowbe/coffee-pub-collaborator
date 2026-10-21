@@ -525,7 +525,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/:is\(\.sdk-window-floating, \.module-floating\) \{ box-shadow: var\(--shadow-2\); \}/.test(chromeBlock)) fail('public/sdk/system.css', 'a floating window\'s shadow is --shadow-2');
   const floating = /\n\.module-floating \{([^}]*)\}/.exec(css);
   if (!floating || /box-shadow|background|border/.test(floating[1])) fail('public/style.css', 'the floating window\'s look is the Module window block\'s alone (.module-floating in style.css is where it sits)');
-  if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px color-mix\(in srgb, black 25%, transparent\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, black at 25%)');
+  if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px var\(--shadow-color\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, the shadow colour)');
   if (/inset 0 3px 0 var\(--tint\)/.test(css)) fail('public/style.css', 'no 3px tint edge anywhere');
 }
 
@@ -1468,7 +1468,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/\.home \{\s*--home-chat-w: 360px;\s*--home-modules-w: 320px;[^}]*grid-template-columns: var\(--home-chat-w\) minmax\(0, 1fr\) var\(--home-modules-w\);\s*grid-template-areas: "chat main modules";/.test(css)) fail('public/style.css', 'Home is three columns: Chat (360px), the spaces, the Modules (320px)');
   if (!/\.home-chat \{\s*grid-area: chat;\s*position: sticky;\s*top: 0;\s*height: var\(--home-h\);/.test(css)) fail('public/style.css', 'the chat column is the page\'s full height under the top bar, staying put');
   if (!/@media \(max-width: 1200px\) \{\s*\.home \{\s*grid-template-columns: var\(--home-chat-w\) minmax\(0, 1fr\);\s*grid-template-areas: "chat main" "chat modules";/.test(css)) fail('public/style.css', 'below 1200px the Modules go under the space cards');
-  if (!/@media \(max-width: 760px\) \{\s*\.home,[^{]*\{\s*grid-template-columns: minmax\(0, 1fr\);\s*grid-template-areas: "main" "chat" "modules";/.test(css)) fail('public/style.css', 'at 760px and below Home is one column, the spaces first');
+  if (!/@media \(max-width: 900px\) \{\s*\.home,[^{]*\{\s*grid-template-columns: minmax\(0, 1fr\);\s*grid-template-areas: "main" "chat" "modules";/.test(css)) fail('public/style.css', 'at 900px and below Home is one column, the spaces first');
   if (!/\.home-modules:has\(> \.dashboard\[hidden\]\) \{\s*display: none;/.test(css)) fail('public/style.css', 'no tiles, no Modules column');
   if (!/\.home-main \.space-list \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, max\(260px, calc\(\(100% - 18px\) \/ 2\)\)\), 1fr\)\);/.test(css)) fail('public/style.css', 'the space cards are two wide where they fit, never more');
   // Chat only on Home (GitHub #326, Thomas 2026-10-15): no Assistant tab, no Start call, no commands there; a space has all

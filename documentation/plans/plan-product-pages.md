@@ -3,10 +3,10 @@
 **Audience:** Thomas, who decides what the product page says and how it splits; experience-design, who builds the
 pages and draws the art; server-development, who serves the new addresses and checks them.
 
-**Status:** decided by Thomas, 2026-10-21; nothing built. Thomas: the product page is trying to be about
+**Status:** decided by Thomas, 2026-10-21; steps 1 to 4 built the same day (see "Built so far"); step 5 is ready. Thomas: the product page is trying to be about
 everything; "perhaps we make this product page about travel... another about gaming, etc." It follows on from the
 product page redesign (GitHub #212) and waits, for its third use, on the project and mentoring template (GitHub #351).
-One thing is still Thomas's to do: word the new front page headline (see Open questions).
+The front page headline is decided (decision 21); Thomas still has to approve the lede line proposed under Open questions.
 
 ## What it is today
 
@@ -35,7 +35,7 @@ One thing is still Thomas's to do: word the new front page headline (see Open qu
 
 ## Decisions
 
-Thomas's. Those numbered 1 to 6 were stated earlier; 7 to 20 were made on 2026-10-21.
+Thomas's. Those numbered 1 to 6 were stated earlier; 7 to 21 were made on 2026-10-21.
 
 1. **The chat is the core; voice and video are the optional part.** The pages say it that way round.
 2. **The Planner's copy is travel-only.** It belongs on the travel page, not on a general one.
@@ -46,8 +46,8 @@ Thomas's. Those numbered 1 to 6 were stated earlier; 7 to 20 were made on 2026-1
    single-environment install (no `BASE_DOMAIN`) behaves as before: it has no product pages.
 7. **Addresses:** `/travel`, `/games` and `/projects`. Short, easy to say aloud and to print; the bare base domain
    serves nothing else, so nothing collides.
-8. **How the pages are made:** one plain HTML file per use (`landing-travel.html`, `landing-games.html`,
-   `landing-projects.html`), all sharing `landing.css` and `landing.js`. No build step, real text in the file, a real
+8. **How the pages are made:** one plain HTML file per use (built as `public/travel.html`, `games.html` and
+   `projects.html`, not `landing-<use>.html`), all sharing `landing.css` and `landing.js`. No build step, real text in the file, a real
    `<title>` and description per page, art inline as it is now. The use pages share little beyond the header and
    footer. The repeated header, footer and sign-in markup is compared across the files by a check.
 9. **Sign-up from a use page** links to the front page's form with the template chosen (`/?template=travel#start`).
@@ -80,6 +80,23 @@ Thomas's. Those numbered 1 to 6 were stated earlier; 7 to 20 were made on 2026-1
     amends decision 4, which named Fraunces 600 for the `h1` only. Today `landing.css` sets Fraunces on `.hero h1`
     alone (line 94); the `h2` is Figtree at 600 (line 39) and the `b` has no weight of its own, so it takes the
     browser's bold.
+21. **The front page headline is C: "One place for the whole group."** The front page's hero text and its
+    `<meta name="description">` are reworded around it, chat first and the call optional. Thomas, 2026-10-21. The
+    supporting lede is proposed under Open questions.
+
+## Built so far
+
+Recorded 2026-10-21.
+
+- **Step 1, the plane:** `a0fe3e5`, the plane flies nose first along the route.
+- **Step 3, `/travel`:** `34fc113` and `f638eee`, the travel content as `public/travel.html`.
+- **Step 2, the server:** the routes for `/travel`, `/games` and `/projects`, `pages` in `/api/product` and
+  `check-product-pages` (`39c709f`), with `019f908` making the use pages `public/travel.html`, `games.html` and
+  `projects.html` and letting the check allow a page's own words.
+- **Step 4, the travel template:** version 7, which adds Budget, Polls and To-do (`019f908`).
+
+The files are `public/travel.html`, `games.html` and `projects.html`, not `landing-<use>.html`. Where the contract
+below says `landing-travel.html` and so on, it means these.
 
 ## How the decisions apply
 
@@ -155,11 +172,11 @@ front page, games, projects (decision 19).
 
 | Step | What | Who | Size | Ready? |
 | --- | --- | --- | --- | --- |
-| 1 | The plane's direction, on its own, a separate commit | experience-design | small | Ready; already assigned |
-| 2 | The addresses, `pages` in `/api/product`, the preview tool, the header and footer check | server-development | small | Ready |
-| 3 | `/travel`: the travel content moved to its own page, with the `h2` and `b` type change | experience-design | medium | Ready, beside 2 |
-| 4 | The travel template adds Budget, Polls and To-do | server-development | small | Ready, beside 2 and 3 |
-| 5 | The front page cut down, its cards linking, the template preselected | experience-design | medium | After 2 and 3; also needs Thomas's headline |
+| 1 | The plane's direction, on its own, a separate commit | experience-design | small | Done: `a0fe3e5` |
+| 2 | The addresses, `pages` in `/api/product`, the preview tool, the header and footer check | server-development | small | Done: `39c709f`, `019f908` |
+| 3 | `/travel`: the travel content moved to its own page, with the `h2` and `b` type change | experience-design | medium | Done: `34fc113`, `f638eee` |
+| 4 | The travel template adds Budget, Polls and To-do | server-development | small | Done: `019f908` |
+| 5 | The front page cut down, its cards linking, the template preselected | experience-design | medium | Ready: 2 and 3 are done and the headline is decided (decision 21) |
 | 6 | A gaming template plan, then its file | product-planner, then server-development | small, then small | The plan is ready to start; the file waits for Thomas to decide it |
 | 7 | The games hero art, drafted, then approved by Thomas | experience-design, Thomas | medium | Ready to draft, but its look should follow the template's words from 6 |
 | 8 | A gaming seed for screenshots, and the shots | server-development, then experience-design | medium | After 6 |
@@ -167,8 +184,8 @@ front page, games, projects (decision 19).
 | 10 | `/projects`, the same way as 6 to 9 | as above | large in all | After #351 |
 | 11 | The documentation | content-manager | small | After 5, and again after 9 |
 
-Can start now: steps 1, 2, 3, 4 and the gaming template plan (the first half of 6). Step 5 can start once 2 and 3
-land and Thomas has picked a headline.
+Done: steps 1, 2, 3 and 4. Can start now: step 5 (the front page cut down), and the gaming template file once the
+open questions in [plan-template-games](plan-template-games.md) are answered.
 
 ## Verify
 
@@ -187,17 +204,13 @@ land and Thomas has picked a headline.
 
 ### Open questions
 
-1. **The front page headline (Thomas's to word; blocks step 5 only).** Three options, chat first, for him to pick
-   from, change or replace. Each is a headline and a lede, and none names a trip or a game:
-   - **A.** "Your group's chat, with a call when you want one." Lede: "A private place for the people you plan
-     with. Talk first; start a call when talking isn't enough."
-   - **B.** "Talk it through together." Lede: "A chat for your group, a call when you want one, and the tools you
-     need beside it. Yours, on your own address."
-   - **C.** "One place for the whole group." Lede: "Chat all week, call when it counts, and keep the plans, the
-     maps and the notes right beside it."
-   My lean, a suggestion only: **A**, since it says the chat is the core and the call is the option in the first
-   line. The lede on any option must keep "Yours and private" true: it is self-hosted.
-2. **The gaming template (blocks steps 6 to 9):** its modules, phases and other words are for its own short plan.
-   The decided part is the space word "Campaign".
+1. **The front page lede (new; Thomas to approve; blocks step 5 only).** The headline is decided: "One place for
+   the whole group." (decision 21). Proposed lede, chat first and the call optional, keeping "Yours and private"
+   true: "Chat all week, call when it counts, and keep the plans, the maps and the notes right beside it. Yours, on
+   your own address." Proposed meta description: "A private chat for your group, with a call when you want one and
+   the tools beside it. Self-hosted, on your own address." The alternative is the lede as first drafted for option
+   C, without the last sentence; then How it works and Yours and private alone say it is self-hosted.
+2. **The gaming template (blocks steps 6 to 9):** its words, modules and phases are in
+   [plan-template-games](plan-template-games.md), where Thomas has decided most of them and seven questions remain.
 3. **Whether the `h2` size and spacing change** with the new Fraunces weight. Decision 20 fixes the face and the
    weights only; experience-design reports what it needed to change.

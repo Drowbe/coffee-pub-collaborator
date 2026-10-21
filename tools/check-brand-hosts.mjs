@@ -82,7 +82,7 @@ function selfTest() {
     const file = path.join(dir, 'server', 'x.js');
     const planted = (s) => { fs.writeFileSync(file, s); return scan(dir); };
     assert.equal(planted(`const a = 'https://x.${BRAND}.ai';`).length, 1, 'a brand domain must be found');
-    assert.equal(planted(`const a = 'COLLABORATOR.${BRAND.toUpperCase()}.LIVE';`).length, 1, 'any case must be found');
+    assert.equal(planted(`const a = 'SUB.${BRAND.toUpperCase()}.LIVE';`).length, 1, 'any case must be found');
     assert.equal(planted(`// ${DEPLOYMENT}`).length, 1, 'the deployment label must be found');
     assert.equal(planted(`const a = 'example.com'; // Coffee Pub, coffee-pub`).length, 0, 'the brand name alone passes');
     const two = planted(`'${BRAND}.ai'\n'${BRAND}.live'`);

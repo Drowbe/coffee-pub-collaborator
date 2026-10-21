@@ -725,7 +725,10 @@ a {
     height: 44px;
   }
 
-  .sdk-kind.open .sdk-kind-input {
+  /* 16 px on a phone whether or not the sheet is open, so iOS does not zoom (the Fields rule); the :focus rule above
+     sets font: inherit, so it is named here too. */
+  .sdk-kind .sdk-kind-input,
+  .sdk-kind .sdk-kind-input:focus {
     font-size: var(--text-16);
   }
 

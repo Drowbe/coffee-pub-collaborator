@@ -1124,6 +1124,10 @@ function syncWhoIsInCall() {
     const img = document.createElement('img');
     img.alt = '';
     img.src = spacePortraitUrl(key);
+    const circle = document.createElement('span');
+    circle.className = 'sdk-avatar sdk-avatar-24';
+    circle.setAttribute('aria-hidden', 'true');
+    circle.append(img);
     img.onerror = () => {
       if (img.dataset.fallback) { img.replaceWith(initialOf(name)); return; }
       img.dataset.fallback = '1';
@@ -1131,7 +1135,7 @@ function syncWhoIsInCall() {
     };
     const label = document.createElement('span');
     label.textContent = name;
-    li.append(img, label);
+    li.append(circle, label);
     return li;
   }));
   list.hidden = people.length === 0;
@@ -1139,8 +1143,7 @@ function syncWhoIsInCall() {
 }
 function initialOf(name) {
   const el = document.createElement('span');
-  el.className = 'no-call-initial';
-  el.setAttribute('aria-hidden', 'true');
+  el.className = 'sdk-avatar-ini';
   el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
   return el;
 }

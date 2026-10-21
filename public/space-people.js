@@ -91,7 +91,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   el.className = 'who-here';
   el.innerHTML = `
     <button class="who-here-toggle nav-text" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list">
-      <span class="who-here-faces" aria-hidden="true"></span><span class="who-here-more" aria-hidden="true" hidden></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
+      <span class="who-here-faces sdk-avatar-stack" aria-hidden="true"></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
     </button>
     <section class="who-here-list" id="who-here-list" tabindex="-1" aria-labelledby="who-here-title" hidden>
       <h3 class="who-here-title" id="who-here-title"></h3>
@@ -100,7 +100,10 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   const toggle = el.querySelector('.who-here-toggle');
   const listEl = el.querySelector('.who-here-list');
   const faces = el.querySelector('.who-here-faces');
-  const more = el.querySelector('.who-here-more');
+  const more = doc.createElement('span'); // the rest of the people, the stack's micro count
+  more.className = 'sdk-badge-micro';
+  more.setAttribute('aria-hidden', 'true');
+  more.hidden = true;
   const countEl = el.querySelector('.who-here-count');
   let people = [];
   let shownFaces = MAX_FACES; // what fit() last allowed
@@ -113,22 +116,22 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   // a pass (fit), and a fresh <img> each time would fetch the picture again. A new element only when someone arrives
   // or their picture's address changes (another space's set); one that fell back to the letter stays the letter.
   const portraits = new Map(); // `${spot}|${key}` -> { src, node }
-  function portrait(person, cls, spot) {
+  function portrait(person, size, spot) {
     const src = portraitUrl(person.key);
     const id = `${spot}|${person.key}`;
     const kept = portraits.get(id);
     if (kept && kept.src === src) return kept.node;
     const entry = { src, node: null };
+    const circle = doc.createElement('span');
+    circle.className = `sdk-avatar sdk-avatar-${size}`;
+    circle.setAttribute('aria-hidden', 'true');
     const img = doc.createElement('img');
-    img.className = cls;
     img.alt = '';
     img.onerror = () => {
       if (img.dataset.fallback) {
         const letter = doc.createElement('span');
-        letter.className = `${cls} who-here-initial`;
-        letter.setAttribute('aria-hidden', 'true');
+        letter.className = 'sdk-avatar-ini';
         letter.textContent = String(person.name || '?').trim().charAt(0).toUpperCase() || '?';
-        entry.node = letter;
         img.replaceWith(letter);
         return;
       }
@@ -136,9 +139,10 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
       img.src = profileUrl(person.key);
     };
     img.src = src;
-    entry.node = img;
+    circle.append(img);
+    entry.node = circle;
     portraits.set(id, entry);
-    return img;
+    return circle;
   }
   // Forget the portraits of those who left, so one who comes back is tried afresh.
   function prunePortraits() {
@@ -163,10 +167,10 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   function drawRow() {
     const k = Math.min(shownFaces, people.length);
     faces.replaceChildren(...people.slice(0, k).map((p, i) => {
-      const face = doc.createElement('span');
-      face.className = `who-here-face${p.you ? ' you' : ''}`;
+      const face = portrait(p, 20, 'row');
+      face.classList.toggle('you', Boolean(p.you));
       face.style.zIndex = String(k - i); // a camera mark is drawn over the next portrait, not under it
-      face.appendChild(portrait(p, 'who-here-img', 'row'));
+      face.querySelector('.who-here-call')?.remove();
       if (p.onCall) face.appendChild(callMark());
       return face;
     }));
@@ -175,6 +179,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     const left = people.length - k;
     more.hidden = !(k > 0 && left > 0);
     more.textContent = `+${left}`;
+    if (!more.hidden) faces.append(more);
     el.classList.toggle('count-only', k === 0);
     const { shown, said } = hereWords(people, where());
     countEl.textContent = compact ? shown : hereLabel(people, where())[wording];
@@ -190,7 +195,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     el.querySelector('.who-here-people').replaceChildren(...people.map((p) => {
       const li = doc.createElement('li');
       li.className = `who-here-person${p.onCall ? ' on-call' : ''}`;
-      li.appendChild(portrait(p, 'who-here-img', 'list'));
+      li.appendChild(portrait(p, 24, 'list'));
       const name = doc.createElement('span');
       name.className = 'who-here-name';
       name.textContent = p.name;

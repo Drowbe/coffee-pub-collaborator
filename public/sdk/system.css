@@ -1069,6 +1069,88 @@
 }
 /* chips:end */
 
+/* ================= Avatars (design system step 26) =================
+   An avatar is always a circle (--radius-round), in six sizes: 20, 24, 32, 40, 64 and 96 (96 only for editing a profile picture). It holds a
+   photo (object-fit cover), or the person's initials in the UI font at weight 600, or an icon. The initials are about 40% of the diameter on
+   the type scale: 11px at 20 and 24 (which show one initial), then 13, 16, 28 and 40px. The fill is the text colour at 14% over the surface
+   the avatar sits on (--av-surface, set by the consumer; --av-ink is the letters' colour, the text colour unless the consumer says otherwise).
+   Source: public/design-system/proposed-avatars.css.
+     .sdk-avatar, .sdk-avatar-20 -24 -40 -64 -96   the circle (32px without a size class)
+     .sdk-avatar-ini                               the initials
+     .sdk-avatar-stack                             the who's-around stack: an 8px overlap, a micro count (.sdk-badge-micro) for the rest */
+/* avatars:start */
+:root {
+  --av: 32px;
+  --av-font: var(--text-13);
+  --av-surface: var(--surface-panel);
+  --av-ring: var(--av-surface);
+  --av-ring-w: var(--space-0);
+  --av-overlap: calc(var(--space-2) * -1);
+}
+
+.sdk-avatar {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--av);
+  height: var(--av);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--text-primary) 14%, var(--av-surface));
+  color: var(--av-ink, var(--text-primary));
+  font: inherit;
+  font-size: var(--av-font);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-ui);
+  letter-spacing: 0;
+  text-transform: uppercase;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.sdk-avatar-20 { --av: 20px; --av-font: var(--text-11); }
+.sdk-avatar-24 { --av: 24px; --av-font: var(--text-11); }
+.sdk-avatar-40 { --av: 40px; --av-font: var(--text-16); }
+.sdk-avatar-64 { --av: 64px; --av-font: var(--text-28); }
+.sdk-avatar-96 { --av: 96px; --av-font: var(--text-40); }
+
+.sdk-avatar-ini { display: inline; line-height: var(--leading-ui); }
+
+.sdk-avatar > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-round);
+  object-fit: cover;
+}
+
+.sdk-avatar > i { font-size: calc(var(--av) * 0.5); line-height: var(--leading-ui); color: var(--text-muted); }
+
+/* The who's-around stack. */
+.sdk-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sdk-avatar-stack > .sdk-avatar { box-shadow: 0 0 0 var(--av-ring-w) var(--av-ring); }
+.sdk-avatar-stack > .sdk-avatar + .sdk-avatar { margin-left: var(--av-overlap); }
+
+/* The rest of the people: a micro count at the end of the stack, over the last circle's lower right. Numbers only. */
+.sdk-avatar-stack > .sdk-badge-micro {
+  position: relative;
+  top: auto;
+  right: auto;
+  align-self: flex-end;
+  margin-left: calc(var(--space-2) * -1);
+  box-shadow: 0 0 0 var(--av-ring-w) var(--av-ring);
+}
+/* avatars:end */
+
 /* ================= Cards, panels and rows (design system step 16) =================
    One look for a panel, a card and a row. Source: public/design-system/proposed-cards.css, with the colour roles.
    - Surface: a 1px hairline (--edge-hairline), no shadow. Hover and selected are quiet fills, never an edge. The only shadow is a card

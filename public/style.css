@@ -3539,24 +3539,6 @@ a.crumb-here:hover {
   white-space: nowrap;
 }
 
-.no-call-list img,
-.no-call-list .no-call-initial {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-round);
-  object-fit: cover;
-  background: var(--secondary);
-}
-
-.no-call-list .no-call-initial {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-12);
-  color: var(--secondary-text);
-}
-
 .no-call-empty {
   margin: 0;
   font-size: var(--text-14);
@@ -6535,7 +6517,7 @@ body.chat-window {
 
 .whos-around .dashboard-person {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 48px;
@@ -6548,14 +6530,6 @@ body.chat-window {
 
 .whos-around .dashboard-person.is-placed {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-}
-
-.whos-around .dashboard-person img {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-round);
-  object-fit: cover;
-  background: var(--bg);
 }
 
 .whos-around .dashboard-person-text {
@@ -6643,12 +6617,9 @@ body.chat-window {
   font-size: var(--text-14);
 }
 
-#dashboard .dashboard-person img {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-round);
-  object-fit: cover;
-  background: var(--bg);
+#dashboard .dashboard-person .sdk-avatar {
+  --av: 24px;
+  --av-font: var(--text-11);
 }
 
 #dashboard .dashboard-person-name {
@@ -7122,48 +7093,18 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .who-here-faces {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  --av-surface: var(--surface-bar-top); /* the ring round each portrait is the bar's own colour */
+  --av-ink: var(--text-bar);
 }
 
 .who-here-faces[hidden],
-.who-here-more[hidden],
 .who-here:not(.count-only) .who-here-icon {
   display: none;
 }
 
-.who-here-face {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-}
-
-/* A portrait: square, its corners a little rounded, a hairline border so a dark picture keeps its edge on a dark bar. */
-.who-here-img {
-  box-sizing: border-box;
-  flex: none;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  object-fit: cover;
-  background: var(--secondary);
-}
-
-.who-here-initial {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: var(--leading-ui);
-  color: var(--secondary-text);
-}
-
 /* The camera, the same mark the space list and the conference use: never the colour alone (the camera's shape, and
    the list says it in words). */
-.who-here-face .who-here-call {
+.who-here-faces .who-here-call {
   position: absolute;
   right: -3px;
   bottom: -3px;
@@ -7180,23 +7121,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   font-size: 6px;
 }
 
-/* "+N": a square the portraits' size, the same border, so the row reads as one even line. */
-.who-here-more {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  margin-left: -5px; /* the row's gap, not the toggle's: it belongs to the portraits */
-  padding: 0 3px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  color: var(--text-dim);
-}
-
 .who-here-icon {
   color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
 }
@@ -7208,6 +7132,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   top: calc(100% + 6px);
   left: 50%;
   z-index: var(--z-menu);
+  --av-surface: var(--surface-popover);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -7229,16 +7154,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
 .topbar > .nav-left > .who-here {
   flex: none;
-}
-
-/* The toggle's words are the nav text (.nav-text); a portrait's letters and "+N" keep their own small size. */
-.topbar .who-here .who-here-initial,
-.topbar .who-here .who-here-more {
-  font-size: var(--text-11);
-}
-
-.topbar .who-here .who-here-person .who-here-initial {
-  font-size: var(--text-12);
 }
 
 .topbar .who-here-list {
@@ -7292,16 +7207,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   font-size: var(--text-14);
 }
 
-.who-here-person .who-here-img {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-small);
-}
-
-.who-here-person .who-here-initial {
-  font-size: var(--text-12);
-}
-
 .who-here-name {
   min-width: 0;
   overflow: hidden;
@@ -7353,8 +7258,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
     line-height: var(--leading-display);
   }
 
-  body.in-space .who-here-faces,
-  body.in-space .who-here-more {
+  body.in-space .who-here-faces {
     display: none;
   }
 

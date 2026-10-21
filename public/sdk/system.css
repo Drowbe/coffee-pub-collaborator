@@ -1069,6 +1069,275 @@
 }
 /* chips:end */
 
+/* ================= Cards, panels and rows (design system step 16) =================
+   One look for a panel, a card and a row. Source: public/design-system/proposed-cards.css, with the colour roles.
+   - Surface: a 1px hairline (--edge-hairline), no shadow. Hover and selected are quiet fills, never an edge. The only shadow is a card
+     or row being dragged (.is-dragging, --shadow-1).
+   - Steps: a panel is --surface-panel, a card on it --surface-card, a row inside a card --surface-field (its edge becomes a transparent
+     1px, so the box keeps its size). A thing takes the next step from what it sits on. Two surfaces nest, no more: a row inside a row
+     has no fill and no edge of its own, and a child's corner is never larger than its parent's (Foundations, "Nesting and corners").
+   - Corners: panel and card --radius-large, a row on a panel --radius-medium, a row inside a card --radius-small.
+   - Spacing: 8px between things (inside a card or a row, and between cards or rows in a list, which never touch), 16px between groups,
+     4px between the rows INSIDE a card. Padding: row 8px by 10px, card 12px, panel 16px, the Home space card 20px.
+   - Phone: a row is 44px high and the tick and "..." hit areas are 44px.
+   - Category colour is on the icon chip and its words (data-tint on the card; the tint names are in style.css and host.css), never on an edge, a fill of the whole card or a gradient.
+   Classes: .sdk-panel .sdk-card .sdk-row .sdk-group-head, parts .sdk-card-head -main -icon -title -sub -body -foot -list -menu -image,
+   .sdk-row-main -title -sub -meta -tick, .sdk-open (the one link or button that makes the whole box clickable), .sdk-list,
+   .sdk-list-group; variants .sdk-card-home and .sdk-card-add. The host's own page names take the same rules: .panel (a page panel),
+   .space-choice and .space-choice-add (Home's space card and its add slot) and .user-card (Manage's people and spaces). A module
+   uses the .sdk-* names.
+   The surface rules are written in :where() (no weight), so a page or a module can lay a card out (a row of cards, a grid) with its own
+   rule and no fight over order; the states have weight.
+   Selected: aria-current="true", aria-selected="true" or .on. Disabled: aria-disabled="true". The Calendar's bar and the Planner's
+   day cards come with their own steps (32 to 34). tools/check-design-system-cards.mjs holds the drawing. */
+/* cards:start */
+:root {
+  --card-pad: var(--space-3);
+  --panel-pad: var(--space-4);
+  --home-pad: var(--space-5);
+  --row-pad-y: var(--space-2);
+  --row-pad-x: calc(var(--space-2) + var(--space-0)); /* 10px: 8 + 2 */
+  --gap-in: var(--space-2);
+  --gap-card-rows: var(--space-1); /* rows INSIDE a card: the fill step separates them; rows in a list on a panel or a window are --gap-in apart */
+  --gap-group: var(--space-4);
+  --card-icon: 32px;
+  --tick-hit: 28px; /* 44px on a phone */
+  --tick-edge: -6px;
+  --ls-label: 0.04em;
+}
+
+@media (max-width: 640px) {
+  :root { --tick-hit: 44px; --tick-edge: -10px; }
+}
+
+/* ---- the panel: the surface a module or a page part sits on ---- */
+:where(.sdk-panel, .panel) {
+  --s: var(--surface-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--panel-pad);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-large);
+  background: var(--s);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+/* ---- the card ---- */
+:where(.sdk-card, .user-card, .space-choice) {
+  --s: var(--surface-card);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--card-pad);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-large);
+  background: var(--s);
+  background-image: none;
+  color: var(--text-primary);
+  box-shadow: none;
+  transform: none;
+  transition: background var(--motion-fast);
+}
+
+/* Home's space card: the same card, 20px of padding. */
+:where(.sdk-card-home, .space-choice) { padding: var(--home-pad); gap: var(--space-3); }
+:where(.sdk-card-home, .space-choice) .sdk-card-title { font-family: var(--font-display); font-size: var(--text-18); font-weight: var(--weight-strong); }
+
+/* The add slot beside the space cards: the same size, a dashed neutral hairline, no fill. */
+:where(.sdk-card-add, .space-choice-add) {
+  --s: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 120px;
+  margin: 0;
+  padding: var(--home-pad);
+  border: 1px dashed var(--edge-hairline);
+  border-radius: var(--radius-large);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+:is(.sdk-card-add, .space-choice-add) > i { font-size: var(--text-18); }
+
+/* ---- the row ---- */
+:where(.sdk-row) {
+  --s: var(--surface-card);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--btn-h);
+  margin: 0;
+  padding: var(--row-pad-y) var(--row-pad-x);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--s);
+  background-image: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-14);
+  line-height: 20px;
+  text-align: left;
+  box-shadow: none;
+  transform: none;
+  transition: background var(--motion-fast);
+}
+
+/* A row inside a card takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
+:where(.sdk-card, .user-card, .space-choice) :where(.sdk-row) {
+  --s: var(--surface-field);
+  border-color: transparent;
+  border-radius: var(--radius-small);
+}
+
+/* Parts of a row. */
+.sdk-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.sdk-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
+.sdk-row-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--text-12); line-height: 16px; }
+.sdk-row-meta { flex: none; color: var(--text-muted); font-size: var(--text-12); white-space: nowrap; }
+.sdk-row .sdk-card-icon { --card-icon: 28px; }
+/* The tick: a 16px box (the Fields family) in a hit area that is 28px, and 44px on a phone. */
+.sdk-row-tick {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tick-hit);
+  height: var(--tick-hit);
+  margin: calc((20px - var(--tick-hit)) / 2) 0 calc((20px - var(--tick-hit)) / 2) var(--tick-edge);
+  cursor: pointer;
+}
+/* A button at the end of a row (the "..." or the one action) is 30px and does not make the row taller. */
+.sdk-row > :is(.sdk-icon-btn, .btn-small) { flex: none; margin-block: calc((20px - var(--btn-h-small)) / 2); }
+.sdk-row > .sdk-icon-btn.btn-small { margin-right: calc(-1 * var(--space-1)); }
+
+@media (max-width: 640px) {
+  /* The 44px row. The hit area of a small button is 44px already (Buttons). */
+  .sdk-row { min-height: 44px; }
+  .sdk-row-tick { margin-block: calc((20px - var(--tick-hit)) / 2); }
+}
+
+/* ---- the clickable card and row: the whole box opens something. The link or button is .sdk-open; its ::after covers the box. ---- */
+.sdk-open { color: inherit; font: inherit; text-decoration: none; background: none; border: 0; padding: 0; margin: 0; text-align: left; cursor: pointer; outline: none; }
+.sdk-open::after { content: ""; position: absolute; inset: 0; }
+:where(.sdk-card, .sdk-row) :where(.sdk-icon-btn, .btn, .sdk-row-tick) { position: relative; z-index: 1; } /* above the .sdk-open cover; :where, so a menu slot that is absolute stays so */
+
+/* ---- states: hover and selected are fills ---- */
+:is(.sdk-card, .sdk-row, .space-choice):is(:has(.sdk-open), a, button:not(:disabled), [role="button"], [tabindex="0"]):hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, var(--s));
+}
+:is(.sdk-card, .sdk-row, .space-choice):is(:has(.sdk-open), a, button:not(:disabled), [role="button"], [tabindex="0"]):active {
+  background: color-mix(in srgb, var(--text-primary) 14%, var(--s));
+}
+:is(.sdk-card, .sdk-row, .space-choice):is([aria-current="true"], [aria-selected="true"], .on) {
+  background: var(--fill-selected);
+}
+:is(.sdk-card, .sdk-row, .space-choice):is([aria-current="true"], [aria-selected="true"], .on):is(:has(.sdk-open), a, button:not(:disabled), [role="button"], [tabindex="0"]):hover {
+  background: color-mix(in srgb, var(--accent-fill) 38%, transparent);
+}
+
+/* The ghost: a quiet fill on hover (written twice over, so it beats the clickable card's rule above). */
+:is(.sdk-card-add, .space-choice-add):is(.sdk-card-add, .space-choice-add):hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-panel));
+  color: var(--text-primary);
+}
+
+/* Focus: the Fields and Tabs mechanism. A 2px outline drawn over the 1px hairline, inside the box. */
+:is(.sdk-card, .sdk-row, .space-choice):has(.sdk-open:focus-visible),
+:is(.sdk-card, .sdk-row, .space-choice):is(a, button, [role="button"], [tabindex="0"]):focus-visible,
+:is(.sdk-card-add, .space-choice-add):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Muted text on a selected fill is a little stronger (the plain muted colour is under 4.5 to 1 there in dark). */
+:is(.sdk-card, .sdk-row, .space-choice):is([aria-current="true"], [aria-selected="true"], .on) :is(.sdk-card-sub, .sdk-row-sub, .sdk-row-meta) {
+  color: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted));
+}
+
+/* Dragging: the one time a card has a shadow. */
+:is(.sdk-card, .sdk-row).is-dragging { box-shadow: var(--shadow-1); cursor: grabbing; }
+
+/* Disabled. */
+:is(.sdk-card, .sdk-row)[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+
+/* ---- the parts of a card ---- */
+.sdk-card-head { display: flex; align-items: flex-start; gap: calc(var(--space-2) + var(--space-0)); min-width: 0; }
+.sdk-card-main { flex: 1 1 auto; min-width: 0; }
+.sdk-card-title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: 20px; overflow-wrap: anywhere; }
+.sdk-card-sub { margin: 0; color: var(--text-muted); font-size: var(--text-12); line-height: 16px; }
+.sdk-card-body { margin: 0; color: var(--text-primary); font-size: var(--text-13); line-height: 18px; }
+.sdk-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap-in); margin-top: var(--space-1); }
+:where(.sdk-card-list) { display: flex; flex-direction: column; gap: var(--gap-card-rows); }
+.sdk-card-image {
+  display: flex; align-items: center; justify-content: center; height: 96px;
+  border-radius: var(--radius-medium); background: var(--surface-field); color: var(--text-muted); font-size: var(--text-22);
+}
+/* The menu slot: fixed, top right, 8px in; the head and the title leave room for it. */
+.sdk-card-menu { position: absolute; top: var(--space-2); right: var(--space-2); z-index: 1; width: var(--btn-h-small); height: var(--btn-h-small); display: flex; }
+.sdk-card:has(> .sdk-card-menu) > :is(.sdk-card-head, .sdk-card-title, .sdk-card-sub) { padding-right: var(--btn-h-small); }
+.sdk-card-home:has(> .sdk-card-menu) { padding-right: var(--home-pad); }
+
+/* The icon chip: category colour on the icon, a quiet tint behind it. No tint, no colour: neutral. */
+.sdk-card-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--card-icon);
+  height: var(--card-icon);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--tint, var(--text-muted)) 18%, var(--s, var(--surface-card)));
+  color: color-mix(in srgb, var(--tint, var(--text-muted)) 62%, var(--text-primary));
+  font-size: var(--text-14);
+  line-height: 1;
+}
+.sdk-tint-text { color: color-mix(in srgb, var(--tint, var(--text-muted)) 62%, var(--text-primary)); font-weight: var(--weight-strong); }
+
+/* ---- the group header: 12px, weight 600, muted text, letter-spaced, with the divider under it ---- */
+.sdk-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 var(--space-0) var(--space-1);
+  border-bottom: 1px solid var(--edge-hairline);
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+.sdk-group-head > .sdk-group-count { margin-left: auto; font-weight: var(--weight-medium); letter-spacing: normal; }
+.sdk-list-group + .sdk-list-group { margin-top: var(--gap-group); }
+.sdk-list-group > .sdk-group-head { margin-bottom: var(--gap-in); }
+:where(.sdk-list) { display: flex; flex-direction: column; gap: var(--gap-in); min-width: 0; } /* :where, so a module can lay the list out as a grid */
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sdk-card, .sdk-row, .space-choice, .sdk-card-add, .space-choice-add) { transition: none; }
+}
+/* cards:end */
+
 /* ================= Fields and forms (design system step 13) =================
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. Source: public/design-system/proposed-fields.css, with the colour roles. The classes are the

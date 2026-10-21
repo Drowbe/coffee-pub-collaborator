@@ -385,8 +385,8 @@ function tokenAt(line, start, end) {
 // THEME_BASE). Their names are fixed and never renamed; the only one that holds a fenced word is surface-panel ("panel",
 // a part of a page, not a module). A hit whose whole token is exactly one of these (the `--` before it is not part of
 // the token) is the role's name, not an old name. Only the exact token: surface-panel-x, module-panel or a bare
-// "panel" are still hits.
-const APPROVED_ROLE_TOKENS = new Set(['surface-panel']);
+// "panel" are still hits. The same holds for sdk-panel, the Cards family's approved panel class (public/sdk/system.css).
+const APPROVED_ROLE_TOKENS = new Set(['surface-panel', 'sdk-panel']);
 const emptyResults = () => new Map(LEVELS.map((l) => [l.id, { hits: [], allowed: 0 }]));
 function scan(mode, files, allow) {
   const results = emptyResults();
@@ -884,6 +884,7 @@ function scannerCheck() {
     const js = "const roles = ['surface-panel', 'text-primary'];\nconst bad = 'surface-panel-extra';\nel.className = 'panel';\nel.className = 'module-panel';\nconst x = { panel: 1 };\n";
     assert.deepEqual(hitsOf('modules/demo/src/demo.js', js, 'code', []).module, ['2:surface-panel-extra', '3:panel', '4:module-panel', '5:panel']);
     assert.deepEqual(hitsOf('modules/demo/src/demo.css', '.panel { color: red; }\n.module-panel { top: 0; }\n', 'code', []).module, ['1:panel', '2:module-panel']);
+    assert.deepEqual(hitsOf('modules/demo/src/demo.css', '.sdk-panel h2 { margin: 0; }\n.sdk-panel-x { top: 0; }\n', 'code', []).module, ['2:sdk-panel-x']);
   });
 
   test("the AI's items are objects; a menu's items are not", () => {

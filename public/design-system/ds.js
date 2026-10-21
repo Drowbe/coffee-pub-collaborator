@@ -371,7 +371,7 @@ window.__dsLog = [];
       desc: 'Mounted by the real SDK on plain fields, as a module\'s script does. Click a field\'s button to open it.',
       title: 'Live pickers',
       body: `<div class="dsf-live"><form class="sdk-form" onsubmit="return false">
-        <div class="sdk-row">
+        <div class="sdk-form-row">
           <label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" id="d1" value="2026-10-09"><span class="sdk-hint"></span></label>
           <label class="sdk-field sdk-m"><span class="sdk-label">Currency</span><select id="currency1"></select><span class="sdk-hint"></span></label>
           <div class="sdk-field sdk-full"><span class="sdk-label">Kind</span><div id="f-types"></div></div>
@@ -386,7 +386,7 @@ window.__dsLog = [];
     {
       id: 'live-datepicker-open', name: 'Live: date picker, open', height: 330, title: 'Live date picker, open',
       desc: 'The month grid (.sdk-dp) opened under a field.',
-      body: '<div class="dsf-live"><form class="sdk-form" onsubmit="return false"><div class="sdk-row"><label class="sdk-field sdk-m"><span class="sdk-label">Departure day</span><input type="date" id="d2" value="2026-10-14"><span class="sdk-hint"></span></label></div></form></div>',
+      body: '<div class="dsf-live"><form class="sdk-form" onsubmit="return false"><div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Departure day</span><input type="date" id="d2" value="2026-10-14"><span class="sdk-hint"></span></label></div></form></div>',
       script: `host.ui.datePicker(document.getElementById('d2'), { clearable: true }); var b = document.querySelector('.sdk-datefield .sdk-icon-btn'); if (b) b.click();`,
     },
     {
@@ -416,7 +416,7 @@ window.__dsLog = [];
       desc: 'A &lt;dialog class="sdk-editor"&gt; opened with host.ui.editor, with the form standard inside. The SDK adds the Close button; this frame is not lifted, so a narrow width shows the phone sheet.',
       body: `<div class="dsf-live"><dialog class="sdk-editor" id="ed" aria-label="Add a place"><div class="sdk-editor-body"><h3 style="margin:0 0 12px">Add a place</h3><form class="sdk-form" onsubmit="return false">
           <label class="sdk-field sdk-full"><span class="sdk-label">Name</span><input type="text" value="Louvre" id="en"><span class="sdk-hint"></span></label>
-          <div class="sdk-row"><label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" value="2026-10-12"><span class="sdk-hint"></span></label>
+          <div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" value="2026-10-12"><span class="sdk-hint"></span></label>
           <label class="sdk-field sdk-m"><span class="sdk-label">Cost</span><input type="text" value="22" aria-invalid="true"><span class="sdk-error">Enter a number.</span></label></div>
           <div class="sdk-checks"><label class="sdk-check"><input type="checkbox" checked> Booked</label></div>
         </form></div><div class="sdk-editor-actions"><button type="button" class="btn btn-primary">Save</button><button type="button" class="btn" id="ec">Cancel</button></div></dialog></div>`,

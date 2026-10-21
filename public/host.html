@@ -121,7 +121,7 @@
       </section>
 
       <template id="tpl-plan-row">
-        <div class="plan-row">
+        <div class="sdk-card plan-row">
           <div class="fields">
             <label>Id<input name="id" type="text" class="plan-id" maxlength="20" pattern="[a-z0-9\-]+" required></label>
             <label>Name<input name="name" type="text" maxlength="40" required></label>
@@ -321,7 +321,7 @@
       </section>
 
       <template id="tpl-ai-service">
-        <form class="ai-service" autocomplete="off">
+        <form class="sdk-card ai-service" autocomplete="off">
           <div class="ai-service-head">
             <strong data-slot="name"></strong>
             <span class="sdk-status" data-slot="offered"></span>
@@ -477,7 +477,7 @@
       </form>
     </section>
   </template>
-  <template id="tpl-admin"><div class="list-row"><span data-slot="login"></span><span class="grow"></span><button class="btn btn-small" data-action="remove-admin" type="button">Remove</button></div></template>
+  <template id="tpl-admin"><div class="sdk-row list-row"><span data-slot="login"></span><span class="grow"></span><button class="btn btn-small" data-action="remove-admin" type="button">Remove</button></div></template>
 
   <script type="module" src="/host.js"></script>
 </body>

@@ -3,9 +3,9 @@
   "counts": {
     "modules/budget/src/budget.css": {
       "3px": 1,
-      "6px": 7,
-      "10px": 13,
-      "14px": 2
+      "6px": 3,
+      "10px": 4,
+      "14px": 1
     },
     "modules/calendar/src/calendar-widget.css": {
       "-2.5px": 1,
@@ -29,24 +29,23 @@
     "modules/places/src/places.css": {
       "3px": 1,
       "5px": 1,
-      "6px": 13,
+      "6px": 11,
       "7px": 3,
       "10px": 3,
-      "14px": 4
+      "14px": 3
     },
     "modules/polls/src/polls-widget.css": {
       "5px": 1
     },
     "modules/polls/src/polls.css": {
       "6px": 5,
-      "10px": 5,
-      "30px": 1
+      "10px": 3
     },
     "modules/research/src/research.css": {
       "5px": 1,
-      "6px": 11,
+      "6px": 9,
       "7px": 1,
-      "10px": 9,
+      "10px": 8,
       "14px": 4,
       "74px": 1
     },
@@ -62,14 +61,13 @@
     },
     "modules/todo/src/todo.css": {
       "5px": 1,
-      "6px": 6,
+      "6px": 4,
       "7px": 2,
-      "10px": 3
+      "10px": 1
     },
     "modules/travel/src/travel-lib-cards.css": {
       "-6px": 3,
       "-14px": 2,
-      "-26px": 1,
       "-28px": 1,
       "-39px": 1,
       "3px": 2,
@@ -94,8 +92,8 @@
     },
     "modules/travel/src/travel.css": {
       "5px": 1,
-      "6px": 13,
-      "10px": 7,
+      "6px": 11,
+      "10px": 5,
       "18px": 1
     },
     "public/destination.css": {
@@ -119,9 +117,7 @@
       "3px": 1,
       "5px": 1,
       "6px": 4,
-      "9px": 1,
-      "10px": 1,
-      "14px": 1
+      "9px": 1
     },
     "public/style.css": {
       "-5px": 1,
@@ -130,11 +126,11 @@
       "-10px": 4,
       "3px": 21,
       "5px": 7,
-      "6px": 151,
+      "6px": 149,
       "7px": 5,
       "9px": 1,
-      "10px": 110,
-      "14px": 32,
+      "10px": 105,
+      "14px": 30,
       "18px": 16,
       "28px": 1,
       "30px": 2,

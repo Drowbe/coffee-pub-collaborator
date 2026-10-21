@@ -56,7 +56,7 @@
       <label class="sdk-field" data-kinds="link"><span class="sdk-label"><span class="field-head"><span>What to remember from it</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span></span><textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea><span class="sdk-hint"></span></label>
       <div class="sdk-field" data-kinds="note link photo answer" role="group" aria-labelledby="f-tags-label"><span class="sdk-label" id="f-tags-label">Tags</span><span class="sdk-group"><input id="f-tags" name="tags" type="text" maxlength="200" placeholder="words, separated by commas" list="tag-list" autocomplete="off" aria-labelledby="f-tags-label"><button type="button" class="sdk-btn" data-action="suggest-tags" hidden><span class="ic" data-icon="wand-magic-sparkles"></span> Suggest tags</button></span><span class="sdk-hint"></span></div>
       <datalist id="tag-list"></datalist>
-      <div class="sdk-row" data-kinds="note link">
+      <div class="sdk-form-row" data-kinds="note link">
         <label class="sdk-field sdk-m"><span class="sdk-label">Place</span><input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="sdk-hint" id="f-point-note"></span></label>
         <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Date</span><input id="f-date" name="date" type="date" aria-labelledby="f-date-label"><span class="sdk-hint"></span></div>
       </div>
@@ -88,9 +88,9 @@
 <!-- a card. data-kind is note, link, photo or answer. A photo has its picture in .thumb (the script sets src); .kicker's [data-slot=ai] is shown for an answer. -->
 <template id="tpl-icon-choice"><button class="icon-choice" type="button" data-action="pick-icon"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
 <template id="tpl-card">
-  <article class="rcard" tabindex="0">
+  <article class="sdk-card rcard" tabindex="0">
     <img class="thumb" data-slot="thumb" alt="" hidden>
-    <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="edit sdk-icon-btn btn-quiet btn-small" type="button" data-action="edit" aria-label="Edit"><span class="ic" data-icon="pen"></span></button><button class="menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
+    <div class="top"><span class="sdk-card-icon kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="edit sdk-icon-btn btn-quiet btn-small" type="button" data-action="edit" aria-label="Edit"><span class="ic" data-icon="pen"></span></button><button class="menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
     <div class="site" data-slot="site-wrap"><span class="ic" data-icon="globe"></span><span data-slot="site"></span></div>
     <div class="excerpt" data-slot="excerpt"></div>
     <div class="tags" data-slot="tags"></div>

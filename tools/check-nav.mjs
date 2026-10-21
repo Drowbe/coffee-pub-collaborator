@@ -2580,8 +2580,10 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
   const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.match(admin, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{spaces\.length\}`, description: '', members: \[\] \}\)/, 'Manage\'s own request is unchanged');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /\.space-choice-add \{[^}]*border: 2px dashed var\(--border\);/, 'the ghost card is a dashed outline');
-  assert.match(css, /\.space-choice-add:focus-visible/, 'and fills on keyboard focus');
+  const sysCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  assert.match(sysCss, /:where\(\.sdk-card-add, \.space-choice-add\) \{[^}]*border: 1px dashed var\(--edge-hairline\);/, 'the ghost card is a dashed hairline (the Cards family in system.css)');
+  assert.match(sysCss, /:is\(\.sdk-card-add, \.space-choice-add\):focus-visible/, 'and has a focus outline');
+  assert.match(sysCss, /:is\(\.sdk-card-add, \.space-choice-add\):is\(\.sdk-card-add, \.space-choice-add\):hover/, 'and fills softly on hover');
   assert.match(space, /list\.insertBefore\(card, \$\('home-add-space'\)\)/, 'cards go before the ghost card, which stays last');
 });
 

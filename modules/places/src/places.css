@@ -23,16 +23,12 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- the list, grouped by category ---- */
 .body { flex: 1; min-height: 0; overflow: auto; margin: 0 -12px; padding: 0 12px 16px; }
-.group + .group { margin-top: 14px; }
-.group-title { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+/* the group header, the card and its icon chip and menu slot are the Cards family of system.css */
+.rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-2); }
 
-/* a place: a card in its colour (the script sets --tone: a theme tint, or the colour the owner chose for the category) */
+/* a place: a card (the script sets --tone: a theme tint, or the colour the owner chose for the category). The colour is on its icon chip and the category words only. */
 .place-row { --tone: var(--accent-fill); --tone-ink: var(--surface-page); }
-.place-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 12px; align-items: start; padding: 12px; border: 1px solid color-mix(in srgb, var(--tone) 36%, var(--edge-hairline)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-card)), color-mix(in srgb, var(--tone) 5%, var(--bg-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 12%, transparent); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.place-row:hover, .place-row:focus-within { transform: translateY(-1px); border-color: var(--tone); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 8px 18px color-mix(in srgb, black 20%, transparent); }
-@media (prefers-reduced-motion: reduce) { .place-row { transition: none; } .place-row:hover { transform: none; } }
-.place-row .mark { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-16); box-shadow: 0 2px 6px color-mix(in srgb, var(--tone) 40%, transparent); }
+.place-row { --tint: var(--tone); display: grid; grid-template-columns: var(--card-icon) minmax(0, 1fr); column-gap: var(--space-3); align-items: start; padding-right: calc(var(--card-pad) + var(--btn-h-small)); cursor: pointer; }
 .place-row .main { min-width: 0; }
 .place-row .title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-section); overflow-wrap: anywhere; }
 .place-row .sub { margin: 1px 0 0; color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }
@@ -85,7 +81,6 @@ body { margin: 0; overflow: hidden; }
 .part-head { display: flex; gap: 8px; }
 .scope-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; color: var(--text-muted); font-size: var(--text-11); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scope-mark .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.place-row.selected { background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 30%, var(--bg-card)), color-mix(in srgb, var(--accent-fill) 22%, var(--bg-card))); }
 .find-more { margin: 14px 0 0; text-align: center; }
 .app.part .found { position: relative; left: auto; right: auto; bottom: auto; flex: none; max-height: 45%; box-shadow: none; }
 .app.part .state { margin-top: 4vh; }

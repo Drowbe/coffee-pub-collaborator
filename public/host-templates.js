@@ -46,7 +46,7 @@ function renderList() {
   const box = $('template-list');
   const notices = $('template-notices');
   const updates = list.filter((t) => t.update);
-  notices.innerHTML = updates.map((t) => `<li class="list-row" data-id="${escapeHtml(t.id)}"><span class="template-list-name">${escapeHtml(t.name || t.id)} was updated in this image: review</span><button class="btn btn-small" type="button" data-action="review">Review</button></li>`).join('');
+  notices.innerHTML = updates.map((t) => `<li class="sdk-row list-row" data-id="${escapeHtml(t.id)}"><span class="template-list-name">${escapeHtml(t.name || t.id)} was updated in this image: review</span><button class="btn btn-small" type="button" data-action="review">Review</button></li>`).join('');
   if (!list.length) { box.innerHTML = '<li class="hint">No templates yet.</li>'; return; }
   box.innerHTML = list.map((t) => {
     const own = t.source === 'host';
@@ -54,7 +54,7 @@ function renderList() {
     const used = (t.usedBy || []).length;
     const id = escapeHtml(t.id);
     const badge = t.edited ? ' <span class="template-edited">Edited</span>' : '';
-    return `<li class="list-row" data-id="${id}">
+    return `<li class="sdk-row list-row" data-id="${id}">
       <span class="template-list-name"><strong>${escapeHtml(t.name || t.id)}</strong>${badge} <code>${id}</code>
         <span class="hint">${escapeHtml(SOURCE[t.source] || t.source)}, version ${escapeHtml(String(t.version || 1))}, <span title="${escapeHtml((t.usedBy || []).join(', '))}">used by ${used}</span>${t.hidden ? ', hidden' : ''}</span></span>
       ${own || bundled ? `<label class="check"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}

@@ -14,11 +14,9 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .quick .btn { width: 100%; }
 
 /* the tasks */
-.group h4 { display: flex; align-items: center; gap: 4px; margin: 12px 0 4px; font-size: var(--text-12); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.group:first-child h4 { margin-top: 2px; }
-.task { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin-bottom: 6px; background: var(--bg-card); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); }
-.task:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
-.task .tick { margin: 2px 0 0; }
+/* the row, its tick, the open button and the group headers are the Cards family of system.css */
+.task { align-items: flex-start; }
+.task .links { position: relative; z-index: 1; }
 .task .text { flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .task .text small { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--text-12); }
 .task.done .text { color: var(--text-muted); text-decoration: line-through; }
@@ -35,10 +33,9 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .link.gone { opacity: 0.6; font-style: italic; }
 .link .x { padding: 0 2px; border: 0; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
 .results { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow: auto; }
-.result { display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--bg-card); color: var(--text-primary); font: inherit; font-size: var(--text-13); text-align: left; cursor: pointer; }
-.result:hover { border-color: var(--accent-fill); }
+.result { justify-content: space-between; width: 100%; font-size: var(--text-13); cursor: pointer; }
 .result small { color: var(--text-muted); white-space: nowrap; }
-.task.drop { border-color: var(--accent-fill); background: color-mix(in srgb, var(--accent-fill) 12%, var(--bg-card)); }
+.task.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 
 /* other spaces' tasks on the environment page */
 .ri { display: inline-flex; align-items: center; margin-right: 2px; }

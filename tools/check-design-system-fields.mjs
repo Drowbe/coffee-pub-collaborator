@@ -10,7 +10,7 @@
  */
 export const id = 'fields';
 // Classes of Today's form markup that the proposal draws as it is (the layout of rows and columns stays in the form block of style.css and host.css).
-export const todayOnly = ['sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group', 'sdk-row', 'sdk-s', 'sdk-m', 'sdk-l', 'sdk-unit', 'sdk-checks', 'sdk-section', 'sdk-section-title'];
+export const todayOnly = ['sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group', 'sdk-form-row', 'sdk-s', 'sdk-m', 'sdk-l', 'sdk-unit', 'sdk-checks', 'sdk-section', 'sdk-section-title'];
 
 export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours } = b;

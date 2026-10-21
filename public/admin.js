@@ -2388,7 +2388,7 @@ function renderTemplateFiles() {
   list.hidden = !imported.length;
   list.innerHTML = imported.map((c) => {
     const inUse = madeFrom && madeFrom.id === c.id;
-    return `<li class="list-row"><span class="template-file-name"><strong>${escapeHtml(c.name || c.id)}</strong> <span class="hint">Imported, version ${escapeHtml(String(c.version || 1))}${inUse ? ', in use' : ''}</span></span>`
+    return `<li class="sdk-row list-row"><span class="template-file-name"><strong>${escapeHtml(c.name || c.id)}</strong> <span class="hint">Imported, version ${escapeHtml(String(c.version || 1))}${inUse ? ', in use' : ''}</span></span>`
       + `<a class="btn btn-small" href="/api/templates/${encodeURIComponent(c.id)}/export" download>Export</a>`
       + `<button class="btn btn-small btn-danger" type="button" data-template-delete="${escapeHtml(c.id)}"${inUse ? ' disabled title="In use: switch to another template first"' : ''}>Delete</button></li>`;
   }).join('');

@@ -2111,7 +2111,7 @@
     const key = tile.startsWith('block:') ? 'block' : tile.startsWith('lane:') ? 'lane' : tile; // every marker shows the same fields
     for (const el of $('form').querySelectorAll('[data-types]')) el.classList.toggle('on-type', el.dataset.types.split(/\s+/).includes(key));
     // A row that shows one field for this kind gives it the whole row, so no gap is left beside it.
-    for (const row of $('form').querySelectorAll('.sdk-row[data-grow]')) {
+    for (const row of $('form').querySelectorAll('.sdk-form-row[data-grow]')) {
       const fields = [...row.children].filter((c) => c.classList.contains('sdk-field') && !c.matches('[data-types]:not(.on-type)'));
       for (const f of row.querySelectorAll(':scope > .sdk-field')) f.classList.toggle('sdk-full', fields.length === 1 && f === fields[0]);
     }

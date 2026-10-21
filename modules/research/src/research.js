@@ -185,6 +185,7 @@
     el.dataset.id = it.id;
     el.dataset.kind = it.kind;
     el.classList.toggle('open', state.open.has(it.id));
+    el.classList.toggle('on', state.open.has(it.id));
     el.setAttribute('aria-expanded', state.open.has(it.id) ? 'true' : 'false');
     const pen = el.querySelector('[data-action="edit"]');
     if (pen) { pen.setAttribute('aria-label', canEdit ? 'Edit' : 'View'); pen.title = canEdit ? 'Edit' : 'View'; }
@@ -876,6 +877,7 @@
     const open = on === undefined ? !state.open.has(el.dataset.id) : on;
     if (open) state.open.add(el.dataset.id); else state.open.delete(el.dataset.id);
     el.classList.toggle('open', open);
+    el.classList.toggle('on', open);
     el.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
   // An object can be dragged out to another module (onto a day of a plan, or a task that links to it): press its card and move.

@@ -11,10 +11,10 @@
       "shadow-scrim": 10
     },
     "modules/places/src/places.css": {
-      "shadow-scrim": 6
+      "shadow-scrim": 2
     },
     "modules/research/src/research.css": {
-      "shadow-scrim": 5
+      "shadow-scrim": 1
     },
     "modules/research/src/research.js": {
       "raw": 1
@@ -24,10 +24,10 @@
       "shadow-scrim": 2
     },
     "modules/stream/src/stream.css": {
-      "raw": 10
+      "raw": 8
     },
     "modules/travel/src/travel-lib-cards.css": {
-      "shadow-scrim": 6
+      "shadow-scrim": 2
     },
     "modules/travel/src/travel.js": {
       "raw": 12
@@ -55,7 +55,7 @@
     },
     "public/style.css": {
       "raw": 15,
-      "shadow-scrim": 31
+      "shadow-scrim": 30
     }
   }
 }

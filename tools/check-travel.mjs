@@ -1674,7 +1674,7 @@ await handedIn();
 test('the page: the ticket\'s arrival field, and objects dated outside the plan under Unscheduled', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.ok(html.includes('<div class="sdk-row" data-types="flight train ferry bus">\n      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-arrival-day-label"><span class="sdk-label" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select><input id="f-arrival-day-input" type="date"'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
+  assert.ok(html.includes('<div class="sdk-form-row" data-types="flight train ferry bus">\n      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-arrival-day-label"><span class="sdk-label" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select><input id="f-arrival-day-input" type="date"'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
   assert.ok(html.includes('<span class="sdk-label">Seat</span><input id="f-seat"') && html.includes('data-types="flight train ferry bus"><span class="sdk-label">Seat'), 'a bus or ferry seat survives an edit');
   assert.ok(html.includes('data-types="flight train"><span class="sdk-label">Class</span><select id="f-travelClass"'), 'a train class survives an edit');
   assert.ok(js.includes("fields.arrives = get('f-arrival')"));

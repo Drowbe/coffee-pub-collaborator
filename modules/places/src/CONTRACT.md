@@ -26,9 +26,9 @@
 
 ## The list
 
-`#body` holds one `section.group` per category that has places, in the order do, eat, stay, travel, other: an `h2.group-title` (the category's icon and name) and `div.rows` of `article.place-row`. With a category chip on, only that group shows. The filter box matches the title, address and notes as you type.
+`#body` holds one `section.sdk-list-group` per category that has places, in the order do, eat, stay, travel, other: an `h2.sdk-group-head` (the category's icon and name) and `div.sdk-list.rows` of `article.sdk-card.place-row`. With a category chip on, only that group shows. The filter box matches the title, address and notes as you type.
 
-**A place** (`article.place-row[data-id][data-cat=do|eat|stay|travel|other]`, focusable, Enter opens it): `.mark` with the category icon; `.main` with `h3.title` and `p.sub[data-slot=address]` (absent when there is no address); `.meta` with **exactly one of** `[data-slot=pinned]` ("On the map", when the place has a position) or `[data-slot=nopos]` ("No position yet"), then `[data-slot=owners]` (`.owner`, one initial each) and `[data-slot=links]` (`.link` pills for the items that point at this place: an icon, `<b>` the kind, the title); `button.item-menu[data-action=menu]`. Clicking the row opens the dialog; the menu opens `#item-menu`.
+**A place** (`article.sdk-card.place-row[data-id][data-cat=do|eat|stay|travel|other]`, focusable, Enter opens it): `.sdk-card-icon` with the category icon (its colour is the card's `--tint`, set from `--tone`); `.main` with `h3.title` and `p.sub[data-slot=address]` (absent when there is no address); `.meta` with **exactly one of** `[data-slot=pinned]` ("On the map", when the place has a position) or `[data-slot=nopos]` ("No position yet"), then `[data-slot=owners]` (`.owner`, one initial each) and `[data-slot=links]` (`.link` pills for the items that point at this place: an icon, `<b>` the kind, the title); `button.item-menu.sdk-card-menu[data-action=menu]`. Clicking the row opens the dialog; the menu opens `#item-menu`.
 
 ## The place menu (`#item-menu`)
 
@@ -78,7 +78,7 @@ Tags beyond the five categories, sorting other than by name inside a group, impo
 
 Places declares `surfaces.destination` `{ id: 'map', part: 'panel' }` (plan-map-destination). On that mount (`#app.part`) it has no `.head`, view switch or host bar, and lists in one list Mine, the environment's own and each of the viewer's spaces' places (`host.spaces()`, `host.storage.list('place:', { scope: 'spaces' })`), those the page's filter has on (`host.destination.onState`: `mine`, `environment`, `spaces`).
 - **`#part-head`** holds **Add a place** (`data-action=add-place`), shown to anyone who may add a place somewhere.
-- **A place** gets `data-where` (`my`, `global` or `in:<space id>`) and a `.scope-mark` in its `.meta`: the person icon and "Mine", the globe and the environment's name (`info.context.environment.name`, as the Map destination's filter and Where name it, decision 19; "Everyone" only when it is not known), or the space's own icon and name. The selected place has `.selected`.
+- **A place** gets `data-where` (`my`, `global` or `in:<space id>`) and a `.scope-mark` in its `.meta`: the person icon and "Mine", the globe and the environment's name (`info.context.environment.name`, as the Map destination's filter and Where name it, decision 19; "Everyone" only when it is not known), or the space's own icon and name. The selected place has `.on`.
 - **The search text** (`q`) filters the list as the old filter box did; a pasted position filters nothing. With a name typed and a place search set up, `tpl-find-more` ("Search for new places", `data-action=find-new`) is at the foot. On Enter (`find`) the results show in `#found`, moved above the list; **Save** on a result opens the dialog with it filled in.
 - **Selecting:** a place with a position sets the page's `selected` (the map flies to it); one without opens its dialog. A place the map selects is marked and brought into view.
 - **Nothing on in the filter:** `tpl-state-none` with "Pick at least one in <Spaces>." **No places:** `tpl-state-empty` reads "No places here yet."

@@ -103,12 +103,12 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // The form, as a module's editor looks: labels, a two-column row, a hint, an error, and the buttons of the approved Buttons family.
   const formCard = (title, uid) => `<div class="pm-ed"><h5 class="pm-ed-t">${title}</h5><form class="sdk-form" onsubmit="return false">
     <label class="sdk-field"><span class="sdk-label">Name</span><input type="text" value="Louvre museum"><span class="sdk-hint"></span></label>
-    <div class="sdk-row">
+    <div class="sdk-form-row">
       <div class="sdk-field sdk-m" role="group" aria-labelledby="${uid}-d"><span class="sdk-label" id="${uid}-d">Day</span><div class="sdk-group"><input type="date" value="2026-10-17" aria-label="Day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar" title="Open the calendar">${fa('calendar')}</button></div><span class="sdk-hint">Saturday</span></div>
       <label class="sdk-field sdk-s"><span class="sdk-label">From</span><input type="time" value="09:30"><span class="sdk-hint"></span></label>
       <label class="sdk-field sdk-s"><span class="sdk-label">To</span><input type="time" value="12:00"><span class="sdk-hint"></span></label>
     </div>
-    <div class="sdk-row">
+    <div class="sdk-form-row">
       <label class="sdk-field sdk-m"><span class="sdk-label">Kind</span><select><option>Sight</option><option>Food</option></select><span class="sdk-hint"></span></label>
       <div class="sdk-field sdk-m" role="group" aria-labelledby="${uid}-c"><span class="sdk-label" id="${uid}-c">Cost <span class="sdk-optional">(optional)</span></span><div class="sdk-group"><input type="number" placeholder="0" aria-label="Cost"><span class="sdk-unit">EUR</span></div><span class="sdk-hint"></span></div>
     </div>
@@ -234,7 +234,7 @@ ${tbl(['Field', 'Markup', 'Notes'], [
 
 <h4 class="ds-h4" id="fields-rules">Usage rules</h4>
 <ul class="ds-desc">
-  <li>A form is a <code>.sdk-form</code>. Fields are <code>.sdk-field</code>; fields side by side are a <code>.sdk-row</code>. A form writes no field CSS of its own.</li>
+  <li>A form is a <code>.sdk-form</code>. Fields are <code>.sdk-field</code>; fields side by side are a <code>.sdk-form-row</code>. A form writes no field CSS of its own.</li>
   <li>The label is above the field and is a real label (<code>&lt;label&gt;</code>, or <code>aria-labelledby</code> for a group). A placeholder is never the only label.</li>
   <li>Every field is 38px high (44px on a phone), beside a button too. Nothing is shorter.</li>
   <li>An error is the danger edge and the error line, never colour alone.</li>
@@ -297,7 +297,7 @@ ${code(`<form class="sdk-form">
     <span class="sdk-error" id="url-err">Start with https://</span></label>
 
   <!-- fields side by side -->
-  <div class="sdk-row">
+  <div class="sdk-form-row">
     <label class="sdk-field sdk-m"><span class="sdk-label">Kind</span><select>...</select><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-s"><span class="sdk-label">From</span><input type="time"><span class="sdk-hint"></span></label>
   </div>
@@ -315,7 +315,7 @@ ${code(`<form class="sdk-form">
   <label class="sdk-check"><input type="radio" name="how"><span>Per person</span></label>
   <label class="sdk-check"><input type="checkbox" class="sdk-switch" role="switch"><span>Allow guests</span></label>
 </form>`)}
-<p class="ds-desc"><b>Names kept so no consumer has to change.</b> <code>.sdk-form</code>, <code>.sdk-field</code>, <code>.sdk-label</code>, <code>.sdk-hint</code>, <code>.sdk-error</code>, <code>.sdk-row</code>, <code>.sdk-group</code>, <code>.sdk-unit</code>, <code>.sdk-check</code> and <code>.sdk-checks</code> keep their names and meaning. New: <code>.sdk-search</code> (with <code>.map-search</code> as an alias), <code>.sdk-switch</code> (with <code>.switch</code> as an alias), <code>.sdk-optional</code>. The look sits on the bare elements, so a field in a module's own markup (<code>.editor-card input</code>, <code>.fields input</code>, <code>.setup-field input</code>) gets it without a class.</p>
+<p class="ds-desc"><b>Names kept so no consumer has to change.</b> <code>.sdk-form</code>, <code>.sdk-field</code>, <code>.sdk-label</code>, <code>.sdk-hint</code>, <code>.sdk-error</code>, <code>.sdk-form-row</code>, <code>.sdk-group</code>, <code>.sdk-unit</code>, <code>.sdk-check</code> and <code>.sdk-checks</code> keep their names and meaning. New: <code>.sdk-search</code> (with <code>.map-search</code> as an alias), <code>.sdk-switch</code> (with <code>.switch</code> as an alias), <code>.sdk-optional</code>. The look sits on the bare elements, so a field in a module's own markup (<code>.editor-card input</code>, <code>.fields input</code>, <code>.setup-field input</code>) gets it without a class.</p>
 `;
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const F = (body, title, o) => api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + FM_CSS }, o || {}));

@@ -21,9 +21,9 @@
     <!-- Overview: the target, what is spent, each category, the burndown -->
     <section id="view-overview" class="view" aria-label="Overview" hidden>
       <p class="hint note" data-slot="withheld-note" hidden></p>
-      <div class="tile target" id="target-tile">
+      <div class="sdk-card target" id="target-tile">
         <div class="target-head">
-          <h2 class="tile-title" data-slot="target-title">Target</h2>
+          <h2 class="sdk-card-title" data-slot="target-title">Target</h2>
           <button class="btn btn-small" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
         </div>
         <p class="big" data-slot="big"></p>
@@ -31,12 +31,12 @@
         <dl class="sums" id="sums"></dl>
         <p class="hint" data-slot="target-note" hidden></p>
       </div>
-      <div class="tile" id="cats-tile">
-        <h2 class="tile-title">By category</h2>
-        <div class="cat-rows" id="cat-rows"></div>
+      <div class="sdk-card" id="cats-tile">
+        <h2 class="sdk-card-title">By category</h2>
+        <div class="sdk-card-list" id="cat-rows"></div>
       </div>
-      <div class="tile" id="burn-tile">
-        <h2 class="tile-title">Target left over time</h2>
+      <div class="sdk-card" id="burn-tile">
+        <h2 class="sdk-card-title">Target left over time</h2>
         <div class="chart" id="chart"></div>
         <ul class="legend" id="legend" aria-hidden="true"></ul>
         <p class="hint" id="burn-words"></p>
@@ -60,13 +60,13 @@
 
     <!-- Settle up: who owes whom -->
     <section id="view-settle" class="view" aria-label="Settle up" hidden>
-      <div class="tile">
-        <h2 class="tile-title">Who owes whom</h2>
-        <div id="payments"></div>
+      <div class="sdk-card">
+        <h2 class="sdk-card-title">Who owes whom</h2>
+        <div class="sdk-card-list" id="payments"></div>
       </div>
-      <div class="tile">
-        <h2 class="tile-title">Each person</h2>
-        <div class="people-rows" id="people-rows"></div>
+      <div class="sdk-card">
+        <h2 class="sdk-card-title">Each person</h2>
+        <div class="sdk-card-list" id="people-rows"></div>
         <p class="hint" data-slot="settle-note"></p>
       </div>
     </section>
@@ -79,11 +79,11 @@
       <h3 id="editor-title">Add a cost</h3>
       <div class="sdk-hint" id="f-readonly" hidden></div>
       <label class="sdk-field"><span class="sdk-label">What is it for</span><input id="f-title" name="title" type="text" maxlength="120" required autocomplete="off"><span class="sdk-hint"></span></label>
-      <div class="sdk-row">
+      <div class="sdk-form-row">
         <div class="sdk-field sdk-m" role="group" aria-labelledby="f-planned-label"><span class="sdk-label" id="f-planned-label">Planned</span><span class="sdk-group sdk-money"><input id="f-planned" name="planned" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet" aria-labelledby="f-planned-label"><span class="sdk-unit" data-slot="unit"></span></span><span class="sdk-hint"></span></div>
         <div class="sdk-field sdk-m" role="group" aria-labelledby="f-actual-label"><span class="sdk-label" id="f-actual-label">Paid</span><span class="sdk-group sdk-money"><input id="f-actual" name="actual" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet" aria-labelledby="f-actual-label"><span class="sdk-unit" data-slot="unit"></span></span><span class="sdk-hint"></span></div>
       </div>
-      <div class="sdk-row">
+      <div class="sdk-form-row">
         <label class="sdk-field sdk-m"><span class="sdk-label">Category</span><select id="f-category" name="category"></select><span class="sdk-hint"></span></label>
         <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Date</span><input id="f-date" name="date" type="date" aria-labelledby="f-date-label"><span class="sdk-hint"></span></div>
       </div>
@@ -123,12 +123,12 @@
 
 <!-- ============================ templates ============================ -->
 
-<template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span><span class="grow"></span><span class="group-total" data-slot="total"></span></h2><div class="rows"></div></section></template>
+<template id="tpl-group"><section class="sdk-list-group"><h2 class="sdk-group-head"><span class="ic" data-icon=""></span><span data-slot="title"></span><span class="sdk-group-count" data-slot="total"></span></h2><div class="sdk-list rows"></div></section></template>
 
 <!-- a cost. The element gets data-id; --tone is set to its category's colour. -->
 <template id="tpl-cost">
-  <article class="cost-row">
-    <button class="cost-main" type="button" data-action="open">
+  <article class="sdk-row cost-row">
+    <button class="sdk-open cost-main" type="button" data-action="open">
       <span class="mark"><span class="ic" data-icon=""></span></span>
       <span class="main">
         <span class="title" data-slot="title"></span>
@@ -144,11 +144,11 @@
   </article>
 </template>
 
-<template id="tpl-cat-row"><div class="cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="cat-bar" aria-hidden="true"><span class="cat-plan"></span><span class="cat-paid"></span></div></div></template>
+<template id="tpl-cat-row"><div class="sdk-row cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="cat-bar" aria-hidden="true"><span class="cat-plan"></span><span class="cat-paid"></span></div></div></template>
 <template id="tpl-sum"><div class="sum"><dt data-slot="label"></dt><dd data-slot="value"></dd></div></template>
 <template id="tpl-legend"><li class="key"><span class="swatch"></span><span data-slot="label"></span></li></template>
-<template id="tpl-person"><div class="person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>
-<template id="tpl-payment"><p class="payment"><span class="ic" data-icon="arrow-right"></span><span data-slot="text"></span><b class="pay-amount" data-slot="amount"></b></p></template>
+<template id="tpl-person"><div class="sdk-row person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>
+<template id="tpl-payment"><p class="sdk-row payment"><span class="ic" data-icon="arrow-right"></span><span data-slot="text"></span><b class="pay-amount" data-slot="amount"></b></p></template>
 <template id="tpl-check"><label class="sdk-check"><input type="checkbox"><span data-slot="name"></span></label></template>
 <template id="tpl-state"><div class="state"><span class="ic" data-icon="wallet"></span><h2 data-slot="title"></h2><p data-slot="text"></p><p><button class="btn btn-primary" type="button" data-action="add" hidden><span class="ic" data-icon="plus"></span> Add a cost</button></p></div></template>
 

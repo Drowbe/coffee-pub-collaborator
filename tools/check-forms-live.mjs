@@ -57,12 +57,12 @@ function formsOf(text, isScript) {
 }
 const GOOD = `<form class="sdk-form" id="fx-form">
   <label class="sdk-field sdk-full"><span class="sdk-label">Title</span><input id="t" type="text" value="Flight to Lisbon"><span class="sdk-hint"></span></label>
-  <div class="sdk-row">
+  <div class="sdk-form-row">
     <div class="sdk-field sdk-m" role="group" aria-labelledby="l-day"><span class="sdk-label" id="l-day">Departure day</span><div class="sdk-datefield sdk-group"><input type="date" id="d" value="2026-10-09" aria-labelledby="l-day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar">&#9633;</button></div><span class="sdk-hint">Fri</span></div>
     <label class="sdk-field sdk-s"><span class="sdk-label">Departure time</span><input id="tm" type="time" value="10:30"><span class="sdk-hint"></span></label>
     <div class="sdk-field sdk-m" role="group" aria-labelledby="l-dur"><span class="sdk-label" id="l-dur">Flight time</span><div class="sdk-group sdk-duration"><input id="h" type="text" inputmode="numeric" value="2" aria-label="Hours"><span class="sdk-unit">h</span><input id="mi" type="text" inputmode="numeric" value="30" aria-label="Minutes"><span class="sdk-unit">min</span></div><span class="sdk-hint"></span></div>
   </div>
-  <div class="sdk-row">
+  <div class="sdk-form-row">
     <label class="sdk-field sdk-m"><span class="sdk-label">Class</span><select id="c"><option>Economy</option><option>Premium economy</option><option>Business</option></select><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-l"><span class="sdk-label">Address</span><input id="a" type="text" value="Rua Augusta 100, Lisboa"><span class="sdk-hint"></span></label>
   </div>
@@ -71,7 +71,7 @@ const GOOD = `<form class="sdk-form" id="fx-form">
 </form>`;
 // Planted drift: a field 30 px tall, a label pushed down, a wide select that is cut, a field with no label, a bare date field.
 const BAD = `<form class="sdk-form" id="fx-form">
-  <div class="sdk-row">
+  <div class="sdk-form-row">
     <label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input id="d" type="date" style="height:30px"><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-s"><span class="sdk-label" style="margin-top:9px">Time</span><input id="tm" type="time"><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-s"><span class="sdk-label">Pick</span><select id="c" style="width:70px"><option>A very long choice that cannot fit in the box at all</option></select><span class="sdk-hint"></span></label>
@@ -210,8 +210,8 @@ function measure() {
     if (h < (phone ? 44 : 32) - 0.5) add('tick-row', nm(c), `is ${r1(h)} px tall, it needs ${phone ? 44 : 32} px`);
   }
   // Rows: fields on one line.
-  for (const row of [...form.querySelectorAll('.sdk-row, .sdk-when')].filter(vis)) {
-    const fields = [...row.querySelectorAll('.sdk-field')].filter((f) => vis(f) && f.closest('.sdk-row, .sdk-when') === row);
+  for (const row of [...form.querySelectorAll('.sdk-form-row, .sdk-when')].filter(vis)) {
+    const fields = [...row.querySelectorAll('.sdk-field')].filter((f) => vis(f) && f.closest('.sdk-form-row, .sdk-when') === row);
     const lines = [];
     for (const f of fields.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)) {
       const t = f.getBoundingClientRect().top;

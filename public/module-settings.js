@@ -18,7 +18,7 @@ function listRow(def, r) {
   const fixed = (def.fixed || []).includes(r.id);
   const color = HEX.test(r.color || '') ? r.color : '#888888';
   const icon = ICONS.includes(r.icon) || ICON_RE.test(r.icon || '') ? r.icon : ICONS[0]; // a saved icon outside the picker stays as it is
-  return `<li class="list-row" data-id="${escapeHtml(r.id || '')}" data-icon="${escapeHtml(icon)}">
+  return `<li class="sdk-row list-row" data-id="${escapeHtml(r.id || '')}" data-icon="${escapeHtml(icon)}">
     <input type="color" data-f="color" value="${escapeHtml(color)}" aria-label="Colour">
     <details class="icon-pick"><summary aria-label="Icon" title="Icon"><i class="fa-solid fa-${escapeHtml(icon)} fa-fw" aria-hidden="true"></i></summary><div class="icon-grid">${ICONS.map((n) => `<button type="button" data-icon-choice="${n}" title="${n.replace(/-/g, ' ')}"><i class="fa-solid fa-${n} fa-fw" aria-hidden="true"></i></button>`).join('')}</div></details>
     <input type="text" data-f="label" value="${escapeHtml(r.label || '')}" maxlength="${def.maxLength || 30}" placeholder="Label" aria-label="Label">

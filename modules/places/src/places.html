@@ -85,12 +85,12 @@
 <!-- ============================ templates ============================ -->
 
 <template id="tpl-chip"><button class="sdk-chip" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="sdk-badge" data-slot="count"></span></button></template>
-<template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="rows"></div></section></template>
+<template id="tpl-group"><section class="sdk-list-group"><h2 class="sdk-group-head"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="sdk-list rows"></div></section></template>
 
 <!-- a place. The element gets data-id and data-cat (a category id from the environment list; do, eat, stay, travel, other to start). -->
 <template id="tpl-place">
-  <article class="place-row" tabindex="0">
-    <span class="mark"><span class="ic" data-icon=""></span></span>
+  <article class="sdk-card place-row" tabindex="0">
+    <span class="sdk-card-icon"><span class="ic" data-icon=""></span></span>
     <div class="main">
       <h3 class="title" data-slot="title"></h3>
       <p class="sub" data-slot="address"></p>
@@ -105,7 +105,7 @@
         <span class="links" data-slot="links"></span>
       </div>
     </div>
-    <button class="item-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
+    <button class="item-menu sdk-card-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
   </article>
 </template>
 <!-- find a place: the heading ("Results for", the text) and the rows; a row is a result with a Save button -->

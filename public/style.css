@@ -944,7 +944,7 @@ body.host-console .grow {
                    More than one control (a day with its buttons, hours and minutes): <div class="sdk-field" role="group"
                    aria-labelledby="..."> with the id on the span.sdk-label. The hint slot (.sdk-hint) holds a hint, a chip, the
                    weekday, or the field's error (.sdk-error).
-     .sdk-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
+     .sdk-form-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
                    three grid lines (label, control, hint), so labels, controls and hints line up across the row. A field that
                    does not fit moves whole to the next line. .sdk-when is a row too.
      .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
@@ -976,7 +976,7 @@ body.host-console .grow {
   min-width: 0;
 }
 
-.sdk-row {
+.sdk-form-row {
   --cols: 2;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -986,45 +986,45 @@ body.host-console .grow {
 }
 
 @container (min-width: 440px) {
-  .sdk-row {
+  .sdk-form-row {
     --cols: 4;
   }
 }
 
 @container (min-width: 760px) {
-  .sdk-row {
+  .sdk-form-row {
     --cols: 6;
   }
 }
 
-.sdk-row > .sdk-field,
-.sdk-row > .sdk-pair {
+.sdk-form-row > .sdk-field,
+.sdk-form-row > .sdk-pair {
   grid-row: span 3;
   grid-template-rows: subgrid;
   padding-bottom: var(--field-gap);
 }
 
-.sdk-row > .sdk-field {
+.sdk-form-row > .sdk-field {
   display: grid;
   grid-column: span 2;
 }
 
-.sdk-row > .sdk-field > .sdk-label {
+.sdk-form-row > .sdk-field > .sdk-label {
   grid-row: 1;
 }
 
-.sdk-row > .sdk-field > .sdk-hint,
-.sdk-row > .sdk-field > .sdk-error {
+.sdk-form-row > .sdk-field > .sdk-hint,
+.sdk-form-row > .sdk-field > .sdk-error {
   grid-row: 3;
 }
 
-.sdk-row > .sdk-s { grid-column: span 1; }
-.sdk-row > .sdk-m { grid-column: span 2; }
-.sdk-row > .sdk-l { grid-column: span 3; }
-.sdk-row > .sdk-full { grid-column: 1 / -1; }
+.sdk-form-row > .sdk-s { grid-column: span 1; }
+.sdk-form-row > .sdk-m { grid-column: span 2; }
+.sdk-form-row > .sdk-l { grid-column: span 3; }
+.sdk-form-row > .sdk-full { grid-column: 1 / -1; }
 
 @container (max-width: 439px) {
-  .sdk-row > .sdk-l { grid-column: span 2; }
+  .sdk-form-row > .sdk-l { grid-column: span 2; }
 }
 
 .sdk-group {
@@ -1036,7 +1036,7 @@ body.host-console .grow {
   min-width: 0;
 }
 
-.sdk-row > .sdk-field > .sdk-group {
+.sdk-form-row > .sdk-field > .sdk-group {
   grid-row: 2;
 }
 
@@ -1321,39 +1321,10 @@ body.in-space .page-scroll {
   color: var(--accent);
 }
 
-/* Add <space> (GitHub #233): the ghost card, last in the grid, a space card's size, in a dashed outline (the one place
-   a card is dashed). A plain button, so Enter and Space work; it fills softly on hover and keyboard focus. */
-.space-choice-add {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 140px;
-  padding: 20px;
-  box-sizing: border-box;
-  background: transparent;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-large);
-  color: var(--text-dim);
-  font: inherit;
-  font-weight: var(--weight-strong);
-  cursor: pointer;
-}
+/* Add <space> (GitHub #233): the ghost card, last in the grid, a space card's size. A plain button, so Enter and Space work.
+   Its look (the dashed hairline, the quiet fill on hover and keyboard focus) is the add card in system.css (Cards). */
 .space-choice-add[hidden] {
   display: none;
-}
-.space-choice-add i {
-  font-size: var(--text-22);
-}
-.space-choice-add:hover,
-.space-choice-add:focus-visible {
-  background: var(--surface);
-  color: var(--text);
-}
-.space-choice-add:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 .space-choice-add:disabled {
   opacity: 0.6;
@@ -1500,16 +1471,7 @@ body.in-space .page-scroll {
   display: none;
 }
 
-.space-choice {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background: var(--bg-section);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
+/* Home's space card: the surface, padding and hover are the card in system.css (Cards); this is its layout. */
 
 .space-choice-image {
   grid-area: img;
@@ -1814,14 +1776,7 @@ body.in-space .page-scroll {
 
 .panel {
   max-width: 420px;
-  margin: 12vh auto;
-  padding: 24px;
-  background: var(--bg-section);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  margin: 12vh auto; /* the surface, padding, corner and gap are the panel in system.css (Cards) */
 }
 
 .panel h1 {
@@ -2954,17 +2909,13 @@ button.whoami:focus-visible {
 .users {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px; /* cards in a list never touch: 8px apart */
 }
 
+/* Manage's person and space cards: the card in system.css (Cards), laid out as a row. */
 .user-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  background: var(--bg-section);
-  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
 }
 
 .user-title {
@@ -5427,10 +5378,6 @@ span.message-vis {
   margin-top: 0;
 }
 
-.user-card.lobby {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-
 .space-thumb {
   width: 36px;
   height: 36px;
@@ -6310,20 +6257,9 @@ body.chat-window {
   font-weight: var(--weight-strong);
 }
 
-.space-choice {
-  position: relative;
-}
-
-/* The whole card enters the space (GitHub #225): a pointer, a lifted border on hover and an accent ring on keyboard focus. */
+/* The whole card enters the space (GitHub #225): a pointer; the hover fill and the focus outline are the card's (system.css). */
 .space-choice[role='button'] {
   cursor: pointer;
-}
-.space-choice[role='button']:hover {
-  border-color: var(--accent);
-}
-.space-choice[role='button']:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* A module built for an older version of the product: it can't run until its author updates it. */
@@ -7259,12 +7195,11 @@ body.chat-window {
 .env-page-banner { padding: 6px 16px; background: color-mix(in srgb, var(--danger) 18%, var(--bg)); border-bottom: 1px solid var(--danger); color: var(--text); font-size: var(--text-13); text-align: center; }
 .env-page-banner a { color: var(--text); font-weight: var(--weight-strong); margin-left: 6px; }
 /* The host console's plans catalog: one card per plan, the design system's fields grid inside it. */
-.plans-editor { display: grid; gap: 12px; margin: 8px 0; }
-.plan-row { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-card, var(--bg)); }
+.plans-editor { display: grid; gap: var(--space-2); margin: 8px 0; }
+.plan-row { display: grid; } /* a card (system.css, Cards) laid out as a grid of fields */
 .plan-row .plan-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 /* The host console's managed AI: one company per row, its own small form. */
-.ai-services { display: grid; gap: 12px; margin-top: 8px; }
-.ai-service { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-card, var(--bg)); }
+.ai-services { display: grid; gap: var(--space-2); margin-top: 8px; }
 .ai-service-head { display: flex; align-items: center; gap: 10px; }
 .shared-files { margin: 6px 0 0; padding-left: 18px; font-size: var(--text-13); }
 .shared-files li { margin: 2px 0; }
@@ -7287,8 +7222,7 @@ body.chat-window {
 .module-lifted { position: relative; z-index: 3; box-shadow: 0 0 0 2px var(--accent), 0 4px 12px color-mix(in srgb, black 25%, transparent); }
 
 /* a list setting (Planner's marker types): a row each with a colour, an icon, a label and tools */
-.list-rows { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.list-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-card); }
+.list-rows { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .list-row [data-f="label"] { flex: 1; min-width: 0; }
 .list-tools { display: flex; align-items: center; gap: 4px; flex: none; }
 .icon-pick { position: relative; flex: none; }

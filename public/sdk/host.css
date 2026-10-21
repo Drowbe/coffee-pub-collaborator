@@ -60,6 +60,16 @@
   --tint-pink: #ad3a78;
 }
 
+/* A tint by name (data-tint="<name>"): a card's icon chip and its words (Cards, system.css). The same lines are in public/style.css. */
+[data-tint="gold"] { --tint: var(--tint-gold); }
+[data-tint="blue"] { --tint: var(--tint-blue); }
+[data-tint="green"] { --tint: var(--tint-green); }
+[data-tint="teal"] { --tint: var(--tint-teal); }
+[data-tint="purple"] { --tint: var(--tint-purple); }
+[data-tint="red"] { --tint: var(--tint-red); }
+[data-tint="orange"] { --tint: var(--tint-orange); }
+[data-tint="pink"] { --tint: var(--tint-pink); }
+
 * {
   box-sizing: border-box;
 }
@@ -96,20 +106,6 @@ a {
 }
 
 
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-medium);
-  padding: 10px 12px;
-}
-
-.section {
-  background: var(--bg-section);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  padding: 14px;
-}
-
 /* form:start -- the form standard (documentation/plans/plan-form-standard.md): one look for every field of a form, so a
    module and an app page draw the same field. These rules are word for word the same in public/style.css and
    public/sdk/host.css; a form puts .sdk-form on its <form> and writes no field CSS of its own.
@@ -123,7 +119,7 @@ a {
                    More than one control (a day with its buttons, hours and minutes): <div class="sdk-field" role="group"
                    aria-labelledby="..."> with the id on the span.sdk-label. The hint slot (.sdk-hint) holds a hint, a chip, the
                    weekday, or the field's error (.sdk-error).
-     .sdk-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
+     .sdk-form-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
                    three grid lines (label, control, hint), so labels, controls and hints line up across the row. A field that
                    does not fit moves whole to the next line. .sdk-when is a row too.
      .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
@@ -155,7 +151,7 @@ a {
   min-width: 0;
 }
 
-.sdk-row {
+.sdk-form-row {
   --cols: 2;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -165,45 +161,45 @@ a {
 }
 
 @container (min-width: 440px) {
-  .sdk-row {
+  .sdk-form-row {
     --cols: 4;
   }
 }
 
 @container (min-width: 760px) {
-  .sdk-row {
+  .sdk-form-row {
     --cols: 6;
   }
 }
 
-.sdk-row > .sdk-field,
-.sdk-row > .sdk-pair {
+.sdk-form-row > .sdk-field,
+.sdk-form-row > .sdk-pair {
   grid-row: span 3;
   grid-template-rows: subgrid;
   padding-bottom: var(--field-gap);
 }
 
-.sdk-row > .sdk-field {
+.sdk-form-row > .sdk-field {
   display: grid;
   grid-column: span 2;
 }
 
-.sdk-row > .sdk-field > .sdk-label {
+.sdk-form-row > .sdk-field > .sdk-label {
   grid-row: 1;
 }
 
-.sdk-row > .sdk-field > .sdk-hint,
-.sdk-row > .sdk-field > .sdk-error {
+.sdk-form-row > .sdk-field > .sdk-hint,
+.sdk-form-row > .sdk-field > .sdk-error {
   grid-row: 3;
 }
 
-.sdk-row > .sdk-s { grid-column: span 1; }
-.sdk-row > .sdk-m { grid-column: span 2; }
-.sdk-row > .sdk-l { grid-column: span 3; }
-.sdk-row > .sdk-full { grid-column: 1 / -1; }
+.sdk-form-row > .sdk-s { grid-column: span 1; }
+.sdk-form-row > .sdk-m { grid-column: span 2; }
+.sdk-form-row > .sdk-l { grid-column: span 3; }
+.sdk-form-row > .sdk-full { grid-column: 1 / -1; }
 
 @container (max-width: 439px) {
-  .sdk-row > .sdk-l { grid-column: span 2; }
+  .sdk-form-row > .sdk-l { grid-column: span 2; }
 }
 
 .sdk-group {
@@ -215,7 +211,7 @@ a {
   min-width: 0;
 }
 
-.sdk-row > .sdk-field > .sdk-group {
+.sdk-form-row > .sdk-field > .sdk-group {
   grid-row: 2;
 }
 

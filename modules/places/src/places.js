@@ -324,12 +324,12 @@
     const look = lookFor(p);
     el.dataset.cat = look.cat.id;
     tone(el, look.color);
-    if (asPart && state.selected === rowKey(w, p.id)) el.classList.add('selected');
+    if (asPart && state.selected === rowKey(w, p.id)) el.classList.add('on');
     const marks = slot(el, 'marks');
     marks.replaceChildren(...(w === 'global' ? markNames(p) : []).map((name) => { const m = clone('tpl-mark'); fill(m, { name }); return m; }));
     marks.hidden = !marks.children.length;
     if (w !== 'saved') scopeMark(el, w);
-    setIcon(el.querySelector('.mark [data-icon]'), look.icon);
+    setIcon(el.querySelector('.sdk-card-icon [data-icon]'), look.icon);
     const visit = slot(el, 'visit');
     const st = statusOf(p.status);
     if (st) { setIcon(visit.querySelector('[data-icon]'), st.icon); visit.querySelector('[data-slot="word"]').textContent = st.label; }
@@ -499,7 +499,7 @@
     let found = null;
     for (const el of $('body').querySelectorAll('.place-row')) {
       const on = rowKey(el.dataset.where, el.dataset.id) === state.selected;
-      el.classList.toggle('selected', on);
+      el.classList.toggle('on', on);
       if (on) found = el;
     }
     if (found && scroll) found.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

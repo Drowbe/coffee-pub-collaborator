@@ -8,7 +8,7 @@
 //   3. The date picker's rules live in host.css, not in a string in host.js.
 // Only in a form that has moved (its markup says class="sdk-form"), so nothing fails until a module migrates:
 //   4. Every visible input, select and textarea is in a .sdk-field (or a tick box / choice / people piece); every .sdk-field has a label.
-//   5. Two fields side by side sit in a .sdk-row (a parent holding more than one .sdk-field must be a form, section, row, when, pair or group).
+//   5. Two fields side by side sit in a .sdk-form-row (a parent holding more than one .sdk-field must be a form, section, row, when, pair or group).
 //   6. No old class is left (.editor-card, .editor-row, .editor-buttons, .row.buttons, .timing, .when-pick, .hm, .pairing,
 //      .fieldgroup, .fieldgroup-title, .setup-field, .field-label).
 //   7. No <select> lists more than eight fixed choices.
@@ -27,7 +27,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TOKENS = ['--field-gap', '--section-gap'];
 const LOOK_TOKENS = ['--field-h', '--field-pad-x', '--field-font', '--label-size', '--label-gap', '--check-h'];
 const OLD_CLASSES = ['editor-card', 'editor-row', 'editor-buttons', 'timing', 'when-pick', 'hm', 'pairing', 'fieldgroup', 'fieldgroup-title', 'setup-field', 'field-label'];
-const ROW_PARENTS = ['sdk-form', 'sdk-section', 'sdk-row', 'sdk-when', 'sdk-pair', 'sdk-group'];
+const ROW_PARENTS = ['sdk-form', 'sdk-section', 'sdk-form-row', 'sdk-when', 'sdk-pair', 'sdk-group'];
 const PIECES = ['sdk-field', 'sdk-check', 'sdk-people', 'sdk-chip'];
 const VOID = new Set(['input', 'br', 'hr', 'img', 'meta', 'link', 'source', 'area', 'base', 'col', 'embed', 'wbr']);
 const FIELD_TAGS = new Set(['input', 'select', 'textarea']);
@@ -146,7 +146,7 @@ export function checkForm(form, ctx = {}) {
   }
   for (const n of walk(form)) {
     const fields = n.children.filter((c) => hasClass(c, 'sdk-field'));
-    if (fields.length > 1 && n !== form && !ROW_PARENTS.some((c) => hasClass(n, c))) add(`fields side by side outside a .sdk-row: ${fields.map(label).join(' ')} in ${label(n)}`);
+    if (fields.length > 1 && n !== form && !ROW_PARENTS.some((c) => hasClass(n, c))) add(`fields side by side outside a .sdk-form-row: ${fields.map(label).join(' ')} in ${label(n)}`);
   }
   return out;
 }
@@ -197,7 +197,7 @@ function selfTest() {
   const expect = (name, got, want) => { if (!!got.length !== want) fails.push(`self-test "${name}": ${want ? 'expected a failure, got none' : 'expected a pass, got ' + got.join(' | ')}`); };
   const form = (inner, cls = 'sdk-form') => movedForms(`<form class="${cls}">${inner}</form>`, false)[0];
   const field = (c = '<input id="a" type="text">') => `<label class="sdk-field"><span class="sdk-label">A</span>${c}<span class="sdk-hint"></span></label>`;
-  const clean = `${field()}<div class="sdk-row">${field('<input id="b">')}${field('<select id="c"><option>1</option></select>')}</div>
+  const clean = `${field()}<div class="sdk-form-row">${field('<input id="b">')}${field('<select id="c"><option>1</option></select>')}</div>
     <label class="sdk-check"><input type="checkbox"> Yes</label>
     <div class="sdk-field" role="group"><span class="sdk-label">Day</span><div class="sdk-datefield sdk-group"><input type="date"><button class="sdk-icon-btn btn-small btn-quiet"></button></div></div>
     <input type="hidden" name="h">`;

@@ -266,17 +266,17 @@
       const names = counts.get(o.id);
       const width = voters ? Math.round((names.length / Math.max(voters, max, 1)) * 100) : 0;
       const win = leaders.some((l) => l.id === o.id);
-      return `<button type="button" class="opt ${mine.includes(o.id) ? 'mine' : ''} ${win ? 'win' : ''}" data-vote="${esc(x.key)}|${esc(o.id)}" ${votable ? '' : 'disabled'}>
+      return `<button type="button" class="sdk-row opt ${mine.includes(o.id) ? 'on mine' : ''} ${win ? 'win' : ''}" data-vote="${esc(x.key)}|${esc(o.id)}" ${votable ? '' : 'disabled'}>
         <span class="fill" style="width:${width}%"></span><span class="name">${esc(o.text)}${o.date ? `<small>${esc(new Date(o.date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }))}</small>` : ''}${o.desc ? `<small>${esc(o.desc)}</small>` : ''}</span><span class="num">${win ? (leaders.length > 1 ? 'Tied &middot; ' : 'Winner &middot; ') : ''}${names.length}</span></button>
         ${names.length ? `<div class="who">${esc(names.join(', '))}</div>` : ''}${optionLinkHtml(x, o)}`;
     }).join('');
     const canManage = mayManage(x);
     const status = closesText(p);
-    return `<article class="poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
-      ${canManage ? `<button class="menu-btn sdk-icon-btn btn-quiet btn-small" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}
-      <h3 data-drag="${esc(x.key)}" title="Drag onto a to-do to link it">${esc(p.question)}</h3>
+    return `<article class="sdk-card poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
+      ${canManage ? `<button class="sdk-card-menu sdk-icon-btn btn-quiet btn-small" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}
+      <h3 class="sdk-card-title" data-drag="${esc(x.key)}" title="Drag onto a to-do to link it">${esc(p.question)}</h3>
       <div class="meta">${p.multi ? 'Pick any' : 'Pick one'} &middot; ${voters} ${voters === 1 ? 'vote' : 'votes'}${status ? `<span class="sdk-chip-tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
-      ${opts}
+      <div class="sdk-card-list">${opts}</div>
       ${p.addable && votable && p.options.length < MAX_OPTIONS ? `<div class="addopt"><input type="text" maxlength="100" placeholder="Suggest another option" data-addtext="${esc(x.key)}" aria-label="Suggest another option"><button class="btn btn-small" type="button" data-addopt="${esc(x.key)}">Add</button></div>` : ''}
       ${x.scope === 'spaces' && !closed ? `<div class="meta">Vote in that ${esc(word('space'))}.</div>` : ''}
       ${backlinksHtml(x)}
@@ -288,7 +288,7 @@
     const shown = list.filter((x) => (show === 'all' ? true : show === 'closed' ? isClosed(x.p) : !isClosed(x.p)));
     if (!shown.length) return '';
     shown.sort((a, b) => (b.p.createdAt || 0) - (a.p.createdAt || 0));
-    return `<section class="group">${label ? `<h4>${label}</h4>` : ''}${shown.map(pollHtml).join('')}</section>`;
+    return `<section class="sdk-list-group">${label ? `<h4 class="sdk-group-head">${label}</h4>` : ''}<div class="sdk-list">${shown.map(pollHtml).join('')}</div></section>`;
   }
 
   // Open / Closed / All is the toolbar's view switch: host.ui.viewSwitch draws it, tracks the current

@@ -1,6 +1,6 @@
 # Environments Architecture
 
-**Audience:** developers changing `server/index.js`, `server/environment.js`, `server/host-registry.js`,
+**Audience:** developers changing `server/index.js`, `server/environment.js`, `server/host-registry.js`, `server/domains.js`,
 `server/migrate-names.js`, or adding a new module-level singleton to the server.
 
 What this is for and the decisions behind it are [plan-environments](../plans/plan-environments.md) (phases 1 to 5
@@ -69,21 +69,55 @@ The "door" is one middleware, registered right after `express.json()`, before an
 - **No `BASE_DOMAIN`:** `app.use((req, res, next) => envContext.run(environmentFor(''), next))`. Every request
   gets the one environment. This is the whole of the several-environments machinery's effect on a self-hosted install:
   one extra `AsyncLocalStorage.run` wrapping every request, resolving to the same environment every time.
-- **`BASE_DOMAIN` set:** the hostname picks a branch -- `admin.<base>` dispatches to `hostRouter` (a separate
-  `express.Router()`, never mounted on `app` directly, so a request there can never fall through to a route that
-  needs an environment); the bare base domain serves `public/landing.html` for `/` and a short allowlist of other
-  paths it needs (`/landing.css`, `/landing.js`, `/style.css`, `/theme.css`, `/img/site/icon`, `/favicon.ico`,
-  `/fa/*`, `/assets/images/brand/*`, `/api/product`, `/api/product/environment`, `/api/product/environments`) -- no
-  environment is ever resolved there, so `/theme.css` and `siteIcon` both fall back to "nothing set" when
-  `envContext.getStore()` is empty, the same as any environment that has not set its own (for `siteIcon` that
-  bundled default, and the one `/manifest.webmanifest` offers alongside any environment's own custom icon, is
-  `public/assets/images/brand/brandmark-color.png` -- the one file a rebrand replaces, not a copy of it);
-  `<slug>.<base>` resolves that slug's environment the same way the no-base-domain case resolves the default
-  one; anything else is a plain 404. A hostname matching `PREVIOUS_BASE_DOMAINS` 301s to the same path at the
-  current base first. `PRODUCT_NAME` (default "Collaborator") and `CONTACT_EMAIL` (default none) are
+- **`BASE_DOMAIN` set:** the hostname picks one branch, in this order (`server/index.js`, "the door"; the
+  settings are read by `domainSettings()` in `server/domains.js`, [plan-domains](../plans/plan-domains.md)):
+  1. `admin.<base>`, the console host, dispatches to `hostRouter` (a separate `express.Router()`, never mounted
+     on `app` directly, so a request there can never fall through to a route that needs an environment). The
+     console is always at `admin.<base>`; there is no setting to move it.
+  2. The **product host** serves the product's own pages: `public/landing.html` for `/`, the use pages
+     (`PRODUCT_PAGES`) and a short allowlist of other paths (`PRODUCT_HOST_PATHS`: `/landing.css`, `/landing.js`,
+     `/style.css`, `/theme.css`, `/img/site/icon`, `/favicon.ico`, `/api/product`, `/api/product/environment`,
+     `/api/product/environments`, `/api/product/address`, `/api/product/signup`, and `/fa/*`, `/fonts/*` and
+     `/assets/images/brand/*`). The product host is `PRODUCT_DOMAIN`, or the bare `<base>` when that is unset or
+     equal to the base. No environment is ever resolved there, so `/theme.css` and `siteIcon` both fall back to
+     "nothing set" when `envContext.getStore()` is empty, the same as any environment that has not set its own
+     (for `siteIcon` that bundled default, and the one `/manifest.webmanifest` offers alongside any environment's
+     own custom icon, is `public/assets/images/brand/brandmark-color.png` -- the one file a rebrand replaces, not
+     a copy of it). Anything else on that host is a plain 404.
+  3. A hostname under `PREVIOUS_BASE_DOMAINS` gets a 301 to the same path at the current base. It comes after the
+     product host, so an old base that is now the product host is never redirected.
+  4. The bare `<base>`, when the product host is elsewhere, gets a 302 to the same path and query at the product
+     host, the request's port carried through (`redirectToHost()`).
+  5. `<slug>.<base>` resolves that slug's environment the same way the no-base-domain case resolves the default
+     one.
+  6. Anything else is a plain 404.
+
+  The two redirects and the sign-up answer carry the port the same way (`requestPort()`): behind a proxy it
+  is implicit, in local development it matters.
+
+  **The settings.** `PRODUCT_DOMAIN` is a host name, lower-cased: no scheme, no port, no path. A value that is
+  not a host name logs a line and is ignored (the product pages stay at the base). It equal to `admin.<base>`
+  stops the start. `RESERVED_SLUGS` is a comma list of names. Both are ignored without `BASE_DOMAIN`, with one
+  start line naming those that were set. Nothing about them is written to `host.json`; they are read on every
+  start. The start line names the console host and the product host.
+
+  **Reserved names.** `isReserved(slug)` in `server/host-registry.js` is true for the built-in `RESERVED_SLUGS`
+  set (`www`, `api`, `host`, `admin`, `mail`, `smtp`, `imap`, `pop`, `pop3`, `ftp`, `ns1`, `ns2`, `static`, `cdn`,
+  `assets`, `app`, `status`, `support`, `help`, `blog`, `docs`, `livekit`, `turn`, `stun`, `console`, `signup`,
+  `login`), for the `RESERVED_SLUGS` setting's names, and for the automatic labels: the first label of
+  `PRODUCT_DOMAIN` and of `LIVEKIT_HOST` when each sits directly under the base (`setReservedNames()`). It is
+  checked **only where an environment is made**: `addEnvironment()` (so the console's create form and sign-up) and
+  `MIGRATE_ENVIRONMENT_SLUG`, with a 400 `"<slug>" is reserved. Pick another.` It is not checked in `cleanSlug()`,
+  which also runs when `host.json` is read, so a name reserved later never drops an existing environment: it keeps
+  working, and the start logs once per such environment that it "is now reserved". The one start check is
+  that `PRODUCT_DOMAIN`'s own label, when directly under the base, is not an existing environment's slug (the
+  product pages would hide it); the start stops with a line naming it. All of these checks run before `host.json`
+  is written.
+
+  `PRODUCT_NAME` (default "Collaborator") and `CONTACT_EMAIL` (default none) are
   configuration, never code, since the product's own name is not settled yet -- `GET /api/product` (registered on
-  both the main app and `hostRouter`, never behind a session) answers `{ name, contact, baseDomain, version }`
-  wherever it is reached. `PRODUCT_NAME` unset, empty or only spaces means the default, everywhere: `productName()`
+  both the main app and `hostRouter`, never behind a session) answers `{ name, contact, baseDomain, productDomain, version, signup, plans, templates, pages }`
+  wherever it is reached; `productDomain` is the product host (`PRODUCT_DOMAIN`, else the base), null without a base domain. `PRODUCT_NAME` unset, empty or only spaces means the default, everywhere: `productName()`
   in `server/product-name.js` is the one rule, and `DEFAULT_PRODUCT_NAME` there is the only place the default is
   written. The pages write no name of their own: they start with none and fill it in from branding. `version` is
   the package version and the first seven characters of `APP_REVISION` (`v0.4.0 (1a2b3c4)`), which the Dockerfile
@@ -111,12 +145,23 @@ host ever learning who anyone is (accounts live inside each environment, not in 
   deduplicated, capped at five, `Path=/`, `SameSite=Lax`, `Secure` when the request is, a year long, **not**
   `HttpOnly` (the page reads it with `document.cookie`). Never cleared on sign-out -- it is a hint, not a session,
   and it names no person. A no-op without `BASE_DOMAIN`.
+  The cookie is on `Domain=<BASE_DOMAIN>`, so a product page on another site (a `PRODUCT_DOMAIN` outside the
+  base) cannot read it. `public/landing.js` skips the **recent** shortcut ("Sign in to ...") when
+  `location.hostname` is not the base or under it; the environment list and the sign-in form stay. Nothing moves
+  the cookie to the product host.
 - `GET /api/product/environment?slug=` (registered on both the main app and `hostRouter`, and in
   `BARE_BASE_PATHS`, so it answers at the bare base domain too) answers `{ slug, name }` for an `active` or
   `pastDue` environment and a plain 404 for anything else -- unknown, suspended, or a slug that fails `cleanSlug`'s own
   shape check before it ever reaches the registry. Suspended and unknown look identical on purpose: a slug is
   already a public address (it is the environment's own subdomain), so confirming one exists reveals nothing a browser
   couldn't already see by just visiting it.
+- `GET /api/product/address?slug=` (same registration pattern, and in `PRODUCT_HOST_PATHS`) is the sign-up
+  form's check as the name is typed. It answers `{ slug, free, reason }` through `HostRegistry#addressFor()`:
+  `reason` is `shape` (not a slug; `slug` is echoed lower-cased, cut to 64 characters), `reserved`, `taken` (an
+  environment has it, whatever its status) or null when `free` is true. It is public, 404 without a
+  `hostRegistry`, and limited to 120 a minute per address (429 `Too many checks from this address; try again in a
+  minute.`). Unlike the lookup above, it says nothing about the environment beyond whether the name is taken, and
+  the lookup keeps meaning "this environment exists".
 - `GET /api/product/environments` (same registration pattern) answers `{ environments: [{ slug, name }] }` for
   the page's own dropdown: every `active` or `pastDue` environment that is not refused (see "Refused environments"),
   sorted by name, suspended ones left out entirely
@@ -132,6 +177,11 @@ host ever learning who anyone is (accounts live inside each environment, not in 
   protocol-relative URL to a browser, not a path), `/` otherwise; blocked-by-the-limiter or a wrong login/password
   both `303` to `/login?error=1&login=<login>`, indistinguishable from each other, same as the JSON route's own
   single "wrong username or password".
+- `POST /api/product/signup` (main app only, in `PRODUCT_HOST_PATHS`, so it is served at the product host; off
+  unless `SIGNUP=on`) makes the environment on the free plan and its owner, and answers 201
+  `{ url }`, `<scheme>://<slug>.<BASE_DOMAIN>[:port]/login?login=<login>`. The person is not signed in (the product
+  host is another site, and no one-time sign-in link exists), so they land on the new environment's sign-in with
+  the login filled in. A reserved name is a 400 `"<slug>" is reserved. Pick another.`; a taken one a 409.
 
 Because `AsyncLocalStorage` context follows the real async causality chain (promises, `await`, timers,
 `EventEmitter.emit`), a route handler can `await` anything, register a `setInterval`, or call `moduleBus.on(...)`
@@ -506,7 +556,7 @@ one. The old `/api/host/tenants...` paths are gone and answer 404; there is no a
 | Route | Answer |
 |---|---|
 | `GET /api/host/environments` | `{ environments: [{ ...the registry record, usage: { members, storageBytes, aiCallsThisMonth, spaces }, refused, template }] }`, `template` being `{ id, name, source, version, appliedVersion, appliedAt, offerOpen, skipped: [{ id, name, why }] }` or null, read from the environment itself (see "Templates"); every field is present even for an environment that isn't open |
-| `GET /api/host/settings` | `{ baseDomain, version, hostAdmins, productName, contactEmail, plans, signup, billingSecretSet, modules }`; `modules` is `[{ id, name, icon }]`, the conference and the chat first, then the bundled modules by id, for the template editor |
+| `GET /api/host/settings` | `{ baseDomain, productDomain, version, hostAdmins, productName, contactEmail, plans, signup, billingSecretSet, modules }`; `modules` is `[{ id, name, icon }]`, the conference and the chat first, then the bundled modules by id, for the template editor; `productDomain` is the product host (`PRODUCT_DOMAIN`, else the base), and the console is always `admin.<baseDomain>`, so there is no console field |
 | `GET /api/host/templates` | `{ templates: [{ id, name, description, source, version, hidden, edited, update, usedBy: [slugs] }] }`, every template the host can see (see "Templates"); `edited` is true for a bundled template with the host's edits, and `update` is `{ shippedVersion }` while its "updated in this image" notice is open, else null |
 | `GET /api/host/templates/:id` | `{ template }`, the template in full, with `source`, `version`, `hidden`, `createdAt` and `updatedAt`; an edited bundled template adds `shipped`, the shipped template in full, for compare; 404 `There is no template called <id>.` |
 | `POST /api/host/templates` `{ ...the template's fields }` | 201 `{ template }`, saved as version 1, not hidden; 400 `{ error, problems }` (the first problem, then every one); 409 `There is already a template called <id>.` |

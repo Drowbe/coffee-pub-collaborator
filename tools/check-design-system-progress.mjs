@@ -6,7 +6,7 @@
  * --accent (or --danger on an over budget and an almost full bar); a bar (role="progressbar") with no name, or with no aria-valuenow, -min and -max (an
  * indeterminate one has aria-busy and no valuenow); a value out of its range; a meter with no value in words; a planned fill that is not the accent at 35%; an over-budget bar
  * without the danger fill and the word "Over"; an AI bar at 90% or more without the danger fill and "Almost full"; a poll fill that is not the accent at 24%, not behind the row or
- * that takes the pointer; the shimmer not animated (1.4s) or with no reduced-motion rule; a microphone bar not 3px wide, a lit one not --ok, an unlit one not --border; a
+ * that takes the pointer; the shimmer not animated (1.4s) or with no reduced-motion rule; a microphone level that is not a round face with one glyph, or whose fill is not --ok-mark rising from the bottom to its level; a
  * raw rgba green; a hard-coded colour; the family not marked Approved; the undecided list still naming Progress bars and meters.
  */
 import fs from 'node:fs';
@@ -72,9 +72,12 @@ export async function browserChecks(b) {
       // the shimmer
       for (const e of d.querySelectorAll('.sdk-progress.indeterminate')) { const a = cs(e.querySelector('.sdk-progress-fill')); if (a.animationName !== 'shimmer' || a.animationDuration !== '1.4s') bad(t + ': the shimmer is not animated (' + a.animationName + ' ' + a.animationDuration + ')'); }
       // the microphone
-      for (const e of d.querySelectorAll('.sdk-mic')) { const bars = [...e.children]; if (bars.length !== 5) bad(t + ': a microphone level has ' + bars.length + ' bars');
-        bars.forEach((s, i) => { const c = cs(s); if (parseFloat(c.width) !== 3) bad(t + ': a microphone bar is ' + c.width + ' wide'); if (parseFloat(c.height) !== [4, 7, 10, 13, 16][i]) bad(t + ': microphone bar ' + (i + 1) + ' is ' + c.height + ' high');
-          const lit = s.classList.contains('on'); if (c.backgroundColor !== (lit ? ok : border)) bad(t + ': a ' + (lit ? 'lit' : 'unlit') + ' microphone bar is not ' + (lit ? '--ok-mark' : '--border')); }); }
+      for (const e of d.querySelectorAll('.sdk-mic')) { const c = cs(e); const now = parseFloat(e.getAttribute('aria-valuenow')); const want = now * 20; const pseudo = w.getComputedStyle(e, '::before');
+        if (c.borderTopLeftRadius !== round) bad(t + ': a microphone face is not round'); if (c.overflow !== 'hidden') bad(t + ': a microphone face does not clip its fill to the circle');
+        if (c.width !== c.height) bad(t + ': a microphone face is ' + c.width + ' by ' + c.height);
+        if (e.children.length !== 1 || !e.querySelector('i.fa-microphone')) bad(t + ': a microphone level is not one glyph (the five bars are gone)');
+        if (pseudo.backgroundColor !== ok) bad(t + ': a microphone fill is not --ok-mark (' + pseudo.backgroundColor + ')'); if (pseudo.position !== 'absolute' || pseudo.bottom !== '0px') bad(t + ': a microphone fill does not rise from the bottom');
+        if (Math.abs(parseFloat(pseudo.height) - parseFloat(c.height) * want / 100) > 0.6) bad(t + ': a microphone fill is ' + pseudo.height + ' high at ' + want + '%'); }
     }
     if (out.bars < 20) bad('only ' + out.bars + ' bars drawn');
     return JSON.stringify(out); })()`));

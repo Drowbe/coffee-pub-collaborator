@@ -381,4 +381,21 @@ await withServer({ BASE_DOMAIN: 'example.test', SIGNUP: 'on' }, async (base) => 
   n += 1;
 });
 
+test('a limiter does not grow with distinct addresses: expired entries go, and the size is capped', () => {
+  const lim = new auth.LoginLimiter(5, 1000);
+  const real = Date.now;
+  let now = real();
+  Date.now = () => now;
+  try {
+    for (let i = 0; i < 1500; i += 1) lim.fail(`a${i}`);
+    assert.equal(lim.hits.size, 1500, 'nothing has expired yet and the cap is far off');
+    now += 2000;
+    lim.fail('late');
+    assert.equal(lim.hits.size, 1, 'the expired ones went when it grew');
+    for (let i = 0; i < 12000; i += 1) lim.fail(`b${i}`);
+    assert.ok(lim.hits.size <= 10000, `capped: ${lim.hits.size}`);
+    assert.ok(lim.hits.has('b11999'), 'the newest stay');
+  } finally { Date.now = real; }
+});
+
 console.log(`check-auth: ${n} groups OK`);

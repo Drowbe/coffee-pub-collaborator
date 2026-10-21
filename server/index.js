@@ -52,7 +52,8 @@ const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROF
 const phaseRule = require('../public/phases.js');
 const auth = require('./auth');
 const { buildEnvironment, flushEnvironment } = require('./environment');
-const { HostRegistry, HostError, cleanSlug } = require('./host-registry');
+const { HostRegistry, HostError, cleanSlug, reservedSentence } = require('./host-registry');
+const { domainSettings } = require('./domains');
 const { migrateHost, backupRefusal, refusedAtStartup, refusalSentence, MigrationError, recordedParts, LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 const callNames = require('./call-names');
 const { mountOldLinks } = require('./old-links');
@@ -73,6 +74,11 @@ const {
   APP_REVISION = 'dev', // the commit the image was built from (the Dockerfile sets it)
   BASE_DOMAIN = '',
   PREVIOUS_BASE_DOMAINS = '',
+  // Where the product pages live (documentation/plans/plan-domains.md): a host name, no scheme and no port; unset, the
+  // bare BASE_DOMAIN, as before. RESERVED_SLUGS: a comma list of names no new environment may take, on top of the
+  // built-in ones. Both are ignored without BASE_DOMAIN. The console is always at admin.<BASE_DOMAIN>.
+  PRODUCT_DOMAIN = '',
+  RESERVED_SLUGS = '',
   MIGRATE_ENVIRONMENT_SLUG = '',
   CONTACT_EMAIL = '',
   // Seed the host's managed AI service, per company (documentation/plans/plan-environments.md, "Managed AI, per
@@ -261,6 +267,27 @@ const moduleActivity = proxyFor('moduleActivity');
 const externalCalendars = proxyFor('externalCalendars');
 function noteActivity(...args) { return currentEnvironment().noteActivity(...args); }
 
+// The product host, the console host and the reserved names (server/domains.js), read before anything is written, so a
+// setting that stops the start leaves the data folder as it was.
+const domains = domainSettings({ baseDomain: BASE_DOMAIN, productDomain: PRODUCT_DOMAIN, reservedSlugs: RESERVED_SLUGS, livekitHost: LIVEKIT_HOST });
+for (const line of domains.warnings) console.warn(line);
+if (domains.stop) {
+  console.error(domains.stop);
+  process.exit(1);
+}
+// The product host's own label may be an existing environment's slug (the product pages would hide it): read host.json
+// as it is, without opening the registry, so the start that stops writes nothing.
+if (BASE_DOMAIN && domains.productLabel) {
+  let existing = [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'host.json'), 'utf8'));
+    existing = Array.isArray(raw.environments) ? raw.environments : [];
+  } catch { /* no host.json yet: no environment has the name */ }
+  if (existing.some((t) => t && t.slug === domains.productLabel)) {
+    console.error(`PRODUCT_DOMAIN=${domains.productHost} is the address of the "${domains.productLabel}" environment. Pick another host for the product pages.`);
+    process.exit(1);
+  }
+}
 // The registry of environments (DATA_DIR/host.json): which environments exist, their plans, the host admins. Only
 // built when BASE_DOMAIN is set -- a self-hosted install with no base domain never has this file.
 // The host's Names migration part (documentation/plans/plan-names.md, "The migration") runs first, before
@@ -278,6 +305,16 @@ const hostRegistry = BASE_DOMAIN ? new HostRegistry(DATA_DIR) : null;
 if (hostRegistry) {
   hostRegistry.setBaseDomain(BASE_DOMAIN);
   hostRegistry.setPreviousBaseDomains(PREVIOUS_BASE_DOMAINS);
+}
+const PRODUCT_HOST = domains.productHost; // '' without BASE_DOMAIN
+const CONSOLE_HOST = domains.consoleHost; // admin.<BASE_DOMAIN>, '' without it
+// A name reserved after an environment took it leaves that environment working, said once per start; only the product
+// host's own label stops the start, since the product pages would hide that environment.
+if (hostRegistry) {
+  hostRegistry.setReservedNames(domains.reservedNames);
+  for (const t of hostRegistry.listEnvironments()) {
+    if (hostRegistry.isReserved(t.slug)) console.warn(`"${t.slug}" is now reserved; it keeps working, but no new environment can take that name.`);
+  }
 }
 // The key that encrypts every secret at rest (every TOTP secret, and an environment's own AI key -- server/ai.js): the host's own, shared across every environment, on a host with
 // environments (host.json's secretsKey -- an owner's export or the console's backup never carries host.json
@@ -321,6 +358,10 @@ function migrateIfNeeded() {
     process.exit(1);
   }
   const slug = cleanSlug(migrateEnvironmentSlug);
+  if (hostRegistry.isReserved(slug)) {
+    console.error(`MIGRATE_ENVIRONMENT_SLUG=${slug}: ${reservedSentence(slug)}`);
+    process.exit(1);
+  }
   const dest = path.join(DATA_DIR, 'environments', slug);
   if (fs.existsSync(dest)) throw new Error(`${dest} already exists; migration already ran`);
   fs.mkdirSync(dest, { recursive: true });
@@ -1641,7 +1682,7 @@ hostRouter.get('/', (_req, res) => res.sendFile(page('host.html')));
 
 // The host admins' own second step (documentation/plans/plan-mfa.md): HOST_MFA_REQUIRED makes it mandatory,
 // same shape as an environment's own gate but keyed on hostRegistry's session secret and its own admin records,
-// never an environment's -- 'host' is a reserved slug (see RESERVED_SLUGS), so it can never collide with a real
+// never an environment's -- 'host' is a reserved slug (RESERVED_SLUGS in server/host-registry.js), so no new environment can take it and collide with a real
 // environment's own pending tokens even though the cookie names are shared. Every host admin is eligible for
 // the lockout bypass (there is no separate role to check, unlike an environment's own admins).
 function hostMfaGate(req, admin) {
@@ -2378,7 +2419,7 @@ hostRouter.post('/api/host/environments/:slug/restore', requireHostAdmin, rawHos
 
 hostRouter.get('/api/host/settings', requireHostAdmin, (_req, res) => {
   res.json({
-    baseDomain: BASE_DOMAIN, version: VERSION, hostAdmins: hostRegistry.listAdmins(), productName: PRODUCT_NAME, contactEmail: CONTACT_EMAIL || null,
+    baseDomain: BASE_DOMAIN, productDomain: PRODUCT_HOST, version: VERSION, hostAdmins: hostRegistry.listAdmins(), productName: PRODUCT_NAME, contactEmail: CONTACT_EMAIL || null,
     plans: hostRegistry.plansCatalog(), signup: signupEnabled, billingSecretSet: Boolean(BILLING_SECRET),
     // The modules this image ships, for the template editor: the built-in two, then the bundled ones by id.
     modules: [...BUILTIN_MODULES, ...bundledModules(BUNDLED_DIR)].map((m) => ({ id: m.id, name: m.name || m.id, icon: m.icon || null })),
@@ -2608,7 +2649,7 @@ hostRouter.delete('/api/host/admins/:key', requireHostAdmin, (req, res) => {
     sendHostError(err, res);
   }
 });
-// The product's use pages at the bare base domain: each address, its file in public/ and the template it advertises.
+// The product's use pages at the product host: each address, its file in public/ and the template it advertises.
 // A page is live only while that template is among the host's offered ones (templateChoices(null)) and its file exists;
 // otherwise the address answers 404 like any unknown path (plan-product-pages.md, decisions 7, 8 and 10).
 const PRODUCT_PAGES = [
@@ -2621,7 +2662,7 @@ const livePages = () => {
   const offered = new Set(templateChoices(null).map((t) => t.id));
   return PRODUCT_PAGES.filter((p) => offered.has(p.template) && fs.existsSync(page(p.file)));
 };
-// The product itself, for the landing page (the bare base domain) and the console (admin.<base>): public, no
+// The product itself, for the landing page (the product host) and the console (admin.<base>): public, no
 // session needed, and harmless anywhere else it happens to be reached. name and contact are configuration, never
 // code, since the product's own name is still being chosen. Registered on hostRouter here (admin.<base> only
 // ever reaches it through here anyway); the main app's own copy is registered after the resolver below, not
@@ -2630,7 +2671,8 @@ const livePages = () => {
 function productInfo(_req, res) {
   const plans = hostRegistry ? Object.entries(hostRegistry.plansCatalog()).map(([id, p]) => ({ id, name: p.name, caps: p.caps, checkoutUrl: checkoutUrlFor(id) })) : [];
   // `templates`: what a new environment can be made from ([{ id, name, description }]), for the sign-up form.
-  res.json({ name: PRODUCT_NAME, contact: CONTACT_EMAIL || null, baseDomain: BASE_DOMAIN || null, version: VERSION, signup: signupEnabled, plans, templates: BASE_DOMAIN ? templateChoices(null).map(({ id, name, description }) => ({ id, name, description })) : [], pages: livePages().map(({ path: p, template }) => ({ path: p, template })) });
+  // `productDomain`: where the product pages live (PRODUCT_DOMAIN, else the bare base domain); null without a base domain.
+  res.json({ name: PRODUCT_NAME, contact: CONTACT_EMAIL || null, baseDomain: BASE_DOMAIN || null, productDomain: PRODUCT_HOST || null, version: VERSION, signup: signupEnabled, plans, templates: BASE_DOMAIN ? templateChoices(null).map(({ id, name, description }) => ({ id, name, description })) : [], pages: livePages().map(({ path: p, template }) => ({ path: p, template })) });
 }
 hostRouter.get('/api/product', productInfo);
 // One environment's public name, for the product page's own Sign in (a slug is an address already, so confirming
@@ -2661,44 +2703,64 @@ function productEnvironments(_req, res) {
   res.json({ environments });
 }
 hostRouter.get('/api/product/environments', productEnvironments);
+// Whether a name could be a new environment's, for the sign-up form's note as the name is typed (plan-domains.md):
+// { slug, free, reason }, reason 'shape', 'reserved' or 'taken', null when free. Public; an address gets 120 a minute.
+const addressLimiter = new auth.LoginLimiter(120, 60000);
+function productAddress(req, res) {
+  if (!hostRegistry) return res.status(404).json({ error: 'not found' });
+  const ip = req.ip || 'unknown';
+  if (addressLimiter.blocked(ip)) return res.status(429).json({ error: 'Too many checks from this address; try again in a minute.' });
+  addressLimiter.fail(ip);
+  res.json(hostRegistry.addressFor(req.query.slug));
+}
+hostRouter.get('/api/product/address', productAddress);
 hostRouter.use((_req, res) => res.status(404).json({ error: 'not found' }));
 
 // --- the door: resolve an environment for this request, or route to the host console -----------------------
-// With no BASE_DOMAIN every request is the one environment (today's behaviour, unchanged). With BASE_DOMAIN set:
-// admin.<base> is the console above; <base> alone is a plain "this is the host" page (sign-up is phase 5, not
-// this); <slug>.<base> resolves that environment; anything else is a plain 404. A request at an old base domain
-// (PREVIOUS_BASE_DOMAINS) is redirected (301) to the same path at the current one, before any of that -- see
-// "Previous base domains" in plan-environments.md. The resolver never reads a path, only the hostname.
+// With no BASE_DOMAIN every request is the one environment (today's behaviour, unchanged). With BASE_DOMAIN set, the
+// hostname picks one branch, in this order (documentation/plans/plan-domains.md, "The door"):
+//   1. admin.<base> is the host console above;
+//   2. the product host (PRODUCT_DOMAIN, else the bare <base>) serves the product's own pages: the front page, the use
+//      pages and sign-up, never any one environment's;
+//   3. a host at an old base domain (PREVIOUS_BASE_DOMAINS) is redirected (301) to the same path at the current one --
+//      after the product host, so an old base that is now the product host never catches it;
+//   4. the bare <base>, when the product pages live elsewhere, is redirected (302) there, path and query kept;
+//   5. <slug>.<base> resolves that environment;
+//   6. anything else is a plain 404.
+// The resolver never reads a path, only the hostname.
+// req.hostname is always port-stripped, for matching against hosts that never have one; a redirect still needs the
+// request's own port carried through, or it silently lands on the scheme's default port instead -- invisible behind a
+// real proxy (the port is implicit there), but wrong for local development at some other port than 80/443.
+function requestPort(req) {
+  const requestHost = req.get('host') || '';
+  const port = requestHost.includes(':') && !requestHost.endsWith(']') ? requestHost.slice(requestHost.lastIndexOf(':')) : '';
+  return /^:\d{1,5}$/.test(port) ? port : ''; // anything else is dropped, never put into a Location
+}
+function redirectToHost(req, res, status, newHost) {
+  return res.redirect(status, `${auth.isSecure(req) ? 'https' : 'http'}://${newHost}${newHost.includes(':') ? '' : requestPort(req)}${req.originalUrl}`);
+}
+// The paths the product host lets through beside / and the use pages: what those pages load and ask.
+const PRODUCT_HOST_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/address', '/api/product/signup'];
 if (BASE_DOMAIN) {
   app.use((req, res, next) => {
     const host = (req.hostname || '').toLowerCase();
-    const oldBase = hostRegistry.previousBaseDomains().find((d) => host === d || host.endsWith(`.${d}`));
-    if (oldBase) {
-      const newHost = host === oldBase ? BASE_DOMAIN : `${host.slice(0, host.length - oldBase.length - 1)}.${BASE_DOMAIN}`;
-      // req.hostname (host, above) is always port-stripped, for matching against BASE_DOMAIN, which never has one;
-      // the redirect target still needs the request's own port carried through, or it silently lands on the
-      // scheme's default port instead -- invisible behind a real proxy (the port is implicit there), but wrong for
-      // local development, where BASE_DOMAIN is often "localhost" at some other port than 80/443.
-      const requestHost = req.get('host') || '';
-      const port = requestHost.includes(':') ? requestHost.slice(requestHost.lastIndexOf(':')) : '';
-      return res.redirect(301, `${auth.isSecure(req) ? 'https' : 'http'}://${newHost}${newHost.includes(':') ? '' : port}${req.originalUrl}`);
-    }
     // Font Awesome is asked for by every page including the console's own, but the icon set itself lives
-    // outside hostRouter (mounted on `app`, below, since the bare base domain needs it too) -- let through to
+    // outside hostRouter (mounted on `app`, below, since the product host needs it too) -- let through to
     // there rather than into hostRouter, whose own catch-all would otherwise 404 it before it ever arrived.
-    if (host === `admin.${BASE_DOMAIN}`) return (req.path.startsWith('/fa/') || req.path.startsWith('/fonts/')) ? next() : hostRouter(req, res, next);
-    // The bare base domain: the product's own landing page (public/landing.html), never any one environment's
-    // page -- no store is ever resolved here (see the "no environment" fallback in /theme.css and siteIcon
-    // above). Only the handful of paths that page actually needs are let through; anything else is a plain 404,
-    // same as an unknown subdomain.
-    if (host === BASE_DOMAIN) {
+    if (host === CONSOLE_HOST) return (req.path.startsWith('/fa/') || req.path.startsWith('/fonts/')) ? next() : hostRouter(req, res, next);
+    // The product's own landing page (public/landing.html), never any one environment's page -- no store is ever
+    // resolved here (see the "no environment" fallback in /theme.css and siteIcon above). Only the handful of paths
+    // those pages actually need are let through; anything else is a plain 404, same as an unknown subdomain.
+    if (host === PRODUCT_HOST) {
       if (req.path === '/') return res.sendFile(page('landing.html'), { dotfiles: 'allow' });
       const useSite = livePages().find((p) => p.path === req.path);
       if (useSite) return res.sendFile(page(useSite.file), { dotfiles: 'allow' });
-      const BARE_BASE_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/signup'];
-      if (BARE_BASE_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
+      if (PRODUCT_HOST_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
       return res.status(404).type('text').send('not found');
     }
+    const oldBase = hostRegistry.previousBaseDomains().find((d) => host === d || host.endsWith(`.${d}`));
+    if (oldBase) return redirectToHost(req, res, 301, host === oldBase ? BASE_DOMAIN : `${host.slice(0, host.length - oldBase.length - 1)}.${BASE_DOMAIN}`);
+    if (host === BASE_DOMAIN) return redirectToHost(req, res, 302, PRODUCT_HOST);
     if (host.endsWith(`.${BASE_DOMAIN}`)) {
       const slug = host.slice(0, host.length - BASE_DOMAIN.length - 1);
       if (!hostRegistry.findEnvironment(slug)) return res.status(404).type('text').send('not found');
@@ -2712,7 +2774,8 @@ if (BASE_DOMAIN) {
 app.get('/api/product', productInfo);
 app.get('/api/product/environment', productEnvironment);
 app.get('/api/product/environments', productEnvironments);
-// Sign-up at the bare base domain (plan-environments.md, "Phase 5"): always the free plan -- any other named plan
+app.get('/api/product/address', productAddress);
+// Sign-up at the product host (plan-environments.md, "Phase 5"): always the free plan -- any other named plan
 // needs billing first, so the sign-up form only ever offers it as the plan to move to afterwards, through the
 // checkout link, never straight from this route. Rate-limited (five an hour per address) the same way a login
 // is, just counting every attempt rather than only failed ones.
@@ -2729,14 +2792,12 @@ app.post('/api/product/signup', (req, res) => {
     const free = hostRegistry.plansCatalog().free;
     const template = chosenTemplate(req.body?.template);
     const environment = hostRegistry.addEnvironment({ slug: req.body?.slug, name: req.body?.name, plan: { name: 'free', ...free.caps }, template });
-    environmentFor(environment.slug).store.addUser({ login: owner.login, displayName: owner.displayName || owner.login, role: 'owner', passwordHash: auth.hashPassword(owner.password) });
-    // The new environment's own port, carried through the same way the PREVIOUS_BASE_DOMAINS redirect above
-    // does: invisible behind a real proxy (the port is implicit there), but wrong in local development, where
-    // BASE_DOMAIN is often "localhost" at some other port than 80/443.
+    const made = environmentFor(environment.slug).store.addUser({ login: owner.login, displayName: owner.displayName || owner.login, role: 'owner', passwordHash: auth.hashPassword(owner.password) });
+    // The new environment's sign-in, its login filled in (plan-domains.md, decision 10): the product host is another
+    // site from the environment, so no session comes along. The port is carried the same way the door's redirects
+    // carry it (requestPort, above).
     const newHost = `${environment.slug}.${BASE_DOMAIN}`;
-    const requestHost = req.get('host') || '';
-    const port = requestHost.includes(':') ? requestHost.slice(requestHost.lastIndexOf(':')) : '';
-    res.status(201).json({ url: `${auth.isSecure(req) ? 'https' : 'http'}://${newHost}${newHost.includes(':') ? '' : port}/` });
+    res.status(201).json({ url: `${auth.isSecure(req) ? 'https' : 'http'}://${newHost}${requestPort(req)}/login?login=${encodeURIComponent(made.login)}` });
   } catch (err) {
     sendHostError(err, res);
   }
@@ -8503,6 +8564,6 @@ const listener = app.listen(Number(PORT), () => {
     });
     return;
   }
-  console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at admin.${BASE_DOMAIN}`);
+  console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at ${CONSOLE_HOST}, product pages at ${PRODUCT_HOST}`);
   for (const env of environments.values()) envContext.run(env, fillTwins);
 });

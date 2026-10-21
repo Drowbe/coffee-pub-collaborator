@@ -26,7 +26,7 @@ for (const file of pageFiles) {
   html = html
     .replace(/<link rel="icon"[^>]*>\n?/, '')
     .replace('href="/landing.css"', 'href="landing.css"')
-    .replace('type="module" src="/landing.js"', 'defer src="preview.js"')
+    .replace('<script src="/landing.js">', '<script src="preview.js">')
     .replaceAll('/assets/images/brand/landing/', 'img/')
     .replace(/href="\/(\?[^"#]*)?(#[^"]*)?"/g, (_m, _q, hash) => `href="index.html${hash || ''}"`)
     .replace(/href="\/([a-z]+)(#[^"]*)?"/g, (m, name, hash) => (pageFiles.includes(`${name}.html`) ? `href="${name}.html${hash || ''}"` : m))
@@ -39,13 +39,15 @@ fs.writeFileSync(path.join(out, 'landing.css'), fs.readFileSync(path.join(root, 
 fs.cpSync(path.join(root, 'public', 'fonts'), path.join(out, 'fonts'), { recursive: true });
 for (const f of fs.readdirSync(IMAGES)) fs.copyFileSync(path.join(IMAGES, f), path.join(out, 'img', f));
 
-// The walkthrough's controls are the first block of landing.js; the rest of that file talks to the host, which a preview has none of.
+// landing.js down to its host line: light or dark before the first paint, the Light / Dark switch and the walkthrough's
+// controls. The rest of that file talks to the host, which a preview has none of.
 const src = fs.readFileSync(path.join(root, 'public', 'landing.js'), 'utf8');
-const start = src.indexOf('(() => {');
-const end = src.indexOf('})();', start) + '})();'.length;
-if (start < 0 || end < start) throw new Error('landing-preview: cannot find the walkthrough block in public/landing.js');
-const preview = `// Preview only: the walkthrough from landing.js, and the forms switched off.
-${src.slice(start, end)}
+const end = src.indexOf('// --- The host line');
+if (end < 0 || !src.includes('function pageParts()')) throw new Error('landing-preview: cannot find the host line or pageParts in public/landing.js');
+const preview = `// Preview only: the theme, the switch and the walkthrough from landing.js, and the forms switched off.
+${src.slice(0, end)}
+document.addEventListener('DOMContentLoaded', () => {
+pageParts();
 for (const el of document.querySelectorAll('[data-example-host]')) el.textContent = 'yourname.example.com';
 for (const el of document.querySelectorAll('[data-signup-domain]')) el.textContent = '.example.com';
 // the use cards link to the use pages this folder has, as the real page does for the pages the host offers
@@ -75,6 +77,7 @@ for (const form of [signup, document.getElementById('signin-form')].filter(Boole
 }
 document.getElementById('signin-creds')?.removeAttribute('hidden');
 for (const a of document.querySelectorAll('[data-contact-link]')) a.href = '#start';
+});
 `;
 fs.writeFileSync(path.join(out, 'preview.js'), preview);
 

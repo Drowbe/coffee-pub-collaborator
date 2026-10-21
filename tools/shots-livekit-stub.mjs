@@ -42,6 +42,14 @@ export class Room extends Emitter {
     this.localParticipant.attributes = { ...(who.attributes || {}) };
     this.state = 'connected';
     this.emit('connected');
+    // Others on the call, for a picture of the tiles: localStorage 'shots.call.people' (a number) adds that many, with no
+    // media (each tile shows its placeholder). Unset, nobody else is in the call.
+    const others = Number(globalThis.localStorage?.getItem('shots.call.people') || 0);
+    for (let i = 1; i <= others; i++) {
+      const p = new RemoteParticipant(`stand-in-${i}`, `Player ${i}`);
+      this.remoteParticipants.set(p.identity, p);
+      this.emit('ParticipantConnected', p);
+    }
   }
   async disconnect() { if (this.state === 'disconnected') return; this.state = 'disconnected'; this.emit('disconnected'); }
   registerByteStreamHandler() {}
@@ -49,7 +57,11 @@ export class Room extends Emitter {
   async startAudio() {}
   switchActiveDevice() { return Promise.resolve(true); }
 }
-export class RemoteParticipant extends Emitter {}
+export class RemoteParticipant extends Emitter {
+  constructor(identity = '', name = '') { super(); this.identity = identity; this.name = name; this.attributes = {}; this.trackPublications = new Map(); this.isSpeaking = false; this.isMicrophoneEnabled = false; this.isCameraEnabled = false; this.isScreenShareEnabled = false; this.audioLevel = 0; }
+  getTrackPublication() { return undefined; }
+  setVolume() {}
+}
 export class LocalVideoTrack {}
 export class LocalAudioTrack {}
 export const VideoPresets = {};

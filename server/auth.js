@@ -283,6 +283,18 @@ class LoginLimiter {
     this.hits = new Map();
   }
 
+  // Memory stays bounded however many distinct addresses ask: past 1000 entries the expired ones go, and past 10000
+  // the oldest go whatever their age. Map keeps insertion order, so the first keys are the oldest.
+  prune() {
+    if (this.hits.size <= 1000) return;
+    const now = Date.now();
+    for (const [key, entry] of this.hits) if (now - entry.first > this.windowMs) this.hits.delete(key);
+    for (const key of this.hits.keys()) {
+      if (this.hits.size <= 10000) break;
+      this.hits.delete(key);
+    }
+  }
+
   blocked(ip) {
     const entry = this.hits.get(ip);
     if (!entry) return false;
@@ -295,7 +307,11 @@ class LoginLimiter {
 
   fail(ip) {
     const entry = this.hits.get(ip);
-    if (!entry || Date.now() - entry.first > this.windowMs) this.hits.set(ip, { first: Date.now(), count: 1 });
+    if (!entry || Date.now() - entry.first > this.windowMs) {
+      this.hits.delete(ip);
+      this.hits.set(ip, { first: Date.now(), count: 1 });
+      this.prune();
+    }
     else entry.count += 1;
   }
 

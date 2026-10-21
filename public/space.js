@@ -3415,9 +3415,6 @@ function applyLayout() {
 // window shape. Sizes go into CSS variables the layouts read.
 const RATIO = 16 / 9;
 const GAP = 10;
-// Beside the chat (Call position Left) the tiles take only the height they use, from the top, with the toolbar right
-// under them (Thomas, 2026-10-14: no tile floating in a tall empty column): they are sized to the strip's whole height
-// less the toolbar, and the grid is then as tall as what they used (--grid-used-h, style.css).
 function fitTiles(grid, portrait) {
   // Ghost tiles (members stepped into an aside) are real .tile elements in
   // the grid too -- size for all of them, or the ones left out get the
@@ -3426,16 +3423,8 @@ function fitTiles(grid, portrait) {
   const style = getComputedStyle(grid);
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const W = grid.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  const beside = grid.closest('.side-column.call-left .side-column-strip');
-  const toolbar = beside ? beside.querySelector('.video-bar') : null;
-  const H = beside ? beside.clientHeight - (toolbar ? toolbar.offsetHeight : 0) - padY : grid.clientHeight - padY;
-  if (!beside) grid.style.removeProperty('--grid-used-h');
-  else {
-    portrait = H > W; // the room's shape, not the grid's (as tall as its tiles there)
-    grid.classList.toggle('portrait', portrait);
-  }
+  const H = grid.clientHeight - padY;
   if (n === 0 || W <= 0 || H <= 0) return;
-  let rowsUsed = 1;
   let w = 0;
   let h = 0;
   let sw = 0;
@@ -3468,15 +3457,8 @@ function fitTiles(grid, portrait) {
       if (tw > w) {
         w = tw;
         h = th;
-        rowsUsed = rows;
       }
     }
-  }
-  if (beside) {
-    let used = rowsUsed * Math.floor(h) + GAP * (rowsUsed - 1);
-    if (prefs.layout === 'strip') used = portrait ? n * Math.floor(h) + GAP * (n - 1) : Math.floor(h);
-    else if (prefs.layout === 'spotlight' && n > 1) used = Math.floor(h) + GAP + Math.floor(sh);
-    grid.style.setProperty('--grid-used-h', `${Math.ceil(Math.min(H, used) + padY)}px`);
   }
   grid.style.setProperty('--tw', `${Math.floor(w)}px`);
   grid.style.setProperty('--th', `${Math.floor(h)}px`);
@@ -3487,7 +3469,7 @@ function fitTiles(grid, portrait) {
 // Refit whenever the grid area changes (window resize, chat drawer, pop out).
 const refit = new ResizeObserver(() => applyLayout());
 refit.observe($('grid'));
-if ($('side-column-strip')) refit.observe($('side-column-strip')); // beside the chat the grid is as tall as its tiles: the strip says the room
+if ($('side-column-strip')) refit.observe($('side-column-strip')); // the column's strip: its splitter and Call position change the room
 
 // Click a tile: pin it as the spotlight (click again to unpin).
 function spotlight(identity) {
@@ -4351,6 +4333,15 @@ function linkKeepEl(entry, look) {
   b.addEventListener('click', () => keepLink(entry, b));
   return b;
 }
+// A body that gets a card under its words: the words into a block of their own and the body a column (.message-stack,
+// style.css), so the card sits one gap under them and nothing stacks a margin on that gap.
+function stackBody(body) {
+  if (body.classList.contains('message-stack')) return;
+  const words = document.createElement('div');
+  words.append(...body.childNodes);
+  if (words.childNodes.length) body.append(words);
+  body.classList.add('message-stack');
+}
 function paintLinkBox(entry) {
   const node = chatMessageNode(entry.id);
   const body = node?.querySelector(':scope > .message-body');
@@ -4359,7 +4350,7 @@ function paintLinkBox(entry) {
   const box = linkBox(entry);
   if (had && box) had.replaceWith(box);
   else if (had) had.remove();
-  else if (box) body.appendChild(box);
+  else if (box) { stackBody(body); body.appendChild(box); }
 }
 // Keep (decision 4): the server saves the stored link into the keeper as this person and marks the message kept at
 // once (its bus request may still wait for the keeper to be open), so this page reads "Kept by" from its answer, and
@@ -4463,7 +4454,7 @@ function messageEl(entry, own) {
     if (entry.kind === 'command') look = chatInput.commandLook(entry);
     body.innerHTML = renderMarkup(entry.kind ? entry.text : stripSummaryMarkers(entry.text));
     const link = entry.kind ? null : linkBox(entry);
-    if (link) body.appendChild(link);
+    if (link) { stackBody(body); body.appendChild(link); }
   }
   const el = frameMessage({
     name,
@@ -4919,14 +4910,15 @@ async function openMic() {
   return mic.track;
 }
 
-// The call bar's microphone level: five bars, the first n lit (n from 0 to 5).
-let micBarsLit = -1;
+// The call bar's microphone level: a fill rising from the bottom of the button (level from 0 to 1); the steps 0 to 5 are for the words.
+let micShown = -1;
 function showMicLevel(level) {
-  const n = Math.min(5, Math.round(level * 5));
-  if (n === micBarsLit) return;
-  micBarsLit = n;
+  const pct = Math.max(0, Math.min(100, Math.round(level * 100)));
+  if (pct === micShown) return;
+  micShown = pct;
   const el = $('meter');
-  [...el.children].forEach((bar, i) => bar.classList.toggle('on', i < n));
+  const n = Math.min(5, Math.round(level * 5));
+  el.style.setProperty('--pct', pct + '%');
   el.setAttribute('aria-valuenow', String(n));
   el.setAttribute('aria-valuetext', ['Silent', 'Quiet', 'Quiet', 'Medium', 'Loud', 'Loud'][n]);
 }

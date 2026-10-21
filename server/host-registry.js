@@ -25,16 +25,26 @@ function randomKey(length = 8) {
 }
 
 // A slug is a subdomain label: letters, digits and hyphens, 3 to 30 characters, never starting or ending in a
-// hyphen, and never one of the names a subdomain already means something else by.
+// hyphen. That is all cleanSlug() checks: it also runs when host.json is read (cleanEnvironmentRecord), so a name
+// reserved later must never drop an existing environment there (plan-domains.md, decision 9).
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]{1,28}[a-z0-9])?$/;
-const RESERVED_SLUGS = new Set(['www', 'api', 'host', 'admin', 'mail', 'smtp', 'imap', 'pop', 'pop3', 'ftp', 'ns1', 'ns2', 'static', 'cdn', 'assets', 'app', 'status', 'support', 'help', 'blog', 'docs']);
+// The names a subdomain already means something else by, refused only when an environment is made (addEnvironment):
+// built in, plus the host's own (RESERVED_SLUGS) and the automatic labels (the product host's and LiveKit's, when
+// directly under the base domain), given by setReservedNames(). 'host' stays here: the host console's own pending
+// sign-in tokens use it as their environment name.
+const RESERVED_SLUGS = new Set([
+  'www', 'api', 'host', 'admin', 'mail', 'smtp', 'imap', 'pop', 'pop3', 'ftp', 'ns1', 'ns2', 'static', 'cdn', 'assets', 'app', 'status', 'support', 'help', 'blog', 'docs',
+  'livekit', 'turn', 'stun', 'console', 'signup', 'login',
+]);
 
 function cleanSlug(value) {
   const s = String(value ?? '').trim().toLowerCase();
   if (s.length < 3 || s.length > 30 || !SLUG_RE.test(s)) throw new HostError('a slug is 3 to 30 letters, digits and hyphens, not starting or ending with one');
-  if (RESERVED_SLUGS.has(s)) throw new HostError(`"${s}" is reserved and cannot be used as a slug`);
   return s;
 }
+
+// The one sentence a reserved name is refused with, at the console's create form, sign-up and the pre-environment move.
+const reservedSentence = (slug) => `"${slug}" is reserved. Pick another.`;
 
 // modules: the ids an environment may enable, or 'all' (today's single-environment install, and any environment an admin has not
 // capped yet). The rest are caps a later phase enforces; null means uncapped. Nothing here is billing -- just what
@@ -261,6 +271,31 @@ class HostRegistry {
     return [...this.data.previousBaseDomains];
   }
 
+  // The host's own reserved names (RESERVED_SLUGS) and the automatic labels, on top of the built-in RESERVED_SLUGS.
+  // Settings, read on every start: never saved in host.json.
+  setReservedNames(names) {
+    this.reservedNames = new Set((Array.isArray(names) ? names : []).map((n) => String(n).trim().toLowerCase()).filter(Boolean));
+  }
+
+  isReserved(slug) {
+    const s = String(slug ?? '').trim().toLowerCase();
+    return RESERVED_SLUGS.has(s) || Boolean(this.reservedNames?.has(s));
+  }
+
+  // Whether a name could be a new environment's: { slug, free, reason }, reason 'shape' (not a slug), 'reserved',
+  // 'taken' (an environment has it, whatever its status), or null when it is free.
+  addressFor(value) {
+    let slug;
+    try {
+      slug = cleanSlug(value);
+    } catch {
+      return { slug: String(value ?? '').trim().toLowerCase().slice(0, 64), free: false, reason: 'shape' };
+    }
+    if (this.isReserved(slug)) return { slug, free: false, reason: 'reserved' };
+    if (this.data.environments.some((t) => t.slug === slug)) return { slug, free: false, reason: 'taken' };
+    return { slug, free: true, reason: null };
+  }
+
   get sessionSecret() {
     return this.data.secrets.session;
   }
@@ -383,6 +418,7 @@ class HostRegistry {
   // caller has already checked (server/templates.js), or null.
   addEnvironment({ slug, name, plan, template = null }) {
     const clean = cleanSlug(slug);
+    if (this.isReserved(clean)) throw new HostError(reservedSentence(clean));
     if (this.data.environments.some((t) => t.slug === clean)) throw new HostError(`"${clean}" is already in use`, 409);
     // Built through cleanEnvironmentRecord so a brand new environment carries the same defaults (usage, the delete-request
     // fields) a loaded-from-disk one does -- the registry's other methods all assume environment.usage exists.
@@ -615,4 +651,4 @@ class HostRegistry {
   }
 }
 
-module.exports = { HostRegistry, HostError, cleanSlug, cleanPlan, defaultPlan, RESERVED_SLUGS, randomKey };
+module.exports = { HostRegistry, HostError, cleanSlug, cleanPlan, defaultPlan, RESERVED_SLUGS, reservedSentence, randomKey };

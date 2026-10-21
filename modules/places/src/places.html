@@ -17,10 +17,9 @@
   (one exception: the item menu is placed under the button that opened it). The reference rendering is design/places.html.
 -->
 <div id="app" class="app" hidden>
-  <header class="head">
-    <h1 data-slot="own-name">Places</h1>
-    <span class="count" data-slot="count"></span>
+  <header class="sdk-toolbar head">
     <div class="sdk-search head-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="filter" type="search" maxlength="100" placeholder="Filter places" aria-label="Filter places" autocomplete="off"></div>
+    <span class="sdk-toolbar-text count" data-slot="count"></span>
   </header>
   <!-- as the Map destination's panel, which has no header or bar of its own: add a place (it asks where it goes) -->
   <div class="part-head" id="part-head" hidden><button class="btn btn-primary" type="button" data-action="add-place"><span class="ic" data-icon="plus"></span> Add a place</button></div>

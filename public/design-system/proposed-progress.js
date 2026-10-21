@@ -33,7 +33,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // ---- builders ----
   const bar = (o) => `<div class="sdk-progress${o.cls ? ' ' + o.cls : ''}" role="progressbar" aria-label="${o.name}"${o.ind ? ' aria-busy="true"' : ` aria-valuenow="${o.now}" aria-valuemin="0" aria-valuemax="${o.max || 100}"`}${o.vt ? ` aria-valuetext="${o.vt}"` : ''}>${o.planned != null ? `<span class="sdk-progress-planned" style="--pct: ${o.planned}%"></span>` : ''}<span class="sdk-progress-fill" style="--pct: ${o.ind ? 100 : Math.min(100, (o.now / (o.max || 100)) * 100)}%"></span></div>`;
   const meter = (label, value, b, sub) => `<div class="sdk-meter"><div class="sdk-meter-head"><span class="sdk-meter-label">${label}</span><span class="sdk-meter-value">${value}</span></div>${b}${sub ? `<div class="sdk-meter-sub">${sub}</div>` : ''}</div>`;
-  const mic = (n, word) => `<span class="sdk-mic" role="progressbar" aria-label="Microphone level" aria-valuenow="${n}" aria-valuemin="0" aria-valuemax="5" aria-valuetext="${word}">${[1, 2, 3, 4, 5].map((i) => `<span${i <= n ? ' class="on"' : ''}></span>`).join('')}</span>`;
+  const mic = (n, word) => `<span class="sdk-mic" role="progressbar" aria-label="Microphone level" aria-valuenow="${n}" aria-valuemin="0" aria-valuemax="5" aria-valuetext="${word}" style="--pct: ${n * 20}%"><i class="fa-solid fa-microphone" aria-hidden="true"></i></span>`;
   const optRow = (name, pct, who) => `<div class="sdk-fillrow"><span class="sdk-progress-behind" role="progressbar" aria-label="${name}: ${pct} percent of votes" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" style="--pct: ${pct}%"></span><span>${name}</span><span class="sdk-meter-value">${pct}%${who ? ` (${who})` : ''}</span></div>`;
 
   const tracksBody = () => `<div class="ds-proposed"><div class="pm-row"><div class="pm-role">Track, 8px</div><div class="pm-pgrid">
@@ -182,7 +182,7 @@ ${tbl(['Today', 'Where', 'Proposed'], [
     ['<code>.ai-meter</code> (8px, <code>--bg-card</code> with a 1px <code>--border</code>), <code>.warn</code> danger', 'the AI settings', 'The track (the 1px border goes); <code>.warn</code> keeps its name; adds the words "Almost full". The only bar with aria today; it keeps it.'],
     ['<code>.bar</code> (10px, <code>--text</code> at 12% on transparent; spent and planned fills; a danger fill by colour)', 'Budget', 'The 8px track; planned at 35%; over is the danger fill with "Over" in words. Role and name added.'],
     ['<code>.opt .fill</code> (accent at 24%, behind the row)', 'Polls', 'The poll option fill (aliased as <code>.sdk-progress-behind</code>); the percent stays text; the fill gets the role and a name.'],
-    ['<code>.meter</code> in the call buttons (vertical bars, raw <code>rgba(111,174,107,.55)</code>)', 'the call', 'The microphone level (<code>.sdk-mic</code>), lit in <code>--ok-mark</code>.'],
+    ['<code>.meter</code> in the call buttons (vertical bars, raw <code>rgba(111,174,107,.55)</code>)', 'the call', 'The microphone level (<code>.sdk-mic</code>): the original fill rising from the bottom of the round button, behind the glyph, in <code>--ok-mark</code>.'],
     ['Three track heights (6, 8, 10px) and three track colours (<code>--bg-card</code> with a border, <code>--bg-card</code> without, <code>--text</code> at 12%)', 'above', 'Two heights (8, 6), one colour (<code>--border</code>).'],
     ['The status strip fill (32% accent)', 'the Status strip', 'Unchanged; stays in the Status strip family.'],
   ])}
@@ -228,7 +228,7 @@ ${code(`<!-- a bar with its label and value -->
   <span>Trattoria</span><span class="sdk-meter-value">62%</span></div>
 
 <!-- the microphone level -->
-<span class="sdk-mic" role="progressbar" aria-label="Microphone level" aria-valuenow="3" aria-valuemin="0" aria-valuemax="5" aria-valuetext="Medium"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span>`)}
+<span class="sdk-mic" role="progressbar" aria-label="Microphone level" aria-valuenow="3" aria-valuemin="0" aria-valuemax="5" aria-valuetext="Medium" style="--pct: 60%"><i class="fa-solid fa-microphone" aria-hidden="true"></i></span>`)}
 <p class="ds-desc"><b>Names kept.</b> <code>.tb-progress</code>, <code>.tb-progress-fill</code>, <code>.ai-meter</code> (and <code>.warn</code>), <code>.upload .bar</code> take the look with no markup change; Budget's <code>.bar</code> keeps its name in the module (it is not aliased globally, because other modules use <code>.bar</code> for a toolbar). The shimmer is the Foundations family's one shared <code>shimmer</code> keyframe (and its 1.4s); each example frame carries a copy because frames are separate documents.</p>
 
 <h4 class="ds-h4" id="progress-decided">Decided 2026-10-21</h4>

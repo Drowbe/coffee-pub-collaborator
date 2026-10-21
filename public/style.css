@@ -3236,14 +3236,6 @@ a.crumb-here:hover {
   border-color: var(--primary-hover);
 }
 
-#mic.on .sdk-mic > span {
-  background: color-mix(in srgb, var(--text-on-accent) 35%, transparent);
-}
-
-#mic.on .sdk-mic > span.on {
-  background: var(--status-ok-mark);
-}
-
 /* Off is calm: the neutral fill and the slashed glyph, nothing red. */
 .fbtn.off:not(#away-toggle) {
   color: var(--text-dim);
@@ -3441,19 +3433,21 @@ a.crumb-here:hover {
   z-index: 1;
 }
 
-/* The microphone level (the SDK's .sdk-mic, five bars) sits at the bottom of the button, behind the glyph. It still tracks your real input
-   level while muted (so you can see you're talking before you unmute), but lit bars there read as "still live": they go muted. */
+/* The microphone level (the SDK's .sdk-mic) is the fill rising from the bottom of the round button, behind the glyph; the button's overflow clips it to the circle.
+   It still tracks your real input level while muted (so you can see you're talking before you unmute), but a fill there reads as "still live": it goes muted. */
 .fbtn .sdk-mic {
   position: absolute;
-  bottom: 3px;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: -1px;
+  width: auto;
+  height: auto;
+  background: none;
   pointer-events: none;
 }
 
-.fbtn.off .sdk-mic > span.on,
-.fbtn.gated .sdk-mic > span.on {
+.fbtn.off .sdk-mic::before,
+.fbtn.gated .sdk-mic::before {
   background: var(--text-muted);
+  opacity: 0.5;
 }
 
 /* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. The column keeps its own overflow, so a tall import panel scrolls inside the column instead of pushing the formatting row out from under the input. */
@@ -3577,7 +3571,6 @@ a.crumb-here:hover {
 .chat-import-row .chat-object {
   flex: 1;
   min-width: 0;
-  margin-top: 0;
 }
 
 .chat-import-foot {
@@ -3613,43 +3606,57 @@ a.crumb-here:hover {
   --b-fg-h: var(--text-accent);
 }
 
-/* An object in a message is the approved card: a 1px hairline, no shadow, 12px of padding. Its corner is one step under what
-   it sits on: medium on the flat window, small inside your own message (Chat family, step 29). */
+/* A message body that holds words and cards (an AI answer's objects, a link under the words; space.js stackBody and
+   chat-input.js answerBody give it .message-stack, its words in blocks of their own): a column, one gap between its parts, and
+   no part carries a margin of its own above or below, so the space between a card and the words before or after it is the
+   same 8px everywhere. */
+.message .message-body.message-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.message .message-body.message-stack > * {
+  margin-block: 0;
+}
+
+/* An object in a message is the approved card: a 1px hairline, no shadow, 12px of padding on every side. Its lines (the title,
+   the details, the meta, the day, Keep) are a column one var(--space-1) gap apart, none with a margin of its own, so the
+   space above the title is the space under the last line. Its corner is one step under the message box it sits in: small. */
 .message .chat-object {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   box-sizing: border-box;
-  margin-top: var(--space-2);
+  margin: 0;
   padding: var(--space-3);
   border: 1px solid var(--edge-hairline);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-small);
   background: var(--bg-card);
   box-shadow: none;
   white-space: normal;
 }
 
-.message.own .chat-object {
-  border-radius: var(--radius-small);
-}
-
 .message .chat-object h3 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: var(--text-14);
   font-weight: var(--weight-strong);
 }
 
 .message .chat-object-body {
-  margin: 0 0 6px;
+  margin: 0;
   line-height: var(--leading-body);
 }
 
 .message .chat-object-meta {
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-11);
 }
 
 /* An object's details in one line under its title (plan-object-handoff.md): the flight, the times, the reference. */
 .message .chat-object-details {
-  margin: 0 0 6px;
+  margin: 0;
   color: var(--text-primary);
   font-size: var(--text-12);
   overflow-wrap: anywhere;
@@ -3691,14 +3698,10 @@ a.crumb-here:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: var(--space-2);
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-12);
-}
-
-.chat-import-sameday {
-  margin: 0;
 }
 
 .message .chat-object-day input,
@@ -3726,17 +3729,13 @@ a.crumb-here:hover {
   align-items: flex-start;
   box-sizing: border-box;
   min-width: 0;
-  margin-top: var(--space-2);
+  margin: 0;
   padding: var(--space-3);
   border: 1px solid var(--edge-hairline);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-small);
   background: var(--bg-card);
   box-shadow: none;
   white-space: normal;
-}
-
-.message.own .chat-link {
-  border-radius: var(--radius-small);
 }
 
 .message .chat-link-plain {
@@ -3753,7 +3752,11 @@ a.crumb-here:hover {
   background: var(--surface-field);
 }
 
+/* The title, the description and the site: a column one var(--space-1) gap apart, none with a margin of its own. */
 .message .chat-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   flex: 1;
   min-width: 0;
 }
@@ -3771,7 +3774,7 @@ a.crumb-here:hover {
 
 .message .chat-link-desc {
   display: -webkit-box;
-  margin: var(--space-0) 0 0;
+  margin: 0;
   overflow: hidden;
   color: var(--text-muted);
   font-size: var(--text-12);
@@ -3784,15 +3787,11 @@ a.crumb-here:hover {
   display: flex;
   flex-wrap: wrap; /* Keep's words go under the site on a narrow chat, never over it */
   align-items: center;
-  gap: 2px 6px;
+  gap: var(--space-0) var(--space-2);
   min-width: 0;
-  margin-top: 4px;
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-11);
-}
-
-.message .chat-link-plain .chat-link-site {
-  margin-top: 0;
 }
 
 .message .chat-link-icon {
@@ -6922,8 +6921,20 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
   body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) {
     box-sizing: border-box;
     height: var(--status-strip-h);
-    padding-top: 0;
-    padding-bottom: 0;
+    padding: 0;
+    column-gap: 0;
+  }
+
+  /* The strip owns the row's inset: its own var(--space-3) at each end, the module windows' title bar inset under it. The
+     top bar's zone padding and full-bleed margins (.topbar .nav-left / .nav-right, written for the top row) do not reach this
+     row's zones, and an empty right zone takes no room (the strip's end used to sit 84px short of the window's). */
+  body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) > :is(.nav-left, .nav-right) {
+    margin: 0;
+    padding: 0;
+  }
+
+  body.in-space .subnav:has(> .nav-left > .sdk-strip:not([hidden])) > .nav-right:has(> :not([hidden], [data-nav-divider], .nav-folded)) {
+    padding-right: var(--space-3);
   }
 }
 
@@ -8523,8 +8534,8 @@ body.in-aside .side-column-strip > .canvas {
 }
 
 /* Call position Left (space.js, callPlaceFor): in a column at least 560px wide the call sits beside the chat, the
-   column's full height: its titlebar at the top, the tiles from the top as big as the height lets them be (fitTiles
-   measures the strip, less the toolbar), the toolbar right under them, then the Join row out of the call; the chat
+   column's full height: its titlebar at the top, the tiles in all the height there is, the toolbar pinned to the bottom
+   (as when the call floats or is popped out), the Join row out of the call; the chat
    on the right with all of its parts. The line between them (#side-column-call-splitter) sets the call's width
    (--side-column-call-w). The handle sits over the chat's titlebar, so that keeps clear of it. */
 .side-column.call-left {
@@ -8566,15 +8577,10 @@ body:not(.in-aside) .side-column.call-left > .side-column-chat {
 }
 
 .side-column.call-left .side-column-strip > .canvas {
-  flex: none;
+  flex: 1 1 auto;
+  min-height: 0;
   height: auto;
-  grid-template-rows: auto auto;
-}
-
-/* The tiles' own height: what fitTiles() used for them (--grid-used-h), so no band above or below them. */
-.side-column.call-left .side-column-strip .grid {
-  flex: none;
-  height: var(--grid-used-h, auto);
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .side-column.call-left #chat-content > header {

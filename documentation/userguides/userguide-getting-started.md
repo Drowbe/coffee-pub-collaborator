@@ -130,7 +130,7 @@ To switch environments on, with the server already running as above:
    `ADMIN_PASSWORD`: with a base domain they are the **host admin**, who signs in to the host console. Add:
    ```yaml
    BASE_DOMAIN: "collaborator.example.com"
-   MIGRATE_ENVIRONMENT_SLUG: "thepub" # what your existing server becomes; used once
+   MIGRATE_ENVIRONMENT_SLUG: "main" # what your existing server becomes; used once
    ```
    Recreate the container. On that start the existing data moves into `environments/<slug>/` on the same
    volume and the environment is recorded; everyone's accounts, spaces and layouts come with it, at
@@ -190,10 +190,70 @@ changes, the change is noted in `host.json`, and a copy of `host.json` as it was
 you want to keep one. If the start stops with a line saying `host.json` lists environments
 under both "tenants" and "environments", open `host.json`, remove whichever list is out of date, and start again.
 
+**The product page on another domain (optional).** By default the product page, the use pages and sign-up
+are on the bare `https://<base>`, with the console at `admin.<base>` and each environment at `<slug>.<base>`.
+That is the layout above, and it needs nothing more. If you would rather have the product page on a separate
+host, so that its name can change without touching any environment's address, give it its own domain with
+`PRODUCT_DOMAIN`. Say `<base>` is `example.live` and the product page is to be at `product.example.com`:
+
+1. **DNS.** Add a record for the product host, `product.example.com`, to the same public address as your
+   proxy. Leave the base domain's records as they are: the apex (an `A` record) and the wildcard `*`.
+2. **The certificate and proxy host.** The product host needs an ordinary certificate (no wildcard, no DNS
+   challenge) and a proxy host of its own, scheme http, to the same address and port `3000` as the base. The
+   base domain's wildcard certificate and proxy host keep serving every environment, `admin.<base>` and the
+   bare `<base>`.
+3. **The container.** Add, then recreate it:
+   ```yaml
+   BASE_DOMAIN: "example.live"
+   PRODUCT_DOMAIN: "product.example.com"
+   ```
+   `PRODUCT_DOMAIN` is a host name only: no `https://`, no port, no path. Unset, or equal to `BASE_DOMAIN`, the
+   product page stays on the bare base. It is ignored, with a line in the log, when `BASE_DOMAIN` is not set.
+
+What changes:
+
+- The bare `https://<base>` sends visitors on to the same path at the product host (a redirect that keeps the
+  path and the query), so a base address typed by hand still works. The console stays at `admin.<base>`;
+  there is no setting to move it.
+- Sign-up and **Sign in** on the product page work across the two sites. After sign-up the person arrives at the
+  new environment's sign-in with their login already filled in; they enter the password.
+- The product page cannot offer the "Sign in to ..." shortcut for the environment this browser was last in,
+  because that is remembered for the base domain only. The environment list and the sign-in form are there.
+- An owner's **Upgrade** link on Manage and the console's own facts name the product host.
+- LiveKit is unchanged. `LIVEKIT_HOST` is its own setting, and its DNS record, certificate, proxy host and the
+  TURN domain stay where they are.
+- If the product host sits directly under the base (`www.<base>`), its first label is reserved for it, and the
+  server will not start if an environment already has that name.
+
+**Names an environment cannot take.** A built-in list is always reserved: `www`, `api`, `host`, `admin`, `mail`,
+`smtp`, `imap`, `pop`, `pop3`, `ftp`, `ns1`, `ns2`, `static`, `cdn`, `assets`, `app`, `status`, `support`, `help`,
+`blog`, `docs`, `livekit`, `turn`, `stun`, `console`, `signup` and `login`. `PRODUCT_DOMAIN`'s first label and
+`LIVEKIT_HOST`'s first label are added when each sits directly under the base. To protect names of your own (other
+sites on the same domain, say), list them in `RESERVED_SLUGS`, comma separated; it adds to the built-in list and
+never replaces it:
+
+```yaml
+RESERVED_SLUGS: "studio,shop"
+```
+
+A reserved name is refused where an environment is made (the console's create form, sign-up and
+`MIGRATE_ENVIRONMENT_SLUG`) with "<name> is reserved. Pick another." and the sign-up form says so as the name is
+typed. An environment that already has a name you reserve later keeps working; the log says once on each start
+that the name is now reserved. Without `BASE_DOMAIN`, both settings are ignored.
+
+**Moving a server's addresses.** To move a running server to new domains: take a copy of the data folder; add the
+DNS records, certificates and proxy hosts for the new domains while the old ones still work; set the new
+`BASE_DOMAIN` (and `PRODUCT_DOMAIN` if you want one), put the old base in `PREVIOUS_BASE_DOMAINS` and recreate
+the container; then check that an environment signs in, `admin.<base>` shows the console, the product page opens
+and an old link redirects. Nothing stored holds a domain, so no data changes. Keep the old wildcard certificate
+and proxy host while `PREVIOUS_BASE_DOMAINS` is set, and remove all three together when nobody uses the old
+addresses (OBS browser sources and calendar feeds follow the redirect, so re-adding them once is the way to be
+rid of it sooner). A host listed in `PREVIOUS_BASE_DOMAINS` that is also the product host is not redirected.
+
 From there: `https://admin.<base>` is the host console (create an environment with its first owner, set its
 plan, back it up and restore it, suspend it and **Resume** it, or delete it aside, which keeps its data under
 `environments-deleted/`), `https://<slug>.<base>` each environment, and the bare
-`https://<base>` the product page. Two optional variables feed that page: `PRODUCT_NAME` (the name it shows;
+`https://<base>` the product page (at `PRODUCT_DOMAIN` when you set one). Two optional variables feed that page: `PRODUCT_NAME` (the name it shows;
 the default is the app's own) and `CONTACT_EMAIL` (where "ask for an environment" writes to). If the base
 domain ever changes, set the new one as `BASE_DOMAIN` and list the old one in `PREVIOUS_BASE_DOMAINS`;
 every old address redirects to the new.

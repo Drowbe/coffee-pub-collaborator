@@ -58,7 +58,15 @@ services:
       # Several environments on one server (see the getting-started guide, "Environments"): set the base
       # domain, and for ONE start only the environment the data already here becomes.
       # BASE_DOMAIN: "collaborator.CHANGE_ME_DOMAIN"
-      # MIGRATE_ENVIRONMENT_SLUG: "thepub"
+      # MIGRATE_ENVIRONMENT_SLUG: "main"
+      # The product page, the use pages and sign-up on a host of their own, so their name can change without touching
+      # any environment's address. A host name only (no https://, no port). Needs its own DNS record, an ordinary
+      # certificate and a proxy host to port 3000; the base domain keeps the wildcard. Unset, they stay on the base
+      # domain. The console is always at admin.<base domain>. Ignored without BASE_DOMAIN.
+      # PRODUCT_DOMAIN: "product.example.com"
+      # Names no new environment may take, on top of the built-in list (www, api, admin, mail, livekit ...). Comma
+      # separated. An environment that already has one keeps working.
+      # RESERVED_SLUGS: "studio,shop"
       # One environment set up for one use, from a template in templates/ (e.g. "travel"): its words, icons, modules
       # and Lobby. Only on a fresh data folder, and only without BASE_DOMAIN (with it, the host console and the
       # sign-up pick a template for each new environment). Ignored, with a line, on data that already exists.

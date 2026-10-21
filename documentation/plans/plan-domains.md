@@ -4,7 +4,7 @@
 who builds the door, the settings and the checks; experience-design, who changes the product page, Manage and the
 console; content-manager, who updates the deployment guide and the architecture.
 
-**Status:** approved with three open lines, 2026-10-21. Thomas answered the twelve questions the same day (see
+**Status:** built (steps 1 to 6, 2026-10-21); QA pending; step 7, the move of Thomas's install, is Thomas's and not done. Nothing here has been verified on the real domains or in Firefox and Safari. The documentation is in [userguide-getting-started](../userguides/userguide-getting-started.md) ("Environments: one server, several groups") and [architecture-environments](../architecture/architecture-environments.md). Where the build differs from the contract below: the API contract lives in architecture-environments (there is no separate API document for these routes), and the stored `consoleHost` field was never added (decision 6). Before the build: approved with three open lines, 2026-10-21. Thomas answered the twelve questions the same day (see
 Decisions). Still to be given by Thomas: his own `RESERVED_SLUGS` names, the current value of `LIVEKIT_HOST`, and whether
 the install has environments other than `thepub`. None of the three blocks steps 1 to 6. Thomas: today's install is
 `thepub.collaborator.coffeepub.ai`, which is long, and "collaborator" is a temporary product name. He owns

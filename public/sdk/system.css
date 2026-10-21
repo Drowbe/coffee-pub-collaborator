@@ -1181,6 +1181,9 @@
   --gap-card-rows: var(--space-1); /* rows INSIDE a card: the fill step separates them; rows in a list on a panel or a window are --gap-in apart */
   --gap-group: var(--space-4);
   --card-icon: 32px;
+  --card-head-h: var(--btn-h-small); /* the banded card's head band: 30px */
+  --card-head-tint: var(--text-primary); /* what the band is shaded with */
+  --card-head-step: 6%; /* how much: one step darker than the box's own surface */
   --tick-hit: 28px; /* 44px on a phone */
   --tick-edge: -6px;
   --ls-label: 0.04em;
@@ -1254,6 +1257,55 @@
   transition: background var(--motion-fast);
 }
 :is(.sdk-card-add, .space-choice-add) > i { font-size: var(--text-18); }
+
+/* ---- the banded card: an object box with a head band (a message, an object with a title row) ----
+   One hairline box. The head is a band across the top, a shaded step of the box's own surface (--card-head-tint at
+   --card-head-step over --s), 30px (--card-head-h) and a hairline under it; the body sits on the box's own surface. The band is part of the box,
+   not a nesting level: window > banded card > card. Its head holds a portrait or icon, the title, the meta, and the "..."
+   at the right. Aliases: .message (Chat). */
+:where(.sdk-card-banded, .message) {
+  --s: var(--surface-card);
+  --card-head-fill: color-mix(in srgb, var(--card-head-tint) var(--card-head-step), var(--s));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--s);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+:where(.sdk-card-banded) > .sdk-card-head,
+:where(.message) > .message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  box-sizing: content-box; /* 30px, then the hairline */
+  min-width: 0;
+  min-height: var(--card-head-h);
+  padding: 0 var(--space-0) 0 var(--space-3);
+  border-bottom: 1px solid var(--edge-hairline);
+  border-top-left-radius: var(--radius-medium);
+  border-top-right-radius: var(--radius-medium);
+  background: var(--card-head-fill);
+}
+:where(.sdk-card-banded) > .sdk-card-body,
+:where(.message) > .message-body {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3); /* 12 in line with the head; a card inside keeps 12 from the edge */
+}
+/* The head's parts in a banded object box: the icon (24px), the title in one line, the meta, then the "..." at the right. */
+.sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: var(--text-12); line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: var(--text-11); }
+.sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: var(--text-12); }
 
 /* ---- the row ---- */
 :where(.sdk-row) {
@@ -3700,10 +3752,14 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 :is(.sdk-toolbar, .mod-toolbar)[hidden] { display: none; }
 :is(.sdk-toolbar, .mod-toolbar) > * { flex: none; }
 
-/* A search field in a band is the small one: 30px, 13px words (16px on a phone, so the page does not zoom). */
-:is(.sdk-toolbar, .mod-toolbar) .sdk-search {
+/* A search field in a band is the small one: 30px, 13px words (16px on a phone, so the page does not zoom). So is one laid over a
+   map or a picture rather than in a band (.sdk-search-small): every search in a module window is the same field. */
+:is(.sdk-toolbar, .mod-toolbar) .sdk-search,
+.sdk-search.sdk-search-small {
   --field-h: var(--btn-h-small);
   --field-font: var(--text-13);
+}
+:is(.sdk-toolbar, .mod-toolbar) .sdk-search {
   flex: 1 1 140px;
   width: auto;
   min-width: 96px;
@@ -3778,7 +3834,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 /* A phone: more room each side of a toolbar, which scrolls by touch; a search in it at 16px. */
 @media (max-width: 640px) {
   :is(.sdk-toolbar, .mod-toolbar) { padding: 0 var(--space-3); }
-  :is(.sdk-toolbar, .mod-toolbar) .sdk-search { --field-font: var(--text-16); }
+  :is(.sdk-toolbar, .mod-toolbar) .sdk-search, .sdk-search.sdk-search-small { --field-font: var(--text-16); }
 }
 /* modulechrome:end */
 
@@ -3803,7 +3859,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   --msg-quote-fill: color-mix(in srgb, var(--text-primary) 7%, transparent);
   --msg-portrait: 24px;
   --msg-meta: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted)); /* the time and the command: 4.5 to 1 on both message fills */
-  --msg-head-h: var(--btn-h-small);
+  --msg-fill: color-mix(in srgb, var(--text-primary) 5%, transparent); /* the box's own surface: a step off the window */
   --composer-lines: 5;
   --composer-lh: 20px;
   --composer-pad-y: var(--space-2);
@@ -3813,7 +3869,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   :root { --composer-lh: 22px; --composer-pad-y: 10px; }
 }
 
-/* ---- the list of messages: flat on the window ---- */
+/* ---- the list of messages ---- */
 .chat .messages {
   display: flex;
   flex-direction: column;
@@ -3826,47 +3882,18 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   line-height: 20px;
 }
 
-/* ---- the message ---- */
+/* ---- the message: a banded card (Cards family: .sdk-card-banded), its own surface a step off the window ---- */
 .message {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  box-sizing: border-box;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-medium);
-  background: none;
-  color: var(--text-primary);
+  --s: var(--msg-fill);
   font-size: var(--text-14);
   line-height: 20px;
-  box-shadow: none;
 }
 
-/* Between two flat messages: the 8px gap and a hairline, with 8px above it, so they do not run together. */
-.message:not(.own):has(+ .message:not(.own)) {
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--edge-hairline);
-}
-
-/* Your own message: the one boxed kind. */
+/* Your own message: the accent tint on the box, its head band in the same family. */
 .message.own {
-  padding: var(--space-1) var(--space-3) var(--space-3);
-  background: var(--surface-chat-own);
-}
-
-.message-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: var(--msg-head-h);
-  padding: 0;
-  background: none;
+  --s: var(--surface-chat-own);
+  --card-head-tint: var(--accent-fill);
+  --card-head-step: 12%;
 }
 
 .message-head-side {
@@ -3875,11 +3902,13 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   gap: var(--space-2);
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden; /* in a narrow chat the time is cut, never drawn under "public" */
 }
 
 .message-head-side:last-child {
   flex: none;
   gap: var(--space-0);
+  overflow: visible;
 }
 
 .message-portrait {
@@ -3925,9 +3954,21 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   line-height: 16px;
 }
 
-.message-dash,
-.message-when {
+.message-dash {
   flex: none;
+  color: var(--msg-meta);
+  font-size: var(--text-11);
+  font-weight: var(--weight-regular);
+  line-height: 16px;
+}
+
+/* The time gives way before the name: it shrinks first and ends in an ellipsis. */
+.message-when {
+  flex: 0 100 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--msg-meta);
   font-size: var(--text-11);
   font-weight: var(--weight-regular);
@@ -3964,7 +4005,6 @@ span.message-vis {
 /* ---- the body ---- */
 .message-body {
   min-width: 0;
-  padding: 0;
   background: none;
   font-size: var(--text-14);
   line-height: 20px;
@@ -5173,29 +5213,33 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   pointer-events: none;
 }
 
-/* ---- the call's microphone level: its own pattern, five vertical bars, the lit ones in the ok mark (.on); in the call bar it sits in the button (public/style.css) ---- */
+/* ---- the call's microphone level: a round face with a fill rising from the bottom (--pct), in the ok mark, behind the glyph; in the call bar it is the button itself (public/style.css) ---- */
 .sdk-mic {
+  --pct: 0%;
+  position: relative;
   display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
-}
-
-.sdk-mic > span {
-  display: block;
-  width: 3px;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
   border-radius: var(--radius-round);
   background: var(--pg-track);
 }
 
-.sdk-mic > span:nth-child(1) { height: 4px; }
-.sdk-mic > span:nth-child(2) { height: 7px; }
-.sdk-mic > span:nth-child(3) { height: 10px; }
-.sdk-mic > span:nth-child(4) { height: 13px; }
-.sdk-mic > span:nth-child(5) { height: 16px; }
-
-.sdk-mic > span.on {
+.sdk-mic::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--pct);
   background: var(--status-ok-mark);
+  pointer-events: none;
+}
+
+.sdk-mic > i {
+  position: relative;
 }
 /* progress:end */
 

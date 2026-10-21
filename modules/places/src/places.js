@@ -621,7 +621,7 @@
 
   // --- the dialog for one place -------------------------------------------------------------------------------------
 
-  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('sdk-editor-actions') && !n.classList.contains('readonly') && !n.classList.contains('conflict-bar'));
+  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('sdk-editor-actions') && !n.classList.contains('readonly') && !n.hasAttribute('data-bar'));
 
   // --- Shows in: where a place shows, and so where it is kept --------------------------------------------------------
   // A tick per place it can show: Everyone in <environment>, this space (in a space), the other spaces where the viewer may
@@ -731,7 +731,7 @@
   $('f-point').addEventListener('input', readPoint);
 
   const editorError = (text) => { $('f-error').textContent = text; $('f-error').hidden = !text; };
-  const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
+  const dropConflict = () => { for (const n of $('form').querySelectorAll('[data-bar]')) n.remove(); if (state.editing) state.editing.conflict = null; };
   // The dialog is the editor window (host.ui.editor): over everything (beside the map, over the whole destination page),
   // sized to the form, a sheet on a phone. What the form held when it opened is kept as text (state.editing.opened), so
   // Escape and Close ask "Discard your changes?" only after something changed; a read-only place never asks.
@@ -1089,7 +1089,7 @@
   // Asked before a change of ticks takes the place away from people (narrowing): Keep it shared puts the ticks back,
   // Take it away saves.
   function askNarrow(text) {
-    for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
+    for (const n of $('form').querySelectorAll('[data-bar="narrow"]')) n.remove();
     const bar = clone('tpl-narrow');
     fill(bar, { text });
     $('form').querySelector('.sdk-editor-actions').before(bar);
@@ -1099,7 +1099,7 @@
     const b = ev.target.closest('[data-action="keep-shared"], [data-action="take-away"]');
     const e = state.editing;
     if (!b || !e) return;
-    for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
+    for (const n of $('form').querySelectorAll('[data-bar="narrow"]')) n.remove();
     if (b.dataset.action === 'take-away') { e.narrowOk = true; $('form').requestSubmit(); return; }
     fillWhere(e.where, true, e.ticks);
     $('f-where').querySelector('input:not(:disabled)')?.focus();

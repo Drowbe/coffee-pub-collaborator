@@ -769,12 +769,14 @@ function renderHostMfa() {
   $('host-mfa-on').hidden = on;
   $('host-mfa-off').hidden = !on || me.mfaRequired || me.mfaBypass;
   $('host-mfa-reset').hidden = !on || !me.mfaBypass;
-  if (me.mfaBypass && !document.querySelector('.env-page-banner[data-mfa-bypass]')) {
+  if (me.mfaBypass && !document.querySelector('.sdk-banner-wide[data-mfa-bypass]')) {
     const b = document.createElement('div');
-    b.className = 'env-page-banner';
+    b.className = 'sdk-banner sdk-banner-wide';
+    b.dataset.kind = 'warn';
     b.dataset.mfaBypass = '1';
     b.setAttribute('role', 'status');
-    b.textContent = 'The admin lockout bypass is on: host admins are not asked for their two-step code. Reset your factor on the Host tab if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.';
+    b.innerHTML = '<span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span><span class="sdk-banner-text"></span>';
+    b.querySelector('.sdk-banner-text').textContent = 'The admin lockout bypass is on: host admins are not asked for their two-step code. Reset your factor on the Host tab if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.';
     const topbar = document.querySelector('.topbar');
     if (topbar) topbar.after(b); else document.body.prepend(b);
   }

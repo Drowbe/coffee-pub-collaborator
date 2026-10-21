@@ -82,8 +82,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* the time between two timed items */
 
 /* the item was changed by someone else while it was open */
-.conflict-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 4px 0; padding: 6px 8px; border: 1px solid var(--status-danger-fill); border-radius: var(--radius-medium); color: var(--text-primary); font-size: var(--text-12); }
-.conflict-bar span { flex: 1 1 100%; }
+.sdk-banner[data-bar] { grid-column: 1 / -1; margin: var(--space-2) var(--space-1) 0; }
 
 /* the add row at the foot of a day */
 .add-row { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--edge-hairline); background: color-mix(in srgb, var(--surface-panel) 92%, var(--text-primary)); }

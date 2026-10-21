@@ -495,7 +495,7 @@
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }
-  const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
+  const dropConflict = () => { for (const n of $('form').querySelectorAll('[data-bar]')) n.remove(); if (state.editing) state.editing.conflict = null; };
   // Every control in the form, the type buttons and Suggest tags too: a read-only view takes no input.
   const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select, .format-bar button, #f-icons button, [data-action="suggest-tags"]')) f.disabled = !yes; };
   // The same marks chat writes: **bold**, *italic*, `code`, and "- " at the start of a line.

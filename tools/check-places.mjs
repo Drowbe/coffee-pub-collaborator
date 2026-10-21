@@ -682,7 +682,7 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   assert.match(page, /if \(target\.error === 'spaces'\) return `To show it in more than one \$\{word\('space'\)\}, it must be in \$\{everyoneName\(\)\} too\.`;/);
   assert.match(page, /'On your own list\. Only you see that you saved it\.'/);
   assert.match(page, /`Its notes will be seen by \$\{who\}\.`/);
-  assert.match(html, /data-action="keep-shared">Keep it shared<\/button><button class="btn btn-small btn-danger" type="button" data-action="take-away">Take it away<\/button>/);
+  assert.match(html, /data-action="keep-shared">Keep it shared<\/button><button class="btn btn-small btn-danger sdk-banner-action" type="button" data-action="take-away">Take it away<\/button>/);
   assert.match(page, /will no longer see it\./);
   assert.match(page, /ticks = \(seed && seed\.ticks\) \|\| defaultTicks\(at, here, \{ everyone: canEveryone\(\), here: canHere\(\), mine: canMine\(\) \}\);/);
   // the copies are gone; the menu has the marks and the list

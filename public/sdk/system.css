@@ -4156,3 +4156,185 @@ span.message-vis {
 
 .sdk-dp-foot { display: flex; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
 /* pickers:end */
+
+/* ================= Toasts and banners (design system step 20) =================
+   Source: public/design-system/proposed-toasts.css, without the .ds-proposed prefix and the aliases (the markup carries the new names).
+   TOAST   .sdk-toast in the .sdk-toasts stack (host: public/brand.js showToast, showNote, showInvite). A neutral card with a hairline and
+           --shadow-2; the kind shows on the icon chip only. Parts: .sdk-toast-icon, .sdk-toast-body (a button when the toast opens something),
+           .sdk-toast-title, .sdk-toast-text, .sdk-toast-end (Undo, close), .sdk-toast-actions (Join, Decline). Top right on a desktop, at the
+           bottom on a phone, newest nearest the screen edge, three showing at most.
+   BANNER  .sdk-banner (inline) and .sdk-banner-wide (the top of a page): a status tint, an icon, text, an optional action (a small Secondary
+           button, .sdk-banner-action) and, when it does not block, a close (.sdk-banner-close).
+   Kinds: data-kind = info (the default), ok, warn, danger. The colours are the Colour family's status roles. */
+/* toasts:start */
+:root {
+  --toast-w: 340px;
+  --toast-gap: var(--space-2);
+  --toast-ms: var(--motion-base);
+}
+
+/* The kind: four variables every part reads. info is the default. */
+:where(.sdk-toast, .sdk-banner) {
+  --k-fill: var(--status-info-fill);
+  --k-text: var(--status-info-text);
+  --k-tint: var(--status-info-tint);
+  --k-on: var(--status-info-on-fill);
+}
+:where(.sdk-toast, .sdk-banner)[data-kind="danger"] { --k-fill: var(--status-danger-fill); --k-text: var(--status-danger-text); --k-tint: var(--status-danger-tint); --k-on: var(--status-danger-on-fill); }
+:where(.sdk-toast, .sdk-banner)[data-kind="warn"] { --k-fill: var(--status-warn-fill); --k-text: var(--status-warn-text); --k-tint: var(--status-warn-tint); --k-on: var(--status-warn-on-fill); }
+:where(.sdk-toast, .sdk-banner)[data-kind="ok"] { --k-fill: var(--status-ok-fill); --k-text: var(--status-ok-text); --k-tint: var(--status-ok-tint); --k-on: var(--status-ok-on-fill); }
+
+/* ---- The stack ---- */
+.sdk-toasts {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--toast-gap);
+  box-sizing: border-box;
+  width: min(var(--toast-w), calc(100vw - 32px));
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+.sdk-toasts > * { pointer-events: auto; }
+
+/* ---- The toast ---- */
+.sdk-toast {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+  align-items: start;
+  box-sizing: border-box;
+  width: min(var(--toast-w), 100%);
+  max-width: 100%;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-medium);
+  background: var(--surface-toast);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-2);
+  font: inherit;
+  font-size: var(--text-13);
+  line-height: 18px;
+  text-align: left;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--toast-ms) ease-out, transform var(--toast-ms) ease-out;
+}
+@starting-style {
+  .sdk-toast { opacity: 0; transform: translateX(16px); }
+}
+.sdk-toast[data-state="leaving"] { opacity: 0; transform: translateX(16px); }
+
+.sdk-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: var(--radius-small);
+  background: var(--k-tint);
+  color: var(--k-text);
+  font-size: var(--text-14);
+  line-height: 1;
+}
+.sdk-toast-body { display: flex; flex-direction: column; gap: var(--space-0); min-width: 0; padding-top: calc((28px - 18px) / 2); }
+/* A toast that opens something: its body is a button that looks like text. */
+button.sdk-toast-body { margin: 0; border: 0; background: none; color: inherit; font: inherit; line-height: inherit; text-align: left; cursor: pointer; }
+button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-small); }
+.sdk-toast-title { color: var(--text-primary); font-size: var(--text-14); font-weight: var(--weight-strong); line-height: 18px; overflow-wrap: anywhere; }
+.sdk-toast-text { color: var(--text-muted); font-size: var(--text-13); line-height: 18px; overflow-wrap: anywhere; }
+.sdk-toast > .sdk-toast-end { display: flex; align-items: center; gap: var(--space-1); margin: -1px -4px 0 0; }
+/* Join and Decline sit under the text, in the text's column. */
+.sdk-toast-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* ---- The banner ----
+   The row's first line is as tall as a small button (the action and the close) and every part is centred on it: the icon, the first line of
+   text, the action and the close. With two lines or more they still share the first line's centre and the text runs on below. */
+.sdk-banner {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-medium);
+  background: var(--k-tint);
+  color: var(--k-text);
+  font-size: var(--text-13);
+  font-weight: var(--weight-regular);
+  line-height: 18px;
+  text-align: left;
+  box-shadow: none;
+}
+.sdk-banner[hidden] { display: none; }
+.sdk-banner-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-20);
+  height: var(--icon-20);
+  margin: calc((var(--btn-h-small) - var(--icon-20)) / 2) 0 0;
+  border-radius: var(--radius-round);
+  background: var(--k-fill);
+  color: var(--k-on);
+  font-size: var(--text-12);
+  line-height: 1;
+}
+/* The glyph is a box of its own, 1em square, so the badge centres a box and not a line of text. FA's glyphs do not all sit in the middle of their box
+   (the triangle's tip is at the top and its base 32 of 512 units above the bottom), so each badge lets the glyph down by the little that was measured
+   at its size (tools/check-design-system-align.mjs, badgeInk: within 0.5px on both axes). */
+:is(.sdk-banner-icon, .sdk-toast-icon) > i { display: block; flex: none; width: 1em; height: 1em; line-height: 1; text-align: center; }
+.sdk-banner-icon > i { transform: translateY(0.04em); }
+.sdk-banner-icon > .fa-triangle-exclamation { transform: translateY(0.083em); }
+.sdk-toast-icon > .fa-triangle-exclamation { transform: translateY(0.031em); }
+.sdk-banner-text { flex: 1 1 0; min-width: 0; padding: calc((var(--btn-h-small) - 18px) / 2) 0; overflow-wrap: anywhere; }
+.sdk-banner-text b { font-weight: var(--weight-strong); }
+.sdk-banner-text a { color: inherit; font-weight: var(--weight-strong); text-decoration: none; }
+/* The action is a Secondary small button (the Buttons family): a visible edge and fill, so it reads as a button. */
+.sdk-banner-action { flex: none; margin: 0; }
+.sdk-banner > .sdk-banner-close { flex: none; margin: 0 -8px 0 -4px; color: var(--k-text); --b-fg: var(--k-text); --b-fg-h: var(--k-text); }
+
+/* A banner with two actions (a conflict) lets them drop under the text when there is no room. */
+.sdk-banner:has(> .sdk-banner-action ~ .sdk-banner-action) { flex-wrap: wrap; }
+.sdk-banner:has(> .sdk-banner-action ~ .sdk-banner-action) > .sdk-banner-text { flex: 1 1 12em; }
+/* A module draws the icon as an inline SVG (host.ui.icon) instead of a Font Awesome <i>. */
+.sdk-banner-icon > svg { display: block; width: 1em; height: 1em; fill: currentColor; }
+
+/* Full width: the same banner stretched to the width of its container, with the same corner, padding and text from the left. At the top of a
+   page it sits in from the screen edges by the page padding. */
+.sdk-banner-wide { margin: var(--page-pad) var(--page-pad) 0; }
+
+@media (max-width: 640px) {
+  .sdk-toasts {
+    top: auto;
+    right: var(--space-2);
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    left: var(--space-2);
+    flex-direction: column-reverse;
+    width: auto;
+  }
+  .sdk-toasts > .sdk-toast { width: 100%; }
+  @starting-style {
+    .sdk-toast { transform: translateY(16px); }
+  }
+  .sdk-toast[data-state="leaving"] { transform: translateY(16px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-toast { transition: opacity var(--toast-ms) linear; }
+  .sdk-toast[data-state="leaving"] { transform: none; }
+}
+/* toasts:end */

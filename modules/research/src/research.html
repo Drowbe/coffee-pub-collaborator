@@ -77,7 +77,7 @@
 
 <template id="tpl-chip-tag"><span class="sdk-chip-removable" data-tone="custom"><span class="sdk-chip-dot"></span><span class="sdk-chip-label" data-slot="label"></span><button class="sdk-chip-x" type="button" title="Stop filtering by this tag" aria-label="Stop filtering by this tag"><span aria-hidden="true">&times;</span></button></span></template>
 <!-- someone changed the object while it is open (as in Places) -->
-<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn btn-small" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small" type="button" data-action="keep-mine">Keep mine</button></div></template>
+<template id="tpl-conflict"><div class="sdk-banner" data-kind="warn" data-bar="conflict" role="alert"><span class="sdk-banner-icon" data-icon="triangle-exclamation" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text"></span><button class="btn btn-small sdk-banner-action" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small sdk-banner-action" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <!-- a source of an answer, and anything else that points at another object: a small pill; .gone when the object is no longer there -->
 <template id="tpl-source"><span class="link"><span data-slot="label"></span></span></template>
 <!-- where a card is used: one pill per group of linkers (all the plans that use it, all the tasks), with the linker module's icon. One linker: its kind and title; several: "2 plans". The title attribute lists them. A "+N" pill when there are more groups than fit. -->

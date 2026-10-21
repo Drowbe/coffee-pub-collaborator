@@ -2187,12 +2187,14 @@ $('stream-regen').addEventListener('click', async () => {
 
 // The server's admin lockout bypass is on: say so on Manage until it is turned off (plans/plan-mfa.md, "The server's two switches").
 function mfaBypassBanner() {
-  if (document.querySelector('.env-page-banner[data-mfa-bypass]')) return;
+  if (document.querySelector('.sdk-banner-wide[data-mfa-bypass]')) return;
   const b = document.createElement('div');
-  b.className = 'env-page-banner';
+  b.className = 'sdk-banner sdk-banner-wide';
+  b.dataset.kind = 'warn';
   b.dataset.mfaBypass = '1';
   b.setAttribute('role', 'status');
-  b.textContent = `The lockout bypass is on: ${word('owner', { many: true })} and the admin are not asked for their two-step code. Reset your factor on your profile if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.`;
+  b.innerHTML = '<span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span><span class="sdk-banner-text"></span>';
+  b.querySelector('.sdk-banner-text').textContent = `The lockout bypass is on: ${word('owner', { many: true })} and the admin are not asked for their two-step code. Reset your factor on your profile if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.`;
   const topbar = document.querySelector('.topbar');
   if (topbar) topbar.after(b); else document.body.prepend(b);
 }
@@ -2475,10 +2477,10 @@ function renderEnvironment() {
   const banner = $('env-banner');
   if (e.status === 'pastDue') {
     const until = e.graceEndsAt ? new Date(e.graceEndsAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'soon';
-    banner.textContent = `Payment for this ${word('environment')} is overdue. It goes to the free plan on ${until}; nothing is deleted.`;
+    $('env-banner-text').textContent = `Payment for this ${word('environment')} is overdue. It goes to the free plan on ${until}; nothing is deleted.`;
     banner.hidden = false;
   } else if (e.status === 'suspended') {
-    banner.textContent = `This ${word('environment')} is suspended by the ${word('host')}.`;
+    $('env-banner-text').textContent = `This ${word('environment')} is suspended by the ${word('host')}.`;
     banner.hidden = false;
   } else banner.hidden = true;
   const up = $('env-upgrade');

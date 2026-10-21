@@ -313,7 +313,6 @@
 .entry[data-drop="after"] .slot::after { bottom: 4px; }
 .entry[data-drop="into"] .card { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 .entry.conflict .card { outline: 2px solid var(--status-danger-fill); outline-offset: -2px; }
-.card .conflict-bar { margin: 0 12px 10px; }
 
 /* ---- the day: today, a drop target ---- */
 .day2 { transition: border-color 0.2s ease, box-shadow 0.2s ease; }

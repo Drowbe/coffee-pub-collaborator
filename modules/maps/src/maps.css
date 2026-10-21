@@ -33,7 +33,7 @@ body { margin: 0; overflow: hidden; }
 .results.under-search { top: 58px; bottom: auto; max-height: calc(100% - 70px); }
 
 /* the notice under the tools: adding a place, a warning */
-.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent-fill); border-radius: var(--radius-round); background: var(--surface-panel); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: var(--text-13); }
+#banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); background: linear-gradient(var(--k-tint), var(--k-tint)), var(--surface-panel); box-shadow: var(--shadow-2); }
 
 /* ---- the map library's own controls, restyled with the tokens ---- */
 .maplibregl-map { font-family: inherit; } /* the interface font, not the library's Helvetica */
@@ -117,7 +117,7 @@ body { margin: 0; overflow: hidden; }
 
 .app.narrow .maplibregl-ctrl-bottom-right { bottom: 4px; right: 8px; z-index: 6; }
 
-.app.narrow .banner { bottom: 44px; }
+.app.narrow #banner { bottom: 44px; }
 
 .state p + p { margin-top: 12px; }
 

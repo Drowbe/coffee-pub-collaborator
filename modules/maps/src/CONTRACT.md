@@ -24,7 +24,7 @@
     <ul id="results" class="results">               what a search found, over the foot of the map (hidden when empty)
     <div id="ctrl-zoom" class="maplibregl-ctrl-top-right">   zoom in, out, locate me
     <div class="maplibregl-ctrl-bottom-right"><div class="attribution">
-    <div id="banner" class="banner">               'Click the map to place it' while adding
+    <div id="banner" class="sdk-banner" data-kind="info">             'Click the map to place it' while adding
     <div id="callout" class="callout-box">         the selected place (hidden when none)
     <div id="state" class="state">                 replaces the map (see States)
 ```

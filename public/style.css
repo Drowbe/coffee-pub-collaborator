@@ -5476,62 +5476,6 @@ body.conference-window {
   display: block;
 }
 
-/* Notification toasts */
-.toast-layer {
-  position: fixed;
-  top: 56px;
-  right: 12px;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(340px, calc(100vw - 24px));
-  pointer-events: none;
-}
-
-.toast {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-medium);
-  background: var(--bg-section);
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.toast:hover {
-  background: var(--secondary-hover);
-}
-
-.toast-icon {
-  margin-top: 2px;
-  color: var(--accent);
-}
-
-.toast-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.toast-body {
-  color: var(--text-dim);
-  overflow-wrap: anywhere;
-}
-
-.toast-from {
-  color: var(--text-dim);
-  font-size: var(--text-11);
-}
-
 /* Docked modules: a column of the space's grid, beside the video and the chat. The column's step (the window's) and its
    title bar, toolbar and status line are the Module window block in public/sdk/system.css. */
 .module-docked > .mod-content {
@@ -6662,17 +6606,6 @@ body.chat-window {
   align-items: center;
 }
 
-/* The invitation toast (public/brand.js): Join and Decline under the text. */
-.toast-invite {
-  cursor: default;
-}
-
-.toast-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
 .whos-around .dashboard-invite {
   display: inline-flex;
   align-items: center;
@@ -6741,10 +6674,6 @@ body.chat-window {
 .env-cap-bar { flex: 1; max-width: 260px; height: 8px; border-radius: var(--radius-min); background: var(--bg-section); overflow: hidden; }
 .env-cap-bar span { display: block; height: 100%; background: var(--accent); }
 .env-cap-bar.warn span { background: var(--danger); }
-.env-banner { padding: 8px 12px; border: 1px solid var(--danger); border-radius: var(--radius-medium); background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)); color: var(--text); }
-/* The same banner across the top of every page, for an owner, while the environment is past due or suspended. */
-.env-page-banner { padding: 6px 16px; background: color-mix(in srgb, var(--danger) 18%, var(--bg)); border-bottom: 1px solid var(--danger); color: var(--text); font-size: var(--text-13); text-align: center; }
-.env-page-banner a { color: var(--text); font-weight: var(--weight-strong); margin-left: 6px; }
 /* The host console's plans catalog: one card per plan, the design system's fields grid inside it. */
 .plans-editor { display: grid; gap: var(--space-2); margin: 8px 0; }
 .plan-row { display: grid; } /* a card (system.css, Cards) laid out as a grid of fields */
@@ -7013,7 +6942,7 @@ body.host-console .template-list { list-style: none; margin: 8px 0 0; padding: 0
 body.host-console .template-list .list-row { flex-wrap: wrap; }
 body.host-console .template-list-name { flex: 1; min-width: 12em; }
 body.host-console .template-edited { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: var(--radius-medium); background: var(--accent); color: var(--on-accent); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: 16px; vertical-align: 1px; }
-body.host-console .template-notices { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+body.host-console .template-notices { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-2); }
 body.host-console .template-notices:empty { display: none; }
 body.host-console .template-compare-head,
 body.host-console .template-compare-row { display: grid; grid-template-columns: 8em minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: start; }

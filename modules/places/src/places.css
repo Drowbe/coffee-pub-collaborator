@@ -53,8 +53,6 @@ body { margin: 0; overflow: hidden; }
 .readonly dd, .readonly p { margin: 0; overflow-wrap: anywhere; }
 .readonly dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
 .readonly dt { color: var(--text-muted); font-size: var(--text-12); }
-.conflict-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--status-danger-fill); border-radius: var(--radius-medium); font-size: var(--text-12); }
-.conflict-bar span { flex: 1 1 100%; }
 
 /* ---- states ---- */
 .state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }
@@ -149,7 +147,6 @@ body { margin: 0; overflow: hidden; }
 .where-more .ticks { padding-left: 4px; }
 .where-line { margin: 4px 0 0; color: var(--text-primary); font-size: var(--text-13); }
 .where-notes { margin: 0; color: var(--status-danger-text); font-size: var(--text-12); }
-.narrow-bar { border-color: var(--edge-hairline); }
 /* a row: the viewer's spaces it is marked into, and a saved place that is not readable here */
 .marks { display: inline-flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .space-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

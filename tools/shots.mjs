@@ -182,7 +182,7 @@ function prelude(mode) {
   // A toast goes away by itself after a few seconds, which a picture taken under load may or may not beat: it stays until the
   // picture is taken (the one place a timer is held back).
   const later = window.setTimeout;
-  window.setTimeout = function (fn, delay) { if (typeof fn === 'function' && delay >= 3000 && delay <= 10000 && String(fn).includes('toast.remove()')) return 0; return later.apply(this, arguments); };
+  window.setTimeout = function (fn, delay) { if (typeof fn === 'function' && delay >= 3000 && delay <= 10000 && String(fn).includes('closeToast(t)')) return 0; return later.apply(this, arguments); };
   // A shadow root (where a bundled module runs) does not take the page's rules, so each one is given the same.
   const attach = Element.prototype.attachShadow;
   Element.prototype.attachShadow = function (init) { const root = attach.call(this, init); const st = document.createElement('style'); st.textContent = ${JSON.stringify(FREEZE_CSS)}; root.appendChild(st); return root; };

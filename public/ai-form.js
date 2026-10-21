@@ -51,10 +51,10 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     if (source) {
       const s = offered().find((x) => x.provider === managedProvider());
       $('ai-managed-note').hidden = !managed;
-      $('ai-managed-note').textContent = s ? `Every request goes to ${COMPANY[s.provider] || s.provider}${s.model ? ' (' + s.model + ')' : ''} under the host's own account and key. Nothing is set up here; the allowance below is this ${word('environment')}'s own.` : '';
+      $('ai-managed-note-text').textContent = s ? `Every request goes to ${COMPANY[s.provider] || s.provider}${s.model ? ' (' + s.model + ')' : ''} under the host's own account and key. Nothing is set up here; the allowance below is this ${word('environment')}'s own.` : '';
       for (const el of document.querySelectorAll('[data-ai-custom]')) el.hidden = managed;
     }
-    $('ai-notice').textContent = managed ? '' : fill(AI_NOTICES[provider] || '');
+    $('ai-notice-text').textContent = managed ? '' : fill(AI_NOTICES[provider] || '');
     $('ai-notice').hidden = managed || !AI_NOTICES[provider];
     for (const el of $('ai-panel').querySelectorAll('[data-ai-for]')) el.hidden = managed || !el.dataset.aiFor.split(' ').includes(provider);
     $('ai-key-optional').hidden = provider !== 'compatible';

@@ -66,7 +66,7 @@ State: `.today` on today's day; `.drop-target` while something is dragged over t
   <div class="item-time" data-slot="time"><b>09:30</b>1 h 30</div>            <b> the start; after it the length, or "check in", or "→ 10:05"; empty text for no time
   <div class="item-main"> ...by kind, below... </div>
   <button class="item-menu" data-action="move-menu" aria-label="Item menu">   the phone path: Move to day..., Earlier, Later, Edit, Delete
-  [<div class="conflict-bar"> when in conflict ]
+  [<div class="sdk-banner" data-kind="warn" data-bar="conflict"> when in conflict ]
 </li>
 ```
 `data-cat` is on stops, notes and the module's own kinds (a `link` has none). `data-span` is only on a `stay`. State classes: `.done` (crossed out), `.conflict`, `.dragging`.
@@ -132,7 +132,7 @@ The Bookings and Money views reuse the same list markup: `.sdk-group-head` headi
 | Loading | `.app` with the header and `#body > .skeleton[aria-busy=true]` holding four `.skel` |
 | Nothing on the plan | The header stays (the space's name, and the phase line when the template has phases). With no days and no objects, `#body > .state#state-empty-trip` reads "Nothing on the plan yet. Add something below." and, for someone who can edit, a `form.add-row` whose button adds an object with no date. There is no create step |
 | Empty day | `ol.items` holds one `li.day-empty.has-add` (`tpl-day-empty-add`) whose `button.day-empty-add[data-action=day-menu]` reads "Nothing planned yet. Click to add." ("Tap to add." when `matchMedia('(pointer: coarse)')` matches; the pointer decides, not the width). It is the same action as the header's "...", so it opens the same add menu for that day, anchored to the row. A viewer who cannot edit gets a plain `li.day-empty` (`tpl-day-empty`) reading "Nothing planned yet." and no button. A day that has things opens nothing from its blank space. The add row stays |
-| Conflict | the item gets `.conflict` and a last child `.conflict-bar[role=alert]`: a `span` ("Christy changed this while you were editing."), `button.btn[data-action=use-theirs]`, `button.btn[data-action=keep-mine]` |
+| Conflict | the item gets `.conflict` and a last child `.sdk-banner[data-kind=warn][data-bar=conflict][role=alert]`: an icon, `.sdk-banner-text` ("Christy changed this while you were editing."), `button.btn.sdk-banner-action[data-action=use-theirs]`, `button.btn.sdk-banner-action[data-action=keep-mine]` |
 | Busy day (20+ items) | nothing special: `.items` scrolls inside a column on a wide pane, the page scrolls on a phone; the day header stays put (sticky) |
 | Error | a `p.error` under the header |
 

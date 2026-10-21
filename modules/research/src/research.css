@@ -119,8 +119,6 @@ body { margin: 0; overflow: hidden; }
 #form[data-kind="link"] [data-kinds]:not([data-kinds~="link"]),
 #form[data-kind="photo"] [data-kinds]:not([data-kinds~="photo"]),
 #form[data-kind="answer"] [data-kinds]:not([data-kinds~="answer"]) { display: none; }
-.conflict-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; border: 1px solid var(--status-danger-fill); border-radius: var(--radius-medium); font-size: var(--text-12); }
-.conflict-bar span { flex: 1 1 100%; }
 /* a photo whose file is gone: the picture 404s, so the crop shows a quiet placeholder */
 .rcard .thumb.missing { object-fit: none; display: flex; }
 .rcard .thumb.missing { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 10%, transparent) 0 8px, transparent 8px 16px), color-mix(in srgb, var(--tone) 12%, var(--surface-card)); }

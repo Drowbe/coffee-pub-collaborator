@@ -2706,7 +2706,7 @@ test('a selected, active, on or current state is a fill: no state rule adds a bo
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const decls = m[2].split(';').map((d) => d.trim()).filter(Boolean).map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]);
       const fill = decls.filter(([k]) => /^background(-color)?$/.test(k)).map(([, v]) => v);
-      for (const sel of m[1].split(',').map((x) => x.trim().replace(/\s+/g, ' '))) {
+      for (const sel of m[1].split(/,(?![^()]*\))/).map((x) => x.trim().replace(/\s+/g, ' '))) { // a comma inside :is( ) or :not( ) is not a selector break
         if (!STATE.test(sel) || /:focus(-visible|-within)?\b/.test(sel) || KEEP.some(([k]) => k === sel)) continue;
         for (const [k, v] of decls) {
           if (!PROP.test(k)) continue;

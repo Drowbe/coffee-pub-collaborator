@@ -17,6 +17,7 @@
  */
 (function (global) {
   'use strict';
+  const SDK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || ''; // where this file was loaded from; empty when the app placed it inline
 
   // The drag data type a pointer to a module's object travels under (see host.objects).
   const OBJECT_MIME = 'application/x-host-object';
@@ -1251,13 +1252,14 @@
   }
 
   // The tooltip's script (public/tooltip.js): the page has it already (brand.js); a module in a sandboxed frame asks for it once.
-  // Without it a control still has its name (aria-label); only the label on hover is missing.
+  // It is found beside this file (../tooltip.js from where host.js was loaded); a frame the app serves has the SDK inline and asks the app for /tooltip.js.
+  // A frame that already has it (the design-system page puts it in) asks for nothing. Without it a control still has its name (aria-label); only the label on hover is missing.
   function ensureTooltips() {
     try {
       if (window.__sdkTooltip || window.__sdkTooltipAsked || !document.head) return;
       window.__sdkTooltipAsked = true;
       const t = document.createElement('script');
-      t.src = '/tooltip.js';
+      t.src = SDK_SCRIPT_SRC ? new URL('../tooltip.js', SDK_SCRIPT_SRC).href : '/tooltip.js';
       document.head.appendChild(t);
     } catch (err) {
       // no label on hover; the control keeps its name

@@ -178,7 +178,7 @@ export function checkModuleCss(css, names, allow = [], file = 'css') {
   const out = [];
   for (const r of cssRules(css)) {
     for (const sel of r.selector.split(',').map((s) => s.trim()).filter(Boolean)) {
-      const reaches = /\.sdk-(form|field|label|hint|error|row|when|s|m|l|full|group|unit|field-btn|datefield|duration|money|pair|section|section-title|choice-row|choice-list|choice|people|form-error)\b/.test(sel)
+      const reaches = /\.sdk-(form|form-row|field|label|hint|error|when|s|m|l|full|group|unit|field-btn|datefield|duration|money|pair|section|section-title|choice-row|choice-list|choice|people|form-error)(?![\w-])/.test(sel)
         || (sel.match(/[#.][\w-]+/g) || []).some((t) => names.has(t))
         || (/(^|[\s>+~(])(input|select|textarea)\b/.test(sel) && (sel.match(/[#.][\w-]+/g) || []).some((t) => names.has('form' + t)));
       if (!reaches) continue;

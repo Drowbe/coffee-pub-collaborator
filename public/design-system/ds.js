@@ -17,7 +17,7 @@
   const SRC = window.DS_SOURCES || {};
   const FILES = SRC.files || {};
   const PATHS = {
-    'style.css': '/style.css', 'host.css': '/sdk/host.css', 'theme.css': '/theme.css', 'host.js': '/sdk/host.js',
+    'style.css': '/style.css', 'host.css': '/sdk/host.css', 'theme.css': '/theme.css', 'host.js': '/sdk/host.js', 'tooltip.js': '/tooltip.js',
     'destination.css': '/destination.css', 'landing.css': '/landing.css', 'diag.css': '/diag.css',
   };
   const stats = { frames: 0, loaded: 0, families: 0, variants: 0, examples: 0, errors: [], notLoaded: [], forcedRules: 0, tokens: 0, icons: 0, orphans: [] };
@@ -325,6 +325,8 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
   const LIVE_PRELUDE = `
 window.Phases = window.Phases || {};
 window.__dsLog = [];
+// A live piece that takes focus (the editor window opens on its first field) must not scroll the design-system page to its frame.
+(function () { var f = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function (o) { return f.call(this, Object.assign({}, o, { preventScroll: true })); }; })();
 (function () {
   var svgs = ${JSON.stringify(SRC.svgs || {})};
   var locale = { language: 'en', clock: '12', currency: 'USD', currencies: ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF', 'SEK'], words: {} };
@@ -360,6 +362,7 @@ window.__dsLog = [];
         win.addEventListener('error', (e) => stats.errors.push('live: ' + e.message));
         win.addEventListener('unhandledrejection', (e) => stats.errors.push('live: ' + (e.reason && e.reason.message)));
         injectScript(doc, LIVE_PRELUDE);
+        if (text['tooltip.js']) injectScript(doc, text['tooltip.js']); // the page's tooltip script, as brand.js gives a real page
         injectScript(doc, text['host.js'], { 'data-host-sdk': '' });
         if (!win.createHost) { doc.body.insertAdjacentHTML('beforeend', '<p class="dsf-note">The SDK did not start.</p>'); return; }
         injectScript(doc, `window.__dsDone = (async function () { var made = createHost({ call: window.__dsCall, root: document, rootElement: document.body }); var host = made.host; try { await host.ready(); } catch (e) {} ${spec.script} })().catch(function (e) { window.__dsFail = String(e && e.message || e); });`);
@@ -677,7 +680,7 @@ window.__dsLog = [];
 
   async function init() {
     FA_HREF = $('link[data-ds="fa"]').href;
-    await Promise.all(['style.css', 'host.css', 'theme.css', 'host.js', 'destination.css', 'landing.css', 'diag.css'].map(load));
+    await Promise.all(['style.css', 'host.css', 'theme.css', 'host.js', 'tooltip.js', 'destination.css', 'landing.css', 'diag.css'].map(load));
     $('#ds-status').textContent = 'Drawing the examples';
 
     const families = (window.DS_FAMILIES || []).slice();

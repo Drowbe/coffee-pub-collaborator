@@ -126,7 +126,7 @@ export function buildSources({ withFiles } = {}) {
     const { themeCss } = require('../server/theme-css.js');
     const { DEFAULT_THEME } = require('../server/store.js');
     data.files = {
-      'style.css': rd('public/style.css'), 'host.css': rd('public/sdk/host.css'), 'host.js': rd('public/sdk/host.js'),
+      'style.css': rd('public/style.css'), 'host.css': rd('public/sdk/host.css'), 'host.js': rd('public/sdk/host.js'), 'tooltip.js': rd('public/tooltip.js'),
       'destination.css': rd('public/destination.css'), 'landing.css': rd('public/landing.css'), 'diag.css': rd('public/diag.css'),
       'theme.css': themeCss({ light: DEFAULT_THEME.light, dark: null }, 'dark'),
     };

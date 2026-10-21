@@ -15,6 +15,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
+import { confirmDialog } from '/confirm.js';
 import { foldCallToolbar, callTitle, callTime, callDuration } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
@@ -823,7 +824,7 @@ function adminToolsFor(participant) {
   kick.innerHTML = '<i class="fa-solid fa-user-slash fa-fw" aria-hidden="true"></i>';
   kick.addEventListener('click', async (e) => {
     e.stopPropagation();
-    if (!window.confirm(`Kick ${participant.name || participant.identity} from the call? They can rejoin.`)) return;
+    if (!await confirmDialog({ title: `Kick ${participant.name || participant.identity} from the call?`, message: 'They can rejoin.', action: 'Kick', kind: 'destructive' })) return;
     try {
       await api('POST', `/api/users/${encodeURIComponent(participant.identity)}/kick`);
     } catch (err) {
@@ -842,9 +843,9 @@ function adminToolsFor(participant) {
     aside.className = 'tile-admin-btn';
     aside.title = 'Step aside';
     aside.innerHTML = '<i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i>';
-    aside.addEventListener('click', (e) => {
+    aside.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!window.confirm(`Step aside with ${participant.name || participant.identity}?`)) return;
+      if (!await confirmDialog({ title: `Step aside with ${participant.name || participant.identity}?`, action: 'Step aside' })) return;
       pullAside([participant.identity]);
     });
     tools.append(aside);
@@ -855,9 +856,9 @@ function adminToolsFor(participant) {
     priv.className = 'tile-admin-btn';
     priv.title = 'Privately';
     priv.innerHTML = '<i class="fa-solid fa-user-lock fa-fw" aria-hidden="true"></i>';
-    priv.addEventListener('click', (e) => {
+    priv.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!window.confirm(`Have a private word with ${participant.name || participant.identity}?`)) return;
+      if (!await confirmDialog({ title: `Have a private word with ${participant.name || participant.identity}?`, action: 'Go private' })) return;
       pullAside([participant.identity], true);
     });
     tools.append(priv);
@@ -4944,8 +4945,8 @@ call
         if (data.byOwner) {
           setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
         } else {
-          setTimeout(() => {
-            if (window.confirm(`${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`)) {
+          setTimeout(async () => {
+            if (await confirmDialog({ title: `${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`, action: 'Join' })) {
               reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
             }
           }, 0);

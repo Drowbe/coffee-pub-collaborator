@@ -930,8 +930,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // The chooser's button hides only while its list is the tab bar, and phone or wide is the header's own window (a
   // narrow pop-out is a phone there), not the main window's.
   for (const r of rules) {
-    if (/\.module-chooser-toggle\s*$/.test(r.selector) && /display:\s*none/.test(r.body) && !/\.subnav-modules/.test(r.selector)) {
-      fail('public/style.css', `${r.selector} hides the chooser's button without the list being the tab bar; scope it to .subnav-modules`);
+    if (/\.module-chooser-toggle\s*$/.test(r.selector) && /display:\s*none/.test(r.body) && !/\.sdk-tabbar-tabs/.test(r.selector)) {
+      fail('public/style.css', `${r.selector} hides the chooser's button without the list being the tab bar; scope it to .sdk-tabbar-tabs`);
     }
   }
   const place = spaceJs.slice(spaceJs.indexOf('function phoneWidth('), spaceJs.indexOf('placeSubnav();\n'));

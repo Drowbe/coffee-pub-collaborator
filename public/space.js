@@ -83,8 +83,8 @@ function nameModuleChooser() {
 nameModuleChooser();
 // On a phone the space bar is a tab bar at the bottom of the page, in the flow after the canvas, so
 // the call toolbar sits directly above it whatever the browser does with its own bottom bar. Wider,
-// it is the header's second row. The chooser's list is the tab bar on a phone (`subnav-modules`, always shown), a list
-// under its button wider.
+// it is the header's second row. On a phone the bar is the Tab bar family's (.sdk-tabbar, system.css) and the chooser's
+// list holds its module tabs (`sdk-tabbar-tabs`, always shown, canvas.js draws them); wider it is a list under its button.
 // Phone or wide is the header's own window: popped out, the header is in that window, whose width is its own (a
 // 480 wide pop-out is a phone there, and its stylesheet says so). Re-checked as that window crosses the line, and
 // when the header moves between windows (setUpPopoutWindow and its pagehide call placeSubnav()).
@@ -104,8 +104,9 @@ function placeSubnav() {
   if (popped && subnav.parentNode !== topbarEl) topbarEl.appendChild(subnav); // popped out, the bar is the header's second row
   const list = moduleChooser.querySelector('#modules-menu');
   const tabs = phoneWidth();
-  if (list.classList.contains('subnav-modules') !== tabs) {
-    list.classList.toggle('subnav-modules', tabs);
+  subnav.classList.toggle('sdk-tabbar', tabs);
+  if (list.classList.contains('sdk-tabbar-tabs') !== tabs) {
+    list.classList.toggle('sdk-tabbar-tabs', tabs);
     list.classList.toggle('module-chooser-list', !tabs);
     if (tabs) list.removeAttribute('role'); else list.setAttribute('role', 'group');
     nameModuleChooser();
@@ -1046,6 +1047,8 @@ function layoutNote(text) {
 }
 // The space's canvas: the Modules menu and every module open on it, docked, floating or in a window.
 let askInChat = null;
+let paintCallTab = () => {}; // the phone's call item (Online), set with who is here below
+let micLive = false; // the microphone is live (reflectMic): the call item says so on a phone
 const canvas = createCanvas({
   guestToken,
   onNote: (text) => layoutNote(text),
@@ -1057,6 +1060,7 @@ const canvas = createCanvas({
   // stay in this page (overlayParams, homeLinksIn, below).
   frameParams: () => (guestToken ? new URLSearchParams() : overlayParams()),
   onCompositeLoad: (frame) => homeLinksIn(frame),
+  onTabs: () => paintCallTab(), // the phone's tabs are new: Online, the call item, says whether the call is the view
   onChatAsk: (input) => {
     if (!askInChat) return Promise.reject(Object.assign(new Error('Chat is not ready.'), { status: 400 }));
     toggleChat(true);
@@ -1075,6 +1079,11 @@ window.hostModules = canvas; // for debugging and tests
 // Rejoin call stay in it (`phone: 'bar'`), Full screen and Pop out are in its "..." only in a narrow popped-out window
 // (`phone: 'popout'`), and the rest goes into the "...".
 const SPACE_TOOL = { bar: 'secondary', zone: 'right', group: 'space', groupOrder: 1 };
+// A tool's part in the call, for the tab bar's colours on a phone (system.css, tabbar block: data-role join or leave).
+function tabRole(id, role) {
+  const el = nav.elementOf(id);
+  if (el) el.dataset.role = role;
+}
 nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', workspace: 'only', place: 'end', toggleable: true, active: false, onClick: () => toggleFullscreen() });
 nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', workspace: 'only', place: 'end', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
@@ -1086,11 +1095,13 @@ function registerWordTools() {
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, workspace: 'every', visible: () => recallWanted(), onClick: recallParticipants });
   // Leave is in the space bar only where the bar is the phone's tab bar (plan-one-bar.md, step 5 and decision 3); wider,
   // it is the last entry of the top bar's space switcher (brand.js, through app:enter-space { action: 'leave' } below).
-  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
+  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', short: 'Leave', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
+  tabRole('leave-space', 'leave'); // the readable red in the tab bar
 }
 registerWordTools();
 // Rejoin call is the tab bar's; wider than a phone the top bar has its own (aside-rejoin, the one bar section below).
 nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin) && phoneWidth(), onClick: () => returnFromAside() });
+tabRole('rejoin-call', 'join'); // the call's ok colour in the tab bar
 // On a phone the header's links are a menu (see brand.js), and the call's settings would otherwise
 // only be reachable from the Conference view's toolbar. This tool, in the menu only (its class, see style.css) and
 // only while in the call, shows the conference and opens them. It sits in the session group, ahead of the clock.
@@ -1098,7 +1109,7 @@ nav.register({
   id: 'call-settings', bar: 'primary', zone: 'right', group: 'session', order: 50, icon: 'sliders', label: 'Call settings',
   visible: () => inCall && !guestToken && canDo('canInvite'),
   onClick: () => {
-    document.querySelector('.modules-menu-item[data-builtin="conference"]')?.click(); // shows the conference view
+    canvas.showBuiltin('conference'); // shows the conference view
     setTimeout(() => { if ($('settings').hidden || $('settings').dataset.group !== 'more') openSettings('more'); }, 50);
   },
 }).classList.add('call-settings-link');
@@ -1113,6 +1124,7 @@ function syncCallControl() {
   whoHere.refresh(); // who is here, in the top bar or the phone's tab bar (space-people.js)
   nav.draw('secondary'); // Join the call shows only out of the call
   paintJoinCall();
+  paintCallTab(); // and Online is the call item on a phone while on the call
   syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
 // The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
@@ -1170,7 +1182,8 @@ joinCallButton.id = 'join-call';
 joinCallButton.className = 'btn btn-small btn-primary join-call nav-text'; // the nav text's type, the accent button's colours
 joinCallButton.setAttribute('aria-label', 'Start call');
 joinCallButton.title = 'Start a call from this chat';
-joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
+joinCallButton.dataset.role = 'join'; // on a phone a tab whose phone is in the call's ok colour (system.css, tabbar block)
+joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
 // "Start call" while no one is in the call, "Join call" while one is running (the call's own people whose `call`
 // attribute is not off, as the conference's note lists them).
 function paintJoinCall() {
@@ -1216,6 +1229,28 @@ const whoHere = createWhoHere({
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 const whoHereBar = nav.get('who-here'); // the phone's, in the tab bar
+// On a phone the conference is not a tab: the call is the tab bar's pinned call item (the Tab bar family; Thomas,
+// 2026-10-21): Join out of the call, then Online. On the call Online is the call itself: its icon in the call's ok colour
+// (the readable red while the microphone is live), current while the conference is the view shown, and a press shows the
+// conference when another view is shown (and opens who is here when the conference already is). Out of the call a press
+// opens who is here, as wider.
+function callTabShown() {
+  return phoneWidth() && inCall && canvas.shownView() === 'conference';
+}
+paintCallTab = () => {
+  const toggle = whoHere.el.querySelector('.who-here-toggle');
+  if (!toggle) return;
+  const phone = phoneWidth();
+  toggle.classList.toggle('in-call', phone && inCall);
+  toggle.dataset.mic = phone && inCall && micLive ? 'live' : 'off';
+  toggle.classList.toggle('on', callTabShown());
+};
+whoHere.el.addEventListener('click', (event) => {
+  if (!phoneWidth() || !inCall || callTabShown() || !event.target.closest('.who-here-toggle')) return;
+  event.stopPropagation(); // the conference instead of the list
+  canvas.showBuiltin('conference');
+  paintCallTab();
+}, true);
 const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && call.state === 'connected' && !phoneWidth();
 const whoHereTop = { id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, yieldFirst: true, visible: whoHereTopWanted };
 // --- end who is here ---
@@ -2069,7 +2104,7 @@ function drawAttentionCount() {
   if (n > 0 && attentionButton.textContent !== words) {
     // The count in a Chips count, then the words: its text is still the whole sentence ("3 need action").
     const count = document.createElement('span');
-    count.className = 'sdk-strip-attn-n';
+    count.className = 'sdk-badge'; // the Chips count
     count.textContent = String(n);
     const rest = document.createElement('span');
     rest.className = 'sdk-strip-attn-words';
@@ -5016,10 +5051,10 @@ function reflectMic() {
   $('mic').classList.toggle('on', !!on);
   $('mic').classList.toggle('off', !on);
   $('mic').classList.toggle('ptt', prefs.ptt);
-  // On a phone the conference can be hidden behind the chat while the mic is live, so the space bar
-  // says so (see the in-call dot in style.css). The bar's own element is kept, its items are rebuilt.
-  const bar = $('modules-menu');
-  if (bar) bar.dataset.mic = on ? 'live' : 'off';
+  // On a phone the conference can be hidden behind the chat while the mic is live, so the tab bar's call item says so
+  // (paintCallTab: Online's icon turns the readable red).
+  micLive = Boolean(on);
+  paintCallTab();
   if (call.state === 'connected') updateMuted(call.localParticipant);
 }
 

@@ -11,8 +11,9 @@
 //
 // It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width it may take
 // (fitWidth: the bar less the right zone at its full width and the Layout button), and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
-// then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is that
-// compact count in the tab bar, between the module tabs and Leave (style.css).
+// then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is a tab
+// of the tab bar, "Online" with how many are here as the count at its icon's corner (system.css, tabbar block), before
+// Leave; on the call it is the bar's call item (space.js, paintCallTab).
 //
 // The list is the same popover pattern as the Modules chooser beside it: by its button (under it, or above it in a
 // tab bar at the window's bottom, kept inside the window, place()), open until the button,
@@ -91,7 +92,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   el.className = 'who-here';
   el.innerHTML = `
     <button class="who-here-toggle nav-text" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list">
-      <span class="who-here-faces sdk-avatar-stack" aria-hidden="true"></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
+      <span class="who-here-faces sdk-avatar-stack" aria-hidden="true"></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="who-here-word sdk-tabbar-label" aria-hidden="true">Online</span><span class="sdk-badge-micro who-here-n" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
     </button>
     <section class="who-here-list" id="who-here-list" tabindex="-1" aria-labelledby="who-here-title" hidden>
       <h3 class="who-here-title" id="who-here-title"></h3>
@@ -105,6 +106,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   more.setAttribute('aria-hidden', 'true');
   more.hidden = true;
   const countEl = el.querySelector('.who-here-count');
+  const nEl = el.querySelector('.who-here-n'); // the phone's tab: "Online" with how many are here at the icon's corner
   let people = [];
   let shownFaces = MAX_FACES; // what fit() last allowed
   let wording = 'names'; // which of hereLabel()'s words fit() last allowed: 'names' or 'count'
@@ -183,6 +185,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     el.classList.toggle('count-only', k === 0);
     const { shown, said } = hereWords(people, where());
     countEl.textContent = compact ? shown : hereLabel(people, where())[wording];
+    nEl.textContent = people.length > 9 ? '9+' : String(people.length || '');
     // Its name is "Who is here" wherever it is; how many, and how many on the call, is its description.
     const saidEl = el.querySelector('#who-here-said');
     if (saidEl.textContent !== said) saidEl.textContent = said;

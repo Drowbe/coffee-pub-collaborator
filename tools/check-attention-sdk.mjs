@@ -73,9 +73,9 @@ const look = sys.slice(sys.indexOf('/* journey:start */'), sys.indexOf('/* journ
 const block = css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
 has(look, /\.sdk-strip-attn \{[^}]*--chip-tone: var\(--status-warn-fill\);[^}]*background: color-mix\(in srgb, var\(--chip-tone\) 18%, var\(--surface-bar-top\)\);/, 'the count is a warn tone chip, not a solid accent pill');
 has(look, /\.sdk-strip-attn-slot \{ display: flex; flex: none; align-items: center; margin-left: auto; \}/, 'the count sits at the strip\'s right end');
-has(look, /\.sdk-strip-attn-n \{[^}]*min-width: 18px;[^}]*height: 18px;[^}]*border-radius: var\(--radius-round\);/, 'its number is a Chips count');
+has(look, /\.sdk-strip-attn > \.sdk-badge \{ background: color-mix\(in srgb, var\(--text-bar\) 14%, transparent\); color: var\(--text-bar\); \}/, 'its number is the Chips count, in the bar\'s text');
 has(block, /\.sdk-strip\.attention-only > :not\(\.sdk-strip-attn-slot\) \{\n\s*display: none;/, 'a space without phases shows the count alone');
-has(space, /count\.className = 'sdk-strip-attn-n';/, 'the count in its own span, made as elements');
+has(space, /count\.className = 'sdk-badge'; \/\/ the Chips count/, 'the count in its own span, made as elements');
 const added = look.slice(look.indexOf('.sdk-strip-attn-slot {'), look.indexOf('/* ---- the journey bar'));
 ok(added.length > 0 && !/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(added), 'no colour literals in the count\'s rules');
 

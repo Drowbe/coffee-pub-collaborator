@@ -2441,7 +2441,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 .sdk-strip-fact > :is(i, .sdk-strip-fact-text) { position: relative; }
 .sdk-strip-fact-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* The attention pill: a warn tone fill (it needs action), the count a Chips count. At the strip's right end. */
+/* The attention pill: a warn tone fill (it needs action), the count the Chips count. At the strip's right end. */
 .sdk-strip-attn-slot { display: flex; flex: none; align-items: center; margin-left: auto; }
 .sdk-strip-attn-slot[hidden] { display: none; }
 .sdk-strip-attn {
@@ -2453,23 +2453,8 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 }
 .sdk-strip-attn:hover { background: color-mix(in srgb, var(--chip-tone) 28%, var(--surface-bar-top)); }
 .sdk-strip-attn[aria-expanded="true"] { background: color-mix(in srgb, var(--chip-tone) 34%, var(--surface-bar-top)); color: color-mix(in srgb, var(--chip-tone) 45%, var(--text-bar)); }
-.sdk-strip-attn-n {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  box-sizing: border-box;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--jr-chip-gap);
-  border-radius: var(--radius-round);
-  background: color-mix(in srgb, var(--text-bar) 14%, transparent);
-  color: var(--text-bar);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  line-height: var(--leading-ui);
-  font-variant-numeric: tabular-nums;
-}
+/* Its count is the Chips count (.sdk-badge), in the bar's text. */
+.sdk-strip-attn > .sdk-badge { background: color-mix(in srgb, var(--text-bar) 14%, transparent); color: var(--text-bar); }
 
 /* ---- the journey bar: a day grid (journeyLayout) ---- */
 .sdk-journey {
@@ -2647,14 +2632,14 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   .sdk-strip .sdk-strip-phase { flex: 1 1 auto; padding: 0 var(--space-1); background: none; }
   .sdk-strip .sdk-strip-dot { width: 8px; height: 8px; }
   .sdk-strip .sdk-strip-attn { padding: 0 var(--jr-chip-gap) 0 var(--space-1); font-size: var(--text-11); }
-  .sdk-strip .sdk-journey { position: absolute; left: 0; right: 0; bottom: var(--jr-line-foot); flex: none; min-width: 0; max-width: none; height: var(--jr-line); cursor: default; }
+  .sdk-strip .sdk-journey { position: absolute; z-index: 2; left: 0; right: 0; bottom: var(--jr-line-foot); flex: none; min-width: 0; max-width: none; height: var(--jr-line); cursor: default; } /* over the chip: its bands' tap areas take the line's foot */
   .sdk-strip .sdk-band { top: 0; height: var(--jr-line); padding: 0; border: 0; border-radius: var(--radius-min); background: color-mix(in srgb, var(--tint, var(--accent-fill)) 55%, transparent); overflow: visible; }
   .sdk-strip .sdk-band > * { display: none; }
   .sdk-strip .sdk-band[data-state="past"] { background: color-mix(in srgb, var(--tint, var(--accent-fill)) 28%, transparent); }
   .sdk-strip .sdk-band[data-state="current"] { background: var(--jr-now); }
   .sdk-strip .sdk-band[data-state="off"] { background: color-mix(in srgb, var(--text-bar) 22%, transparent); }
   /* A band is reached by a taller invisible area; a tap shows its name and dates. */
-  .sdk-strip .sdk-band::after { content: ""; position: absolute; left: 0; right: 0; top: -9px; bottom: -3px; }
+  .sdk-strip .sdk-band::after { content: ""; position: absolute; left: 0; right: 0; top: -6px; bottom: -3px; } /* under the chip's middle: a tap there is the chip's */
   .sdk-strip .sdk-journey > :is(.sdk-gap, .sdk-tick, .sdk-tick-label) { display: none; }
   .sdk-strip .sdk-today { top: var(--jr-dot-top); width: var(--jr-dot); min-width: 0; height: var(--jr-dot); padding: 0; overflow: hidden; color: transparent; font-size: 0; }
   .sdk-strip .sdk-today-stem { display: none; }
@@ -4858,3 +4843,154 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   .sdk-choice-row { transition: none; }
 }
 /* choices:end */
+
+/* ================= Phone tab bar: icon over label (design system step 31) =================
+   The space bar on a phone (640px and below, the bar's own window): space.js gives the bar .sdk-tabbar, canvas.js draws a module's
+   tab (.sdk-tabbar-tab: .sdk-tabbar-glyph, the 24 by 24 icon box, then .sdk-tabbar-label) and nav-bar.js makes every tool shown
+   in the bar a tab too (Join, Online, Rejoin call, the "..." and Leave: their icon is the box, their short word the label).
+   Source: public/design-system/proposed-tabbar.css, without the .ds-proposed prefix, with the colour roles.
+   Bar     --tabbar-h (54px, style.css) plus the home indicator's inset; the bar surface, one hairline on top, 4px of padding, the tabs
+           4px apart. Tab: flex 1, at least 56px (--tabbar-min; TAB_MIN in nav-bar.js), a 20px icon in a 24 by 24 box over an 11px
+           label, 4px apart, a 45px target. Rest: the bar text 25% toward the bar; hover 10%, pressed 16%; current: the selected
+           fill with the label and icon in the accent mix (weight stays 500, so no tab changes width). Focus: 2px inside the tab.
+   Count   the Chips micro count (.sdk-badge-micro) anchored to the icon box's top right corner (4px above it, 6px past its right
+           edge), the same on every tab: inside the box on a module's tab, measured from the tab's middle on a tool's (the box is
+           centred), so both land on the same pixel. 9+ at most (the Chips family).
+   Join    the phone icon in the ok status colour pulled toward the bar text; Leave's words and icon the readable red; Online while
+           on the call its icon in the same ok colour (the readable red while the microphone is live), as the call's own mark.
+   The order (the module tabs, the "...", then the pinned call item: Join, then Online, Rejoin call and Leave) and the fold (the
+   tabs that do not fit go into the "...", which opens the shared menu above the bar) are the page's: style.css and nav-bar.js. */
+/* tabbar:start */
+:root {
+  --tabbar-min: 56px; /* TAB_MIN in nav-bar.js */
+  --tabbar-icon: var(--icon-20);
+  --tabbar-gap: var(--space-1); /* between the icon and the label, and between two tabs */
+  --tabbar-box: var(--icon-24);
+  --tabbar-pad-top: 5px; /* a label's ink sits high in its line: the extra pixel above centres the icon and label in the tab */
+  --tabbar-pad-bottom: 2px; /* with the 1px edges, the 20px icon, the 4px gap and the 12px label: 45px, the bar less its padding and rule */
+  --tabbar-label-h: 12px;
+  --tabbar-badge-top: -4px;
+  --tabbar-badge-right: -6px;
+  --tabbar-fg: color-mix(in srgb, var(--text-bar) 75%, var(--surface-bar-top));
+  --tabbar-now: color-mix(in srgb, var(--accent-fill) 55%, var(--text-bar));
+  --tabbar-leave: color-mix(in srgb, var(--status-danger-fill) 70%, var(--text-bar));
+  --tabbar-join: color-mix(in srgb, var(--status-ok-fill) 70%, var(--text-bar)); /* the ok colour, toward the text, so the icon reaches 3 to 1 in both modes */
+}
+
+/* ---- the bar ---- */
+/* Its display has no weight: a page rule that hides the bar (the space bar out of a space) still wins. */
+:where(.sdk-tabbar) {
+  display: flex;
+}
+
+.sdk-tabbar {
+  position: relative;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--tabbar-gap);
+  flex: none;
+  box-sizing: border-box;
+  height: calc(var(--tabbar-h) + var(--safe-bottom));
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-1) var(--space-1) calc(var(--space-1) + var(--safe-bottom));
+  border: 0;
+  border-top: 1px solid var(--edge-hairline);
+  background: var(--surface-bar-top);
+  color: var(--text-bar);
+  overflow: visible;
+}
+
+/* ---- the tab ---- */
+.sdk-tabbar .sdk-tabbar-tab {
+  --tab-fg: var(--tabbar-fg);
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* the icon box at the same place on every tab, so a count lands on the same pixel */
+  gap: var(--tabbar-gap);
+  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  min-width: var(--tabbar-min);
+  min-height: 0;
+  margin: 0;
+  padding: var(--tabbar-pad-top) 0 var(--tabbar-pad-bottom);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--tab-fg);
+  font: inherit;
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  line-height: var(--tabbar-label-h);
+  letter-spacing: normal;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  outline: none;
+  opacity: 1;
+  transform: none;
+  overflow: visible;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+.sdk-tabbar .sdk-tabbar-tab[hidden] { display: none; }
+/* A tab is its own 45px target: no small button's grown hit area. */
+.sdk-tabbar .sdk-tabbar-tab::after { content: none; }
+
+/* The icon box: 24 by 24 on every tab, the 20px glyph centred in it; its 2px above and below overlap the tab's padding, so the icon
+   is 20px high in the layout. A module's tab draws it (.sdk-tabbar-glyph); a tool's icon is the box itself. */
+.sdk-tabbar :is(.sdk-tabbar-glyph, .sdk-tabbar-tab > i) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--tabbar-box);
+  height: var(--tabbar-box);
+  margin: calc((var(--tabbar-icon) - var(--tabbar-box)) / 2) 0;
+  color: var(--tab-glyph, currentColor);
+  font-size: var(--tabbar-icon);
+  line-height: var(--leading-ui);
+}
+.sdk-tabbar .sdk-tabbar-glyph > i { display: block; width: auto; font-size: var(--tabbar-icon); line-height: var(--leading-ui); }
+.sdk-tabbar .sdk-tabbar-tab > .sdk-tabbar-label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* States: a fill each; no edge, no underline. */
+.sdk-tabbar .sdk-tabbar-tab:hover { border-color: transparent; background: color-mix(in srgb, var(--text-bar) 10%, transparent); color: var(--text-bar); }
+.sdk-tabbar .sdk-tabbar-tab:active { background: color-mix(in srgb, var(--text-bar) 16%, transparent); color: var(--text-bar); }
+.sdk-tabbar .sdk-tabbar-tab:focus-visible { outline: 2px solid var(--tab-focus, var(--focus-ring)); outline-offset: -2px; }
+
+/* Current: the neutral selected fill; the label and the icon in the accent mix. */
+.sdk-tabbar .sdk-tabbar-tab:is([aria-current="page"], .on, [aria-expanded="true"]) { --tab-focus: var(--tabbar-now); background: var(--fill-selected); color: var(--tabbar-now); }
+.sdk-tabbar .sdk-tabbar-tab:is([aria-current="page"], .on, [aria-expanded="true"]):hover { background: color-mix(in srgb, var(--accent-fill) 38%, transparent); }
+.sdk-tabbar .sdk-tabbar-tab:is([aria-current="page"], .on, [aria-expanded="true"]):active { background: color-mix(in srgb, var(--accent-fill) 46%, transparent); }
+.sdk-tabbar .sdk-tabbar-tab:is(:disabled, [aria-disabled="true"]) { opacity: 0.5; cursor: default; pointer-events: none; }
+
+/* The call: Join's phone in the ok colour; Leave the readable red; Online on the call in the ok colour, red while the mic is live. */
+.sdk-tabbar .sdk-tabbar-tab[data-role="join"] { --tab-glyph: var(--tabbar-join); }
+.sdk-tabbar .sdk-tabbar-tab[data-role="leave"] { --tab-fg: var(--tabbar-leave); }
+.sdk-tabbar .sdk-tabbar-tab.in-call { --tab-glyph: var(--tabbar-join); }
+.sdk-tabbar .sdk-tabbar-tab.in-call[data-mic="live"] { --tab-glyph: var(--tabbar-leave); }
+
+/* The count: the Chips micro count (.sdk-badge-micro, its look is the Chips block's), placed at the icon box's top right corner,
+   the same on every tab. Shown in a tab even where a page hides it otherwise (Online's count wider than a phone). */
+.sdk-tabbar .sdk-tabbar-tab .sdk-badge-micro { display: inline-flex; left: auto; }
+.sdk-tabbar .sdk-tabbar-tab .sdk-badge-micro:empty { display: none; }
+.sdk-tabbar .sdk-tabbar-glyph > .sdk-badge-micro { top: var(--tabbar-badge-top); right: var(--tabbar-badge-right); }
+/* A tool's count is the tab's child: the box starts the top padding less its 2px overlap below the tab's padding edge, and is centred. */
+.sdk-tabbar .sdk-tabbar-tab > .sdk-badge-micro {
+  top: calc(var(--tabbar-pad-top) + (var(--tabbar-icon) - var(--tabbar-box)) / 2 + var(--tabbar-badge-top));
+  right: calc(50% - var(--tabbar-box) / 2 + var(--tabbar-badge-right));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sdk-tabbar .sdk-tabbar-tab { transition: none; }
+}
+/* tabbar:end */

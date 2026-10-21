@@ -1985,9 +1985,9 @@ body.in-space .subnav {
   flex: none;
 }
 
-/* A tool's word under its icon (nav-bar.js, `short`: Rejoin call's "Rejoin", the "..."'s "More"): only where the space
-   bar is the phone's tab bar (below). */
-.subnav .nav-short {
+/* A tool's word under its icon (nav-bar.js, `short`: Rejoin call's "Rejoin", the "..."'s "More", Leave): the tab's label,
+   only where the space bar is the phone's tab bar (system.css, tabbar block). */
+.subnav .sdk-tabbar-label {
   display: none;
 }
 
@@ -2018,53 +2018,6 @@ body.in-space .subnav {
   height: 20px;
   padding: 0 6px;
   line-height: var(--leading-ui);
-}
-
-.subnav-modules {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-}
-
-/* A module toggle, not a button: a small switch, on when the module is open, then its icon and name. */
-.subnav-modules .modules-menu-item {
-  width: auto;
-  gap: 6px;
-  padding: 2px 8px 2px 4px;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: transparent;
-  color: color-mix(in srgb, var(--header-text) 65%, transparent);
-  font-size: var(--text-13);
-  white-space: nowrap;
-}
-
-.subnav-modules .modules-menu-item::before {
-  content: "";
-  flex: none;
-  width: 22px;
-  height: 12px;
-  border-radius: var(--radius-small);
-  background:
-    radial-gradient(circle at 6px 50%, color-mix(in srgb, var(--switch-ink, var(--header-text)) 70%, transparent) 4px, transparent 4.5px),
-    color-mix(in srgb, var(--switch-ink, var(--header-text)) 22%, transparent);
-}
-
-.subnav-modules .modules-menu-item:hover {
-  background: color-mix(in srgb, var(--header-text) 8%, transparent);
-  color: var(--header-text);
-}
-
-.subnav-modules .modules-menu-item.on {
-  color: var(--header-text);
-}
-
-.subnav-modules .modules-menu-item.on::before {
-  background:
-    radial-gradient(circle at 16px 50%, var(--on-accent) 4px, transparent 4.5px),
-    var(--accent);
 }
 
 /* One row of a switch list (switch-list.js): the switch, the module's icon and name, a note, a count. The same rows in the
@@ -2316,12 +2269,6 @@ label.switch-row.disabled:hover {
   margin-top: 4px;
 }
 
-/* Only while the list is the tab bar (space.js, placeSubnav, by the width of the header's own window, so a narrow
-   pop-out gets its tabs): no button, and the tab bar lays out the tabs as before. */
-body.in-space .module-chooser:has(> .subnav-modules) {
-  display: contents;
-}
-
 /* The bar is a second row of the header; the gap between rows would add height to the first. */
 body.in-space .topbar {
   flex-wrap: wrap;
@@ -2337,10 +2284,6 @@ body.in-space .topbar {
   .subnav #fullscreen-toggle,
   .subnav #popout,
   .subnav .nav-divider {
-    display: none;
-  }
-
-  .subnav-modules .modules-menu-item span:not(.sdk-badge) {
     display: none;
   }
 
@@ -5346,34 +5289,6 @@ body.conference-window {
   display: none;
 }
 
-/* Space modules: the toolbar menu and the floating panels. */
-.modules-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.modules-menu-item:hover {
-  background: var(--secondary-hover);
-}
-
-.modules-menu-item.on {
-  background: var(--selected-bg);
-}
-
-.modules-menu-item .sdk-badge {
-  margin-left: auto;
-}
-
 /* Above the call (and the overlay pages), below nothing that matters. */
 .module-layer {
   position: fixed;
@@ -5925,9 +5840,11 @@ body.chat-window {
 
 /* --- phone: the space as an app ---------------------------------------------
    Below 640px (the same width the canvas calls "narrow") the call is a phone layout: a slim
-   header, the canvas, and the space bar as a tab bar fixed to the bottom, one thumb away. The
-   modules in it are the same items as on a desktop, shown as tabs (icon over name, accent when
-   open). The call toolbar sits directly above it.
+   header, the canvas, and the space bar as a tab bar fixed to the bottom, one thumb away. Its look is the
+   Tab bar family's (public/sdk/system.css, tabbar block: space.js gives the bar .sdk-tabbar); here is where it
+   sits and the order of its tabs: the module tabs (canvas.js; Chat first, the Conference is not a tab), the "..."
+   that holds the tabs that do not fit, then the pinned call item: Join out of the call, Online, Rejoin call in an
+   aside, and Leave. The call toolbar sits directly above it.
    The page is pinned to the visible screen with position: fixed rather than a measured
    height, so a browser's own bottom bar (Chrome on an iPhone) can never cover the toolbar. */
 @media (max-width: 640px) {
@@ -5964,149 +5881,54 @@ body.chat-window {
   /* space.js moves the bar out of the header, after the canvas, so it is the last thing in the
      page's column: the toolbar sits right above it with no padding to calculate. */
   body.in-space .subnav {
-    display: flex; /* the tab bar: the module switches, Online's count and Leave */
-    flex: none;
     width: auto;
-    margin: 0;
-    /* The tabs get their full height; the safe-area padding (a browser's bottom bar, the home
-       indicator) comes on top of it, not out of it. */
-    min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-    box-sizing: border-box;
-    padding: 0 4px env(safe-area-inset-bottom);
-    align-items: stretch;
-    gap: 0;
-    background: var(--header-bg);
-    border-top: 1px solid var(--border);
     /* Above the floating layer (19 on a phone), level with the top bar, under an editor's lift and the menus (GitHub #268). */
     position: relative;
     z-index: 20;
   }
 
-  body.in-space .subnav-modules {
-    flex: 1;
-    gap: 0;
-    justify-content: space-around;
+  body.in-space .subnav.sdk-tabbar {
+    display: flex; /* the space bar's grid (two zones) is a row of tabs here */
   }
 
-  body.in-space .subnav-modules .modules-menu-item {
-    flex: 1 0 56px; /* the least width of a tab, TAB_MIN in nav-bar.js: the tabs that do not fit fold into the "..." */
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    min-width: 0;
-    padding: 4px 2px;
-    border-radius: var(--radius-small);
-    font-size: var(--text-11);
-    line-height: var(--leading-display);
+  /* Every tab is a child of the bar: the zones, the chooser and its list hold none of their own, so the tabs share the
+     bar's width alike (nav-bar.js counts them in slots of TAB_MIN) and take the order below. */
+  body.in-space .sdk-tabbar > :is(.nav-left, .nav-right),
+  body.in-space .sdk-tabbar .module-chooser,
+  body.in-space .sdk-tabbar .sdk-tabbar-tabs,
+  body.in-space .sdk-tabbar .who-here {
+    display: contents;
   }
 
-  body.in-space .subnav-modules .modules-menu-item::before {
-    display: none;
+  body.in-space .sdk-tabbar #subnav-more {
+    order: 1;
   }
 
-  body.in-space .subnav-modules .modules-menu-item i {
-    font-size: var(--text-18);
+  body.in-space .sdk-tabbar #join-call {
+    order: 2;
   }
 
-  body.in-space .subnav-modules .modules-menu-item span:not(.sdk-badge) {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  body.in-space .sdk-tabbar :is(#who-here-toggle, #rejoin-call) {
+    order: 3;
   }
 
-  body.in-space .subnav-modules .modules-menu-item.on {
-    color: var(--accent);
+  body.in-space .sdk-tabbar #leave-space {
+    order: 4;
   }
 
-  body.in-space .subnav-modules .modules-menu-item {
-    position: relative;
-  }
-
-  body.in-space .subnav-modules .modules-menu-item .sdk-badge {
-    position: absolute;
-    top: 2px;
-    left: calc(50% + 6px);
-    margin: 0;
-  }
-
-  body.in-space .subnav-tools {
-    align-items: stretch;
-    margin-left: 0;
-  }
-
-  /* The left zone takes what the right leaves, and the tabs' strip what Join and Online leave in it (nav-bar.js
-     measures the strip to fold the tabs that do not fit). No gaps and no dividers: every control is a tab. */
-  body.in-space .subnav .nav-left {
-    flex: 1 1 0;
-    align-self: stretch;
-    gap: 0;
-  }
-
-  body.in-space .subnav .nav-right {
-    flex: none;
-    gap: 0;
-  }
-
-  body.in-space .subnav .nav-divider {
-    display: none;
-  }
-
-  /* Rejoin call (in an aside) and the "..." as tabs: the icon over a short word, 48px, before Leave. */
-  body.in-space .subnav #rejoin-call,
-  body.in-space .subnav #subnav-more {
-    position: relative;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    width: auto;
-    height: auto;
-    min-width: 48px;
-    padding: 4px 4px;
-    border-radius: var(--radius-small);
-    font-size: var(--text-11);
-    line-height: var(--leading-display);
-  }
-
-  body.in-space .subnav #rejoin-call {
+  /* Online as a tab: its icon, the word and the count (space-people.js); not the portraits or the short count. */
+  body.in-space .sdk-tabbar .who-here .who-here-icon {
     display: inline-flex;
+  }
+
+  body.in-space .subnav .nav-divider,
+  body.in-space .sdk-tabbar .who-here :is(.who-here-faces, .who-here-count),
+  body.in-space .sdk-tabbar .join-call-more {
+    display: none;
   }
 
   body.in-space .subnav #subnav-more[hidden] {
     display: none;
-  }
-
-  body.in-space .subnav #rejoin-call i,
-  body.in-space .subnav #subnav-more i {
-    font-size: var(--text-18);
-  }
-
-  body.in-space .subnav .nav-short {
-    display: block;
-  }
-
-  body.in-space .subnav #subnav-more .sdk-badge-micro {
-    top: 2px;
-    right: auto;
-    left: calc(50% + 6px);
-  }
-
-  /* The conference's tab folded while in the call: its in-call dot is on the "..." (nav-bar.js), left of the icon so
-     the folded tabs' count beside it stays readable; green, red while the microphone is live. */
-  body.in-space .subnav #subnav-more.in-call::after {
-    content: "";
-    position: absolute;
-    top: 6px;
-    right: calc(50% + 6px);
-    width: 9px;
-    height: 9px;
-    border-radius: var(--radius-round);
-    background: var(--status-ok-mark);
-    border: 2px solid var(--header-bg);
-  }
-
-  body.in-space .subnav:has(.subnav-modules[data-mic="live"]) #subnav-more.in-call::after {
-    background: var(--danger);
   }
 
   /* A narrow popped-out window: the tab bar is the header's second row, its own full-width row under the logo's
@@ -6136,32 +5958,6 @@ body.chat-window {
   body.in-space .canvas [data-popout],
   body.in-space .canvas .mod-more-ways {
     display: none;
-  }
-
-  body.in-space .subnav #leave-space {
-    height: auto;
-    min-width: 48px;
-    padding: 0 8px;
-    font-size: var(--icon-20);
-    color: var(--danger-text);
-  }
-
-  /* In the call but looking at something else: a dot on the Conference tab, green with the
-     microphone off and red while it is live, so nobody talks unseen. */
-  body.in-space .subnav-modules .modules-menu-item.in-call::after {
-    content: "";
-    position: absolute;
-    top: 6px;
-    left: calc(50% + 6px);
-    width: 9px;
-    height: 9px;
-    border-radius: var(--radius-round);
-    background: var(--status-ok-mark);
-    border: 2px solid var(--header-bg);
-  }
-
-  body.in-space .subnav-modules[data-mic="live"] .modules-menu-item.in-call::after {
-    background: var(--danger);
   }
 
 }
@@ -6983,6 +6779,11 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   display: none;
 }
 
+/* Online's word and count: only as a tab of the phone's tab bar (space-people.js; system.css, tabbar block). */
+.who-here-toggle > :is(.who-here-word, .who-here-n) {
+  display: none;
+}
+
 /* The camera, the same mark the space list and the conference use: never the colour alone (the camera's shape, and
    the list says it in words). */
 .who-here-faces .who-here-call {
@@ -7117,75 +6918,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 @media (max-width: 640px) {
-  /* The tab bar: Online follows the module tabs in the left zone as a tab-like count (an icon over "3 here"), before
-     Leave; no divider between them there. */
-  body.in-space .subnav .nav-left > .who-here {
-    align-self: stretch;
-  }
-
-  body.in-space .subnav .nav-left > .nav-divider {
-    display: none;
-  }
-
-  body.in-space .who-here .who-here-toggle {
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    height: auto;
-    min-width: 48px;
-    padding: 4px 2px; /* "Just you" fits the 48px every tab-like control keeps (plan-phone-space-bar.md) */
-    border-radius: var(--radius-small);
-    font-size: var(--text-11);
-    line-height: var(--leading-display);
-  }
-
-  body.in-space .who-here-faces {
-    display: none;
-  }
-
-  body.in-space .who-here .who-here-icon {
-    display: inline-block;
-    font-size: var(--text-18);
-  }
-
-  body.in-space .who-here-count {
-    font-weight: var(--weight-regular);
-  }
-
-  /* Join the call as a tab, between the module tabs and Online's count: the phone over "Join", the phone in the call's
-     green (the conference's green phone, .fbtn.dial); its accessible name stays "Join the call". It takes its own 48px:
-     the tabs that no longer fit fold into the "..." (nav-bar.js, plan-phone-space-bar.md, decision 3). */
-  body.in-space .subnav .nav-left > .join-call {
-    align-self: stretch;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    height: auto;
-    min-width: 48px;
-    padding: 4px 4px;
-    border-color: transparent;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--header-text);
-    font-size: var(--text-11);
-    font-weight: var(--weight-regular);
-    line-height: var(--leading-display);
-  }
-
-  body.in-space .subnav .nav-left > .join-call:hover {
-    border-color: var(--border);
-    background: color-mix(in srgb, var(--icon-hover) 10%, transparent);
-    box-shadow: none;
-  }
-
-  body.in-space .subnav .nav-left > .join-call i {
-    font-size: var(--text-18);
-    color: var(--status-ok-mark);
-  }
-
-  body.in-space .join-call-more {
-    display: none;
-  }
 }
 
 /* --- image slots: paste a picture (slot-paste.js) --------------------------- */

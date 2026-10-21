@@ -21,7 +21,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, TAB_GAP, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
 // Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
@@ -379,7 +379,7 @@ test('the phone\'s fold of the space bar\'s right zone: every tool but Leave and
   assert.deepEqual(phoneFold([{ ...m, seq: 1 }]), ['todo:a'], 'so a module tool always goes into the "..." on a phone');
 });
 
-test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the stylesheet\'s tab width is TAB_MIN, Rejoin and the "..." are tabs, Join no longer narrows the tabs', () => {
+test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, every tab one slot of TAB_MIN, the module tabs, the "...", then the pinned call item and Leave; no Conference tab', () => {
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   const fit = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
   assert.ok(!/if \(!phoneNow/.test(fit), 'fitBar() no longer skips a phone');
@@ -388,7 +388,20 @@ test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the styleshe
   assert.match(phone, /phoneFold\(shown, \{ popped: /);
   assert.match(phone, /phoneTabs\(\{/);
   assert.match(phone, /t\.fit\(width\)/, 'Online draws its short count again in the window it is in (the narrow pop-out\'s full words, #160)');
-  assert.match(fit, /fold\.more\.classList\.toggle\('in-call', tabs\.some/, 'the in-call dot on the "..." while the conference\'s tab is folded');
+  assert.ok(!/in-call/.test(src), 'no in-call dot on the "...": the conference is not a tab, the call item says it (space.js, paintCallTab)');
+  assert.equal(TAB_GAP, 4, 'tabs 4px apart');
+  assert.match(phone, /const slot = TAB_MIN \+ TAB_GAP;/, 'every tab is one slot of the bar');
+  assert.match(phone, /width: width \+ TAB_GAP,\n\s*fixed: pinned \* slot,\n\s*more: slot,\n\s*tabMin: slot,/, 'the tools still shown (Join, Online, Rejoin call, Leave) take a slot each and never fold; the "..." one');
+  // 390 px (382 inside): six slots; Join, Online and Leave pinned: two module tabs and the "..."; on the call (no Join), three.
+  const slots = (inner, pinned, n) => phoneTabs({ width: inner + TAB_GAP, fixed: pinned * (TAB_MIN + TAB_GAP), more: TAB_MIN + TAB_GAP, tabMin: TAB_MIN + TAB_GAP, tabs: Array.from({ length: n }, (_, i) => `t${i + 1}`), shown: 't1' }).shown.length;
+  assert.equal(slots(382, 3, 8), 2, '390: Join, Online, Leave and the "...": two module tabs');
+  assert.equal(slots(382, 2, 8), 3, '390 on the call: three module tabs');
+  assert.equal(slots(312, 3, 8), 1, '320: one module tab, the chat');
+  assert.equal(slots(382, 3, 3), 3, 'three module tabs and the three pinned fit with no "..."');
+  // On a phone every tool shown in the space bar is a tab; the module tabs are canvas.js's.
+  assert.match(src, /if \(bar === 'secondary'\) markTabs\(b, phoneNow\);/);
+  assert.match(src, /if \(tab\) tab\.classList\.toggle\('sdk-tabbar-tab', phoneNow && t\.bar === 'secondary'\);/);
+  assert.match(src, /s\.className = 'sdk-tabbar-label';/, 'a tool\'s short word is its tab\'s label');
   assert.match(src, /for \(const tab of fold\.tabs\) n \+= unreadOf\(tab\);/, 'the folded tabs\' unread counts on the "..."');
   const menu = src.slice(src.indexOf('async function openFoldMenu('));
   assert.match(menu, /\[\.\.\.tabItems, \.\.\.\(tabItems\.length && items\.length \? \[\{ divider: true \}\] : \[\]\), \.\.\.items\]/, 'the folded tabs, a divider, then the tools');
@@ -396,11 +409,25 @@ test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the styleshe
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
   assert.ok(update.lastIndexOf("nav.draw('secondary');") > update.lastIndexOf('menu.appendChild(b);'), 'update() asks for the fold again after drawing the tabs');
+  assert.match(update, /filter\(\(def\) => def\.id !== 'conference' && /, 'the conference is not a tab on a phone: the call is the pinned call item');
+  assert.match(update, /b\.className = 'sdk-tabbar-tab';/);
+  assert.match(update, /<span class="sdk-tabbar-glyph"><i class="fa-solid fa-\$\{escapeHtml\(icon\)\} fa-fw" aria-hidden="true"><\/i>\$\{n \? `<span class="sdk-badge-micro" aria-hidden="true">/, 'the icon in its box, the Chips micro count at the box\'s corner');
+  assert.match(update, /if \(current\) b\.setAttribute\('aria-current', 'page'\);/);
+  assert.match(canvasJs, /view = shown\.includes\('chat'\) \? 'chat' : /, 'the chat is the view a phone starts on');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, new RegExp(`body\\.in-space \\.subnav-modules \\.modules-menu-item \\{\\n\\s*flex: 1 0 ${TAB_MIN}px;`), 'the stylesheet\'s tab least width is TAB_MIN');
+  const sys = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  const look = sys.slice(sys.indexOf('/* tabbar:start */'), sys.indexOf('/* tabbar:end */'));
+  assert.match(look, new RegExp(`--tabbar-min: ${TAB_MIN}px;`), 'the stylesheet\'s tab least width is TAB_MIN');
+  assert.match(look, /--tabbar-gap: var\(--space-1\);/, 'and its gap TAB_GAP (4px)');
+  assert.match(look, /\.sdk-tabbar \.sdk-tabbar-tab \{[^}]*flex: 1 1 0;[^}]*min-width: var\(--tabbar-min\);/, 'every tab one share of the bar, at least TAB_MIN');
+  assert.match(look, /--tabbar-box: var\(--icon-24\);/, 'the 24 by 24 icon box');
+  assert.match(look, /--tabbar-icon: var\(--icon-20\);/, 'a 20px icon');
+  assert.match(look, /\.sdk-tabbar \.sdk-tabbar-glyph > \.sdk-badge-micro \{ top: var\(--tabbar-badge-top\); right: var\(--tabbar-badge-right\); \}/, 'a module tab\'s count at its box\'s corner');
+  assert.match(look, /\.sdk-tabbar \.sdk-tabbar-tab > \.sdk-badge-micro \{\n\s*top: calc\(var\(--tabbar-pad-top\) \+ \(var\(--tabbar-icon\) - var\(--tabbar-box\)\) \/ 2 \+ var\(--tabbar-badge-top\)\);\n\s*right: calc\(50% - var\(--tabbar-box\) \/ 2 \+ var\(--tabbar-badge-right\)\);/, 'a tool\'s count at the same corner, measured from the centred box');
   assert.ok(!/\.subnav:has\(\.join-call/.test(css), 'no #165 rule narrows the tabs while Join shows');
-  assert.match(css, /body\.in-space \.subnav #rejoin-call,\n\s*body\.in-space \.subnav #subnav-more \{\n\s*position: relative;\n\s*flex-direction: column;/, 'Rejoin call and the "..." are tabs');
-  assert.match(css, /\.subnav \.nav-short \{\n\s*display: none;/, 'their short words only in the tab bar');
+  assert.match(css, /body\.in-space \.subnav\.sdk-tabbar \{\n\s*display: flex;/, 'the space bar is a row of tabs on a phone');
+  assert.match(css, /body\.in-space \.sdk-tabbar #subnav-more \{\n\s*order: 1;[\s\S]*?body\.in-space \.sdk-tabbar #join-call \{\n\s*order: 2;[\s\S]*?body\.in-space \.sdk-tabbar :is\(#who-here-toggle, #rejoin-call\) \{\n\s*order: 3;[\s\S]*?body\.in-space \.sdk-tabbar #leave-space \{\n\s*order: 4;/, 'the module tabs, the "...", then Join, Online or Rejoin call, and Leave at the right end');
+  assert.match(css, /\.subnav \.sdk-tabbar-label \{\n\s*display: none;/, 'their short words only in the tab bar');
   assert.match(css, /body\.in-space\.popout \.subnav \{\n\s*flex: 0 0 calc\(100% \+ 20px\);/, 'a narrow pop-out\'s bar is its own row');
   assert.match(css, /body\.in-space\.popout \.subnav \{\n\s*flex: 0 0 calc\(100% \+ 20px\);\n\s*min-width: 0;/, 'and never wider than the window');
   assert.match(css, /body\.in-space\.popout \.subnav > \.nav-left,\n\s*body\.in-space\.popout \.subnav > \.nav-right \{\n\s*margin: 0;\n\s*padding: 0;/, 'the header\'s zone padding and edge margins (.topbar .nav-left, .nav-right) are not the pop-out tab bar\'s');
@@ -408,6 +435,14 @@ test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the styleshe
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
   assert.match(placeSub, /nav\.draw\('secondary'\);/);
+  assert.match(placeSub, /subnav\.classList\.toggle\('sdk-tabbar', tabs\);/, 'the bar is the Tab bar family\'s on a phone');
+  // The call item: Online on the call shows the conference, carries the call's colour and is current while it is shown.
+  assert.match(space, /canvas\.showBuiltin\('conference'\); \/\/ shows the conference view/, 'Call settings shows the conference without a tab');
+  assert.match(space, /toggle\.classList\.toggle\('in-call', phone && inCall\);/);
+  assert.match(space, /toggle\.classList\.toggle\('on', callTabShown\(\)\);/);
+  assert.match(space, /event\.stopPropagation\(\); \/\/ the conference instead of the list\n\s*canvas\.showBuiltin\('conference'\);/);
+  assert.match(space, /joinCallButton\.dataset\.role = 'join';/);
+  assert.match(space, /tabRole\('leave-space', 'leave'\);/);
   const schedule = src.slice(src.indexOf('function scheduleFit(bar)'), src.indexOf('function watchFit('));
   assert.match(schedule, /if \(f\.frame && f\.frameView !== view\) \{/);
 });
@@ -949,9 +984,9 @@ test('the space bar in two zones: Layout (the module chooser), then Online, on t
     }
   }
   assert.match(css, /\n\.subnav \{[^}]*background: var\(--nav-secondary-bg\);/, 'the whole bar is --nav-secondary-bg');
-  // The phone's tab bar: Online's count follows the tabs in the left zone, no divider there.
-  assert.match(css, /body\.in-space \.subnav \.nav-left > \.who-here \{\s*align-self: stretch;/);
-  assert.match(css, /body\.in-space \.subnav \.nav-left > \.nav-divider \{\s*display: none;/);
+  // The phone's tab bar: Online is a tab of the bar (its wrapper holds no box of its own), no divider there.
+  assert.match(css, /body\.in-space \.sdk-tabbar \.who-here \{\s*display: contents;/);
+  assert.match(css, /body\.in-space \.subnav \.nav-divider,[^{]*\{\s*display: none;/);
 });
 
 test('Who is here in the top bar (Thomas, 2026-10-14): the space\'s, after the layout tabs, giving way first; the tab bar\'s count on a phone; out of the column', () => {
@@ -994,7 +1029,7 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   assert.match(space, /joinCallButton\.id = 'join-call';/);
   assert.match(space, /joinCallButton\.className = 'btn btn-small btn-primary join-call nav-text';/);
   assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Start call'\);/);
-  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
+  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
   assert.match(space, /const verb = running \? 'Join' : 'Start';/, 'Join call while a call runs, Start call while none does');
   assert.match(space, /\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/, 'wider than a phone it is in the chat\'s view row');
   assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted \}\);/);
@@ -2097,7 +2132,7 @@ test('the status strip: the chip and its journey bar, a tool of the space bar\'s
   assert.match(look, /--jr-band-h: 24px;/, 'a band is 24px');
   assert.match(look, /--jr-bar-top: 15px;/, 'the bar sits under the pin\'s row');
   assert.match(look, /@media \(max-width: 640px\) \{\n\s*\.sdk-strip \{ height: var\(--status-strip-slim-h\);/, 'on a phone the slim line');
-  assert.match(look, /\.sdk-strip \.sdk-journey \{ position: absolute; left: 0; right: 0; bottom: var\(--jr-line-foot\);[^}]*height: var\(--jr-line\);/, 'on a phone a 2px line along the foot');
+  assert.match(look, /\.sdk-strip \.sdk-journey \{ position: absolute;[^}]*left: 0; right: 0; bottom: var\(--jr-line-foot\);[^}]*height: var\(--jr-line\);/, 'on a phone a 2px line along the foot');
   assert.match(look, /--jr-line: 2px;/);
   assert.match(look, /\.sdk-strip \.sdk-journey > :is\(\.sdk-gap, \.sdk-tick, \.sdk-tick-label\) \{ display: none; \}/, 'on a phone no ticks or dates');
   assert.match(look, /\.sdk-strip :is\(\.sdk-strip-count, \.sdk-strip-facts\) \{ display: none; \}/, 'on a phone no days to go and no facts');

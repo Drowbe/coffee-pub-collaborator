@@ -1181,6 +1181,10 @@
   --gap-card-rows: var(--space-1); /* rows INSIDE a card: the fill step separates them; rows in a list on a panel or a window are --gap-in apart */
   --gap-group: var(--space-4);
   --card-icon: 32px;
+  --card-head-h: var(--btn-h-small); /* the banded card's head band: 30px */
+  --card-head-tint: var(--text-primary); /* what the band is shaded with */
+  --card-head-step: 6%; /* how much: one step darker than the box's own surface */
+  --card-band-radius: var(--radius-medium);
   --tick-hit: 28px; /* 44px on a phone */
   --tick-edge: -6px;
   --ls-label: 0.04em;
@@ -1254,6 +1258,48 @@
   transition: background var(--motion-fast);
 }
 :is(.sdk-card-add, .space-choice-add) > i { font-size: var(--text-18); }
+
+/* ---- the banded card: an object box with a head band (a message, an object with a title row) ----
+   One hairline box. The head is a band across the top, a shaded step of the box's own surface (--card-head-tint at
+   --card-head-step over --s), a hairline under it; the body sits on the box's own surface. The band is part of the box,
+   not a nesting level: window > banded card > card. Its head holds a portrait or icon, the title, the meta, and the "..."
+   at the right. Aliases: .message (Chat). */
+:where(.sdk-card-banded, .message) {
+  --s: var(--surface-card);
+  --card-head-fill: color-mix(in srgb, var(--card-head-tint) var(--card-head-step), var(--s));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--card-band-radius);
+  background: var(--s);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+:where(.sdk-card-banded) > .sdk-card-head,
+:where(.message) > .message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--card-head-h);
+  padding: 0 var(--space-0) 0 var(--space-2);
+  border-bottom: 1px solid var(--edge-hairline);
+  border-radius: calc(var(--card-band-radius) - 1px) calc(var(--card-band-radius) - 1px) 0 0;
+  background: var(--card-head-fill);
+}
+:where(.sdk-card-banded) > .sdk-card-body,
+:where(.message) > .message-body {
+  min-width: 0;
+  padding: var(--space-2); /* in line with the head's 8px */
+}
 
 /* ---- the row ---- */
 :where(.sdk-row) {
@@ -3803,7 +3849,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   --msg-quote-fill: color-mix(in srgb, var(--text-primary) 7%, transparent);
   --msg-portrait: 24px;
   --msg-meta: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted)); /* the time and the command: 4.5 to 1 on both message fills */
-  --msg-head-h: var(--btn-h-small);
+  --msg-fill: color-mix(in srgb, var(--text-primary) 5%, transparent); /* the box's own surface: a step off the window */
   --composer-lines: 5;
   --composer-lh: 20px;
   --composer-pad-y: var(--space-2);
@@ -3813,7 +3859,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   :root { --composer-lh: 22px; --composer-pad-y: 10px; }
 }
 
-/* ---- the list of messages: flat on the window ---- */
+/* ---- the list of messages ---- */
 .chat .messages {
   display: flex;
   flex-direction: column;
@@ -3826,47 +3872,18 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   line-height: 20px;
 }
 
-/* ---- the message ---- */
+/* ---- the message: a banded card (Cards family: .sdk-card-banded), its own surface a step off the window ---- */
 .message {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  box-sizing: border-box;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-medium);
-  background: none;
-  color: var(--text-primary);
+  --s: var(--msg-fill);
   font-size: var(--text-14);
   line-height: 20px;
-  box-shadow: none;
 }
 
-/* Between two flat messages: the 8px gap and a hairline, with 8px above it, so they do not run together. */
-.message:not(.own):has(+ .message:not(.own)) {
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--edge-hairline);
-}
-
-/* Your own message: the one boxed kind. */
+/* Your own message: the accent tint on the box, its head band in the same family. */
 .message.own {
-  padding: var(--space-1) var(--space-3) var(--space-3);
-  background: var(--surface-chat-own);
-}
-
-.message-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: var(--msg-head-h);
-  padding: 0;
-  background: none;
+  --s: var(--surface-chat-own);
+  --card-head-tint: var(--accent-fill);
+  --card-head-step: 12%;
 }
 
 .message-head-side {
@@ -3964,7 +3981,6 @@ span.message-vis {
 /* ---- the body ---- */
 .message-body {
   min-width: 0;
-  padding: 0;
   background: none;
   font-size: var(--text-14);
   line-height: 20px;

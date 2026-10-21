@@ -3607,21 +3607,17 @@ a.crumb-here:hover {
   --b-fg-h: var(--text-accent);
 }
 
-/* An object in a message is the approved card: a 1px hairline, no shadow, 12px of padding. Its corner is one step under what
-   it sits on: medium on the flat window, small inside your own message (Chat family, step 29). */
+/* An object in a message is the approved card: a 1px hairline, no shadow, 12px of padding. Its corner is one step under the
+   message box it sits in: small. */
 .message .chat-object {
   box-sizing: border-box;
   margin-top: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--edge-hairline);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-small);
   background: var(--bg-card);
   box-shadow: none;
   white-space: normal;
-}
-
-.message.own .chat-object {
-  border-radius: var(--radius-small);
 }
 
 .message .chat-object h3 {
@@ -3723,14 +3719,10 @@ a.crumb-here:hover {
   margin-top: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--edge-hairline);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-small);
   background: var(--bg-card);
   box-shadow: none;
   white-space: normal;
-}
-
-.message.own .chat-link {
-  border-radius: var(--radius-small);
 }
 
 .message .chat-link-plain {

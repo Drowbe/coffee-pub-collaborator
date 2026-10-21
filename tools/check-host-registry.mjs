@@ -21,13 +21,14 @@ const require = createRequire(import.meta.url);
 // hard-codes the default fails here (plan-kind-names.md, The guard).
 const PRODUCT = 'Testname';
 process.env.PRODUCT_NAME = PRODUCT;
-const { HostRegistry, HostError, cleanSlug } = require('../server/host-registry.js');
+const { HostRegistry, HostError, cleanSlug, RESERVED_SLUGS } = require('../server/host-registry.js');
+const { domainSettings, hostOf, labelUnder } = require('../server/domains.js');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; };
 const freshDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'host-registry-'));
 
-test('a slug is 3 to 30 letters, digits and hyphens, and never a reserved word', () => {
+test('a slug is 3 to 30 letters, digits and hyphens; a reserved word is still a slug, refused only when an environment is made', () => {
   assert.equal(cleanSlug('acme'), 'acme');
   assert.equal(cleanSlug('  Acme-Adventures  '), 'acme-adventures');
   assert.throws(() => cleanSlug('ab'), HostError);
@@ -35,9 +36,82 @@ test('a slug is 3 to 30 letters, digits and hyphens, and never a reserved word',
   assert.throws(() => cleanSlug('-acme'), HostError);
   assert.throws(() => cleanSlug('acme-'), HostError);
   assert.throws(() => cleanSlug('has space'), HostError);
-  assert.throws(() => cleanSlug('www'), HostError);
-  assert.throws(() => cleanSlug('host'), HostError);
-  assert.throws(() => cleanSlug('admin'), HostError);
+  for (const word of ['www', 'host', 'admin', 'livekit']) assert.equal(cleanSlug(word), word, `${word}: cleanSlug no longer refuses it (plan-domains decision 9)`);
+});
+
+// plan-domains.md, step 2: the built-in names, RESERVED_SLUGS and the automatic labels, checked only where an
+// environment is made.
+test('reserved names: the built-in list and the host\'s own refuse a new environment with the sentence; nothing else does', () => {
+  const dir = freshDir();
+  const r = new HostRegistry(dir);
+  for (const word of ['admin', 'www', 'mail', 'api', 'livekit', 'turn', 'stun', 'console', 'signup', 'login', 'host']) {
+    assert.ok(RESERVED_SLUGS.has(word), `${word} is built in`);
+    assert.throws(() => r.addEnvironment({ slug: word, name: 'X' }), (e) => e instanceof HostError && e.status === 400 && e.message === `"${word}" is reserved. Pick another.`, word);
+  }
+  assert.throws(() => r.addEnvironment({ slug: ' LiveKit ', name: 'X' }), (e) => e.message === '"livekit" is reserved. Pick another.', 'cleaned first');
+  assert.equal(r.isReserved('studio'), false);
+  r.addEnvironment({ slug: 'studio', name: 'Before' });
+  r.setReservedNames(['studio', 'Shop ']);
+  assert.ok(r.isReserved('studio') && r.isReserved('shop') && r.isReserved('admin'), 'added to the built-in list, never replacing it');
+  assert.throws(() => r.addEnvironment({ slug: 'shop', name: 'X' }), (e) => e.status === 400 && e.message === '"shop" is reserved. Pick another.');
+  assert.equal(r.findEnvironment('studio').name, 'Before', 'an environment made before its name was reserved stays');
+  assert.equal(r.addEnvironment({ slug: 'acme', name: 'Acme' }).slug, 'acme');
+  // Reloaded, as on the next start: the now-reserved one is still there (cleanSlug no longer drops it), and the
+  // host's names are settings, never saved.
+  const again = new HostRegistry(dir);
+  assert.deepEqual(again.listEnvironments().map((e) => e.slug), ['studio', 'acme']);
+  assert.equal(again.isReserved('studio'), false, 'not saved in host.json');
+  assert.ok(!fs.readFileSync(path.join(dir, 'host.json'), 'utf8').includes('"shop"'));
+  fs.writeFileSync(path.join(dir, 'host.json'), JSON.stringify({ environments: [{ slug: 'admin', name: 'Old admin' }, { slug: 'livekit', name: 'Old' }] }));
+  assert.deepEqual(new HostRegistry(dir).listEnvironments().map((e) => e.slug), ['admin', 'livekit'], 'a reserved name in host.json still loads');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('addressFor: free, taken (any status), reserved, or not the shape of a slug', () => {
+  const dir = freshDir();
+  const r = new HostRegistry(dir);
+  r.addEnvironment({ slug: 'acme', name: 'Acme' });
+  r.addEnvironment({ slug: 'gone', name: 'Gone' });
+  r.updateEnvironment('gone', { status: 'suspended' });
+  r.setReservedNames(['studio']);
+  assert.deepEqual(r.addressFor('fresh'), { slug: 'fresh', free: true, reason: null });
+  assert.deepEqual(r.addressFor(' Fresh '), { slug: 'fresh', free: true, reason: null });
+  assert.deepEqual(r.addressFor('acme'), { slug: 'acme', free: false, reason: 'taken' });
+  assert.deepEqual(r.addressFor('gone'), { slug: 'gone', free: false, reason: 'taken' });
+  assert.deepEqual(r.addressFor('admin'), { slug: 'admin', free: false, reason: 'reserved' });
+  assert.deepEqual(r.addressFor('studio'), { slug: 'studio', free: false, reason: 'reserved' });
+  for (const bad of ['ab', '-acme', 'has space', '', undefined, 'a'.repeat(31)]) assert.equal(r.addressFor(bad).reason, 'shape', String(bad));
+  assert.equal(r.addressFor('x'.repeat(500)).slug.length, 64, 'a long one is echoed cut short');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('domainSettings: the product host, the console host, the automatic labels, and the start\'s lines', () => {
+  // No base domain: everything ignored, one line naming what is set.
+  assert.deepEqual(domainSettings({}), { productHost: '', productElsewhere: false, consoleHost: '', reservedNames: [], productLabel: null, warnings: [], stop: null });
+  assert.deepEqual(domainSettings({ productDomain: 'www.example.org', reservedSlugs: 'studio' }).warnings, ['PRODUCT_DOMAIN and RESERVED_SLUGS are ignored without BASE_DOMAIN: this server has one environment, at its own address.']);
+  assert.deepEqual(domainSettings({ reservedSlugs: 'studio' }).warnings, ['RESERVED_SLUGS is ignored without BASE_DOMAIN: this server has one environment, at its own address.']);
+  // One domain: today's layout.
+  const one = domainSettings({ baseDomain: 'example.com', livekitHost: 'localhost:7880' });
+  assert.deepEqual(one, { productHost: 'example.com', productElsewhere: false, consoleHost: 'admin.example.com', reservedNames: [], productLabel: null, warnings: [], stop: null });
+  assert.equal(domainSettings({ baseDomain: 'example.com', productDomain: ' Example.COM ' }).productElsewhere, false, 'equal to the base: the bare base');
+  // Another domain: not under the base, so no label of it is reserved.
+  const two = domainSettings({ baseDomain: 'example.com', productDomain: 'Product.Example.org', livekitHost: 'livekit.example.org' });
+  assert.deepEqual([two.productHost, two.productElsewhere, two.reservedNames, two.productLabel, two.warnings, two.stop], ['product.example.org', true, [], null, [], null]);
+  // Under the base: its label is reserved, as is LiveKit's, however LIVEKIT_HOST is written.
+  const under = domainSettings({ baseDomain: 'example.com', productDomain: 'www.example.com', livekitHost: 'wss://LiveKit.example.com:443/', reservedSlugs: 'studio, Shop,,studio' });
+  assert.deepEqual([under.productHost, under.productLabel, under.reservedNames], ['www.example.com', 'www', ['studio', 'shop', 'www', 'livekit']]);
+  assert.deepEqual(domainSettings({ baseDomain: 'example.com', productDomain: 'a.b.example.com', livekitHost: 'rtc.example.com:7880' }).reservedNames, ['rtc'], 'two labels deep: nothing to reserve');
+  // Nonsense is said and ignored; the console's own host stops the start.
+  for (const bad of ['https://product.example.org', 'product.example.org:8443', 'product.example.org/x', 'not a host', '-bad.example.org']) {
+    const r = domainSettings({ baseDomain: 'example.com', productDomain: bad });
+    assert.equal(r.productHost, 'example.com', bad);
+    assert.equal(r.warnings.length, 1, bad);
+    assert.ok(r.warnings[0].startsWith(`PRODUCT_DOMAIN=${bad} is not a host name`), r.warnings[0]);
+  }
+  assert.equal(domainSettings({ baseDomain: 'example.com', productDomain: 'admin.example.com' }).stop, "PRODUCT_DOMAIN=admin.example.com is the host console's address. Pick another host for the product pages.");
+  assert.deepEqual(domainSettings({ baseDomain: 'example.com', reservedSlugs: 'ok, not ok, a.b' }).warnings, ['RESERVED_SLUGS: "not ok" is not a name an environment could have, so it is left out.', 'RESERVED_SLUGS: "a.b" is not a name an environment could have, so it is left out.']);
+  assert.equal(hostOf('[::1]:7880'), '');
+  assert.equal(labelUnder('example.com', 'example.com'), null);
 });
 
 test('host.json is private to the server, and every managed AI key in it is encrypted', () => {
@@ -731,6 +805,77 @@ try {
     assert.ok(!fs.existsSync(path.join(single, 'environments', 'old-name')), 'only the new name is used');
     await server.stop();
     server = null;
+  });
+
+  // plan-domains.md, steps 1 and 2: reserved names on a running server, the product host's label, the previous-base
+  // redirect never catching the product host, and GET /api/product/address.
+  await liveTest('live: reserved names: a now-reserved environment still opens, creation refuses with the sentence, the address check answers, and the previous base never catches the product host', async () => {
+    const dir = path.join(liveDir, 'domains');
+    server = await startServer(dir, hostedEnv);
+    let hc = await signInHost(server);
+    for (const slug of ['acme', 'studio']) {
+      const made = await call(server, 'admin', 'POST', '/api/host/environments', { cookie: hc, body: { slug, name: slug, owner: { login: 'owner', password: 'owner-password-1' } } });
+      assert.equal(made.status, 201, made.text);
+    }
+    await server.stop();
+    server = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'product.localhost', RESERVED_SLUGS: 'studio, shop', PREVIOUS_BASE_DOMAINS: 'product.localhost', LIVEKIT_HOST: 'rtc.localhost' });
+    assert.ok(server.output().includes('"studio" is now reserved; it keeps working, but no new environment can take that name.'), server.output());
+    assert.ok(server.output().includes('host console at admin.localhost, product pages at product.localhost'), server.output());
+    assert.equal((await call(server, 'studio', 'GET', '/api/me')).status, 401, 'the now-reserved environment opens');
+    assert.equal((await call(server, 'studio', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } })).status, 200, 'and signs in');
+    hc = await signInHost(server);
+    for (const slug of ['shop', 'studio', 'livekit', 'product', 'rtc', 'turn']) {
+      const refused = await call(server, 'admin', 'POST', '/api/host/environments', { cookie: hc, body: { slug, name: slug } });
+      assert.equal(refused.status, 400, `${slug}: ${refused.text}`);
+      assert.equal(refused.json.error, `"${slug}" is reserved. Pick another.`);
+    }
+    assert.ok(!fs.existsSync(path.join(dir, 'environments', 'shop')), 'nothing made');
+    const address = async (slug) => (await call(server, 'product', 'GET', `/api/product/address?slug=${encodeURIComponent(slug)}`)).json;
+    assert.deepEqual(await address('fresh'), { slug: 'fresh', free: true, reason: null });
+    assert.deepEqual(await address('acme'), { slug: 'acme', free: false, reason: 'taken' });
+    assert.deepEqual(await address('studio'), { slug: 'studio', free: false, reason: 'reserved' });
+    assert.deepEqual(await address('product'), { slug: 'product', free: false, reason: 'reserved' });
+    assert.deepEqual(await address('rtc'), { slug: 'rtc', free: false, reason: 'reserved' });
+    assert.deepEqual(await address('admin'), { slug: 'admin', free: false, reason: 'reserved' });
+    assert.deepEqual(await address('x'), { slug: 'x', free: false, reason: 'shape' });
+    // The product host is also a previous base here: its own pages answer, never a 301; a host under it still moves.
+    const front = await call(server, 'product', 'GET', '/', { accept: 'text/html' });
+    assert.equal(front.status, 200, front.text.slice(0, 120));
+    assert.equal(front.text, fs.readFileSync(path.join(ROOT, 'public', 'landing.html'), 'utf8'));
+    assert.equal((await call(server, 'product', 'GET', '/api/product')).json.productDomain, 'product.localhost');
+    const moved = await call(server, 'acme.product', 'GET', '/login?x=1');
+    assert.equal(moved.status, 301);
+    assert.equal(moved.headers.location, `http://acme.localhost:${server.port}/login?x=1`);
+    // The settings in the console: productDomain, no consoleHost.
+    const settings = await call(server, 'admin', 'GET', '/api/host/settings', { cookie: hc });
+    assert.equal(settings.json.productDomain, 'product.localhost');
+    assert.equal(settings.json.baseDomain, 'localhost');
+    assert.equal('consoleHost' in settings.json, false);
+    await server.stop();
+    server = null;
+  });
+
+  await liveTest('live: PRODUCT_DOMAIN on an environment\'s own address, or on the console\'s, stops the start with one line', async () => {
+    const dir = path.join(liveDir, 'domains');
+    const clash = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'acme.localhost' }).then((s) => { server = s; return null; }, (err) => err);
+    assert.ok(clash, 'the start stopped');
+    assert.ok(clash.message.includes('PRODUCT_DOMAIN=acme.localhost is the address of the "acme" environment. Pick another host for the product pages.'), clash.message);
+    const consoleClash = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'admin.localhost' }).then((s) => { server = s; return null; }, (err) => err);
+    assert.ok(consoleClash && consoleClash.message.includes("PRODUCT_DOMAIN=admin.localhost is the host console's address. Pick another host for the product pages."), consoleClash?.message);
+    // Nonsense is said, and the product pages stay at the bare base.
+    server = await startServer(dir, { ...hostedEnv, PRODUCT_DOMAIN: 'https://product.localhost/' });
+    assert.ok(server.output().includes('PRODUCT_DOMAIN=https://product.localhost/ is not a host name'), server.output());
+    assert.equal((await call(server, '', 'GET', '/', { accept: 'text/html' })).status, 200, 'the bare base still serves the front page');
+    await server.stop();
+    server = null;
+  });
+
+  await liveTest('live: MIGRATE_ENVIRONMENT_SLUG with a reserved name stops the start, and nothing moves', async () => {
+    const single = path.join(liveDir, 'single-reserved-slug');
+    fs.cpSync(FIXTURE, single, { recursive: true, filter: (src) => !path.relative(FIXTURE, src).startsWith('host') });
+    const stopped = await startServer(single, { ...hostedEnv, MIGRATE_ENVIRONMENT_SLUG: 'livekit' }).then((s) => { server = s; return null; }, (err) => err);
+    assert.ok(stopped && stopped.message.includes('MIGRATE_ENVIRONMENT_SLUG=livekit: "livekit" is reserved. Pick another.'), stopped?.message);
+    assert.ok(fs.existsSync(path.join(single, 'app.json')) && !fs.existsSync(path.join(single, 'environments', 'livekit')), 'nothing moved');
   });
 
   // --- call names against a stand-in LiveKit (plan-names decision 14; QA on step 3) ---

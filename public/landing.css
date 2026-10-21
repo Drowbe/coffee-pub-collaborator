@@ -17,6 +17,8 @@
   --l-coral-text: #B83A26; --l-coral: #F26B52; --l-coral-soft: #FDE2DA;
   --l-sand: #EBD9B3; --l-night: #14243B; --l-night-2: #213B5E; --l-on-night: #F4ECDD;
   --l-shadow: 0 1px 2px rgba(20, 36, 59, 0.08), 0 12px 32px rgba(20, 36, 59, 0.12);
+  --l-wide: 1120px; --l-pad: 20px; /* the content's width, and the least room at each side */
+  --l-side: max(var(--l-pad), calc((100% - var(--l-wide)) / 2)); /* the side padding that centres the content: every section uses it */
   --radius-min: 6px; --radius-small: 10px; --radius-medium: 14px; --radius-large: 20px; --radius-round: 999px; /* the product's names for the five radii, with this page's own values */
   color-scheme: light;
 }
@@ -72,7 +74,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .brand-mark { width: 34px; height: auto; flex: none; }
 .brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-links { display: flex; align-items: center; gap: 8px; }
-.top-links > a:not(.btn) { padding: 8px 12px; color: var(--l-dim); font-size: 15px; font-weight: 500; text-decoration: none; border-radius: var(--radius-small); }
+.top-links > a:not(.btn) { white-space: nowrap; padding: 8px 12px; color: var(--l-dim); font-size: 15px; font-weight: 500; text-decoration: none; border-radius: var(--radius-small); }
 .top-links > a:not(.btn):hover { color: var(--l-text); }
 .hide-small { display: none; }
 /* Light / Dark: the system's quiet small icon button (no edge, the dim text, a quiet fill on hover), at the bar's height.
@@ -87,21 +89,22 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 
 /* --- sections --------------------------------------------------------------------------------------------------- */
 .landing main { display: block; }
-.band { padding: 48px 20px; }
+.band { padding: 48px var(--l-side); }
 .band.alt { background: var(--l-band); }
-.band > *, .hero, .signin { max-width: 1120px; margin-left: auto; margin-right: auto; }
+/* One content edge for the whole page: a section's padding (--l-side) centres its content at --l-wide, so a heading, its
+   lede and a grid below all start and end at the same lines. A child that is narrower on purpose says so itself. */
 .head { margin-bottom: 32px; }
 .head > * { max-width: 720px; }
-.band > ul, .band > ol, .band > div.three, .band > .plans, .band > .feature { width: 100%; }
 .head h2, .band > h2, .band h2 { font-size: clamp(27px, 4.4vw, 40px); }
 .band-lede { margin-top: 12px; color: var(--l-dim); font-size: 18px; max-width: 680px; }
 .landing .head .band-lede { max-width: 680px; }
 .band-lede.centered { margin: 32px auto 0; text-align: center; }
 .sub { margin: 48px 0 0; font-size: clamp(22px, 3.2vw, 28px); }
 .sub + .band-lede { margin-bottom: 24px; }
+.modules + .band-lede { margin-top: 24px; }
 
 /* --- the hero --------------------------------------------------------------------------------------------------- */
-.hero { display: grid; gap: 32px; padding: 40px 20px 40px; align-items: center; }
+.hero { display: grid; gap: 32px; padding: 40px var(--l-side); align-items: center; }
 .eyebrow { margin-bottom: 16px; color: var(--l-coral-text); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 .hero h1 { font-family: "Fraunces", "Fraunces Fallback", Georgia, serif; font-weight: 600; font-size: clamp(34px, 6vw, 54px); line-height: 1.08; letter-spacing: -0.02em; }
 .lede { margin-top: 20px; max-width: 560px; color: var(--l-dim); font-size: clamp(17px, 2.4vw, 20px); line-height: 1.55; }
@@ -159,13 +162,14 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 @keyframes marching { to { stroke-dashoffset: -30; } }
 
 /* --- sign in ---------------------------------------------------------------------------------------------------- */
-.signin { display: grid; gap: 16px; margin-top: 4px; margin-bottom: 0; padding: 20px; width: calc(100% - 40px); border: 1px solid var(--l-line); border-radius: var(--radius-large); background: var(--l-surface); }
+.signin { display: grid; gap: 16px; margin: 4px var(--l-side) 0; padding: 20px; border: 1px solid var(--l-line); border-radius: var(--radius-large); background: var(--l-surface); }
 .signin h2 { font-size: 22px; }
 .signin-text p { margin-top: 4px; color: var(--l-dim); }
 .signin-form { display: grid; gap: 12px; }
 .signin-creds { display: grid; gap: 12px; }
 .signin-creds[hidden] { display: none; }
 .signin .hint { margin-top: 0; }
+.signin + .band.alt { margin-top: 48px; } /* a coloured section never touches the card */
 
 /* --- the tour (the animated walkthrough) ------------------------------------------------------------------------ */
 .tour { width: 100%; max-width: 1040px; margin: 0 auto; }
@@ -214,7 +218,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .s-l { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .s-a { fill: var(--l-teal-soft); } .s-b { fill: var(--l-coral); } .s-c { fill: var(--l-surface); }
 .modules { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.modules li { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: auto auto; column-gap: 16px; align-items: center; padding: 16px; border: 1px solid var(--l-line); border-radius: var(--radius-large); background: var(--l-surface); }
+.modules li { display: grid; grid-template-columns: 52px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 20px; align-items: center; padding: 16px 20px; border: 1px solid var(--l-line); border-radius: var(--radius-large); background: var(--l-surface); }
 .modules .spot { grid-row: 1 / 3; width: 52px; height: 52px; }
 .modules b { font-size: 17px; align-self: end; }
 .modules span { color: var(--l-dim); font-size: 15px; line-height: 1.45; align-self: start; }
@@ -235,7 +239,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .ticks svg { width: 24px; height: 24px; margin-top: 1px; padding: 4px; border-radius: var(--radius-round); background: var(--l-teal); color: var(--l-on-teal); }
 
 /* --- the phone -------------------------------------------------------------------------------------------------- */
-.phones { display: flex; gap: 16px; margin: 0 auto; padding: 4px 4px 16px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.phones { display: flex; gap: 16px; margin: 0 calc(-1 * var(--l-side)); padding: 4px var(--l-side) 16px; scroll-padding-inline: var(--l-side); list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
 .phones li { flex: 0 0 min(220px, 62vw); scroll-snap-align: start; }
 .phones figure { margin: 0; }
 .phones img { width: 100%; border-radius: var(--radius-large); border: 1px solid var(--l-line); box-shadow: var(--l-shadow); }
@@ -268,7 +272,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 
 /* --- the closing sign-up ---------------------------------------------------------------------------------------- */
 .band.close { padding-bottom: 48px; }
-.close-box { max-width: 760px; padding: 32px 24px; border-radius: var(--radius-large); background: var(--l-night); color: var(--l-on-night); }
+.close-box { max-width: 760px; margin: 0 auto; padding: 32px 24px; border-radius: var(--radius-large); background: var(--l-night); color: var(--l-on-night); }
 .close-box h2 { font-size: clamp(28px, 4.6vw, 42px); }
 .close-box > p { margin-top: 12px; color: color-mix(in srgb, var(--l-on-night) 88%, transparent); font-size: 18px; }
 .close-box .hint { color: color-mix(in srgb, var(--l-on-night) 80%, transparent); }
@@ -296,6 +300,7 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 .signup-form label.template-option { display: grid; grid-template-columns: 22px 1fr; align-items: start; gap: 12px; padding: 12px 12px; border: 1px solid #34507A; border-radius: var(--radius-medium); font-weight: 400; cursor: pointer; }
 .template-option input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: #5CC8CF; }
 .template-option span { display: grid; gap: 2px; }
+.template-option .hint { margin-top: 0; }
 .template-option strong { font-weight: 600; }
 .template-option:has(input:checked) { border-color: #8FD9DE; background: var(--l-night-2); }
 .signup-form .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
@@ -306,38 +311,41 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
 /* --- wider screens ---------------------------------------------------------------------------------------------- */
 @media (min-width: 700px) {
   .top { padding: 12px 32px; }
-  .hide-small { display: inline-block; }
-  .band { padding: 48px 32px; }
-  .hero { padding: 48px 32px 48px; }
-  .signin { grid-template-columns: 1fr 1.6fr; align-items: center; padding: 24px 32px; width: calc(100% - 64px); }
+  .landing { --l-pad: 32px; }
+  .hero { padding-top: 48px; padding-bottom: 48px; }
+  .signin { grid-template-columns: 1fr 1.6fr; align-items: center; padding: 24px 32px; }
   .signin-form { grid-template-columns: 1fr; }
   .signin-creds { grid-template-columns: 1fr 1fr auto; }
   .signin .hint { grid-column: 1 / -1; }
   .modules { grid-template-columns: repeat(2, 1fr); }
+  .modules li:last-child:nth-child(odd) { grid-column: 1 / -1; } /* an odd one out takes the row, not half of it */
   .three { grid-template-columns: 1fr 1fr; }
   .three .aud:last-child { grid-column: 1 / -1; }
-  .steps { grid-template-columns: repeat(3, 1fr); }
-  .plans { grid-template-columns: repeat(3, 1fr); }
   .signup-owner { grid-template-columns: 1fr 1fr 1fr; }
   .private { grid-template-columns: auto 1fr; gap: 32px; padding: 40px; }
-  .phones { justify-content: center; overflow: visible; }
+  .phones { justify-content: center; overflow: visible; margin: 0 auto; padding: 4px 4px 16px; }
   .phones li { flex: 1 1 0; max-width: 240px; }
   .close-box { padding: 48px; }
 }
 @media (min-width: 1000px) {
   .three { grid-template-columns: repeat(3, 1fr); }
   .three .aud:last-child { grid-column: auto; }
+  .hide-small { display: inline-block; } /* the bar's in-page links: below this the brand, the switch and the two buttons fill it */
+  .steps { grid-template-columns: repeat(3, 1fr); }
+  .plans { grid-template-columns: repeat(3, 1fr); }
   .hero { grid-template-columns: 1.15fr 1fr; gap: 40px; padding-top: 48px; }
   .hero.hero-plain { grid-template-columns: 1fr; }
   .feature { grid-template-columns: 1fr 1.35fr; gap: 48px; margin-top: 48px; }
   .feature.flip { grid-template-columns: 1.35fr 1fr; }
   .feature.flip .feature-text { order: 2; }
   .modules { grid-template-columns: repeat(3, 1fr); }
+  .modules li:last-child:nth-child(odd) { grid-column: auto; }
+  .modules li:last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
   .signin { grid-template-columns: 1fr 2fr; }
 }
 @media (min-width: 1500px) {
   body.landing { font-size: 17px; }
-  .band > *, .hero, .signin { max-width: 1280px; }
+  .landing { --l-wide: 1280px; }
   .tour { max-width: 1180px; }
   .hero h1 { font-size: 62px; }
 }
@@ -349,6 +357,12 @@ body.landing { margin: 0; background: var(--l-bg); color: var(--l-text); font: 1
   .theme-switch { width: 38px; height: 38px; }
   .brand { font-size: 16px; gap: 8px; }
   .brand-mark { width: 28px; }
+  .tour-bar { gap: 8px; }
+  .tour-bar .btn-small, .tour-tabs button { padding: 0 12px; } /* Pause and the four screens fit one row */
+}
+@media (max-width: 380px) {
+  /* the smallest phones: the mark alone, the name kept for screen readers, rather than a name cut to a letter or two */
+  .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -52,7 +52,6 @@
     menuFor: null, // item id
     currentDay: null, // the day in view (where a quick add goes)
     hosted: Boolean(host.add), // the host draws the titlebar's "+", so the days' own add rows step aside
-    deleteArmed: null,
     expanded: new Set(), // item ids whose card's "More" is open
     markerTypes: [],
     flightLookup: false, // the server offers the flight lookup here (host.lookup.available)
@@ -714,7 +713,7 @@
   // (optional) adds "Pick a date..." last; `jointsOnly` lists only the spots between days (a marker between days).
   function dayMenuItems({ current, choose, days, none, joints, pickDate, jointsOnly, label = dayLong }) {
     const same = (p) => (p.after !== undefined ? current.after === p.after : current.after === undefined && (current.date || null) === (p.date || null));
-    const row = (p, text) => ({ id: placeValue(p), label: text, icon: same(p) ? 'check' : 'calendar-day', ariaLabel: same(p) ? `${text}, chosen` : undefined, onClick: () => choose(p) });
+    const row = (p, text) => ({ id: placeValue(p), label: text, icon: 'calendar-day', current: same(p), ariaLabel: same(p) ? `${text}, chosen` : undefined, onClick: () => choose(p) });
     const nest = days.length > DAY_NEST;
     const items = [];
     // Unscheduled: no day, and the spots between days (before the first day, between two, after the last).
@@ -723,13 +722,13 @@
     if (joints) for (const after of ['', ...plan.days()]) unscheduled.push(row({ after }, jointLabel(after)));
     if (unscheduled.length) {
       const name = jointsOnly || !none ? 'Between days' : 'Unscheduled';
-      if (nest || unscheduled.length > DAY_NEST) items.push({ id: 'unscheduled', label: name, icon: unscheduled.some((r) => r.icon === 'check') ? 'check' : 'inbox', items: unscheduled });
+      if (nest || unscheduled.length > DAY_NEST) items.push({ id: 'unscheduled', label: name, icon: 'inbox', items: unscheduled });
       else items.push({ heading: name }, ...unscheduled);
     }
     if (!jointsOnly) {
       for (const g of groupDays(days)) {
         const rows = g.days.map((d) => row({ date: d }, label(d)));
-        if (nest) items.push({ id: `group-${g.key}`, label: g.label, hint: g.range, icon: rows.some((r) => r.icon === 'check') ? 'check' : 'calendar-days', items: rows });
+        if (nest) items.push({ id: `group-${g.key}`, label: g.label, hint: g.range, icon: 'calendar-days', items: rows });
         else items.push({ heading: `${g.label} · ${g.range}` }, ...rows);
       }
     }
@@ -1586,51 +1585,43 @@
     select.append(o);
     select.value = value;
   }
+  // The item menu: host.menu.show under the button that opened it. Edit, Move up or down (or 30 minutes earlier or later), Move to
+  // another day, Change type (a time block's marker types, a flyout), Move to unscheduled, Follow its result (a link), Delete.
   function openMenu(id, button) {
-    const menu = $('item-menu');
-    state.menuFor = id;
     const item = plan.list().find((i) => i.id === id);
     if (!item) return;
+    state.menuFor = id;
     state.menuButton = button;
     // Move up / Move down swap with the neighbour on the same day; an object with a time moves by half an hour instead.
     const timedNow = Boolean(item.time) || (item.kind === 'link' && Boolean(item.ref) && Boolean(timeOf(plan.summaries.get(host.util.objectKey(item.ref)))));
-    const earlier = menu.querySelector('[data-action="earlier"]');
-    const later = menu.querySelector('[data-action="later"]');
-    fill(earlier, { 'earlier-label': timedNow ? '30 minutes earlier' : 'Move up' });
-    fill(later, { 'later-label': timedNow ? '30 minutes later' : 'Move down' });
-    earlier.title = timedNow ? 'Changes the time, half an hour earlier. It stays on the same day.' : 'Swaps places with the one above it. It stays on the same day.';
-    later.title = timedNow ? 'Changes the time, half an hour later. It stays on the same day.' : 'Swaps places with the one below it. It stays on the same day.';
-    $('menu-day').title = 'Choose another day, or unscheduled';
-    const follow = menu.querySelector('[data-action="follow"]');
-    hide(follow, item.kind !== 'link');
-    // A link that cannot be read has nothing to edit.
-    hide(menu.querySelector('[data-action="edit"]'), item.kind === 'link' && Boolean(linkState(item.ref && plan.summaries.get(host.util.objectKey(item.ref)))));
-    fill(follow, { 'follow-label': item.follow ? 'Stop following its result' : 'Follow its result' });
     // A time block can change its type; it is removed rather than deleted.
     const isBlock = item.kind === 'block' || item.kind === 'lane';
-    // Move to unscheduled: for an item on a day (not a marker between days, which is never on one).
-    hide(menu.querySelector('[data-action="to-line"]'), plan.jointOf(item) !== null);
-    const typeLabel = menu.querySelector('[data-block-only]');
-    hide(typeLabel, !isBlock);
-    if (isBlock) {
-      const types = $('menu-type');
-      types.replaceChildren(...blockTypes().map((t) => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.label; return o; }));
-      if (![...types.options].some((o) => o.value === item.type)) { const o = document.createElement('option'); o.value = item.type; o.textContent = markerType(item.type).label; types.append(o); }
-      types.value = item.type;
-    }
-    const del = menu.querySelector('[data-action="delete"]');
-    fill(del, { 'delete-label': isBlock ? 'Remove' : 'Delete' });
-    state.deleteArmed = null;
-    menu.hidden = false;
-    const app = $('app').getBoundingClientRect();
-    const b = button.getBoundingClientRect();
-    // Under the button, or above it when there is no room below (the last card of the plan, near the pane's bottom).
-    let top = Math.round(b.bottom - app.top + 4);
-    if (top + menu.offsetHeight > app.height - 8) top = Math.max(8, Math.round(b.top - app.top - menu.offsetHeight - 4));
-    menu.style.top = `${top}px`;
-    menu.style.left = `${Math.max(8, Math.min(Math.round(b.right - app.left - menu.offsetWidth), Math.round(app.width - menu.offsetWidth - 8)))}px`;
+    // A link that cannot be read has nothing to edit.
+    const unreadable = item.kind === 'link' && Boolean(linkState(item.ref && plan.summaries.get(host.util.objectKey(item.ref))));
+    const typeRows = isBlock ? blockTypes().map((t) => ({ id: t.id, label: t.label, icon: t.icon, iconColor: t.color || undefined, current: t.id === item.type, onClick: () => attempt(() => plan.updateItem(id, { type: t.id })) })) : [];
+    if (isBlock && !typeRows.some((r) => r.current)) { const t = markerType(item.type); typeRows.push({ id: t.id, label: t.label, icon: t.icon, iconColor: t.color || undefined, current: true, onClick: () => {} }); }
+    host.menu.show({
+      id: `item-${id}`,
+      anchor: button,
+      items: [
+        unreadable ? null : { id: 'edit', label: 'Edit', icon: 'pen', onClick: () => openItemEditor(id) },
+        { id: 'earlier', label: timedNow ? '30 minutes earlier' : 'Move up', icon: 'arrow-up', tip: timedNow ? 'Changes the time, half an hour earlier. It stays on the same day.' : 'Swaps places with the one above it. It stays on the same day.', onClick: () => attempt(() => plan.nudgeItem(id, -1)) },
+        { id: 'later', label: timedNow ? '30 minutes later' : 'Move down', icon: 'arrow-down', tip: timedNow ? 'Changes the time, half an hour later. It stays on the same day.' : 'Swaps places with the one below it. It stays on the same day.', onClick: () => attempt(() => plan.nudgeItem(id, 1)) },
+        { id: 'move-to', label: 'Move to another day…', icon: 'calendar-days', tip: 'Choose another day, or unscheduled', onClick: () => setTimeout(() => openMoveTo(id, button), 0) }, // after this menu has closed and given focus back
+        typeRows.length ? { id: 'type', label: 'Change type', icon: 'tag', items: typeRows } : null,
+        plan.jointOf(item) === null ? { id: 'to-line', label: 'Move to unscheduled', icon: 'lightbulb', onClick: () => {
+          // Off its day, onto the line at the joint before that day: near where it was, no longer decided.
+          const days = plan.days();
+          const after = days[days.indexOf(plan.dayOf(item)) - 1] || '';
+          attempt(() => plan.moveToJoint(id, after, 1e6));
+        } } : null,
+        item.kind === 'link' ? { id: 'follow', label: item.follow ? 'Stop following its result' : 'Follow its result', icon: 'bell', onClick: () => attempt(() => plan.updateItem(id, { follow: !item.follow })) } : null,
+        { id: 'delete', label: isBlock ? 'Remove' : 'Delete', icon: 'trash', danger: true, onClick: () => setTimeout(() => askDelete(id, button, isBlock), 0) },
+      ],
+    });
   }
-  const closeMenu = () => { $('item-menu').hidden = true; $('date-pop').hidden = true; state.menuFor = null; };
+  // Only the date field of "Pick a date…" is still a layer of this module's own; the menus are the SDK's.
+  const closeMenu = () => { $('date-pop').hidden = true; state.menuFor = null; };
   // Move to another day...: the grouped list under the item's button, ending in "Pick a date...". Unscheduled holds "Not on a day
   // yet" and the spots between days (a marker between days sees only those).
   function openMoveTo(id, anchor) {
@@ -1676,6 +1667,18 @@
   $('date-pop-cancel').addEventListener('click', () => { const from = state.menuButton; closeMenu(); if (from && from.isConnected) from.focus(); });
   $('date-pop').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); $('date-pop-cancel').click(); } });
 
+  // Delete asks once more, in a small menu under the same button ("Really delete?"); a leg of a round trip asks which leg instead.
+  function askDelete(id, anchor, block) {
+    if (askDeleteLegs(id, anchor)) return;
+    host.menu.show({
+      id: `delete-${id}`,
+      anchor,
+      items: [
+        { id: 'sure', label: block ? 'Really remove?' : 'Really delete?', icon: 'trash', danger: true, onClick: () => attempt(() => plan.removeItem(id)) },
+        { id: 'cancel', label: 'Cancel', icon: 'xmark', onClick: () => {} },
+      ],
+    });
+  }
   // Deleting a leg of a round trip asks which: both legs, only this one (only the outbound: the return keeps the booking details),
   // or neither. Anchored to the button that asked. False when the item is not a leg of a round trip.
   function askDeleteLegs(id, anchor, before) {
@@ -1705,45 +1708,7 @@
     }
   }
 
-  $('item-menu').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-action]');
-    const id = state.menuFor;
-    if (!b || !id) return;
-    const action = b.dataset.action;
-    if (action === 'edit') { closeMenu(); return openItemEditor(id); }
-    if (action === 'move-to') { const anchor = state.menuButton; closeMenu(); return void (anchor && openMoveTo(id, anchor)); }
-    if (action === 'earlier' || action === 'later') {
-      closeMenu();
-      return void attempt(() => plan.nudgeItem(id, action === 'earlier' ? -1 : 1));
-    }
-    if (action === 'follow') {
-      const item = plan.list().find((i) => i.id === id);
-      closeMenu();
-      return void attempt(() => plan.updateItem(id, { follow: !(item && item.follow) }));
-    }
-    if (action === 'to-line') {
-      // Off its day, onto the line at the joint before that day: near where it was, no longer decided.
-      const item = plan.list().find((i) => i.id === id);
-      closeMenu();
-      if (!item) return;
-      const days = plan.days();
-      const after = days[days.indexOf(plan.dayOf(item)) - 1] || '';
-      return void attempt(() => plan.moveToJoint(id, after, 1e6));
-    }
-    if (action === 'delete') {
-      if (askDeleteLegs(id, b, closeMenu)) return;
-      if (state.deleteArmed !== id) { const block = ['block', 'lane'].includes((plan.list().find((i) => i.id === id) || {}).kind); state.deleteArmed = id; fill(b, { 'delete-label': block ? 'Really remove?' : 'Really delete?' }); return; }
-      closeMenu();
-      return void attempt(() => plan.removeItem(id));
-    }
-  });
-  $('menu-type').addEventListener('change', (e) => {
-    const id = state.menuFor;
-    const type = e.target.value;
-    closeMenu();
-    if (id && type) attempt(() => plan.updateItem(id, { type }));
-  });
-  root.addEventListener('click', (e) => { if ((!$('item-menu').hidden || !$('date-pop').hidden) && !e.target.closest('#item-menu, #date-pop, [data-action="move-menu"]')) closeMenu(); });
+  root.addEventListener('click', (e) => { if (!$('date-pop').hidden && !e.target.closest('#date-pop, [data-action="move-menu"]')) closeMenu(); });
 
   // --- dragging (desktop) --------------------------------------------------------------------------------------
 

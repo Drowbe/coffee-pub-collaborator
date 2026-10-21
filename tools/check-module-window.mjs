@@ -314,11 +314,16 @@ for (const id of EDITOR_MIGRATED) {
     const block = /\/\* kind:start[\s\S]*?\/\* kind:end \*\//.exec(css);
     if (!block) problems.push('public/sdk/host.css: the kind picker\'s rules must sit between "kind:start" and "kind:end"');
     else {
-      for (const need of ['.sdk-kind-field', '.sdk-kind-chip', '.sdk-kind-list', '.sdk-kind-option', '.sdk-kind-group-title', '.sdk-kind-empty', 'var(--bar-control-h', 'var(--kind-color)', '@media (max-width: 640px)', 'max-height: 360px']) {
+      for (const need of ['.sdk-kind-field', '.sdk-kind-chip', 'var(--bar-control-h', 'var(--kind-color)', '@media (max-width: 640px)']) {
         if (!block[0].includes(need)) problems.push(`public/sdk/host.css: the kind picker's rules must include "${need}"`);
       }
+      // The list and its rows are the Menus family's (the Menus block of system.css).
+      const menus = /\/\* menus:start \*\/[\s\S]*?\/\* menus:end \*\//.exec(read('public/sdk/system.css'));
+      for (const need of ['.sdk-kind-list', '.sdk-kind-option', '.sdk-kind-group-title', '.sdk-kind-empty', 'max-height: min(360px']) {
+        if (!menus || !menus[0].includes(need)) problems.push(`public/sdk/system.css: the Menus block must include "${need}" (the kind picker's list)`);
+      }
       for (const m of block[0].matchAll(/#[0-9a-f]{3,8}\b|\brgba?\((?!0,\s*0,\s*0)/gi)) problems.push(`public/sdk/host.css: the kind picker's rules use a fixed colour "${m[0]}"; use the theme tokens`);
-      if (!/\[aria-selected="true"\] \.sdk-kind-icon \{[^}]*color: var\(--on-accent\)/.test(block[0])) problems.push('public/sdk/host.css: the chosen kind\'s icon on its solid colour must use --on-accent (text on an accent), not --bg');
+      if (!/\.sdk-kind-option\[aria-selected="true"\] \.sdk-kind-icon \{[^}]*var\(--kind-color/.test(read('public/sdk/system.css'))) problems.push('public/sdk/system.css: the chosen kind\'s icon must show the kind\'s colour (a tint of it behind the glyph)');
     }
   }
 }

@@ -2117,9 +2117,9 @@ test('choosing a day: a date field, a grouped list through host.menu.show, Move 
     assert.ok(html.includes(`<input id="${id}-input" type="date"`), `${id} has a date field`);
   }
   assert.ok(js.includes("label: 'Pick from the list'") && !html.includes('>Pick from the list</button>'), 'the list button is the date picker\'s (list option)');
-  assert.ok(!html.includes('<select id="menu-day"') && html.includes('data-action="move-to"') && html.includes('Move to another day…'), 'Move to another day opens the list; no select in the menu');
-  assert.ok(html.includes('Move to unscheduled</button>') && !/Back to the line/.test(html + js), 'Back to the line is Move to unscheduled');
-  assert.ok(html.includes('data-slot="earlier-label">Move up') && html.includes('data-slot="later-label">Move down'), 'Move up / Move down by default');
+  assert.ok(!html.includes('<select id="menu-day"') && !html.includes('id="item-menu"') && js.includes("id: 'move-to', label: 'Move to another day…'"), 'Move to another day opens the list; the item menu is host.menu.show, no markup of its own');
+  assert.ok(js.includes("label: 'Move to unscheduled'") && !/Back to the line/.test(html + js), 'Back to the line is Move to unscheduled');
+  assert.ok(js.includes(": 'Move up'") && js.includes(": 'Move down'"), 'Move up / Move down by default');
   assert.ok(js.includes("'30 minutes earlier'") && js.includes("'30 minutes later'") && js.includes('It stays on the same day.'), 'a timed object moves by half an hour, and the tooltip says it stays on its day');
   assert.ok(js.includes('function dayMenuItems(') && js.includes("{ id: 'pick-date', label: 'Pick a date…'"), 'the list ends with Pick a date');
   assert.ok(js.includes("const name = jointsOnly || !none ? 'Between days' : 'Unscheduled';") && js.includes("(checkout ? 'Not set' : 'Unscheduled')"), 'Unscheduled is the picker\'s own first entry and Clear (the list then holds the spots between days); Move to another day keeps its Unscheduled group; stored values are unchanged');

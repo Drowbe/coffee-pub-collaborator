@@ -14,7 +14,7 @@
 // keepOpen?, badge?, tag?, mark?, more?, onPick }. `checked` (true or false) makes it a checkbox item that says whether it is on (a tool
 // that toggles, folded into the space bar's "..."); with `toggle: true` it is drawn as a switch instead (the same switch
 // as the Show list's) and the menu stays open as it flips, so several can be flipped in a row; with `radio: true` it is
-// one of a set, a check on the one chosen. `keepOpen: true` keeps the menu open after a pick and draws it again (the
+// one of a set, the one chosen drawn filled (no check mark: a check is only for a tick box). `keepOpen: true` keeps the menu open after a pick and draws it again (the
 // items given as a function are asked again, so what the pick changed shows). `badge` is a count shown after its
 // label; `tag` a small word after it (Default); `mark` a small accent icon after it (a favorite's heart). `icon` is a
 // Font Awesome name, or a whole class list (a module's own icon); `tint` colours it, one of the eight tint names (a
@@ -233,11 +233,13 @@ export function openHostMenu(trigger, items) {
     if (spoken) b.setAttribute('aria-label', spoken);
     b.tabIndex = -1;
     b.disabled = Boolean(item.disabled);
-    if (checkable && item.toggle) {
-      const sw = doc.createElement('span');
-      sw.className = 'host-menu-switch';
-      sw.setAttribute('aria-hidden', 'true');
-      b.appendChild(sw);
+    if (item.current) b.setAttribute('aria-current', 'true');
+    if (checkable && !item.toggle && !item.radio) {
+      // A tick-box row: the box at the start.
+      const box = doc.createElement('span');
+      box.className = 'host-menu-check';
+      box.setAttribute('aria-hidden', 'true');
+      b.appendChild(box);
     }
     if (item.icon) b.appendChild(iconEl(doc, item.icon, item.regular, item.tint));
     const label = doc.createElement('span');
@@ -265,11 +267,11 @@ export function openHostMenu(trigger, items) {
       if (item.badgeLabel && !item.ariaLabel) b.setAttribute('aria-label', `${spoken || item.label || item.title || ''}, ${item.badgeLabel}`);
       b.appendChild(badge);
     }
-    if (checkable && !item.toggle) {
-      const check = doc.createElement('i');
-      check.className = 'fa-solid fa-check fa-fw host-menu-check';
-      check.setAttribute('aria-hidden', 'true');
-      b.appendChild(check);
+    if (checkable && item.toggle) {
+      const sw = doc.createElement('span');
+      sw.className = 'host-menu-switch';
+      sw.setAttribute('aria-hidden', 'true');
+      b.appendChild(sw);
     }
     if (category) {
       const caret = iconEl(doc, 'chevron-right', false, null);

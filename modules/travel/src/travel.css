@@ -108,22 +108,11 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .code:empty { display: none; }
 .section-title { margin: 12px 0 6px; color: var(--text-muted); font-size: var(--text-12); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 
-/* the item menu (Edit, Earlier, Later, Move to day, Delete): a popover under the button that opened it */
-.menu { position: absolute; z-index: 20; min-width: 210px; max-width: calc(100% - 16px); padding: 6px; display: flex; flex-direction: column; gap: 2px; background: var(--surface-panel); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); box-shadow: 0 10px 28px color-mix(in srgb, black 35%, transparent); }
-.menu button, .menu label { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
-.menu button:hover { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
-.menu .danger { color: var(--danger); }
-.menu select { flex: 1; min-width: 0; }
-
 /* the item, plan and day editors: forms in the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), drawn by the form
    standard (.sdk-form in /sdk/host.css: fields, rows, sizes, sections). This module sets only the layout of what it shows for which kind
    (travel-lib-editor.css); no field, label or box is drawn here. */
-/* "Pick a date..." under the item menu's button */
-.date-pop[hidden] { display: none; }
-.date-pop label { align-items: stretch; cursor: default; }
-.date-pop-buttons { display: flex; gap: 6px; }
-.date-pop .btn { width: auto; justify-content: center; }
-.date-pop #date-pop-go { background: var(--accent-fill); color: var(--text-on-accent); }
+/* "Pick a date..." under the item menu's button: the SDK's popover surface, placed here */
+.date-pop { position: absolute; z-index: var(--z-popover); min-width: 210px; max-width: calc(100% - 16px); }
 
 /* states */
 .state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-muted); }

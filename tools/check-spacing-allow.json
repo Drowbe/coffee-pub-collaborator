@@ -94,8 +94,8 @@
     },
     "modules/travel/src/travel.css": {
       "5px": 1,
-      "6px": 16,
-      "10px": 9,
+      "6px": 13,
+      "10px": 7,
       "18px": 1
     },
     "public/destination.css": {
@@ -116,17 +116,12 @@
       "10px": 1
     },
     "public/sdk/host.css": {
-      "3px": 2,
-      "5px": 2,
-      "6px": 6,
+      "3px": 1,
+      "5px": 1,
+      "6px": 5,
       "9px": 1,
-      "10px": 2,
+      "10px": 1,
       "14px": 1
-    },
-    "public/sdk/host.js": {
-      "6px": 2,
-      "7px": 1,
-      "10px": 2
     },
     "public/style.css": {
       "-5px": 1,
@@ -135,11 +130,11 @@
       "-10px": 4,
       "3px": 24,
       "5px": 9,
-      "6px": 170,
-      "7px": 6,
+      "6px": 162,
+      "7px": 5,
       "9px": 1,
-      "10px": 118,
-      "14px": 33,
+      "10px": 114,
+      "14px": 32,
       "18px": 16,
       "28px": 1,
       "30px": 2,

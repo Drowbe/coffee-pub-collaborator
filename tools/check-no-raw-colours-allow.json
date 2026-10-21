@@ -29,9 +29,6 @@
     "modules/travel/src/travel-lib-cards.css": {
       "shadow-scrim": 6
     },
-    "modules/travel/src/travel.css": {
-      "shadow-scrim": 1
-    },
     "modules/travel/src/travel.js": {
       "raw": 12
     },
@@ -54,14 +51,11 @@
       "raw": 1
     },
     "public/sdk/host.css": {
-      "shadow-scrim": 4
-    },
-    "public/sdk/host.js": {
-      "shadow-scrim": 1
+      "shadow-scrim": 2
     },
     "public/style.css": {
       "raw": 17,
-      "shadow-scrim": 39
+      "shadow-scrim": 33
     }
   }
 }

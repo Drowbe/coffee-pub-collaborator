@@ -566,11 +566,10 @@ a {
    accent until a kind has one. */
 .sdk-kind-field,
 .sdk-kind-option {
-  --kind-color: var(--accent);
+  --kind-color: var(--accent-fill);
 }
 
-.sdk-kind-chip,
-.sdk-kind-icon {
+.sdk-kind-chip {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -578,7 +577,7 @@ a {
   width: 26px;
   height: 26px;
   border-radius: var(--radius-round);
-  background: color-mix(in srgb, var(--kind-color) 22%, var(--bg-card));
+  background: color-mix(in srgb, var(--kind-color) 22%, var(--surface-card));
   color: var(--kind-color);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
@@ -588,8 +587,7 @@ a {
   display: none;
 }
 
-.sdk-kind-chip svg,
-.sdk-kind-icon svg {
+.sdk-kind-chip svg {
   width: 1em;
   height: 1em;
   fill: currentColor;
@@ -623,90 +621,32 @@ a {
   transform: rotate(180deg);
 }
 
-.sdk-kind-list {
-  position: fixed;
-  z-index: 9999;
-  box-sizing: border-box;
-  min-width: 220px;
-  max-height: 360px;
-  margin: 0;
-  padding: 4px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  list-style: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  background: var(--bg-card);
-  color: var(--text);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  font-size: var(--text-13);
-}
-
-.sdk-kind-group {
-  padding: 2px 0;
-}
-
-.sdk-kind-group + .sdk-kind-group {
-  border-top: 1px solid var(--border);
-}
-
-.sdk-kind-group-title {
-  padding: 6px 8px 3px;
-  color: var(--text-dim);
-  font-size: var(--text-11);
-  font-weight: var(--weight-strong);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.sdk-kind-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: var(--radius-small);
-  cursor: pointer;
-}
-
-.sdk-kind-option.active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-.sdk-kind-option[aria-selected="true"] .sdk-kind-name {
-  font-weight: var(--weight-strong);
-}
-
-.sdk-kind-option[aria-selected="true"] .sdk-kind-icon {
-  background: var(--kind-color);
-  color: var(--on-accent);
-}
-
-.sdk-kind-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdk-kind-empty {
-  padding: 10px 8px;
-  color: var(--text-dim);
-}
-
 @media (max-width: 640px) {
+  /* The long-list bottom sheet (the Menus family): the menu surface with a grip, over the scrim. */
   .sdk-kind.open .sdk-kind-sheet {
     position: fixed;
-    z-index: 10000;
+    z-index: var(--z-popover);
     left: 0;
     right: 0;
     bottom: 0;
     height: max(50dvh, min(100dvh, 440px));
-    padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px));
-    border-top: 1px solid var(--border);
+    padding: var(--space-5) calc(var(--space-2) + env(safe-area-inset-right, 0px)) calc(var(--space-2) + env(safe-area-inset-bottom, 0px)) calc(var(--space-2) + env(safe-area-inset-left, 0px));
+    border: 1px solid var(--edge-menu);
     border-radius: var(--radius-large) var(--radius-large) 0 0;
-    background: var(--bg-section);
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+    background: var(--surface-menu);
+  }
+
+  .sdk-kind.open .sdk-kind-sheet::after {
+    content: "";
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    transform: translateX(-50%);
+    border-radius: var(--radius-round);
+    background: var(--text-muted);
+    opacity: 0.5;
   }
 
   .sdk-kind.open .sdk-kind-sheet::before {
@@ -717,7 +657,7 @@ a {
     width: 100vw;
     height: 100dvh;
     z-index: -1;
-    background: color-mix(in srgb, var(--bg) 60%, transparent);
+    background: var(--scrim);
   }
 
   .sdk-kind.open .sdk-kind-field {
@@ -736,15 +676,13 @@ a {
     position: static;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+    max-width: none;
     max-height: none;
     margin-top: 8px;
     border: 0;
     background: none;
     box-shadow: none;
-  }
-
-  .sdk-kind-option {
-    min-height: 44px;
   }
 }
 

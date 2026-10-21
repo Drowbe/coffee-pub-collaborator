@@ -51,23 +51,10 @@
        tpl-day-dialog in it on each open. -->
   <dialog id="day-dialog" class="sdk-editor"></dialog>
 
-  <!-- the item menu: a popover the script positions under the button that opened it -->
-  <div id="item-menu" class="menu" role="menu" hidden>
-    <button type="button" role="menuitem" data-action="edit"><span class="ic" data-icon="pen"></span> Edit</button>
-    <button type="button" role="menuitem" data-action="earlier"><span class="ic" data-icon="arrow-up"></span> <span data-slot="earlier-label">Move up</span></button>
-    <button type="button" role="menuitem" data-action="later"><span class="ic" data-icon="arrow-down"></span> <span data-slot="later-label">Move down</span></button>
-    <!-- opens the grouped list of days (host.menu.show) under this entry, the last entry of which opens a date field -->
-    <button type="button" role="menuitem" data-action="move-to" id="menu-day" aria-haspopup="menu"><span class="ic" data-icon="calendar-days"></span> Move to another day…</button>
-    <!-- for a time block only: the marker types of the settings (the script fills the list and hides this for anything else) -->
-    <label role="menuitem" data-block-only hidden><span class="ic" data-icon="tag"></span> Change type <select id="menu-type" aria-label="Change type"></select></label>
-    <button type="button" role="menuitem" data-action="to-line"><span class="ic" data-icon="lightbulb"></span> Move to unscheduled</button>
-    <button type="button" role="menuitem" data-action="follow" hidden><span class="ic" data-icon="bell"></span> <span data-slot="follow-label">Follow its result</span></button>
-    <button type="button" role="menuitem" class="danger" data-action="delete"><span class="ic" data-icon="trash"></span> <span data-slot="delete-label">Delete</span></button>
-  </div>
   <!-- "Pick a date..." at the end of Move to another day: a date field under the item's button, Move or Enter picks -->
-  <form id="date-pop" class="menu date-pop" role="dialog" aria-label="Move to a date" hidden>
+  <form id="date-pop" class="sdk-popover date-pop" role="dialog" aria-label="Move to a date" hidden>
     <label class="sdk-field"><span class="sdk-label">Move to</span><input id="date-pop-input" type="date" required></label>
-    <div class="date-pop-buttons"><button class="btn btn-primary" id="date-pop-go" type="submit">Move</button><button class="btn" id="date-pop-cancel" type="button">Cancel</button></div>
+    <div class="sdk-popover-foot"><button class="btn" id="date-pop-cancel" type="button">Cancel</button><button class="btn btn-primary" id="date-pop-go" type="submit">Move</button></div>
   </form>
 </div>
 <p id="msg" class="hint msg">Loading...</p>

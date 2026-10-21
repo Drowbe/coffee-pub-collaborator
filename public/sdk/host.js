@@ -384,25 +384,6 @@
     return lines;
   }
 
-  const UI_CSS = `
-.sdk-menu { position: fixed; z-index: 9999; min-width: 180px; max-width: 320px; max-height: 70vh; overflow: auto; padding: 4px; border-radius: var(--radius-medium); border: 1px solid var(--border); background: var(--bg-card); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: var(--text-13) var(--font-ui, system-ui, sans-serif); }
-.sdk-menu-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--radius-small); background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
-.sdk-menu-item:hover, .sdk-menu-item:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
-.sdk-menu-item:disabled { color: var(--text-dim); cursor: default; }
-.sdk-menu-item.danger { color: var(--danger); }
-.sdk-menu-item.danger:hover, .sdk-menu-item.danger:focus-visible { background: color-mix(in srgb, var(--danger) 14%, transparent); }
-.sdk-menu-icon { flex: none; display: inline-flex; width: 1em; }
-.sdk-menu-icon svg { width: 1em; height: 1em; fill: currentColor; }
-.sdk-menu-label { flex: 1; min-width: 0; }
-.sdk-menu-hint { flex-basis: 100%; margin-top: 1px; color: var(--text-dim); font-size: var(--text-12); }
-.sdk-menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
-.sdk-menu-heading { padding: 6px 10px 2px; color: var(--text-dim); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.sdk-menu-caret { flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; border-top: 1.5px solid var(--text-dim); border-right: 1.5px solid var(--text-dim); transform: rotate(45deg); }
-.sdk-menu-category .sdk-menu-label { flex: 1; }
-.sdk-menu-category.open { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.sdk-menu-category.open .sdk-menu-caret, .sdk-menu-category:hover .sdk-menu-caret, .sdk-menu-category:focus-visible .sdk-menu-caret { border-color: var(--text); }
-`;
-
   // A currency list for a <select> (host.ui.currencySelect, and Manage's Currency, which loads this file for it): the common
   // ones, then every other by name in the viewer's language, and the current value first when it is in neither, so a stored
   // code is shown rather than lost. `currencies` is what the server takes (GET /api/currencies, or host.locale().currencies);
@@ -1128,7 +1109,6 @@
   // to the element's parent. Its buttons are kept between draws (only a change of choices rebuilds them), so the
   // keyboard stays on the choice it was on.
   function pageSwitch({ element, options, value, onChange }) {
-    ensureUiStyles();
     let current = value;
     let opts = Array.isArray(options) ? options : [];
     let shape = '';
@@ -1238,7 +1218,6 @@
     info = result;
     if (result && result.destinationState && typeof result.destinationState === 'object') destinationState = result.destinationState;
     if (env.applyTheme) env.applyTheme(result.theme);
-    ensureUiStyles();
     return result;
   });
 
@@ -1253,16 +1232,6 @@
     if (!o) return;
     const old = o.room !== undefined ? 'room' : OLD_WORDS[o.scope] ? o.scope : null;
     if (old) throw Object.assign(new Error(`${what}: "${old}" is an old name; use ${OLD_WORDS[old]}`), { status: 400 });
-  }
-
-  // The shared interface's styles, added once to wherever the module's elements live, in the theme's colours.
-  let uiStyles = false;
-  function ensureUiStyles() {
-    if (uiStyles) return;
-    uiStyles = true;
-    const s = document.createElement('style');
-    s.textContent = UI_CSS;
-    (env.root === document ? document.head : env.root).appendChild(s);
   }
 
   // A menu's own icons, cached per module instance the same way a module drawing its own would (see
@@ -1380,7 +1349,6 @@
     if (reopening) return { close: closeMenu }; // the same trigger clicked again: toggle off, do not reopen
     const list = (items || []).filter(Boolean);
     if (!list.length) return { close: closeMenu };
-    ensureUiStyles();
     const menu = document.createElement('div');
     menu.className = `sdk-menu${className ? ` ${className}` : ''}`;
     menu.setAttribute('role', 'menu');
@@ -1408,6 +1376,9 @@
     try { framed = window.parent !== window && env.root === document; } catch (err) { framed = true; }
     const touch = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none)').matches;
     const drills = () => submenuStyle({ width: window.innerWidth, framed, touch, boxWidth: bounds().w, need: menu.offsetWidth + 180 }) === 'drill';
+    // A module box of a phone's width gets the 44px rows, whatever the window is.
+    const narrow = bounds().w <= 640;
+    if (narrow) menu.classList.add('narrow');
 
     const closeFly = ({ refocus = false } = {}) => {
       clearTimeout(hoverTimer);
@@ -1426,7 +1397,7 @@
       const entries = entriesOf(item);
       if (!entries || !entries.length) return;
       const el = document.createElement('div');
-      el.className = `sdk-menu sdk-menu-flyout${className ? ` ${className}` : ''}`;
+      el.className = `sdk-menu sdk-menu-flyout${narrow ? ' narrow' : ''}${className ? ` ${className}` : ''}`;
       el.setAttribute('role', 'menu');
       el.setAttribute('aria-label', item.label || '');
       const flyRows = [];
@@ -1480,6 +1451,7 @@
       const b = item.href && !category ? document.createElement('a') : document.createElement('button');
       b.className = `sdk-menu-item${item.danger ? ' danger' : ''}${category ? ' sdk-menu-category' : ''}`;
       b.setAttribute('role', 'menuitem');
+      if (item.current) b.setAttribute('aria-current', 'true');
       if (category) { b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); }
       if (item.href && !category) {
         b.href = item.href;
@@ -1509,6 +1481,7 @@
         const caret = document.createElement('span');
         caret.className = 'sdk-menu-caret';
         caret.setAttribute('aria-hidden', 'true');
+        caret.innerHTML = '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M5.3 1.9 11.4 8l-6.1 6.1-1.4-1.4L8.6 8 3.9 3.3z"/></svg>';
         b.appendChild(caret);
       }
       if (item.hint) {
@@ -1884,7 +1857,6 @@
       datePicker: (input, o) => {
         const options = o || {};
         const u = host.util;
-        ensureUiStyles();
         const inForm = Boolean(input.closest('.sdk-form'));
         const wrap = document.createElement('span');
         wrap.className = inForm ? 'sdk-datefield sdk-group' : 'sdk-datefield';
@@ -2029,7 +2001,7 @@
       //   A `value` or set() id that is not in the groups shows an empty field saying "Unknown kind", never another kind;
       //   setGroups() dropping the chosen kind reports it as onChange(value). remember(id) records a kind as recently used.
       // Anything but an element throws "host.ui.kindPicker needs an element".
-      kindPicker: (el, o) => { ensureUiStyles(); return createKindPicker(el, o, editorDeps); },
+      kindPicker: (el, o) => createKindPicker(el, o, editorDeps),
       // A currency choice in a <select> the module already has: "Common" then "All currencies" by name, from the codes the
       // server takes (host.locale().currencies), with the current value kept and selected even when the server would not
       // take it now. currencySelect(select, { value, empty, onChange }): `empty` true adds a first "" choice labelled
@@ -2098,7 +2070,6 @@
       // place's. Pass a button you already have (its data-action and listeners stay); omit it to make one.
       // { label } is the accessible name (defaults to the button's aria-label, or "More").
       moreButton: (el, o) => {
-        ensureUiStyles();
         const btn = el && el.nodeType === 1 ? el : document.createElement('button');
         btn.type = 'button';
         btn.classList.add('sdk-icon-btn', 'btn-quiet', 'btn-small');
@@ -2769,7 +2740,6 @@
         const remember = (it) => { if (!memory || !it) return it; try { localStorage.setItem(memory, idOf(it)); } catch (err) { /* not kept */ } return it; };
         if (list.length < 2) return resolve(list[0] || null);
         // The same look as host.menu.show (its styles, an icon, the label, a hint): one menu, wherever it is asked.
-        ensureUiStyles();
         const rootEl = host.rootElement;
         const menu = document.createElement('div');
         menu.className = 'sdk-menu';

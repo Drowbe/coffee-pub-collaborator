@@ -1352,7 +1352,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
         const last = lastPlace(summary.kind);
         openMenu(btn, targets.map((x) => ({
           label: x.label,
-          ...(pick === 'choose' ? { checked: x.id === shown.id } : {}),
+          ...(pick === 'choose' ? { radio: true, checked: x.id === shown.id } : {}),
           hint: x.local && !canvas.isOpen(x.module) ? `Open ${x.moduleName} first` : x.id === last ? 'Last used' : '',
           onPick: async () => {
             if (state) return;

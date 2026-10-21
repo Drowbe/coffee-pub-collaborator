@@ -513,10 +513,10 @@ test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s sha
   // host-menu.js: the item kinds the Layout menu needs, in the one shared component.
   for (const needle of ['item.toggle', 'item.radio', 'item.keepOpen', 'item.heading', 'item.element', 'item.more', "'menuitemcheckbox'", "'menuitemradio'", 'export function refreshHostMenu()', 'export function hostMenuOpen(trigger)']) assert.ok(menuJs.includes(needle), `host-menu.js has ${needle}`);
   assert.match(menuJs, /if \(item\.keepOpen \|\| item\.toggle\) \{/, 'a switch or a keepOpen item leaves the menu open and draws it again');
-  // The switch look is the Show list's own (input.sdk-switch), in the menu's ink.
-  assert.match(css, /\.host-menu-switch \{[\s\S]*?radial-gradient\(circle at 6px 50%, color-mix\(in srgb, var\(--switch-ink\) 70%, transparent\) 4px, transparent 4\.5px\)/);
-  assert.match(css, /\.host-menu-item\[aria-checked="true"\] \.host-menu-switch \{[\s\S]*?var\(--accent\);/);
-  assert.match(css, /\.host-menu \{\n\s*--switch-ink: var\(--text\);/);
+  // The switch look is the Fields' switch (36 by 20, thumb 14), drawn by the Menus block of system.css at the row's end.
+  const menusCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  assert.match(menusCss, /\.host-menu-switch \{[\s\S]*?width: 36px;\s*height: 20px;/);
+  assert.match(menusCss, /\.host-menu-item\[aria-checked="true"\] > \.host-menu-switch \{ background: var\(--accent-fill\); \}/);
   // The old panel is gone: no section rules, no hand-rolled list under the button.
   for (const cls of ['.module-chooser-arrange', '.module-chooser-show', '.module-chooser-section', '.module-chooser-action', '.module-chooser-layouts', '.module-chooser-toggle']) assert.ok(!css.includes(cls), `${cls} is gone from the stylesheet`);
   assert.ok(!/setMenuOpen|positionMenu/.test(canvasJs), 'canvas.js draws no menu of its own');
@@ -565,7 +565,7 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   // The look: the menu's own for the entries; the sheet from the tokens.
   assert.match(css, /\.layout-sheet \{[^}]*background: var\(--bg-section\);/);
   assert.match(css, /\.host-menu-tag \{/);
-  assert.match(css, /\.host-menu-mark \{[^}]*color: var\(--accent\);/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /\.host-menu-mark \{[^}]*color: var\(--text-muted\);/);
   // An aside has no layouts.
   assert.match(space, /const layoutSpaceId = \(\) => \(currentSpace && !currentSpace\.isAside \? currentSpace\.id : null\);/);
 });
@@ -650,7 +650,7 @@ test('favorite layouts, step 2 (plan-favorite-layouts.md): a ... on every row fo
   assert.match(row, /more: mayFavorite\(\) \|\| mayChangeLayout\(isShared\) \|\| maySetDefault\(isShared\) \? \(\) => layoutRowItems\(l\.id\) : undefined,/);
   assert.match(row, /mark: isFavorite\(l\.id\) \? 'heart' : undefined,/);
   assert.ok(row.indexOf("mark: isFavorite") > row.indexOf('label: l.name') && row.indexOf("mark: isFavorite") < row.indexOf('tag: l.id'), 'after the name, before Default');
-  assert.match(css, /\.host-menu-mark \{[^}]*color: var\(--accent\);/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /\.host-menu-mark \{[^}]*color: var\(--text-muted\);/);
   // The menu: Favorite (outline heart) or Unfavorite (filled heart) first, a divider before Make default.
   const menuFn = space.slice(space.indexOf('function layoutRowItems(layoutId) {'), space.indexOf('async function setFavorite('));
   assert.match(menuFn, /if \(mayFavorite\(\)\) \{\n\s*entries\.push\(isFavorite\(layoutId\)\n\s*\? \{ icon: 'heart', label: 'Unfavorite', onPick: \(\) => setFavorite\(layout, false\) \}\n\s*: \{ icon: 'heart', regular: true, label: 'Favorite', onPick: \(\) => setFavorite\(layout, true\) \}\);/, 'Unfavorite or Favorite, always on');

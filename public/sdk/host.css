@@ -293,24 +293,11 @@ a {
 }
 /* form:end */
 
-/* datepicker:start -- the date picker (host.ui.datePicker): the month grid (.sdk-dp) and the weekday. The field is a .sdk-datefield of
-   the input and the calendar button (and, with the `list` option, a second button, the list); the buttons sit inside the field's
-   trailing edge (the Fields block of system.css). In a .sdk-form the wrapper is also a .sdk-group and the weekday is the field's
-   .sdk-hint; outside one the weekday line is .tv-dow-hint. Today in the month is a fill, never a border. These rules were in host.js. */
+/* datepicker:start -- the date picker (host.ui.datePicker): the field is a .sdk-datefield of the input and the calendar button (and,
+   with the `list` option, a second button, the list); the buttons sit inside the field's trailing edge (the Fields block of
+   system.css). In a .sdk-form the wrapper is also a .sdk-group and the weekday is the field's .sdk-hint; outside one the weekday
+   line is .tv-dow-hint. The month grid (.sdk-dp) is the Pickers block of system.css. */
 .tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: var(--text-11); font-weight: var(--weight-strong); }
-.sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
-.sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
-.sdk-dp-head button, .sdk-dp-foot button { border: 0; border-radius: var(--radius-small); padding: 3px 9px; background: var(--secondary); color: var(--secondary-text); font: inherit; cursor: pointer; }
-.sdk-dp-head button:hover, .sdk-dp-foot button:hover { background: var(--secondary-hover); }
-.sdk-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.sdk-dp-dow { padding: 2px 0; text-align: center; color: var(--text-dim); font-size: var(--text-11); text-transform: uppercase; }
-.sdk-dp-day { height: 30px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; cursor: pointer; }
-.sdk-dp-day:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.sdk-dp-day.other { color: var(--text-dim); opacity: .55; }
-.sdk-dp-day.inrange { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.sdk-dp-day.today { background: var(--selected-bg); font-weight: var(--weight-strong); }
-.sdk-dp-day.sel { background: var(--accent); color: var(--on-accent); font-weight: var(--weight-strong); }
-.sdk-dp-foot { display: flex; justify-content: space-between; margin-top: 6px; }
 /* datepicker:end */
 
 /* kind:start -- the kind picker (host.ui.kindPicker): one row, --bar-control-h tall, with the chosen kind's icon on a
@@ -329,31 +316,6 @@ a {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.sdk-kind-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: var(--field-h, var(--bar-control-h, 38px));
-  padding: 0 8px 0 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  cursor: text;
-}
-
-.sdk-kind-field:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-kind.disabled .sdk-kind-field {
-  opacity: 0.6;
-  cursor: default;
 }
 
 /* The kind's colour: --kind-color, set inline on the chip and on each option by the script (the icon inherits it); the
@@ -407,7 +369,7 @@ a {
 .sdk-kind-chevron {
   flex: none;
   display: inline-flex;
-  color: var(--text-dim);
+  color: var(--text-muted);
   cursor: pointer;
 }
 

@@ -308,9 +308,12 @@ await (async () => {
   win.parent = win;
   // host.ready() adds the SDK's shared styles to the module's root once hello answers, so the stand-ins take a <style>.
   new Function('window', 'document', sdk)(win, { createElement: (tag) => ({ tag }) });
-  const el = (tag) => ({ tag, value: '', textContent: '', label: '', children: [], append(...c) { this.children.push(...c); } });
+  // The picker also mounts the kind picker's field and list over the select (the Pickers family), which needs a real DOM; a
+  // stand-in that answers anything it is asked with another stand-in is enough here, the list itself is checked in the browser.
+  const deep = () => new Proxy(function () { return deep(); }, { get: (_t, k) => (k === Symbol.toPrimitive ? () => '' : deep()), apply: () => deep(), set: () => true });
+  const el = (tag) => new Proxy({ tag, nodeType: 1, get ownerDocument() { return doc; }, value: '', textContent: '', label: '', children: [], append(...c) { this.children.push(...c); } }, { get: (t, k) => (k in t || typeof k === 'symbol' ? t[k] : deep()) });
   const doc = { createElement: el };
-  const select = { ownerDocument: doc, children: [], _v: '', listeners: [],
+  const select = { ownerDocument: doc, children: [], _v: '', listeners: [], disabled: false, after() {}, dispatchEvent() {}, closest: () => null, getAttribute: () => null,
     replaceChildren(...c) { this.children = c; this._v = ''; },
     options() { return this.children.flatMap((c) => (c.tag === 'optgroup' ? c.children : [c])); },
     get value() { return this._v; },

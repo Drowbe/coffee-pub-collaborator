@@ -179,7 +179,8 @@ function measure() {
   }
   document.activeElement && document.activeElement.blur();
   // Heights of one-line controls.
-  for (const c of [...form.querySelectorAll('.sdk-field *')].filter(oneLine)) {
+  // (The kind picker's typing input sits inside its field, which is the control and is measured below.)
+  for (const c of [...form.querySelectorAll('.sdk-field *')].filter((e) => oneLine(e) && !e.matches('.sdk-kind-input'))) {
     const h = c.getBoundingClientRect().height;
     if (Math.abs(h - fieldH) > 0.5) add('height', nm(c), `is ${r1(h)} px tall, the field height is ${fieldH} px`);
     if (c.matches('input, select')) {
@@ -223,7 +224,8 @@ function measure() {
       const names = (fs) => fs.map((f) => nm(f.querySelector('input, select, textarea') || f)).join(', ');
       const tops = line.fields.map((f) => { const l = f.querySelector('.sdk-label'); return l ? l.getBoundingClientRect().top : NaN; }).filter((n) => !Number.isNaN(n));
       if (tops.length && Math.max(...tops) - Math.min(...tops) > 1) add('label-top', where, `labels start at different heights (${tops.map(r1).join(', ')}): ${names(line.fields)}`);
-      const ctl = line.fields.map((f) => [...f.querySelectorAll('*')].find(oneLine)).filter(Boolean);
+      // The kind picker's typing input is measured by its field (the control in the row).
+      const ctl = line.fields.map((f) => [...f.querySelectorAll('*')].find(oneLine)).filter(Boolean).map((c) => c.closest('.sdk-kind-field') || c);
       const ct = ctl.map((c) => c.getBoundingClientRect().top);
       const ch = ctl.map((c) => c.getBoundingClientRect().height);
       if (ct.length > 1 && Math.max(...ct) - Math.min(...ct) > 1) add('control-top', where, `controls sit at different heights (${ct.map(r1).join(', ')}): ${names(line.fields)}`);

@@ -5,6 +5,7 @@
 // server decides who may change what; this only draws what it is given.
 import { api, escapeHtml, word, accessKeyHeaders } from '/brand.js';
 import { confirmDialog } from '/confirm.js';
+import { upgradeColourInputs } from '/colour-pick.js';
 
 // A list of things with a label, an icon and a colour each (Planner's marker types): rows to change, reorder, remove and add. The rows the
 // module says are fixed (def.fixed: ids) are always there; their label, icon and colour can change but they cannot be removed.
@@ -48,6 +49,7 @@ function wireList(el, def) {
     const list = el.querySelector('.list-rows');
     if (b.dataset.list === 'add') {
       list.insertAdjacentHTML('beforeend', listRow(def, { id: '', label: '', icon: 'flag', color: NEW_COLORS[list.children.length % NEW_COLORS.length] }));
+      upgradeColourInputs(list.lastElementChild);
       list.lastElementChild.querySelector('[data-f="label"]').focus();
     } else if (li && b.dataset.list === 'remove') li.remove();
     else if (li && b.dataset.list === 'up' && li.previousElementSibling) li.previousElementSibling.before(li);
@@ -189,6 +191,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
     }
     for (const row of card.querySelectorAll('[data-when-key]')) row.hidden = row.dataset.whenNot !== undefined ? value(row.dataset.whenKey) === row.dataset.whenNot : value(row.dataset.whenKey) !== row.dataset.whenValue;
   };
+  upgradeColourInputs(container); // the colour settings and the list rows' colours: the colour picker over the native input
   for (const box of container.querySelectorAll('[data-list-setting]')) wireList(box, modules.find((m) => m.id === box.closest('.module-settings-card').dataset.module).settings.find((d) => d.key === box.dataset.key));
   for (const card of container.querySelectorAll('.module-settings-card')) {
     refresh(card);

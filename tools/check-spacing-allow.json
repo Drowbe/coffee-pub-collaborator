@@ -112,12 +112,6 @@
       "9px": 1,
       "10px": 1
     },
-    "public/sdk/host.css": {
-      "3px": 1,
-      "5px": 1,
-      "6px": 4,
-      "9px": 1
-    },
     "public/style.css": {
       "-6px": 1,
       "-7px": 1,

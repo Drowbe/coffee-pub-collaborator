@@ -50,9 +50,6 @@
     "public/module-settings.js": {
       "raw": 1
     },
-    "public/sdk/host.css": {
-      "shadow-scrim": 1
-    },
     "public/style.css": {
       "raw": 15,
       "shadow-scrim": 22

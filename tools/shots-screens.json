@@ -1748,6 +1748,68 @@
     }
    ],
    "tier": "state"
+  },
+  {
+   "id": "manage-colour-picker",
+   "family": "Pickers",
+   "as": "admin",
+   "url": "/module-config.html?id=travel",
+   "wait": ".sdk-picker",
+   "steps": [
+    {
+     "click": ".sdk-picker"
+    },
+    {
+     "wait": ".sdk-picker-pop"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "budget-currency-list",
+   "family": "Pickers",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "#module-frame >>> #target-edit"
+    },
+    {
+     "click": "#module-frame >>> .sdk-kind-field"
+    },
+    {
+     "wait": "#module-frame >>> .sdk-kind-list"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-date-picker",
+   "family": "Pickers",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": ".titlebar-add > button"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "Travel"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Flight"
+    },
+    {
+     "click": "#module-frame >>> .sdk-datefield button[aria-label='Pick a date']"
+    },
+    {
+     "wait": "#module-frame >>> .sdk-dp"
+    }
+   ],
+   "tier": "state"
   }
  ]
 }

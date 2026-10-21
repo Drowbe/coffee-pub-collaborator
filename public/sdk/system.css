@@ -2693,7 +2693,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 /* ================= Menus and popovers (design system step 17) =================
    One surface and one item for host.menu.show (.sdk-menu), the page's menu (.host-menu: the "..." of a header, the nav registry's and the
    Layout menu, the account menu), the chat command menu, the dropdown list of the kind picker (.sdk-kind-list) and the popovers (.popover
-   in the call, .bell-list, .who-here-list, the chat's help and emoji popups). Source:
+   in the call, .bell-list, .who-here-list, the chat's help and emoji popups, the date picker .sdk-dp). Source:
    public/design-system/proposed-menus.css, with the colour roles. The product's own names are the component; there are no aliases.
    - Surface: --surface-menu (--surface-popover for a popover), a 1px --edge-menu hairline, --radius-medium, ONE shadow (--shadow-2), 4px of
      padding, 180 to 320px wide. A popover is the same surface with its own padding: 14px around controls, 8px around a grid or a list.
@@ -2757,7 +2757,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 .sdk-menu-flyout { margin-left: var(--space-0); }
 
 /* ---- A popover: the same surface, the padding of what it holds. 14px around controls (call popovers); 8px around a grid or a list ---- */
-:is(.sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup) {
+:is(.sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp) {
   box-sizing: border-box;
   margin: 0;
   padding: var(--pop-pad);
@@ -2777,8 +2777,8 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
   max-width: calc(100vw - 16px);
 }
 
-:is(.sdk-popover-dense, .bell-list, .who-here-list, .chat-emoji-popup) { --pop-pad: var(--space-2); }
-:is(.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list, .sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup)[hidden] { display: none; }
+:is(.sdk-popover-dense, .bell-list, .who-here-list, .chat-emoji-popup, .sdk-dp) { --pop-pad: var(--space-2); }
+:is(.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list, .sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp)[hidden] { display: none; }
 :is(.sdk-popover, .popover) .sdk-popover-foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
 :is(.sdk-popover, .popover) > :is(.sdk-popover-heading, h3) { padding: 0; }
 
@@ -3051,7 +3051,8 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 }
 
 /* ---- The kind picker's list: the menu surface and item, kind-coloured icons ---- */
-.sdk-kind-list { position: fixed; z-index: var(--z-popover); }
+/* Under its field, as wide as the field (the script sets the width), so the 320px of a menu does not cap it. */
+.sdk-kind-list { position: fixed; z-index: var(--z-popover); max-width: none; }
 .sdk-kind-group { padding: 0; }
 
 .sdk-kind-group + .sdk-kind-group::before {
@@ -3083,6 +3084,7 @@ dialog.sdk-dialog-confirm::backdrop { background: var(--scrim); }
 .sdk-kind-option[aria-selected="true"] { font-weight: var(--weight-strong); }
 .sdk-kind-option[aria-selected="true"] .sdk-kind-icon { background: color-mix(in srgb, var(--kind-color, var(--text-primary)) 22%, transparent); color: var(--kind-color, var(--text-primary)); }
 .sdk-kind-empty { padding: var(--space-2) calc(var(--space-2) + var(--space-0)); color: var(--text-muted); }
+.sdk-kind-group-title:empty { display: none; }
 
 /* menus:end */
 
@@ -3912,3 +3914,245 @@ span.message-vis {
   }
 }
 /* dialogs:end */
+
+/* ================= Pickers (design system step 24) =================
+   The date picker, the kind picker and the currency list (the kind picker's field and list), and the colour picker with its palette.
+   Source: public/design-system/proposed-pickers.css and the date picker of proposed-menus.css, with the colour roles. The product's own
+   names are the component; there are no aliases.
+   - The trigger is the Fields box: --field-h high, --surface-field, the --edge-field hairline, --radius-small, the accent focus line
+     and ring, a fill on hover, half strength when disabled. The kind picker's field (.sdk-kind-field) and the colour picker's button
+     (.sdk-picker) are this one box; the date field keeps its calendar button (the Fields block).
+   - The flyout is the Menus surface: the kind list and the currency list are Menus rows (the Menus block), the date picker and the colour
+     palette are dense popovers (8px around a grid). A long list on a phone is the Menus bottom sheet (.sdk-kind-sheet, host.css).
+   - Selected is neutral. A list row is the selected fill (Menus). A swatch is a check on a neutral disc. The one exception: the chosen
+     day in the date picker is the solid accent fill (Thomas, 2026-10-19), because it is the single value the picker is for.
+   - The palette is data (public/colour-pick.js): colours a person may store, passed to a swatch as --sw.
+   Colours are roles, radii are --radius-* tokens. No state draws a coloured edge, a bar or an underline. */
+/* pickers:start */
+:root {
+  --dp-day: 30px; /* a day of the date picker; 44px on a phone */
+  --pk-sw: 24px; /* a swatch */
+  --pk-sw-cell: 28px; /* its cell; 44px on a phone */
+  --pk-lead: 22px; /* the swatch in front of a colour trigger's value */
+}
+
+@media (max-width: 640px) {
+  :root { --dp-day: 44px; --pk-sw-cell: 44px; }
+}
+
+/* ---- The trigger: the kind picker's field and the colour picker's button ---- */
+:is(.sdk-picker, .sdk-kind-field) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0 var(--field-pad-x);
+  border: 1px solid var(--edge-field);
+  border-radius: var(--radius-small);
+  background: var(--surface-field);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: normal;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  transition: background var(--motion-fast);
+}
+
+.sdk-kind-field { cursor: text; }
+
+:is(.sdk-picker, .sdk-kind-field):hover:not(:disabled, [aria-disabled="true"]) { background: var(--field-fill-hover); }
+.sdk-picker[aria-expanded="true"], .sdk-kind.open .sdk-kind-field { background: var(--field-fill-hover); }
+
+/* Focus: the Fields mechanism, a 2px accent line over the hairline (offset -2px) and a soft ring, equal on all four sides. */
+.sdk-picker:focus-visible, .sdk-kind-field:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--field-ring);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.sdk-picker:disabled, .sdk-kind.disabled .sdk-kind-field { opacity: 0.5; cursor: not-allowed; background: var(--surface-field); }
+
+.sdk-picker-value { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sdk-picker-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  color: var(--text-muted);
+  font-size: var(--text-12);
+  line-height: 1;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.sdk-picker-icon svg { display: block; width: 12px; height: 12px; }
+.sdk-picker[aria-expanded="true"] .sdk-picker-icon { transform: rotate(180deg); }
+
+/* The colour in front of the value, drawn from the data: --sw. */
+.sdk-picker-sw {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--pk-lead);
+  height: var(--pk-lead);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-small);
+  background: var(--sw, var(--text-muted));
+}
+
+.sdk-hex { font-variant-numeric: tabular-nums; }
+
+/* ---- The colour picker's flyout: a grid of swatches and the browser's own input, "Custom" ---- */
+.sdk-picker-pop { position: fixed; z-index: var(--z-popover); display: block; width: fit-content; max-width: calc(100vw - 16px); }
+
+.sdk-swatch-grid { display: grid; grid-template-columns: repeat(8, var(--pk-sw-cell)); gap: 0; }
+
+.sdk-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--pk-sw-cell);
+  height: var(--pk-sw-cell);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.sdk-swatch::before {
+  content: "";
+  box-sizing: border-box;
+  width: var(--pk-sw);
+  height: var(--pk-sw);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-small);
+  background: var(--sw, var(--text-muted));
+}
+
+.sdk-swatch:hover { background: var(--menu-hover); }
+.sdk-swatch:focus-visible { background: var(--menu-hover); outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+/* The chosen one: a check on a neutral disc over the swatch, so it reads on any colour. No accent border, no ring. */
+.sdk-swatch > i {
+  position: absolute;
+  inset: 0;
+  display: none;
+  margin: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-round);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--text-11);
+  line-height: 16px;
+  text-align: center;
+}
+
+.sdk-swatch[aria-checked="true"] > i { display: block; }
+
+.sdk-swatch-custom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-1) 0;
+  border-top: 1px solid var(--edge-hairline);
+  color: var(--text-primary);
+  font-size: var(--text-13);
+}
+
+.sdk-swatch-custom > span { flex: 1 1 auto; }
+
+.sdk-swatch-custom input[type="color"] {
+  flex: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: var(--pk-sw);
+  height: var(--pk-sw);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-small);
+  background: none;
+  cursor: pointer;
+}
+
+.sdk-swatch-custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.sdk-swatch-custom input[type="color"]::-webkit-color-swatch { border: 0; border-radius: var(--radius-min); }
+.sdk-swatch-custom input[type="color"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* ---- The date picker: a dense popover with a month grid ---- */
+.sdk-dp { position: fixed; z-index: var(--z-popover); display: block; width: fit-content; max-width: calc(100vw - 16px); }
+
+.sdk-dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.sdk-dp-title { font-size: var(--text-14); font-weight: var(--weight-strong); }
+
+.sdk-dp-grid { display: grid; grid-template-columns: repeat(7, var(--dp-day)); gap: var(--space-0); }
+
+.sdk-dp-dow {
+  padding: var(--space-0) 0 var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-caps);
+  line-height: 14px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.sdk-dp-day {
+  box-sizing: border-box;
+  width: var(--dp-day);
+  height: var(--dp-day);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-13);
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+}
+
+.sdk-dp-day:hover { background: var(--menu-hover); }
+.sdk-dp-day:active { background: var(--menu-press); }
+.sdk-dp-day:focus-visible { background: var(--menu-hover); outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-dp-day.other { color: var(--text-muted); }
+.sdk-dp-day.other:hover { color: var(--menu-hint-strong); }
+.sdk-dp-day:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+/* Today: the selected fill at half strength, no outline. A range: the quiet fill. */
+.sdk-dp-day.today { background: color-mix(in srgb, var(--fill-selected) 50%, transparent); font-weight: var(--weight-strong); }
+.sdk-dp-day.inrange { background: var(--menu-hover); }
+.sdk-dp-day.today:hover, .sdk-dp-day.inrange:hover { background: var(--menu-press); }
+
+/* The chosen day: the one place a selection is a solid accent fill. On its own focus the ring is the on-accent colour. */
+.sdk-dp-day.sel { background: var(--accent-fill); color: var(--text-on-accent); font-weight: var(--weight-strong); }
+.sdk-dp-day.sel:hover { background: var(--accent-fill-hover); }
+.sdk-dp-day.sel:focus-visible { background: var(--accent-fill); outline-color: var(--text-on-accent); }
+
+.sdk-dp-foot { display: flex; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+/* pickers:end */

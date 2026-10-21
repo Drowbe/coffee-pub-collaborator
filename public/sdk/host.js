@@ -944,15 +944,17 @@
           row.setAttribute('aria-selected', opt.id === value ? 'true' : 'false');
           row.dataset.id = String(opt.id);
           colour(row, opt.color);
-          const ic = doc.createElement('span');
-          ic.className = 'sdk-kind-icon';
-          ic.setAttribute('aria-hidden', 'true');
-          ic.dataset.kindIcon = opt.icon || '';
-          drawIcon(ic, opt.icon);
           const name = doc.createElement('span');
           name.className = 'sdk-kind-name';
           name.textContent = opt.label || String(opt.id);
-          row.append(ic, name);
+          if (opt.icon) {
+            const ic = doc.createElement('span');
+            ic.className = 'sdk-kind-icon';
+            ic.setAttribute('aria-hidden', 'true');
+            ic.dataset.kindIcon = opt.icon;
+            drawIcon(ic, opt.icon);
+            row.append(ic, name);
+          } else row.append(name);
           const index = rows.length;
           row.addEventListener('mousemove', () => { if (active !== index) setActive(index, false); });
           row.addEventListener('click', (e) => { e.preventDefault(); choose(index); });
@@ -1920,6 +1922,8 @@
           let month = new Date(u.parseYmd(seed).getFullYear(), u.parseYmd(seed).getMonth(), 1);
           pop = document.createElement('div');
           pop.className = 'sdk-dp';
+          pop.setAttribute('role', 'dialog');
+          pop.setAttribute('aria-label', 'Choose a day');
           const draw = () => {
             const start = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay());
             const [from, to] = options.range ? options.range() : [];
@@ -1930,9 +1934,11 @@
               const k = u.ymd(d);
               cells += `<button type="button" class="sdk-dp-day${d.getMonth() !== month.getMonth() ? ' other' : ''}${k === today ? ' today' : ''}${k === dayOf() ? ' sel' : ''}${from && to && k >= from && k <= to ? ' inrange' : ''}" data-day="${k}">${d.getDate()}</button>`;
             }
-            pop.innerHTML = `<div class="sdk-dp-head"><button type="button" data-dp="prev" aria-label="Previous month">&lsaquo;</button><strong>${u.esc(month.toLocaleDateString([], { month: 'long', year: 'numeric' }))}</strong><button type="button" data-dp="next" aria-label="Next month">&rsaquo;</button></div>
-              <div class="sdk-dp-grid">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((n) => `<span class="sdk-dp-dow">${n}</span>`).join('')}${cells}</div>
-              <div class="sdk-dp-foot"><button type="button" data-dp="today">Today</button>${options.clearable ? '<button type="button" data-dp="clear">Clear</button>' : '<span></span>'}</div>`;
+            const monthName = u.esc(month.toLocaleDateString([], { month: 'long', year: 'numeric' }));
+            const chevron = (d) => `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
+            pop.innerHTML = `<div class="sdk-dp-head"><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-dp="prev" aria-label="Previous month">${chevron('M10.7 1.9 4.6 8l6.1 6.1 1.4-1.4L7.4 8l4.7-4.7z')}</button><span class="sdk-dp-title">${monthName}</span><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-dp="next" aria-label="Next month">${chevron('M5.3 1.9 11.4 8l-6.1 6.1-1.4-1.4L8.6 8 3.9 3.3z')}</button></div>
+              <div class="sdk-dp-grid" role="group" aria-label="${monthName}">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((n) => `<span class="sdk-dp-dow" aria-hidden="true">${n}</span>`).join('')}${cells}</div>
+              <div class="sdk-dp-foot">${options.clearable ? '<button type="button" class="btn btn-quiet btn-small" data-dp="clear">Clear</button>' : '<span></span>'}<button type="button" class="btn btn-small" data-dp="today">Today</button></div>`;
           };
           pop.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1963,7 +1969,7 @@
           let top = r.bottom + 4;
           if (editor && top + pop.offsetHeight > window.innerHeight - 4) top = Math.max(4, r.top - pop.offsetHeight - 4);
           pop.style.top = top + 'px';
-          pop.style.left = box.left + Math.max(editor ? 4 : 8, Math.min(r.left - box.left, w - 252 - (editor ? 4 : 8))) + 'px';
+          pop.style.left = box.left + Math.max(editor ? 4 : 8, Math.min(r.left - box.left, w - pop.offsetWidth - (editor ? 4 : 8))) + 'px';
           document.addEventListener('keydown', key, true);
           env.root.addEventListener('pointerdown', away, true);
         };
@@ -2028,10 +2034,31 @@
         fill(options.value);
         const changed = () => { if (typeof options.onChange === 'function') options.onChange(select.value); };
         select.addEventListener('change', changed);
+        // A person sees the kind picker's field and list (a styled, searchable list: the Pickers family); the select stays in the
+        // form, hidden, as the value (it is what the module reads and the form sends), and a choice sets it and sends `change`.
+        const doc = select.ownerDocument;
+        const groupsOf = () => [...select.children].map((n) => (n.tagName === 'OPTGROUP'
+          ? { label: n.label, options: [...n.children].map((x) => ({ id: x.value, label: x.textContent })) }
+          : { label: '', options: [{ id: n.value, label: n.textContent }] }));
+        let quiet = false; // set() chooses without telling the module, as filling the select always did
+        const box = doc.createElement('div');
+        select.after(box);
+        select.hidden = true;
+        const field = select.closest('label, .sdk-field');
+        const name = ((field && field.querySelector('.sdk-label') && field.querySelector('.sdk-label').textContent) || select.getAttribute('aria-label') || 'Currency').trim();
+        const picker = createKindPicker(box, {
+          label: name,
+          groups: groupsOf(),
+          value: select.value,
+          onChange: (id) => { if (quiet) return; select.value = id; select.dispatchEvent(new Event('change', { bubbles: true })); },
+        }, editorDeps);
+        picker.disabled = select.disabled;
+        const watch = typeof MutationObserver === 'function' ? new MutationObserver(() => { picker.disabled = select.disabled; }) : null;
+        if (watch) watch.observe(select, { attributes: true, attributeFilter: ['disabled'] });
         return {
-          set: (value) => { fill(value); },
+          set: (value) => { quiet = true; try { fill(value); picker.setGroups(groupsOf()); picker.set(select.value); } finally { quiet = false; } },
           get value() { return select.value; },
-          destroy: () => select.removeEventListener('change', changed),
+          destroy: () => { select.removeEventListener('change', changed); if (watch) watch.disconnect(); picker.destroy(); box.remove(); select.hidden = false; },
         };
       },
       // A view or filter switch, drawn in the toolbar (see host.toolbar.set) -- its most common tool, so

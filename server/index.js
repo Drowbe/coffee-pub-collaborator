@@ -2612,9 +2612,9 @@ hostRouter.delete('/api/host/admins/:key', requireHostAdmin, (req, res) => {
 // A page is live only while that template is among the host's offered ones (templateChoices(null)) and its file exists;
 // otherwise the address answers 404 like any unknown path (plan-product-pages.md, decisions 7, 8 and 10).
 const PRODUCT_PAGES = [
-  { path: '/travel', file: 'landing-travel.html', template: 'travel' },
-  { path: '/games', file: 'landing-games.html', template: 'games' },
-  { path: '/projects', file: 'landing-projects.html', template: 'projects' },
+  { path: '/travel', file: 'travel.html', template: 'travel' },
+  { path: '/games', file: 'games.html', template: 'games' },
+  { path: '/projects', file: 'projects.html', template: 'projects' },
 ];
 const livePages = () => {
   if (!BASE_DOMAIN) return [];

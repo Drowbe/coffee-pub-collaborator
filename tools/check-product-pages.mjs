@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * check-product-pages.mjs -- the product's pages at the bare base domain (documentation/plans/plan-product-pages.md,
- * decision 8): public/landing.html (the front page) and each public/landing-<use>.html share one header, footer and
+ * decision 8): public/landing.html (the front page) and each use page (public/travel.html, games.html, projects.html) share one header, footer and
  * sign-in block, and the page head's fixed lines. They are plain files with no build step, so this check is what keeps
  * the copies the same. Also: every use page file is in server/index.js's PRODUCT_PAGES table, and each page has its own
  * <title> and description. The routing itself (200, 404, `pages`) is checked in check-origin.mjs.
@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
+const USE_PAGES = ['travel.html', 'games.html', 'projects.html'];
 const squash = (s) => s.replace(/\s+/g, ' ').trim();
 const one = (html, re) => { const m = re.exec(html); return m ? squash(m[0]) : null; };
 
@@ -31,6 +32,9 @@ export function blocksOf(html) {
   };
 }
 
+// Blocks a page must have but may word differently: a use page's Get started goes to the front page's form (decision 9).
+const MAY_DIFFER = new Set(['get started button']);
+
 // The problems among pages ({ name: html }): a block a page lacks, or one that differs from the front page's.
 export function problemsOf(pages) {
   const problems = [];
@@ -41,7 +45,7 @@ export function problemsOf(pages) {
     const blocks = blocksOf(html);
     for (const [block, text] of Object.entries(blocks)) {
       if (text === null) problems.push(`${name}: the ${block} is missing.`);
-      else if (reference[block] !== null && text !== reference[block]) problems.push(`${name}: the ${block} differs from ${names[0]}'s.`);
+      else if (!MAY_DIFFER.has(block) && reference[block] !== null && text !== reference[block]) problems.push(`${name}: the ${block} differs from ${names[0]}'s.`);
     }
     const title = one(html, /<title[^>]*>[\s\S]*?<\/title>/);
     const description = /<meta name="description" content="([^"]+)"/.exec(html);
@@ -59,7 +63,7 @@ export function problemsOf(pages) {
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; };
 
-const files = fs.readdirSync(PUBLIC).filter((f) => f === 'landing.html' || /^landing-[a-z]+\.html$/.test(f)).sort((a, b) => (a === 'landing.html' ? -1 : b === 'landing.html' ? 1 : a.localeCompare(b)));
+const files = fs.readdirSync(PUBLIC).filter((f) => f === 'landing.html' || USE_PAGES.includes(f)).sort((a, b) => (a === 'landing.html' ? -1 : b === 'landing.html' ? 1 : a.localeCompare(b)));
 const pages = Object.fromEntries(files.map((f) => [f, fs.readFileSync(path.join(PUBLIC, f), 'utf8')]));
 
 test('the front page is there', () => assert.equal(files[0], 'landing.html'));

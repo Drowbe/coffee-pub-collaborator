@@ -231,13 +231,13 @@ try {
   await test('/travel answers 200 with its page while the travel template is offered; /games and /projects (no template) answer 404', async () => {
     const travel = await call('GET', '', '/travel', { headers: { accept: 'text/html' } });
     assert.equal(travel.status, 200, travel.text.slice(0, 120));
-    assert.equal(travel.text, fs.readFileSync(path.join(ROOT, 'public', 'landing-travel.html'), 'utf8'), 'the page is public/landing-travel.html');
-    for (const p of ['/games', '/projects', '/travel/', '/landing-travel.html', '/travel.html']) assert.equal((await call('GET', '', p)).status, 404, p);
+    assert.equal(travel.text, fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8'), 'the page is public/travel.html');
+    for (const p of ['/games', '/projects', '/travel/', '/travel.html']) assert.equal((await call('GET', '', p)).status, 404, p);
     const info = await call('GET', '', '/api/product');
     assert.deepEqual(info.json.pages, [{ path: '/travel', template: 'travel' }]);
   });
   await test('a use page is only at the bare base domain: an environment and the console do not send it', async () => {
-    const file = fs.readFileSync(path.join(ROOT, 'public', 'landing-travel.html'), 'utf8');
+    const file = fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8');
     for (const sub of ['aaa', 'admin']) assert.notEqual((await call('GET', sub, '/travel', { headers: { accept: 'text/html' } })).text, file, sub);
   });
   await test('hiding the travel template takes /travel to 404 and out of `pages`; showing it brings it back', async () => {
@@ -254,8 +254,8 @@ try {
   await test('a host template called games or projects does not make a page without its file', async () => {
     const made = await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'games', name: 'Games', description: 'A test.', modules: ['chat'] } });
     assert.equal(made.status, 201, made.text);
-    assert.equal((await call('GET', '', '/games')).status, fs.existsSync(path.join(ROOT, 'public', 'landing-games.html')) ? 200 : 404);
-    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'), fs.existsSync(path.join(ROOT, 'public', 'landing-games.html')));
+    assert.equal((await call('GET', '', '/games')).status, fs.existsSync(path.join(ROOT, 'public', 'games.html')) ? 200 : 404);
+    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'), fs.existsSync(path.join(ROOT, 'public', 'games.html')));
     await call('DELETE', 'admin', '/api/host/templates/games', { headers: same('admin') });
   });
 } finally {
@@ -285,7 +285,7 @@ try {
       for (const p of ['/travel', '/games', '/projects']) {
         const r = await fetch(`http://127.0.0.1:${soloPort}${p}`, { redirect: 'manual' });
         assert.equal(r.status, 404, p);
-        assert.notEqual(await r.text(), fs.readFileSync(path.join(ROOT, 'public', 'landing-travel.html'), 'utf8'), p);
+        assert.notEqual(await r.text(), fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8'), p);
       }
       const info = await (await fetch(`http://127.0.0.1:${soloPort}/api/product`)).json();
       assert.deepEqual([info.pages, info.templates, info.baseDomain], [[], [], null]);

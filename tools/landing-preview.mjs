@@ -1,6 +1,6 @@
-// A self-contained preview of the product pages (public/landing.html and every public/landing-<use>.html), to look at or publish privately without a server:
+// A self-contained preview of the product pages (public/landing.html and each use page: travel.html, games.html, projects.html), to look at or publish privately without a server:
 //   OUT=/tmp/landing-preview node tools/landing-preview.mjs      (or: node tools/landing-preview.mjs /tmp/landing-preview)
-// It writes one folder: index.html (the front page), <use>.html for each use page (landing-travel.html becomes travel.html, and the
+// It writes one folder: index.html (the front page), <use>.html for each use page (same name as in public/, and the
 // links between the pages follow), landing.css, preview.js, img/ (the screenshots and the mark). The product's name is
 // filled in from PREVIEW_PRODUCT_NAME, else PRODUCT_NAME, else the placeholder "Product" (the real page reads PRODUCT_NAME from the host), the walkthrough works, and the
 // sign-in and sign-up forms are switched off with a note saying so. No request leaves the folder. It stays under 6 MB.
@@ -17,10 +17,11 @@ const IMAGES = path.join(root, 'public', 'assets', 'images', 'brand', 'landing')
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'img'), { recursive: true });
 
-// Every product page: landing.html is the front page (index.html), landing-<use>.html is <use>.html.
-const pageFiles = fs.readdirSync(path.join(root, 'public')).filter((f) => f === 'landing.html' || /^landing-[a-z]+\.html$/.test(f));
+// Every product page: landing.html is the front page (index.html); a use page keeps its name.
+const USE_PAGES = ['travel.html', 'games.html', 'projects.html'];
+const pageFiles = fs.readdirSync(path.join(root, 'public')).filter((f) => f === 'landing.html' || USE_PAGES.includes(f));
 for (const file of pageFiles) {
-  const target = file === 'landing.html' ? 'index.html' : `${file.slice('landing-'.length, -'.html'.length)}.html`;
+  const target = file === 'landing.html' ? 'index.html' : file;
   let html = fs.readFileSync(path.join(root, 'public', file), 'utf8');
   html = html
     .replace(/<link rel="icon"[^>]*>\n?/, '')
@@ -28,7 +29,7 @@ for (const file of pageFiles) {
     .replace('type="module" src="/landing.js"', 'defer src="preview.js"')
     .replaceAll('/assets/images/brand/landing/', 'img/')
     .replace(/href="\/(\?[^"#]*)?(#[^"]*)?"/g, (_m, _q, hash) => `href="index.html${hash || ''}"`)
-    .replace(/href="\/([a-z]+)(#[^"]*)?"/g, (m, name, hash) => (pageFiles.includes(`landing-${name}.html`) ? `href="${name}.html${hash || ''}"` : m))
+    .replace(/href="\/([a-z]+)(#[^"]*)?"/g, (m, name, hash) => (pageFiles.includes(`${name}.html`) ? `href="${name}.html${hash || ''}"` : m))
     .replace(/(<[^>]*\bdata-product\b[^>]*>)[^<]*(<)/g, `$1${NAME}$2`)
     .replace(/<title data-product[^>]*>[^<]*<\/title>/, `<title>${NAME}</title>`)
     .replace(/<span data-version><\/span>/, '<span>preview</span>');

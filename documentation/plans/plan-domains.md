@@ -4,12 +4,15 @@
 who builds the door, the settings and the checks; experience-design, who changes the product page, Manage and the
 console; content-manager, who updates the deployment guide and the architecture.
 
-**Status:** draft for Thomas to decide, 2026-10-21. Nothing here is decided beyond the facts and requirements Thomas
-gave. Thomas: today's install is `thepub.collaborator.coffeepub.ai`, which is long, and "collaborator" is a temporary
-product name. He owns `coffeepub.ai`, the brand home for all his apps (Studio, Collaborator, 13 FoundryVTT modules,
-product pages at `<product>.coffeepub.ai`), and `coffeepub.live`, and thinks `.live` makes sense: environments at
-`<environment>.coffeepub.live`, the product page at `collaborator.coffeepub.ai`. The server will also be sold
-stand-alone, so every address must bend to a buyer's own domains.
+**Status:** approved with three open lines, 2026-10-21. Thomas answered the twelve questions the same day (see
+Decisions). Still to be given by Thomas: his own `RESERVED_SLUGS` names, the current value of `LIVEKIT_HOST`, and whether
+the install has environments other than `thepub`. None of the three blocks steps 1 to 6. Thomas: today's install is
+`thepub.collaborator.coffeepub.ai`, which is long, and "collaborator" is a temporary product name. He owns
+`coffeepub.ai`, the brand home for all his apps (Studio, Collaborator, 13 FoundryVTT modules, product pages at
+`<product>.coffeepub.ai`), and `coffeepub.live`: environments at `<environment>.coffeepub.live`, the product page at
+`collaborator.coffeepub.ai`. The server will also be sold stand-alone, so every address must bend to a buyer's own
+domains. The design-system build-out (`plan-design-system.md`) and this plan touch different files, so they may run at
+the same time.
 
 ## Why
 
@@ -83,9 +86,33 @@ These come from Thomas's message of 2026-10-21. They are requirements, not choic
    With none of the new settings, nothing changes.
 4. **The product is unreleased.** No redirects or compatibility layers are needed for the move.
 
-## The questions, with options
+Thomas's answers of 2026-10-21:
 
-Each section ends with a lean. A lean is a suggestion for Thomas, not a decision.
+5. **Layout.** Environments and the console on `coffeepub.live`; the product page at `collaborator.coffeepub.ai`.
+6. **`CONSOLE_HOST` is left out.** The console is fixed at `admin.<BASE_DOMAIN>`. A buyer who needs it elsewhere can ask
+   later.
+7. **The bare `BASE_DOMAIN` redirects** (302, path and query kept) to the product page when `PRODUCT_DOMAIN` is set
+   elsewhere.
+8. **Reserved names.** Reserve `admin`, `www`, `mail`, `api`, `livekit`, `turn`, `stun`, `console`, `signup`, `login` and
+   the automatic labels (the first label of `PRODUCT_DOMAIN` and of `LIVEKIT_HOST` when directly under `BASE_DOMAIN`),
+   plus a `RESERVED_SLUGS` setting that adds to the built-in list. Thomas's own names (`studio`, for example) are still
+   to be given.
+9. **A name reserved later** leaves an existing environment working; only new ones are refused. The check runs where an
+   environment is made, not in `cleanSlug()`.
+10. **After sign-up,** the person lands on the new environment's sign-in with the login filled in
+    (`/login?login=<login>`). No one-time sign-in link.
+11. **The recent shortcut is dropped** on a product page that lives on another site.
+12. **LiveKit stays at its current host** for the move. `LIVEKIT_HOST`'s current value is still to be given by Thomas.
+13. **`PREVIOUS_BASE_DOMAINS` is kept,** fixed so the door checks the product host before the previous-base redirect and
+    never catches it. Thomas sets it for a few weeks after the move.
+14. **Thomas's data moves as it is.** No reset, no migration. Whether the install has environments other than `thepub`
+    is still to be given.
+15. **The setting's name stays `PRODUCT_DOMAIN`.**
+16. **This is a production build** (plan, QA, docs, version bumps).
+## The options that were weighed
+
+Kept for the reasons behind the decisions above. Each section ends with a lean, which was a suggestion; the Decisions
+list says what Thomas chose, and it wins wherever the two differ.
 
 ### 1. The layout and the model behind it
 
@@ -345,12 +372,12 @@ There is no data migration. The slug stays `thepub`, and call names hold only th
 
 - `PRODUCT_DOMAIN`: a host name, lower-cased, no scheme, no port. Unset, or equal to `BASE_DOMAIN`, means the bare base.
 - `RESERVED_SLUGS`: comma-separated.
-- `CONSOLE_HOST`: only if question 1 picks (b).
+- No `CONSOLE_HOST`: the console is at `admin.<BASE_DOMAIN>` (decision 6).
 - All of them are ignored without `BASE_DOMAIN`, with one start line naming them.
 
 **Start checks.** Each stops the start with one line:
 
-- `PRODUCT_DOMAIN` equals the console host
+- `PRODUCT_DOMAIN` equals the console host (`admin.<BASE_DOMAIN>`)
 - `PRODUCT_DOMAIN`'s label is an existing environment's slug
 
 **The door, in order:**
@@ -359,7 +386,7 @@ There is no data migration. The slug stays `thepub`, and call names hold only th
 2. the product host serves `/`, `PRODUCT_PAGES` and today's `BARE_BASE_PATHS`
 3. a previous base gets a 301
 4. the bare base, when `PRODUCT_DOMAIN` is elsewhere, gets a 302 to `<scheme>://<PRODUCT_DOMAIN><path and query>`, the
-   port carried as today (or as question 1 decides)
+   port carried as today
 5. `<slug>.<base>` resolves that environment
 6. anything else gets a 404
 
@@ -371,8 +398,8 @@ There is no data migration. The slug stays `thepub`, and call names hold only th
 - `GET /api/product/address?slug=` answers `{ slug, free, reason }`. It is public, served at the product host, and
   rate-limited.
 - `GET /api/product` adds `productDomain`.
-- `GET /api/host/settings` adds `productDomain` (and `consoleHost` if built).
-- Sign-up's `url` is `<scheme>://<slug>.<BASE_DOMAIN>[:port]/login?login=<login>` (if question 3 picks (b)).
+- `GET /api/host/settings` adds `productDomain` (the console host is always `admin.<BASE_DOMAIN>`, so no `consoleHost` field is added).
+- Sign-up's `url` is `<scheme>://<slug>.<BASE_DOMAIN>[:port]/login?login=<login>`.
 
 **Unchanged:** `env_hint` keeps `Domain=<BASE_DOMAIN>`. The start line names the product host and the console host.
 
@@ -392,13 +419,15 @@ There is no data migration. The slug stays `thepub`, and call names hold only th
 |---|---|---|---|
 | 1 | The settings, start checks and the door's new order; the product host; the bare-base redirect; the previous-base fix; `check-origin` cases | server-development | M |
 | 2 | Reserved names: `RESERVED_SLUGS`, automatic labels, checked only on creation, `GET /api/product/address`; `check-host-registry` cases | server-development | S |
-| 3 | `productDomain` (and `consoleHost`) in the two APIs; sign-up's `url` | server-development | S |
+| 3 | `productDomain` in the two APIs; sign-up's `url` | server-development | S |
 | 4 | The product page's slug note, sign-up status and recent shortcut; Manage's Upgrade; the console's facts and webhook | experience-design | S |
 | 5 | The `check-names` domain guard | server-development | S |
 | 6 | The deployment guide, architecture, compose comments, and the two plans' lines | content-manager | S |
 | 7 | The move of Thomas's install (DNS, certificates, proxy hosts, container settings) | Thomas, from the guide | S |
 
-Steps 1 to 3 can be built and checked one at a time. Step 4 needs 2 and 3. Step 7 needs 1 to 4 released in an image.
+Steps 1, 2, 3 and 5 are ready to build, in parallel. Step 4 is built after 2 and 3. Step 6 is built after 4. Step 7 is
+Thomas's, after 1 to 4 are released in an image. Step 5 needs only the reserved hosts named in the plan, so it does not
+wait on the others.
 
 ## Verify
 
@@ -416,30 +445,13 @@ Steps 1 to 3 can be built and checked one at a time. Step 4 needs 2 and 3. Step 
 
 ## Open questions
 
-Each is answerable in one line. The lean comes first.
+Three lines are open. None blocks steps 1 to 6.
 
-1. **Layout:** environments and the console on `coffeepub.live`, the product page at `collaborator.coffeepub.ai`?
-   Lean: yes.
-2. **`CONSOLE_HOST`:** leave it out until a buyer needs it, with the console fixed at `admin.<BASE_DOMAIN>`? Lean: leave
-   it out.
-3. **The bare `coffeepub.live`:** redirect to the product page (b), serve nothing (a), or serve the pages too (c)?
-   Lean: redirect.
-4. **Reserved names:** add `livekit`, `turn`, `stun`, `console`, `signup`, `login`, the automatic labels and a
-   `RESERVED_SLUGS` setting? Lean: yes. Which of your own names go in it (`studio`, ...)?
-5. **A name reserved later:** the existing environment keeps working, and only new ones are refused? Lean: yes.
-6. **After sign-up:** land on the new environment's sign-in with the login filled in (b), rather than arriving signed
-   in (c)? Lean: (b).
-7. **The recent shortcut:** drop it on a product page that lives on another site? Lean: yes.
-8. **LiveKit:** keep it at its current host for the move, rather than moving it to `livekit.coffeepub.live`? Lean: keep
-   it. And what is `LIVEKIT_HOST` today?
-9. **`PREVIOUS_BASE_DOMAINS`:** keep it as a feature, fixed so it never catches the product host, and set it for a few
-   weeks after the move? Lean: keep.
-10. **Thomas's data:** move it as it is, rather than reset? Lean: move. Does the install have environments other than
-    `thepub`?
-11. **The setting's name:** `PRODUCT_DOMAIN`, though it holds a host like `collaborator.coffeepub.ai`? Lean: keep the
-    name, since it reads plainly beside `BASE_DOMAIN`.
-12. **The build:** a production build (plan, QA, docs) rather than a try build, since it changes the door and sign-in?
-    Lean: production.
+1. **`RESERVED_SLUGS`:** which of Thomas's own names go in it (`studio`, and the other apps)? He sets it in the
+   container's settings; the build needs no list. Blocks only the move.
+2. **`LIVEKIT_HOST`:** what is its current value? Decision 12 keeps it as it is; the value is needed for the automatic
+   reserved label and for the move's checklist. Blocks only the move.
+3. **Other environments:** does the install have environments other than `thepub`? Decision 14 moves the data as it is
+   either way; the answer only adds names to the move's check. Blocks only the move.
 
-Questions 1, 3, 4, 5 and 9 block step 1 or 2. Question 2 changes step 1's size. Questions 6 and 7 block step 4.
-Questions 8 and 10 block only the move.
+Nothing is left open about the build.

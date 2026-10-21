@@ -814,8 +814,8 @@
     }
     if (backlinksFor !== x.key) return; // the editor moved on
     $('f-links').innerHTML = summaries.map((c) => (c.open
-      ? `<button type="button" class="link" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</button>`
-      : `<span class="link"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join('');
+      ? `<button type="button" class="sdk-chip-tag" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</button>`
+      : `<span class="sdk-chip-tag"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join('');
     $('f-links-wrap').hidden = summaries.length === 0;
   }
   $('f-links').addEventListener('click', (e) => {

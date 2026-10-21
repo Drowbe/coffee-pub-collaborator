@@ -8,8 +8,8 @@
     "hash": "cecc7a28b0df53fc"
   },
   "calendar": {
-    "version": "1.24.21",
-    "hash": "4ebd2782b4a1e78a"
+    "version": "1.24.22",
+    "hash": "8a7611de1d431adf"
   },
   "maps": {
     "version": "0.9.5",
@@ -20,8 +20,8 @@
     "hash": "0ef2486ae8478382"
   },
   "polls": {
-    "version": "1.15.13",
-    "hash": "bfeb11b5fce5be85"
+    "version": "1.15.14",
+    "hash": "e63c42ac21b392d8"
   },
   "research": {
     "version": "0.4.16",

@@ -145,7 +145,7 @@
     const summaries = backlinks.get(x.key) || [];
     if (!summaries.length) return '';
     return `<div class="meta">Linked from ${summaries.map((c) => (c.open
-      ? `<span class="sdk-chip-tag" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`
+      ? `<button type="button" class="sdk-chip-tag" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</button>`
       : `<span class="sdk-chip-tag"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join(' ')}</div>`;
   };
   if (host.objects && host.objects.onOpen) {
@@ -204,7 +204,7 @@
     if (!c) return '<div class="optlink"><span class="sdk-chip-tag">Loading...</span></div>';
     if (c.error) return `<div class="optlink"><span class="sdk-chip-tag" title="Deleted, or not something you can see">Not available</span>${remove}</div>`;
     const body = `<b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}`;
-    return `<div class="optlink">${c.open ? `<span class="sdk-chip-tag" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}">${body}</span>` : `<span class="sdk-chip-tag">${body}</span>`}${remove}</div>`;
+    return `<div class="optlink">${c.open ? `<button type="button" class="sdk-chip-tag" data-ref="${esc(JSON.stringify(c.ref))}">${body}</button>` : `<span class="sdk-chip-tag">${body}</span>`}${remove}</div>`;
   }
   async function resolveOptionLinks() {
     if (!host.objects || !host.objects.resolve) return;

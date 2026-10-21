@@ -93,10 +93,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 
 /* What points at an event (a task, say), from other modules. */
 .links { display: flex; flex-wrap: wrap; gap: 4px; }
-.links .link { padding: 1px 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font: inherit; font-size: var(--text-11); }
-.links .link b { color: var(--accent); font-weight: var(--weight-strong); }
-.links button.link { cursor: pointer; }
-.links button.link:hover { color: var(--text-primary); border-color: var(--accent-fill); }
+.links .sdk-chip-tag b { font-weight: var(--weight-strong); }
 
 .chip, .item { user-select: none; }
 

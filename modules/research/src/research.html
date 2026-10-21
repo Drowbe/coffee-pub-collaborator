@@ -14,7 +14,7 @@
     [data-slot=name]        set its textContent, or hide it when there is no value; a [data-slot=name-wrap] is hidden when [data-slot=name] inside it is empty
     [data-icon=name]        replace its content with host.ui.icon(name)
   and toggles the state classes and data attributes listed in CONTRACT.md. It builds no markup from strings and sets no style (exceptions:
-  a tag's colour, --tag; the object menu placed under its button). The reference renderings are design/pane.html and design/ask.html.
+  a tag's colour, --chip-tone; the object menu placed under its button). The reference renderings are design/pane.html and design/ask.html.
 -->
 <div id="app" class="rs" hidden>
   <header class="rs-head">
@@ -22,76 +22,76 @@
   </header>
   <!-- whose research (Mine/This space): host.ui.viewSwitch draws it in the toolbar, not here. Mine needs a signed-in person, so a guest has only This space (the script skips the switch entirely then). -->
   <div class="rs-tools">
-    <div class="rs-search"><span class="ic" data-icon="magnifying-glass"></span><input id="filter" type="search" maxlength="100" placeholder="Search research" aria-label="Search research" autocomplete="off"></div>
+    <div class="sdk-search rs-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="filter" type="search" maxlength="100" placeholder="Search research" aria-label="Search research" autocomplete="off"></div>
   </div>
-  <div class="rs-chips" id="kinds" role="group" aria-label="Kind">
-    <button class="rs-chip on" type="button" data-kind="">All</button>
-    <button class="rs-chip" type="button" data-kind="note"><span class="ic" data-icon="note-sticky"></span>Notes</button>
-    <button class="rs-chip" type="button" data-kind="link"><span class="ic" data-icon="link"></span>Links</button>
-    <button class="rs-chip" type="button" data-kind="photo"><span class="ic" data-icon="camera"></span>Photos</button>
-    <button class="rs-chip" type="button" data-kind="answer"><span class="ic" data-icon="wand-magic-sparkles"></span>Answers</button>
+  <div class="sdk-chips rs-chips" id="kinds" role="group" aria-label="Kind">
+    <button class="sdk-chip on" type="button" aria-pressed="true" data-kind="">All</button>
+    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="note"><span class="ic" data-icon="note-sticky"></span>Notes</button>
+    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="link"><span class="ic" data-icon="link"></span>Links</button>
+    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="photo"><span class="ic" data-icon="camera"></span>Photos</button>
+    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="answer"><span class="ic" data-icon="wand-magic-sparkles"></span>Answers</button>
   </div>
-  <div class="rs-chips" id="tag-chips" role="group" aria-label="Tag"></div>
-  <p class="error" id="note" hidden></p>
+  <div class="sdk-chips rs-chips" id="tag-chips" role="group" aria-label="Tag"></div>
+  <p class="sdk-form-error" id="note" hidden></p>
   <!-- shown while something from another module is dragged over the pane: dropping it starts a note linked to it -->
   <div class="drop-hint" id="drop-hint" hidden><span class="ic" data-icon="note-sticky"></span> Drop to start a note about it</div>
   <main id="body" class="rs-body"></main>
 
 
   <!-- an object, in the editor window (host.ui.editor: a modal dialog over everything, never clipped by the module's box).
-       One form for all four kinds: the script sets data-kind on .editor-card and the CSS shows the rows that kind uses. -->
+       One form for all four kinds: the script sets data-kind on the form and the CSS shows the rows that kind uses. -->
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card" data-kind="note">
+    <form id="form" class="sdk-form" data-kind="note">
       <h3 id="editor-title">Note</h3>
       <div class="link-identity" data-kinds="note link answer">
-        <div class="link-identity-fields">
-          <label data-kinds="link">Address<input id="f-url" name="url" type="url" maxlength="500" placeholder="https://" autocomplete="off"><span class="hint" id="f-url-note"></span></label>
-          <label data-kinds="note link answer">Title<input id="f-title" name="title" type="text" maxlength="120"></label>
+        <div class="link-identity-fields sdk-section">
+          <label class="sdk-field" data-kinds="link"><span class="sdk-label">Address</span><input id="f-url" name="url" type="url" maxlength="500" placeholder="https://" autocomplete="off"><span class="sdk-hint" id="f-url-note"></span></label>
+          <label class="sdk-field" data-kinds="note link answer"><span class="sdk-label">Title</span><input id="f-title" name="title" type="text" maxlength="120"><span class="sdk-hint"></span></label>
         </div>
         <div class="link-shot" id="f-preview" data-kinds="link"><img id="f-preview-img" alt="" hidden><span class="link-shot-empty ic" data-icon="user" aria-hidden="true"></span></div>
       </div>
-      <div class="icon-field" data-kinds="note"><span class="hint">Type</span><div class="icon-choices" id="f-icons"></div></div>
-      <label data-kinds="photo">Caption<input id="f-caption" name="caption" type="text" maxlength="200"></label>
-      <label data-kinds="note answer"><span class="field-head"><span data-slot="body-label">Note</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea></label>
-      <label data-kinds="link"><span class="field-head"><span>What to remember from it</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span><textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea></label>
-      <label data-kinds="note link photo answer">Tags<span class="with-button"><input id="f-tags" name="tags" type="text" maxlength="200" placeholder="words, separated by commas" list="tag-list" autocomplete="off"><button type="button" class="btn" data-action="suggest-tags" hidden><span class="ic" data-icon="wand-magic-sparkles"></span> Suggest tags</button></span></label>
+      <div class="sdk-field" data-kinds="note" role="group" aria-labelledby="f-icons-label"><span class="sdk-label" id="f-icons-label">Type</span><div class="icon-choices" id="f-icons"></div></div>
+      <label class="sdk-field" data-kinds="photo"><span class="sdk-label">Caption</span><input id="f-caption" name="caption" type="text" maxlength="200"><span class="sdk-hint"></span></label>
+      <label class="sdk-field" data-kinds="note answer"><span class="sdk-label"><span class="field-head"><span data-slot="body-label">Note</span><span class="format-bar"><button type="button" data-format="bold" data-tip="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" data-tip="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" data-tip="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" data-tip="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span></span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea><span class="sdk-hint"></span></label>
+      <label class="sdk-field" data-kinds="link"><span class="sdk-label"><span class="field-head"><span>What to remember from it</span><span class="format-bar"><button type="button" data-format="bold" data-tip="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" data-tip="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" data-tip="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" data-tip="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span></span><textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea><span class="sdk-hint"></span></label>
+      <div class="sdk-field" data-kinds="note link photo answer" role="group" aria-labelledby="f-tags-label"><span class="sdk-label" id="f-tags-label">Tags</span><span class="sdk-group"><input id="f-tags" name="tags" type="text" maxlength="200" placeholder="words, separated by commas" list="tag-list" autocomplete="off" aria-labelledby="f-tags-label"><button type="button" class="sdk-btn" data-action="suggest-tags" hidden><span class="ic" data-icon="wand-magic-sparkles"></span> Suggest tags</button></span><span class="sdk-hint"></span></div>
       <datalist id="tag-list"></datalist>
-      <div class="editor-row" data-kinds="note link">
-        <label>Place<input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="hint" id="f-point-note"></span></label>
-        <label>Date<input id="f-date" name="date" type="date"></label>
+      <div class="sdk-form-row" data-kinds="note link">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Place</span><input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="sdk-hint" id="f-point-note"></span></label>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Date</span><input id="f-date" name="date" type="date" aria-labelledby="f-date-label"><span class="sdk-hint"></span></div>
       </div>
-      <div class="asked" data-kinds="answer" id="f-asked" hidden><div class="hint">Asked</div><p data-slot="asked"></p><div class="hint">From</div><div class="links" data-slot="sources"></div></div>
-      <p class="hint" id="f-by"></p>
-      <p class="error" id="f-error" hidden></p>
-      <div class="editor-buttons sdk-editor-actions">
-        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
-        <span class="grow"></span>
+      <div class="asked" data-kinds="answer" id="f-asked" hidden><div class="sdk-hint">Asked</div><p data-slot="asked"></p><div class="sdk-hint">From</div><div class="links" data-slot="sources"></div></div>
+      <div class="sdk-hint" id="f-by"></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Remove</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
       </div>
     </form>
   </dialog>
 </div>
-<p id="msg" class="hint msg">Loading...</p>
+<div id="loading" class="msg" aria-busy="true"><div class="sdk-skel-list"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div>
+<div id="msg" class="sdk-empty" hidden></div>
 
 <!-- ============================ templates ============================ -->
 
-<template id="tpl-chip-tag"><button class="rs-chip tag on" type="button" title="Stop filtering by this tag"><span data-slot="label"></span><span class="x" aria-hidden="true">&times;</span></button></template>
+<template id="tpl-chip-tag"><span class="sdk-chip-removable" data-tone="custom"><span class="sdk-chip-dot"></span><span class="sdk-chip-label" data-slot="label"></span><button class="sdk-chip-x" type="button" data-tip="Stop filtering by this tag" aria-label="Stop filtering by this tag"><span aria-hidden="true">&times;</span></button></span></template>
 <!-- someone changed the object while it is open (as in Places) -->
-<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="use-theirs">Use theirs</button><button class="btn" type="button" data-action="keep-mine">Keep mine</button></div></template>
+<template id="tpl-conflict"><div class="sdk-banner" data-kind="warn" data-bar="conflict" role="alert"><span class="sdk-banner-icon" data-icon="triangle-exclamation" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text"></span><button class="btn btn-small sdk-banner-action" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small sdk-banner-action" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <!-- a source of an answer, and anything else that points at another object: a small pill; .gone when the object is no longer there -->
 <template id="tpl-source"><span class="link"><span data-slot="label"></span></span></template>
 <!-- where a card is used: one pill per group of linkers (all the plans that use it, all the tasks), with the linker module's icon. One linker: its kind and title; several: "2 plans". The title attribute lists them. A "+N" pill when there are more groups than fit. -->
 <template id="tpl-backlink"><button class="backlink" type="button" data-action="open-backlink"><span class="ic" data-slot="icon-holder" data-icon=""></span><span data-slot="label"></span></button></template>
 <template id="tpl-backlink-more"><span class="backlink more" data-slot="label"></span></template>
-<template id="tpl-tag"><span class="tag"><span data-slot="label"></span></span></template>
+<template id="tpl-tag"><span class="sdk-chip-tag" data-tone="custom"><span class="sdk-chip-dot"></span><span class="sdk-chip-label" data-slot="label"></span></span></template>
 
 <!-- a card. data-kind is note, link, photo or answer. A photo has its picture in .thumb (the script sets src); .kicker's [data-slot=ai] is shown for an answer. -->
 <template id="tpl-icon-choice"><button class="icon-choice" type="button" data-action="pick-icon"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
 <template id="tpl-card">
-  <article class="rcard" tabindex="0">
+  <article class="sdk-card rcard" tabindex="0">
     <img class="thumb" data-slot="thumb" alt="" hidden>
-    <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="edit sdk-more" type="button" data-action="edit" aria-label="Edit"><span class="ic" data-icon="pen"></span></button><button class="menu sdk-more" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
+    <div class="top"><span class="sdk-card-icon kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="edit sdk-icon-btn btn-quiet btn-small" type="button" data-action="edit" aria-label="Edit"><span class="ic" data-icon="pen"></span></button><button class="menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
     <div class="site" data-slot="site-wrap"><span class="ic" data-icon="globe"></span><span data-slot="site"></span></div>
     <div class="excerpt" data-slot="excerpt"></div>
     <div class="tags" data-slot="tags"></div>
@@ -105,14 +105,14 @@
 </template>
 
 <!-- photo upload: one row per file. The script sets [data-slot=step] ("Preparing…", "Uploading…", an error) and the width of the bar through the value of progress. -->
-<template id="tpl-upload"><div class="upload"><span class="ic" data-icon="image"></span><span class="name" data-slot="name"></span><progress max="100" value="0"></progress><span class="step" data-slot="step"></span><button class="btn" type="button" data-action="retry-upload" hidden>Try again</button></div></template>
+<template id="tpl-upload"><div class="upload"><span class="ic" data-icon="image"></span><span class="name" data-slot="name"></span><progress class="sdk-progress sdk-progress-sm" max="100" value="0" aria-label="Upload"></progress><span class="step" data-slot="step"></span><button class="btn" type="button" data-action="retry-upload" hidden>Try again</button></div></template>
 <!-- asked after an upload whose file had a position -->
 <template id="tpl-pos-ask"><div class="pos-ask"><span class="ic" data-icon="location-crosshairs"></span><span class="grow" data-slot="text"></span><button class="btn" type="button" data-action="keep-position">Keep it</button><button class="btn" type="button" data-action="drop-position">Leave it out</button></div></template>
 
 <!-- states -->
-<template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
-<template id="tpl-state-empty"><div class="rs-empty" id="state-empty"><span class="ic" data-icon="book-open"></span><h2>Nothing here yet</h2><p>Keep what you find: a note, a link with the part that mattered, a photo. Tag it so you can find it again, and drag it onto a plan.</p><p><button class="btn btn-primary" type="button" data-action="new-note"><span class="ic" data-icon="note-sticky"></span> Write a note</button> <button class="btn" type="button" data-action="new-link"><span class="ic" data-icon="link"></span> Add a link</button> <button class="btn" type="button" data-action="add-photo"><span class="ic" data-icon="camera"></span> Add a photo</button></p></div></template>
-<template id="tpl-state-noresults"><div class="rs-empty" id="state-noresults"><h2>Nothing matches</h2><p>No research matches your search and filters.</p><p><button class="btn" type="button" data-action="clear-filter">Show everything</button></p></div></template>
+<template id="tpl-state-loading"><div class="sdk-skel-grid" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></template>
+<template id="tpl-state-empty"><div class="sdk-empty" id="state-empty"><span class="ic" data-icon="book-open"></span><h2 class="sdk-empty-title">Nothing here yet</h2><p class="sdk-empty-text">Keep what you find: a note, a link with the part that mattered, a photo. Tag it so you can find it again, and drag it onto a plan.</p><div class="sdk-empty-actions"><button class="btn btn-primary" type="button" data-action="new-note"><span class="ic" data-icon="note-sticky"></span> Write a note</button> <button class="btn" type="button" data-action="new-link"><span class="ic" data-icon="link"></span> Add a link</button> <button class="btn" type="button" data-action="add-photo"><span class="ic" data-icon="camera"></span> Add a photo</button></div></div></template>
+<template id="tpl-state-noresults"><div class="sdk-empty" id="state-noresults"><h2 class="sdk-empty-title">Nothing matches</h2><p class="sdk-empty-text">No research matches your search and filters.</p><div class="sdk-empty-actions"><button class="btn btn-quiet" type="button" data-action="clear-filter">Show everything</button></div></div></template>
 
 <script>
 /*__JS__*/

@@ -6,7 +6,7 @@ import { word } from '/words.js';
 
 // getMe: brand.js's one shared GET /api/me (null for a guest, who is not asked at all).
 export async function mountEnvironmentBanner(getMe) {
-  if (document.querySelector('.env-page-banner')) return;
+  if (document.querySelector('.sdk-banner-wide[data-page-banner="environment"]')) return;
   const me = await getMe();
   if (!me) return;
   const env = me && me.environment;
@@ -21,18 +21,18 @@ export async function mountEnvironmentBanner(getMe) {
   }
   if (info.status !== 'pastDue' && info.status !== 'suspended') return;
   const banner = document.createElement('div');
-  banner.className = 'env-page-banner';
+  banner.className = 'sdk-banner sdk-banner-wide';
+  banner.dataset.kind = 'danger';
+  banner.dataset.pageBanner = 'environment';
   banner.setAttribute('role', 'status');
+  banner.innerHTML = '<span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><span class="sdk-banner-text"></span><a class="btn btn-small sdk-banner-action" href="/admin">Manage</a>';
+  const text = banner.querySelector('.sdk-banner-text');
   if (info.status === 'pastDue') {
     const until = info.graceEndsAt ? new Date(info.graceEndsAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'soon';
-    banner.textContent = `Payment for this ${word('environment')} is overdue. It goes to the free plan on ${until}; nothing is deleted. `;
+    text.textContent = `Payment for this ${word('environment')} is overdue. It goes to the free plan on ${until}; nothing is deleted.`;
   } else {
-    banner.textContent = `This ${word('environment')} is suspended by the ${word('host')}. `;
+    text.textContent = `This ${word('environment')} is suspended by the ${word('host')}.`;
   }
-  const link = document.createElement('a');
-  link.href = '/admin';
-  link.textContent = 'Manage';
-  banner.appendChild(link);
   const topbar = document.querySelector('.topbar');
   if (topbar) topbar.after(banner); else document.body.prepend(banner);
 }

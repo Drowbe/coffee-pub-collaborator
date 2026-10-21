@@ -106,7 +106,7 @@
    "wait": ".space-choice",
    "steps": [
     {
-     "click": "button.sdk-more",
+     "click": "button.sdk-icon-btn",
      "text": "More"
     }
    ],
@@ -155,8 +155,8 @@
    "id": "manage-environment",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
+   "url": "/admin#general",
+   "wait": "#tab-environment:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -164,15 +164,8 @@
    "id": "manage-template",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=template]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#template",
+   "wait": "#tab-template:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -180,15 +173,8 @@
    "id": "manage-theme",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=theme]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#theme",
+   "wait": "#tab-theme:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -196,15 +182,8 @@
    "id": "manage-spaces",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=spaces]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#spaces",
+   "wait": "#tab-spaces:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -212,15 +191,8 @@
    "id": "manage-roles",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=roles]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#roles",
+   "wait": "#tab-roles:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -228,15 +200,8 @@
    "id": "manage-users",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=users]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#users",
+   "wait": "#tab-users:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -244,15 +209,8 @@
    "id": "manage-modules",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=modules]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#modules",
+   "wait": "#tab-modules:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -260,24 +218,17 @@
    "id": "manage-about",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/admin",
-   "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=about]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
+   "url": "/admin#about",
+   "wait": "#tab-about:not([hidden])",
    "full": true,
    "tier": "core"
   },
   {
-   "id": "manage-ai-config",
+   "id": "manage-ai-service",
    "family": "Manage pages",
    "as": "admin",
-   "url": "/ai-config.html",
-   "wait": "body",
+   "url": "/admin#modules/ai",
+   "wait": "#module-part-ai:not([hidden])",
    "full": true,
    "tier": "core"
   },
@@ -294,7 +245,7 @@
    "id": "profile-profile",
    "family": "Profile tabs",
    "as": "mia",
-   "url": "/profile",
+   "url": "/profile#profile",
    "wait": ".subtab",
    "full": true,
    "tier": "core"
@@ -303,15 +254,8 @@
    "id": "profile-spaces",
    "family": "Profile tabs",
    "as": "mia",
-   "url": "/profile",
+   "url": "/profile#spaces",
    "wait": ".subtab",
-   "steps": [
-    {
-     "click": "button.subtab[data-tab=spaces]",
-     "until": "button.subtab.active",
-     "untilText": ""
-    }
-   ],
    "full": true,
    "tier": "core"
   },
@@ -461,7 +405,7 @@
      "until": "button.tb-tab.on"
     },
     {
-     "click": "div.module-root.dest-part-root >>> button.item",
+     "click": "div.module-root.dest-part-root >>> button.sdk-row",
      "text": "Pack the suitcases"
     },
     {
@@ -690,7 +634,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "scroll": "#module-frame >>> article.card.block"
+     "scroll": "#module-frame >>> article.block"
     }
    ],
    "tier": "state"
@@ -742,7 +686,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     }
    ],
    "tier": "state"
@@ -755,7 +699,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-category",
@@ -798,7 +742,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-category",
@@ -819,7 +763,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-category",
@@ -840,7 +784,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-item",
@@ -857,7 +801,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-category",
@@ -878,7 +822,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-category",
@@ -899,7 +843,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-item",
@@ -942,7 +886,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-item",
@@ -977,7 +921,7 @@
    "family": "Places",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "tier": "core"
   },
   {
@@ -985,7 +929,7 @@
    "family": "Places",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
      "click": "button.tb-tab",
@@ -1000,7 +944,7 @@
    "family": "Places",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
      "click": "button.tb-tab:nth-of-type(3)",
@@ -1023,10 +967,10 @@
    "family": "Chips and badges",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
-     "click": "#module-frame >>> button.chip",
+     "click": "#module-frame >>> button.sdk-chip",
      "text": "Sights"
     }
    ],
@@ -1037,7 +981,7 @@
    "family": "Menus",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
      "click": "#module-frame >>> button[data-action=menu]"
@@ -1050,7 +994,7 @@
    "family": "Banners, toasts and notices",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
      "click": "#module-frame >>> button[data-action=menu]"
@@ -1067,10 +1011,10 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     }
    ],
    "tier": "state"
@@ -1080,10 +1024,10 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "#module-frame >>> button",
@@ -1097,7 +1041,7 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .chip",
+   "wait": "#module-frame >>> .sdk-chip",
    "steps": [
     {
      "click": "#module-frame >>> article.place-row .title"
@@ -1159,7 +1103,7 @@
    "wait": "#module-frame >>> #target-edit",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     }
    ],
    "tier": "state"
@@ -1172,7 +1116,7 @@
    "wait": "#module-frame >>> #target-edit",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "#module-frame >>> #f-save"
@@ -1247,7 +1191,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     }
    ],
    "tier": "state"
@@ -1260,7 +1204,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "#module-frame >>> #f-save"
@@ -1322,7 +1266,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.tb-btn",
+     "click": "button.btn",
      "text": "Tags"
     }
    ],
@@ -1336,7 +1280,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     }
    ],
    "tier": "state"
@@ -1349,7 +1293,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-item",
@@ -1366,7 +1310,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.sdk-more.mod-add"
+     "click": ".titlebar-add > button"
     },
     {
      "click": "button.host-menu-item",
@@ -1380,7 +1324,7 @@
    "family": "Space page (call stand-in)",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "call": true,
    "tier": "core"
   },
@@ -1389,7 +1333,7 @@
    "family": "Space page (call stand-in)",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#layout-tab-calendar"
@@ -1403,7 +1347,7 @@
    "family": "Status strip and phases",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#phase-chip"
@@ -1417,7 +1361,7 @@
    "family": "Menus",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "button.space-switcher-button"
@@ -1431,7 +1375,7 @@
    "family": "Menus",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#modules-toggle"
@@ -1445,7 +1389,7 @@
    "family": "Menus",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#whoami-link"
@@ -1459,7 +1403,7 @@
    "family": "Menus",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#who-here-toggle"
@@ -1473,10 +1417,10 @@
    "family": "Menus",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
-     "click": "button.sdk-more[data-module-menu]"
+     "click": "button.sdk-icon-btn[data-module-menu]"
     }
    ],
    "call": true,
@@ -1487,10 +1431,10 @@
    "family": "Menus",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
-     "click": "button.sdk-more",
+     "click": "button.sdk-icon-btn",
      "text": "More"
     }
    ],
@@ -1502,10 +1446,10 @@
    "family": "Messages and AI cards",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
-     "click": "button.msg-btn.chat-object-place-btn"
+     "click": "button.btn.chat-object-place-btn"
     }
    ],
    "call": true,
@@ -1516,7 +1460,7 @@
    "family": "Call controls (not joined)",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#join-call"
@@ -1530,7 +1474,7 @@
    "family": "Profile and Set up tabs",
    "as": "admin",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#setup"
@@ -1562,7 +1506,7 @@
    "family": "Profile and Set up tabs",
    "as": "admin",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#setup"
@@ -1597,7 +1541,7 @@
    "family": "Profile and Set up tabs",
    "as": "admin",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#setup"
@@ -1632,7 +1576,7 @@
    "family": "Profile and Set up tabs",
    "as": "admin",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#setup"
@@ -1667,7 +1611,7 @@
    "family": "Profile and Set up tabs",
    "as": "admin",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#setup"
@@ -1702,7 +1646,7 @@
    "family": "Profile and Set up tabs",
    "as": "mia",
    "url": "/#join={trip}",
-   "wait": "button.status-fact[data-module=budget]",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
      "click": "#setup"
@@ -1764,6 +1708,126 @@
    "url": "/modules/stream",
    "wait": "#module-frame >>> *",
    "tier": "core"
+  },
+  {
+   "id": "space-layout-save-sheet",
+   "family": "Dialogs and sheets",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#modules-toggle"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Save this layout"
+    },
+    {
+     "wait": "dialog.layout-sheet[open]"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "profile-background-picker",
+   "family": "Dialogs and sheets",
+   "as": "mia",
+   "url": "/profile#profile",
+   "wait": "#background-library",
+   "steps": [
+    {
+     "click": "#background-library"
+    },
+    {
+     "wait": ".bgpick-card"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "manage-colour-picker",
+   "family": "Pickers",
+   "as": "admin",
+   "url": "/module-config.html?id=travel",
+   "wait": ".sdk-picker",
+   "steps": [
+    {
+     "click": ".sdk-picker"
+    },
+    {
+     "wait": ".sdk-picker-pop"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "budget-currency-list",
+   "family": "Pickers",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "#module-frame >>> #target-edit"
+    },
+    {
+     "click": "#module-frame >>> .sdk-kind-field"
+    },
+    {
+     "wait": "#module-frame >>> .sdk-kind-list"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-date-picker",
+   "family": "Pickers",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": ".titlebar-add > button"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "Travel"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Flight"
+    },
+    {
+     "click": "#module-frame >>> .sdk-datefield button[aria-label='Pick a date']"
+    },
+    {
+     "wait": "#module-frame >>> .sdk-dp"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "games-planner-timeline",
+   "seed": "games",
+   "family": "Games: the Campaign planner",
+   "as": "admin",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "tier": "core"
+  },
+  {
+   "id": "games-obs-character",
+   "seed": "games",
+   "family": "Games: the OBS view",
+   "as": "none",
+   "url": "/view/{mia}?s={key}&kind=character",
+   "wait": "#module-frame >>> #base:not([hidden])",
+   "tier": "state"
   }
  ]
 }

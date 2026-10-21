@@ -6,16 +6,19 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-skip { position: absolute; left: 8px; top: -60px; z-index: 100; padding: 8px 12px; border-radius: var(--radius-small); background: var(--accent); color: var(--on-accent); }
 .ds-skip:focus { top: 8px; }
 
-.ds-top { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; background: var(--bg-section); border-bottom: 1px solid var(--border); }
-.ds-title { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
+.ds-top { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; background: var(--bg-section); border-bottom: 1px solid var(--border); }
+.ds-title { flex: none; margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
 .ds-sub { color: var(--text-dim); font-size: 13px; font-weight: 400; margin-left: 6px; }
-.ds-search { position: relative; flex: 1 1 220px; max-width: 420px; display: block; }
+.ds-search { position: relative; flex: 1 1 200px; min-width: 160px; max-width: 420px; display: block; }
 .ds-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-dim); pointer-events: none; }
 .ds-search input { width: 100%; height: 34px; padding: 0 10px 0 32px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-input); color: var(--text); font: inherit; }
-.ds-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-left: auto; }
+/* The tool groups wrap as whole groups, never inside one. */
+.ds-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-left: auto; }
+.ds-tools > * { flex: none; }
 .ds-tools .tb-tab { height: 30px; }
 .ds-tools .tb-tab-word { white-space: nowrap; }
-.ds-menu-btn { display: none; }
+.ds-tools .btn { display: inline-flex; align-items: center; white-space: nowrap; }
+.ds-menu-btn { display: none; flex: none; }
 
 .ds-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); align-items: start; }
 .ds-nav { position: sticky; top: 57px; max-height: calc(100vh - 57px); overflow: auto; padding: 14px 10px 40px 14px; border-right: 1px solid var(--border); font-size: 13px; }
@@ -38,6 +41,9 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 
 .ds-block { margin: 0 0 28px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-section); }
 .ds-block[hidden] { display: none; }
+/* A Proposed family that has not drawn yet (it draws when opened or scrolled near): its heading and a loading line. */
+.ds-pending { min-height: 560px; }
+.ds-loading { height: 160px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-medium); background: var(--bg); color: var(--text-dim); font-size: 13px; }
 .ds-block > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
 .ds-block h3 { margin: 0; font-size: 18px; }
 .ds-block h3 a { color: inherit; }
@@ -101,8 +107,6 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-toc { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 8px; }
 .ds-toc a { padding: 3px 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); font-size: 12px; }
 .ds-toc a:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
-.ds-propnote { margin-top: -4px; }
-.ds-propnote .ds-status-chip { margin-right: 6px; }
 .ds-table td { word-break: normal; }
 
 @media (max-width: 900px) {
@@ -112,14 +116,24 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
   .ds-nav.open { transform: none; }
   .ds-main { padding: 16px 12px 60px; }
   .ds-top { padding: 8px 12px; }
-  .ds-tools { margin-left: 0; }
+  html { scroll-padding-top: 110px; }
+  .ds-tools { flex: 1 1 100%; margin-left: 0; }
+  .ds-search { max-width: none; }
 }
 @media (max-width: 640px) {
+  html { scroll-padding-top: 180px; }
   .ds-title { font-size: 16px; }
-  .ds-sub { display: none; }
-  .ds-search { flex-basis: 100%; max-width: none; order: 5; }
+  /* Phone: the header stays on top and stays short. Row 1 is the menu, the title and the link to the other page; the search is row 2;
+     Dark/Light and the width group are row 3. */
+  .ds-tools { display: contents; }
+  .ds-tools #ds-other { order: 1; margin-left: auto; }
+  .ds-search { flex-basis: 100%; order: 5; max-width: none; }
+  .ds-tools .tb-tabs { order: 6; }
   .ds-search input { height: 44px; font-size: 16px; }
-  .ds-menu-btn, .ds-tools .tb-tab { min-height: 44px; }
+  .ds-menu-btn, .ds-tools .tb-tab, .ds-tools .btn { min-height: 44px; }
+}
+@media (max-width: 520px) {
+  .ds-sub { display: none; }
   .ds-block { padding: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .ds-nav { transition: none; } }

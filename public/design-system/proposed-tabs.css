@@ -1,0 +1,284 @@
+/* ==== Tabs and view switches (PROPOSED 2026-10-18; Thomas's decisions of 2026-10-18) ====
+   One component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch (host.ui.viewSwitch).
+   - Shape: each tab is its own pill, --radius-small, the heights of the buttons: small 30px, default 38px (--btn-h; 44px on a phone).
+     A small tab keeps its 30px look on a phone and gets a 44px hit area (the strip is 44px high, the tab's ::after fills it: 30px less the 1px edge, 8px more each side).
+   - Rest: no fill, no edge, --text-dim. Hover: a quiet fill. Selected: --selected-bg, text = --accent mixed 55% into --text (the plain
+     accent is under 3:1 on that fill in light mode). No underline, no coloured edge, no bar; the accent solid is the Primary button's.
+   - The edge is a transparent 1px in every state, so a selected tab is the same box. Weight is 500 selected or not, so no tab changes width.
+   - Focus is the Fields family's mechanism: a 2px accent outline drawn over the 1px edge (offset -2px), equal on all four sides at any display
+     scale. It is inside the box on purpose: a strip scrolls and so cuts anything outside it.
+   - Wrappers (the contract is .sdk-tabs and .sdk-tab; the older names are aliases, so no markup is edited):
+       .sdk-tabs   a strip: tabs 6px apart, scrolls sideways when it does not fit (scrollbar hidden), the selected tab kept in view.
+                   aliases .subtabs .setup-tabs
+       .sdk-tabs-joined   the view switch: tabs 2px apart, never scrolls; it drops to icons only (.sdk-tabs-compact) when narrow. alias .tb-tabs
+       .sdk-tabs-bar      on the header bar: header colours and the nav type; it never scrolls, what does not fit folds into the bar's "...".
+                   alias .layout-tabs
+       .sdk-tabs-small    30px tabs. .tb-tabs, .layout-tabs and a page bar's .subtabs are small by their own name.
+     Tabs: .sdk-tab (aliases .tb-tab .subtab .setup-tab .core-link), parts .sdk-tab-glyph .sdk-tab-word .sdk-tab-badge .sdk-tab-dot.
+     Selected: aria-selected="true" (a tab list), aria-pressed="true" (a switch), aria-current="page" (a link or a place), or .on / .active.
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --tab-h-small: 30px;
+  --tab-pad-x: 12px;
+  --tab-font: 14px;
+  --tab-icon: 16px;
+  --tab-gap: 6px;
+  /* A 16px glyph's ink sits about 1px above its box's middle in a 38px tab (measured by ink); in a 44px tab (a phone) and a 14px glyph in a 30px tab it does not. */
+  --tab-icon-dy: 1px;
+  --tabs-gap: 6px;
+  --tabs-gap-joined: 2px;
+  --tabs-fade: 20px;
+  --t-ink: var(--text);
+  --t-fg: var(--text-dim);
+}
+
+/* On the header bar the tabs wear the bar's text colours. */
+.ds-proposed :is(.sdk-tabs-bar, .topbar, .subnav) {
+  --t-ink: var(--header-text);
+  --t-fg: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+}
+
+/* Small tabs: 30px, a little tighter. */
+.ds-proposed :is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs) {
+  --tab-h: var(--tab-h-small);
+  --tab-pad-x: 10px;
+  --tab-font: 13px;
+  --tab-icon: 14px;
+  --tab-icon-dy: 0px;
+}
+
+/* The wrapper. A strip scrolls sideways; the selected tab is scrolled into view by the script that selects it. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) {
+  display: flex;
+  align-items: center;
+  gap: var(--tabs-gap);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--tabs-fade);
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar)::-webkit-scrollbar { display: none; }
+
+/* The joined switch and the bar's tabs do not scroll: the switch goes to icons, the bar folds into "...". */
+.ds-proposed :is(.sdk-tabs-joined, .tb-tabs, .sdk-tabs-bar, .layout-tabs) {
+  display: inline-flex;
+  flex: none;
+  overflow: visible;
+}
+
+.ds-proposed :is(.sdk-tabs-joined, .tb-tabs) {
+  gap: var(--tabs-gap-joined);
+}
+
+/* The optional edge fade of a strip: the script sets data-fade="start", "end" or both, only while there is more to scroll that way.
+   A mask, so it works on any surface and needs no colour. */
+.ds-proposed .sdk-tabs[data-fade] {
+  --fs: 0px;
+  --fe: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black var(--fs), black calc(100% - var(--fe)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black var(--fs), black calc(100% - var(--fe)), transparent 100%);
+}
+.ds-proposed .sdk-tabs[data-fade~="start"] { --fs: var(--tabs-fade); }
+.ds-proposed .sdk-tabs[data-fade~="end"] { --fe: var(--tabs-fade); }
+
+/* The tab. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tab-gap);
+  box-sizing: border-box;
+  height: var(--tab-h, var(--btn-h));
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--tab-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--t-fg);
+  font: inherit;
+  font-size: var(--tab-font);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: normal;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  opacity: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+/* The bar keeps the nav type (--nav-font-*), as the buttons in it do. */
+.ds-proposed :is(.sdk-tabs-bar, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) {
+  font-size: var(--nav-font-size, 13px);
+  font-weight: var(--nav-font-weight, 600);
+  letter-spacing: var(--nav-letter-spacing, normal);
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--t-ink);
+  text-decoration: none;
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):active {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  color: var(--t-ink);
+}
+
+/* Focus: 2px accent over the 1px edge, inside the box. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Selected: the selected fill, the readable accent mix for the text. Never an edge, a bar or an underline. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) {
+  background: var(--selected-bg);
+  color: color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active):hover {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  color: color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active):active {
+  background: color-mix(in srgb, var(--accent) 46%, transparent);
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* On the selected fill the plain accent is 2.9 to 1 in light mode (the focus outline and the dot need 3 to 1), so a selected tab's focus
+   outline and dot take the same darker mix as its text. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+  outline-offset: -2px;
+}
+
+/* Parts: icon, word, count, dot. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-glyph, .tb-tab-glyph) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  position: relative;
+  top: var(--tab-icon-dy);
+  width: var(--tab-icon);
+  height: var(--tab-icon);
+  margin: 0;
+  font-size: var(--tab-icon);
+  line-height: 1;
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-glyph, .tb-tab-glyph) svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+/* Icon only: a square, the same height. A tab with a glyph in a compact switch is icon only. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab-icon, .tb-tab-icon),
+.ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) {
+  width: var(--tab-h, var(--btn-h));
+  padding: 0;
+}
+
+.ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-glyph, .tb-tab-glyph) ~ :is(.sdk-tab-word, .tb-tab-word) {
+  display: none;
+}
+
+/* The count after the label (PROVISIONAL: the chips and badges family decides the badge). A small neutral pill. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--t-ink) 14%, transparent);
+  color: var(--t-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: baseline;
+  text-align: center;
+}
+
+/* A change not saved yet (Set up): a 7px dot after the label. It is said to a screen reader by hidden words beside it. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot)[hidden] { display: none; }
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+  background: color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+}
+
+/* On an icon-only tab the count and the dot sit on the icon's corner, so the tab stays square. The count is the micro count (.sdk-badge-micro), defined in the
+   Chips family with these same values: 14px, 9px numbers, 3px in, the accent-mix fill. */
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
+.ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: var(--text-9, 9px);
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  color: var(--on-accent);
+}
+
+.ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot),
+.ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --tab-icon-dy: 0px; }
+}
+
+/* On a phone a small tab keeps its 30px look and gets a 44px target: its strip is 44px high and the hit area fills it. */
+@media (max-width: 640px) {
+  .ds-proposed :is(.sdk-tabs-small, .layout-tabs, .page-bar .subtabs):not(.sdk-tabs-joined, .sdk-tabs-bar) { padding-block: 7px; }
+  .ds-proposed :is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)::after { content: ""; position: absolute; inset: -8px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) { transition: none; }
+}

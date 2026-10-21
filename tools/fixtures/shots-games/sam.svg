@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Sam, a wizard with a wide pointed hat and a long beard, his player colour blue. Flat and geometric, no features in the
+       face. Source of sam.png (the games seed's Character picture); render at 256 on a clear ground. -->
+  <path fill="#3A7CA5" d="M26 256l18-52c10-18 40-28 84-28s74 10 84 28l18 52z"/>
+  <path fill="#2C5F80" d="M98 180l30 60 30-60z"/>
+  <rect fill="#7A4D33" x="116" y="146" width="24" height="36"/>
+  <ellipse fill="#8D5A3B" cx="128" cy="122" rx="26" ry="32"/>
+  <path fill="#000" opacity="0.2" d="M128 90a26 32 0 0 1 0 64z"/>
+  <path fill="#D9D3C7" d="M100 128c8 8 18 12 28 12s20-4 28-12l-8 86-20 18-20-18z"/>
+  <path fill="#000" opacity="0.12" d="M128 140c10 0 20-4 28-12l-8 86-20 18z"/>
+  <path fill="#000" opacity="0.3" d="M102 108c8 4 16 6 26 6s18-2 26-6v-8h-52z"/>
+  <ellipse fill="#2C5F80" cx="128" cy="100" rx="80" ry="13"/>
+  <path fill="#3A7CA5" d="M86 98l44-72c6-10 18-12 28-6l-12 6 22 72z"/>
+  <path fill="#234B66" d="M90 88h76l4 10H86z"/>
+</svg>

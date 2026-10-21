@@ -502,7 +502,7 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   assert.ok(pageStart > 0 && pageEnd > pageStart, 'module-host.js has the page-wide lift state');
   assert.ok(src.includes('export function createFrameLift(frame, {'), 'module-host.js has createFrameLift');
   const el = (tag, cls = '') => {
-    const e = { tag, classes: new Set(cls.split(' ').filter(Boolean)), children: [], parentNode: null, inert: false, focused: 0 };
+    const e = { tag, classes: new Set(cls.split(' ').filter(Boolean)), dataset: {}, children: [], parentNode: null, inert: false, focused: 0 };
     e.classList = { add: (...c) => c.forEach((x) => e.classes.add(x)), remove: (...c) => c.forEach((x) => e.classes.delete(x)), toggle: (c, on) => (on ? e.classes.add(c) : e.classes.delete(c)), contains: (c) => e.classes.has(c) };
     e.append = (...cs) => cs.forEach((c) => { c.parentNode = e; e.children.push(c); });
     e.insertBefore = (c, ref) => { c.parentNode = e; e.children.splice(ref ? e.children.indexOf(ref) : e.children.length, 0, c); };

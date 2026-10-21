@@ -57,21 +57,21 @@ function formsOf(text, isScript) {
 }
 const GOOD = `<form class="sdk-form" id="fx-form">
   <label class="sdk-field sdk-full"><span class="sdk-label">Title</span><input id="t" type="text" value="Flight to Lisbon"><span class="sdk-hint"></span></label>
-  <div class="sdk-row">
-    <div class="sdk-field sdk-m" role="group" aria-labelledby="l-day"><span class="sdk-label" id="l-day">Departure day</span><div class="sdk-datefield sdk-group"><input type="date" id="d" value="2026-10-09" aria-labelledby="l-day"><button type="button" class="sdk-field-btn" aria-label="Open the calendar">&#9633;</button></div><span class="sdk-hint">Fri</span></div>
+  <div class="sdk-form-row">
+    <div class="sdk-field sdk-m" role="group" aria-labelledby="l-day"><span class="sdk-label" id="l-day">Departure day</span><div class="sdk-datefield sdk-group"><input type="date" id="d" value="2026-10-09" aria-labelledby="l-day"><button type="button" class="sdk-icon-btn btn-small btn-quiet" aria-label="Open the calendar">&#9633;</button></div><span class="sdk-hint">Fri</span></div>
     <label class="sdk-field sdk-s"><span class="sdk-label">Departure time</span><input id="tm" type="time" value="10:30"><span class="sdk-hint"></span></label>
     <div class="sdk-field sdk-m" role="group" aria-labelledby="l-dur"><span class="sdk-label" id="l-dur">Flight time</span><div class="sdk-group sdk-duration"><input id="h" type="text" inputmode="numeric" value="2" aria-label="Hours"><span class="sdk-unit">h</span><input id="mi" type="text" inputmode="numeric" value="30" aria-label="Minutes"><span class="sdk-unit">min</span></div><span class="sdk-hint"></span></div>
   </div>
-  <div class="sdk-row">
+  <div class="sdk-form-row">
     <label class="sdk-field sdk-m"><span class="sdk-label">Class</span><select id="c"><option>Economy</option><option>Premium economy</option><option>Business</option></select><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-l"><span class="sdk-label">Address</span><input id="a" type="text" value="Rua Augusta 100, Lisboa"><span class="sdk-hint"></span></label>
   </div>
-  <div class="sdk-checks"><label class="sdk-check"><input type="checkbox" id="rt"> Round trip</label></div>
+  <div class="sdk-choice-list"><label class="sdk-choice-row"><input type="checkbox" id="rt"> Round trip</label></div>
   <label class="sdk-field sdk-full"><span class="sdk-label">Notes</span><textarea id="n" rows="3"></textarea><span class="sdk-hint"></span></label>
 </form>`;
 // Planted drift: a field 30 px tall, a label pushed down, a wide select that is cut, a field with no label, a bare date field.
 const BAD = `<form class="sdk-form" id="fx-form">
-  <div class="sdk-row">
+  <div class="sdk-form-row">
     <label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input id="d" type="date" style="height:30px"><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-s"><span class="sdk-label" style="margin-top:9px">Time</span><input id="tm" type="time"><span class="sdk-hint"></span></label>
     <label class="sdk-field sdk-s"><span class="sdk-label">Pick</span><select id="c" style="width:70px"><option>A very long choice that cannot fit in the box at all</option></select><span class="sdk-hint"></span></label>
@@ -127,9 +127,8 @@ window.__mounted = (async () => {
 function pageHtml(fx, hostCssUrl) {
   const sdkUrl = hostCssUrl.replace(/host\.css$/, 'host.js');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="${hostCssUrl}">${fx.mount ? `<script data-host-sdk src="${sdkUrl}"></script>` : ''}<style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
-<body><dialog class="sdk-editor" id="fx-dialog"><div class="sdk-editor-body">${fx.formHtml}</div>
-<div class="sdk-editor-actions"><button type="button" class="btn">Cancel</button></div></dialog>
+<link rel="stylesheet" href="${hostCssUrl.replace(/sdk\/host\.css$/, 'style.css')}"><link rel="stylesheet" href="${hostCssUrl.replace(/host\.css$/, 'system.css')}"><link rel="stylesheet" href="${hostCssUrl}">${fx.mount ? `<script data-host-sdk src="${sdkUrl}"></script>` : ''}<style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
+<body><dialog class="sdk-editor" id="fx-dialog">${fx.formHtml}</dialog>
 <script>
 const q = new URLSearchParams(location.search);
 document.documentElement.dataset.themeMode = q.get('mode') || 'light';
@@ -153,15 +152,15 @@ function measure() {
   const phone = fieldH >= 44;
   const nm = (e) => e.id ? '#' + e.id : (e.getAttribute('name') ? '[name=' + e.getAttribute('name') + ']' : e.tagName.toLowerCase() + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/)[0] : ''));
   const add = (rule, where, detail) => out.push({ rule, where, detail });
-  const oneLine = (e) => e.matches('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]):not([type=file]):not([type=color]), select, button.sdk-field-btn') && vis(e);
+  const oneLine = (e) => e.matches('input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]):not([type=file]):not([type=color]), select') && vis(e);
   const r1 = (n) => Math.round(n * 10) / 10;
   if (!(fieldH > 0)) add('tokens', 'form', '--field-h is not defined');
   // Labels and focus.
   const controls = [...form.querySelectorAll('input:not([type=hidden]), select, textarea')].filter(vis);
   for (const c of controls) {
     const field = c.closest('.sdk-field');
-    const check = c.closest('.sdk-check, .sdk-choice, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
-    if (!field && !check) { add('field', nm(c), 'is not inside a .sdk-field or .sdk-check'); continue; }
+    const check = c.closest('.sdk-choice-row, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
+    if (!field && !check) { add('field', nm(c), 'is not inside a .sdk-field or .sdk-choice-row'); continue; }
     const named = (c.labels && [...c.labels].some((l) => l.textContent.trim())) || c.getAttribute('aria-label') || c.getAttribute('aria-labelledby') || (field && field.querySelector('.sdk-label')?.textContent.trim() && field.tagName === 'LABEL');
     if (!named) add('label', nm(c), 'has no label');
   }
@@ -180,7 +179,8 @@ function measure() {
   }
   document.activeElement && document.activeElement.blur();
   // Heights of one-line controls.
-  for (const c of [...form.querySelectorAll('.sdk-field *')].filter(oneLine)) {
+  // (The kind picker's typing input sits inside its field, which is the control and is measured below.)
+  for (const c of [...form.querySelectorAll('.sdk-field *')].filter((e) => oneLine(e) && !e.matches('.sdk-kind-input'))) {
     const h = c.getBoundingClientRect().height;
     if (Math.abs(h - fieldH) > 0.5) add('height', nm(c), `is ${r1(h)} px tall, the field height is ${fieldH} px`);
     if (c.matches('input, select')) {
@@ -205,13 +205,13 @@ function measure() {
     if (longest > shown + 1) add('clipped', nm(s), `its longest choice is ${Math.round(longest)} px wide, the box shows ${Math.round(shown)} px`);
   }
   // Tick rows.
-  for (const c of [...form.querySelectorAll('.sdk-check')].filter(vis)) {
+  for (const c of [...form.querySelectorAll('.sdk-choice-row')].filter(vis)) {
     const h = c.getBoundingClientRect().height;
     if (h < (phone ? 44 : 32) - 0.5) add('tick-row', nm(c), `is ${r1(h)} px tall, it needs ${phone ? 44 : 32} px`);
   }
   // Rows: fields on one line.
-  for (const row of [...form.querySelectorAll('.sdk-row, .sdk-when')].filter(vis)) {
-    const fields = [...row.querySelectorAll('.sdk-field')].filter((f) => vis(f) && f.closest('.sdk-row, .sdk-when') === row);
+  for (const row of [...form.querySelectorAll('.sdk-form-row, .sdk-when')].filter(vis)) {
+    const fields = [...row.querySelectorAll('.sdk-field')].filter((f) => vis(f) && f.closest('.sdk-form-row, .sdk-when') === row);
     const lines = [];
     for (const f of fields.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)) {
       const t = f.getBoundingClientRect().top;
@@ -224,7 +224,8 @@ function measure() {
       const names = (fs) => fs.map((f) => nm(f.querySelector('input, select, textarea') || f)).join(', ');
       const tops = line.fields.map((f) => { const l = f.querySelector('.sdk-label'); return l ? l.getBoundingClientRect().top : NaN; }).filter((n) => !Number.isNaN(n));
       if (tops.length && Math.max(...tops) - Math.min(...tops) > 1) add('label-top', where, `labels start at different heights (${tops.map(r1).join(', ')}): ${names(line.fields)}`);
-      const ctl = line.fields.map((f) => [...f.querySelectorAll('*')].find(oneLine)).filter(Boolean);
+      // The kind picker's typing input is measured by its field (the control in the row).
+      const ctl = line.fields.map((f) => [...f.querySelectorAll('*')].find(oneLine)).filter(Boolean).map((c) => c.closest('.sdk-kind-field') || c);
       const ct = ctl.map((c) => c.getBoundingClientRect().top);
       const ch = ctl.map((c) => c.getBoundingClientRect().height);
       if (ct.length > 1 && Math.max(...ct) - Math.min(...ct) > 1) add('control-top', where, `controls sit at different heights (${ct.map(r1).join(', ')}): ${names(line.fields)}`);

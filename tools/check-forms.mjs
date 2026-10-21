@@ -3,17 +3,17 @@
 //
 // Everywhere:
 //   1. The form block (between `form:start` and `form:end`) of public/sdk/host.css and public/style.css is identical, and
-//      defines every form token.
+//      defines the layout tokens; the look tokens (--field-h, ...) are in the Fields block of public/sdk/system.css (step 13).
 //   2. The block draws its corners only from the --radius-* tokens.
 //   3. The date picker's rules live in host.css, not in a string in host.js.
 // Only in a form that has moved (its markup says class="sdk-form"), so nothing fails until a module migrates:
 //   4. Every visible input, select and textarea is in a .sdk-field (or a tick box / choice / people piece); every .sdk-field has a label.
-//   5. Two fields side by side sit in a .sdk-row (a parent holding more than one .sdk-field must be a form, section, row, when, pair or group).
+//   5. Two fields side by side sit in a .sdk-form-row (a parent holding more than one .sdk-field must be a form, section, row, when, pair or group).
 //   6. No old class is left (.editor-card, .editor-row, .editor-buttons, .row.buttons, .timing, .when-pick, .hm, .pairing,
 //      .fieldgroup, .fieldgroup-title, .setup-field, .field-label).
 //   7. No <select> lists more than eight fixed choices.
-//   8. No datetime-local, no checkbox with role="switch"; a date field is the date picker's (the module calls host.ui.datePicker,
-//      or the markup already has .sdk-datefield).
+//   8. No datetime-local; a checkbox with role="switch" is the switch (.sdk-switch); a date field is the date picker's (the module
+//      calls host.ui.datePicker, or the markup already has .sdk-datefield).
 //   9. A field element carries no style="" of its own for height, border, background, radius or font size.
 //  10. The module's stylesheet has no rule reaching into the form (.sdk-form, a .sdk-form class, a field element, a field's own
 //      id) that declares anything but display, order, visibility or grid-column. Exceptions live in tools/check-forms-allow.json,
@@ -24,10 +24,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const TOKENS = ['--field-h', '--field-pad-x', '--field-font', '--field-gap', '--label-size', '--label-gap', '--section-gap'];
+const TOKENS = ['--field-gap', '--section-gap'];
+const LOOK_TOKENS = ['--field-h', '--field-pad-x', '--field-font', '--label-size', '--label-gap', '--check-h'];
 const OLD_CLASSES = ['editor-card', 'editor-row', 'editor-buttons', 'timing', 'when-pick', 'hm', 'pairing', 'fieldgroup', 'fieldgroup-title', 'setup-field', 'field-label'];
-const ROW_PARENTS = ['sdk-form', 'sdk-section', 'sdk-row', 'sdk-when', 'sdk-pair', 'sdk-group'];
-const PIECES = ['sdk-field', 'sdk-check', 'sdk-choice', 'sdk-people', 'sdk-chip'];
+const ROW_PARENTS = ['sdk-form', 'sdk-section', 'sdk-form-row', 'sdk-when', 'sdk-pair', 'sdk-group'];
+const PIECES = ['sdk-field', 'sdk-choice-row', 'sdk-people', 'sdk-chip'];
 const VOID = new Set(['input', 'br', 'hr', 'img', 'meta', 'link', 'source', 'area', 'base', 'col', 'embed', 'wbr']);
 const FIELD_TAGS = new Set(['input', 'select', 'textarea']);
 const ALLOWED_PROPS = new Set(['display', 'order', 'visibility', 'grid-column']);
@@ -40,8 +41,14 @@ export function formBlock(css) {
   if (a < 0 || b < 0 || b < a) return null;
   return css.slice(a, b + '/* form:end */'.length);
 }
-export function checkBlocks(hostCss, styleCss) {
+export function checkBlocks(hostCss, styleCss, systemCss) {
   const out = [];
+  if (systemCss !== undefined) {
+    const a = systemCss.indexOf('/* fields:start */');
+    const b = systemCss.indexOf('/* fields:end */');
+    if (a < 0 || b < a) out.push('public/sdk/system.css has no fields:start ... fields:end block');
+    else for (const t of LOOK_TOKENS) if (!new RegExp(`${t}\\s*:`).test(systemCss.slice(a, b))) out.push(`public/sdk/system.css: the fields block does not define ${t}`);
+  }
   const h = formBlock(hostCss);
   const s = formBlock(styleCss);
   if (h === null) out.push('public/sdk/host.css has no form:start ... form:end block');
@@ -125,9 +132,9 @@ export function checkForm(form, ctx = {}) {
     if (!FIELD_TAGS.has(n.tag)) continue;
     const type = (n.attrs.type || (n.tag === 'input' ? 'text' : n.tag)).toLowerCase();
     if (type === 'hidden') continue;
-    if (!inside(n, form, (p) => PIECES.some((c) => hasClass(p, c)))) add(`${label(n)} is not inside a .sdk-field or .sdk-check`);
+    if (!inside(n, form, (p) => PIECES.some((c) => hasClass(p, c)))) add(`${label(n)} is not inside a .sdk-field or .sdk-choice-row`);
     if (type === 'datetime-local') add(`${label(n)} is a datetime-local; use a day field and a time field`);
-    if (type === 'checkbox' && (n.attrs.role || '') === 'switch') add(`${label(n)} is a checkbox with role="switch"; use a tick box (.sdk-check)`);
+    if (type === 'checkbox' && (n.attrs.role || '') === 'switch' && !hasClass(n, 'sdk-switch')) add(`${label(n)} is a checkbox with role="switch" and no .sdk-switch class`);
     if (type === 'date' && !inside(n, form, (p) => hasClass(p, 'sdk-datefield')) && !ctx.datePicker) add(`${label(n)} is a date field that is not the date picker's (call host.ui.datePicker on it)`);
     if (n.tag === 'select') {
       const opts = [...walk(n)].filter((o) => o.tag === 'option').length;
@@ -139,7 +146,7 @@ export function checkForm(form, ctx = {}) {
   }
   for (const n of walk(form)) {
     const fields = n.children.filter((c) => hasClass(c, 'sdk-field'));
-    if (fields.length > 1 && n !== form && !ROW_PARENTS.some((c) => hasClass(n, c))) add(`fields side by side outside a .sdk-row: ${fields.map(label).join(' ')} in ${label(n)}`);
+    if (fields.length > 1 && n !== form && !ROW_PARENTS.some((c) => hasClass(n, c))) add(`fields side by side outside a .sdk-form-row: ${fields.map(label).join(' ')} in ${label(n)}`);
   }
   return out;
 }
@@ -171,7 +178,7 @@ export function checkModuleCss(css, names, allow = [], file = 'css') {
   const out = [];
   for (const r of cssRules(css)) {
     for (const sel of r.selector.split(',').map((s) => s.trim()).filter(Boolean)) {
-      const reaches = /\.sdk-(form|field|label|hint|error|row|when|s|m|l|full|group|unit|field-btn|datefield|duration|money|pair|section|section-title|check|checks|choice|people|form-error)\b/.test(sel)
+      const reaches = /\.sdk-(form|form-row|field|label|hint|error|when|s|m|l|full|group|unit|field-btn|datefield|duration|money|pair|section|section-title|choice-row|choice-list|choice|people|form-error)(?![\w-])/.test(sel)
         || (sel.match(/[#.][\w-]+/g) || []).some((t) => names.has(t))
         || (/(^|[\s>+~(])(input|select|textarea)\b/.test(sel) && (sel.match(/[#.][\w-]+/g) || []).some((t) => names.has('form' + t)));
       if (!reaches) continue;
@@ -190,9 +197,9 @@ function selfTest() {
   const expect = (name, got, want) => { if (!!got.length !== want) fails.push(`self-test "${name}": ${want ? 'expected a failure, got none' : 'expected a pass, got ' + got.join(' | ')}`); };
   const form = (inner, cls = 'sdk-form') => movedForms(`<form class="${cls}">${inner}</form>`, false)[0];
   const field = (c = '<input id="a" type="text">') => `<label class="sdk-field"><span class="sdk-label">A</span>${c}<span class="sdk-hint"></span></label>`;
-  const clean = `${field()}<div class="sdk-row">${field('<input id="b">')}${field('<select id="c"><option>1</option></select>')}</div>
-    <label class="sdk-check"><input type="checkbox"> Yes</label>
-    <div class="sdk-field" role="group"><span class="sdk-label">Day</span><div class="sdk-datefield sdk-group"><input type="date"><button class="sdk-field-btn"></button></div></div>
+  const clean = `${field()}<div class="sdk-form-row">${field('<input id="b">')}${field('<select id="c"><option>1</option></select>')}</div>
+    <label class="sdk-choice-row"><input type="checkbox"> Yes</label>
+    <div class="sdk-field" role="group"><span class="sdk-label">Day</span><div class="sdk-datefield sdk-group"><input type="date"><button class="sdk-icon-btn btn-small btn-quiet"></button></div></div>
     <input type="hidden" name="h">`;
   expect('clean form', checkForm(form(clean)), false);
   expect('unmoved form is ignored', movedForms('<form class="editor-card"><input></form>', false), false);
@@ -203,7 +210,8 @@ function selfTest() {
   expect('nine-choice select', checkForm(form(field('<select>' + '<option>x</option>'.repeat(9) + '</select>'))), true);
   expect('eight-choice select passes', checkForm(form(field('<select>' + '<option>x</option>'.repeat(8) + '</select>'))), false);
   expect('datetime-local', checkForm(form(field('<input type="datetime-local">'))), true);
-  expect('switch checkbox', checkForm(form(`<label class="sdk-check"><input type="checkbox" role="switch"></label>`)), true);
+  expect('switch checkbox without the switch class', checkForm(form(`<label class="sdk-choice-row"><input type="checkbox" role="switch"></label>`)), true);
+  expect('switch checkbox', checkForm(form(`<label class="sdk-choice-row"><input type="checkbox" role="switch" class="sdk-switch"></label>`)), false);
   expect('bare date field', checkForm(form(field('<input type="date">'))), true);
   expect('bare date field with the picker called', checkForm(form(field('<input type="date">')), { datePicker: true }), false);
   expect('own height in a style attribute', checkForm(form(field('<input style="height:30px">'))), true);
@@ -218,7 +226,10 @@ function selfTest() {
   const block = '/* form:start x */\n:root { ' + TOKENS.map((t) => `${t}: 1px;`).join(' ') + ' }\n.sdk-x { border-radius: var(--radius-small); }\n/* form:end */';
   expect('equal blocks', checkBlocks('a\n' + block, 'b\n' + block), false);
   expect('differing blocks', checkBlocks(block, block.replace('1px', '2px')), true);
-  expect('missing token', checkBlocks(block.replace('--label-gap', '--x'), block.replace('--label-gap', '--x')), true);
+  expect('missing token', checkBlocks(block.replace('--section-gap', '--x'), block.replace('--section-gap', '--x')), true);
+  const sys = '/* fields:start */ :root { ' + LOOK_TOKENS.map((t) => `${t}: 1px;`).join(' ') + ' } /* fields:end */';
+  expect('look tokens in system.css', checkBlocks(block, block, sys), false);
+  expect('missing look token in system.css', checkBlocks(block, block, sys.replace('--check-h', '--x')), true);
   expect('numeric radius in the block', checkBlocks(block.replace('var(--radius-small)', '4px'), block.replace('var(--radius-small)', '4px')), true);
   expect('picker rules in host.js', checkPickerCss('const C = `\n.sdk-dp-day { color: red }\n`;', '.sdk-dp { a: b }'), true);
   expect('picker rules in host.css', checkPickerCss("pop.className = 'sdk-dp'; q('.sdk-dp-day')", '.sdk-dp { a: b }'), false);
@@ -229,7 +240,7 @@ export function runAll() {
   const problems = [];
   const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
   const hostCss = read('public/sdk/host.css');
-  problems.push(...checkBlocks(hostCss, read('public/style.css')));
+  problems.push(...checkBlocks(hostCss, read('public/style.css'), read('public/sdk/system.css')));
   problems.push(...checkPickerCss(read('public/sdk/host.js'), hostCss));
   let allow = [];
   try { allow = JSON.parse(read('tools/check-forms-allow.json')).allow || []; } catch { /* no allow-list yet */ }

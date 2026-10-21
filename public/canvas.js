@@ -55,8 +55,8 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 // The buttons at the end of a module's header: the "..." (an installed module's: its own Clear, then Dock as a panel or
 // Open as a window, and Open in its own window; Thomas, 2026-10-13: those left the titlebar for the "..."), and Close.
 // A module has no snap switch of its own: the Layout menu's Snap to grid is the one (Thomas, 2026-10-13).
-const MORE_HTML = '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
-const CLOSE_HTML = '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
+const MORE_HTML = '<button class="sdk-icon-btn btn-quiet btn-small" data-module-menu type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
+const CLOSE_HTML = '<button class="sdk-icon-btn btn-quiet btn-small" data-close type="button" data-tip="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
 
 // `onNote(text)`: a short line for the Layout menu's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
 // Layout menu opened (space.js reads its layouts again as it opens). `menuItems()`: the page's own entries for the
@@ -65,13 +65,14 @@ const CLOSE_HTML = '<button class="msg-btn" data-close type="button" title="Clos
 // handoff a page over the call gets: from=space and the names for its header), so a link inside it that leads on to
 // another page keeps its way back. `onCompositeLoad(frame)`: each page that loads in a composite's frame, so the page
 // can take the header links inside it (home, which must not navigate the top window away from the call).
-export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null, onMenu = null, menuItems = null, noteEl = null, frameParams = null, onCompositeLoad = null } = {}) {
-  // The phone's tab bar (#modules-menu, `subnav-modules` while the window is a phone's width: space.js's placeSubnav):
-  // a tab per module. Wider than a phone the Layout menu (openMenu, below) is the one place to show and hide modules,
-  // drawn with the page's shared menu under the top bar's Layout button (#modules-toggle, a nav tool of space.js).
+export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null, onMenu = null, menuItems = null, noteEl = null, frameParams = null, onCompositeLoad = null, onTabs = null } = {}) {
+  // The phone's tab bar (#modules-menu, `sdk-tabbar-tabs` while the window is a phone's width: space.js's placeSubnav):
+  // a tab per module, Chat first; the conference is not a tab there (the call is the bar's pinned call item, space.js).
+  // Wider than a phone the Layout menu (openMenu, below) is the one place to show and hide modules, drawn with the page's
+  // shared menu under the top bar's Layout button (#modules-toggle, a nav tool of space.js).
   const menu = document.getElementById('modules-menu');
   // An inline menu (the tab bar) is always shown: it is never hidden or positioned by this file, only kept up to date.
-  const inline = () => Boolean(menu && menu.classList.contains('subnav-modules'));
+  const inline = () => Boolean(menu && menu.classList.contains('sdk-tabbar-tabs'));
   const canvas = document.getElementById('canvas');
   // The always-on column beside the canvas (plan-one-bar.md, step 6; #side-column in space.html): wider than a phone
   // the conference and the chat live in it, in the mode `column`, not as columns of the grid, not in the Show list, not
@@ -779,7 +780,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // are not offered, it is not shown (.mod-more-ways).
   const moduleHeader = (m) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace('class="sdk-icon-btn btn-quiet btn-small"', 'class="sdk-icon-btn btn-quiet btn-small mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
 
   // The status bar at the bottom of the module's own window or column (host.status.set; module-host.js fills it), a
   // labelled region hidden until the module sets something.
@@ -1196,15 +1197,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     return supports(p, 'dock') ? 'dock' : 'float';
   }
 
-  // On a narrow canvas (a phone) one view is shown at a time: the conference, the chat or a module. The others
+  // On a narrow canvas (a phone) one view is shown at a time: the chat, a module or the conference. The others
   // stay open, only hidden, so the call keeps running (its microphone and camera as they were) while you read
   // the chat; a tab switches the view and never closes anything. `view` is the id being shown.
   let view = null;
   function syncView() {
     const narrow = isNarrow();
     const shown = [...opened.values()].filter((p) => p.mode === 'dock').map((p) => p.id);
-    // With no conference (the admin turned it off), the chat is the view to start on.
-    if (narrow && !shown.includes(view)) view = shown.includes('conference') ? 'conference' : shown.includes('chat') ? 'chat' : shown[shown.length - 1] || null;
+    // The chat is the view to start on (the first tab); the conference is shown by joining or by the call item.
+    if (narrow && !shown.includes(view)) view = shown.includes('chat') ? 'chat' : shown.find((id) => id !== 'conference') || shown[0] || null;
     for (const p of opened.values()) {
       if (p.mode !== 'dock') continue;
       const hide = narrow && p.id !== view;
@@ -1854,39 +1855,28 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     paintDockButtons();
     if (canvasEmpty) canvasEmpty.hidden = onCanvas();
     if (!inline()) { refreshMenu(); return; }
-    // The conference and the chat are in the Show list only where they are the canvas's (a phone's tabs, a page with
-    // no side column); in column mode they are always on (plan-one-bar.md, decision 2).
-    const builtinList = columnMode() ? [] : [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => !def.allowed || def.allowed());
-    // The phone's tab bar: a tab per module (the highlighted tab is the view being shown).
+    // The phone's tab bar (the Tab bar family, system.css): a tab per module, the chat first; the conference is not a
+    // tab (the call is the bar's pinned call item, space.js). The current tab is the view being shown.
+    const builtinList = columnMode() ? [] : [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => def.id !== 'conference' && (!def.allowed || def.allowed()));
+    const tab = (data, icon, name, current, n) => {
+      const b = menu.ownerDocument.createElement('button');
+      b.type = 'button';
+      b.className = 'sdk-tabbar-tab';
+      Object.assign(b.dataset, data);
+      b.classList.toggle('on', current);
+      if (current) b.setAttribute('aria-current', 'page');
+      // The icon in its 24 by 24 box, the count at the box's corner; a tab with a count says so in its name.
+      if (n) b.setAttribute('aria-label', `${name}, ${n} new`);
+      b.innerHTML = `<span class="sdk-tabbar-glyph"><i class="fa-solid fa-${escapeHtml(icon)} fa-fw" aria-hidden="true"></i>${n ? `<span class="sdk-badge-micro" aria-hidden="true">${n > 9 ? '9+' : n}</span>` : ''}</span><span class="sdk-tabbar-label">${escapeHtml(name)}</span>`;
+      menu.appendChild(b);
+    };
     menu.innerHTML = '';
-    for (const def of builtinList) {
-      const open = opened.has(def.id);
-      const b = menu.ownerDocument.createElement('button');
-      b.type = 'button';
-      b.className = 'modules-menu-item';
-      b.dataset.builtin = def.id;
-      // On a phone the highlighted tab is the view being shown, not just an open module.
-      b.classList.toggle('on', isNarrow() && open ? view === def.id : open);
-      // The call is on: the phone's tab bar marks it, since the conference can be hidden while it runs. Open is not
-      // enough: the conference can be shown and out of the call ("Not in a call"), so its owner says (def.inCall).
-      b.classList.toggle('in-call', open && Boolean(def.inCall?.()));
-      const n = builtinUnread[def.id] || 0;
-      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(def.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(def.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
-      menu.appendChild(b);
-    }
-    for (const m of available) {
-      const b = menu.ownerDocument.createElement('button');
-      b.type = 'button';
-      b.className = 'modules-menu-item';
-      b.dataset.module = m.id;
-      b.classList.toggle('on', isNarrow() && opened.has(m.id) ? view === m.id : opened.has(m.id));
-      const n = unreadOf(m.id);
-      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(m.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
-      menu.appendChild(b);
-    }
+    for (const def of builtinList) tab({ builtin: def.id }, def.icon, def.name, opened.has(def.id) && (!isNarrow() || view === def.id), builtinUnread[def.id] || 0);
+    for (const m of available) tab({ module: m.id }, m.icon, m.name, opened.has(m.id) && (!isNarrow() || view === m.id), unreadOf(m.id));
     // The tabs are new: the bar folds again (nav-bar.js, plan-phone-space-bar.md), so the tabs that do not fit and
     // their unread counts go into its "...", and the view being shown keeps its tab. On the next frame, before a paint.
     nav.draw('secondary');
+    onTabs?.();
   }
 
   // A resize keeps floating modules on screen, in whichever window the call is in.
@@ -2136,6 +2126,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     // The window a built-in module is popped out into, or null (the page's idle-hide needs that document's own canvas).
     builtinWindow: (id) => { const p = opened.get(id); return p && p.mode === 'window' && p.win && !p.win.closed ? p.win : null; },
     builtinMode: (id) => opened.get(id)?.mode || null,
+    // The view being shown on a narrow canvas (a phone: the chat, a module or the conference), or null wider.
+    shownView: () => (isNarrow() ? view : null),
     // A notification's toast asks the call to open the module on the canvas.
     handleNotification(n) {
       if (n.scope !== 'space' || n.spaceId !== spaceId) return false;

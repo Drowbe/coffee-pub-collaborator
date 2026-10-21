@@ -1,0 +1,4 @@
+{
+  "about": "check-icons: today's non-solid Font Awesome classes (fa-regular, fa-brands ...) and icon font sizes other than 12 14 16 20 24 px, per file. Counts may only fall; lower them with: node tools/check-icons.mjs --update",
+  "counts": {}
+}

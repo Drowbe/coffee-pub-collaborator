@@ -13,20 +13,23 @@
   <link rel="stylesheet" href="/style.css">
   <script src="/theme-head.js"></script>
   <link rel="stylesheet" href="/theme.css" id="theme-link">
+  <link rel="stylesheet" href="/sdk/system.css">
 </head>
 <body>
   <header class="topbar"></header>
 
   <main class="admin">
+    <!-- Manage's tabs: admin.js marks them data-top-bar, so renderPageBar() puts them in the top bar (page-tabs.js, #262).
+         data-icon is each tab's icon in the header's menu on a phone. -->
     <nav class="subtabs" id="subtabs">
-      <button class="subtab active" data-tab="environment" type="button" data-fill>{Environment}</button>
-      <button class="subtab" data-tab="template" type="button" id="template-tab">Template</button>
-      <button class="subtab" data-tab="theme" type="button">Theme</button>
-      <button class="subtab" data-tab="spaces" type="button" data-fill>{Spaces}</button>
-      <button class="subtab" data-tab="roles" type="button">Roles</button>
-      <button class="subtab" data-tab="users" type="button">Users</button>
-      <button class="subtab" data-tab="modules" type="button" data-fill>{Modules}</button>
-      <button class="subtab" data-tab="about" type="button">About</button>
+      <button class="subtab active" data-tab="environment" type="button" data-icon="sliders" data-fill>{Environment}</button>
+      <button class="subtab" data-tab="template" type="button" id="template-tab" data-icon="shapes">Template</button>
+      <button class="subtab" data-tab="theme" type="button" data-icon="palette">Theme</button>
+      <button class="subtab" data-tab="spaces" type="button" data-icon="door-open" data-fill>{Spaces}</button>
+      <button class="subtab" data-tab="roles" type="button" data-icon="user-shield">Roles</button>
+      <button class="subtab" data-tab="users" type="button" data-icon="users">Users</button>
+      <button class="subtab" data-tab="modules" type="button" data-icon="puzzle-piece" data-fill>{Modules}</button>
+      <button class="subtab" data-tab="about" type="button" data-icon="circle-info">About</button>
     </nav>
 
     <section class="tab-stack" id="tab-users" hidden>
@@ -42,19 +45,45 @@
         <h2>New user</h2>
         <div class="fields">
           <label>Username<input id="new-login" type="text" maxlength="40" required autocapitalize="off" autocomplete="off"></label>
-          <label>Display name<input id="new-name" type="text" maxlength="40" autocomplete="off"></label>
+          <label>Display name <span class="sdk-optional">(optional)</span><input id="new-name" type="text" maxlength="40" autocomplete="off"></label>
           <label>Role<select id="new-role" data-fill><option value="member">{Member}</option><option value="owner">{Owner}</option></select></label>
-          <label>Password<span class="row reveal-row"><input id="new-password" aria-label="Password" type="password" maxlength="200" autocomplete="new-password" placeholder="leave empty for link only"><button class="btn btn-small" type="button" data-reveal="new-password" aria-pressed="false">Show</button></span></label>
-          <label class="check"><input id="new-link" type="checkbox" checked> Personal link (no password needed)</label>
+          <label>Password <span class="sdk-optional">(optional)</span><span class="row reveal-row"><input id="new-password" aria-label="Password" type="password" maxlength="200" autocomplete="new-password" placeholder="leave empty for link only"><button class="btn btn-small" type="button" data-reveal="new-password" aria-pressed="false">Show</button></span></label>
+          <label class="sdk-choice-row"><input id="new-link" type="checkbox" checked> Personal link (no password needed)</label>
         </div>
         <div class="row">
           <button class="btn btn-primary" type="submit">Add</button>
-          <button class="btn" id="add-cancel" type="button">Cancel</button>
+          <button class="btn btn-quiet" id="add-cancel" type="button">Cancel</button>
           <span class="status error" id="add-error" hidden></span>
         </div>
       </form>
 
       <div id="users" class="users"></div>
+
+      <!-- Sign-up and invites (moved from the Environment tab, #261). -->
+      <div class="panel" id="signup-section">
+      <h2>Sign-up</h2>
+      <div class="row">
+        <label class="sdk-choice-row"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="save-registration" type="button">Save</button>
+        <span class="status" id="registration-status"></span>
+      </div>
+      <p class="hint" data-fill>Or invite someone straight into specific {spaces} without opening sign-up to everyone:</p>
+      <div class="row">
+        <span class="field-label" data-fill>{Spaces}</span>
+        <div class="member-checks" id="invite-spaces"></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="make-invite" type="button">Generate invite link</button>
+        <span class="status" id="invite-status"></span>
+      </div>
+      <div class="row" id="invite-link-row" hidden>
+        <code class="key link" id="invite-link"></code>
+        <button class="btn btn-small" id="invite-copy" type="button">Copy</button>
+        <span class="hint">Expires in 7 days, works once.</span>
+      </div>
+      </div>
     </section>
 
     <section class="tab-stack" id="tab-theme" hidden>
@@ -66,7 +95,7 @@
         <a class="btn" id="theme-export" href="/api/themes/default/export" download title="Download the theme in the chooser as a file"><i class="fa-solid fa-file-export fa-fw" aria-hidden="true"></i> Export</a>
         <button class="btn" id="theme-import" type="button" title="Add a theme from a file"><i class="fa-solid fa-file-import fa-fw" aria-hidden="true"></i> Import…</button>
         <input id="theme-import-file" type="file" accept=".json,application/json" hidden>
-        <button class="theme-mode" id="theme-mode" type="button" role="switch" aria-checked="true" aria-label="Dark by default" title="The default: light or dark"><i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></button>
+        <button class="theme-mode" id="theme-mode" type="button" role="switch" aria-checked="true" aria-label="Dark by default" data-tip="The default: light or dark"><i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></button>
         <button class="btn btn-primary" id="theme-apply" type="button">Apply</button>
         <span class="status" id="theme-status"></span>
       </div>
@@ -86,14 +115,15 @@
           <a class="icon-link" href="#" onclick="return false" title="Sample icon"><i class="fa-solid fa-comments fa-fw" aria-hidden="true"></i></a>
         </div>
         </div>
-        <div class="members">
-          <div class="member online">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
-            <span class="member-name">Online</span>
+        <div class="sdk-members">
+          <div class="sdk-member">
+            <img class="sdk-member-pic" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
+            <span class="sdk-member-dot"></span>
+            <span class="sdk-member-name">Online</span>
           </div>
-          <div class="member">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
-            <span class="member-name">Offline</span>
+          <div class="sdk-member">
+            <img class="sdk-member-pic" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
+            <span class="sdk-member-name">Offline</span>
           </div>
         </div>
       </div>
@@ -110,20 +140,31 @@
       <h3>Header, buttons and icons</h3>
       <p class="hint">Each of these follows the colors above until you set it: leave <strong>Auto</strong> ticked to keep it derived, or untick it to choose the color yourself.</p>
       <div class="fields theme-optional">
-        <div class="theme-opt"><label>Card background<input id="theme-card" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-card"> Auto</label></div>
-        <div class="theme-opt"><label>Header background<input id="theme-header-bg" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-header-bg"> Auto</label></div>
-        <div class="theme-opt"><label>Header text<input id="theme-header-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-header-text"> Auto</label></div>
-        <div class="theme-opt"><label>Branding area background<input id="theme-nav-brand-bg" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-brand-bg"> Auto</label></div>
-        <div class="theme-opt"><label>Branding area text<input id="theme-nav-brand-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-brand-text"> Auto</label></div>
-        <div class="theme-opt"><label>Right side background<input id="theme-nav-right-bg" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-right-bg"> Auto</label></div>
-        <div class="theme-opt"><label>Right side text<input id="theme-nav-right-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-nav-right-text"> Auto</label></div>
-        <div class="theme-opt"><label>Icons<input id="theme-icon" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-icon"> Auto</label></div>
-        <div class="theme-opt"><label>Icon hover<input id="theme-icon-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-icon-hover"> Auto</label></div>
-        <div class="theme-opt"><label>Primary accent hover<input id="theme-primary-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-primary-hover"> Auto</label></div>
-        <div class="theme-opt"><label>Secondary accent<input id="theme-secondary" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary"> Auto</label></div>
-        <div class="theme-opt"><label>Text on secondary<input id="theme-secondary-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary-text"> Auto</label></div>
-        <div class="theme-opt"><label>Secondary accent hover<input id="theme-secondary-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary-hover"> Auto</label></div>
+        <div class="theme-opt"><label>Card background<input id="theme-card" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-card"> Auto</label></div>
+        <div class="theme-opt"><label>Header background<input id="theme-header-bg" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-header-bg"> Auto</label></div>
+        <div class="theme-opt"><label>Header text<input id="theme-header-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-header-text"> Auto</label></div>
+        <div class="theme-opt"><label>Branding area background<input id="theme-nav-brand-bg" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-brand-bg"> Auto</label></div>
+        <div class="theme-opt"><label>Branding area text<input id="theme-nav-brand-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-brand-text"> Auto</label></div>
+        <div class="theme-opt"><label>Right side background<input id="theme-nav-right-bg" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-right-bg"> Auto</label></div>
+        <div class="theme-opt"><label>Right side text<input id="theme-nav-right-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-right-text"> Auto</label></div>
+        <div class="theme-opt"><label>Icons<input id="theme-icon" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-icon"> Auto</label></div>
+        <div class="theme-opt"><label>Icon hover<input id="theme-icon-hover" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-icon-hover"> Auto</label></div>
+        <div class="theme-opt"><label>Primary accent hover<input id="theme-primary-hover" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-primary-hover"> Auto</label></div>
+        <div class="theme-opt"><label>Secondary accent<input id="theme-secondary" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary"> Auto</label></div>
+        <div class="theme-opt"><label>Text on secondary<input id="theme-secondary-text" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary-text"> Auto</label></div>
+        <div class="theme-opt"><label>Secondary accent hover<input id="theme-secondary-hover" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary-hover"> Auto</label></div>
       </div>
+      <h3>Status colors</h3>
+      <p class="hint">The colors of an error, a success, a warning and a notice. Leave <strong>Auto</strong> ticked for the standard ones. The text drawn on each, and each one used as text, are picked for you so they read.</p>
+      <div class="fields theme-optional">
+        <div class="theme-opt"><label>Danger<input id="theme-status-danger" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-danger"> Auto</label></div>
+        <div class="theme-opt"><label>OK<input id="theme-status-ok" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-ok"> Auto</label></div>
+        <div class="theme-opt"><label>Warning<input id="theme-status-warn" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-warn"> Auto</label></div>
+        <div class="theme-opt"><label>Info<input id="theme-status-info" type="color"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-info"> Auto</label></div>
+      </div>
+      <h3>Contrast</h3>
+      <p class="hint">How the colors read together, for the theme and mode being edited, as they change. Text needs 4.5 : 1 to be easy to read; a mark (a bar, a ring, a dot) needs 3 : 1 to be seen.</p>
+      <div class="theme-contrast" id="theme-contrast" role="status" aria-live="polite"></div>
       <p class="hint">Adjusting the colors above previews live but doesn't save anything until you pick one of the buttons below.</p>
       <div class="row">
         <button class="btn btn-primary" id="theme-save-new" type="button">Save as new theme</button>
@@ -137,12 +178,12 @@
       <h2>Default Images</h2>
       <p class="hint" data-fill>The Participant box {a member} shows once neither they nor the {space} they're in has set their own picture for a slot -- the last fallback before the box just goes transparent. {Aside} shows while they're online but pulled into {an aside} elsewhere (on top of any Dim/Tint set under Settings); Private the same, for a Private Conversation specifically.</p>
       <div class="slots" id="default-images" data-slot-group="Default">
-        <div class="slot" data-default-slot="playerOffline"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Offline</span></div>
-        <div class="slot" data-default-slot="player"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Online</span></div>
-        <div class="slot" data-default-slot="playerTalking"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Talking</span></div>
-        <div class="slot" data-default-slot="playerMuted"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Muted</span></div>
-        <div class="slot" data-default-slot="playerAside"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span data-fill>{Aside}</span></div>
-        <div class="slot" data-default-slot="playerPrivate"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Private</span></div>
+        <div class="slot" data-default-slot="playerOffline"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Offline</span></div>
+        <div class="slot" data-default-slot="player"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Online</span></div>
+        <div class="slot" data-default-slot="playerTalking"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Talking</span></div>
+        <div class="slot" data-default-slot="playerMuted"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Muted</span></div>
+        <div class="slot" data-default-slot="playerAside"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span data-fill>{Aside}</span></div>
+        <div class="slot" data-default-slot="playerPrivate"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Private</span></div>
       </div>
       </div>
 
@@ -151,12 +192,12 @@
       <h2 data-fill>{Guest} images</h2>
       <p class="hint" data-fill>The Participant box {a guest} shows in place of a real {member}'s own pictures -- anyone can hand out {a space}'s {guest} link from inside it (Settings, in the {space} itself); no account behind them to hang per-{guest} images off of, so this one set stands in for all of them. Online falls back to a generic icon when unset; the others just stay off.</p>
       <div class="slots" id="guest-images" data-slot-group="{Guest}">
-        <div class="slot" data-guest-slot="playerOffline"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Offline</span></div>
-        <div class="slot" data-guest-slot="player"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Online</span></div>
-        <div class="slot" data-guest-slot="playerTalking"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Talking</span></div>
-        <div class="slot" data-guest-slot="playerMuted"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Muted</span></div>
-        <div class="slot" data-guest-slot="playerAside"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span data-fill>{Aside}</span></div>
-        <div class="slot" data-guest-slot="playerPrivate"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" title="Remove" aria-label="Remove" hidden>&times;</button></div><span>Private</span></div>
+        <div class="slot" data-guest-slot="playerOffline"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Offline</span></div>
+        <div class="slot" data-guest-slot="player"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Online</span></div>
+        <div class="slot" data-guest-slot="playerTalking"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Talking</span></div>
+        <div class="slot" data-guest-slot="playerMuted"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Muted</span></div>
+        <div class="slot" data-guest-slot="playerAside"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span data-fill>{Aside}</span></div>
+        <div class="slot" data-guest-slot="playerPrivate"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Private</span></div>
       </div>
       </div>
     </section>
@@ -177,48 +218,45 @@
       <div class="panel">
         <h2>Roles</h2>
         <p class="hint" data-fill>What each kind of person can do. {Owners} and the admin can do everything, and that can't be turned down. {Moderator} is what someone gets in any {space} where they're marked {Moderator} on their profile's {Spaces} tab. {Guest} is everyone who comes in from {a space}'s {guest} link. Changes save as you click.</p>
-        <div class="roles-scroll"><table class="roles-table" id="roles-table"></table></div>
+        <div class="sdk-table-wrap"><table class="sdk-table" id="roles-table" aria-label="What each kind of person can do"></table></div>
         <p class="status" id="roles-status"></p>
         <p class="hint" data-fill>Kicking, muting, {guest} links and {asides} are enforced by the server. Chat, pictures, reactions and screen sharing are enforced by the page itself (they travel between browsers, not through the server), so they hold for honest use, not for someone determined to get around them.</p>
       </div>
     </section>
 
     <section class="tab-stack" id="tab-modules" hidden>
+      <!-- The Modules tab's parts (#264), chosen in the page bar's row (the navigation inside a tab, page-tabs.js rowTabs):
+           Configuration, then one tab per module that is on (and Conference while it is on), drawn by admin.js.
+           #modules opens Configuration; #modules/<id> a module's tab (#modules/conference, #modules/ai). -->
+      <nav class="subtabs" id="module-subtabs">
+        <button class="subtab active" type="button" data-module-part="config">Configuration</button>
+      </nav>
+      <div class="tab-stack" id="module-part-config" data-module-part="config">
       <div class="panel">
         <h2 data-fill>{Modules}</h2>
-        <p class="hint" data-fill>Add features by uploading {a module} zip. {A module} runs in the browser, in a sandbox, and only reaches the server through what it asks for below. Upload it, look over what it asks for, then turn it on.</p>
+        <p class="hint" data-fill>Add features by uploading {a module} zip. {A module} runs in the browser, in a sandbox, and only reaches the server through what it asks for. Upload it, look over what it asks for, then turn it on. Each {module} that is on has its own tab above, with its settings.</p>
         <div class="row">
           <span data-host-only><input type="file" id="module-file" accept=".zip,application/zip">
           <button class="btn btn-primary" id="module-install" type="button">Install</button></span>
-          <span class="status" id="modules-status"></span>
-        </div>
-        <div class="module-filters" id="module-filters" role="group" aria-label="Show">
-          <button class="filter-chip on" type="button" data-module-filter="all" aria-pressed="true">All <span class="count" data-count="all"></span></button>
-          <button class="filter-chip" type="button" data-module-filter="updates" aria-pressed="false">Updates available <span class="count" data-count="updates"></span></button>
-          <button class="filter-chip" type="button" data-module-filter="configurable" aria-pressed="false">Configurable <span class="count" data-count="configurable"></span></button>
-          <button class="filter-chip" type="button" data-module-filter="available" aria-pressed="false">Available <span class="count" data-count="available"></span></button>
+          <span class="status" id="modules-status" role="status"></span>
         </div>
         <!-- what modules have done lately: newest first, in a box that scrolls -->
         <div class="activity-head"><h3>Recent activity</h3><span class="hint" data-fill>What {modules} have done lately</span></div>
         <div class="activity-log-box" id="activity-box" tabindex="0" role="log" aria-label="Recent {module} activity" data-fill>
           <ul class="activity-log" id="module-activity"></ul>
-          <p class="hint activity-empty" id="module-activity-empty">No activity yet.</p>
+          <p class="sdk-empty-line" id="module-activity-empty">No activity yet.</p>
         </div>
       </div>
-      <!-- The AI service is server-wide, not one module's setting: its own configuration page, and a summary here. -->
-      <div class="panel" id="ai-panel">
-        <div class="module-head">
-          <i class="fa-solid fa-wand-magic-sparkles fa-fw module-icon" aria-hidden="true"></i>
-          <div class="grow"><h2>AI service</h2><div class="hint" id="ai-summary">Loading...</div></div>
-          <span class="pill" id="ai-state">Off</span>
-        </div>
-        <p class="hint" data-fill>Lets {modules} that ask for it summarise and answer questions about the {objects} a person selects. Set it up on its own page, then tick <strong>Use AI in {modules}</strong> for a role on the Roles tab ({guests} never can).</p>
-        <div class="row">
-          <a class="btn" href="/ai-config.html"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> AI Configuration</a>
-          <button class="btn" type="button" id="ai-toggle" disabled>Approve and enable</button>
-          <span class="hint" id="ai-toggle-hint"></span>
-        </div>
+      <!-- The filters, between the activity and the list (#264). -->
+      <div class="module-filters" id="module-filters" role="group" aria-label="Show">
+        <button class="sdk-chip on" type="button" data-module-filter="all" aria-pressed="true">All <span class="sdk-badge" data-count="all"></span></button>
+        <button class="sdk-chip" type="button" data-module-filter="updates" aria-pressed="false">Updates available <span class="sdk-badge" data-count="updates"></span></button>
+        <button class="sdk-chip" type="button" data-module-filter="configurable" aria-pressed="false">Configurable <span class="sdk-badge" data-count="configurable"></span></button>
+        <button class="sdk-chip" type="button" data-module-filter="available" aria-pressed="false">Available <span class="sdk-badge" data-count="available"></span></button>
       </div>
+      <!-- The AI service: server-wide (the service, model and key the Assistant, Chat's AI and Research share), not one
+           module's setting. Its entry here, with its switch, drawn by admin.js; its setup is on its own tab (#modules/ai). -->
+      <div id="ai-row"></div>
       <div id="modules-list" class="stack"></div>
       <!-- The flight schedule (plan-flight-lookup.md, step 5), on a single install only: on a hosted server it is the host console's. Drawn by /flight-schedule.js on /api/flight-schedule. -->
       <section class="panel flight-schedule" id="flight-schedule-section" hidden>
@@ -237,6 +275,102 @@
         </form>
         <div class="row danger-row"><button class="btn btn-small btn-danger" id="flight-clear" type="button">Clear all</button></div>
       </section>
+      </div>
+
+      <!-- Conference's tab, while it is on (#modules/conference): its entry and its call features, the environment's own
+           (the personal ones are on Profile > Conference). -->
+      <div class="tab-stack" id="module-part-conference" data-module-part="conference" hidden>
+        <div id="conference-card"></div>
+        <div class="panel">
+        <h2>Call features</h2>
+        <p class="hint" data-fill>Turn any of these off for the whole {environment}. All on by default. Portrait size is how large a picture sits in the conference tile when the camera is off. 100 is as tall as the tile. Coffee Pub Studio's participant box uses this same size.</p>
+        <div class="fields">
+          <label>Maximum call quality<select id="set-max-quality"><option value="360">360p</option><option value="540">540p</option><option value="720">720p</option></select></label>
+          <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
+        </div>
+        <div class="checks">
+          <label class="sdk-choice-row"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
+          <label class="sdk-choice-row" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
+          <label class="sdk-choice-row"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
+          <label class="sdk-choice-row"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
+          <label class="sdk-choice-row" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="save-features" type="button">Save</button>
+          <span class="status" id="features-status"></span>
+        </div>
+        </div>
+      </div>
+
+      <!-- The AI service's tab (#modules/ai), always there, since it is set up here before it can be turned on: its entry
+           with its switch (admin.js), then its setup, drawn by /ai-form.js on /api/ai. -->
+      <div class="tab-stack" id="module-part-ai" data-module-part="ai" hidden>
+        <div id="ai-tab-card"></div>
+        <section class="panel" id="ai-panel">
+          <h2>Setup</h2>
+          <p class="hint" data-fill><strong>Managed</strong> uses the service the host runs, with its key; <strong>Custom</strong> is a service and key of this {environment}'s own. Setting a service up does not turn the AI on: use the switch above, then tick <strong>Use AI in {modules}</strong> for a role on the Roles tab ({guests} never can).</p>
+          <div class="ai-fields">
+            <label>Source
+              <select id="ai-source" data-fill>
+                <option value="custom">Custom: this {environment}'s own service and key</option>
+              </select>
+            </label>
+            <div class="sdk-banner" data-kind="info" id="ai-managed-note" hidden><span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span><span class="sdk-banner-text" id="ai-managed-note-text"></span></div>
+            <label data-ai-custom>Service
+              <select id="ai-provider">
+                <option value="none">None (AI is off)</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="compatible">Other (OpenAI-compatible)</option>
+              </select>
+            </label>
+            <div class="sdk-banner" data-kind="info" id="ai-notice" data-ai-custom hidden><span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span><span class="sdk-banner-text" id="ai-notice-text"></span></div>
+            <label data-ai-for="compatible">Address <span class="hint">Your own server's address (for example http://localhost:11434 for Ollama), or another company's service that speaks the OpenAI interface. It should be the server's root or end in /v1.</span>
+              <input id="ai-address" type="url" maxlength="300" placeholder="https://" autocomplete="off">
+            </label>
+            <label data-ai-for="anthropic">Workspace id <span class="hint">Only for a key made at the organisation level, which Anthropic then asks to name a workspace: the id from the Anthropic console. A key made inside a workspace needs nothing here.</span>
+              <input id="ai-workspace" type="text" maxlength="100" placeholder="wrkspc_..." autocomplete="off" spellcheck="false">
+            </label>
+            <div class="ai-key" data-ai-for="openai anthropic compatible">
+              <div class="ai-label">Key <span class="hint" id="ai-key-optional" hidden>(optional for a model on your own network)</span></div>
+              <div class="ai-key-row">
+                <span class="sdk-status" id="ai-key-state">not set</span>
+                <input id="ai-key" type="password" maxlength="300" placeholder="paste a new key" autocomplete="new-password" aria-label="New key" hidden>
+                <button class="btn btn-small" type="button" id="ai-key-replace">Set a key</button>
+                <button class="btn btn-small btn-danger" type="button" id="ai-key-clear" hidden>Remove the key</button>
+              </div>
+              <p class="hint" id="ai-key-help">The key is kept on the server and is never shown again.</p>
+            </div>
+            <div class="ai-model" data-ai-for="openai anthropic compatible">
+              <div class="ai-label">Model</div>
+              <div class="ai-model-row">
+                <select id="ai-model-select" aria-label="Model"></select>
+                <input id="ai-model" type="text" maxlength="100" placeholder="the model's name" autocomplete="off" aria-label="Model" hidden>
+                <button class="btn btn-small" type="button" id="ai-models-refresh" title="Load the list of models again"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh</button>
+              </div>
+              <p class="hint" id="ai-models-hint"></p>
+              <button class="linklike" type="button" id="ai-model-manual" hidden>Type a model name instead</button>
+            </div>
+            <label>Monthly allowance <span class="hint">(tokens; 0 for no limit)</span>
+              <input id="ai-cap" type="number" min="0" step="1000" value="0">
+            </label>
+          </div>
+          <div class="row"><button class="btn btn-primary" type="button" id="ai-save">Save</button><span class="status" id="ai-status" role="status"></span></div>
+          <div class="ai-usage" id="ai-usage" hidden>
+            <h3>Used this month</h3>
+            <div class="sdk-progress" role="progressbar" aria-label="Monthly allowance used" aria-valuemin="0" aria-valuemax="100" id="ai-meter"><span class="sdk-progress-fill" id="ai-meter-fill"></span></div>
+            <p class="hint" id="ai-usage-text"></p>
+          </div>
+        </section>
+      </div>
+
+      <!-- An installed module's tab, while it is on: its card, its settings (module-config.html's markup, drawn by
+           module-config.js's drawModuleConfig()), then what it is approved to do, its versions and Uninstall. -->
+      <div class="tab-stack" id="module-part-module" data-module-part="module" hidden>
+        <div id="module-tab-card"></div>
+        <div id="module-tab-settings"></div>
+        <div id="module-tab-more"></div>
+      </div>
     </section>
 
     <section class="tab-stack" id="tab-about" hidden>
@@ -335,7 +469,6 @@
       </div>
       </div>
 
-      <!-- Moved from Theme (addendum 2, step 3b); #reactions and #icons still open them. -->
       <div class="panel" id="reactions-section">
       <h2>Reactions</h2>
       <p class="hint">The emoji tray in the call, and on stream. The first six are also reachable with keys 1 to 6. Leave the list empty to turn reactions off.</p>
@@ -361,148 +494,119 @@
     </section>
 
     <section class="tab-stack" id="tab-environment">
-      <!-- The environment on a host with several: its plan, what it has used, and the two things an owner may ask of the host. -->
-      <div class="panel" id="env-panel" hidden>
-        <div class="section-head">
-          <h2 data-fill>{Environment}</h2>
-          <span class="pill" id="env-plan-pill"></span>
-          <span class="status" id="env-status"></span>
+      <!-- The Environment tab's parts (#261): General, Localization and Stream, each its own stack; the strip goes in the
+           page bar's row, the navigation inside this tab (admin.js, page-tabs.js rowTabs). Each opens by its own hash:
+           #general, #localization, #stream. -->
+      <nav class="subtabs" id="env-subtabs">
+        <button class="subtab active" type="button" data-env-part="general">General</button>
+        <button class="subtab" type="button" data-env-part="localization">Localization</button>
+        <button class="subtab" type="button" data-env-part="stream">Stream</button>
+      </nav>
+      <div class="tab-stack" id="env-part-general" data-env-part="general">
+        <!-- The environment on a host with several: its plan, what it has used, and the two things an owner may ask of the host. -->
+        <div class="panel" id="env-panel" hidden>
+          <div class="section-head">
+            <h2 data-fill>{Environment}</h2>
+            <span class="sdk-status" id="env-plan-pill"></span>
+            <span class="status" id="env-status"></span>
+          </div>
+          <div class="sdk-banner" data-kind="danger" role="status" id="env-banner" hidden><span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><span class="sdk-banner-text" id="env-banner-text"></span></div>
+          <p class="hint" id="env-hint"></p>
+          <dl class="env-caps" id="env-caps"></dl>
+          <div class="row">
+            <a class="btn btn-primary" id="env-upgrade" target="_blank" rel="noopener" hidden>Upgrade</a>
+            <button class="btn" id="env-export" type="button">Download a copy</button>
+            <button class="btn btn-danger" id="env-delete" type="button">Ask for deletion</button>
+            <button class="btn" id="env-delete-cancel" type="button" hidden>Withdraw the deletion request</button>
+          </div>
+          <form class="row" id="env-delete-form" hidden>
+            <input id="env-delete-reason" type="text" maxlength="200" placeholder="Why, in a few words (optional)">
+            <button class="btn btn-danger btn-small" type="submit">Send the request</button>
+            <button class="btn btn-small" type="button" id="env-delete-back">Never mind</button>
+          </form>
         </div>
-        <p class="hint env-banner" id="env-banner" hidden></p>
-        <p class="hint" id="env-hint"></p>
-        <dl class="env-caps" id="env-caps"></dl>
+        <div class="panel">
+        <h2>Name and icon</h2>
+        <p class="hint">The icon and name show in the header, the browser tab and on the sign-in page.</p>
+        <div class="brand-row">
+          <div class="site-images">
+            <div class="slot" data-site="icon" data-slot-name="{Environment} icon">
+              <div class="slot-pick-wrap">
+                <label class="slot-pick icon-size" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
+                <button class="slot-remove" data-action="site-clear" type="button" data-tip="Remove" aria-label="Remove">&times;</button>
+              </div>
+            </div>
+          </div>
+          <div class="fields grow">
+            <label>Name<input id="set-environment-name" type="text" maxlength="60"></label>
+          </div>
+        </div>
+        <p class="hint">The home icon, the words and the <span data-word="module"></span> names are on the <a href="#template">Template</a> tab.</p>
         <div class="row">
-          <a class="btn btn-primary" id="env-upgrade" target="_blank" rel="noopener" hidden>Upgrade</a>
-          <button class="btn" id="env-export" type="button">Download a copy</button>
-          <button class="btn btn-danger" id="env-delete" type="button">Ask for deletion</button>
-          <button class="btn" id="env-delete-cancel" type="button" hidden>Withdraw the deletion request</button>
+          <button class="btn btn-primary" id="save-settings" type="button">Save</button>
+          <span class="status" id="settings-status"></span>
         </div>
-        <form class="row" id="env-delete-form" hidden>
-          <input id="env-delete-reason" type="text" maxlength="200" placeholder="Why, in a few words (optional)">
-          <button class="btn btn-danger btn-small" type="submit">Send the request</button>
-          <button class="btn btn-small" type="button" id="env-delete-back">Never mind</button>
-        </form>
-      </div>
-      <div class="panel">
-      <h2>Name and icon</h2>
-      <p class="hint">The icon and name show in the header, the browser tab and on the sign-in page.</p>
-      <div class="brand-row">
-        <div class="site-images">
-          <div class="slot" data-site="icon" data-slot-name="{Environment} icon">
-            <div class="slot-pick-wrap">
-              <label class="slot-pick icon-size" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
-              <button class="slot-remove" data-action="site-clear" type="button" title="Remove" aria-label="Remove">&times;</button>
+        </div>
+
+        <div class="panel">
+        <h2>Sign-in page</h2>
+        <p class="hint">A picture behind the sign-in box, and a note under the password field.</p>
+        <div class="brand-row stretch">
+          <div class="site-images">
+            <div class="slot" data-site="background" data-slot-name="Sign-in background">
+              <div class="slot-pick-wrap">
+                <label class="slot-pick wide" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
+                <button class="slot-remove" data-action="site-clear" type="button" data-tip="Remove" aria-label="Remove">&times;</button>
+              </div>
+              <button class="btn btn-small slot-library" type="button" data-action="site-library">Choose from the library</button>
+            </div>
+          </div>
+          <div class="fields grow">
+            <label class="wide"><textarea id="set-login-text" rows="3" maxlength="1000" aria-label="Text on the sign-in page" placeholder="A note under the password field"></textarea></label>
+            <div class="wide" id="set-mfa-row">
+              <label class="sdk-choice-row"><input type="checkbox" id="set-mfa-required"> Require two-step sign-in for everyone</label>
+              <p class="hint">Off: anyone may set up an authenticator app on their profile, and is then asked for its code. On: everyone must, from their next sign-in.</p>
             </div>
           </div>
         </div>
-        <div class="fields grow">
-          <label>Name<input id="set-environment-name" type="text" maxlength="60"></label>
+        <div class="row">
+          <button class="btn btn-primary" id="save-login" type="button">Save</button>
+          <span class="status" id="login-status"></span>
+        </div>
         </div>
       </div>
-      <p class="hint">The home icon, the words and the <span data-word="module"></span> names are on the <a href="#template">Template</a> tab.</p>
-      <div class="row">
-        <button class="btn btn-primary" id="save-settings" type="button">Save</button>
-        <span class="status" id="settings-status"></span>
-      </div>
-      </div>
 
-      <div class="panel">
-      <h2>Language, time and money</h2>
-      <p class="hint" data-fill>How this {environment} and every {module} show these. Times are on a 12-hour clock unless you choose 24-hour; amounts are shown in this currency unless a trip names its own.</p>
-      <div class="fields">
-        <label>Language<select id="set-language"><option value="en">English</option></select></label>
-        <label>Clock<select id="set-clock"><option value="12">12-hour (10:30 PM)</option><option value="24">24-hour (22:30)</option></select></label>
-        <label>Currency<select id="set-currency"></select></label>
-      </div>
-      <p class="hint">More languages come with translations. Showing a trip's own currency with a conversion beside it needs a source of exchange rates, which is not set up yet.</p>
-      <div class="row">
-        <button class="btn btn-primary" id="save-locale" type="button">Save</button>
-        <span class="status" id="locale-status"></span>
-      </div>
-      </div>
-
-      <div class="panel">
-      <h2>Call features</h2>
-      <p class="hint" data-fill>Turn any of these off for the whole {environment}. All on by default. Portrait size is how large a picture sits in the conference tile when the camera is off. 100 is as tall as the tile. Coffee Pub Studio's participant box uses this same size.</p>
-      <div class="fields">
-        <label>Maximum call quality<select id="set-max-quality"><option value="360">360p</option><option value="540">540p</option><option value="720">720p</option></select></label>
-        <label>Portrait size (%)<input id="set-picture-scale" type="number" min="20" max="100" step="1"></label>
-      </div>
-      <div class="checks">
-        <label class="check"><input id="set-allow-screen-share" type="checkbox"> Allow desktop sharing</label>
-        <label class="check" data-fill><input id="set-allow-asides" type="checkbox"> Allow {asides}</label>
-        <label class="check"><input id="set-allow-private" type="checkbox"> Allow private calls</label>
-        <label class="check"><input id="set-allow-reactions" type="checkbox"> Allow reactions</label>
-        <label class="check" data-fill><input id="set-auto-join-call" type="checkbox"> Join the call when someone enters {a space}</label>
-      </div>
-      <div class="row">
-        <button class="btn btn-primary" id="save-features" type="button">Save</button>
-        <span class="status" id="features-status"></span>
-      </div>
-      </div>
-
-      <div class="panel">
-      <h2>Sign-in page</h2>
-      <p class="hint">A picture behind the sign-in box, and a note under the password field.</p>
-      <div class="brand-row stretch">
-        <div class="site-images">
-          <div class="slot" data-site="background" data-slot-name="Sign-in background">
-            <div class="slot-pick-wrap">
-              <label class="slot-pick wide" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
-              <button class="slot-remove" data-action="site-clear" type="button" title="Remove" aria-label="Remove">&times;</button>
-            </div>
-            <button class="btn btn-small slot-library" type="button" data-action="site-library">Choose from the library</button>
-          </div>
+      <div class="tab-stack" id="env-part-localization" data-env-part="localization" hidden>
+        <div class="panel">
+        <h2>Language, time and money</h2>
+        <p class="hint" data-fill>How this {environment} and every {module} show these. Times are on a 12-hour clock unless you choose 24-hour; amounts are shown in this currency unless a trip names its own.</p>
+        <div class="fields">
+          <label>Language<select id="set-language"><option value="en">English</option></select></label>
+          <label>Clock<select id="set-clock"><option value="12">12-hour (10:30 PM)</option><option value="24">24-hour (22:30)</option></select></label>
+          <label>Currency<select id="set-currency"></select></label>
         </div>
-        <div class="fields grow">
-          <label class="wide"><textarea id="set-login-text" rows="3" maxlength="1000" aria-label="Text on the sign-in page" placeholder="A note under the password field"></textarea></label>
-          <div class="wide" id="set-mfa-row">
-            <label class="check"><input type="checkbox" id="set-mfa-required"> Require two-step sign-in for everyone</label>
-            <p class="hint">Off: anyone may set up an authenticator app on their profile, and is then asked for its code. On: everyone must, from their next sign-in.</p>
-          </div>
+        <p class="hint">More languages come with translations. Showing a trip's own currency with a conversion beside it needs a source of exchange rates, which is not set up yet.</p>
+        <div class="row">
+          <button class="btn btn-primary" id="save-locale" type="button">Save</button>
+          <span class="status" id="locale-status"></span>
+        </div>
         </div>
       </div>
-      <div class="row">
-        <button class="btn btn-primary" id="save-login" type="button">Save</button>
-        <span class="status" id="login-status"></span>
-      </div>
+
+      <div class="tab-stack" id="env-part-stream" data-env-part="stream" hidden>
+        <div class="panel">
+        <h2>Access key</h2>
+        <p class="hint"><strong>Optional.</strong> Only needed to show people in OBS or in Coffee Pub Studio; nothing else uses it.</p>
+        <p class="hint" data-fill>A page opened without a sign-in (the Stream {module}'s views for OBS) carries this <strong>access key</strong> in its link instead, and Coffee Pub Studio fetches it by itself when you sign in there. The Stream {module}'s own page builds the links. Regenerating it makes every existing link stop working; Studio re-points its sources on its next sync.</p>
+        <div class="row">
+          <code class="key" id="stream-key">••••••••</code>
+          <button class="btn" id="stream-show" type="button">Show</button>
+          <button class="btn" id="stream-copy" type="button">Copy</button>
+          <button class="btn btn-danger" id="stream-regen" type="button">Regenerate</button>
+        </div>
+        </div>
       </div>
 
-      <div class="panel">
-      <h2>Sign-up</h2>
-      <div class="row">
-        <label class="check"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
-      </div>
-      <div class="row">
-        <button class="btn btn-primary" id="save-registration" type="button">Save</button>
-        <span class="status" id="registration-status"></span>
-      </div>
-      <p class="hint" data-fill>Or invite someone straight into specific {spaces} without opening sign-up to everyone:</p>
-      <div class="row">
-        <span class="field-label" data-fill>{Spaces}</span>
-        <div class="member-checks" id="invite-spaces"></div>
-      </div>
-      <div class="row">
-        <button class="btn btn-primary" id="make-invite" type="button">Generate invite link</button>
-        <span class="status" id="invite-status"></span>
-      </div>
-      <div class="row" id="invite-link-row" hidden>
-        <code class="key link" id="invite-link"></code>
-        <button class="btn btn-small" id="invite-copy" type="button">Copy</button>
-        <span class="hint">Expires in 7 days, works once.</span>
-      </div>
-      </div>
-
-      <div class="panel">
-      <h2>Access key</h2>
-      <p class="hint" data-fill>A page opened without a sign-in (the Stream {module}'s views for OBS) carries this <strong>access key</strong> in its link instead, and Coffee Pub Studio fetches it by itself when you sign in there. The Stream {module}'s own page builds the links. Regenerating it makes every existing link stop working; Studio re-points its sources on its next sync.</p>
-      <div class="row">
-        <code class="key" id="stream-key">••••••••</code>
-        <button class="btn" id="stream-show" type="button">Show</button>
-        <button class="btn" id="stream-copy" type="button">Copy</button>
-        <button class="btn btn-danger" id="stream-regen" type="button">Regenerate</button>
-      </div>
-      </div>
     </section>
   </main>
 
@@ -511,8 +615,8 @@
       <span class="icon-preview" aria-hidden="true"></span>
       <input class="icon-html" type="text" placeholder='<i class="fa-solid fa-dice"></i>' aria-label="Font Awesome HTML" spellcheck="false" autocomplete="off">
       <input class="reaction-label icon-label" type="text" maxlength="40" placeholder="Label" aria-label="Label">
-      <button class="btn btn-small" data-action="icon-up" type="button" title="Move earlier" aria-label="Move earlier">&uarr;</button>
-      <button class="btn btn-small" data-action="icon-down" type="button" title="Move later" aria-label="Move later">&darr;</button>
+      <button class="btn btn-small" data-action="icon-up" type="button" data-tip="Move earlier" aria-label="Move earlier">&uarr;</button>
+      <button class="btn btn-small" data-action="icon-down" type="button" data-tip="Move later" aria-label="Move later">&darr;</button>
       <button class="btn btn-small btn-danger" data-action="icon-remove" type="button">Remove</button>
     </div>
   </template>
@@ -521,8 +625,8 @@
     <div class="reaction-row">
       <input class="reaction-glyph" type="text" maxlength="8" placeholder="🙂" aria-label="Emoji">
       <input class="reaction-label" type="text" maxlength="40" placeholder="Label" aria-label="Label">
-      <button class="btn btn-small" data-action="reaction-up" type="button" title="Move earlier" aria-label="Move earlier">&uarr;</button>
-      <button class="btn btn-small" data-action="reaction-down" type="button" title="Move later" aria-label="Move later">&darr;</button>
+      <button class="btn btn-small" data-action="reaction-up" type="button" data-tip="Move earlier" aria-label="Move earlier">&uarr;</button>
+      <button class="btn btn-small" data-action="reaction-down" type="button" data-tip="Move later" aria-label="Move later">&darr;</button>
       <button class="btn btn-small btn-danger" data-action="reaction-remove" type="button">Remove</button>
     </div>
   </template>
@@ -534,8 +638,8 @@
         <strong data-name></strong>
         <span class="meta" data-meta></span>
       </div>
-      <button class="btn btn-small" data-action="space-up" type="button" title="Move earlier" aria-label="Move earlier">&uarr;</button>
-      <button class="btn btn-small" data-action="space-down" type="button" title="Move later" aria-label="Move later">&darr;</button>
+      <button class="btn btn-small" data-action="space-up" type="button" data-tip="Move earlier" aria-label="Move earlier">&uarr;</button>
+      <button class="btn btn-small" data-action="space-down" type="button" data-tip="Move later" aria-label="Move later">&darr;</button>
       <a class="btn btn-primary btn-small" data-action="edit" type="button" data-fill>Edit {space}</a>
     </article>
   </template>
@@ -546,7 +650,7 @@
       <img class="thumb" data-thumb alt="">
       <div class="user-title">
         <strong data-name></strong>
-        <span class="meta"><span data-login></span> · <span data-role></span> · key <code data-key></code> <span class="pill" data-mfa hidden title="Signs in in two steps">two-step</span> <span class="pill" data-feed hidden title="Has a private address for a calendar app">calendar feed</span></span>
+        <span class="meta"><span data-login></span> · <span data-role></span> · key <code data-key></code> <span class="sdk-status" data-mfa hidden title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed hidden title="Has a private address for a calendar app">calendar feed</span></span>
       </div>
       <span class="live" data-live></span>
       <button class="btn btn-small" data-action="mute" type="button">Mute mic</button>
@@ -556,6 +660,8 @@
     </article>
   </template>
 
+  <!-- the colours a theme does not set, picked from the ones it does (shared with the server) -->
+  <script src="/theme-colour.js"></script>
   <!-- the SDK, for the currency list every picker shares (window.hostCurrency) -->
   <script src="/sdk/host.js" data-host-sdk></script>
   <script type="module" src="/admin.js"></script>

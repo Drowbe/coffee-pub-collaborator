@@ -16,18 +16,51 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Places could not start: ' + err.message;
+    showMsg('Places could not start', err.message, () => location.reload());
     return;
   }
   // On a space's canvas or on the module's own page: a space has its own list; the page has only mine and everyone's.
   const inSpace = info.context.scope === 'space';
   if (!inSpace && info.context.scope !== 'environment') {
-    $('msg').textContent = `${info.module.name} could not open here.`;
+    showMsg(`${info.module.name} could not open here.`);
     return;
   }
   // The Map destination's list: Mine, everyone's and the viewer's spaces' places together, beside the map (in a space,
@@ -324,12 +357,12 @@
     const look = lookFor(p);
     el.dataset.cat = look.cat.id;
     tone(el, look.color);
-    if (asPart && state.selected === rowKey(w, p.id)) el.classList.add('selected');
+    if (asPart && state.selected === rowKey(w, p.id)) el.classList.add('on');
     const marks = slot(el, 'marks');
     marks.replaceChildren(...(w === 'global' ? markNames(p) : []).map((name) => { const m = clone('tpl-mark'); fill(m, { name }); return m; }));
     marks.hidden = !marks.children.length;
     if (w !== 'saved') scopeMark(el, w);
-    setIcon(el.querySelector('.mark [data-icon]'), look.icon);
+    setIcon(el.querySelector('.sdk-card-icon [data-icon]'), look.icon);
     const visit = slot(el, 'visit');
     const st = statusOf(p.status);
     if (st) { setIcon(visit.querySelector('[data-icon]'), st.icon); visit.querySelector('[data-slot="word"]').textContent = st.label; }
@@ -440,7 +473,7 @@
       if (key) tone(c, categoryColor(cats, catRow(key)));
       setIcon(c.querySelector('[data-icon]'), icon);
       fill(c, { label, count: String(count) });
-      c.classList.toggle('on', state.cat === key);
+      c.setAttribute('aria-pressed', String(state.cat === key));
       chips.push(c);
     };
     chip('', 'layer-group', 'All', searched.length);
@@ -499,7 +532,7 @@
     let found = null;
     for (const el of $('body').querySelectorAll('.place-row')) {
       const on = rowKey(el.dataset.where, el.dataset.id) === state.selected;
-      el.classList.toggle('selected', on);
+      el.classList.toggle('on', on);
       if (on) found = el;
     }
     if (found && scroll) found.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -621,7 +654,7 @@
 
   // --- the dialog for one place -------------------------------------------------------------------------------------
 
-  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('editor-buttons') && !n.classList.contains('readonly') && !n.classList.contains('conflict-bar'));
+  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('sdk-editor-actions') && !n.classList.contains('readonly') && !n.hasAttribute('data-bar'));
 
   // --- Shows in: where a place shows, and so where it is kept --------------------------------------------------------
   // A tick per place it can show: Everyone in <environment>, this space (in a space), the other spaces where the viewer may
@@ -669,7 +702,6 @@
     input.value = value;
     input.checked = Boolean(checked);
     input.disabled = !enabled;
-    el.classList.toggle('disabled', !enabled);
     fill(el, { label, hint: hint || '' });
     return el;
   }
@@ -706,12 +738,14 @@
     const box = $('f-owners');
     box.replaceChildren(...state.people.map((person) => {
       const label = document.createElement('label');
-      label.className = 'check';
+      label.className = 'sdk-choice-row';
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.value = person.key;
       input.checked = selected.includes(person.key);
-      label.append(input, document.createTextNode(' ' + person.name));
+      const name = document.createElement('span');
+      name.textContent = person.name;
+      label.append(input, name);
       return label;
     }));
   }
@@ -730,7 +764,7 @@
   $('f-point').addEventListener('input', readPoint);
 
   const editorError = (text) => { $('f-error').textContent = text; $('f-error').hidden = !text; };
-  const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
+  const dropConflict = () => { for (const n of $('form').querySelectorAll('[data-bar]')) n.remove(); if (state.editing) state.editing.conflict = null; };
   // The dialog is the editor window (host.ui.editor): over everything (beside the map, over the whole destination page),
   // sized to the form, a sheet on a phone. What the form held when it opened is kept as text (state.editing.opened), so
   // Escape and Close ask "Discard your changes?" only after something changed; a read-only place never asks.
@@ -805,7 +839,7 @@
     if (openFly && openFly.btn === btn) return closeFly(true);
     closeFly();
     const pop = document.createElement('div');
-    pop.className = 'pick-pop';
+    pop.className = 'sdk-popover sdk-popover-dense pick-pop'; // the SDK's popover surface (the Menus family), placed here
     pop.dataset.for = btn.id;
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', label);
@@ -851,7 +885,7 @@
       const list = all.filter((en) => (en.reset && !q.length) || (!en.reset && (!q.length || q.every((w) => [...words(en.label), ...(en.words || []).flatMap(words)].some((x) => x.startsWith(w))))));
       for (const en of list) {
         const el = document.createElement('div');
-        el.className = 'pick-option';
+        el.className = 'pick-option sdk-kind-option'; // a Menus row (hover, the keyboard cursor, the chosen one)
         el.id = `${btn.id}-o${shown.length}`;
         el.setAttribute('role', 'option');
         el.setAttribute('aria-selected', String(en.id === now));
@@ -861,7 +895,6 @@
         t.className = 'pick-name';
         t.textContent = en.label;
         el.appendChild(t);
-        if (en.id === now) { const c = document.createElement('span'); c.className = 'ic pick-check'; c.dataset.icon = 'check'; el.appendChild(c); }
         const i = shown.length;
         el.addEventListener('mousemove', () => { if (active !== i) mark(i); });
         el.addEventListener('click', () => choose(i));
@@ -1005,7 +1038,7 @@
       fillWhere(w, false);
       const ro = clone('tpl-readonly');
       fill(ro, { type: (typeOf(shown.type) || typeOf(DEFAULT_TYPE) || {}).label || 'None', status: (statusOf(shown.status) || {}).label || 'None', address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
-      $('editor-title').after(ro);
+      $('form').prepend(ro); // first in the form: the title is in the window's head
     }
     // Where it is, and what uses it.
     // The target beside Position: only for a place being added or changed in the form, and only while a map can answer.
@@ -1068,7 +1101,7 @@
     e.conflict = { theirs, version };
     const bar = clone('tpl-conflict');
     fill(bar, { text: 'Someone changed this place while you were editing.' });
-    $('form').querySelector('.editor-buttons').before(bar);
+    $('form').querySelector('.sdk-editor-actions').before(bar);
     editorError('');
   }
   $('form').addEventListener('click', (ev) => {
@@ -1088,17 +1121,17 @@
   // Asked before a change of ticks takes the place away from people (narrowing): Keep it shared puts the ticks back,
   // Take it away saves.
   function askNarrow(text) {
-    for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
+    for (const n of $('form').querySelectorAll('[data-bar="narrow"]')) n.remove();
     const bar = clone('tpl-narrow');
     fill(bar, { text });
-    $('form').querySelector('.editor-buttons').before(bar);
+    $('form').querySelector('.sdk-editor-actions').before(bar);
     bar.querySelector('[data-action="take-away"]').focus();
   }
   $('form').addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-action="keep-shared"], [data-action="take-away"]');
     const e = state.editing;
     if (!b || !e) return;
-    for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
+    for (const n of $('form').querySelectorAll('[data-bar="narrow"]')) n.remove();
     if (b.dataset.action === 'take-away') { e.narrowOk = true; $('form').requestSubmit(); return; }
     fillWhere(e.where, true, e.ticks);
     $('f-where').querySelector('input:not(:disabled)')?.focus();
@@ -1245,7 +1278,7 @@
     if (t && t.dataset.action === 'add-place') return openEditor(null, null);
     if (t && t.dataset.action === 'find-new') return void (state.q && showFound(state.q, sharedSearch(state.q)));
     if (t && t.dataset.action === 'clear-filter') { if (!asPart) { state.filter = ''; $('filter').value = ''; } state.cat = ''; return render(); }
-    const chip = ev.target.closest('.chip');
+    const chip = ev.target.closest('.sdk-chip');
     if (chip) { state.cat = chip.dataset.cat === state.cat ? '' : chip.dataset.cat; return render(); }
     if (rowEl && !ev.target.closest('.item-menu')) {
       const w = rowEl.dataset.where;
@@ -1665,41 +1698,46 @@
     if (host.destination) host.destination.onState(takeState);
   }
 
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
-  try {
-    // Everything the viewer may read, at once: this space's (or the view shown), the environment's (its marks fill a space's
-    // list), Mine and the saved list, and the spaces. A guest on a guest link reads only the space: none of the
-    // environment's places and no list of their own.
-    const first = inSpace ? 'space' : asPart ? null : view;
-    await Promise.all([
-      first ? ensureLoaded(first) : null,
-      personal ? ensureLoaded('my').catch(() => {}) : null,
-      personal ? ensureLoaded('global').catch(() => {}) : null,
-      saved ? saved.load().catch(() => {}) : null,
-      personal ? loadSpaces().catch(() => {}) : null,
-    ]);
-    state.people = await host.people().catch(() => []);
-    const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
-    // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).
-    let lastSettings = null;
-    const useSettings = (v) => { lastSettings = v; useSearch(v); useCats(v); catsReadDone(); if (state.loaded) { render(); hydrate(root); } };
-    try { useSettings(await host.settings.get()); } catch (err) { useSettings(null); }
-    host.settings.onChange((v) => useSettings(v));
-    // The picture map set, replaced or cleared while the page is open (host.environment follows it): the outside search, the
-    // dialog's Position wording and links, and the menu (built when it opens, so an open one is closed) follow at once.
-    host.on('environment', () => { host.menu.close(); useSettings(lastSettings); pictureParts(); });
-    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(cats.map((c) => c.icon), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
-    findShowAction();
-    state.loaded = true;
+  let lastSettings = null;
+  let wired = false; // the settings and the environment are listened to once, however many times it is tried
+  async function load() {
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
     render();
-    loadLinks().catch(() => {});
-    if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
-  } catch (err) {
-    catsReadDone();
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The places could not load: ' + err.message;
+    try {
+      // Everything the viewer may read, at once: this space's (or the view shown), the environment's (its marks fill a space's
+      // list), Mine and the saved list, and the spaces. A guest on a guest link reads only the space: none of the
+      // environment's places and no list of their own.
+      const first = inSpace ? 'space' : asPart ? null : view;
+      await Promise.all([
+        first ? ensureLoaded(first) : null,
+        personal ? ensureLoaded('my').catch(() => {}) : null,
+        personal ? ensureLoaded('global').catch(() => {}) : null,
+        saved ? saved.load().catch(() => {}) : null,
+        personal ? loadSpaces().catch(() => {}) : null,
+      ]);
+      state.people = await host.people().catch(() => []);
+      const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
+      // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).
+      const useSettings = (v) => { lastSettings = v; useSearch(v); useCats(v); catsReadDone(); if (state.loaded) { render(); hydrate(root); } };
+      try { useSettings(await host.settings.get()); } catch (err) { useSettings(null); }
+      if (!wired) host.settings.onChange((v) => useSettings(v));
+      // The picture map set, replaced or cleared while the page is open (host.environment follows it): the outside search, the
+      // dialog's Position wording and links, and the menu (built when it opens, so an open one is closed) follow at once.
+      if (!wired) host.on('environment', () => { host.menu.close(); useSettings(lastSettings); pictureParts(); });
+      wired = true;
+      await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(cats.map((c) => c.icon), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
+      findShowAction();
+      state.loaded = true;
+      render();
+      loadLinks().catch(() => {});
+      if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
+    } catch (err) {
+      catsReadDone();
+      $('app').hidden = true;
+      showMsg('The places could not load', err.message, load);
+    }
   }
+  await load();
 })();

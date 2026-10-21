@@ -21,22 +21,22 @@
     <!-- Overview: the target, what is spent, each category, the burndown -->
     <section id="view-overview" class="view" aria-label="Overview" hidden>
       <p class="hint note" data-slot="withheld-note" hidden></p>
-      <div class="tile target" id="target-tile">
+      <div class="sdk-card target" id="target-tile">
         <div class="target-head">
-          <h2 class="tile-title" data-slot="target-title">Target</h2>
-          <button class="btn" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
+          <h2 class="sdk-card-title" data-slot="target-title">Target</h2>
+          <button class="btn btn-small" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
         </div>
         <p class="big" data-slot="big"></p>
-        <div class="bar" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="bar-expected" id="bar-expected"></span><span class="bar-spent" id="bar-spent"></span></div>
+        <div class="sdk-progress" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="sdk-progress-planned" id="bar-expected"></span><span class="sdk-progress-fill" id="bar-spent"></span></div>
         <dl class="sums" id="sums"></dl>
         <p class="hint" data-slot="target-note" hidden></p>
       </div>
-      <div class="tile" id="cats-tile">
-        <h2 class="tile-title">By category</h2>
-        <div class="cat-rows" id="cat-rows"></div>
+      <div class="sdk-card" id="cats-tile">
+        <h2 class="sdk-card-title">By category</h2>
+        <div class="sdk-card-list" id="cat-rows"></div>
       </div>
-      <div class="tile" id="burn-tile">
-        <h2 class="tile-title">Target left over time</h2>
+      <div class="sdk-card" id="burn-tile">
+        <h2 class="sdk-card-title">Target left over time</h2>
         <div class="chart" id="chart"></div>
         <ul class="legend" id="legend" aria-hidden="true"></ul>
         <p class="hint" id="burn-words"></p>
@@ -46,12 +46,12 @@
     <!-- Costs: every cost, grouped by day or category -->
     <section id="view-costs" class="view" aria-label="Costs" hidden>
       <div class="list-tools">
-        <div class="find"><span class="ic" data-icon="magnifying-glass"></span><input id="find" type="search" maxlength="100" placeholder="Find a cost" aria-label="Find a cost" autocomplete="off"></div>
-        <div class="tool-row" role="group" aria-label="Show the costs">
-          <button class="chip-btn" type="button" id="tool-group"><span class="ic" data-icon="layer-group"></span><span data-slot="label">By day</span></button>
-          <button class="chip-btn" type="button" id="tool-sort"><span class="ic" data-icon="arrow-down-wide-short"></span><span data-slot="label">Date, earliest first</span></button>
-          <button class="chip-btn" type="button" id="tool-category"><span class="ic" data-icon="tag"></span><span data-slot="label">All categories</span></button>
-          <button class="chip-btn" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span data-slot="label">Anyone paid</span></button>
+        <div class="sdk-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="find" type="search" maxlength="100" placeholder="Find a cost" aria-label="Find a cost" autocomplete="off"></div>
+        <div class="sdk-chips" role="group" aria-label="Show the costs">
+          <button class="sdk-chip" type="button" id="tool-group"><span class="ic" data-icon="layer-group"></span><span class="sdk-chip-label" data-slot="label">By day</span></button>
+          <button class="sdk-chip" type="button" id="tool-sort"><span class="ic" data-icon="arrow-down-wide-short"></span><span class="sdk-chip-label" data-slot="label">Date, earliest first</span></button>
+          <button class="sdk-chip" type="button" id="tool-category"><span class="ic" data-icon="tag"></span><span class="sdk-chip-label" data-slot="label">All categories</span></button>
+          <button class="sdk-chip" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span class="sdk-chip-label" data-slot="label">Anyone paid</span></button>
         </div>
       </div>
       <p class="hint note" data-slot="withheld-note" hidden></p>
@@ -60,77 +60,76 @@
 
     <!-- Settle up: who owes whom -->
     <section id="view-settle" class="view" aria-label="Settle up" hidden>
-      <div class="tile">
-        <h2 class="tile-title">Who owes whom</h2>
-        <div id="payments"></div>
+      <div class="sdk-card">
+        <h2 class="sdk-card-title">Who owes whom</h2>
+        <div class="sdk-card-list" id="payments"></div>
       </div>
-      <div class="tile">
-        <h2 class="tile-title">Each person</h2>
-        <div class="people-rows" id="people-rows"></div>
+      <div class="sdk-card">
+        <h2 class="sdk-card-title">Each person</h2>
+        <div class="sdk-card-list" id="people-rows"></div>
         <p class="hint" data-slot="settle-note"></p>
       </div>
     </section>
   </main>
 
-  <!-- a cost, in the editor window (host.ui.editor): a form for someone who may edit, read-only for anyone else -->
+  <!-- a cost, in the editor window (host.ui.editor): a form for someone who may edit, read-only for anyone else. The form standard
+       (.sdk-form in the SDK) draws every field; this markup only says which fields there are and how wide. -->
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card" novalidate>
+    <form id="form" class="sdk-form" novalidate>
       <h3 id="editor-title">Add a cost</h3>
-      <p class="hint" id="f-readonly" hidden></p>
-      <fieldset id="f-fields" class="fields">
-        <label>What is it for<input id="f-title" name="title" type="text" maxlength="120" required autocomplete="off"></label>
-        <div class="editor-row">
-          <label><span>Planned <span class="unit" data-slot="unit"></span></span><input id="f-planned" name="planned" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet"></label>
-          <label><span>Paid <span class="unit" data-slot="unit"></span></span><input id="f-actual" name="actual" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet"></label>
-        </div>
-        <div class="editor-row">
-          <label>Category<select id="f-category" name="category"></select></label>
-          <label>Date<input id="f-date" name="date" type="date"></label>
-        </div>
-        <label>Paid by<select id="f-payer" name="payer"></select></label>
-        <div>
-          <div class="hint">Shared by</div>
-          <div class="editor-people" id="f-shared" role="group" aria-label="Shared by"></div>
-          <div class="hint" id="f-shared-note">Leave everyone unticked to share it with everyone.</div>
-        </div>
-        <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea></label>
-      </fieldset>
-      <p class="hint" id="f-by"></p>
-      <p class="error" id="f-error" role="alert" hidden></p>
-      <div class="editor-buttons sdk-editor-actions" id="f-actions">
-        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
-        <span class="grow"></span>
+      <div class="sdk-hint" id="f-readonly" hidden></div>
+      <label class="sdk-field"><span class="sdk-label">What is it for</span><input id="f-title" name="title" type="text" maxlength="120" required autocomplete="off"><span class="sdk-hint"></span></label>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-planned-label"><span class="sdk-label" id="f-planned-label">Planned</span><span class="sdk-group sdk-money"><input id="f-planned" name="planned" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet" aria-labelledby="f-planned-label"><span class="sdk-unit" data-slot="unit"></span></span><span class="sdk-hint"></span></div>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-actual-label"><span class="sdk-label" id="f-actual-label">Paid</span><span class="sdk-group sdk-money"><input id="f-actual" name="actual" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet" aria-labelledby="f-actual-label"><span class="sdk-unit" data-slot="unit"></span></span><span class="sdk-hint"></span></div>
+      </div>
+      <div class="sdk-form-row">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Category</span><select id="f-category" name="category"></select><span class="sdk-hint"></span></label>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Date</span><input id="f-date" name="date" type="date" aria-labelledby="f-date-label"><span class="sdk-hint"></span></div>
+      </div>
+      <label class="sdk-field"><span class="sdk-label">Paid by</span><select id="f-payer" name="payer"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-field" role="group" aria-labelledby="f-shared-label">
+        <span class="sdk-label" id="f-shared-label">Shared by</span>
+        <div class="sdk-choice-list" id="f-shared"></div>
+        <span class="sdk-hint" id="f-shared-note">Leave everyone unticked to share it with everyone.</span>
+      </div>
+      <label class="sdk-field"><span class="sdk-label">Notes</span><textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea><span class="sdk-hint"></span></label>
+      <div class="sdk-hint" id="f-by"></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions" id="f-actions">
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
       </div>
     </form>
   </dialog>
 
   <!-- the target, in a window of its own: only for someone who may change it -->
   <dialog id="target-editor" class="sdk-editor">
-    <form id="target-form" class="editor-card" novalidate>
+    <form id="target-form" class="sdk-form" novalidate>
       <h3 id="target-editor-title">Target</h3>
-      <label>Amount<input id="t-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="No target"></label>
-      <label>Currency<select id="t-currency" name="currency"></select></label>
-      <p class="hint">Leave the amount empty to have no target. Everyone signed in sees the target and how much is spent. People who joined by a link don't.</p>
-      <p class="error" id="t-error" role="alert" hidden></p>
-      <div class="editor-buttons sdk-editor-actions">
+      <label class="sdk-field"><span class="sdk-label">Amount</span><input id="t-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="No target"><span class="sdk-hint"></span></label>
+      <label class="sdk-field"><span class="sdk-label">Currency</span><select id="t-currency" name="currency"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-hint">Leave the amount empty to have no target. Everyone signed in sees the target and how much is spent. People who joined by a link don't.</div>
+      <div class="sdk-form-error" id="t-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
+        <button class="btn btn-quiet" type="button" id="t-cancel">Cancel</button>
         <button class="btn btn-primary" type="submit" id="t-save">Save</button>
-        <button class="btn" type="button" id="t-cancel">Cancel</button>
       </div>
     </form>
   </dialog>
 </div>
-<p id="msg" class="hint msg">Loading...</p>
+<div id="loading" class="msg" aria-busy="true"><div class="sdk-skel-list"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div>
+<div id="msg" class="sdk-empty" hidden></div>
 
 <!-- ============================ templates ============================ -->
 
-<template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span><span class="grow"></span><span class="group-total" data-slot="total"></span></h2><div class="rows"></div></section></template>
+<template id="tpl-group"><section class="sdk-list-group"><h2 class="sdk-group-head"><span class="ic" data-icon=""></span><span data-slot="title"></span><span class="sdk-group-count" data-slot="total"></span></h2><div class="sdk-list rows"></div></section></template>
 
 <!-- a cost. The element gets data-id; --tone is set to its category's colour. -->
 <template id="tpl-cost">
-  <article class="cost-row">
-    <button class="cost-main" type="button" data-action="open">
+  <article class="sdk-row cost-row">
+    <button class="sdk-open cost-main" type="button" data-action="open">
       <span class="mark"><span class="ic" data-icon=""></span></span>
       <span class="main">
         <span class="title" data-slot="title"></span>
@@ -142,17 +141,17 @@
         <span class="planned" data-slot="planned"></span>
       </span>
     </button>
-    <button class="row-menu sdk-more" type="button" data-action="menu" aria-label="Cost menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
+    <button class="row-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Cost menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
   </article>
 </template>
 
-<template id="tpl-cat-row"><div class="cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="cat-bar" aria-hidden="true"><span class="cat-plan"></span><span class="cat-paid"></span></div></div></template>
+<template id="tpl-cat-row"><div class="sdk-row cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="sdk-progress sdk-progress-sm cat-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="sdk-progress-planned"></span><span class="sdk-progress-fill"></span></div></div></template>
 <template id="tpl-sum"><div class="sum"><dt data-slot="label"></dt><dd data-slot="value"></dd></div></template>
 <template id="tpl-legend"><li class="key"><span class="swatch"></span><span data-slot="label"></span></li></template>
-<template id="tpl-person"><div class="person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>
-<template id="tpl-payment"><p class="payment"><span class="ic" data-icon="arrow-right"></span><span data-slot="text"></span><b class="pay-amount" data-slot="amount"></b></p></template>
-<template id="tpl-check"><label class="check"><input type="checkbox"><span data-slot="name"></span></label></template>
-<template id="tpl-state"><div class="state"><span class="ic" data-icon="wallet"></span><h2 data-slot="title"></h2><p data-slot="text"></p><p><button class="btn btn-primary" type="button" data-action="add" hidden><span class="ic" data-icon="plus"></span> Add a cost</button></p></div></template>
+<template id="tpl-person"><div class="sdk-row person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>
+<template id="tpl-payment"><p class="sdk-row payment"><span class="ic" data-icon="arrow-right"></span><span data-slot="text"></span><b class="pay-amount" data-slot="amount"></b></p></template>
+<template id="tpl-check"><label class="sdk-choice-row"><input type="checkbox"><span data-slot="name"></span></label></template>
+<template id="tpl-state"><div class="sdk-empty"><span class="ic" data-icon="wallet"></span><h2 class="sdk-empty-title" data-slot="title"></h2><p class="sdk-empty-text" data-slot="text"></p><div class="sdk-empty-actions"><button class="btn btn-primary" type="button" data-action="add" hidden><span class="ic" data-icon="plus"></span> Add a cost</button></div></div></template>
 
 <script>
 /*__JS__*/

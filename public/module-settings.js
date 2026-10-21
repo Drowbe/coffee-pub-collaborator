@@ -4,6 +4,8 @@
 // without the cards' Saves (`draft: true`), in the Set up panel's modules tab, whose own Save sends them. The
 // server decides who may change what; this only draws what it is given.
 import { api, escapeHtml, word, accessKeyHeaders } from '/brand.js';
+import { confirmDialog } from '/confirm.js';
+import { upgradeColourInputs } from '/colour-pick.js';
 
 // A list of things with a label, an icon and a colour each (Planner's marker types): rows to change, reorder, remove and add. The rows the
 // module says are fixed (def.fixed: ids) are always there; their label, icon and colour can change but they cannot be removed.
@@ -17,11 +19,11 @@ function listRow(def, r) {
   const fixed = (def.fixed || []).includes(r.id);
   const color = HEX.test(r.color || '') ? r.color : '#888888';
   const icon = ICONS.includes(r.icon) || ICON_RE.test(r.icon || '') ? r.icon : ICONS[0]; // a saved icon outside the picker stays as it is
-  return `<li class="list-row" data-id="${escapeHtml(r.id || '')}" data-icon="${escapeHtml(icon)}">
+  return `<li class="sdk-row list-row" data-id="${escapeHtml(r.id || '')}" data-icon="${escapeHtml(icon)}">
     <input type="color" data-f="color" value="${escapeHtml(color)}" aria-label="Colour">
-    <details class="icon-pick"><summary aria-label="Icon" title="Icon"><i class="fa-solid fa-${escapeHtml(icon)} fa-fw" aria-hidden="true"></i></summary><div class="icon-grid">${ICONS.map((n) => `<button type="button" data-icon-choice="${n}" title="${n.replace(/-/g, ' ')}"><i class="fa-solid fa-${n} fa-fw" aria-hidden="true"></i></button>`).join('')}</div></details>
+    <details class="icon-pick"><summary aria-label="Icon" title="Icon"><i class="fa-solid fa-${escapeHtml(icon)} fa-fw" aria-hidden="true"></i></summary><div class="icon-grid">${ICONS.map((n) => `<button type="button" data-icon-choice="${n}" data-tip="${n.replace(/-/g, ' ')}" aria-label="${n.replace(/-/g, ' ')}"><i class="fa-solid fa-${n} fa-fw" aria-hidden="true"></i></button>`).join('')}</div></details>
     <input type="text" data-f="label" value="${escapeHtml(r.label || '')}" maxlength="${def.maxLength || 30}" placeholder="Label" aria-label="Label">
-    <span class="list-tools"><button type="button" class="btn btn-small" data-list="up" title="Move up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" class="btn btn-small" data-list="down" title="Move down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>${fixed ? '<span class="pill">Built in</span>' : '<button type="button" class="btn btn-small btn-danger" data-list="remove" title="Remove" aria-label="Remove"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>'}</span>
+    <span class="list-tools"><button type="button" class="btn btn-small" data-list="up" data-tip="Move up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" class="btn btn-small" data-list="down" data-tip="Move down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>${fixed ? '<span class="sdk-status">Built in</span>' : '<button type="button" class="btn btn-small btn-danger" data-list="remove" data-tip="Remove" aria-label="Remove"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>'}</span>
   </li>`;
 }
 function listControl(def) {
@@ -47,6 +49,7 @@ function wireList(el, def) {
     const list = el.querySelector('.list-rows');
     if (b.dataset.list === 'add') {
       list.insertAdjacentHTML('beforeend', listRow(def, { id: '', label: '', icon: 'flag', color: NEW_COLORS[list.children.length % NEW_COLORS.length] }));
+      upgradeColourInputs(list.lastElementChild);
       list.lastElementChild.querySelector('[data-f="label"]').focus();
     } else if (li && b.dataset.list === 'remove') li.remove();
     else if (li && b.dataset.list === 'up' && li.previousElementSibling) li.previousElementSibling.before(li);
@@ -57,7 +60,7 @@ function wireList(el, def) {
 function control(def, draft = false) {
   if (def.type === 'list') return listControl(def);
   const id = `ms-${def.key}`;
-  if (def.type === 'boolean') return `<label class="check"><input type="checkbox" data-key="${escapeHtml(def.key)}" ${def.value ? 'checked' : ''}> ${escapeHtml(def.label)}</label>`;
+  if (def.type === 'boolean') return `<label class="sdk-choice-row"><input type="checkbox" data-key="${escapeHtml(def.key)}" ${def.value ? 'checked' : ''}> ${escapeHtml(def.label)}</label>`;
   // A note has no control and no value: a label (its help under it), for a module to say where something is set up.
   if (def.type === 'note') return `<span class="field-label">${escapeHtml(def.label)}</span>`; // its help follows, as every setting's does
   const head = `<label>${escapeHtml(def.label)}`;
@@ -66,7 +69,7 @@ function control(def, draft = false) {
   if (def.shared === true) { // true only when the host really keeps it: the listing also carries the manifest's own "host" flag on a single install
     const files = def.type === 'files' ? (def.available || []) : [];
     const list = files.length ? `<ul class="shared-files">${files.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : def.type === 'files' ? '<p class="hint">The host has no files here yet.</p>' : '';
-    return `<div data-shared><div class="hint">${escapeHtml(def.label)} <span class="pill">Provided by the host</span></div>${list}${def.type !== 'files' && def.value ? `<p class="hint">${escapeHtml(String(def.value))}</p>` : ''}</div>`;
+    return `<div data-shared><div class="hint">${escapeHtml(def.label)} <span class="sdk-status">Provided by the host</span></div>${list}${def.type !== 'files' && def.value ? `<p class="hint">${escapeHtml(String(def.value))}</p>` : ''}</div>`;
   }
   if (def.type === 'files') {
     const chosen = new Set(Array.isArray(def.value) ? def.value : def.value ? [def.value] : []);
@@ -77,8 +80,8 @@ function control(def, draft = false) {
     // What a PMTiles file holds, read from its own header: "Picture" (picture tiles) or "Map data"; blank when it says nothing.
     const kind = (n) => KIND_WORDS[(def.kinds || {})[n]] || '';
     const hasKinds = Object.keys(def.kinds || {}).length > 0;
-    const rows = (def.available || []).map((n) => `<tr><td><input type="checkbox" value="${escapeHtml(n)}" ${chosen.has(n) ? 'checked' : ''} aria-label="Use ${escapeHtml(n)}"></td><td>${escapeHtml(n)}</td>${hasKinds ? `<td class="hint">${kind(n)}</td>` : ''}${hasZooms ? `<td class="hint">${zoom(n)}</td>` : ''}<td class="hint">${size(n)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(n)}" title="Delete ${escapeHtml(n)}" aria-label="Delete ${escapeHtml(n)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('');
-    return `<div data-key="${escapeHtml(def.key)}" data-files data-folder="${escapeHtml(folderName(def))}"><div class="hint">${escapeHtml(def.label)}</div>${rows ? `<table class="files-table"><thead><tr><th>Use</th><th>File</th>${hasKinds ? '<th>Type</th>' : ''}${hasZooms ? '<th>Zoom</th>' : ''}<th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : ''}${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}</div>`;
+    const rows = (def.available || []).map((n) => `<tr><td class="sdk-table-check"><input type="checkbox" value="${escapeHtml(n)}" ${chosen.has(n) ? 'checked' : ''} aria-label="Use ${escapeHtml(n)}"></td><th scope="row">${escapeHtml(n)}</th>${hasKinds ? `<td class="sdk-table-dim">${kind(n)}</td>` : ''}${hasZooms ? `<td class="sdk-table-dim">${zoom(n)}</td>` : ''}<td class="num sdk-table-dim">${size(n)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(n)}" data-tip="Delete ${escapeHtml(n)}" aria-label="Delete ${escapeHtml(n)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('');
+    return `<div data-key="${escapeHtml(def.key)}" data-files data-folder="${escapeHtml(folderName(def))}"><div class="hint">${escapeHtml(def.label)}</div>${rows ? `<div class="sdk-table-wrap"><table class="sdk-table" aria-label="${escapeHtml(def.label)}"><thead><tr><th scope="col" class="sdk-table-check">Use</th><th scope="col">File</th>${hasKinds ? '<th scope="col">Type</th>' : ''}${hasZooms ? '<th scope="col">Zoom</th>' : ''}<th scope="col" class="num">Size</th><th scope="col"><span class="visually-hidden">Delete</span></th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}</div>`;
   }
   if (def.type === 'file') return `${head}<select data-key="${escapeHtml(def.key)}"><option value="">None</option>${(def.available || []).map((n) => `<option value="${escapeHtml(n)}" ${n === def.value ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}</select></label>${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}${def.upload && !draft ? uploadRow(def) : ''}`;
   if (def.type === 'url') return `${head}<input id="${id}" type="url" data-key="${escapeHtml(def.key)}" value="${escapeHtml(def.value)}" maxlength="500" placeholder="https://"></label>`;
@@ -188,6 +191,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
     }
     for (const row of card.querySelectorAll('[data-when-key]')) row.hidden = row.dataset.whenNot !== undefined ? value(row.dataset.whenKey) === row.dataset.whenNot : value(row.dataset.whenKey) !== row.dataset.whenValue;
   };
+  upgradeColourInputs(container); // the colour settings and the list rows' colours: the colour picker over the native input
   for (const box of container.querySelectorAll('[data-list-setting]')) wireList(box, modules.find((m) => m.id === box.closest('.module-settings-card').dataset.module).settings.find((d) => d.key === box.dataset.key));
   for (const card of container.querySelectorAll('.module-settings-card')) {
     refresh(card);
@@ -206,7 +210,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       const module = modules.find((m) => m.id === card.dataset.module);
       const name = delBtn.dataset.deleteFile;
       const folder = delBtn.closest('[data-files]')?.dataset.folder || '';
-      if (!window.confirm(`Delete ${name}? This can't be undone.`)) return;
+      if (!await confirmDialog({ title: `Delete ${name}?`, message: "This can't be undone.", action: 'Delete', kind: 'final' })) return;
       delBtn.disabled = true;
       try {
         await api('DELETE', `/api/modules/${encodeURIComponent(module.id)}/files/${encodeURIComponent(name)}${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`);
@@ -219,7 +223,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
         const row = delBtn.closest('tr');
         const box = delBtn.closest('[data-files]');
         if (row) row.remove();
-        if (box && !box.querySelector('tbody tr')) box.querySelector('.files-table')?.remove();
+        if (box && !box.querySelector('tbody tr')) box.querySelector('.sdk-table-wrap')?.remove();
         const was = JSON.parse(baseline.get(module.id) || '{}');
         if (box && Array.isArray(was[box.dataset.key])) was[box.dataset.key] = was[box.dataset.key].filter((n) => n !== name);
         baseline.set(module.id, JSON.stringify(was));
@@ -236,7 +240,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       const module = modules.find((m) => m.id === clearBtn.closest('.module-settings-card').dataset.module);
       const def = module.settings.find((d) => d.key === row.dataset.upload);
       const name = def && def.value;
-      if (!name || !window.confirm(`Clear ${name}? The file is deleted now. This can't be undone.`)) return;
+      if (!name || !await confirmDialog({ title: `Clear ${name}?`, message: "The file is deleted now. This can't be undone.", action: 'Clear', kind: 'final' })) return;
       clearBtn.disabled = true;
       const line = row.querySelector('[data-upload-status]');
       try {

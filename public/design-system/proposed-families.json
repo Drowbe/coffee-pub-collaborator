@@ -1,0 +1,30 @@
+{
+  "families": [
+    { "id": "colour", "js": "proposed-colour.js", "css": "proposed-colour.css", "frames": false },
+    { "id": "buttons", "js": "proposed-buttons.js", "css": "proposed-buttons.css" },
+    { "id": "fields", "js": "proposed-fields.js", "css": "proposed-fields.css" },
+    { "id": "typography", "js": "proposed-typography.js", "css": "proposed-typography.css" },
+    { "id": "tabs", "js": "proposed-tabs.js", "css": "proposed-tabs.css" },
+    { "id": "chips", "js": "proposed-chips.js", "css": "proposed-chips.css" },
+    { "id": "cards", "js": "proposed-cards.js", "css": "proposed-cards.css" },
+    { "id": "menus", "js": "proposed-menus.js", "css": "proposed-menus.css" },
+    { "id": "foundations", "js": "proposed-foundations.js", "css": "proposed-foundations.css" },
+    { "id": "calendar", "js": "proposed-calendar.js", "css": "proposed-calendar.css" },
+    { "id": "markers", "js": "proposed-markers.js", "css": "proposed-markers.css" },
+    { "id": "days", "js": "proposed-days.js", "css": "proposed-days.css" },
+    { "id": "tables", "js": "proposed-tables.js", "css": "proposed-tables.css" },
+    { "id": "dialogs", "js": "proposed-dialogs.js", "css": "proposed-dialogs.css" },
+    { "id": "tooltips", "js": "proposed-tooltips.js", "css": "proposed-tooltips.css" },
+    { "id": "states", "js": "proposed-states.js", "css": "proposed-states.css" },
+    { "id": "toasts", "js": "proposed-toasts.js", "css": "proposed-toasts.css" },
+    { "id": "modulechrome", "js": "proposed-modulechrome.js", "css": "proposed-modulechrome.css" },
+    { "id": "chat", "js": "proposed-chat.js", "css": "proposed-chat.css" },
+    { "id": "journey", "js": "proposed-journey.js", "css": "proposed-journey.css" },
+    { "id": "tabbar", "js": "proposed-tabbar.js", "css": "proposed-tabbar.css" },
+    { "id": "links", "js": "proposed-links.js", "css": "proposed-links.css" },
+    { "id": "pickers", "js": "proposed-pickers.js", "css": "proposed-pickers.css" },
+    { "id": "progress", "js": "proposed-progress.js", "css": "proposed-progress.css" },
+    { "id": "avatars", "js": "proposed-avatars.js", "css": "proposed-avatars.css" },
+    { "id": "choices", "js": "proposed-choices.js", "css": "proposed-choices.css" }
+  ]
+}

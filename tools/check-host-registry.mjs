@@ -1491,9 +1491,9 @@ try {
     const start = () => startServer(hosted, { BASE_DOMAIN: 'localhost', ADMIN_LOGIN: 'boss', ADMIN_PASSWORD: 'host-password-3' });
     server = await start();
     const boss = cookieOf(await call(server, 'admin', 'POST', '/api/host/login', { body: { login: 'boss', password: 'host-password-3' } }));
-    assert.deepEqual((await call(server, 'admin', 'GET', '/api/host/templates', { cookie: boss })).json.templates.map((t) => t.id), ['travel']);
+    assert.deepEqual((await call(server, 'admin', 'GET', '/api/host/templates', { cookie: boss })).json.templates.map((t) => t.id), ['games', 'travel']);
     assert.deepEqual(await call(server, 'admin', 'POST', '/api/host/environments', { cookie: boss, body: { slug: 'nope', name: 'Nope', template: 'camping' } }).then((r) => [r.status, r.json]), [400, { error: 'There is no template called camping.' }]);
-    for (const template of [['travel'], { id: 'travel' }, 7]) assert.deepEqual(await call(server, 'admin', 'POST', '/api/host/environments', { cookie: boss, body: { slug: 'nope', name: 'Nope', template } }).then((r) => [r.status, r.json]), [400, { error: 'A template is named by its id, such as travel.' }], JSON.stringify(template));
+    for (const template of [['travel'], { id: 'travel' }, 7]) assert.deepEqual(await call(server, 'admin', 'POST', '/api/host/environments', { cookie: boss, body: { slug: 'nope', name: 'Nope', template } }).then((r) => [r.status, r.json]), [400, { error: 'A template is named by its id, such as games.' }], JSON.stringify(template));
     const plan = { modules: fs.readdirSync(path.join(ROOT, 'modules')).filter((m) => m !== 'maps') };
     assert.equal((await call(server, 'admin', 'POST', '/api/host/environments', { cookie: boss, body: { slug: 'trips', name: 'Trips', plan, template: 'travel', owner: { login: 'olga', password: 'olga-password-1' } } })).status, 201);
     const listed = async () => (await call(server, 'admin', 'GET', '/api/host/environments', { cookie: boss })).json.environments.find((e) => e.slug === 'trips').template;

@@ -274,7 +274,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.ok(calendarsTab.includes('id="section-external"') && calendarsTab.includes('id="section-feed"'), 'both sections are on the Calendars tab');
   assert.ok(calendarsTab.indexOf('id="section-external"') < calendarsTab.indexOf('id="section-feed"'), 'coming in, then going out');
   assert.match(profileHtml, /<button class="subtab" data-tab="calendars" type="button" hidden>Calendars<\/button>/, 'the tab is Calendars, hidden until there is something to show');
-  assert.match(calendarsTab, /<li class="address-row" id="feed-row">[\s\S]*?<strong class="address-name">Everything<\/strong>\s*<span class="pill" id="feed-row-state">/, 'Everything is the first row, with the owner\'s pill');
+  assert.match(calendarsTab, /<li class="address-row" id="feed-row">[\s\S]*?<strong class="address-name">Everything<\/strong>\s*<span class="sdk-status" id="feed-row-state">/, 'Everything is the first row, with the owner\'s pill');
   assert.match(profileHtml, /<template id="address-row-template">\s*<li class="address-row" data-space>/, 'a space row comes from the template');
   assert.ok(profileHtml.includes('Copy it now. It will not be shown again.'), 'the address is said to be shown once');
   assert.ok(profileHtml.includes('From URL'), 'the Google steps name From URL');
@@ -285,8 +285,8 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.ok(profileJs.includes("api('DELETE', spaceId ? `/api/me/spaces/${encodeURIComponent(spaceId)}/feed` : '/api/me/feed')"), 'one Turn off for both');
   assert.doesNotMatch(profileJs, /api\('GET', '\/api\/me\/feed'\)/, 'the tab is read in one (GET /api/me/calendars)');
   assert.doesNotMatch(profileJs, /(localStorage|sessionStorage|history\.(push|replace)State)[^\n]*feedUrl/, 'the address is not kept beyond the page');
-  // The reasons are drawn in place (never a hidden section), and an owner's "Turn it on in <Module>'s configuration." links the module's Configure page.
-  assert.match(profileJs, /a\.href = `\/module-config\.html\?id=\$\{encodeURIComponent\(module\.id\)\}`;/, 'the reason links the Configure page');
+  // The reasons are drawn in place (never a hidden section), and an owner's "Turn it on in <Module>'s configuration." links the module's tab on Manage > Modules.
+  assert.match(profileJs, /a\.href = `\/admin#modules\/\$\{encodeURIComponent\(module\.id\)\}`;/, 'the reason links the module\'s tab');
   assert.match(profileJs, /\$\('feed-why'\)\.hidden = !whyAll;/);
   assert.match(profileJs, /parts\.reason\.hidden = !why;/);
   // QA of step 5: a kept address that does not work always names its cause (the row's reason, else the section's), never
@@ -304,7 +304,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   // The switch moved to Calendar's Configure page, with its id (plan-space-calendars.md, section 4); Manage keeps a pointer.
   const configHtml = read('public/module-config.html');
   const configJs = read('public/module-config.js');
-  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
+  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
   assert.ok(ids(configHtml).has('calendar-feeds-hint') && ids(configHtml).has('calendar-feeds-status'));
   assert.ok(!ids(adminHtml).has('set-calendar-feeds') && !ids(adminHtml).has('calendar-feeds-settings'), 'Manage no longer has the switch or its panel');
   assert.ok(!ids(adminHtml).has('calendar-sharing-pointer') && !adminJs.includes('renderSharingPointer'), 'Manage\'s one-release pointer to where it went is gone');
@@ -319,7 +319,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   // The space's Set up panel: In the published calendar, shown only while publishing is on (it was space-settings.html).
   const setupJs = read('public/space-setup.js');
   assert.ok(setupJs.includes("sectionHtml('calendar', "), 'the panel has a calendar section');
-  assert.ok(setupJs.includes('<input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span>'), 'with the In the published calendar switch');
+  assert.ok(setupJs.includes('<span class="sdk-choice-label">In the published calendar</span></span><input type="checkbox" class="sdk-switch" role="switch" id="setup-publish-calendar">'), 'with the In the published calendar switch');
   assert.ok(setupJs.includes("patch.publishCalendar = after.publishCalendar;"), 'saves publishCalendar');
   assert.ok(setupJs.includes("section.hidden = settings.publishedCalendar !== true || !(m && m.enabled);"), 'the section needs publishing on and the module on (no per-space test)');
   assert.doesNotMatch(setupJs, /allSpaces|m\.spaces/, 'Set up no longer reads the per-space availability');

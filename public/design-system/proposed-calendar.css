@@ -1,0 +1,262 @@
+/* ==== Calendar cells (PROPOSED 2026-10-20; Thomas approved the research recommendations as a batch on 2026-10-20) ====
+   ONE cell look, shared by the Calendar's month and week and the date picker's grid. Drawn in the Proposed page only (every rule is under .ds-proposed).
+
+   Cell         a month or week cell: card step (--bg-card), a 1px neutral hairline (--border), --radius-medium, padding 4px. Min height 74px
+                (54px compact, 150px in a week). A picker cell: 30px square (44px on a phone), --radius-small, no hairline (it sits on the popover).
+   Hover        the quiet neutral fill (--text at 10% over the cell's surface). Never an accent border.
+   Today        the neutral selected fill at half strength: the accent at 14% over the surface (--selected-bg is the accent at 28%). Same as the
+                date picker's today in Menus. The number is bold.
+   Selected     the chosen day: solid --accent, text --on-accent. The one approved exception to "selected is neutral" (a single chosen value; the
+                date picker's chosen day, 2026-10-19).
+   Range        the quiet fill, like hover.
+   Outside      55% opacity.
+   Focus        the outline mechanism: a 2px --accent outline drawn over the hairline, inside the cell (offset -2px). On the solid accent it is --on-accent.
+   Event chip   the Chips family's tag: the event's tone at 22% over the cell, readable text (the tone mixed 45% into --text), 11px, --radius-small.
+                18px high in a cell (the Chips tag is 24px; a 74px cell cannot hold four).
+   Exception    Calendar's agenda rows and the event chips of other calendars and markers keep their 3px bar on the left (Thomas, 2026-10-18). They
+                use .sdk-bar-kept from the Cards family (a straight, square 3px block the full height of the box, with square corners on the bar side; decided 2026-10-21) and are flagged "Exception, kept" on the page.
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --cal-pick: 30px;
+  --cal-cell-h: 74px;
+  --cal-hover: 10%;
+  --cal-press: 16%;
+  --cal-today: 14%;
+  --cal-tint: 22%;
+  --cal-out: 0.55;
+  /* Muted text on a fill (hover, today, a range, another calendar's chip): a little stronger, because the plain muted colour is under 4.5 to 1 there in the light mode. */
+  --cal-dim: color-mix(in srgb, var(--text-dim) 55%, var(--text));
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --cal-pick: 44px; }
+}
+
+/* ---- the grids ---- */
+.ds-proposed .sdk-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+.ds-proposed .sdk-cal-grid.sdk-cal-grid-pick { grid-template-columns: repeat(7, var(--cal-pick)); gap: 2px; }
+.ds-proposed .sdk-cal-row { display: contents; }
+
+.ds-proposed :is(.sdk-cal-dow, .dow) {
+  min-width: 0;
+  padding: 2px 4px 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: var(--ls-label, 0.04em);
+  text-transform: uppercase;
+}
+.ds-proposed .sdk-cal-grid-pick .sdk-cal-dow { padding: 2px 0 4px; text-align: center; }
+
+/* ---- the cell ---- */
+.ds-proposed .sdk-cal-cell {
+  --cal-surface: var(--bg-card);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--cal-cell-h);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--cal-surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+  outline: none;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ds-proposed .sdk-cal-cell:hover { background: color-mix(in srgb, var(--text) var(--cal-hover), var(--cal-surface)); }
+.ds-proposed .sdk-cal-cell:active { background: color-mix(in srgb, var(--text) var(--cal-press), var(--cal-surface)); }
+.ds-proposed .sdk-cal-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.ds-proposed .sdk-cal-n { color: var(--text-dim); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+
+.ds-proposed .sdk-cal-cell:is(:hover, .in-range) .sdk-cal-n { color: var(--cal-dim); }
+
+/* Today: the selected fill at half strength. The number is bold and takes the text colour. */
+.ds-proposed .sdk-cal-cell.is-today { background: color-mix(in srgb, var(--accent) var(--cal-today), var(--cal-surface)); }
+.ds-proposed .sdk-cal-cell.is-today .sdk-cal-n { color: var(--text); font-weight: 600; }
+.ds-proposed .sdk-cal-cell.is-today:hover { background: color-mix(in srgb, var(--text) var(--cal-press), color-mix(in srgb, var(--accent) var(--cal-today), var(--cal-surface))); }
+
+/* A range: the quiet fill. */
+.ds-proposed .sdk-cal-cell.in-range { background: color-mix(in srgb, var(--text) var(--cal-hover), var(--cal-surface)); }
+.ds-proposed .sdk-cal-cell.in-range:hover { background: color-mix(in srgb, var(--text) var(--cal-press), var(--cal-surface)); }
+
+/* Outside the month. */
+.ds-proposed .sdk-cal-cell.is-other { opacity: var(--cal-out); }
+.ds-proposed .sdk-cal-cell.is-other:hover { opacity: 0.85; }
+
+/* The chosen day: the one solid accent. On its own focus the outline is --on-accent (an accent outline cannot show on an accent fill). */
+.ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) { background: var(--accent); color: var(--on-accent); }
+.ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]):hover { background: var(--primary-hover, var(--accent)); }
+.ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-n { color: var(--on-accent); font-weight: 600; }
+.ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]):focus-visible { outline-color: var(--on-accent); }
+
+/* The day a link opened (was .day.pick: an accent border and a 2px ring): the neutral selected fill and a word. */
+.ds-proposed .sdk-cal-cell.is-linked { background: var(--selected-bg); }
+.ds-proposed .sdk-cal-cell.is-linked .sdk-cal-n { color: var(--text); font-weight: 600; }
+
+/* A drop target while an event is dragged: the same 2px outline, drawn inside the cell. */
+.ds-proposed .sdk-cal-cell.is-drop { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* The word in a cell (Today, Linked): a status label, small enough for a cell. */
+.ds-proposed .sdk-cal-cell > .sdk-cal-word {
+  align-self: flex-start;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0 6px;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- the picker cell: 30px square (44px on a phone), no hairline, a small corner ---- */
+.ds-proposed .sdk-cal-cell.sdk-cal-pick {
+  --cal-surface: transparent;
+  align-items: center;
+  justify-content: center;
+  width: var(--cal-pick);
+  height: var(--cal-pick);
+  min-height: 0;
+  padding: 0;
+  border-color: transparent;
+  border-radius: var(--radius-small);
+  font-size: 13px;
+  line-height: 1;
+}
+.ds-proposed .sdk-cal-pick .sdk-cal-n { color: inherit; font-size: 13px; line-height: 1; }
+.ds-proposed .sdk-cal-cell.sdk-cal-pick.is-other { color: var(--text-dim); opacity: 1; }
+.ds-proposed .sdk-cal-cell.sdk-cal-pick.is-today .sdk-cal-n { font-weight: 600; }
+.ds-proposed .sdk-cal-cell.sdk-cal-pick:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+/* ---- the chips in a cell: the Chips family's tag, small ---- */
+.ds-proposed .sdk-cal-chips { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-proposed .sdk-cal-event {
+  --ev-tone: var(--accent);
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 18px;
+  margin: 0;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--ev-tone) var(--cal-tint), var(--cal-surface, var(--bg-card)));
+  color: color-mix(in srgb, var(--ev-tone) 45%, var(--text));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  outline: none;
+}
+.ds-proposed .sdk-cal-event[data-tint] { --ev-tone: var(--tint, var(--accent)); }
+.ds-proposed .sdk-cal-event.is-environment { --ev-tone: var(--text-dim); }
+.ds-proposed .sdk-cal-event:hover { background: color-mix(in srgb, var(--ev-tone) 36%, var(--cal-surface, var(--bg-card))); }
+.ds-proposed .sdk-cal-event:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed .sdk-cal-week .sdk-cal-event, .ds-proposed .sdk-cal-event.is-wrap { white-space: normal; overflow-wrap: anywhere; }
+.ds-proposed .sdk-cal-more { color: var(--text-dim); font-size: 11px; line-height: 14px; }
+
+/* An event on a chosen day (solid accent): the chip reads against the accent, not tinted by it. */
+.ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: color-mix(in srgb, var(--text) 22%, var(--accent)); color: var(--on-accent); }
+
+/* The exception, kept: a chip of another calendar or a marker, with the 3px bar (.sdk-bar-kept, from the Cards family). The fill is quiet and neutral. */
+.ds-proposed .sdk-cal-event.sdk-bar-kept { --bar-bleed: 0px; border-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 9px; background: color-mix(in srgb, var(--text-dim) 12%, var(--cal-surface, var(--bg-card))); color: var(--cal-dim); }
+.ds-proposed .sdk-cal-event.sdk-bar-kept:hover { background: color-mix(in srgb, var(--text-dim) 22%, var(--cal-surface, var(--bg-card))); color: var(--text); }
+.ds-proposed .sdk-cal-event.sdk-bar-kept.is-marker { color: var(--text); }
+.ds-proposed .sdk-cal-event.sdk-bar-kept.is-past { opacity: 0.55; }
+
+/* ---- the month, the week, the compact month ---- */
+.ds-proposed .sdk-cal-week { --cal-cell-h: 150px; }
+.ds-proposed .sdk-cal-week .sdk-cal-n { text-transform: uppercase; letter-spacing: var(--ls-label, 0.04em); font-size: 11px; font-weight: 600; }
+.ds-proposed .sdk-cal-week .sdk-cal-n b { margin-left: 2px; color: var(--text); font-size: 14px; font-weight: 600; letter-spacing: normal; }
+.ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-n b { color: var(--on-accent); }
+.ds-proposed .sdk-cal-compact .sdk-cal-grid:not(.sdk-cal-grid-pick) { --cal-cell-h: 54px; }
+.ds-proposed .sdk-cal-compact .sdk-cal-chips { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+.ds-proposed .sdk-cal-compact .sdk-cal-event { width: 7px; min-width: 7px; height: 7px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-round); background: var(--ev-tone); font-size: 11px; line-height: 7px; color: transparent; overflow: hidden; }
+.ds-proposed .sdk-cal-compact .sdk-cal-event.is-environment { background: var(--text-dim); }
+.ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept { width: 7px; padding: 0; background: var(--ev-tone); color: transparent; }
+.ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept::before { display: none; }
+.ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept.is-ext { background: var(--text-dim); }
+.ds-proposed .sdk-cal-compact .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: var(--on-accent); }
+/* A compact week is a list: the day on the left, its events beside it. */
+.ds-proposed .sdk-cal-compact .sdk-cal-week { grid-template-columns: minmax(0, 1fr); }
+.ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-cell { --cal-cell-h: 0px; flex-direction: row; align-items: flex-start; gap: 10px; }
+.ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-n { flex: none; width: 52px; }
+.ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-chips { flex: 1 1 auto; flex-direction: column; }
+.ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-event { width: 100%; height: auto; min-height: 18px; padding: 0 6px; border-radius: var(--radius-small); background: color-mix(in srgb, var(--ev-tone) var(--cal-tint), var(--cal-surface, var(--bg-card))); font-size: 11px; line-height: 16px; color: color-mix(in srgb, var(--ev-tone) 45%, var(--text)); overflow: visible; }
+
+/* ---- the agenda: rows are Cards rows; the bar is the declared exception ---- */
+.ds-proposed .sdk-cal-agenda { display: flex; flex-direction: column; gap: var(--gap-in, 8px); min-width: 0; }
+.ds-proposed .sdk-cal-agenda .sdk-row-meta { width: 21ch; text-align: left; color: color-mix(in srgb, var(--accent) 55%, var(--text)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ds-proposed .sdk-cal-agenda .sdk-row[data-ext] .sdk-row-meta, .ds-proposed .sdk-cal-agenda .sdk-row.is-marker .sdk-row-meta { color: var(--text-dim); }
+.ds-proposed .sdk-cal-flag { flex: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-small); color: var(--text-dim); font-size: 11px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+@media (max-width: 640px) {
+  .ds-proposed .sdk-cal-agenda .sdk-row { flex-wrap: wrap; }
+  .ds-proposed .sdk-cal-agenda .sdk-row-meta { order: 3; width: 100%; }
+}
+
+/* ---- the day view: an all-day row, then a column of hours (each a row-shaped cell) ---- */
+.ds-proposed .sdk-cal-hours { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-proposed :is(.sdk-cal-hour, .sdk-cal-allday, .hour, .allday) {
+  --cal-surface: var(--bg-card);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 34px;
+  margin: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--cal-surface);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  transition: background 0.15s;
+}
+.ds-proposed :is(.sdk-cal-hour, .hour) { cursor: pointer; }
+.ds-proposed :is(.sdk-cal-hour, .hour):hover { background: color-mix(in srgb, var(--text) var(--cal-hover), var(--cal-surface)); }
+.ds-proposed :is(.sdk-cal-hour, .hour):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed :is(.sdk-cal-hr, .hr) { flex: none; width: 66px; padding-top: 1px; color: var(--text-dim); font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums; }
+/* "Now": was an accent border. It is the neutral selected fill and a word, so it does not depend on colour. */
+.ds-proposed :is(.sdk-cal-hour, .hour).is-now, .ds-proposed .hour.now { background: var(--selected-bg); }
+.ds-proposed :is(.sdk-cal-hour, .hour).is-now .sdk-cal-hr { color: var(--text); font-weight: 600; }
+.ds-proposed .sdk-cal-hour > .sdk-cal-chips, .ds-proposed .sdk-cal-allday > .sdk-cal-chips { flex: 1 1 auto; }
+.ds-proposed .sdk-cal-hour > .sdk-status { margin-left: auto; }
+
+/* ---- the picker popover: the Menus surface; the head and the foot are the Menus' ---- */
+.ds-proposed .sdk-cal-pickbox { display: inline-block; vertical-align: top; max-width: 100%; }
+.ds-proposed .sdk-cal-keys { margin: 6px 0 0; color: var(--text-dim); font-size: 12px; line-height: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-cal-cell, .sdk-cal-hour, .hour) { transition: none; }
+}

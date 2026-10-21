@@ -11,8 +11,9 @@
 //
 // It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width it may take
 // (fitWidth: the bar less the right zone at its full width and the Layout button), and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
-// then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is that
-// compact count in the tab bar, between the module tabs and Leave (style.css).
+// then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is a tab
+// of the tab bar, "Online" with how many are here as the count at its icon's corner (system.css, tabbar block), before
+// Leave; on the call it is the bar's call item (space.js, paintCallTab).
 //
 // The list is the same popover pattern as the Modules chooser beside it: by its button (under it, or above it in a
 // tab bar at the window's bottom, kept inside the window, place()), open until the button,
@@ -91,7 +92,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   el.className = 'who-here';
   el.innerHTML = `
     <button class="who-here-toggle nav-text" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list">
-      <span class="who-here-faces" aria-hidden="true"></span><span class="who-here-more" aria-hidden="true" hidden></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
+      <span class="who-here-faces sdk-avatar-stack" aria-hidden="true"></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="who-here-word sdk-tabbar-label" aria-hidden="true">Online</span><span class="sdk-badge-micro who-here-n" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
     </button>
     <section class="who-here-list" id="who-here-list" tabindex="-1" aria-labelledby="who-here-title" hidden>
       <h3 class="who-here-title" id="who-here-title"></h3>
@@ -100,8 +101,12 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   const toggle = el.querySelector('.who-here-toggle');
   const listEl = el.querySelector('.who-here-list');
   const faces = el.querySelector('.who-here-faces');
-  const more = el.querySelector('.who-here-more');
+  const more = doc.createElement('span'); // the rest of the people, the stack's micro count
+  more.className = 'sdk-badge-micro';
+  more.setAttribute('aria-hidden', 'true');
+  more.hidden = true;
   const countEl = el.querySelector('.who-here-count');
+  const nEl = el.querySelector('.who-here-n'); // the phone's tab: "Online" with how many are here at the icon's corner
   let people = [];
   let shownFaces = MAX_FACES; // what fit() last allowed
   let wording = 'names'; // which of hereLabel()'s words fit() last allowed: 'names' or 'count'
@@ -113,22 +118,22 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   // a pass (fit), and a fresh <img> each time would fetch the picture again. A new element only when someone arrives
   // or their picture's address changes (another space's set); one that fell back to the letter stays the letter.
   const portraits = new Map(); // `${spot}|${key}` -> { src, node }
-  function portrait(person, cls, spot) {
+  function portrait(person, size, spot) {
     const src = portraitUrl(person.key);
     const id = `${spot}|${person.key}`;
     const kept = portraits.get(id);
     if (kept && kept.src === src) return kept.node;
     const entry = { src, node: null };
+    const circle = doc.createElement('span');
+    circle.className = `sdk-avatar sdk-avatar-${size}`;
+    circle.setAttribute('aria-hidden', 'true');
     const img = doc.createElement('img');
-    img.className = cls;
     img.alt = '';
     img.onerror = () => {
       if (img.dataset.fallback) {
         const letter = doc.createElement('span');
-        letter.className = `${cls} who-here-initial`;
-        letter.setAttribute('aria-hidden', 'true');
+        letter.className = 'sdk-avatar-ini';
         letter.textContent = String(person.name || '?').trim().charAt(0).toUpperCase() || '?';
-        entry.node = letter;
         img.replaceWith(letter);
         return;
       }
@@ -136,9 +141,10 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
       img.src = profileUrl(person.key);
     };
     img.src = src;
-    entry.node = img;
+    circle.append(img);
+    entry.node = circle;
     portraits.set(id, entry);
-    return img;
+    return circle;
   }
   // Forget the portraits of those who left, so one who comes back is tried afresh.
   function prunePortraits() {
@@ -163,10 +169,10 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   function drawRow() {
     const k = Math.min(shownFaces, people.length);
     faces.replaceChildren(...people.slice(0, k).map((p, i) => {
-      const face = doc.createElement('span');
-      face.className = `who-here-face${p.you ? ' you' : ''}`;
+      const face = portrait(p, 20, 'row');
+      face.classList.toggle('you', Boolean(p.you));
       face.style.zIndex = String(k - i); // a camera mark is drawn over the next portrait, not under it
-      face.appendChild(portrait(p, 'who-here-img', 'row'));
+      face.querySelector('.who-here-call')?.remove();
       if (p.onCall) face.appendChild(callMark());
       return face;
     }));
@@ -175,9 +181,11 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     const left = people.length - k;
     more.hidden = !(k > 0 && left > 0);
     more.textContent = `+${left}`;
+    if (!more.hidden) faces.append(more);
     el.classList.toggle('count-only', k === 0);
     const { shown, said } = hereWords(people, where());
     countEl.textContent = compact ? shown : hereLabel(people, where())[wording];
+    nEl.textContent = people.length > 9 ? '9+' : String(people.length || '');
     // Its name is "Who is here" wherever it is; how many, and how many on the call, is its description.
     const saidEl = el.querySelector('#who-here-said');
     if (saidEl.textContent !== said) saidEl.textContent = said;
@@ -190,7 +198,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     el.querySelector('.who-here-people').replaceChildren(...people.map((p) => {
       const li = doc.createElement('li');
       li.className = `who-here-person${p.onCall ? ' on-call' : ''}`;
-      li.appendChild(portrait(p, 'who-here-img', 'list'));
+      li.appendChild(portrait(p, 24, 'list'));
       const name = doc.createElement('span');
       name.className = 'who-here-name';
       name.textContent = p.name;

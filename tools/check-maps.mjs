@@ -217,7 +217,7 @@ test('adding follows Places: its permission decides, the phone is shown the list
   assert.match(page, /function letGo\(\) \{ if \(!alive\.signal\.aborted\) alive\.abort\(\); \}/);
   for (const m of page.matchAll(/document\.addEventListener\('([a-z]+)'[^\n]*/g)) assert.match(m[0], /\{ signal: alive\.signal \}\);$/, `the document's ${m[1]} listener is taken off with the map`);
   assert.match(page, /function torn\(\) \{\n    if \(host\.rootElement\.isConnected && \$\('tpl-pin'\)\) return false;\n    letGo\(\);/);
-  assert.match(html, /title="Add a place" aria-label="Add a place"/);
+  assert.match(html, /data-tip="Add a place" aria-label="Add a place"/);
   assert.match(html, />Click the map to place it</);
   // A short note is a toast, never text drawn in the module.
   assert.match(page, /host\.ui\.toast\(String\(text\)\)/);
@@ -253,7 +253,7 @@ test('a pin takes the place\'s colour, else its category\'s, else the category\'
   assert.match(page, /a\.name === 'categoryColors' && a\.open === true/, 'asked of the Places in this page');
   assert.match(page, /host\.actions\.request\(action\.action, \{\}, \{ wait: true, here: true \}\)/);
   assert.ok(!/% 360/.test(page) && !page.includes('BUILT_IN_CATS'), 'no hash hue');
-  assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--bg\)\); \}/);
+  assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--surface-page\)\); \}/);
   assert.ok(!/--turn|oklch/.test(css), 'no turned hues in the stylesheet');
   const places = fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8'); // the colour rule moved into Places' library (0.11.0)
   assert.match(places, /const AUTO_COLOR = '#888888';/);

@@ -20,6 +20,39 @@
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
 
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
   const { esc, objectKey, id: newId } = host.util;
 
   /*__LIB__*/
@@ -28,7 +61,7 @@
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Polls could not start: ' + err.message;
+    showMsg('Polls could not start', err.message, () => location.reload());
     return;
   }
   const inSpace = info.context.scope === 'space';
@@ -145,8 +178,8 @@
     const summaries = backlinks.get(x.key) || [];
     if (!summaries.length) return '';
     return `<div class="meta">Linked from ${summaries.map((c) => (c.open
-      ? `<span class="tag ref" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`
-      : `<span class="tag"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join(' ')}</div>`;
+      ? `<button type="button" class="sdk-chip-tag" data-ref="${esc(JSON.stringify(c.ref))}"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</button>`
+      : `<span class="sdk-chip-tag"><b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}</span>`)).join(' ')}</div>`;
   };
   if (host.objects && host.objects.onOpen) {
     host.objects.onOpen((ref) => {
@@ -201,10 +234,10 @@
     if (!o.link) return '';
     const c = optSummaries.get(objectKey(o.link));
     const remove = mayManage(x) && !isClosed(x.p) ? `<button class="x" type="button" data-unlink="${esc(x.key)}|${esc(o.id)}" aria-label="Remove link">&times;</button>` : '';
-    if (!c) return '<div class="optlink"><span class="tag">Loading...</span></div>';
-    if (c.error) return `<div class="optlink"><span class="tag" title="Deleted, or not something you can see">Not available</span>${remove}</div>`;
+    if (!c) return '<div class="optlink"><span class="sdk-chip-tag">Loading...</span></div>';
+    if (c.error) return `<div class="optlink"><span class="sdk-chip-tag" title="Deleted, or not something you can see">Not available</span>${remove}</div>`;
     const body = `<b>${esc(c.kindName || c.module.name)}</b> ${esc(c.title)}`;
-    return `<div class="optlink">${c.open ? `<span class="tag ref" role="button" tabindex="0" data-ref="${esc(JSON.stringify(c.ref))}">${body}</span>` : `<span class="tag">${body}</span>`}${remove}</div>`;
+    return `<div class="optlink">${c.open ? `<button type="button" class="sdk-chip-tag" data-ref="${esc(JSON.stringify(c.ref))}">${body}</button>` : `<span class="sdk-chip-tag">${body}</span>`}${remove}</div>`;
   }
   async function resolveOptionLinks() {
     if (!host.objects || !host.objects.resolve) return;
@@ -266,17 +299,17 @@
       const names = counts.get(o.id);
       const width = voters ? Math.round((names.length / Math.max(voters, max, 1)) * 100) : 0;
       const win = leaders.some((l) => l.id === o.id);
-      return `<button type="button" class="opt ${mine.includes(o.id) ? 'mine' : ''} ${win ? 'win' : ''}" data-vote="${esc(x.key)}|${esc(o.id)}" ${votable ? '' : 'disabled'}>
-        <span class="fill" style="width:${width}%"></span><span class="name">${esc(o.text)}${o.date ? `<small>${esc(new Date(o.date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }))}</small>` : ''}${o.desc ? `<small>${esc(o.desc)}</small>` : ''}</span><span class="num">${win ? (leaders.length > 1 ? 'Tied &middot; ' : 'Winner &middot; ') : ''}${names.length}</span></button>
+      return `<button type="button" class="sdk-row opt ${mine.includes(o.id) ? 'on mine' : ''} ${win ? 'win' : ''}" data-vote="${esc(x.key)}|${esc(o.id)}" ${votable ? '' : 'disabled'}>
+        <span class="sdk-progress-behind" role="progressbar" aria-label="Votes for ${esc(o.text)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${width}" aria-valuetext="${names.length} of ${voters || 0} voted for it" style="--pct:${width}%"></span><span class="name">${esc(o.text)}${o.date ? `<small>${esc(new Date(o.date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }))}</small>` : ''}${o.desc ? `<small>${esc(o.desc)}</small>` : ''}</span><span class="num">${win ? (leaders.length > 1 ? 'Tied &middot; ' : 'Winner &middot; ') : ''}${names.length}</span></button>
         ${names.length ? `<div class="who">${esc(names.join(', '))}</div>` : ''}${optionLinkHtml(x, o)}`;
     }).join('');
     const canManage = mayManage(x);
     const status = closesText(p);
-    return `<article class="poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
-      ${canManage ? `<button class="menu-btn sdk-more" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}
-      <h3 data-drag="${esc(x.key)}" title="Drag onto a to-do to link it">${esc(p.question)}</h3>
-      <div class="meta">${p.multi ? 'Pick any' : 'Pick one'} &middot; ${voters} ${voters === 1 ? 'vote' : 'votes'}${status ? `<span class="tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
-      ${opts}
+    return `<article class="sdk-card poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
+      ${canManage ? `<button class="sdk-card-menu sdk-icon-btn btn-quiet btn-small" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}
+      <h3 class="sdk-card-title" data-drag="${esc(x.key)}" title="Drag onto a to-do to link it">${esc(p.question)}</h3>
+      <div class="meta">${p.multi ? 'Pick any' : 'Pick one'} &middot; ${voters} ${voters === 1 ? 'vote' : 'votes'}${status ? `<span class="sdk-chip-tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
+      <div class="sdk-card-list">${opts}</div>
       ${p.addable && votable && p.options.length < MAX_OPTIONS ? `<div class="addopt"><input type="text" maxlength="100" placeholder="Suggest another option" data-addtext="${esc(x.key)}" aria-label="Suggest another option"><button class="btn btn-small" type="button" data-addopt="${esc(x.key)}">Add</button></div>` : ''}
       ${x.scope === 'spaces' && !closed ? `<div class="meta">Vote in that ${esc(word('space'))}.</div>` : ''}
       ${backlinksHtml(x)}
@@ -288,7 +321,7 @@
     const shown = list.filter((x) => (show === 'all' ? true : show === 'closed' ? isClosed(x.p) : !isClosed(x.p)));
     if (!shown.length) return '';
     shown.sort((a, b) => (b.p.createdAt || 0) - (a.p.createdAt || 0));
-    return `<section class="group">${label ? `<h4>${label}</h4>` : ''}${shown.map(pollHtml).join('')}</section>`;
+    return `<section class="sdk-list-group">${label ? `<h4 class="sdk-group-head">${label}</h4>` : ''}<div class="sdk-list">${shown.map(pollHtml).join('')}</div></section>`;
   }
 
   // Open / Closed / All is the toolbar's view switch: host.ui.viewSwitch draws it, tracks the current
@@ -317,7 +350,7 @@
 
     $('spaces').hidden = spaceInfo.size === 0;
     if (spaceInfo.size) {
-      $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
+      $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="sdk-chip ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
     }
 
     let html = groupHtml(spaceInfo.size ? word('environment', { cap: true }) : '', own);
@@ -326,7 +359,7 @@
       html += groupHtml(`${spaceIcon(r.id)} ${esc(r.name)}`, [...polls.values()].filter((x) => x.scope === 'spaces' && x.spaceId === r.id));
     }
     askBacklinks();
-    $('body').innerHTML = html || `<p class="empty">${show === 'closed' ? 'No closed polls.' : 'No open polls.'}${canCreate && show !== 'closed' ? ' Start one to get a vote going.' : ''}</p>`;
+    $('body').innerHTML = html || `<p class="sdk-empty">${show === 'closed' ? 'No closed polls.' : 'No open polls.'}${canCreate && show !== 'closed' ? ' Start one to get a vote going.' : ''}</p>`;
     syncStatus();
     syncAttention();
   }
@@ -558,13 +591,16 @@
     desc.maxLength = 140;
     desc.placeholder = 'Detail (optional)';
     const dateWrap = document.createElement('div');
-    dateWrap.className = 'o-datewrap';
+    dateWrap.className = 'o-datewrap sdk-field';
     const date = document.createElement('input');
     date.type = 'date';
     date.className = 'o-date';
     date.title = 'A date this option stands for (optional)';
     date.setAttribute('aria-label', 'Date (optional)');
-    dateWrap.appendChild(date);
+    // The date picker writes the weekday into the hint of the field it is in: each option's date is a field of its own.
+    const weekday = document.createElement('span');
+    weekday.className = 'sdk-hint';
+    dateWrap.append(date, weekday);
     row.append(name, desc, dateWrap);
     $('f-options').appendChild(row);
     host.ui.datePicker(date, { clearable: true });
@@ -573,6 +609,9 @@
   }
 
   const closesPicker = host.ui.datePicker($('f-closes'), { clearable: true });
+  // The closing time is a day and a time (12:00 when the day has no time), kept together as 'YYYY-MM-DDTHH:MM'.
+  const closesValue = () => ($('f-closes').value ? `${$('f-closes').value}T${$('f-closes-time').value || '12:00'}` : '');
+  const setCloses = (v) => { const [day, time] = String(v || '').split('T'); $('f-closes').value = day || ''; $('f-closes-time').value = time || '12:00'; };
   // The form opens as the editor window (host.ui.editor): over everything, sized to the form, a sheet on a phone. What
   // the form held when it opened, as text, so Escape and Close can ask "Discard your changes?" only after something changed.
   let opened = null;
@@ -581,7 +620,7 @@
     options: [...$('f-options').children].map((r) => [r.querySelector('.o-text').value, r.querySelector('.o-desc').value, r.querySelector('.o-date').value]),
     multi: $('f-multi').checked,
     addable: $('f-addable').checked,
-    closes: $('f-closes').value,
+    closes: closesValue(),
     notify: $('f-notify').checked,
   });
   const editor = host.ui.editor($('editor'), {
@@ -604,10 +643,10 @@
     // A quick add fills the question, and the closing time when a day was typed (12:00 unless a time was).
     $('f-question').value = (prefill && prefill.title) || '';
     const closes = prefill && prefill.closes ? prefill.closes : prefill && prefill.date ? prefill.date + 'T' + (prefill.time || '12:00') : '';
-    $('f-closes').value = closes && new Date(closes).getTime() > Date.now() ? closes : '';
+    setCloses(closes && new Date(closes).getTime() > Date.now() ? closes : '');
     if (!$('f-closes').value && prefs.closeAfterDays > 0) {
       const d = new Date(Date.now() + prefs.closeAfterDays * 24 * 60 * 60 * 1000);
-      $('f-closes').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T12:00`;
+      setCloses(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T12:00`);
     }
     closesPicker.refresh();
     $('f-notify').checked = false;
@@ -635,7 +674,7 @@
     if (new Set(rows.map((o) => o.text.toLowerCase())).size !== rows.length) return showError('Two options are the same.');
     let closesAt = null;
     if ($('f-closes').value) {
-      closesAt = new Date($('f-closes').value).getTime();
+      closesAt = new Date(closesValue()).getTime();
       if (Number.isNaN(closesAt) || closesAt <= Date.now()) return showError('The closing time has to be in the future.');
     }
     const p = {
@@ -821,18 +860,22 @@
   const redraw = setInterval(() => { if (!$('app')) return void clearInterval(redraw); render(); announceIfDue(); }, 30000);
 
   $('add').hidden = !canCreate;
-  try {
-    await load();
-  } catch (err) {
-    $('msg').textContent = `${info.module.name} could not load: ${err.message}`;
-    return;
+  async function start() {
+    try {
+      await load();
+    } catch (err) {
+      showMsg(`${info.module.name} could not load`, err.message, start);
+      return;
+    }
+    await loadKinds();
+    await loadActions();
+    resolveOptionLinks();
+    for (const x of [...polls.values()]) syncOptionLinks(x);
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    render();
+    announceIfDue();
   }
-  await loadKinds();
-  await loadActions();
-  resolveOptionLinks();
-  for (const x of [...polls.values()]) syncOptionLinks(x);
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
-  announceIfDue();
+  await start();
 })();

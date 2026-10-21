@@ -5,6 +5,7 @@
 import { api, escapeHtml, word } from '/brand.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, VERBS, DEFAULT_VERBS } from '/words.js';
 import { fileText } from '/file-text.js';
+import { confirmDialog } from '/confirm.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (el, text, error = false) => { el.textContent = text; el.classList.toggle('error', error); el.hidden = !text; };
@@ -45,7 +46,7 @@ function renderList() {
   const box = $('template-list');
   const notices = $('template-notices');
   const updates = list.filter((t) => t.update);
-  notices.innerHTML = updates.map((t) => `<li class="list-row" data-id="${escapeHtml(t.id)}"><span class="template-list-name">${escapeHtml(t.name || t.id)} was updated in this image: review</span><button class="btn btn-small" type="button" data-action="review">Review</button></li>`).join('');
+  notices.innerHTML = updates.map((t) => `<li class="sdk-banner" data-kind="info" data-id="${escapeHtml(t.id)}"><span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span><span class="sdk-banner-text">${escapeHtml(t.name || t.id)} was updated in this image: review</span><button class="btn btn-small sdk-banner-action" type="button" data-action="review">Review</button></li>`).join('');
   if (!list.length) { box.innerHTML = '<li class="hint">No templates yet.</li>'; return; }
   box.innerHTML = list.map((t) => {
     const own = t.source === 'host';
@@ -53,10 +54,10 @@ function renderList() {
     const used = (t.usedBy || []).length;
     const id = escapeHtml(t.id);
     const badge = t.edited ? ' <span class="template-edited">Edited</span>' : '';
-    return `<li class="list-row" data-id="${id}">
+    return `<li class="sdk-row list-row" data-id="${id}">
       <span class="template-list-name"><strong>${escapeHtml(t.name || t.id)}</strong>${badge} <code>${id}</code>
         <span class="hint">${escapeHtml(SOURCE[t.source] || t.source)}, version ${escapeHtml(String(t.version || 1))}, <span title="${escapeHtml((t.usedBy || []).join(', '))}">used by ${used}</span>${t.hidden ? ', hidden' : ''}</span></span>
-      ${own || bundled ? `<label class="check"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}
+      ${own || bundled ? `<label class="sdk-choice-row"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}
       <a class="btn btn-small" href="/api/host/templates/${encodeURIComponent(t.id)}/export" download>Export</a>
       ${own || bundled ? `<button class="btn btn-small" type="button" data-action="edit">Edit</button>` : ''}
       ${own || bundled ? `<button class="btn btn-small" type="button" data-action="duplicate">Duplicate</button>` : ''}
@@ -90,7 +91,7 @@ $('template-list').addEventListener('click', async (e) => {
   } else if (b.dataset.action === 'duplicate') {
     await duplicateTemplate(t);
   } else if (b.dataset.action === 'reset') {
-    if (!window.confirm(`Reset ${t.name || id} to the shipped version? Your edits are removed.`)) return;
+    if (!await confirmDialog({ title: `Reset ${t.name || id} to the shipped version?`, message: 'Your edits are removed.', action: 'Reset', kind: 'destructive' })) return;
     try {
       await api('DELETE', `/api/host/templates/${encodeURIComponent(id)}/edits`);
       closeCompare();
@@ -99,7 +100,7 @@ $('template-list').addEventListener('click', async (e) => {
     } catch (err) { say($('templates-status'), err.message, true); }
   } else if (b.dataset.action === 'delete') {
     if ((t.usedBy || []).length) return say($('templates-status'), `In use by ${t.usedBy.join(', ')}. Hide it instead.`, true);
-    if (!window.confirm(`Delete the ${t.name || id} template?`)) return;
+    if (!await confirmDialog({ title: `Delete the ${t.name || id} template?`, action: 'Delete', kind: 'destructive' })) return;
     try {
       await api('DELETE', `/api/host/templates/${encodeURIComponent(id)}`);
       await reload();
@@ -173,7 +174,7 @@ async function answerUpdate(keep) {
   const id = comparing;
   const t = list.find((x) => x.id === id);
   if (!id || !t) return;
-  if (keep === 'shipped' && !window.confirm(`This drops your edits to ${t.name || id}.`)) return;
+  if (keep === 'shipped' && !await confirmDialog({ title: `Drop your edits to ${t.name || id}?`, action: 'Drop my edits', kind: 'destructive' })) return;
   try {
     await api('POST', `/api/host/templates/${encodeURIComponent(id)}/update`, { keep });
     closeCompare();
@@ -268,7 +269,7 @@ async function openEditor(t) {
   previewHome();
   const on = new Set((t && t.modules) || ['chat', 'conference']);
   const ids = [...new Set([...moduleIds, ...on])];
-  $('te-modules').innerHTML = ids.map((id) => `<label class="check"><input type="checkbox" data-module="${escapeHtml(id)}"${on.has(id) ? ' checked' : ''}${id === 'chat' ? ' disabled title="Chat can\'t be switched off yet"' : ''}> ${escapeHtml(moduleName(id))}</label>`).join('');
+  $('te-modules').innerHTML = ids.map((id) => `<label class="sdk-choice-row"><input type="checkbox" data-module="${escapeHtml(id)}"${on.has(id) ? ' checked' : ''}${id === 'chat' ? ' disabled title="Chat can\'t be switched off yet"' : ''}> ${escapeHtml(moduleName(id))}</label>`).join('');
   const names = (t && t.moduleNames) || {};
   const icons = (t && t.moduleIcons) || {};
   $('te-module-display').innerHTML = ids.map((id) => `<div class="module-display-row" data-display="${escapeHtml(id)}"><strong>${escapeHtml(moduleName(id))}</strong>`
@@ -297,7 +298,7 @@ function phaseRow(phase = {}) {
   row.className = 'phase-row';
   row.innerHTML = `<input type="text" data-phase-id maxlength="32" value="${escapeHtml(phase.id || '')}" placeholder="planning" aria-label="Phase id" autocapitalize="off" spellcheck="false">`
     + `<input type="text" data-phase-label maxlength="40" value="${escapeHtml(phase.label || '')}" placeholder="Planning" aria-label="Phase label">`
-    + `<label class="check"><input type="checkbox" data-phase-main${phase.main ? ' checked' : ''}> Main</label>`
+    + `<label class="sdk-choice-row"><input type="checkbox" data-phase-main${phase.main ? ' checked' : ''}> Main</label>`
     + `<span class="list-tools"><button type="button" class="btn btn-small" data-phase="up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>`
     + `<button type="button" class="btn btn-small" data-phase="down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>`
     + `<button type="button" class="btn btn-small danger" data-phase="remove">Remove</button></span>`;
@@ -359,7 +360,7 @@ function renderOpens(saved) {
     ? (saved || [])
     : [...$('te-opens').querySelectorAll('[data-opens]:checked')].map((box) => box.closest('.opens-row').dataset.open));
   const ranked = [...prior.filter((id) => have.has(id)), ...mods.filter((id) => !prior.includes(id))];
-  $('te-opens').innerHTML = ranked.map((id) => `<div class="opens-row" data-open="${escapeHtml(id)}"><label class="check"><input type="checkbox" data-opens${ticked.has(id) ? ' checked' : ''}> ${escapeHtml(moduleName(id))}</label>`
+  $('te-opens').innerHTML = ranked.map((id) => `<div class="opens-row" data-open="${escapeHtml(id)}"><label class="sdk-choice-row"><input type="checkbox" data-opens${ticked.has(id) ? ' checked' : ''}> ${escapeHtml(moduleName(id))}</label>`
     + `<span class="list-tools"><button type="button" class="btn btn-small" data-open-move="up" aria-label="Move ${escapeHtml(moduleName(id))} up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>`
     + `<button type="button" class="btn btn-small" data-open-move="down" aria-label="Move ${escapeHtml(moduleName(id))} down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button></span></div>`).join('');
 }

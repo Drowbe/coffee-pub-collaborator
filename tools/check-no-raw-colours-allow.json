@@ -1,0 +1,62 @@
+{
+  "about": "check-no-raw-colours: today's hard-coded colours outside the token blocks, per file. \"raw\" is a real colour to move onto a token; \"shadow-scrim\" is pure black or white used as a shadow or scrim (allowed for now). Counts may only fall; lower them with: node tools/check-no-raw-colours.mjs --update",
+  "counts": {
+    "modules/assistant/src/assistant.css": {
+      "raw": 1
+    },
+    "modules/places/src/places.css": {
+      "shadow-scrim": 1
+    },
+    "modules/research/src/research.css": {
+      "shadow-scrim": 1
+    },
+    "modules/research/src/research.js": {
+      "raw": 1
+    },
+    "modules/stream/src/stream-keyed.css": {
+      "raw": 5,
+      "shadow-scrim": 2
+    },
+    "modules/stream/src/stream.css": {
+      "raw": 7
+    },
+    "modules/travel/src/travel.js": {
+      "raw": 12
+    },
+    "public/admin.js": {
+      "raw": 1
+    },
+    "public/diag.css": {
+      "raw": 8,
+      "shadow-scrim": 1
+    },
+    "public/layout-debug.js": {
+      "raw": 2,
+      "shadow-scrim": 1
+    },
+    "public/module-host.js": {
+      "raw": 3,
+      "shadow-scrim": 2
+    },
+    "public/module-settings.js": {
+      "raw": 1
+    },
+    "public/style.css": {
+      "raw": 4,
+      "shadow-scrim": 1
+    }
+  },
+  "reasons": {
+    "public/style.css": {
+      "raw": "The video tile's letterbox is black on purpose (.tile and .tile-screen: video never shows the theme through), the away bubble's white text sits on a dark scrim over live video (no role is drawn for text on a video scrim), and the sign-in QR code stays white on black so a phone can scan it (.mfa-qr).",
+      "shadow-scrim": "The away bubble's dark scrim over live video (.away-bubble), paired with its white text above."
+    },
+    "public/diag.css": {
+      "raw": "The diagnostics page measures the phone's viewport and safe areas. It loads no theme, and its probe bars (red, blue, green, magenta frame) must stay different from each other and from any theme.",
+      "shadow-scrim": "The diagnostics page's translucent readout panel over the probe bars; it loads no theme."
+    },
+    "public/admin.js": {
+      "raw": "A canvas fill used only to turn a computed colour into hex for the theme editor's contrast line; it is never drawn on screen."
+    }
+  }
+}

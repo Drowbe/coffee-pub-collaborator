@@ -1,8 +1,8 @@
 // A theme as a file (documentation/plans/plan-themes.md, "The file"; its marker, plan-kind-names.md): `<name>.theme.json`,
-// holding { format: "theme", formatVersion: 1, name, author?, light, dark }, each set with every one of the twenty stored keys (the seven base
-// colors and the thirteen optional ones, null for Auto), or null for a set the theme doesn't have. Keys are the stored
-// names, never CSS property names: server/theme-css.js stays the one place that maps a key to CSS, so a file can
-// only ever carry colors.
+// holding { format: "theme", formatVersion: 1, name, author?, light, dark }, each set with every stored key (the seven base
+// colors and the optional ones, null for Auto; server/store.js THEME_BASE and THEME_OPTIONAL), or null for a set the theme doesn't
+// have. The keys are the colour roles (`surface-page`, `accent-fill`...), each written as a #rrggbb colour and nothing else:
+// server/theme-css.js stays the one place that writes CSS, so a file can only ever carry colors.
 //
 // themeToFile() writes one; readThemeFile() checks one in the plan's order, each refusal a ThemeFileError with its
 // sentence, and answers what to add plus the keys it left out. Adding it (a new id, "Name (2)" on a clash) is

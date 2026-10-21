@@ -5,6 +5,7 @@
 // space's canvas (canvas.js).
 
 import { api, accessKeyHeaders, word, words, withinSpacePage, showNote } from '/brand.js';
+import { confirmDialog } from '/confirm.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
 import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus } from '/module-chrome.js';
@@ -14,6 +15,10 @@ const THEME_TOKENS = [
   '--bg', '--bg-section', '--bg-card', '--bg-input', '--border', '--text', '--text-dim', '--accent', '--on-accent',
   '--accent-hover', '--primary-hover', '--secondary', '--secondary-text', '--secondary-hover', '--header-bg',
   '--header-text', '--icon-hover', '--danger', '--ok', '--surface', '--surface-hover', '--shade',
+  // The colour roles the shared stylesheet's buttons read (a module in a frame gets that stylesheet from the server's page route, and these values).
+  '--accent-fill', '--accent-fill-hover', '--text-on-accent', '--fill-secondary', '--fill-secondary-hover', '--text-on-secondary',
+  '--edge-hairline', '--text-primary', '--text-muted', '--fill-hover', '--fill-selected', '--text-selected', '--focus-ring',
+  '--status-danger-fill', '--status-danger-text', '--status-danger-on-fill',
   // The tints (plan-chat-model.md), in the mode showing, so a module's own colour matches the host's.
   '--tint-gold', '--tint-blue', '--tint-green', '--tint-teal', '--tint-purple', '--tint-red', '--tint-orange', '--tint-pink',
 ];
@@ -628,7 +633,7 @@ function ptrBegin(source, { ref = null, summary = null }, label, x, y) {
   const doc = source.frame.ownerDocument;
   const ghost = doc.createElement('div');
   ghost.textContent = String(label || '').slice(0, 40);
-  ghost.style.cssText = 'position:fixed;z-index:2147483001;pointer-events:none;padding:3px 9px;border-radius:var(--radius-small);background:#c8873a;color:#1a1206;font:600 12px sans-serif;max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  ghost.style.cssText = 'position:fixed;z-index:2147483001;pointer-events:none;padding:3px 9px;border-radius:var(--radius-small);background:#c8873a;color:#1a1206;font:var(--weight-strong) var(--text-12) var(--font-ui);max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.4)';
   doc.body.appendChild(ghost);
   ptrDrag = { source, ref, summary, label, ghost, over: null, doc, timer: setTimeout(ptrEnd, 60000) };
   ptrMove(x, y);
@@ -768,12 +773,12 @@ export function sameSiteOpener() {
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };
 
-// The host's "..." (same look as host.ui.moreButton / .sdk-more inside a module).
+// The host's "..." (same look as host.ui.moreButton / .sdk-icon-btn inside a module).
 function drawMoreButton(doc, extraClass, onClick) {
   const more = doc.createElement('button');
   more.type = 'button';
-  more.className = extraClass ? `sdk-more ${extraClass}` : 'sdk-more';
-  more.title = 'More';
+  more.className = extraClass ? `sdk-icon-btn btn-quiet btn-small ${extraClass}` : 'sdk-icon-btn btn-quiet btn-small';
+  more.dataset.tip = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
   const i = doc.createElement('i');
@@ -962,7 +967,7 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
       close.type = 'button';
       close.className = 'module-editor-close';
       close.setAttribute('aria-label', 'Close');
-      close.title = 'Close';
+      close.dataset.tip = 'Close';
       close.innerHTML = '<i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i>';
       close.addEventListener('click', () => dismiss());
       frame.parentNode.insertBefore(backdrop, frame);
@@ -1003,7 +1008,7 @@ export function createAddSlot(add, send) {
     if (!addButton) {
       addButton = doc.createElement('button');
       addButton.type = 'button';
-      addButton.className = 'sdk-more mod-add';
+      addButton.className = 'sdk-icon-btn btn-quiet btn-small';
       const i = doc.createElement('i');
       i.className = 'fa-solid fa-plus fa-fw';
       i.setAttribute('aria-hidden', 'true');
@@ -1017,7 +1022,7 @@ export function createAddSlot(add, send) {
       add.appendChild(addButton);
     }
     const label = plan.kind === 'direct' ? plan.leaf.label : plan.label;
-    addButton.title = label;
+    addButton.dataset.tip = label;
     addButton.setAttribute('aria-label', label);
     if (plan.kind === 'menu') {
       addButton.setAttribute('aria-haspopup', 'menu');
@@ -1086,7 +1091,7 @@ export function createStatusSlot(status) {
         statusList.appendChild(dot);
       }
       const el = doc.createElement('span');
-      el.className = `mod-status-item${item.chip ? ' chip' : ''}${item.end ? ' end' : ''}`;
+      el.className = `mod-status-item${item.chip ? ' sdk-status' : ''}${item.end ? ' end' : ''}`;
       el.title = item.title;
       if (item.quiet) el.setAttribute('aria-hidden', 'true');
       if (item.icon) {
@@ -1369,6 +1374,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (typeof text !== 'string' || !text.trim()) throw Object.assign(new Error('say something'), { status: 400 });
       showNote(text);
       return true;
+    },
+    // A question for the person (host.ui.confirm): the styled confirm over the page. true for the action, false for anything else.
+    async 'ui.confirm'(o) {
+      return confirmDialog(o);
     },
     // A Font Awesome icon as inline SVG, for a module in a sandboxed frame that cannot load the icon font.
     async 'icons.svg'({ name, style }) {
@@ -1772,8 +1781,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       for (const item of shown) {
         const b = doc.createElement('button');
         b.type = 'button';
-        b.className = `msg-btn${item.on ? ' on' : ''}`;
-        b.title = item.title;
+        b.className = `sdk-icon-btn btn-quiet btn-small${item.on ? ' on' : ''}`;
+        if (item.title) b.dataset.tip = item.title;
         b.setAttribute('aria-label', item.title || item.id);
         b.setAttribute('aria-pressed', String(item.on));
         b.disabled = item.disabled;
@@ -1863,11 +1872,15 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         if (item.type === 'text') { const s = doc.createElement('span'); s.className = 'tb-text'; s.textContent = item.text; toolbar.appendChild(s); continue; }
         if (item.type === 'progress') {
           const wrap = doc.createElement('span');
-          wrap.className = 'tb-progress';
-          if (item.label) wrap.setAttribute('aria-label', item.label);
+          wrap.className = 'sdk-progress sdk-progress-sm sdk-progress-short';
+          wrap.setAttribute('role', 'progressbar');
+          wrap.setAttribute('aria-label', item.label || 'Progress');
+          wrap.setAttribute('aria-valuemin', '0');
+          wrap.setAttribute('aria-valuemax', '100');
+          wrap.setAttribute('aria-valuenow', String(Math.round(Number(item.value) || 0)));
           const fill = doc.createElement('span');
-          fill.className = 'tb-progress-fill';
-          fill.style.width = `${item.value}%`;
+          fill.className = 'sdk-progress-fill';
+          fill.style.setProperty('--pct', `${item.value}%`);
           wrap.appendChild(fill);
           toolbar.appendChild(wrap);
           continue;
@@ -1914,7 +1927,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         }
         const b = doc.createElement('button');
         b.type = 'button';
-        b.className = `tb-btn${item.primary ? ' primary' : ''}${item.on ? ' on' : ''}`;
+        b.className = `btn btn-small ${item.primary ? 'btn-primary' : 'btn-quiet'}${item.on ? ' on' : ''}`;
         b.disabled = item.disabled;
         b.dataset.tbKey = toolbarKey('btn', item.id);
         if (item.on !== null) b.setAttribute('aria-pressed', String(item.on));
@@ -2202,10 +2215,11 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (!res.ok) throw new Error(`${url} ${res.status}`);
       return res.text();
     };
-    const [sdkCss, css, body] = await Promise.all([text('/sdk/host.css'), text(`${base}?part=css`), text(`${base}?part=body`)]);
+    const [sdkCss, systemCss, css, body] = await Promise.all([text('/sdk/host.css'), text('/sdk/system.css'), text(`${base}?part=css`), text(`${base}?part=body`)]);
     const root = container.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
-    style.textContent = scopeCss(sdkCss) + '\n' + scopeCss(css);
+    // system.css after host.css, as the app's pages load it (the design system's tokens and roles; their :root is dropped here, so the module reads the page's, inherited).
+    style.textContent = scopeCss(sdkCss) + '\n' + scopeCss(systemCss) + '\n' + scopeCss(css);
     root.appendChild(style);
     const tpl = document.createElement('template');
     tpl.innerHTML = body;

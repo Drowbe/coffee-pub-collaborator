@@ -7,12 +7,30 @@
   const host = (document.currentScript && document.currentScript.host) || window.host;
   const root = host.root;
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or an empty list is the line in #msg (.sdk-empty-line, with Retry on a failure).
+  function showMsg(text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    m.textContent = text;
+    if (retry) {
+      m.dataset.kind = 'error';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn btn-small';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      m.append(again);
+    } else {
+      delete m.dataset.kind;
+    }
+    m.hidden = false;
+  }
   const { esc, ymd, parseYmd } = host.util;
 
   try {
     await host.ready();
   } catch (err) {
-    $('msg').textContent = 'The to-do list could not start: ' + err.message;
+    showMsg('The to-do list could not start: ' + err.message, () => location.reload());
     return;
   }
 
@@ -52,8 +70,7 @@
       .filter((x) => x.t.due && !x.t.done && x.t.due <= limit)
       .sort((a, b) => (a.t.due < b.t.due ? -1 : a.t.due > b.t.due ? 1 : 0))
       .slice(0, MAX_ITEMS);
-    $('msg').hidden = shown.length > 0;
-    $('msg').textContent = 'Nothing due in the next week.';
+    if (shown.length) { $('msg').hidden = true; $('loading').hidden = true; } else showMsg('Nothing due in the next week.');
     $('list').hidden = shown.length === 0;
     $('list').innerHTML = shown.map((x) => {
       const r = x.spaceId ? spaces.get(x.spaceId) : null;
@@ -100,12 +117,16 @@
     refreshing = setTimeout(() => load().then(render).catch(() => {}), 300);
   });
 
-  try {
-    await load();
-  } catch (err) {
-    $('msg').textContent = 'The to-do list could not load: ' + err.message;
-    return;
+  async function start() {
+    try {
+      await load();
+    } catch (err) {
+      showMsg('The to-do list could not load' + ': ' + err.message, start);
+      return;
+    }
+    render();
+    if (!ticking) ticking = setInterval(render, 60000);
   }
-  render();
-  setInterval(render, 60000);
+  let ticking = 0;
+  await start();
 })();

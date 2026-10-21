@@ -1,20 +1,18 @@
 #!/usr/bin/env node
 /*
- * check-buttons.mjs -- the action button is defined once.
+ * check-buttons.mjs -- the Buttons family is defined once, in public/sdk/system.css (design system step 12).
  *
- * The square icon button of the bottom row (the call's controls, the chat's Send, a module's own bottom buttons) is
- * .action-btn: its size is --action-btn-h and its icon --action-icon-ratio of that. The app's own page
- * (public/style.css) and a module's page (public/sdk/host.css, which the server adds to every module page) each carry the
- * rules, between the markers action-btn:start and action-btn:end, and they must be word for word the same, with the same
- * two tokens. This fails when:
- *   - the two copies differ, or either is missing, or the tokens differ (the size, or the icon's share of it);
- *   - public/style.css sizes the call controls or the Send outside the shared rules (a smaller button sets
- *     --action-btn-h, nothing else);
- *   - the call controls or the chat's Send stop using .action-btn;
- *   - the host draws a module action bar again (plan-module-titlebar-add.md, step 6: there is none; host.bar.set folds
- *     its buttons into the titlebar's "+", whose button is the "..."'s .sdk-more, not an .action-btn);
- *   - a bundled module's CSS sizes .action-btn, sets the two tokens, or keeps its own copy (a button sized to the bottom
- *     row's 38px).
+ * Four roles (Primary .btn-primary, Secondary .btn, Danger .btn-danger and Quiet .btn-quiet), two sizes (--btn-h, --btn-h-small) and
+ * one icon-only button (.sdk-icon-btn) live in the block between `buttons:start` and `buttons:end` of system.css. This fails when:
+ *   - the block is missing or has no rule for a role, a size, a state or the phone hit area; the heights are not 38px, 44px on a
+ *     phone and 30px; a colour in the block is not a token; a state sets a border colour;
+ *   - the old button selectors (.action-btn, .sdk-field-btn, .sdk-more, .icon-btn, .msg-btn, .tb-btn, .mod-add, .btn-accent, .sdk-dp-btn) are
+ *     used in a stylesheet, in a script, or in the pages' markup;
+ *   - a rule outside system.css, ending in a button class, restyles it (colour, fill, edge, size, type, corners): the page, the
+ *     module stylesheets, host.css and the UI_CSS string may lay a button out (margin, flex, position) and may set the role's
+ *     custom properties (--b-*, --btn-h), nothing more;
+ *   - the call's round buttons (.fbtn) are sized outside their base rule (a smaller one sets --action-btn-h), or stop being buttons of
+ *     the call bar, or the chat form gets a Send button again, or the host draws a module action bar again.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,20 +23,7 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\
 const problems = [];
 const fail = (msg) => problems.push(msg);
 
-const SIZE_PROPS = /^(width|height|min-width|min-height|max-width|max-height|padding|padding-[a-z]+|font|font-size|line-height)$/;
-const TOKENS = /^--action-(btn-h|icon-ratio)$/;
-
-// The shared block, between its markers.
-function block(rel, text) {
-  const all = [...text.matchAll(/\/\* action-btn:start[\s\S]*?\/\* action-btn:end \*\//g)];
-  if (all.length !== 1) {
-    fail(`${rel}: needs exactly one action-btn:start ... action-btn:end block, found ${all.length}`);
-    return null;
-  }
-  return all[0];
-}
-
-// The innermost rules of a stylesheet, { selector, decls: [[prop, value]], at }, comments taken out (offsets kept).
+// The innermost rules of a stylesheet, { selector, decls: [[prop, value]] }, comments taken out.
 function rules(text) {
   const clean = text.replace(/\/\*[\s\S]*?\*\//g, (c) => ' '.repeat(c.length));
   const out = [];
@@ -51,120 +36,124 @@ function rules(text) {
       const i = d.indexOf(':');
       return [d.slice(0, i).trim().toLowerCase(), d.slice(i + 1).trim()];
     });
-    out.push({ selector, decls, at: m.index + m[0].indexOf(m[1].trim()) });
+    out.push({ selector, decls });
   }
   return out;
 }
 
-const rootValue = (text, name) => {
-  const root = /:root\s*\{([^}]*)\}/.exec(text.replace(/\/\*[\s\S]*?\*\//g, ''));
-  const m = root && new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(root[1]);
-  return m ? m[1].trim() : null;
-};
-
-// 1. The two copies.
-const style = read('public/style.css');
-const sdk = read('public/sdk/host.css');
-const a = block('public/style.css', style);
-const b = block('public/sdk/host.css', sdk);
-if (a && b && a[0] !== b[0]) {
-  const al = a[0].split('\n');
-  const bl = b[0].split('\n');
-  const at = al.findIndex((line, i) => line !== bl[i]);
-  fail(`the action button's rules differ between public/style.css and public/sdk/host.css (block line ${at + 1}: "${al[at] ?? ''}" vs "${bl[at] ?? ''}"); keep them word for word the same`);
-}
-if (a) {
-  const declared = rules(a[0]).map((r) => r.selector);
-  for (const sel of ['.action-btn', '.action-btn:hover', '.action-btn.primary', '.action-btn.primary:hover', '.action-btn:disabled']) {
-    if (!declared.includes(sel)) fail(`the action button's rules have no ${sel}`);
+// 1. The block.
+const system = read('public/sdk/system.css');
+const blockMatch = /\/\* buttons:start \*\/([\s\S]*?)\/\* buttons:end \*\//.exec(system);
+if (!blockMatch) fail('public/sdk/system.css: needs one buttons:start ... buttons:end block');
+else {
+  const block = blockMatch[1];
+  const rs = rules(block);
+  const has = (re) => rs.some((r) => re.test(r.selector));
+  const need = [
+    [/\.btn-primary/, 'Primary (.btn-primary)'], [/\.btn-danger(?!\.)/, 'Danger (.btn-danger)'], [/\.btn-danger\.solid/, 'the solid Danger (.btn-danger.solid)'],
+    [/\.btn-quiet/, 'Quiet (.btn-quiet)'], [/\.btn-small/, 'the small size (.btn-small)'], [/\.sdk-icon-btn/, 'the icon-only button (.sdk-icon-btn)'],
+    [/:hover/, 'the hover state'], [/:active/, 'the pressed state'], [/:focus-visible/, 'the focus ring'], [/:disabled/, 'the disabled state'],
+    [/aria-busy/, 'the loading state'], [/\.on/, 'the selected state (.on, aria-pressed)'], [/::after/, 'the 44px hit area on a phone'],
+  ];
+  for (const [re, what] of need) if (!has(re)) fail(`system.css buttons block: no rule for ${what}`);
+  if (/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(block)) fail('system.css buttons block: a raw colour; colours come from the tokens');
+  for (const r of rs) {
+    if (/:(hover|active|focus-visible|disabled)/.test(r.selector) && r.decls.some(([k]) => /^border(-color)?$/.test(k) && !/transparent|var\(--b-bd\)/.test(r.decls.find(([kk]) => kk === k)[1]))) fail(`system.css buttons block: "${r.selector}" changes the edge; a state is a fill`);
   }
-  const base = rules(a[0]).find((r) => r.selector === '.action-btn');
-  const get = (p) => base && (base.decls.find(([k]) => k === p) || [])[1];
-  if (base && get('width') !== 'var(--action-btn-h)') fail('.action-btn: width must be var(--action-btn-h)');
-  if (base && get('height') !== 'var(--action-btn-h)') fail('.action-btn: height must be var(--action-btn-h)');
-  if (base && get('font-size') !== 'calc(var(--action-btn-h) * var(--action-icon-ratio))') fail('.action-btn: font-size must be calc(var(--action-btn-h) * var(--action-icon-ratio))');
-  for (const r of rules(a[0])) {
-    for (const [k, v] of r.decls) {
-      if (/color|background|border/.test(k) && /#[0-9a-f]{3,8}\b|rgba?\(/i.test(v)) fail(`${r.selector}: ${k} must come from the theme tokens, not ${v}`);
+  const tokens = read('public/sdk/system.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const tok = (name) => (new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(tokens) || [])[1]?.trim();
+  if (tok('--btn-h') !== '38px') fail(`--btn-h must be 38px, it is ${tok('--btn-h')}`);
+  if (tok('--btn-h-small') !== '30px') fail(`--btn-h-small must be 30px, it is ${tok('--btn-h-small')}`);
+  if (!/@media \(max-width: 640px\)\s*\{\s*:root\s*\{[^}]*--btn-h:\s*44px/.test(tokens)) fail('--btn-h must be 44px at 640px and narrower');
+  const shape = rs.find((r) => /^:is\(\.btn, \.sdk-btn, \.sdk-icon-btn\)$/.test(r.selector));
+  const get = (p) => shape && (shape.decls.find(([k]) => k === p) || [])[1];
+  if (!shape) fail('system.css buttons block: no shape rule for .btn, .sdk-btn and .sdk-icon-btn');
+  else {
+    if (get('height') !== 'var(--btn-h)') fail('the shape rule: height must be var(--btn-h)');
+    if (get('border-radius') !== 'var(--radius-small)') fail('the shape rule: corners must be var(--radius-small)');
+  }
+  const icon = rs.find((r) => r.selector === '.sdk-icon-btn');
+  if (!icon || (icon.decls.find(([k]) => k === 'width') || [])[1] !== 'var(--btn-h)') fail('.sdk-icon-btn must be square: width var(--btn-h)');
+}
+
+// 2. The old names are gone everywhere.
+const OLD = /(^|[^-\w])(action-btn|sdk-field-btn|sdk-more|icon-btn|msg-btn|tb-btn|mod-add|btn-accent|sdk-dp-btn|sdk-editor-close-btn)(?![-\w])/;
+const files = [];
+const walk = (dir, accept) => {
+  for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+    const rel = path.join(dir, e.name);
+    if (e.isDirectory()) { if (!/^(design-system|fa|fonts|maps-glyphs|models|assets|node_modules|design)$/.test(e.name)) walk(rel, accept); }
+    else if (accept.test(e.name)) files.push(rel);
+  }
+};
+walk('public', /\.(css|js|html)$/);
+walk('modules', /\.(css|js|html)$/);
+for (const rel of files) {
+  if (/maplibre|\.min\./.test(rel)) continue;
+  const lines = read(rel).split('\n');
+  lines.forEach((line, i) => {
+    const code = line.replace(/\/\*.*?\*\//g, '').replace(/(^|\s)\/\/.*$/, '');
+    // "sdk-icon-btn" contains "icon-btn" after a hyphen, which the pattern skips; .menu-btn and .look-btn are other things.
+    const m = OLD.exec(code);
+    if (m) fail(`${rel}:${i + 1}: the old button name "${m[2]}"; the button is .btn or .sdk-icon-btn with a role class`);
+  });
+}
+
+// 3. No restyle outside system.css: a rule ending in a button class may lay it out and set its custom properties, not restyle it.
+const BTN = /(\.btn(-primary|-danger|-quiet|-small)?|\.sdk-btn|\.sdk-icon-btn)((:[\w-]+(\([^)]*\))?)|\[[^\]]+\]|\.(on|solid|primary))*$/;
+const LOOK = /^(background(-[a-z]+)?|border(-[a-z]+)*|color|padding(-[a-z]+)*|height|min-height|max-height|font(-[a-z]+)?|line-height|box-shadow|opacity|outline(-[a-z]+)?)$/;
+const SIZE_ONLY_OK = new Set(['width', 'min-width', 'max-width']);
+// .seg (Polls' joined buttons) goes with the Tabs step (host.ui.viewSwitch). The popped-out titlebar stretches its buttons to the bar.
+const LAYOUT_OK = [/^body\.module-popout \.module-titlebar \.sdk-icon-btn$/, /^\.subnav \.sdk-icon-btn$/, /^\.topbar > \.nav-right > \.sdk-icon-btn/, /^\.sdk-editor-close$/];
+const sheets = ['public/style.css', 'public/sdk/host.css', 'public/destination.css', ...files.filter((f) => /^modules\/[^/]+\/src\/[^/]+\.css$/.test(f))];
+for (const rel of sheets) {
+  for (const r of rules(read(rel))) {
+    for (const sel of r.selector.split(',').map((x) => x.trim())) {
+      if (!BTN.test(sel) || /^\.landing /.test(sel) || /nav-text/.test(sel)) continue;
+      if (LAYOUT_OK.some((re) => re.test(sel))) continue;
+      const bad = r.decls.filter(([k]) => LOOK.test(k));
+      if (bad.length) fail(`${rel}: "${sel}" sets ${bad.map(([k]) => k).join(', ')}; a button's look is the Buttons block in system.css (use a role or a size class; --b-* and --btn-h are the exceptions)`);
+      void SIZE_ONLY_OK;
     }
   }
 }
+// UI_CSS in the SDK script carries no button rule.
+if (/\n\.(btn|sdk-btn|sdk-icon-btn)[\s{,.:]/.test(read('public/sdk/host.js'))) fail('public/sdk/host.js: UI_CSS has a button rule; the Buttons block in system.css is the one');
 
-// The tokens: the same ratio, and the same height (style.css's --action-btn-h is the bottom row's --bar-control-h).
-const ratioA = rootValue(style, '--action-icon-ratio');
-const ratioB = rootValue(sdk, '--action-icon-ratio');
-if (!ratioA || ratioA !== ratioB) fail(`--action-icon-ratio differs: public/style.css "${ratioA}", public/sdk/host.css "${ratioB}"`);
-const px = (v) => (v && /^\d+(\.\d+)?px$/.test(v) ? parseFloat(v) : null);
-let hA = rootValue(style, '--action-btn-h');
-if (hA === 'var(--bar-control-h)') hA = rootValue(style, '--bar-control-h');
-const hB = rootValue(sdk, '--action-btn-h');
-if (px(hA) === null || px(hA) !== px(hB)) fail(`--action-btn-h differs: public/style.css "${hA}", public/sdk/host.css "${hB}"`);
-
-// 2. No second sizing of the action button in the app's own stylesheet. The call's More menu (#floatbar-overflow)
-// turns the controls into menu rows, which is not a button size.
-const OURS = /\.action-btn\b|\.fbtn(?![-\w])|\.quick-add-go\b|\.bar-icon\b|#chat-form\b/;
-for (const rel of ['public/style.css', 'public/sdk/host.css']) {
-  const text = rel === 'public/style.css' ? style : sdk;
-  const own = rel === 'public/style.css' ? a : b;
-  for (const r of rules(text)) {
-    if (own && r.at >= own.index && r.at < own.index + own[0].length) continue;
-    if (!OURS.test(r.selector) || /#floatbar-overflow/.test(r.selector)) continue;
-    // The icon inside: only the menu rows above may size it.
-    const sizing = r.decls.filter(([k]) => SIZE_PROPS.test(k));
-    const parts = r.selector.split(',').map((s) => s.trim()).filter((s) => OURS.test(s));
-    // A rule on something inside the button (a badge, the meter, the caret) is not the button's size, except its icon.
-    const onButton = parts.some((s) => /(\.action-btn|\.fbtn|\.quick-add-go|\.bar-icon)(:[\w-]+|\.[\w-]+|#[\w-]+)*$/.test(s) || /\s(i|svg|\.glyph i)$/.test(s));
-    if (onButton && sizing.length) fail(`${rel}: "${r.selector}" sets ${sizing.map(([k]) => k).join(', ')}; the action button is sized only by its shared rules (set --action-btn-h for a smaller one)`);
-  }
-}
-
-// 3. The markup uses it; the host draws no module action bar (its buttons are the titlebar "+"'s leaves).
+// 4. The call's round buttons.
+const style = read('public/style.css');
 const space = read('public/space.html');
 for (const m of space.matchAll(/<button\b[^>]*class="([^"]*(?<![\w-])fbtn(?![\w-])[^"]*)"[^>]*>/g)) {
   const id = (/\bid="([^"]+)"/.exec(m[0]) || [])[1] || '?';
-  if (!/\baction-btn\b/.test(m[1])) fail(`public/space.html: the call control #${id} must be an .action-btn`);
+  if (/\baction-btn\b/.test(m[1])) fail(`public/space.html: the call control #${id} still has the old .action-btn class`);
 }
-// The chat has no Send button (GitHub #340): Enter sends.
+const base = rules(style).find((r) => r.selector === '.fbtn');
+const bget = (p) => base && (base.decls.find(([k]) => k === p) || [])[1];
+if (!base) fail('public/style.css: the base rule .fbtn is missing');
+else {
+  if (bget('width') !== 'var(--action-btn-h)' || bget('height') !== 'var(--action-btn-h)') fail('.fbtn: width and height must be var(--action-btn-h)');
+  if (bget('font-size') !== 'calc(var(--action-btn-h) * var(--action-icon-ratio))') fail('.fbtn: font-size must be calc(var(--action-btn-h) * var(--action-icon-ratio))');
+  if (bget('border-radius') !== 'var(--radius-round)') fail('.fbtn must stay a circle (--radius-round)');
+}
+const SIZE_PROPS = /^(width|height|min-width|min-height|max-width|max-height|padding|padding-[a-z]+|font|font-size|line-height)$/;
+for (const r of rules(style)) {
+  if (r.selector === '.fbtn' || /#floatbar-overflow/.test(r.selector)) continue;
+  const parts = r.selector.split(',').map((s) => s.trim()).filter((s) => /\.fbtn(?![-\w])/.test(s));
+  const onButton = parts.some((s) => /\.fbtn(:[\w-]+|\.[\w-]+|#[\w-]+)*$/.test(s) || /\s(i|svg|\.glyph i)$/.test(s));
+  const sizing = r.decls.filter(([k]) => SIZE_PROPS.test(k));
+  if (onButton && sizing.length) fail(`public/style.css: "${r.selector}" sets ${sizing.map(([k]) => k).join(', ')}; a call button is sized only by its base rule (set --action-btn-h for a smaller one)`);
+}
 const chatForm = /<form id="chat-form">[\s\S]*?<\/form>/.exec(space);
 if (!chatForm) fail('public/space.html: the chat form is missing');
 else if (/type="submit"|<button\b/.test(chatForm[0])) fail('public/space.html: the chat form must have no Send button (Enter sends)');
 const host = read('public/module-host.js');
-if (/drawModuleBar|quick-add-go|className = 'quick-add'/.test(host)) fail('public/module-host.js: the host draws a module action bar again; host.bar.set folds into the titlebar\'s "+" (plan-module-titlebar-add.md)');
+if (/drawModuleBar|quick-add-go|className = 'quick-add'/.test(host)) fail('public/module-host.js: the host draws a module action bar again; host.bar.set folds into the titlebar\'s "+"');
 if (!/async 'bar\.set'\(\{ items \}\) \{[\s\S]{0,1400}drawAddSlot\(\);/.test(host)) fail('public/module-host.js: host.bar.set must fold its buttons into the "+" (drawAddSlot)');
-if (!/addButton\.className = 'sdk-more mod-add';/.test(host)) fail('public/module-host.js: the titlebar\'s "+" has the "..."\'s look (.sdk-more), not an action button');
-for (const rel of ['public/style.css', 'public/sdk/host.css']) {
-  const text = rel === 'public/style.css' ? style : sdk;
-  for (const r of rules(text)) if (/\.(dock-bar|module-floating-bar|module-bar)\b/.test(r.selector)) fail(`${rel}: "${r.selector}" styles the old module action bar, which is gone`);
-}
-
-// 4. Modules use the SDK's button; they do not size it or keep a copy of it.
-const BUTTON = /(^|[\s>+~,(])(button|\.btn|\.action-btn)\b/;
-const BAR = /^(38px|var\(--(action-btn-h|bar-control-h)\))$/;
-const modDir = path.join(ROOT, 'modules');
-for (const id of fs.readdirSync(modDir).sort()) {
-  const src = path.join(modDir, id, 'src');
-  if (!fs.existsSync(src)) continue;
-  for (const file of fs.readdirSync(src).sort()) {
-    const rel = `modules/${id}/src/${file}`;
-    let css = '';
-    if (file.endsWith('.css')) css = read(rel);
-    else if (file.endsWith('.html')) css = [...read(rel).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
-    if (!css) continue;
-    for (const r of rules(css)) {
-      for (const [k, v] of r.decls) {
-        if (TOKENS.test(k)) fail(`${rel}: "${r.selector}" sets ${k}; the action button's size and icon are the SDK's (public/sdk/host.css)`);
-      }
-      const sizing = r.decls.filter(([k]) => SIZE_PROPS.test(k));
-      if (/\.action-btn\b/.test(r.selector) && sizing.length) fail(`${rel}: "${r.selector}" sets ${sizing.map(([k]) => k).join(', ')} on .action-btn; use it as the SDK draws it`);
-      else if (BUTTON.test(r.selector) && r.decls.some(([k, v]) => /^(min-)?(height|width)$/.test(k) && BAR.test(v))) {
-        fail(`${rel}: "${r.selector}" sizes a button to the bottom row's height; use the SDK's .action-btn (class="action-btn", .primary for the accent) instead of a copy`);
-      }
-    }
-  }
-}
+if (!/addButton\.className = 'sdk-icon-btn btn-quiet btn-small';/.test(host)) fail('public/module-host.js: the titlebar\'s "+" is a Quiet small icon button');
+for (const r of rules(style)) if (/\.(dock-bar|module-floating-bar|module-bar)\b/.test(r.selector)) fail(`public/style.css: "${r.selector}" styles the old module action bar, which is gone`);
 
 if (problems.length) {
   for (const p of problems) console.error(`check-buttons: ${p}`);
   process.exit(1);
 }
-console.log('check-buttons: OK (the action button is defined once, in public/style.css and public/sdk/host.css alike)');
+console.log('check-buttons: OK (the Buttons family is defined once, in public/sdk/system.css)');

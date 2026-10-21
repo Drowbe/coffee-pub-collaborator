@@ -1,0 +1,389 @@
+/* ==== Chat: the message and the composer (PROPOSED 2026-10-20; the research recommendations Thomas approved as a batch, 2026-10-20; nesting redraw 2026-10-21) ====
+   Two new components. Drawn in the Proposed page only: every rule is under .ds-proposed, so the product is untouched.
+
+   MESSAGE  .sdk-message   aliases .message (parts: .message-head .message-portrait .message-name .message-command .message-when .message-body .message .text
+                           .message-quote .message .actions .message .chat-link)
+     others   FLAT on the window: no box, no fill        own      a 10% accent fill, --radius-medium: the one boxed message kind (Thomas, 2026-10-21: too many boxes in boxes)
+                a message is 8px from the next (the list's gap); the old shaded head band is gone
+     head     a 24px portrait, the name 12px weight 600 (not 650), the time 11px, then the "..." (the icon-only Quiet small button, 30px; was 24px)
+     body     14px (the type scale), meta 11 and 12.   hover actions: a small slot at the top right, shown on hover and on focus inside; not on a phone
+     tinted   a command or AI message: the tint is on the portrait icon ONLY. No left bar, no edge, no fill of the message.
+     quote    a nested neutral fill (a surface step), not a 2px rule.     reactions: Chips tags (24px) with a count.
+     object card and link box: the approved Cards (a 1px hairline, no shadow, padding 12), the one box that may sit in a message: --radius-medium on the flat window,
+                --radius-small inside your own (tinted) message, so a child's corner is never larger than its parent's. The link box is a card with an icon or a photo tile (72px, 52px on a phone).
+     levels   window > (your own message) > object card or quote: two surfaces at most. The portrait is a plain circle, reactions are chips, the composer is one field.
+   COMPOSER .sdk-composer  alias .chat-bar   (parts: .sdk-format-bar alias .chat-format-bar; the field is the approved text area, Fields; .chat-command-menu, .chat-help-popup
+                           and .chat-emoji-popup are the Menus popover)
+     input    the field step (--bg-input) with the Fields look; Enter sends (there is no Send button); Shift+Enter is a new line; at most 5 lines, then it scrolls.
+     status   the module's status line (#chat-status): the connection on the left, the latest notice on the right, a polite live region.
+   Portraits are the Avatars family's 24px size.
+   Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or ring. */
+
+.ds-proposed {
+  --surface-chat-own: color-mix(in srgb, var(--accent-fill) 10%, transparent); /* the colour role the product defines in system.css; the Proposed page loads style.css only, so it is drawn here with the same formula */
+  --msg-quote-fill: color-mix(in srgb, var(--text) 7%, transparent);
+  --msg-portrait: 24px;
+  --msg-meta: color-mix(in srgb, var(--text) 78%, var(--text-dim)); /* the time and the command: muted, but readable on the message fills */
+  --composer-lines: 5;
+  --composer-lh: 20px;
+  --composer-pad-y: 8px;
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --composer-lh: 22px; --composer-pad-y: 10px; }
+}
+
+/* ---- the list of messages ---- */
+.ds-proposed :is(.sdk-messages) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  background: var(--bg-section);
+}
+
+/* ---- the message ---- */
+/* Others: flat on the window (no box, no fill). Your own: the one boxed kind, the quiet accent fill with the medium corner; its padding is 12 so a card inside it keeps 12 from its edge. */
+.ds-proposed :is(.sdk-message, .message) {
+  --msg-inset: 0px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-medium);
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: none;
+}
+
+/* Between two flat messages: the 8px gap and a hairline (a divider, one side), so flat messages do not run together. */
+.ds-proposed :is(.sdk-message, .message):not(.own):has(+ :is(.sdk-message, .message):not(.own)) {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ds-proposed :is(.sdk-message, .message):is(.own, [data-own]) {
+  --msg-inset: 12px;
+  padding: 4px 12px 12px;
+  background: var(--surface-chat-own);
+}
+
+.ds-proposed :is(.sdk-message-head, .message-head) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 30px;
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--radius-min);
+  background: none;
+}
+.ds-proposed :is(.message.own) .message-head { background: none; }
+
+.ds-proposed :is(.sdk-message-who, .message-head-side) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ds-proposed .message-head-side:last-child { flex: none; }
+
+.ds-proposed :is(.sdk-message-portrait, .message-portrait) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--msg-portrait);
+  height: var(--msg-portrait);
+  overflow: hidden;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--text) 14%, var(--bg-section));
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  object-fit: cover;
+}
+.ds-proposed :is(.sdk-message-portrait, .message-portrait) img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* A command or AI message: the tint is on the portrait icon only (a quiet tint behind the glyph, the glyph in the readable mix). */
+.ds-proposed :is(.sdk-message, .message)[data-tint] :is(.sdk-message-portrait, .message-portrait, .message-portrait-icon) {
+  background: color-mix(in srgb, var(--tint) 22%, var(--bg-section));
+  color: color-mix(in srgb, var(--tint) 62%, var(--text));
+}
+
+.ds-proposed :is(.sdk-message-name, .message-name) {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-proposed :is(.sdk-message-command, .message-command) {
+  flex: none;
+  color: var(--msg-meta);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.ds-proposed :is(.sdk-message-time, .message-when, .message-dash) {
+  flex: none;
+  color: var(--msg-meta);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+/* "..." : the icon-only Quiet small button, in the head, at the end. */
+.ds-proposed :is(.sdk-message-tools) { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.ds-proposed .message-head .sdk-more { width: 30px; height: 30px; }
+
+/* The hover actions: a small slot at the top right, left of the "...". It takes no room (it floats over the head), shows on hover and on focus inside, and never on a phone. */
+.ds-proposed :is(.sdk-message-actions, .message .actions) {
+  position: absolute;
+  top: 1px;
+  right: calc(var(--msg-inset) + 30px);
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-card);
+  opacity: 0;
+  visibility: hidden;
+  z-index: 1;
+}
+.ds-proposed :is(.sdk-message, .message):is(:hover, :focus-within, .ds-force-hover) :is(.sdk-message-actions, .actions) { opacity: 1; visibility: visible; }
+@media (max-width: 640px) {
+  .ds-proposed :is(.sdk-message, .message) :is(.sdk-message-actions, .actions) { display: none; }
+}
+
+/* ---- the body ---- */
+.ds-proposed :is(.sdk-message-body, .message-body) {
+  min-width: 0;
+  padding: 0;
+  background: none;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.ds-proposed :is(.sdk-message-text, .message .text) { min-width: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 20px; }
+.ds-proposed :is(.sdk-message-text, .message .text) > * { margin: 0; }
+.ds-proposed :is(.sdk-message-text, .message .text) > * + * { margin-top: 8px; }
+.ds-proposed :is(.sdk-message-text, .message .text) :is(ul, ol) { padding-left: 20px; }
+.ds-proposed :is(.sdk-message-text, .message .text) :is(h1, h2, h3) { font-size: 14px; font-weight: 600; line-height: 20px; }
+.ds-proposed :is(.sdk-message-text, .message .text) a { color: color-mix(in srgb, var(--accent) 55%, var(--text)); text-decoration: underline; }
+.ds-proposed :is(.sdk-message-text, .message .text) img { display: block; max-width: 100%; border-radius: var(--radius-small); }
+.ds-proposed :is(.sdk-message-text, .message .text) code {
+  padding: 1px 4px;
+  border-radius: var(--radius-min);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.ds-proposed :is(.sdk-message-text, .message .text) pre {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 12px;
+  overflow: auto;
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  font-size: 13px;
+  line-height: 18px;
+}
+.ds-proposed :is(.sdk-message-text, .message .text) pre code { padding: 0; background: none; }
+
+/* A quote: a nested neutral fill (one surface step in), not a 2px rule. The reply's question in one line, or a block quote in the text. */
+.ds-proposed :is(.sdk-message-quote, .message-quote, .sdk-message-text blockquote, .message .text blockquote) {
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--msg-quote-fill);
+  color: color-mix(in srgb, var(--text) 78%, var(--text-dim));
+  font-size: 12px;
+  line-height: 16px;
+}
+.ds-proposed :is(.sdk-message-quote, .message-quote) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed :is(.sdk-message-text blockquote, .message .text blockquote) { margin: 0; }
+
+/* Reactions: Chips tags that you can press, with a count; yours is the neutral selected fill. */
+.ds-proposed .sdk-message-reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.ds-proposed .sdk-message-reactions .sdk-chip-tag:is(button)[aria-pressed="true"] {
+  background: var(--selected-bg);
+  color: color-mix(in srgb, var(--accent) 38%, var(--t-ink));
+}
+.ds-proposed .sdk-react-emoji { font-size: 14px; line-height: 1; }
+
+/* The object card in a message is the approved card: the one box that may sit in a message. Its corner is one step under what it sits on: medium on the flat window (large),
+   small inside your own message (medium). A child's corner is never larger than its parent's. */
+.ds-proposed :is(.sdk-message-body, .message-body) > .sdk-card { margin-top: 8px; }
+
+/* The link box: a card with an icon or a photo tile. A neutral hairline; no bar. */
+.ds-proposed :is(.sdk-message-body, .message-body) > .sdk-linkbox { margin-top: 8px; }
+.ds-proposed :is(.sdk-linkbox, .message .chat-link) {
+  --s: var(--bg-card);
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-large);
+  background: var(--bg-card);
+  box-shadow: none;
+  white-space: normal;
+}
+.ds-proposed :is(.sdk-linkbox-photo, .message .chat-link-img) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font-size: 20px;
+  object-fit: cover;
+}
+.ds-proposed :is(.sdk-linkbox-text, .message .chat-link-text) { flex: 1 1 auto; min-width: 0; }
+.ds-proposed :is(.sdk-linkbox-title, .message .chat-link-title) { display: block; color: var(--text); text-decoration: none; overflow: hidden; font-size: 14px; font-weight: 600; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.ds-proposed :is(.sdk-linkbox-desc, .message .chat-link-desc) { display: -webkit-box; margin: 2px 0 0; overflow: hidden; color: var(--text-dim); font-size: 12px; line-height: 16px; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.ds-proposed :is(.sdk-linkbox-site, .message .chat-link-site) { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; margin-top: 4px; color: var(--text-dim); font-size: 11px; line-height: 16px; }
+.ds-proposed :is(.sdk-linkbox > .sdk-card-icon, .message .chat-link-icon) { flex: none; }
+.ds-proposed :is(.sdk-linkbox-keep, .message .chat-link-keep) { flex: none; margin-left: auto; align-self: center; }
+/* The corner of a card or a link box in a message (after the link box rule above, which is as specific): one step under what it sits on. */
+.ds-proposed :is(.sdk-message-body, .message-body) > :is(.sdk-card, .sdk-linkbox, .chat-link) { border-radius: var(--radius-medium); }
+.ds-proposed :is(.sdk-message, .message):is(.own, [data-own]) :is(.sdk-message-body, .message-body) > :is(.sdk-card, .sdk-linkbox, .chat-link) { border-radius: var(--radius-small); }
+
+@media (max-width: 640px) {
+  .ds-proposed :is(.sdk-linkbox-photo, .message .chat-link-img) { width: 52px; height: 52px; }
+}
+
+/* ---- the composer ---- */
+.ds-proposed :is(.sdk-composer, .chat-bar) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 4px;
+  flex: none;
+  box-sizing: border-box;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 8px 8px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-section);
+  overflow: visible;
+}
+
+/* The format bar: a row of icon-only Quiet small buttons; on is the neutral selected fill (aria-pressed). The tools on the right keep their place. */
+.ds-proposed :is(.sdk-format-bar, .chat-format-bar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: hidden;
+}
+.ds-proposed :is(.sdk-format-side, .chat-format-side) { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.ds-proposed :is(.sdk-format-bar, .chat-format-bar) .chat-format-item { display: inline-flex; }
+
+/* The field: the approved text area, on the field step, one line high to start and growing to five lines, then it scrolls. No Send button: Enter sends. */
+.ds-proposed :is(.sdk-composer, .chat-bar) textarea:not([type]) {
+  display: block;
+  width: 100%;
+  height: var(--field-h);
+  min-height: var(--field-h);
+  max-height: calc(var(--composer-lines) * var(--composer-lh) + 2 * var(--composer-pad-y) + 2px);
+  padding: var(--composer-pad-y) var(--field-pad-x);
+  line-height: var(--composer-lh);
+  resize: none;
+  overflow-y: auto;
+}
+
+.ds-proposed .sdk-composer-field { position: relative; min-width: 0; }
+
+/* The command hint menu is the Menus popover, drawn above the field. */
+.ds-proposed .sdk-composer-menu {
+  z-index: var(--z-menu);
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 4px);
+  width: min(320px, 100%);
+  max-height: 240px;
+}
+
+/* The help and emoji popovers: the Menus popover surface. */
+.ds-proposed :is(.chat-help-popup, .chat-emoji-popup) {
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: var(--shadow-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+.ds-proposed .chat-help-popup code { font-size: 12px; }
+.ds-proposed :is(.chat-help-popup, .chat-emoji-popup)[hidden] { display: none; }
+.ds-proposed .chat-emoji-btn {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 30px; height: 30px; padding: 0; border: 0;
+  border-radius: var(--radius-small); background: transparent; font-size: 16px; line-height: 1; cursor: pointer;
+}
+.ds-proposed .chat-emoji-btn:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
+
+/* The chat's status line is the module status line; the connection and the notice are polite live regions. */
+.ds-proposed :is(.sdk-status-line, .mod-status).chat-status { border-top: 1px solid var(--border); }
+
+/* The composer's disabled state: the field and the buttons at half strength (their own rules); the bar says why in the field's placeholder. */
+.ds-proposed :is(.sdk-composer, .chat-bar)[aria-disabled="true"] .sdk-format-bar { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-message-actions, .message .actions) { transition: none; }
+}

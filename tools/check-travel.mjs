@@ -308,9 +308,12 @@ await (async () => {
   win.parent = win;
   // host.ready() adds the SDK's shared styles to the module's root once hello answers, so the stand-ins take a <style>.
   new Function('window', 'document', sdk)(win, { createElement: (tag) => ({ tag }) });
-  const el = (tag) => ({ tag, value: '', textContent: '', label: '', children: [], append(...c) { this.children.push(...c); } });
+  // The picker also mounts the kind picker's field and list over the select (the Pickers family), which needs a real DOM; a
+  // stand-in that answers anything it is asked with another stand-in is enough here, the list itself is checked in the browser.
+  const deep = () => new Proxy(function () { return deep(); }, { get: (_t, k) => (k === Symbol.toPrimitive ? () => '' : deep()), apply: () => deep(), set: () => true });
+  const el = (tag) => new Proxy({ tag, nodeType: 1, get ownerDocument() { return doc; }, value: '', textContent: '', label: '', children: [], append(...c) { this.children.push(...c); } }, { get: (t, k) => (k in t || typeof k === 'symbol' ? t[k] : deep()) });
   const doc = { createElement: el };
-  const select = { ownerDocument: doc, children: [], _v: '', listeners: [],
+  const select = { ownerDocument: doc, children: [], _v: '', listeners: [], disabled: false, after() {}, dispatchEvent() {}, closest: () => null, getAttribute: () => null,
     replaceChildren(...c) { this.children = c; this._v = ''; },
     options() { return this.children.flatMap((c) => (c.tag === 'optgroup' ? c.children : [c])); },
     get value() { return this._v; },
@@ -852,7 +855,7 @@ test('the page: every journey kind has its colours and is in the kind picker, le
 test('an empty day is a button that opens the day\'s add menu, worded for the pointer', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.match(html, /<template id="tpl-day-empty-add"><li class="day-empty has-add"><button class="day-empty-add" type="button" data-action="day-menu"/, 'the empty day uses the header\'s own day-menu action');
+  assert.match(html, /<template id="tpl-day-empty-add"><li class="day-empty-slot"><button class="sdk-day-empty" type="button" data-action="day-menu"/, 'the empty day uses the header\'s own day-menu action');
   assert.ok(js.includes("matchMedia('(pointer: coarse)')") && js.includes('Nothing planned yet. ${') && js.includes("'Tap' : 'Click'"), 'Click or Tap to add, chosen by the pointer');
   assert.ok(!js.includes('Add something below'), 'the old sentence pointing at a hidden row is gone');
 });
@@ -1140,16 +1143,16 @@ test('the When choice reaches the whole timeline: a note dated before the trip i
   assert.match(fn, /after\.forEach/, 'and days after the last');
 });
 
-test('the Planner and the Calendar draw a phase only as a wash and a name, in theme tints', () => {
+test('the Planner draws a phase as a label in its tint on the day (no wash, design system step 34), the Calendar as a wash and a name, in theme tints', () => {
   const css = read('travel-lib-cards.css');
   for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);
   const rules = css.slice(css.indexOf('/* phases:'));
-  assert.match(rules, /\.day2\.in-phase \.day-head2 \{ background: [^;]*var\(--ph\)/, 'the day header takes a wash of the tint');
-  assert.match(rules, /\.daychip\.in-phase:not\(\.current\) \{ background: [^;]*var\(--ph\)/, 'and so does the strip chip');
+  assert.match(css, /\.sdk-day-labels > \.sdk-chip-tag\[data-tone="custom"\] \{ --chip-tone: var\(--ph\);/, 'the day\'s phase label takes the tint');
+  assert.doesNotMatch(css, /\.sdk-day[^{]*\{[^}]*background: [^;]*var\(--ph\)|daychip[^{]*\{[^}]*background: [^;]*var\(--ph\)/, 'no wash on the day\'s head or the strip chip');
   assert.doesNotMatch(rules, /(border|outline|box-shadow)[^;]*var\(--ph\)/, 'a phase never draws a coloured border or outline');
   assert.doesNotMatch(css.slice(css.indexOf('/* phases:')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
   assert.match(read('travel.js'), /phaseOnDay\(plan\.bands\(\), day\)/, 'the day header asks for its phase');
-  assert.match(read('travel.js'), /phaseOnDay\(bandList, day\)/, 'and so does the strip chip');
+  assert.match(read('travel.js'), /phaseOnDay\(bandList, day\)/, 'and so does the strip chip (its name in the chip\'s label)');
 });
 
 test('days run from the earliest date to the latest, and there are none without one', () => {
@@ -1303,7 +1306,7 @@ test('the page: the round trip switch, its mark on a card, and the delete questi
   const html = read('travel.html');
   const js = read('travel.js');
   assert.match(html, /<div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">/, 'every journey but a car offers a round trip');
-  assert.ok(html.includes('<label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox"> Round trip</label>') && !html.includes('role="switch"'), 'a tick box in the form, not a switch (the form standard)');
+  assert.ok(html.includes('<label class="sdk-choice-row"><input id="f-roundtrip" name="roundtrip" type="checkbox" class="sdk-switch" role="switch"><span>Round trip</span></label>'), 'an on or off setting taken when the form is saved: the switch (fields and forms, Thomas 2026-10-18)');
   for (const id of ['f-return', 'f-back-date', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-number', 'f-back-from', 'f-back-to', 'f-back-fromCode', 'f-back-toCode']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(html.includes('<template id="tpl-card-roundtrip">'));
   for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound']) assert.ok(js.includes(words), words);
@@ -1674,7 +1677,7 @@ await handedIn();
 test('the page: the ticket\'s arrival field, and objects dated outside the plan under Unscheduled', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.ok(html.includes('<div class="sdk-row" data-types="flight train ferry bus">\n      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-arrival-day-label"><span class="sdk-label" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select><input id="f-arrival-day-input" type="date"'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
+  assert.ok(html.includes('<div class="sdk-form-row" data-types="flight train ferry bus">\n      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-arrival-day-label"><span class="sdk-label" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select><input id="f-arrival-day-input" type="date"'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
   assert.ok(html.includes('<span class="sdk-label">Seat</span><input id="f-seat"') && html.includes('data-types="flight train ferry bus"><span class="sdk-label">Seat'), 'a bus or ferry seat survives an edit');
   assert.ok(html.includes('data-types="flight train"><span class="sdk-label">Class</span><select id="f-travelClass"'), 'a train class survives an edit');
   assert.ok(js.includes("fields.arrives = get('f-arrival')"));
@@ -1798,7 +1801,7 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   const js = read('travel.js');
   const css = read('travel.css') + read('travel-lib-editor.css');
   for (const id of ['form', 'day-form']) assert.ok(html.includes(`<form class="sdk-form" id="${id}">`), `${id} is a form of the standard`);
-  for (const old of ['editor-card', 'editor-row', 'editor-buttons', 'editor-people', 'when-pick', 'when-btns', 'when-list', 'when-clear', 'when-phase', 'class="timing', 'class="pairing', 'fieldgroup', 'lenmode', 'dur-head', 'class="hm"', 'endbox', 'class="fl"', 'role="switch"', 'class="check"']) assert.ok(!html.includes(old), `the old ${old} is gone from the markup`);
+  for (const old of ['editor-card', 'editor-row', 'editor-buttons', 'editor-people', 'when-pick', 'when-btns', 'when-list', 'when-clear', 'when-phase', 'class="timing', 'class="pairing', 'fieldgroup', 'lenmode', 'dur-head', 'class="hm"', 'endbox', 'class="fl"', 'class="check"']) assert.ok(!html.includes(old), `the old ${old} is gone from the markup`);
   assert.equal((html.match(/<div class="sdk-editor-actions">/g) || []).length, 3, 'the item, plan and day forms\' button rows stick to the bottom');
   // Every day is a date field with host.ui.datePicker: the list (days by phase, the spots between days) and, where there is no day, its first entry.
   for (const pre of ['f-', 'f-back-']) {
@@ -1825,7 +1828,7 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   // Money is the amount with the currency as its unit; Paid by and Whose is it are chips.
   assert.ok(html.includes('<span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal"') && html.includes('<span class="sdk-unit" data-slot="currency">'), 'the amounts are text with the currency as their unit');
   assert.ok(html.includes('<div class="sdk-people" id="f-paidBy">') && html.includes('<div class="sdk-people" id="f-owners">'), 'Paid by and Whose is it are people chips');
-  assert.ok(html.includes('<span class="sdk-choice" id="f-travelMode"'), 'the ways to get there are a choice');
+  assert.ok(html.includes('<span class="sdk-tabs sdk-tabs-joined" id="f-travelMode"'), 'the ways to get there are a choice');
   assert.ok(js.includes("fieldError('f-title', 'Give it a title.')") && html.includes('<span class="sdk-error" id="f-title-error"></span>'), 'a missing title is said under the field');
 });
 
@@ -2053,12 +2056,12 @@ test('the day header: Add sits beside the "...", which opens Move all to... and 
   const html = read('travel.html');
   const js = read('travel.js');
   const head = html.slice(html.indexOf('<template id="tpl-day-head">'), html.indexOf('</template>', html.indexOf('<template id="tpl-day-head">')));
-  assert.ok(/class="day-actions"><button[^>]*day-add[^>]*data-action="day-menu"[^>]*>[^]*Add<\/button><button[^>]*data-action="day-more"/.test(head), 'Add (the old per-day add action) then the "..."');
+  assert.ok(/class="sdk-day-actions"><button[^>]*day-add[^>]*data-action="day-menu"[^>]*>[^]*Add<\/span><\/button><button[^>]*data-action="day-more"/.test(head), 'Add (the old per-day add action) then the "..."');
   assert.ok(js.includes("action === 'day-more'") && js.includes("label: 'Move all to…'") && js.includes("label: 'Clear this day'"));
   assert.ok(js.includes('host.menu.show({\n      id: `day-more-${day}`'), 'the shared menu');
   assert.ok(js.includes('Also move every day after this one by the same amount.') || html.includes('Also move every day after this one by the same amount.'));
   assert.ok(html.includes('id="day-dialog"') && js.includes("'Unschedule'") && js.includes("'Keep'"));
-  assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.day-actions\'), true);'), 'only people who can edit see them');
+  assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.sdk-day-actions\'), true);'), 'only people who can edit see them');
 });
 
 test('the titlebar names the module as this environment shows it (Itinerary), never the trip\'s name', () => {
@@ -2117,9 +2120,9 @@ test('choosing a day: a date field, a grouped list through host.menu.show, Move 
     assert.ok(html.includes(`<input id="${id}-input" type="date"`), `${id} has a date field`);
   }
   assert.ok(js.includes("label: 'Pick from the list'") && !html.includes('>Pick from the list</button>'), 'the list button is the date picker\'s (list option)');
-  assert.ok(!html.includes('<select id="menu-day"') && html.includes('data-action="move-to"') && html.includes('Move to another day…'), 'Move to another day opens the list; no select in the menu');
-  assert.ok(html.includes('Move to unscheduled</button>') && !/Back to the line/.test(html + js), 'Back to the line is Move to unscheduled');
-  assert.ok(html.includes('data-slot="earlier-label">Move up') && html.includes('data-slot="later-label">Move down'), 'Move up / Move down by default');
+  assert.ok(!html.includes('<select id="menu-day"') && !html.includes('id="item-menu"') && js.includes("id: 'move-to', label: 'Move to another day…'"), 'Move to another day opens the list; the item menu is host.menu.show, no markup of its own');
+  assert.ok(js.includes("label: 'Move to unscheduled'") && !/Back to the line/.test(html + js), 'Back to the line is Move to unscheduled');
+  assert.ok(js.includes(": 'Move up'") && js.includes(": 'Move down'"), 'Move up / Move down by default');
   assert.ok(js.includes("'30 minutes earlier'") && js.includes("'30 minutes later'") && js.includes('It stays on the same day.'), 'a timed object moves by half an hour, and the tooltip says it stays on its day');
   assert.ok(js.includes('function dayMenuItems(') && js.includes("{ id: 'pick-date', label: 'Pick a date…'"), 'the list ends with Pick a date');
   assert.ok(js.includes("const name = jointsOnly || !none ? 'Between days' : 'Unscheduled';") && js.includes("(checkout ? 'Not set' : 'Unscheduled')"), 'Unscheduled is the picker\'s own first entry and Clear (the list then holds the spots between days); Move to another day keeps its Unscheduled group; stored values are unchanged');

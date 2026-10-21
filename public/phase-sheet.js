@@ -142,15 +142,15 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   dlg.className = 'phase-sheet';
   dlg.setAttribute('aria-labelledby', 'phase-sheet-title');
   dlg.innerHTML = `
-    <div class="phase-sheet-body action-content">
     <div class="phase-sheet-head">
       <h2 id="phase-sheet-title">Phases</h2>
       <p class="phase-sheet-now"></p>
-      <button type="button" class="phase-sheet-close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+      <button type="button" class="sdk-icon-btn btn-quiet btn-small phase-sheet-close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
     </div>
+    <div class="phase-sheet-body action-content">
     <ul class="phase-sheet-facts" aria-label="Facts" hidden></ul>
-    <div class="phase-strip">
-      <ol class="phase-bands" aria-label="The phases in order"></ol>
+    <div class="sdk-phase-strip">
+      <ol class="sdk-phase-bands" aria-label="The phases in order"></ol>
     </div>
     <div class="phase-first" hidden>
       <label class="phase-first-label" for="phase-first-day">Start the first phase on</label>
@@ -165,7 +165,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     <p class="phase-sheet-status" role="status" aria-live="polite"></p>
     </div>
   `;
-  const bandsEl = dlg.querySelector('.phase-bands');
+  const bandsEl = dlg.querySelector('.sdk-phase-bands');
   const listEl = dlg.querySelector('.phase-list');
   const firstEl = dlg.querySelector('.phase-first');
   const firstInput = dlg.querySelector('#phase-first-day');
@@ -211,10 +211,10 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   const rowEls = new Map();
   list.forEach((p, i) => {
     const band = doc.createElement('li');
-    band.className = 'phase-band';
+    band.className = 'sdk-phase-band'; // the Journey bar family's Set up band (system.css)
     band.dataset.id = p.id;
     band.dataset.tint = R.tintOf ? R.tintOf(i) : tintOf(i);
-    band.innerHTML = '<span class="phase-band-label"></span><span class="phase-band-span"></span><span class="phase-band-now" hidden>now</span><span class="phase-today" hidden><span class="phase-today-word">Today</span></span>';
+    band.innerHTML = '<span class="sdk-phase-band-label"></span><span class="sdk-phase-band-span"></span><span class="sdk-phase-band-now" hidden>Now</span><span class="sdk-phase-today" hidden><span class="sdk-phase-today-word">Today</span></span>';
     band.addEventListener('click', () => focusRow(p.id));
     band.addEventListener('mouseenter', () => lit(p.id, true));
     band.addEventListener('mouseleave', () => lit(p.id, false));
@@ -229,8 +229,8 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       <div class="phase-row-name">
         <span class="phase-swatch" aria-hidden="true"></span>
         ${rowIconHtml(p)}<span class="phase-row-label"></span>
-        <span class="phase-tag phase-tag-now" hidden>now</span>
-        <span class="phase-tag phase-tag-main" hidden>main</span>
+        <span class="sdk-chip-tag" data-phase-tag="now" data-tone="info" hidden>now</span>
+        <span class="sdk-chip-tag" data-phase-tag="main" hidden>main</span>
       </div>
       <label class="phase-row-field phase-row-start"><span class="phase-row-word">Start</span><input type="date" class="phase-date" data-edge="start"></label>
       <label class="phase-row-field phase-row-end"><span class="phase-row-word">End</span><input type="date" class="phase-date" data-edge="end"></label>
@@ -279,6 +279,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       p.textContent = mine;
       p.hidden = !mine;
       row.classList.toggle('has-problem', Boolean(mine));
+      for (const d of row.querySelectorAll('.phase-date')) { if (mine) d.setAttribute('aria-invalid', 'true'); else d.removeAttribute('aria-invalid'); }
     }
   }
 
@@ -292,17 +293,17 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     bands.forEach((b, i) => {
       const band = bandEls.get(b.id);
       const share = shares[i];
-      band.classList.toggle('off', !b.dated);
-      band.classList.toggle('current', b.current);
-      band.classList.toggle('main', b.main);
+      // Its state is a fill (system.css): past, current, ahead, or off for a phase with no dates.
+      band.dataset.state = !b.dated ? 'off' : b.current ? 'current' : b.end && today && today > b.end ? 'past' : 'ahead';
+      if (b.main) band.dataset.main = '1'; else delete band.dataset.main;
       band.style.flexGrow = b.dated ? String(share.grow) : '0';
       const span = !b.dated ? 'not scheduled' : b.end ? `${fmt(b.start)} to ${fmt(b.end)}, ${daysWord(share.days)}` : `from ${fmt(b.start)}`;
-      band.querySelector('.phase-band-label').textContent = b.label;
-      band.querySelector('.phase-band-span').textContent = span;
-      band.querySelector('.phase-band-now').hidden = !b.current;
+      band.querySelector('.sdk-phase-band-label').textContent = b.label;
+      band.querySelector('.sdk-phase-band-span').textContent = span;
+      band.querySelector('.sdk-phase-band-now').hidden = !b.current;
       band.title = `${b.label}: ${span}${b.current ? ', now' : ''}`;
       const at = todayPercent(b, share.days, today, { rule: R });
-      const line = band.querySelector('.phase-today');
+      const line = band.querySelector('.sdk-phase-today');
       line.hidden = at === null;
       if (at !== null) line.style.setProperty('--at', `${at}%`);
       line.classList.toggle('at-start', at !== null && at < 20);
@@ -313,8 +314,8 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       row.classList.toggle('off', !r.dated);
       row.classList.toggle('current', r.current);
       row.classList.toggle('main', r.main);
-      row.querySelector('.phase-tag-now').hidden = !r.current;
-      row.querySelector('.phase-tag-main').hidden = !r.main;
+      row.querySelector('[data-phase-tag="now"]').hidden = !r.current;
+      row.querySelector('[data-phase-tag="main"]').hidden = !r.main;
       const start = row.querySelector('input[data-edge="start"]');
       const end = row.querySelector('input[data-edge="end"]');
       start.value = r.start || '';

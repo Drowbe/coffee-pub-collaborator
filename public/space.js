@@ -2,7 +2,7 @@
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
-import { openPhaseSheet, bandShares, todayPercent, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
+import { openPhaseSheet, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
 import { renderModuleSettings } from '/module-settings.js';
 import { actionBar } from '/action-bar.js';
@@ -15,6 +15,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
+import { confirmDialog } from '/confirm.js';
 import { foldCallToolbar, callTitle, callTime, callDuration } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
@@ -82,8 +83,8 @@ function nameModuleChooser() {
 nameModuleChooser();
 // On a phone the space bar is a tab bar at the bottom of the page, in the flow after the canvas, so
 // the call toolbar sits directly above it whatever the browser does with its own bottom bar. Wider,
-// it is the header's second row. The chooser's list is the tab bar on a phone (`subnav-modules`, always shown), a list
-// under its button wider.
+// it is the header's second row. On a phone the bar is the Tab bar family's (.sdk-tabbar, system.css) and the chooser's
+// list holds its module tabs (`sdk-tabbar-tabs`, always shown, canvas.js draws them); wider it is a list under its button.
 // Phone or wide is the header's own window: popped out, the header is in that window, whose width is its own (a
 // 480 wide pop-out is a phone there, and its stylesheet says so). Re-checked as that window crosses the line, and
 // when the header moves between windows (setUpPopoutWindow and its pagehide call placeSubnav()).
@@ -103,8 +104,9 @@ function placeSubnav() {
   if (popped && subnav.parentNode !== topbarEl) topbarEl.appendChild(subnav); // popped out, the bar is the header's second row
   const list = moduleChooser.querySelector('#modules-menu');
   const tabs = phoneWidth();
-  if (list.classList.contains('subnav-modules') !== tabs) {
-    list.classList.toggle('subnav-modules', tabs);
+  subnav.classList.toggle('sdk-tabbar', tabs);
+  if (list.classList.contains('sdk-tabbar-tabs') !== tabs) {
+    list.classList.toggle('sdk-tabbar-tabs', tabs);
     list.classList.toggle('module-chooser-list', !tabs);
     if (tabs) list.removeAttribute('role'); else list.setAttribute('role', 'group');
     nameModuleChooser();
@@ -518,7 +520,7 @@ function renderSpaces() {
     }
     const members = r.members.map((k) => presenceUsers.get(k)).filter(Boolean);
     card.querySelector('.space-choice-count').textContent = r.isAside ? '' : hereCount(members, r.id);
-    renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
+    renderMembers(card.querySelector('.sdk-members'), members, r.id, Boolean(r.isAside));
   }
   for (const card of [...list.children]) if (card.id !== 'home-add-space' && !keep.has(card.dataset.space)) card.remove();
   renderSpaceListHead();
@@ -577,14 +579,15 @@ function renderMembers(list, members, spaceId, isAside = false) {
     let el = list.querySelector(`[data-key="${CSS.escape(u.key)}"]`);
     if (!el) {
       el = document.createElement('div');
-      el.className = 'member';
+      el.className = 'sdk-member';
       el.dataset.key = u.key;
       const img = document.createElement('img');
       img.alt = '';
+      img.className = 'sdk-member-pic';
       const dot = document.createElement('span');
-      dot.className = 'dot';
+      dot.className = 'sdk-member-dot';
       const name = document.createElement('span');
-      name.className = 'member-name';
+      name.className = 'sdk-member-name';
       el.append(img, dot, name);
       list.appendChild(el);
     }
@@ -598,9 +601,8 @@ function renderMembers(list, members, spaceId, isAside = false) {
       img.onerror = () => { img.onerror = null; img.src = profile; };
       img.src = spaceId && spaceId !== LOBBY && !u.key.startsWith(GUEST_PREFIX) ? imgUrl(u.key, slot, { space: spaceId }) : profile;
     }
-    el.querySelector('.member-name').textContent = u.displayName;
-    el.querySelector('.dot').classList.toggle('online', here);
-    el.classList.toggle('online', here);
+    el.querySelector('.sdk-member-name').textContent = u.displayName;
+    el.querySelector('.sdk-member-dot').hidden = !here; // the online dot; an offline person has none
     // In the call: a small mark beside the online dot, with its own words, never the colour alone.
     const calling = here && Boolean(u.inCall);
     let mark = el.querySelector('.call-mark');
@@ -609,7 +611,7 @@ function renderMembers(list, members, spaceId, isAside = false) {
       mark.className = 'call-mark';
       mark.setAttribute('role', 'img');
       mark.innerHTML = '<i class="fa-solid fa-video" aria-hidden="true"></i>'; // the same mark as Who's around
-      el.querySelector('.dot').after(mark);
+      el.querySelector('.sdk-member-dot').after(mark);
     } else if (!calling && mark) {
       mark.remove();
     }
@@ -631,15 +633,16 @@ function renderMembers(list, members, spaceId, isAside = false) {
     // offStream() is primary-nav.js's: activeSpace null is a stream somewhere I can't see.
     const asideNow = u.online && (Boolean(u.aside) || presenceSpaces.find((r) => r.id === u.space)?.isAside);
     const offTheStream = offStream(u, activeSpace, ownerOnline, presenceSpaces.filter((r) => r.isAside).map((r) => r.id));
-    let badge = el.querySelector('.stream-badge');
+    let badge = el.querySelector(':scope > .sdk-chip-tag');
     if (asideNow || offTheStream) {
       if (!badge) {
         badge = document.createElement('span');
-        badge.className = 'stream-badge';
+        badge.className = 'sdk-chip-tag';
         el.appendChild(badge);
       }
       badge.textContent = asideNow ? word('aside') : 'off stream';
-      badge.classList.toggle('aside', Boolean(asideNow));
+      if (asideNow) badge.dataset.tone = 'info';
+      else delete badge.dataset.tone;
     } else if (badge) {
       badge.remove();
     }
@@ -805,7 +808,8 @@ function adminToolsFor(participant) {
   mute.type = 'button';
   mute.dataset.action = 'mute';
   mute.className = 'tile-admin-btn';
-  mute.title = 'Mute';
+  mute.dataset.tip = 'Mute';
+  mute.setAttribute('aria-label', mute.dataset.tip);
   mute.hidden = participant.getTrackPublication(Track.Source.Microphone)?.isMuted ?? false;
   mute.innerHTML = '<i class="fa-solid fa-microphone-slash fa-fw" aria-hidden="true"></i>';
   mute.addEventListener('click', async (e) => {
@@ -819,11 +823,12 @@ function adminToolsFor(participant) {
   const kick = document.createElement('button');
   kick.type = 'button';
   kick.className = 'tile-admin-btn danger';
-  kick.title = 'Kick';
+  kick.dataset.tip = 'Kick';
+  kick.setAttribute('aria-label', kick.dataset.tip);
   kick.innerHTML = '<i class="fa-solid fa-user-slash fa-fw" aria-hidden="true"></i>';
   kick.addEventListener('click', async (e) => {
     e.stopPropagation();
-    if (!window.confirm(`Kick ${participant.name || participant.identity} from the call? They can rejoin.`)) return;
+    if (!await confirmDialog({ title: `Kick ${participant.name || participant.identity} from the call?`, message: 'They can rejoin.', action: 'Kick', kind: 'destructive' })) return;
     try {
       await api('POST', `/api/users/${encodeURIComponent(participant.identity)}/kick`);
     } catch (err) {
@@ -840,11 +845,12 @@ function adminToolsFor(participant) {
     const aside = document.createElement('button');
     aside.type = 'button';
     aside.className = 'tile-admin-btn';
-    aside.title = 'Step aside';
+    aside.dataset.tip = 'Step aside';
+    aside.setAttribute('aria-label', aside.dataset.tip);
     aside.innerHTML = '<i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i>';
-    aside.addEventListener('click', (e) => {
+    aside.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!window.confirm(`Step aside with ${participant.name || participant.identity}?`)) return;
+      if (!await confirmDialog({ title: `Step aside with ${participant.name || participant.identity}?`, action: 'Step aside' })) return;
       pullAside([participant.identity]);
     });
     tools.append(aside);
@@ -853,11 +859,12 @@ function adminToolsFor(participant) {
     const priv = document.createElement('button');
     priv.type = 'button';
     priv.className = 'tile-admin-btn';
-    priv.title = 'Privately';
+    priv.dataset.tip = 'Privately';
+    priv.setAttribute('aria-label', priv.dataset.tip);
     priv.innerHTML = '<i class="fa-solid fa-user-lock fa-fw" aria-hidden="true"></i>';
-    priv.addEventListener('click', (e) => {
+    priv.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!window.confirm(`Have a private word with ${participant.name || participant.identity}?`)) return;
+      if (!await confirmDialog({ title: `Have a private word with ${participant.name || participant.identity}?`, action: 'Go private' })) return;
       pullAside([participant.identity], true);
     });
     tools.append(priv);
@@ -962,7 +969,8 @@ function screenTileFor(participant) {
     const pip = document.createElement('button');
     pip.type = 'button';
     pip.className = 'tile-pip';
-    pip.title = 'Pop out this screen share';
+    pip.dataset.tip = 'Pop out this screen share';
+    pip.setAttribute('aria-label', pip.dataset.tip);
     pip.innerHTML = '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>';
     pip.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1039,6 +1047,8 @@ function layoutNote(text) {
 }
 // The space's canvas: the Modules menu and every module open on it, docked, floating or in a window.
 let askInChat = null;
+let paintCallTab = () => {}; // the phone's call item (Online), set with who is here below
+let micLive = false; // the microphone is live (reflectMic): the call item says so on a phone
 const canvas = createCanvas({
   guestToken,
   onNote: (text) => layoutNote(text),
@@ -1050,6 +1060,7 @@ const canvas = createCanvas({
   // stay in this page (overlayParams, homeLinksIn, below).
   frameParams: () => (guestToken ? new URLSearchParams() : overlayParams()),
   onCompositeLoad: (frame) => homeLinksIn(frame),
+  onTabs: () => paintCallTab(), // the phone's tabs are new: Online, the call item, says whether the call is the view
   onChatAsk: (input) => {
     if (!askInChat) return Promise.reject(Object.assign(new Error('Chat is not ready.'), { status: 400 }));
     toggleChat(true);
@@ -1068,6 +1079,11 @@ window.hostModules = canvas; // for debugging and tests
 // Rejoin call stay in it (`phone: 'bar'`), Full screen and Pop out are in its "..." only in a narrow popped-out window
 // (`phone: 'popout'`), and the rest goes into the "...".
 const SPACE_TOOL = { bar: 'secondary', zone: 'right', group: 'space', groupOrder: 1 };
+// A tool's part in the call, for the tab bar's colours on a phone (system.css, tabbar block: data-role join or leave).
+function tabRole(id, role) {
+  const el = nav.elementOf(id);
+  if (el) el.dataset.role = role;
+}
 nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', workspace: 'only', place: 'end', toggleable: true, active: false, onClick: () => toggleFullscreen() });
 nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', workspace: 'only', place: 'end', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
@@ -1079,11 +1095,13 @@ function registerWordTools() {
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, workspace: 'every', visible: () => recallWanted(), onClick: recallParticipants });
   // Leave is in the space bar only where the bar is the phone's tab bar (plan-one-bar.md, step 5 and decision 3); wider,
   // it is the last entry of the top bar's space switcher (brand.js, through app:enter-space { action: 'leave' } below).
-  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
+  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', short: 'Leave', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
+  tabRole('leave-space', 'leave'); // the readable red in the tab bar
 }
 registerWordTools();
 // Rejoin call is the tab bar's; wider than a phone the top bar has its own (aside-rejoin, the one bar section below).
 nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin) && phoneWidth(), onClick: () => returnFromAside() });
+tabRole('rejoin-call', 'join'); // the call's ok colour in the tab bar
 // On a phone the header's links are a menu (see brand.js), and the call's settings would otherwise
 // only be reachable from the Conference view's toolbar. This tool, in the menu only (its class, see style.css) and
 // only while in the call, shows the conference and opens them. It sits in the session group, ahead of the clock.
@@ -1091,7 +1109,7 @@ nav.register({
   id: 'call-settings', bar: 'primary', zone: 'right', group: 'session', order: 50, icon: 'sliders', label: 'Call settings',
   visible: () => inCall && !guestToken && canDo('canInvite'),
   onClick: () => {
-    document.querySelector('.modules-menu-item[data-builtin="conference"]')?.click(); // shows the conference view
+    canvas.showBuiltin('conference'); // shows the conference view
     setTimeout(() => { if ($('settings').hidden || $('settings').dataset.group !== 'more') openSettings('more'); }, 50);
   },
 }).classList.add('call-settings-link');
@@ -1106,6 +1124,7 @@ function syncCallControl() {
   whoHere.refresh(); // who is here, in the top bar or the phone's tab bar (space-people.js)
   nav.draw('secondary'); // Join the call shows only out of the call
   paintJoinCall();
+  paintCallTab(); // and Online is the call item on a phone while on the call
   syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
 // The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
@@ -1122,6 +1141,10 @@ function syncWhoIsInCall() {
     const img = document.createElement('img');
     img.alt = '';
     img.src = spacePortraitUrl(key);
+    const circle = document.createElement('span');
+    circle.className = 'sdk-avatar sdk-avatar-24';
+    circle.setAttribute('aria-hidden', 'true');
+    circle.append(img);
     img.onerror = () => {
       if (img.dataset.fallback) { img.replaceWith(initialOf(name)); return; }
       img.dataset.fallback = '1';
@@ -1129,7 +1152,7 @@ function syncWhoIsInCall() {
     };
     const label = document.createElement('span');
     label.textContent = name;
-    li.append(img, label);
+    li.append(circle, label);
     return li;
   }));
   list.hidden = people.length === 0;
@@ -1137,8 +1160,7 @@ function syncWhoIsInCall() {
 }
 function initialOf(name) {
   const el = document.createElement('span');
-  el.className = 'no-call-initial';
-  el.setAttribute('aria-hidden', 'true');
+  el.className = 'sdk-avatar-ini';
   el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
   return el;
 }
@@ -1157,10 +1179,11 @@ call
 const joinCallButton = document.createElement('button');
 joinCallButton.type = 'button';
 joinCallButton.id = 'join-call';
-joinCallButton.className = 'btn btn-small btn-accent join-call nav-text'; // the nav text's type, the accent button's colours
+joinCallButton.className = 'btn btn-small btn-primary join-call nav-text'; // the nav text's type, the accent button's colours
 joinCallButton.setAttribute('aria-label', 'Start call');
 joinCallButton.title = 'Start a call from this chat';
-joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
+joinCallButton.dataset.role = 'join'; // on a phone a tab whose phone is in the call's ok colour (system.css, tabbar block)
+joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
 // "Start call" while no one is in the call, "Join call" while one is running (the call's own people whose `call`
 // attribute is not off, as the conference's note lists them).
 function paintJoinCall() {
@@ -1206,6 +1229,28 @@ const whoHere = createWhoHere({
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 const whoHereBar = nav.get('who-here'); // the phone's, in the tab bar
+// On a phone the conference is not a tab: the call is the tab bar's pinned call item (the Tab bar family; Thomas,
+// 2026-10-21): Join out of the call, then Online. On the call Online is the call itself: its icon in the call's ok colour
+// (the readable red while the microphone is live), current while the conference is the view shown, and a press shows the
+// conference when another view is shown (and opens who is here when the conference already is). Out of the call a press
+// opens who is here, as wider.
+function callTabShown() {
+  return phoneWidth() && inCall && canvas.shownView() === 'conference';
+}
+paintCallTab = () => {
+  const toggle = whoHere.el.querySelector('.who-here-toggle');
+  if (!toggle) return;
+  const phone = phoneWidth();
+  toggle.classList.toggle('in-call', phone && inCall);
+  toggle.dataset.mic = phone && inCall && micLive ? 'live' : 'off';
+  toggle.classList.toggle('on', callTabShown());
+};
+whoHere.el.addEventListener('click', (event) => {
+  if (!phoneWidth() || !inCall || callTabShown() || !event.target.closest('.who-here-toggle')) return;
+  event.stopPropagation(); // the conference instead of the list
+  canvas.showBuiltin('conference');
+  paintCallTab();
+}, true);
 const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && call.state === 'connected' && !phoneWidth();
 const whoHereTop = { id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, yieldFirst: true, visible: whoHereTopWanted };
 // --- end who is here ---
@@ -1404,7 +1449,7 @@ function setColumnCollapsed(on, { remember = true } = {}) {
   columnEl.classList.toggle('collapsed', on);
   const b = columnEl.querySelector('#side-column-toggle');
   b.setAttribute('aria-expanded', String(!on));
-  b.title = on ? 'Expand' : 'Collapse';
+  b.dataset.tip = on ? 'Expand' : 'Collapse';
   b.setAttribute('aria-label', on ? 'Show the call and chat' : 'Collapse the call and chat');
   b.querySelector('i').className = `fa-solid fa-angles-${on ? 'right' : 'left'} fa-fw`;
   if (!on && unread) { unread = 0; canvas.setBuiltinUnread('chat', assistantNew); } // opened: the chat is read
@@ -1436,7 +1481,7 @@ function syncRail() {
   const btn = columnEl.querySelector('#side-column-rail-chat');
   const said = total ? `Chat, ${total} unread` : 'Chat';
   btn.setAttribute('aria-label', said);
-  btn.title = said;
+  btn.dataset.tip = said;
   const faces = columnEl.querySelector('#side-column-rail-faces');
   const people = [...tiles.values()].filter((t) => !t.classList.contains('tile-screen'));
   const key = people.map((t) => `${t.dataset.identity}:${t.querySelector('.placeholder')?.getAttribute('src') || ''}`).join('|');
@@ -1499,8 +1544,8 @@ function syncCallPlace() {
   // The titlebar's Pop out, and the conference's own when it floats: Bring back once the call is out of the column.
   const label = outside ? 'Bring the call back' : 'Pop out the call';
   for (const pop of [columnEl?.querySelector('#call-head-popout'), $('conf-popout')]) {
-    if (!pop || pop.title === label) continue;
-    pop.title = label;
+    if (!pop || pop.dataset.tip === label) continue;
+    pop.dataset.tip = label;
     pop.setAttribute('aria-label', label);
     pop.querySelector('i').className = `fa-solid fa-${outside ? 'arrow-left' : 'up-right-from-square'} fa-fw`;
   }
@@ -1668,11 +1713,13 @@ if (callOutEl) {
     if (!src) continue;
     const copy = () => {
       b.className = src.className;
-      b.title = src.title;
-      b.setAttribute('aria-label', src.getAttribute('aria-label') || src.title);
+      b.dataset.tip = src.dataset.tip || '';
+      if (src.dataset.tipKeys) b.dataset.tipKeys = src.dataset.tipKeys;
+      else delete b.dataset.tipKeys;
+      b.setAttribute('aria-label', src.getAttribute('aria-label') || src.dataset.tip || '');
       b.hidden = src.hidden;
     };
-    new MutationObserver(copy).observe(src, { attributes: true, attributeFilter: ['class', 'title', 'hidden', 'aria-label'] });
+    new MutationObserver(copy).observe(src, { attributes: true, attributeFilter: ['class', 'data-tip', 'data-tip-keys', 'hidden', 'aria-label'] });
     copy();
     b.addEventListener('click', () => src.click());
   }
@@ -1698,54 +1745,59 @@ if (columnEl) {
 placeColumnTools(); // now that the two exist
 // --- end the always-on column ---
 
-// --- the status strip: the phase chip and its track (phase-sheet.js) ----------------------------------------------
-// The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2): the
-// chip, "● Booking starts tomorrow" (the story sentence, Phases.storyParts; no caret, it opens the
-// sheet, not a menu) and, beside it, the journey bar: the phases end to end, each band named (and its icon, when the
-// template gives one) where it fits, the past pale, today's filled with the accent, the ones to come outlined, the
-// main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then the facts
-// modules report (host.facts, up to three chips) and the count (host.attention) at the right. The template's phases
-// (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`, refreshed by the presence
-// poll, and by my own save) go through the one rule, public/phases.js (window.Phases). Nothing but the sheet opens
-// from it (phases only inform): the chip, a button, and the bar and its days to go, press targets for the mouse (the
-// chip is the keyboard's way). Shown on every layout tab whenever the space has phases; never with no phases, for a
-// guest, in an aside or while home is shown over the space.
+// --- the status strip: the phase chip and its journey bar (the Journey bar family) ----------------------------------
+// The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2; design
+// system step 30): the chip, "● Booking starts tomorrow" (the story sentence, Phases.storyParts; no caret, it opens the
+// sheet, not a menu) and, beside it, the journey bar: a day grid (journeyLayout, public/journey-layout.js), each band as
+// wide as its phase is long, named (and its icon, when the template gives one) where it fits, past, current ("Now") and
+// ahead by fill, the days no phase covers as an empty slice, a pin above the bar at today with the day of the month, and
+// the dates under it; then the days to go. Then the facts modules report (host.facts, up to three chips) and the count
+// (host.attention) at the right. The template's phases (branding.phases) and this space's dates (its presence record's
+// `phases` and `createdAt`, refreshed by the presence poll, and by my own save) go through the one rule, public/phases.js
+// (window.Phases). Nothing but the sheet opens from it (phases only inform): the chip, the days to go, and a press on the
+// bar. Shown on every layout tab whenever the space has phases; never with no phases, for a guest, in an aside or while
+// home is shown over the space. Its look is system.css's (journey block).
 // Wider than a phone it is an element tool of the space bar's left zone (`phase-chip`, the `secondary` bar: that row is
-// the strip, style.css, --status-strip-h), with no `fit`. On a narrow window things give way in order (style.css): the
-// facts' slot, the names in the bands, the days to go, the bar (to its least width, 48px, then out of sight), and last
-// the end of the sentence (each clause after the first is its own span and drops whole). On a phone the space bar is
-// the tab bar at the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the
-// header as a slim line under the top row (--status-strip-slim-h): the sentence and the bar as a 2px line along its foot.
-// The header moves to a popped-out window with the strip in it. For a screen reader the strip is a region, "Status";
-// the chip's words sit in one polite status, written only when the sentence changes, so the presence poll never makes
-// it speak again; the bar is hidden from it (the words carry it).
+// the strip, style.css, --status-strip-h), with no `fit`. On a narrow window things give way in order: the facts (one by
+// one, fitFacts; all at 760px), the end of the sentence (each clause after the first is its own span and drops whole),
+// then the bar to its least width; a band shows what fits of its name and icon. On a phone the space bar is the tab bar
+// at the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the header as a
+// slim line under the top row (--status-strip-slim-h): the sentence and the bar as a 2px line along its foot, a dot at
+// today, and a long press on a band says its name and dates. The header moves to a popped-out window with the strip in it. For
+// a screen reader the strip is a region, "Status"; the chip's words sit in one polite status, written only when the
+// sentence changes, so the presence poll never makes it speak again; the bar is a group, "Journey", each band named by
+// its name and dates, the pin by today's date.
 const statusStrip = document.createElement('div');
 statusStrip.id = 'status-strip';
-statusStrip.className = 'status-strip';
+statusStrip.className = 'sdk-strip';
 statusStrip.setAttribute('role', 'region');
 statusStrip.setAttribute('aria-label', 'Status');
 statusStrip.hidden = true; // until a space with phases is entered
 const statusSaid = document.createElement('span');
-statusSaid.className = 'status-said';
+statusSaid.className = 'sdk-strip-said';
 statusSaid.setAttribute('role', 'status');
 const phaseChip = document.createElement('button');
 phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
-phaseChip.className = 'phase-chip nav-text'; // the nav text, as every word in the bars
+phaseChip.className = 'sdk-strip-chip sdk-strip-phase'; // a header chip (system.css, journey block)
 phaseChip.setAttribute('aria-haspopup', 'dialog');
-phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span>';
-const statusTrack = document.createElement('span');
-statusTrack.className = 'status-track';
-statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
-const statusToGo = document.createElement('span');
-statusToGo.className = 'status-togo nav-text'; // the nav text, as every word in the bars
-statusToGo.setAttribute('aria-hidden', 'true'); // the chip's story carries the phase; this is the countdown to it
+phaseChip.innerHTML = '<span class="sdk-strip-dot" aria-hidden="true"></span><span class="sdk-strip-sentence"></span>';
+// The journey bar: a day grid (journeyLayout, public/journey-layout.js). Each band is reached by the keyboard and shows its
+// name and dates in a tooltip on hover, focus or a tap; the pin's name is today's date.
+const statusTrack = document.createElement('div');
+statusTrack.className = 'sdk-journey';
+statusTrack.setAttribute('role', 'group');
+statusTrack.setAttribute('aria-label', 'Journey');
+const statusToGo = document.createElement('button');
+statusToGo.type = 'button';
+statusToGo.className = 'sdk-strip-chip sdk-strip-count'; // the countdown to the main phase; it opens the phases too
+statusToGo.setAttribute('aria-haspopup', 'dialog');
 statusToGo.hidden = true;
 // The facts modules report (host.facts, plan-space-story-strip.md step 5): up to three chips after the days to go, each a
 // button opening a small menu. Not a live region: a fact that changes is not read out (the plan's accessibility rule);
 // the chips are drawn again only when the facts change.
 const statusFacts = document.createElement('span');
-statusFacts.className = 'status-facts';
+statusFacts.className = 'sdk-strip-facts';
 statusFacts.setAttribute('role', 'group');
 statusFacts.setAttribute('aria-label', 'Facts');
 statusSaid.appendChild(phaseChip);
@@ -1753,13 +1805,13 @@ statusSaid.appendChild(phaseChip);
 // end, after the days to go, only above zero. Its own polite status, written only when the count changes; the button
 // opens the shared menu of what needs action.
 const statusAttention = document.createElement('span');
-statusAttention.className = 'status-attention';
+statusAttention.className = 'sdk-strip-attn-slot';
 statusAttention.setAttribute('role', 'status');
 statusAttention.hidden = true;
 const attentionButton = document.createElement('button');
 attentionButton.type = 'button';
 attentionButton.id = 'attention-count';
-attentionButton.className = 'attention-count';
+attentionButton.className = 'sdk-strip-chip sdk-strip-attn'; // the warn tone chip with the count in a Chips count
 attentionButton.setAttribute('aria-haspopup', 'menu');
 statusAttention.appendChild(attentionButton);
 statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention);
@@ -1784,84 +1836,32 @@ function phaseTimeline() {
   if (!R || !space) return [];
   return R.timelineOf(templatePhases, space.phases || {}, { today: phaseToday(), created: space.createdAt });
 }
-// The bar: one band per dated phase, as wide as its share of the timeline (bandShares, the sheet's own bar), the
-// phases before today's pale, today's filled, the ones after outlined, the main one heavier; each band's name (and
-// icon) inside it, dropped by style.css when it does not fit; the pin at today (todayPercent) with the day of the
-// month. The days to go after it (Phases.countdown). Drawn again only when a date or the day changes.
+// The bar: a day grid (journeyLayout, public/journey-layout.js; the Journey bar family). Every day is an equal slice of the
+// bar's width, so a band is as wide as its phase is long and the days no phase covers show as an empty slice; an open-ended
+// phase (no end) runs two weeks past today or its start; a phase with no dates is a stub at the right end. The pin stands
+// above the bar at the middle of today's slice (or in a zone at the end the trip has not reached, or has passed), the ticks
+// and dates under it. Each band says what fits of its icon and name, and its name and dates on hover, focus or a tap. Laid
+// out again when the bar's width changes or a date or the day does (journeySpec). The days to go after it
+// (Phases.countdown).
+const OPEN_DAYS_PAST_TODAY = 14; // as the sheet's bar (phase-sheet.js bandShares)
+const JOURNEY_LEAST = 480; // the bar keeps at least this much before a fact gives way (the day grid needs the room)
+let journeySpec = null; // { bands, today }: what the bar shows, laid out at its width by layoutJourney
+let journeyDrawn = '';
+const journeyPhone = () => (statusTrack.ownerDocument.defaultView || window).matchMedia('(max-width: 640px)').matches;
 function drawStatusTrack(bands, today) {
   const R = phaseRule();
-  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end, b.tint, phaseIcons[b.id] || ''])]);
-  if (statusTrack.dataset.drawn === key) return;
-  statusTrack.dataset.drawn = key;
-  const doc = statusTrack.ownerDocument;
-  const shares = bandShares(bands, { today, rule: R });
-  const segs = [];
-  bands.forEach((b, i) => {
-    if (!b.dated) return;
-    const seg = doc.createElement('span');
-    seg.className = 'status-band';
-    seg.dataset.tint = b.tint; // the phase's own colour (Phases.tintOf), as in the sheet: one border, one tint
-    seg.style.flexGrow = String(shares[i].grow);
-    if (b.current) seg.classList.add('current');
-    else if (b.end && today > b.end) seg.classList.add('past');
-    if (b.main) seg.classList.add('main');
-    const at = todayPercent(b, shares[i].days, today, { rule: R });
-    // The icon and the name sit in a box that drops the name, then the icon, to a hidden line when the band is too narrow (style.css); in
-    // today's band it keeps to the side the pin is not on.
-    const box = doc.createElement('span');
-    box.className = 'status-band-box';
-    if (at !== null && at < 50) box.classList.add('end');
-    const name = doc.createElement('span');
-    name.className = 'status-band-name nav-text'; // the nav text; its colour is the band's (style.css)
-    name.append(b.label);
-    // The icon is its own item beside the name: a band too narrow for the name drops the name to the hidden second
-    // line and keeps the icon; one too narrow for both loses the icon too. The full name stays in the tooltip.
-    if (phaseIcons[b.id]) {
-      const icon = doc.createElement('i');
-      icon.className = `fa-solid fa-${phaseIcons[b.id]} status-band-icon`;
-      icon.setAttribute('aria-hidden', 'true');
-      box.appendChild(icon);
-    }
-    box.appendChild(name);
-    seg.appendChild(box);
-    seg.title = b.label;
-    if (at !== null) {
-      const mark = doc.createElement('span');
-      mark.className = 'status-today'; // inside the band: takes its colour
-      mark.style.left = `${at}%`;
-      const dayOfMonth = doc.createElement('span');
-      dayOfMonth.className = 'status-today-day nav-text';
-      dayOfMonth.textContent = String(Number(today.slice(8, 10)));
-      mark.appendChild(dayOfMonth);
-      seg.appendChild(mark);
-    }
-    segs.push(seg);
-  });
-  // Today before the first phase or after the last: the pin stands at that end of the bar, the bands kept clear of it.
-  const dated = bands.filter((b) => b.dated);
-  const outside = !dated.length ? '' : today < dated[0].start ? 'lead' : (dated[dated.length - 1].end && today > dated[dated.length - 1].end ? 'trail' : '');
-  statusTrack.classList.toggle('lead', outside === 'lead');
-  statusTrack.classList.toggle('trail', outside === 'trail');
-  if (outside) {
-    const mark = doc.createElement('span');
-    mark.className = 'status-today';
-    mark.dataset.tint = (outside === 'lead' ? dated[0] : dated[dated.length - 1]).tint; // the band it stands beside
-    const dayOfMonth = doc.createElement('span');
-    dayOfMonth.className = 'status-today-day nav-text';
-    dayOfMonth.textContent = String(Number(today.slice(8, 10)));
-    mark.appendChild(dayOfMonth);
-    segs.push(mark);
-  }
-  statusTrack.replaceChildren(...segs);
+  journeySpec = { bands, today };
+  layoutJourney();
   const togo = R.countdown(bands, today);
+  const doc = statusToGo.ownerDocument;
   statusToGo.hidden = !togo;
   if (togo) {
-    // "2 days to Trip": the number large and bold, the rest beside it; "Trip starts today" has no number.
+    // "2 days to Trip": the number large, the rest beside it; "Trip starts today" has no number.
     const rest = doc.createElement('span');
-    rest.className = 'status-togo-words';
+    rest.className = 'sdk-strip-count-words';
     if (togo.days > 0) {
-      const n = doc.createElement('b');
-      n.className = 'status-togo-days';
+      const n = doc.createElement('span');
+      n.className = 'sdk-strip-count-n';
       n.textContent = String(togo.days);
       rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip"
       statusToGo.replaceChildren(n, rest);
@@ -1869,12 +1869,147 @@ function drawStatusTrack(bands, today) {
       rest.textContent = togo.words;
       statusToGo.replaceChildren(rest);
     }
+    statusToGo.setAttribute('aria-label', `${togo.words}. Phases`);
   } else statusToGo.replaceChildren();
 }
+function layoutJourney() {
+  const L = window.JourneyLayout;
+  if (!journeySpec || !L || statusStrip.hidden) return;
+  const width = statusTrack.getBoundingClientRect().width;
+  if (!width) return;
+  const R = phaseRule();
+  const { bands, today } = journeySpec;
+  const phone = journeyPhone();
+  const key = JSON.stringify([today, Math.round(width * 100), phone, bands.map((b) => [b.id, b.label, b.start, b.end, b.tint, phaseIcons[b.id] || ''])]);
+  if (key === journeyDrawn) return;
+  journeyDrawn = key;
+  const dated = bands.filter((b) => b.dated).sort((x, y) => (x.start < y.start ? -1 : x.start > y.start ? 1 : 0));
+  const offs = bands.filter((b) => !b.dated);
+  // An open-ended phase runs two weeks past today (or its start, when that is later), as the sheet's bar draws it.
+  const endOf = (b) => b.end || R.addDays(today > b.start ? today : b.start, OPEN_DAYS_PAST_TODAY);
+  const lay = L.journeyLayout(dated.map((b) => ({ n: b.label, i: phaseIcons[b.id] || '', t: b.tint, s: b.start, e: endOf(b) })), today, width, { zone: phone ? 14 : 28, offs: offs.length });
+  const doc = statusTrack.ownerDocument;
+  const px = (v) => `${Math.round(v * 100) / 100}px`;
+  const out = [];
+  lay.bands.forEach((b, k) => {
+    const phase = dated[k];
+    const tip = phase.end ? `${b.n}, ${b.span}${b.state === 'current' ? ', now' : ''}` : `${b.n}, from ${L.dayText(L.dayNo(b.s))}${b.state === 'current' ? ', now' : ''}`;
+    const band = doc.createElement('span');
+    band.className = 'sdk-band';
+    band.dataset.state = b.state;
+    band.dataset.tint = b.t; // the phase's own colour (Phases.tintOf), as in the sheet
+    band.dataset.label = b.label.mode;
+    band.dataset.tip = tip;
+    band.setAttribute('aria-label', tip);
+    band.tabIndex = 0;
+    band.style.setProperty('--days', String(b.days));
+    band.style.setProperty('--x', px(b.x));
+    band.style.setProperty('--w', px(b.w));
+    if (b.label.mode !== 'none') {
+      const box = doc.createElement('span');
+      box.className = 'sdk-band-box';
+      box.dataset.align = b.label.align;
+      if (b.i) {
+        const icon = doc.createElement('i');
+        icon.className = `fa-solid fa-${b.i} sdk-band-icon`;
+        icon.setAttribute('aria-hidden', 'true');
+        box.appendChild(icon);
+      }
+      if (b.label.mode === 'full') {
+        const name = doc.createElement('span');
+        name.className = 'sdk-band-name';
+        name.textContent = b.n;
+        box.appendChild(name);
+      }
+      if (b.label.now) {
+        const now = doc.createElement('span');
+        now.className = 'sdk-band-now';
+        now.textContent = 'Now';
+        box.appendChild(now);
+      }
+      band.appendChild(box);
+    }
+    if (b.progress != null) {
+      const line = doc.createElement('span');
+      line.className = 'sdk-band-progress'; // how far through the phase today is
+      line.style.setProperty('--p', px(b.progress));
+      band.appendChild(line);
+    }
+    out.push(band);
+  });
+  for (const g of lay.gaps) {
+    if (g.w < 2) continue;
+    const gap = doc.createElement('span');
+    gap.className = 'sdk-gap';
+    gap.setAttribute('aria-hidden', 'true');
+    gap.style.setProperty('--days', String(g.days));
+    gap.style.setProperty('--x', px(g.x));
+    gap.style.setProperty('--w', px(g.w));
+    out.push(gap);
+  }
+  lay.offs.forEach((f, k) => {
+    const tip = `${offs[k].label}, no dates`;
+    const band = doc.createElement('span');
+    band.className = 'sdk-band';
+    band.dataset.state = 'off';
+    band.dataset.tint = offs[k].tint;
+    band.dataset.tip = tip;
+    band.setAttribute('aria-label', tip);
+    band.tabIndex = 0;
+    band.style.setProperty('--x', px(f.x));
+    band.style.setProperty('--w', px(f.w));
+    out.push(band);
+  });
+  for (const t of lay.ticks) {
+    const tick = doc.createElement('i');
+    tick.className = 'sdk-tick';
+    tick.setAttribute('aria-hidden', 'true');
+    tick.style.setProperty('--x', px(t.x));
+    out.push(tick);
+  }
+  for (const l of lay.labels) {
+    const label = doc.createElement('span');
+    label.className = 'sdk-tick-label';
+    label.dataset.align = l.align;
+    label.setAttribute('aria-hidden', 'true');
+    label.style.setProperty('--x', px(l.x));
+    label.textContent = l.text;
+    out.push(label);
+  }
+  if (lay.pin.where !== 'none') {
+    const pin = doc.createElement('span');
+    pin.className = 'sdk-today';
+    pin.setAttribute('role', 'img');
+    const d = new Date(`${today}T12:00:00`);
+    pin.setAttribute('aria-label', `Today, ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`);
+    pin.dataset.where = lay.pin.where;
+    pin.style.setProperty('--pin-x', px(lay.pin.x));
+    pin.style.setProperty('--day-offset', String(lay.pin.offset == null ? 0 : lay.pin.offset));
+    pin.textContent = String(lay.pin.day);
+    const stem = doc.createElement('span');
+    stem.className = 'sdk-today-stem';
+    stem.setAttribute('aria-hidden', 'true');
+    pin.appendChild(stem);
+    out.push(pin);
+  }
+  statusTrack.dataset.mode = lay.tickMode;
+  statusTrack.dataset.where = lay.where;
+  statusTrack.style.setProperty('--day-w', px(lay.dayW));
+  statusTrack.style.setProperty('--zone', px(lay.zl));
+  statusTrack.replaceChildren(...out);
+}
+if (typeof ResizeObserver === 'function') new ResizeObserver(() => layoutJourney()).observe(statusTrack);
+// A band's name and dates are its tooltip: the shared one (public/tooltip.js, the Tooltips family) reads its data-tip, on
+// hover, on keyboard focus, and on a phone's line on a long press. A band is a way into the phases from the keyboard too
+// wider than a phone, as a press on the bar is with the mouse.
+const barBand = (event) => (event.target && event.target.closest ? event.target.closest('.sdk-band[data-tip]') : null);
+statusTrack.addEventListener('keydown', (event) => {
+  if ((event.key === 'Enter' || event.key === ' ') && barBand(event) && !journeyPhone()) { event.preventDefault(); openPhaseSheetFrom(phaseChip); }
+});
 // The chip's words: the sentence's clauses, each after the first its own span with its " · ", so a narrow strip drops
-// them whole from the end (style.css) and the label's text is still the whole sentence.
+// them whole from the end (system.css) and the label's text is still the whole sentence.
 function writeStory(parts) {
-  const label = phaseChip.querySelector('.phase-chip-label');
+  const label = phaseChip.querySelector('.sdk-strip-sentence');
   const doc = label.ownerDocument;
   label.replaceChildren(...parts.map((part, i) => {
     const span = doc.createElement('span');
@@ -1922,10 +2057,16 @@ function drawAttentionCount() {
   const n = phaseChipWanted() ? attention.total : 0;
   const words = n === 1 ? '1 needs action' : `${n} need action`;
   statusAttention.hidden = n < 1;
-  statusStrip.classList.toggle('has-attention', n > 0);
   statusStrip.classList.toggle('attention-only', !phasesWanted());
   if (n > 0 && attentionButton.textContent !== words) {
-    attentionButton.textContent = words;
+    // The count in a Chips count, then the words: its text is still the whole sentence ("3 need action").
+    const count = document.createElement('span');
+    count.className = 'sdk-badge'; // the Chips count
+    count.textContent = String(n);
+    const rest = document.createElement('span');
+    rest.className = 'sdk-strip-attn-words';
+    rest.textContent = words.slice(String(n).length);
+    attentionButton.replaceChildren(count, rest);
     attentionButton.title = `${words}. Show the list`;
   }
 }
@@ -1951,9 +2092,8 @@ attentionButton.addEventListener('click', () => openHostMenu(attentionButton, at
 // Facts are the space's (every module's last report, from GET /api/spaces/:id/facts, only the modules I may read here).
 // The strip draws up to three, in each fact's `order`, then the order the modules answered in; the rest are in the
 // phone's phase sheet and a chip's menu. On a narrow line they give way first, one by one from the end (fitFacts),
-// before the names in the bands go (style.css hides them all at 760px and below, and on a phone).
+// while the journey bar has less than its room (JOURNEY_LEAST); style.css hides them all at 760px and below, and on a phone.
 const MAX_FACT_CHIPS = 3;
-const FACT_TRACK_LEAST = 180; // the journey bar keeps at least this much before a fact gives way
 let spaceFacts = { spaceId: null, modules: [] };
 let factsDrawn = '';
 function followFactsSpace() {
@@ -2005,29 +2145,28 @@ const budgetSource = () => ({ name: spaceFacts.modules.find((m) => (m.facts || [
 function factsHiddenInStrip() {
   const view = subnav.ownerDocument.defaultView || window;
   if (view.matchMedia(`(max-width: ${FACT_CHIPS_HIDDEN_AT}px)`).matches) return true;
-  return factsInOrder().length > statusFacts.querySelectorAll('.status-fact:not(.dropped)').length;
+  return factsInOrder().length > statusFacts.querySelectorAll('.sdk-strip-fact:not([hidden])').length;
 }
 function factChip(f) {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'status-fact nav-text'; // the nav text, as every word in the bars
+  b.className = 'sdk-strip-chip sdk-strip-fact'; // a header chip (system.css, journey block)
   b.dataset.module = f.module;
   b.setAttribute('aria-haspopup', 'menu');
   b.title = f.value ? `${f.text} · ${f.value}. ${f.name}` : `${f.text}. ${f.name}`;
   b.setAttribute('aria-label', b.title);
   if (typeof f.progress === 'number') {
     const fill = document.createElement('span');
-    fill.className = 'status-fact-fill'; // the progress, a fill from the left (style.css)
+    fill.className = 'sdk-strip-fact-fill'; // the progress, a fill from the left (system.css)
     fill.setAttribute('aria-hidden', 'true');
-    b.style.setProperty('--fact-progress', `${Math.round(Math.min(1, Math.max(0, f.progress)) * 100)}%`);
-    b.classList.add('has-progress');
+    b.style.setProperty('--p', `${Math.round(Math.min(1, Math.max(0, f.progress)) * 100)}%`);
     b.appendChild(fill);
   }
   const icon = document.createElement('i');
   icon.className = `fa-solid fa-${/^[a-z0-9-]+$/.test(f.icon) ? f.icon : 'circle-info'}`;
   icon.setAttribute('aria-hidden', 'true');
   const words = document.createElement('span');
-  words.className = 'status-fact-text';
+  words.className = 'sdk-strip-fact-text';
   words.textContent = f.text;
   b.append(icon, words);
   b.addEventListener('click', () => openHostMenu(b, () => factMenuItems(f.module)));
@@ -2044,13 +2183,14 @@ function drawFacts() {
   statusFacts.hidden = !shown.length;
   fitFacts();
 }
-// A narrow line: the last chip gives way, one at a time, while the line has wrapped or the bar is left too narrow.
+// A narrow line: the last chip gives way, one at a time, while the journey bar is left less than its room (the day grid
+// needs it) or the line runs past the strip's end.
 function fitFacts() {
   const chips = [...statusFacts.children];
-  for (const c of chips) c.classList.remove('dropped');
+  for (const c of chips) c.hidden = false;
   if (!chips.length || statusStrip.hidden || !statusFacts.getClientRects().length) return;
-  const crowded = () => statusFacts.offsetTop > statusSaid.offsetTop + 4 || (statusTrack.getClientRects().length && statusTrack.offsetWidth < FACT_TRACK_LEAST);
-  for (let i = chips.length - 1; i >= 0 && crowded(); i -= 1) chips[i].classList.add('dropped');
+  const crowded = () => (statusTrack.getClientRects().length && statusTrack.offsetWidth < JOURNEY_LEAST) || statusStrip.scrollWidth > statusStrip.clientWidth + 1;
+  for (let i = chips.length - 1; i >= 0 && crowded(); i -= 1) chips[i].hidden = true;
 }
 if (typeof ResizeObserver === 'function') new ResizeObserver(() => fitFacts()).observe(statusStrip);
 // A chip's menu: the module's name, each of its facts in full (with its value), and a way to open the module.
@@ -2113,7 +2253,7 @@ function updatePhaseChip() {
   const parts = R.storyParts(bands, today);
   const words = parts.join(' · ');
   // Written only when the sentence changes: the status is polite, and the presence poll runs this every few seconds.
-  if (phaseChip.querySelector('.phase-chip-label').textContent !== words) {
+  if (phaseChip.querySelector('.sdk-strip-sentence').textContent !== words) {
     writeStory(parts);
     phaseChip.title = `${words}. Phases`;
     phaseChip.setAttribute('aria-label', `${words}. Phases`);
@@ -2121,7 +2261,7 @@ function updatePhaseChip() {
   // The dot takes the colour of the phase today is in (before the first, the first; past the last, the last).
   const datedNow = bands.filter((b) => b.dated);
   const here = bands.find((b) => b.current) || datedNow.filter((b) => b.start <= today).pop() || datedNow[0] || null;
-  const dot = phaseChip.querySelector('.phase-dot');
+  const dot = phaseChip.querySelector('.sdk-strip-dot');
   if (here) dot.dataset.tint = here.tint; else delete dot.dataset.tint;
   drawStatusTrack(bands, today);
   fitFacts(); // the sentence or the bar may have changed the room
@@ -2155,7 +2295,11 @@ function openPhaseSheetFrom(opener) {
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
-statusTrack.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
+// A press on the bar opens the phases wider than a phone; the phone's 2px line is for seeing (the chip opens them there).
+statusTrack.addEventListener('click', () => {
+  if (journeyPhone()) return; // the 2px line is for seeing; a long press on a band shows its name and dates
+  openPhaseSheetFrom(phaseChip);
+});
 statusToGo.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
 // The strip as a tool of the space bar's left zone, wider than a phone; no fit (the track gives way, style.css).
 const STATUS_STRIP_TOOL = { id: 'phase-chip', bar: 'secondary', zone: 'left', group: 'status', order: 1, icon: 'circle', label: 'Status', element: statusStrip, visible: phaseChipWanted };
@@ -2642,7 +2786,7 @@ function openLayoutSheet({ title, name = '', share = null, emptyName = '', onSav
       <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
       <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false" maxlength="40"></label>
       <p class="layout-field-hint" id="layout-name-hint" hidden></p>
-      <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
+      <label class="sdk-choice-row" id="layout-shared-row" hidden><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="sdk-choice-text"><span class="sdk-choice-label" id="layout-shared-label"></span></span><input type="checkbox" class="sdk-switch" role="switch" id="layout-shared"></label>
       <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
       </div>
     </form>`;
@@ -2781,7 +2925,7 @@ function openIconSheet({ title, current = '', defaultIcon = '', onSave }) {
     <form class="layout-form" novalidate>
       <div class="layout-form-body action-content">
       <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
-      <label class="layout-field"><span class="layout-field-label">Find an icon</span><input type="search" id="layout-icon-search" autocomplete="off" spellcheck="false" maxlength="40"></label>
+      <label class="layout-field"><span class="layout-field-label">Find an icon</span><span class="sdk-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="layout-icon-search" autocomplete="off" spellcheck="false" maxlength="40"></span></label>
       <div class="icon-grid layout-icon-grid" id="layout-icon-grid" role="radiogroup" aria-label="Icon"></div>
       <p class="layout-field-hint" id="layout-icon-none" role="status" hidden>No icon matches.</p>
       ${defaultIcon ? '<button type="button" class="btn btn-small layout-icon-reset" id="layout-icon-reset">Reset to default</button>' : ''}
@@ -2793,7 +2937,7 @@ function openIconSheet({ title, current = '', defaultIcon = '', onSave }) {
   const grid = dlg.querySelector('#layout-icon-grid');
   const none = dlg.querySelector('#layout-icon-none');
   const errorEl = dlg.querySelector('#layout-form-error');
-  grid.innerHTML = choices.map((c) => `<button type="button" role="radio" aria-checked="false" tabindex="-1" data-icon-choice="${escapeHtml(c.id)}" aria-label="${escapeHtml(c.label)}" title="${escapeHtml(c.label)}"><i class="fa-solid fa-${escapeHtml(c.id)} fa-fw" aria-hidden="true"></i></button>`).join('');
+  grid.innerHTML = choices.map((c) => `<button type="button" role="radio" aria-checked="false" tabindex="-1" data-icon-choice="${escapeHtml(c.id)}" aria-label="${escapeHtml(c.label)}" data-tip="${escapeHtml(c.label)}"><i class="fa-solid fa-${escapeHtml(c.id)} fa-fw" aria-hidden="true"></i></button>`).join('');
   const radios = () => [...grid.querySelectorAll('[data-icon-choice]')].filter((b) => !b.hidden);
   // The one Tab stop: the icon picked while it shows, else the first that shows.
   function mark() {
@@ -2939,7 +3083,7 @@ const layoutTabsMore = document.createElement('button');
 layoutTabsMore.type = 'button';
 layoutTabsMore.id = 'layout-tabs-more';
 layoutTabsMore.className = 'core-link layout-tabs-more';
-layoutTabsMore.title = 'More layouts';
+layoutTabsMore.dataset.tip = 'More layouts';
 layoutTabsMore.setAttribute('aria-label', 'More layouts');
 layoutTabsMore.setAttribute('aria-haspopup', 'menu');
 layoutTabsMore.setAttribute('aria-expanded', 'false');
@@ -3180,8 +3324,8 @@ const LAYOUTS = ['grid', 'strip', 'spotlight']; // the actual stored prefs.layou
 const VIEWS = [
   { id: 'grid', layout: 'grid', icon: 'fa-solid fa-table-cells-large' },
   { id: 'strip', layout: 'strip', icon: 'fa-solid fa-grip' },
-  { id: 'focus', layout: 'spotlight', follow: false, icon: 'fa-regular fa-square' },
-  { id: 'spotlight', layout: 'spotlight', follow: true, icon: 'fa-brands fa-square-web-awesome' },
+  { id: 'focus', layout: 'spotlight', follow: false, icon: 'fa-solid fa-expand' },
+  { id: 'spotlight', layout: 'spotlight', follow: true, icon: 'fa-solid fa-bullseye' },
 ];
 
 function currentViewId() {
@@ -3825,8 +3969,8 @@ function renderMarkup(text) {
 function iconButton(icon, title, onClick) {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'msg-btn';
-  b.title = title;
+  b.className = 'sdk-icon-btn btn-quiet btn-small';
+  b.dataset.tip = title;
   b.setAttribute('aria-label', title);
   b.innerHTML = `<i class="fa-solid fa-${icon} fa-fw" aria-hidden="true"></i>`;
   b.addEventListener('click', onClick);
@@ -4002,8 +4146,8 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   el.repaintVis = (v) => { state = v === 'private' ? 'private' : 'public'; el.dataset.vis = state; paintVis(); };
   const more = document.createElement('button');
   more.type = 'button';
-  more.className = 'sdk-more';
-  more.title = 'More';
+  more.className = 'sdk-icon-btn btn-quiet btn-small';
+  more.dataset.tip = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
   more.innerHTML = '<i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i>';
@@ -4201,7 +4345,7 @@ function linkKeepEl(entry, look) {
   if (!chatLinkKeeper?.may || !entry.stored || !chatIdOk(entry.id)) return null;
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'msg-btn chat-link-keep';
+  b.className = 'btn btn-quiet btn-small chat-link-keep';
   b.textContent = 'Keep';
   b.title = `Keep this link in ${look.name}`;
   b.addEventListener('click', () => keepLink(entry, b));
@@ -4472,7 +4616,8 @@ function renderReactionTray(list) {
     button.className = 'react';
     button.type = 'button';
     button.dataset.reaction = r.id;
-    button.title = i < 6 ? `${r.label} (${i + 1})` : r.label;
+    button.dataset.tip = i < 6 ? `${r.label} (${i + 1})` : r.label;
+    button.setAttribute('aria-label', button.dataset.tip);
     button.textContent = r.glyph;
     tray.appendChild(button);
   });
@@ -4774,13 +4919,25 @@ async function openMic() {
   return mic.track;
 }
 
+// The call bar's microphone level: five bars, the first n lit (n from 0 to 5).
+let micBarsLit = -1;
+function showMicLevel(level) {
+  const n = Math.min(5, Math.round(level * 5));
+  if (n === micBarsLit) return;
+  micBarsLit = n;
+  const el = $('meter');
+  [...el.children].forEach((bar, i) => bar.classList.toggle('on', i < n));
+  el.setAttribute('aria-valuenow', String(n));
+  el.setAttribute('aria-valuetext', ['Silent', 'Quiet', 'Quiet', 'Medium', 'Loud', 'Loud'][n]);
+}
+
 function closeMic() {
   if (mic.raw) mic.raw.stop();
   if (mic.source) mic.source.disconnect();
   mic.raw = null;
   mic.source = null;
   mic.shown = 0;
-  $('meter').style.setProperty('--level', '0');
+  showMicLevel(0);
 }
 
 function applyMicSettings() {
@@ -4796,7 +4953,7 @@ function applyMicSettings() {
 // reads better than raw samples.
 function onMicLevel({ level, open }) {
   mic.shown = Math.max(Math.min(1, level * 4), mic.shown * 0.85);
-  $('meter').style.setProperty('--level', mic.shown.toFixed(2));
+  showMicLevel(mic.shown);
   if (open !== mic.open) {
     mic.open = open;
     $('mic').classList.toggle('gated', !open);
@@ -4852,7 +5009,7 @@ async function setPushToTalk(on) {
   prefs.ptt = on;
   savePrefs();
   pttHeld = false;
-  $('mic').title = on ? `Push to talk: hold ${formatHotkey(prefs.pttKey)} (M toggles)` : 'Microphone (M)';
+  $('mic').dataset.tip = on ? `Push to talk: hold ${formatHotkey(prefs.pttKey)} (M toggles)` : 'Microphone';
   if (on && call.state === 'connected') await call.localParticipant.setMicrophoneEnabled(false).catch(() => {});
   reflectMic();
 }
@@ -4862,10 +5019,10 @@ function reflectMic() {
   $('mic').classList.toggle('on', !!on);
   $('mic').classList.toggle('off', !on);
   $('mic').classList.toggle('ptt', prefs.ptt);
-  // On a phone the conference can be hidden behind the chat while the mic is live, so the space bar
-  // says so (see the in-call dot in style.css). The bar's own element is kept, its items are rebuilt.
-  const bar = $('modules-menu');
-  if (bar) bar.dataset.mic = on ? 'live' : 'off';
+  // On a phone the conference can be hidden behind the chat while the mic is live, so the tab bar's call item says so
+  // (paintCallTab: Online's icon turns the readable red).
+  micLive = Boolean(on);
+  paintCallTab();
   if (call.state === 'connected') updateMuted(call.localParticipant);
 }
 
@@ -4944,8 +5101,8 @@ call
         if (data.byOwner) {
           setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
         } else {
-          setTimeout(() => {
-            if (window.confirm(`${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`)) {
+          setTimeout(async () => {
+            if (await confirmDialog({ title: `${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`, action: 'Join' })) {
               reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
             }
           }, 0);
@@ -5036,7 +5193,7 @@ call
     awayMessage = '';
     awayRestartCam = false;
     $('away-toggle').classList.remove('off');
-    $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+    $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
     for (const [, tile] of tiles) tile.remove();
     tiles.clear();
     for (const [, tile] of ghostTiles) tile.remove();
@@ -5473,7 +5630,7 @@ async function stopCall() {
   awayMessage = '';
   awayRestartCam = false;
   $('away-toggle').classList.remove('off');
-  $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+  $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   for (const [, tile] of tiles) tile.remove();
   tiles.clear();
   for (const [, tile] of ghostTiles) tile.remove();
@@ -5508,13 +5665,13 @@ function hangUp() {
 function setNoCall(off) {
   $('conference').classList.toggle('call-off', off); // the section's state; .no-call is the note laid over the tiles
   $('no-call').hidden = !off;
-  $('conf-close').title = off ? 'Close' : 'Leave the call and close';
-  $('conf-close').setAttribute('aria-label', $('conf-close').title);
+  $('conf-close').dataset.tip = off ? 'Close' : 'Leave the call and close';
+  $('conf-close').setAttribute('aria-label', $('conf-close').dataset.tip);
   syncWhoIsInCall();
   const h = $('hangup');
   h.classList.toggle('danger', !off);
   h.classList.toggle('dial', off);
-  h.title = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
+  h.dataset.tip = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
   h.setAttribute('aria-label', off ? 'Join the call' : 'Leave the call');
   h.querySelector('i').className = 'fa-solid fa-phone fa-fw'; // the handset, turned down to hang up (style.css)
 }
@@ -5606,7 +5763,7 @@ async function toggleScreenShare() {
   }
   const on = call.localParticipant.isScreenShareEnabled;
   $('screen-share').classList.toggle('on', on);
-  $('screen-share').title = on ? 'Stop sharing your screen (S)' : 'Share your screen (S)';
+  $('screen-share').dataset.tip = on ? 'Stop sharing your screen' : 'Share your screen';
 }
 
 // What I hear is off while I have muted it (deafened) or am away (setAway): every remote
@@ -5622,7 +5779,7 @@ function applyDeafen() {
   applyHearing();
   $('deafen').classList.toggle('on', !prefs.deafened);
   $('deafen').classList.toggle('off', prefs.deafened);
-  $('deafen').title = prefs.deafened ? 'Unmute what you hear (D)' : 'Mute what you hear (D)';
+  $('deafen').dataset.tip = prefs.deafened ? 'Unmute what you hear' : 'Mute what you hear';
 }
 
 function toggleDeafen() {
@@ -5931,11 +6088,12 @@ $('chat-input').addEventListener('beforeinput', (event) => {
 });
 // Grows with the text up to a few lines, then scrolls -- resetting height
 // to 'auto' first is what lets scrollHeight shrink back down too, not just
-// grow, when a line is deleted.
+// grow, when a line is deleted. The field is border-box, so its edge is added back (else five lines show a scrollbar);
+// its max-height stops it at five lines (system.css, the chat block).
 function resizeChatInput() {
   const el = $('chat-input');
   el.style.height = 'auto';
-  el.style.height = `${el.scrollHeight}px`;
+  el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
 }
 $('chat-input').addEventListener('input', resizeChatInput);
 
@@ -6001,7 +6159,8 @@ function renderChatEmoji(reactions) {
     b.type = 'button';
     b.className = 'chat-emoji-btn';
     b.textContent = r.glyph;
-    b.title = r.label;
+    b.dataset.tip = r.label;
+    b.setAttribute('aria-label', b.dataset.tip);
     b.addEventListener('click', () => {
       const el = $('chat-input');
       const { selectionStart: start, selectionEnd: end, value } = el;
@@ -6102,7 +6261,7 @@ function openFoldedMenu(trigger) {
     if (!el.dataset.folded || el.hidden) continue;
     const btn = el.matches('button') ? el : el.querySelector('.fbtn');
     if (!btn || btn.hidden) continue;
-    entries.push({ icon: rowIcon(btn), label: btn.getAttribute('aria-label') || btn.title, onPick: () => btn.click() });
+    entries.push({ icon: rowIcon(btn), label: btn.getAttribute('aria-label') || btn.dataset.tip || btn.title, onPick: () => btn.click() });
     const caret = el.querySelector('.fbtn-caret');
     if (caret) entries.push({ icon: 'sliders', label: caret.getAttribute('aria-label') || caret.title, onPick: () => caret.click() });
   }
@@ -6119,7 +6278,7 @@ function rowIcon(el) {
 }
 function rowLabel(el) {
   const named = el.matches('button') ? el : el.querySelector('button');
-  return (named && (named.getAttribute('aria-label') || named.title)) || el.getAttribute('aria-label') || 'More';
+  return (named && (named.getAttribute('aria-label') || named.dataset.tip || named.title)) || el.getAttribute('aria-label') || 'More';
 }
 function fitRow(bar) {
   if (!bar) return;
@@ -6432,7 +6591,7 @@ function toggleFullscreen(doc = canvasDoc()) {
 function syncFullscreenButton() {
   const on = !!document.fullscreenElement || !!canvasDoc().fullscreenElement || !!confEl.ownerDocument.fullscreenElement;
   nav.setActive('fullscreen-toggle', on);
-  $('fullscreen-toggle').title = on ? 'Exit full screen (F)' : 'Full screen (F)';
+  $('fullscreen-toggle').dataset.tip = on ? 'Exit full screen (F)' : 'Full screen (F)';
 }
 document.addEventListener('fullscreenchange', syncFullscreenButton);
 
@@ -6491,7 +6650,7 @@ function openPopout() {
     if (!pipWindow) throw new Error('the browser blocked the popup -- allow popups for this site and try again');
     pipWindow.addEventListener('load', () => setUpPopoutWindow(pipWindow), { once: true });
     nav.setActive('popout', true);
-    $('popout').title = 'Pop it back in';
+    $('popout').dataset.tip = 'Pop it back in';
   } catch (err) {
     setStatus(`pop out: ${err.message}`, true);
   }
@@ -6554,7 +6713,7 @@ function setUpPopoutWindow(win) {
     pipWindow = null;
     dropPoppedWatches();
     nav.setActive('popout', false);
-    $('popout').title = 'Pop out into its own window';
+    $('popout').dataset.tip = 'Pop out into its own window';
     wake();
   });
 }
@@ -7372,7 +7531,7 @@ async function setAway(on, message = '') {
   $('cam').classList.toggle('off', !camOn);
   updateCamera(call.localParticipant);
   $('away-toggle').classList.toggle('off', on);
-  $('away-toggle').title = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+  $('away-toggle').dataset.tip = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   await sendAway(on, message);
 }
 

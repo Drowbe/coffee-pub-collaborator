@@ -29,7 +29,9 @@ assert.ok(/setAttribute\('role', 'button'\); card\.tabIndex = 0; card\.setAttrib
 assert.ok(/if \(r\.isAside\) \{ card\.removeAttribute\('role'\)/.test(js), 'an aside card is not made a button (#225)');
 assert.ok(/closest\('a, button:not\(\[data-join\]\)'\)\) return;/.test(js), 'the link and Set up do not also enter (#225)');
 assert.ok(/matches\?\.\('\.space-choice\[role="button"\]'\)/.test(js) && /event\.key !== 'Enter' && event\.key !== ' '/.test(js), 'Enter and Space on the focused card enter (#225)');
-assert.ok(/\.space-choice\[role='button'\]:hover/.test(css) && /\.space-choice\[role='button'\]:focus-visible/.test(css), 'the card has hover and focus states (#225)');
+const sysCss = read('public/sdk/system.css');
+assert.ok(/\.space-choice\):is\(:has\(\.sdk-open\), a, button:not\(:disabled\), \[role="button"\][^{]*\):hover/.test(sysCss) && /\.space-choice\):is\(a, button, \[role="button"\][^{]*\):focus-visible/.test(sysCss), 'the card has hover and focus states, the Cards family\'s in system.css (#225)');
+assert.ok(/\.space-choice\[role='button'\] \{\s*cursor: pointer;/.test(css), 'a space card shows a pointer (#225)');
 
 // The store: the creator is a member, once.
 {

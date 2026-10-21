@@ -20,14 +20,14 @@
   <header class="head">
     <h1 data-slot="own-name">Places</h1>
     <span class="count" data-slot="count"></span>
-    <div class="filter"><span class="ic" data-icon="magnifying-glass"></span><input id="filter" type="search" maxlength="100" placeholder="Filter places" aria-label="Filter places" autocomplete="off"></div>
+    <div class="sdk-search head-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="filter" type="search" maxlength="100" placeholder="Filter places" aria-label="Filter places" autocomplete="off"></div>
   </header>
   <!-- as the Map destination's panel, which has no header or bar of its own: add a place (it asks where it goes) -->
   <div class="part-head" id="part-head" hidden><button class="btn btn-primary" type="button" data-action="add-place"><span class="ic" data-icon="plus"></span> Add a place</button></div>
   <!-- whose places (Mine/This space/Everyone): host.ui.viewSwitch draws it in the toolbar, not here -->
   <p class="view-note" data-slot="view-note" hidden><span class="ic" data-icon="circle-info"></span><span data-slot="text"></span></p>
-  <div class="chips" id="chips" role="group" aria-label="Category"></div>
-  <p class="error" id="note" hidden></p>
+  <div class="sdk-chips" id="chips" role="group" aria-label="Category"></div>
+  <p class="sdk-form-error" id="note" hidden></p>
   <main id="body" class="body"></main>
   <!-- the results of a search, over the foot of the pane while there are some (the script fills it from the tpl-found-* templates) -->
   <div id="found" class="found" role="listbox" aria-label="Search results" hidden></div>
@@ -35,10 +35,10 @@
   <!-- a place, in the editor window (host.ui.editor: a modal dialog over everything, never clipped by the module's box): a form for
        someone who may edit, read-only for anyone else (the script fills #f-* and shows .readonly instead) -->
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card">
+    <form id="form" class="sdk-form">
       <h3 id="editor-title">Add a place</h3>
-      <p class="hint" id="f-readonly" hidden></p>
-      <label>Name<input id="f-title" name="title" type="text" maxlength="120" required></label>
+      <div class="sdk-hint" id="f-readonly" hidden></div>
+      <label class="sdk-field"><span class="sdk-label">Name</span><input id="f-title" name="title" type="text" maxlength="120" required><span class="sdk-hint"></span></label>
       <!-- one row: the type (host.ui.kindPicker: typing searches the name and other words, the categories are only its headings), then the
            icon and the colour, small buttons that open a searchable list and a list of the eight tints (each with a first entry to reset) -->
       <div class="look-row" id="f-look" role="group" aria-label="Type, icon and colour">
@@ -48,52 +48,50 @@
       </div>
       <!-- where it shows, and so where it is kept (plan-places-library.md, Part A): a tick per store open to the viewer
            (tpl-tick), other spaces under "More" on a space's canvas, and one line saying who will see it -->
-      <fieldset id="f-where" class="where" aria-describedby="f-where-line" hidden>
-        <legend>Shows in</legend>
+      <fieldset id="f-where" class="sdk-section where" aria-describedby="f-where-line" hidden>
+        <legend class="sdk-section-title">Shows in</legend>
         <div class="ticks" id="f-where-ticks"></div>
         <details class="where-more" id="f-where-more" hidden><summary data-slot="more">More</summary><div class="ticks" id="f-where-more-ticks"></div></details>
         <div class="ticks" id="f-where-mine"></div>
         <p class="where-line" id="f-where-line" aria-live="polite"></p>
         <p class="where-notes" id="f-where-notes" hidden></p>
       </fieldset>
-      <label>Address<input id="f-address" name="address" type="text" maxlength="200" autocomplete="off"></label>
-      <div class="pos-field">
-        <label>Position<input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="hint" id="f-point-note"></span></label>
-        <!-- shown only while a map is open beside: tucks the dialog away, the map waits for a click, the dialog comes back with the spot -->
-        <button class="btn btn-icon pick-point" type="button" id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"><span class="ic" data-icon="crosshairs"></span></button>
+      <label class="sdk-field"><span class="sdk-label">Address</span><input id="f-address" name="address" type="text" maxlength="200" autocomplete="off"><span class="sdk-hint"></span></label>
+      <div class="sdk-field" role="group" aria-labelledby="f-point-label">
+        <span class="sdk-label" id="f-point-label">Position</span>
+        <!-- the button is shown only while a map is open beside: tucks the dialog away, the map waits for a click, the dialog comes back with the spot -->
+        <span class="sdk-group"><input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off" aria-labelledby="f-point-label"><button class="sdk-icon-btn pick-point" type="button" id="f-pick" hidden aria-label="Pick the position on the map" data-tip="Click the map to set the position"><span class="ic" data-icon="crosshairs"></span></button></span>
+        <span class="sdk-hint" id="f-point-note"></span>
       </div>
-      <div class="field"><span class="hint" id="f-status-label">Visit</span><div class="status-row" id="f-status" role="group" aria-labelledby="f-status-label"></div></div>
-      <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea></label>
-      <div>
-        <div class="hint">Whose is it</div>
-        <div class="editor-people" id="f-owners"></div>
-      </div>
+      <div class="sdk-field" role="group" aria-labelledby="f-status-label"><span class="sdk-label" id="f-status-label">Visit</span><div class="status-row" id="f-status"></div></div>
+      <label class="sdk-field"><span class="sdk-label">Notes</span><textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea><span class="sdk-hint"></span></label>
+      <div class="sdk-field" role="group" aria-labelledby="f-owners-label"><span class="sdk-label" id="f-owners-label">Whose is it</span><div class="sdk-choice-list" id="f-owners"></div></div>
       <div class="editor-links" id="f-links-out">
         <a class="btn" id="f-open-in-maps" target="_blank" rel="noopener"><span class="ic" data-icon="arrow-up-right-from-square"></span> Open in my maps app</a>
       </div>
       <div class="used-by" id="f-used-by" hidden><div class="used-by-title">Used by</div><div class="links" id="f-used-by-links"></div></div>
-      <p class="hint" id="f-by"></p>
-      <p class="error" id="f-error" hidden></p>
-      <div class="editor-buttons sdk-editor-actions">
-        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
-        <span class="grow"></span>
+      <div class="sdk-hint" id="f-by"></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
       </div>
     </form>
   </dialog>
 </div>
-<p id="msg" class="hint msg">Loading...</p>
+<div id="loading" class="msg" aria-busy="true"><div class="sdk-skel-list"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div>
+<div id="msg" class="sdk-empty" hidden></div>
 
 <!-- ============================ templates ============================ -->
 
-<template id="tpl-chip"><button class="chip" type="button"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="count" data-slot="count"></span></button></template>
-<template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="rows"></div></section></template>
+<template id="tpl-chip"><button class="sdk-chip" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="sdk-badge" data-slot="count"></span></button></template>
+<template id="tpl-group"><section class="sdk-list-group"><h2 class="sdk-group-head"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="sdk-list rows"></div></section></template>
 
 <!-- a place. The element gets data-id and data-cat (a category id from the environment list; do, eat, stay, travel, other to start). -->
 <template id="tpl-place">
-  <article class="place-row" tabindex="0">
-    <span class="mark"><span class="ic" data-icon=""></span></span>
+  <article class="sdk-card place-row" tabindex="0">
+    <span class="sdk-card-icon"><span class="ic" data-icon=""></span></span>
     <div class="main">
       <h3 class="title" data-slot="title"></h3>
       <p class="sub" data-slot="address"></p>
@@ -108,32 +106,32 @@
         <span class="links" data-slot="links"></span>
       </div>
     </div>
-    <button class="item-menu sdk-more" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
+    <button class="item-menu sdk-card-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
   </article>
 </template>
 <!-- find a place: the heading ("Results for", the text) and the rows; a row is a result with a Save button -->
 <template id="tpl-found-head"><div class="found-head"><span data-slot="label">Results for</span><b data-slot="query"></b><span class="grow"></span><button class="found-close" type="button" data-action="close-found" aria-label="Close results"><span class="ic" data-icon="xmark"></span></button></div></template>
 <template id="tpl-found-row"><div class="found-row" role="option" tabindex="0"><span class="mark"><span class="ic" data-icon="location-dot"></span></span><div><h3 class="title" data-slot="title"></h3><p class="sub" data-slot="address"></p><p class="source" data-slot="source"></p></div><button class="btn btn-primary" type="button" data-action="save-found">Save</button></div></template>
-<template id="tpl-found-searching"><div class="found-rows"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div></div></div></template>
+<template id="tpl-found-searching"><div class="found-rows"><div class="sdk-skel-list" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div></template>
 <template id="tpl-found-state"><p class="found-state" data-slot="text"></p></template>
 <!-- visit status in the form: a toggle button per status (aria-pressed) -->
 <template id="tpl-status-btn"><button class="status-btn" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
 <!-- a tick of Shows in: the checkbox, its name, and a hint (why it cannot be changed, or what Mine means) -->
-<template id="tpl-tick"><label class="check tick"><input type="checkbox"><span class="tick-text"><span data-slot="label"></span><span class="tick-hint" data-slot="hint"></span></span></label></template>
+<template id="tpl-tick"><label class="sdk-choice-row"><input type="checkbox"><span class="sdk-choice-text"><span class="sdk-choice-label" data-slot="label"></span><span class="sdk-choice-desc" data-slot="hint"></span></span></label></template>
 <!-- a space a place is marked into, on its row (only the viewer's own spaces are named) -->
 <template id="tpl-mark"><span class="space-mark"><span class="ic" data-icon="users"></span><span data-slot="name"></span></span></template>
 <!-- asked before a change of ticks takes the place away from people -->
-<template id="tpl-narrow"><div class="conflict-bar narrow-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="keep-shared">Keep it shared</button><button class="btn btn-danger" type="button" data-action="take-away">Take it away</button></div></template>
+<template id="tpl-narrow"><div class="sdk-banner" data-kind="warn" data-bar="narrow" role="alert"><span class="sdk-banner-icon" data-icon="triangle-exclamation" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text"></span><button class="btn btn-small sdk-banner-action" type="button" data-action="keep-shared">Keep it shared</button><button class="btn btn-small btn-danger sdk-banner-action" type="button" data-action="take-away">Take it away</button></div></template>
 <template id="tpl-owner"><span class="owner"></span></template>
 <template id="tpl-link"><span class="link"><span class="ic" data-icon=""></span> <b data-slot="kind"></b> <span data-slot="title"></span></span></template>
-<template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="use-theirs">Use theirs</button><button class="btn" type="button" data-action="keep-mine">Keep mine</button></div></template>
+<template id="tpl-conflict"><div class="sdk-banner" data-kind="warn" data-bar="conflict" role="alert"><span class="sdk-banner-icon" data-icon="triangle-exclamation" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text"></span><button class="btn btn-small sdk-banner-action" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small sdk-banner-action" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <template id="tpl-readonly"><div class="readonly"><dl><dt>Type</dt><dd data-slot="type"></dd><dt>Visit</dt><dd data-slot="status"></dd><dt>Address</dt><dd data-slot="address"></dd><dt>Position</dt><dd data-slot="point"></dd><dt>Whose</dt><dd data-slot="owners"></dd></dl><p data-slot="notes"></p></div></template>
 
-<template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
-<template id="tpl-state-empty"><div class="state" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2 data-slot="title">No places yet</h2><p data-slot="text">Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><p><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></p></div></template>
-<template id="tpl-state-none"><div class="state" id="state-none"><p data-slot="text"></p></div></template>
+<template id="tpl-state-loading"><div class="sdk-skel-grid" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></template>
+<template id="tpl-state-empty"><div class="sdk-empty" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2 class="sdk-empty-title" data-slot="title">No places yet</h2><p class="sdk-empty-text" data-slot="text">Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><div class="sdk-empty-actions"><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></div></div></template>
+<template id="tpl-state-none"><div class="sdk-empty" id="state-none"><p class="sdk-empty-text" data-slot="text"></p></div></template>
 <template id="tpl-find-more"><p class="find-more"><button class="btn" type="button" data-action="find-new"><span class="ic" data-icon="magnifying-glass"></span> Search for new places</button></p></template>
-<template id="tpl-state-noresults"><div class="state" id="state-noresults"><h2>Nothing matches</h2><p>No place matches your filter.</p><p><button class="btn" type="button" data-action="clear-filter">Show everything</button></p></div></template>
+<template id="tpl-state-noresults"><div class="sdk-empty" id="state-noresults"><h2 class="sdk-empty-title">Nothing matches</h2><p class="sdk-empty-text">No place matches your filter.</p><div class="sdk-empty-actions"><button class="btn btn-quiet" type="button" data-action="clear-filter">Show everything</button></div></div></template>
 
 <script>
 /*__JS__*/

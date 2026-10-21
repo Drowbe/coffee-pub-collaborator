@@ -52,7 +52,6 @@
     menuFor: null, // item id
     currentDay: null, // the day in view (where a quick add goes)
     hosted: Boolean(host.add), // the host draws the titlebar's "+", so the days' own add rows step aside
-    deleteArmed: null,
     expanded: new Set(), // item ids whose card's "More" is open
     markerTypes: [],
     flightLookup: false, // the server offers the flight lookup here (host.lookup.available)
@@ -207,7 +206,7 @@
     } else if (c.template === 'block') {
       const type = markerType(item.type);
       el.dataset.type = item.type;
-      setIcon(el.querySelector('.mk-icon [data-icon]'), type.icon);
+      setIcon(el.querySelector('.sdk-card-icon [data-icon]'), type.icon);
       colourPill(el, type);
       put(el, { title: item.title || type.label, minutes: duration, body: item.notes });
     } else if (c.template === 'note') {
@@ -384,18 +383,18 @@
     state.markerTypes = list.filter((t) => t && typeof t.id === 'string' && /^#[0-9a-f]{6}$/i.test(t.color || ''));
     if (!state.markerTypes.length) state.markerTypes = DEFAULT_MARKER_TYPES;
   }
-  // A marker's one colour: on the pill as a custom property, which gives the border and both cells.
+  // A marker's one colour: on the chip or row as a custom property, which gives its icon chip and its tint fill.
   const colourPill = (el, type) => { if (el) el.style.setProperty('--marker', type.color); };
   function buildMarker(kind, time, sub) {
     const type = markerType(kind);
     const row = clone('tpl-row-marker');
     row.dataset.marker = kind;
-    setIcon(row.querySelector('.markercard [data-icon]'), type.icon);
+    setIcon(row.querySelector('.sdk-mk-ic [data-icon]'), type.icon);
     // `mdate` repeats `time` (a date, for these plan-wide markers) inside the pill: on a phone, where the pill
     // is the whole row and .when's own column has nowhere to sit beside it, the stylesheet shows this instead
     // and hides .when, so the date stays with the box it is about rather than stranded above it.
     fill(row, { time, mdate: time, title: type.label, sub });
-    colourPill(row.querySelector('.markerpill'), type);
+    colourPill(row.querySelector('.sdk-mk-line'), type);
     return row;
   }
   // The markers of the whole plan, on the main timeline between the day blocks (not inside a day): the plan's ends above the first day
@@ -433,7 +432,7 @@
     row.classList.add(`ph-${lead.tint}`);
     const when = g.starts.length ? g.starts[0].start : g.day; // the day the phase begins, else the day it ends
     const text = parseYmd(when).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
-    setIcon(row.querySelector('.markercard [data-icon]'), g.starts.length ? 'flag' : 'flag-checkered');
+    setIcon(row.querySelector('.sdk-mk-ic [data-icon]'), g.starts.length ? 'flag' : 'flag-checkered');
     fill(row, { time: text, mdate: text, title: names.join(' · '), sub: '' });
     return row;
   }
@@ -503,17 +502,17 @@
     el.id = `day-${day}`;
     el.dataset.day = day;
     el.dataset.index = String(index + 1);
-    el.classList.toggle('today', day === ymd(new Date()));
+    const isToday = day === ymd(new Date());
     const all = entriesFor(day, days, by);
     // A marker with no time is about the whole day ("Travel day", "Free day"): a tag in the day's header, not a row.
     const tags = all.filter((e) => e.item.kind === 'block' && !e.item.time);
     const entries = all.filter((e) => !tags.includes(e));
     const head = clone('tpl-day-head');
-    if (!canEdit) hide(head.querySelector('.day-actions'), true);
+    if (!canEdit) hide(head.querySelector('.sdk-day-actions'), true);
     const d = parseYmd(day);
     fill(head, { daynum: String(d.getDate()), daymonth: `${d.toLocaleDateString([], { weekday: 'short' })} · ${d.toLocaleDateString([], { month: 'short' })}`, position: dayNumber(day, days) ? `Day ${dayNumber(day, days)} of ${numberedDays(days).length}` : '', summary: daySummary(entries) });
-    const tagBox = head.querySelector('.day-tags');
-    hide(tagBox, !tags.length);
+    // The labels under the title: the phase, "Today", then the whole-day markers.
+    const tagBox = head.querySelector('.sdk-day-labels');
     for (const { item } of tags) {
       const type = markerType(item.type);
       const tag = clone('tpl-day-tag');
@@ -526,16 +525,25 @@
       tag.title = item.notes || '';
       tagBox.append(tag);
     }
-    // A day in a dated phase has a wash of the phase's tint on its header and the phase's name beside the date (nothing otherwise).
+    // A day in a dated phase wears the phase's name as a label in its tint (no wash); today says so in words.
     const ph = phaseOnDay(plan.bands(), day);
     if (ph && ph.tint) {
       el.classList.add('in-phase', `ph-${ph.tint}`);
       const tag = document.createElement('span');
-      tag.className = 'phase-tag';
+      tag.className = 'sdk-chip-tag';
+      tag.dataset.tone = 'custom';
       tag.textContent = ph.label;
       tag.title = `${ph.label}${ph.first ? ' starts' : ''}`;
-      head.querySelector('.dmeta').prepend(tag);
+      tagBox.prepend(tag);
     }
+    if (isToday) {
+      const now = document.createElement('span');
+      now.className = 'sdk-chip-tag';
+      now.dataset.tone = 'info';
+      now.textContent = 'Today';
+      tagBox.insertBefore(now, tagBox.querySelector('.sdk-mk-tag'));
+    }
+    hide(tagBox, !tagBox.children.length);
     el.prepend(head);
     const list = el.querySelector('.timeline');
     if (!entries.length) {
@@ -543,7 +551,7 @@
       // who cannot edit gets the plain sentence. The word follows the pointer, not the width.
       if (canEdit) {
         const empty = clone('tpl-day-empty-add');
-        const b = empty.querySelector('.day-empty-add');
+        const b = empty.querySelector('.sdk-day-empty');
         b.textContent = `Nothing planned yet. ${matchMedia('(pointer: coarse)').matches ? 'Tap' : 'Click'} to add.`;
         b.title = `Add to ${dayShort(day)}`;
         list.append(empty);
@@ -563,7 +571,6 @@
     });
     if (!entries.length) el.classList.add('is-empty');
     // The days the trip itself covers (from the first booked item to the last) are marked, for their badge.
-    if (inTrip(day)) el.classList.add('in-trip');
     const add = el.querySelector('.add-row');
     add.dataset.day = day;
     add.setAttribute('aria-label', `Add to ${dayShort(day)}`);
@@ -594,9 +601,9 @@
     const row = clone('tpl-row-lane');
     row.dataset.id = item.id;
     row.dataset.type = item.type;
-    setIcon(row.querySelector('.mk-icon [data-icon]'), type.icon);
+    setIcon(row.querySelector('.sdk-mk-ic [data-icon]'), type.icon);
     fill(row, { title: item.title || type.label, body: item.notes });
-    colourPill(row.querySelector('.markerpill'), type);
+    colourPill(row.querySelector('.sdk-mk-line'), type);
     if (!canEdit) row.querySelector('.menu-btn')?.remove();
     return row;
   }
@@ -714,7 +721,7 @@
   // (optional) adds "Pick a date..." last; `jointsOnly` lists only the spots between days (a marker between days).
   function dayMenuItems({ current, choose, days, none, joints, pickDate, jointsOnly, label = dayLong }) {
     const same = (p) => (p.after !== undefined ? current.after === p.after : current.after === undefined && (current.date || null) === (p.date || null));
-    const row = (p, text) => ({ id: placeValue(p), label: text, icon: same(p) ? 'check' : 'calendar-day', ariaLabel: same(p) ? `${text}, chosen` : undefined, onClick: () => choose(p) });
+    const row = (p, text) => ({ id: placeValue(p), label: text, icon: 'calendar-day', current: same(p), ariaLabel: same(p) ? `${text}, chosen` : undefined, onClick: () => choose(p) });
     const nest = days.length > DAY_NEST;
     const items = [];
     // Unscheduled: no day, and the spots between days (before the first day, between two, after the last).
@@ -723,13 +730,13 @@
     if (joints) for (const after of ['', ...plan.days()]) unscheduled.push(row({ after }, jointLabel(after)));
     if (unscheduled.length) {
       const name = jointsOnly || !none ? 'Between days' : 'Unscheduled';
-      if (nest || unscheduled.length > DAY_NEST) items.push({ id: 'unscheduled', label: name, icon: unscheduled.some((r) => r.icon === 'check') ? 'check' : 'inbox', items: unscheduled });
+      if (nest || unscheduled.length > DAY_NEST) items.push({ id: 'unscheduled', label: name, icon: 'inbox', items: unscheduled });
       else items.push({ heading: name }, ...unscheduled);
     }
     if (!jointsOnly) {
       for (const g of groupDays(days)) {
         const rows = g.days.map((d) => row({ date: d }, label(d)));
-        if (nest) items.push({ id: `group-${g.key}`, label: g.label, hint: g.range, icon: rows.some((r) => r.icon === 'check') ? 'check' : 'calendar-days', items: rows });
+        if (nest) items.push({ id: `group-${g.key}`, label: g.label, hint: g.range, icon: 'calendar-days', items: rows });
         else items.push({ heading: `${g.label} · ${g.range}` }, ...rows);
       }
     }
@@ -865,7 +872,7 @@
     const el = clone('tpl-gap');
     el.dataset.from = run[0];
     el.dataset.to = run[run.length - 1];
-    fill(el, { count: String(run.length) });
+    fill(el, { count: String(run.length), word: run.length === 1 ? 'day between' : 'days between' });
     const count = slot(el, 'count');
     if (count) count.title = `${run.length} day${run.length === 1 ? '' : 's'} between`;
     if (!canEdit) hide(el.querySelector('[data-action="gap-add"]'), true);
@@ -1006,7 +1013,7 @@
     $('day-form').addEventListener('input', refresh);
     $('day-form').addEventListener('change', refresh);
     refresh();
-    dayEditor.open({ focus: moving ? $('day-to') : $('day-cancel'), returnTo: () => root.querySelector(`.day2[data-day="${CSS.escape(day)}"] [data-action="day-more"]`) || from });
+    dayEditor.open({ focus: moving ? $('day-to') : $('day-cancel'), returnTo: () => root.querySelector(`.sdk-day[data-day="${CSS.escape(day)}"] [data-action="day-more"]`) || from });
   }
   $('day-dialog').addEventListener('click', (e) => { if (e.target.closest('#day-cancel')) dayEditor.cancel(); });
   $('day-dialog').addEventListener('submit', async (e) => {
@@ -1103,11 +1110,14 @@
       const chip = clone('tpl-daychip');
       chip.dataset.day = day;
       chip.classList.toggle('is-empty', empties.has(day));
-      chip.classList.toggle('in-trip', inTrip(day));
-      chip.classList.toggle('today', day === today);
+      chip.classList.toggle('is-today', day === today);
       const ph = phaseOnDay(bandList, day);
-      if (ph && ph.tint) { chip.classList.add('in-phase', `ph-${ph.tint}`); chip.title = ph.label; }
+      if (ph && ph.tint) chip.title = ph.label;
       fill(chip, { weekday: parseYmd(day).toLocaleDateString([], { weekday: 'short' }), day: parseYmd(day).getDate() });
+      // In the trip: a dot in the corner, and the words in the chip's label.
+      const words = [parseYmd(day).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }), day === today ? 'today' : '', inTrip(day) ? 'in the trip' : '', ph && ph.label ? ph.label : ''].filter(Boolean);
+      chip.setAttribute('aria-label', words.join(', '));
+      if (inTrip(day)) { const dot = document.createElement('span'); dot.className = 'sdk-daychip-dot'; dot.setAttribute('aria-hidden', 'true'); chip.append(dot); }
       strip.append(chip);
     }
   }
@@ -1516,11 +1526,11 @@
 
   function markCurrent(day) {
     if (day) { state.currentDay = day; syncStatus(); }
-    for (const c of root.querySelectorAll('.daychip')) c.classList.toggle('current', c.dataset.day === day);
-    for (const d of root.querySelectorAll('.day2[data-day]')) d.classList.toggle('current', Boolean(day) && d.dataset.day === day);
+    for (const c of root.querySelectorAll('.sdk-daychip')) { if (c.dataset.day === day) c.setAttribute('aria-current', 'true'); else c.removeAttribute('aria-current'); }
+    for (const d of root.querySelectorAll('.sdk-day[data-day]')) d.classList.toggle('is-current', Boolean(day) && d.dataset.day === day);
     // keep the chosen chip in view inside the strip (the strip alone scrolls, never the page)
     const strip = $('daystrip');
-    const chip = strip && strip.querySelector('.daychip.current');
+    const chip = strip && strip.querySelector('.sdk-daychip[aria-current="true"]');
     if (chip) {
       const left = chip.offsetLeft - strip.offsetLeft;
       if (left < strip.scrollLeft || left + chip.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: left - (strip.clientWidth - chip.offsetWidth) / 2 });
@@ -1538,7 +1548,7 @@
   $('daystrip').addEventListener('scroll', stripArrows, { passive: true });
   new ResizeObserver(stripArrows).observe($('daystrip'));
   $('body').addEventListener('scroll', () => {
-    const days = [...root.querySelectorAll('.day2[data-day]')].filter((d) => d.dataset.day);
+    const days = [...root.querySelectorAll('.sdk-day[data-day]')].filter((d) => d.dataset.day);
     const top = $('body').getBoundingClientRect().top;
     const first = days.find((d) => d.getBoundingClientRect().bottom > top + 24);
     if (first) markCurrent(first.dataset.day);
@@ -1586,51 +1596,43 @@
     select.append(o);
     select.value = value;
   }
+  // The item menu: host.menu.show under the button that opened it. Edit, Move up or down (or 30 minutes earlier or later), Move to
+  // another day, Change type (a time block's marker types, a flyout), Move to unscheduled, Follow its result (a link), Delete.
   function openMenu(id, button) {
-    const menu = $('item-menu');
-    state.menuFor = id;
     const item = plan.list().find((i) => i.id === id);
     if (!item) return;
+    state.menuFor = id;
     state.menuButton = button;
     // Move up / Move down swap with the neighbour on the same day; an object with a time moves by half an hour instead.
     const timedNow = Boolean(item.time) || (item.kind === 'link' && Boolean(item.ref) && Boolean(timeOf(plan.summaries.get(host.util.objectKey(item.ref)))));
-    const earlier = menu.querySelector('[data-action="earlier"]');
-    const later = menu.querySelector('[data-action="later"]');
-    fill(earlier, { 'earlier-label': timedNow ? '30 minutes earlier' : 'Move up' });
-    fill(later, { 'later-label': timedNow ? '30 minutes later' : 'Move down' });
-    earlier.title = timedNow ? 'Changes the time, half an hour earlier. It stays on the same day.' : 'Swaps places with the one above it. It stays on the same day.';
-    later.title = timedNow ? 'Changes the time, half an hour later. It stays on the same day.' : 'Swaps places with the one below it. It stays on the same day.';
-    $('menu-day').title = 'Choose another day, or unscheduled';
-    const follow = menu.querySelector('[data-action="follow"]');
-    hide(follow, item.kind !== 'link');
-    // A link that cannot be read has nothing to edit.
-    hide(menu.querySelector('[data-action="edit"]'), item.kind === 'link' && Boolean(linkState(item.ref && plan.summaries.get(host.util.objectKey(item.ref)))));
-    fill(follow, { 'follow-label': item.follow ? 'Stop following its result' : 'Follow its result' });
     // A time block can change its type; it is removed rather than deleted.
     const isBlock = item.kind === 'block' || item.kind === 'lane';
-    // Move to unscheduled: for an item on a day (not a marker between days, which is never on one).
-    hide(menu.querySelector('[data-action="to-line"]'), plan.jointOf(item) !== null);
-    const typeLabel = menu.querySelector('[data-block-only]');
-    hide(typeLabel, !isBlock);
-    if (isBlock) {
-      const types = $('menu-type');
-      types.replaceChildren(...blockTypes().map((t) => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.label; return o; }));
-      if (![...types.options].some((o) => o.value === item.type)) { const o = document.createElement('option'); o.value = item.type; o.textContent = markerType(item.type).label; types.append(o); }
-      types.value = item.type;
-    }
-    const del = menu.querySelector('[data-action="delete"]');
-    fill(del, { 'delete-label': isBlock ? 'Remove' : 'Delete' });
-    state.deleteArmed = null;
-    menu.hidden = false;
-    const app = $('app').getBoundingClientRect();
-    const b = button.getBoundingClientRect();
-    // Under the button, or above it when there is no room below (the last card of the plan, near the pane's bottom).
-    let top = Math.round(b.bottom - app.top + 4);
-    if (top + menu.offsetHeight > app.height - 8) top = Math.max(8, Math.round(b.top - app.top - menu.offsetHeight - 4));
-    menu.style.top = `${top}px`;
-    menu.style.left = `${Math.max(8, Math.min(Math.round(b.right - app.left - menu.offsetWidth), Math.round(app.width - menu.offsetWidth - 8)))}px`;
+    // A link that cannot be read has nothing to edit.
+    const unreadable = item.kind === 'link' && Boolean(linkState(item.ref && plan.summaries.get(host.util.objectKey(item.ref))));
+    const typeRows = isBlock ? blockTypes().map((t) => ({ id: t.id, label: t.label, icon: t.icon, iconColor: t.color || undefined, current: t.id === item.type, onClick: () => attempt(() => plan.updateItem(id, { type: t.id })) })) : [];
+    if (isBlock && !typeRows.some((r) => r.current)) { const t = markerType(item.type); typeRows.push({ id: t.id, label: t.label, icon: t.icon, iconColor: t.color || undefined, current: true, onClick: () => {} }); }
+    host.menu.show({
+      id: `item-${id}`,
+      anchor: button,
+      items: [
+        unreadable ? null : { id: 'edit', label: 'Edit', icon: 'pen', onClick: () => openItemEditor(id) },
+        { id: 'earlier', label: timedNow ? '30 minutes earlier' : 'Move up', icon: 'arrow-up', tip: timedNow ? 'Changes the time, half an hour earlier. It stays on the same day.' : 'Swaps places with the one above it. It stays on the same day.', onClick: () => attempt(() => plan.nudgeItem(id, -1)) },
+        { id: 'later', label: timedNow ? '30 minutes later' : 'Move down', icon: 'arrow-down', tip: timedNow ? 'Changes the time, half an hour later. It stays on the same day.' : 'Swaps places with the one below it. It stays on the same day.', onClick: () => attempt(() => plan.nudgeItem(id, 1)) },
+        { id: 'move-to', label: 'Move to another day…', icon: 'calendar-days', tip: 'Choose another day, or unscheduled', onClick: () => setTimeout(() => openMoveTo(id, button), 0) }, // after this menu has closed and given focus back
+        typeRows.length ? { id: 'type', label: 'Change type', icon: 'tag', items: typeRows } : null,
+        plan.jointOf(item) === null ? { id: 'to-line', label: 'Move to unscheduled', icon: 'lightbulb', onClick: () => {
+          // Off its day, onto the line at the joint before that day: near where it was, no longer decided.
+          const days = plan.days();
+          const after = days[days.indexOf(plan.dayOf(item)) - 1] || '';
+          attempt(() => plan.moveToJoint(id, after, 1e6));
+        } } : null,
+        item.kind === 'link' ? { id: 'follow', label: item.follow ? 'Stop following its result' : 'Follow its result', icon: 'bell', onClick: () => attempt(() => plan.updateItem(id, { follow: !item.follow })) } : null,
+        { id: 'delete', label: isBlock ? 'Remove' : 'Delete', icon: 'trash', danger: true, onClick: () => setTimeout(() => askDelete(id, button, isBlock), 0) },
+      ],
+    });
   }
-  const closeMenu = () => { $('item-menu').hidden = true; $('date-pop').hidden = true; state.menuFor = null; };
+  // Only the date field of "Pick a date…" is still a layer of this module's own; the menus are the SDK's.
+  const closeMenu = () => { $('date-pop').hidden = true; state.menuFor = null; };
   // Move to another day...: the grouped list under the item's button, ending in "Pick a date...". Unscheduled holds "Not on a day
   // yet" and the spots between days (a marker between days sees only those).
   function openMoveTo(id, anchor) {
@@ -1676,6 +1678,18 @@
   $('date-pop-cancel').addEventListener('click', () => { const from = state.menuButton; closeMenu(); if (from && from.isConnected) from.focus(); });
   $('date-pop').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); $('date-pop-cancel').click(); } });
 
+  // Delete asks once more, in a small menu under the same button ("Really delete?"); a leg of a round trip asks which leg instead.
+  function askDelete(id, anchor, block) {
+    if (askDeleteLegs(id, anchor)) return;
+    host.menu.show({
+      id: `delete-${id}`,
+      anchor,
+      items: [
+        { id: 'sure', label: block ? 'Really remove?' : 'Really delete?', icon: 'trash', danger: true, onClick: () => attempt(() => plan.removeItem(id)) },
+        { id: 'cancel', label: 'Cancel', icon: 'xmark', onClick: () => {} },
+      ],
+    });
+  }
   // Deleting a leg of a round trip asks which: both legs, only this one (only the outbound: the return keeps the booking details),
   // or neither. Anchored to the button that asked. False when the item is not a leg of a round trip.
   function askDeleteLegs(id, anchor, before) {
@@ -1705,45 +1719,7 @@
     }
   }
 
-  $('item-menu').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-action]');
-    const id = state.menuFor;
-    if (!b || !id) return;
-    const action = b.dataset.action;
-    if (action === 'edit') { closeMenu(); return openItemEditor(id); }
-    if (action === 'move-to') { const anchor = state.menuButton; closeMenu(); return void (anchor && openMoveTo(id, anchor)); }
-    if (action === 'earlier' || action === 'later') {
-      closeMenu();
-      return void attempt(() => plan.nudgeItem(id, action === 'earlier' ? -1 : 1));
-    }
-    if (action === 'follow') {
-      const item = plan.list().find((i) => i.id === id);
-      closeMenu();
-      return void attempt(() => plan.updateItem(id, { follow: !(item && item.follow) }));
-    }
-    if (action === 'to-line') {
-      // Off its day, onto the line at the joint before that day: near where it was, no longer decided.
-      const item = plan.list().find((i) => i.id === id);
-      closeMenu();
-      if (!item) return;
-      const days = plan.days();
-      const after = days[days.indexOf(plan.dayOf(item)) - 1] || '';
-      return void attempt(() => plan.moveToJoint(id, after, 1e6));
-    }
-    if (action === 'delete') {
-      if (askDeleteLegs(id, b, closeMenu)) return;
-      if (state.deleteArmed !== id) { const block = ['block', 'lane'].includes((plan.list().find((i) => i.id === id) || {}).kind); state.deleteArmed = id; fill(b, { 'delete-label': block ? 'Really remove?' : 'Really delete?' }); return; }
-      closeMenu();
-      return void attempt(() => plan.removeItem(id));
-    }
-  });
-  $('menu-type').addEventListener('change', (e) => {
-    const id = state.menuFor;
-    const type = e.target.value;
-    closeMenu();
-    if (id && type) attempt(() => plan.updateItem(id, { type }));
-  });
-  root.addEventListener('click', (e) => { if ((!$('item-menu').hidden || !$('date-pop').hidden) && !e.target.closest('#item-menu, #date-pop, [data-action="move-menu"]')) closeMenu(); });
+  root.addEventListener('click', (e) => { if (!$('date-pop').hidden && !e.target.closest('#date-pop, [data-action="move-menu"]')) closeMenu(); });
 
   // --- dragging (desktop) --------------------------------------------------------------------------------------
 
@@ -1757,7 +1733,7 @@
   const clearDrop = (keepJoints) => {
     if (lastTarget) lastTarget.removeAttribute('data-drop');
     lastTarget = null;
-    for (const d of root.querySelectorAll('.day2.drop-target, .joint.drop-target, .timeline.between.drop-target')) d.classList.remove('drop-target');
+    for (const d of root.querySelectorAll('.sdk-day.drop-target, .joint.drop-target, .timeline.between.drop-target')) d.classList.remove('drop-target');
     for (const d of root.querySelectorAll('.row.entry.dragging')) d.classList.remove('dragging');
     if (!keepJoints) closeJoints();
   };
@@ -1772,9 +1748,9 @@
       const row = el.closest('.timeline.between .row.entry');
       return { after: line.dataset.after, el: line, row, where: row ? half(row) : null };
     }
-    const dayEl = el.closest('.day2');
+    const dayEl = el.closest('.sdk-day');
     if (!dayEl) return null;
-    const row = el.closest('.day2 .row.entry');
+    const row = el.closest('.sdk-day .row.entry');
     return { date: dayEl.dataset.day, el: dayEl, row, where: row ? half(row) : null };
   }
   // Light a spot as the drop target, with the entry under the pointer and the side the item would go on.
@@ -2145,7 +2121,7 @@
     const key = tile.startsWith('block:') ? 'block' : tile.startsWith('lane:') ? 'lane' : tile; // every marker shows the same fields
     for (const el of $('form').querySelectorAll('[data-types]')) el.classList.toggle('on-type', el.dataset.types.split(/\s+/).includes(key));
     // A row that shows one field for this kind gives it the whole row, so no gap is left beside it.
-    for (const row of $('form').querySelectorAll('.sdk-row[data-grow]')) {
+    for (const row of $('form').querySelectorAll('.sdk-form-row[data-grow]')) {
       const fields = [...row.children].filter((c) => c.classList.contains('sdk-field') && !c.matches('[data-types]:not(.on-type)'));
       for (const f of row.querySelectorAll(':scope > .sdk-field')) f.classList.toggle('sdk-full', fields.length === 1 && f === fields[0]);
     }
@@ -2226,7 +2202,7 @@
     if (!ed) return null;
     if (ed.el && ed.el.isConnected) return ed.el;
     if (ed.id) { const row = objectControl(ed.id); if (row) return row; }
-    if (ed.date) { const day = root.querySelector(`.day2[data-day="${CSS.escape(ed.date)}"] [data-action="day-menu"]`); if (day) return day; }
+    if (ed.date) { const day = root.querySelector(`.sdk-day[data-day="${CSS.escape(ed.date)}"] [data-action="day-menu"]`); if (day) return day; }
     return null;
   };
   const editor = host.ui.editor($('editor'), {
@@ -2924,10 +2900,10 @@
     } else if (action === 'edit-leg' && li) {
       openItemEditor(li.dataset.id, b);
     } else if (action === 'day-menu') {
-      const dayEl = b.closest('.day2');
+      const dayEl = b.closest('.sdk-day');
       if (dayEl) openAddMenu(b, { date: dayEl.dataset.day });
     } else if (action === 'day-more') {
-      const dayEl = b.closest('.day2');
+      const dayEl = b.closest('.sdk-day');
       if (dayEl) openDayMore(b, dayEl.dataset.day);
     } else if (action === 'gap-add') {
       openAddMenu(b, { after: jointOfButton(b) }, { gap: Boolean(b.closest('.gap')) });
@@ -2955,7 +2931,7 @@
       attempt(async () => { await plan.updateItem(li.dataset.id, c.patch); state.conflicts.delete(li.dataset.id); redraw(); });
     } else if (action === 'add-suggestion') {
       const s = b.closest('.suggestion');
-      const day = b.closest('.day2');
+      const day = b.closest('.sdk-day');
       if (s && day) attempt(async () => { await plan.addLink(JSON.parse(s.dataset.ref), { date: day.dataset.day }); await plan.suggest(); });
     }
   });

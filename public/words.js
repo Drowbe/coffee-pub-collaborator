@@ -180,7 +180,7 @@ export function fill(text) {
 }
 
 // --- the markup -------------------------------------------------------------------------------------------------------
-const FILL_ATTRS = ['title', 'placeholder', 'aria-label', 'alt', 'data-title'];
+const FILL_ATTRS = ['title', 'placeholder', 'aria-label', 'alt', 'data-title', 'data-tip'];
 // What each filled text or attribute read before it was filled, so a second fill (new words) starts from the
 // placeholders again. When the page's own code has since changed it, what it holds now is the text.
 const TEXTS = new WeakMap();

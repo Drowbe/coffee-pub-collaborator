@@ -870,7 +870,7 @@ await test('pages: Profile\'s Other calendars section, wired to the routes; the 
   }
   assert.doesNotMatch(js, /c\.url|calendar\.url/, 'a row never draws an address (the server answers only its host)');
   assert.doesNotMatch(js, /(localStorage|sessionStorage)[^\n]*external/i, 'nothing about them is kept in the browser');
-  assert.match(js, /window\.confirm\(`Remove \$\{calendar\.name\}\?/, 'Remove asks first');
+  assert.match(js, /await confirmDialog\(\{ title: `Remove \$\{calendar\.name\}\?`/, 'Remove asks first');
   assert.match(js, /This can take up to 15 seconds/, 'Add says it may take a while');
   const refreshAt = js.indexOf("api('POST', `/api/me/external-calendars/${encodeURIComponent(id)}/refresh`");
   const refreshCode = js.slice(refreshAt, js.indexOf('return;', refreshAt));

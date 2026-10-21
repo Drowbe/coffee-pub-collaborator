@@ -24,9 +24,9 @@
     <ul id="results" class="results">               what a search found, over the foot of the map (hidden when empty)
     <div id="ctrl-zoom" class="maplibregl-ctrl-top-right">   zoom in, out, locate me
     <div class="maplibregl-ctrl-bottom-right"><div class="attribution">
-    <div id="banner" class="banner">               'Click the map to place it' while adding
+    <div id="banner" class="sdk-banner" data-kind="info">             'Click the map to place it' while adding
     <div id="callout" class="callout-box">         the selected place (hidden when none)
-    <div id="state" class="state">                 replaces the map (see States)
+    <div id="state" class="sdk-empty">                 replaces the map (see States)
 ```
 
 There is no list or panel over the map. Where the host draws the titlebar "+" (`host.add.set` answers true) the map's toolbar is that **+** (one entry, "Add a place", which opens Places' dialog at once, empty; a place need not be a pin) and `form#map-search` (`role=search`, `input#map-find`: Enter searches, a pasted position or map link goes there; `.results.under-search` lists what it found just under it), a field over the top left of the map; the status line says how many places show, how many a search found, or "Click the map to add a place". The "+" is in the window's titlebar wherever the module has a window (docked, floating, popped out) and in the page bar on its own page. Where the host answers false the square **+** on the map (`#ctrl-add`, tooltip "Add a place") turns on adding instead. The list of places is the Places module.

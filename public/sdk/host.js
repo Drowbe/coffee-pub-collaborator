@@ -17,6 +17,7 @@
  */
 (function (global) {
   'use strict';
+  const SDK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || ''; // where this file was loaded from; empty when the app placed it inline
 
   // The drag data type a pointer to a module's object travels under (see host.objects).
   const OBJECT_MIME = 'application/x-host-object';
@@ -384,31 +385,6 @@
     return lines;
   }
 
-  const UI_CSS = `
-.sdk-menu { position: fixed; z-index: 9999; min-width: 180px; max-width: 320px; max-height: 70vh; overflow: auto; padding: 4px; border-radius: var(--radius-medium); border: 1px solid var(--border); background: var(--bg-card); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; }
-.sdk-menu-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--radius-small); background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
-.sdk-menu-item:hover, .sdk-menu-item:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
-.sdk-menu-item:disabled { color: var(--text-dim); cursor: default; }
-.sdk-menu-item.danger { color: var(--danger); }
-.sdk-menu-item.danger:hover, .sdk-menu-item.danger:focus-visible { background: color-mix(in srgb, var(--danger) 14%, transparent); }
-.sdk-menu-icon { flex: none; display: inline-flex; width: 1em; }
-.sdk-menu-icon svg { width: 1em; height: 1em; fill: currentColor; }
-.sdk-menu-label { flex: 1; min-width: 0; }
-.sdk-menu-hint { flex-basis: 100%; margin-top: 1px; color: var(--text-dim); font-size: 12px; }
-.sdk-menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
-.sdk-menu-heading { padding: 6px 10px 2px; color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.sdk-menu-caret { flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; border-top: 1.5px solid var(--text-dim); border-right: 1.5px solid var(--text-dim); transform: rotate(45deg); }
-.sdk-menu-category .sdk-menu-label { flex: 1; }
-.sdk-menu-category.open { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.sdk-menu-category.open .sdk-menu-caret, .sdk-menu-category:hover .sdk-menu-caret, .sdk-menu-category:focus-visible .sdk-menu-caret { border-color: var(--text); }
-.sdk-more { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); cursor: pointer; flex: none; box-sizing: border-box; font: inherit; line-height: 1; }
-.sdk-more:hover, .sdk-more:focus-visible { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); outline: none; }
-.sdk-more .ic, .sdk-more i, .sdk-more svg { display: block; margin: 0; }
-.sdk-more svg { width: 1em; height: 1em; fill: currentColor; }
-.sdk-more i { width: 1em; text-align: center; }
-.narrow .sdk-more { width: 40px; height: 40px; }
-`;
-
   // A currency list for a <select> (host.ui.currencySelect, and Manage's Currency, which loads this file for it): the common
   // ones, then every other by name in the viewer's language, and the current value first when it is in neither, so a stored
   // code is shown rather than lost. `currencies` is what the server takes (GET /api/currencies, or host.locale().currencies);
@@ -479,7 +455,7 @@
     button.textContent = '';
     button.classList.add('tb-tab');
     button.classList.toggle('tb-tab-icon', iconOnly);
-    button.removeAttribute('title');
+    delete button.dataset.tip;
     delete button.dataset.fitTitle;
     let glyph = null;
     if (icon) {
@@ -495,7 +471,7 @@
       button.appendChild(w);
     }
     button.setAttribute('aria-label', name);
-    if (iconOnly) button.title = name;
+    if (iconOnly) button.dataset.tip = name;
     return glyph;
   }
   // A choice with an icon and a word, in or out of icons only: its word is its accessible name either way, and its
@@ -505,11 +481,11 @@
     if (!wordEl || !button.querySelector(':scope > .tb-tab-glyph')) return;
     const word = wordEl.textContent.trim();
     button.setAttribute('aria-label', word);
-    if (compact && (!button.title || button.dataset.fitTitle)) {
-      button.title = word;
+    if (compact && ((!button.dataset.tip && !button.title) || button.dataset.fitTitle)) {
+      button.dataset.tip = word;
       button.dataset.fitTitle = '1';
     } else if (!compact && button.dataset.fitTitle) {
-      button.removeAttribute('title');
+      delete button.dataset.tip;
       delete button.dataset.fitTitle;
     }
   }
@@ -631,17 +607,24 @@
       watcher.observe(deps.root, { childList: true, subtree: true });
     };
     const unwatch = () => { if (watcher) { watcher.disconnect(); watcher = null; } };
-    // The close button, in a zero-height sticky block so it stays in the top right corner while the form scrolls. Made
-    // again when missing: a module may replace the dialog's content on each open (the Planner clones a template into it).
+    // The head: the form's own heading (moved here, once) and the close button, in a sticky strip, so they stay at the top
+    // while the form scrolls under them. Made again when missing: a module may replace the dialog's content on each open
+    // (the Planner clones a template into it), and the new form brings its heading.
     const corner = () => {
-      if (dialog.querySelector(':scope > .sdk-editor-corner')) return;
-      const c = doc.createElement('div');
-      c.className = 'sdk-editor-corner';
+      let c = dialog.querySelector(':scope > .sdk-editor-head');
+      const title = dialog.querySelector(':scope > form > :is(h1, h2, h3, h4), :scope > :is(h1, h2, h3, h4)');
+      if (c) {
+        if (title) { const old = c.querySelector('.sdk-editor-title'); if (old && old !== title) old.remove(); title.classList.add('sdk-editor-title'); c.prepend(title); }
+        return;
+      }
+      c = doc.createElement('div');
+      c.className = 'sdk-editor-head';
+      if (title) { title.classList.add('sdk-editor-title'); c.appendChild(title); }
       const b = doc.createElement('button');
       b.type = 'button';
-      b.className = 'sdk-editor-close';
+      b.className = 'sdk-icon-btn btn-quiet btn-small sdk-editor-close';
       b.setAttribute('aria-label', 'Close');
-      b.title = 'Close';
+      b.dataset.tip = 'Close';
       b.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.05 1.64 8 6.59l4.95-4.95 1.41 1.41L9.41 8l4.95 4.95-1.41 1.41L8 9.41l-4.95 4.95-1.41-1.41L6.59 8 1.64 3.05z"/></svg>';
       deps.icon('xmark').then((svg) => { if (svg) b.innerHTML = svg; }, () => {});
       b.addEventListener('click', () => requestClose());
@@ -657,7 +640,7 @@
       dialog.setAttribute('aria-labelledby', h.id);
     };
     const focusIn = (el) => {
-      const own = (f) => !f.closest('.sdk-editor-corner, .sdk-editor-discard');
+      const own = (f) => !f.closest('.sdk-editor-head, .sdk-editor-discard');
       const target = el && el.nodeType === 1 && dialog.contains(el) && visible(el) ? el
         : [...dialog.querySelectorAll(EDITOR_FIELD)].find((f) => own(f) && visible(f)) || dialog;
       try { target.focus(); } catch (err) { /* not focusable */ }
@@ -673,7 +656,7 @@
       row.setAttribute('aria-labelledby', text.id);
       const keep = doc.createElement('button');
       keep.type = 'button';
-      keep.className = 'btn';
+      keep.className = 'btn btn-quiet';
       keep.dataset.editor = 'keep';
       keep.textContent = 'Keep editing';
       keep.addEventListener('click', () => keepEditing());
@@ -732,10 +715,14 @@
       requestClose();
     });
     dialog.addEventListener('focusin', (e) => { lastFocus = e.target; });
+    // A hairline shows under the head once the form has scrolled (data-scrolled, read by the Dialogs block).
+    const scrolled = () => dialog.toggleAttribute('data-scrolled', dialog.scrollTop > 0);
+    dialog.addEventListener('scroll', scrolled, { passive: true });
     dialog.addEventListener('close', () => {
       unwatch();
       deps.opened.delete(dialog);
       lift(false);
+      if (!deps.opened.size) doc.documentElement.removeAttribute('data-dialog-open');
       if (asking) { asking.row.remove(); asking = null; }
       const why = reason === 'done' ? 'done' : 'cancel';
       reason = '';
@@ -762,6 +749,7 @@
         const arg = a || {};
         if (arg.returnTo !== undefined) returnTo = arg.returnTo;
         corner();
+        dialog.removeAttribute('data-scrolled');
         label();
         if (!dialog.open) {
           before = active();
@@ -770,6 +758,7 @@
           deps.opened.set(dialog, { reopen, dismiss });
           watch();
           lift(true);
+          doc.documentElement.setAttribute('data-dialog-open', ''); // the page behind does not scroll (system.css)
         }
         focusIn(arg.focus);
       },
@@ -958,15 +947,17 @@
           row.setAttribute('aria-selected', opt.id === value ? 'true' : 'false');
           row.dataset.id = String(opt.id);
           colour(row, opt.color);
-          const ic = doc.createElement('span');
-          ic.className = 'sdk-kind-icon';
-          ic.setAttribute('aria-hidden', 'true');
-          ic.dataset.kindIcon = opt.icon || '';
-          drawIcon(ic, opt.icon);
           const name = doc.createElement('span');
           name.className = 'sdk-kind-name';
           name.textContent = opt.label || String(opt.id);
-          row.append(ic, name);
+          if (opt.icon) {
+            const ic = doc.createElement('span');
+            ic.className = 'sdk-kind-icon';
+            ic.setAttribute('aria-hidden', 'true');
+            ic.dataset.kindIcon = opt.icon;
+            drawIcon(ic, opt.icon);
+            row.append(ic, name);
+          } else row.append(name);
           const index = rows.length;
           row.addEventListener('mousemove', () => { if (active !== index) setActive(index, false); });
           row.addEventListener('click', (e) => { e.preventDefault(); choose(index); });
@@ -1119,6 +1110,7 @@
   const listeners = new Map();
   let info = null;
   const call = env.call;
+  ensureTooltips();
   // The toolbar's view switches (host.ui.viewSwitch), in the order they were made; they share the one toolbar row.
   const switches = [];
   let switchesSig = '';
@@ -1134,7 +1126,6 @@
   // to the element's parent. Its buttons are kept between draws (only a change of choices rebuilds them), so the
   // keyboard stays on the choice it was on.
   function pageSwitch({ element, options, value, onChange }) {
-    ensureUiStyles();
     let current = value;
     let opts = Array.isArray(options) ? options : [];
     let shape = '';
@@ -1169,7 +1160,7 @@
           if (w && w.textContent !== String(o.label || '')) w.textContent = String(o.label || '');
           else if (b && !w) {
             b.setAttribute('aria-label', String(o.label || o.id));
-            b.title = String(o.label || o.id);
+            b.dataset.tip = String(o.label || o.id);
           }
         });
       }
@@ -1244,7 +1235,6 @@
     info = result;
     if (result && result.destinationState && typeof result.destinationState === 'object') destinationState = result.destinationState;
     if (env.applyTheme) env.applyTheme(result.theme);
-    ensureUiStyles();
     return result;
   });
 
@@ -1261,14 +1251,19 @@
     if (old) throw Object.assign(new Error(`${what}: "${old}" is an old name; use ${OLD_WORDS[old]}`), { status: 400 });
   }
 
-  // The shared interface's styles, added once to wherever the module's elements live, in the theme's colours.
-  let uiStyles = false;
-  function ensureUiStyles() {
-    if (uiStyles) return;
-    uiStyles = true;
-    const s = document.createElement('style');
-    s.textContent = UI_CSS;
-    (env.root === document ? document.head : env.root).appendChild(s);
+  // The tooltip's script (public/tooltip.js): the page has it already (brand.js); a module in a sandboxed frame asks for it once.
+  // It is found beside this file (../tooltip.js from where host.js was loaded); a frame the app serves has the SDK inline and asks the app for /tooltip.js.
+  // A frame that already has it (the design-system page puts it in) asks for nothing. Without it a control still has its name (aria-label); only the label on hover is missing.
+  function ensureTooltips() {
+    try {
+      if (window.__sdkTooltip || window.__sdkTooltipAsked || !document.head) return;
+      window.__sdkTooltipAsked = true;
+      const t = document.createElement('script');
+      t.src = SDK_SCRIPT_SRC ? new URL('../tooltip.js', SDK_SCRIPT_SRC).href : '/tooltip.js';
+      document.head.appendChild(t);
+    } catch (err) {
+      // no label on hover; the control keeps its name
+    }
   }
 
   // A menu's own icons, cached per module instance the same way a module drawing its own would (see
@@ -1386,7 +1381,6 @@
     if (reopening) return { close: closeMenu }; // the same trigger clicked again: toggle off, do not reopen
     const list = (items || []).filter(Boolean);
     if (!list.length) return { close: closeMenu };
-    ensureUiStyles();
     const menu = document.createElement('div');
     menu.className = `sdk-menu${className ? ` ${className}` : ''}`;
     menu.setAttribute('role', 'menu');
@@ -1414,6 +1408,9 @@
     try { framed = window.parent !== window && env.root === document; } catch (err) { framed = true; }
     const touch = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none)').matches;
     const drills = () => submenuStyle({ width: window.innerWidth, framed, touch, boxWidth: bounds().w, need: menu.offsetWidth + 180 }) === 'drill';
+    // A module box of a phone's width gets the 44px rows, whatever the window is.
+    const narrow = bounds().w <= 640;
+    if (narrow) menu.classList.add('narrow');
 
     const closeFly = ({ refocus = false } = {}) => {
       clearTimeout(hoverTimer);
@@ -1432,7 +1429,7 @@
       const entries = entriesOf(item);
       if (!entries || !entries.length) return;
       const el = document.createElement('div');
-      el.className = `sdk-menu sdk-menu-flyout${className ? ` ${className}` : ''}`;
+      el.className = `sdk-menu sdk-menu-flyout${narrow ? ' narrow' : ''}${className ? ` ${className}` : ''}`;
       el.setAttribute('role', 'menu');
       el.setAttribute('aria-label', item.label || '');
       const flyRows = [];
@@ -1486,6 +1483,7 @@
       const b = item.href && !category ? document.createElement('a') : document.createElement('button');
       b.className = `sdk-menu-item${item.danger ? ' danger' : ''}${category ? ' sdk-menu-category' : ''}`;
       b.setAttribute('role', 'menuitem');
+      if (item.current) b.setAttribute('aria-current', 'true');
       if (category) { b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); }
       if (item.href && !category) {
         b.href = item.href;
@@ -1515,6 +1513,7 @@
         const caret = document.createElement('span');
         caret.className = 'sdk-menu-caret';
         caret.setAttribute('aria-hidden', 'true');
+        caret.innerHTML = '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M5.3 1.9 11.4 8l-6.1 6.1-1.4-1.4L8.6 8 3.9 3.3z"/></svg>';
         b.appendChild(caret);
       }
       if (item.hint) {
@@ -1862,30 +1861,45 @@
       // A short note that appears for a few seconds and goes: for an instant confirmation ("Saved in X.") or a small refusal. Never
       // draw one inline in the module. Resolves true; the text is cut to 200 characters.
       toast: (text) => call('ui.toast', { text: String(text ?? '') }).then(() => true),
+      // A question the person answers, in place of the browser's own confirm (never call window.confirm). Drawn by the page, over
+      // everything, as the styled confirm: a title, a plain message, Cancel and the action. Resolves true (the action) or false
+      // (Cancel, Escape, a click outside); rejects only when it is asked badly (no title, an unknown kind) or the page did not answer.
+      // host.ui.confirm({ title, message?, action?, cancel?, kind?, typed? }):
+      //   title    the question, short ("Delete this place?"); message: one or two plain lines of what happens ("\n\n" starts a paragraph).
+      //   action   the button's word ("Delete"; default "OK"); cancel: default "Cancel".
+      //   kind     'plain' (default: the main button; easy to take back), 'destructive' (soft red, focus on Cancel) or
+      //            'final' (cannot be undone: solid red, focus on Cancel).
+      //   typed    with kind 'final': a name the person types before the action turns on.
+      // Escape cancels; focus is held in the dialog and goes back to where it was.
+      confirm: (o) => {
+        const t = o && typeof o === 'object' ? o : {};
+        if (typeof t.title !== 'string' || !t.title.trim()) return Promise.reject(Object.assign(new Error('say what is being asked (title)'), { status: 400 }));
+        return call('ui.confirm', { title: t.title, message: t.message, action: t.action, cancel: t.cancel, kind: t.kind, typed: t.typed }).then((r) => r === true);
+      },
       // A date picker for a date field: a small month grid under it, weekdays across the top, so the day a date
       // falls on is visible while choosing. The typed field keeps working; a button opens the grid and the
       // weekday of what is in the field shows under it. Works on <input type="date"> and
       // <input type="datetime-local"> (which keeps its time, or takes 12:00 when it has none).
       // datePicker(input, { range: () => [from, to], clearable, list: { label, items, none } }): highlight a span of days, and offer Clear.
-      // In a .sdk-form (the form standard) the field is a .sdk-group with .sdk-field-btn buttons and the weekday in its .sdk-hint.
+      // The field is a .sdk-datefield: the input with the calendar button inside its trailing edge (a small quiet icon button; the Fields block of
+      // system.css). In a .sdk-form it is also a .sdk-group and the weekday is the field's .sdk-hint.
       // `list` adds a second button (in a .sdk-form only) that opens the module's own list of days: items(set) returns host.menu.show
       // entries, an entry `{ label, day: 'YYYY-MM-DD' }` sets that day, `none: 'Unscheduled'` adds a first entry that clears the field.
       // Returns { close, destroy }.
       datePicker: (input, o) => {
         const options = o || {};
         const u = host.util;
-        ensureUiStyles();
         const inForm = Boolean(input.closest('.sdk-form'));
         const wrap = document.createElement('span');
         wrap.className = inForm ? 'sdk-datefield sdk-group' : 'sdk-datefield';
         input.parentNode.insertBefore(wrap, input);
         wrap.appendChild(input);
-        const icon = (d) => `<svg viewBox="0 0 16 16" width="${inForm ? 16 : 14}" height="${inForm ? 16 : 14}" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
+        const icon = (d) => `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
         const mkBtn = (title, d) => {
           const b = document.createElement('button');
           b.type = 'button';
-          b.className = inForm ? 'sdk-field-btn' : 'sdk-dp-btn';
-          b.title = title;
+          b.className = 'sdk-icon-btn btn-small btn-quiet';
+          b.dataset.tip = title;
           b.setAttribute('aria-label', title);
           b.innerHTML = icon(d);
           wrap.appendChild(b);
@@ -1927,6 +1941,8 @@
           let month = new Date(u.parseYmd(seed).getFullYear(), u.parseYmd(seed).getMonth(), 1);
           pop = document.createElement('div');
           pop.className = 'sdk-dp';
+          pop.setAttribute('role', 'dialog');
+          pop.setAttribute('aria-label', 'Choose a day');
           const draw = () => {
             const start = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay());
             const [from, to] = options.range ? options.range() : [];
@@ -1937,9 +1953,11 @@
               const k = u.ymd(d);
               cells += `<button type="button" class="sdk-dp-day${d.getMonth() !== month.getMonth() ? ' other' : ''}${k === today ? ' today' : ''}${k === dayOf() ? ' sel' : ''}${from && to && k >= from && k <= to ? ' inrange' : ''}" data-day="${k}">${d.getDate()}</button>`;
             }
-            pop.innerHTML = `<div class="sdk-dp-head"><button type="button" data-dp="prev" aria-label="Previous month">&lsaquo;</button><strong>${u.esc(month.toLocaleDateString([], { month: 'long', year: 'numeric' }))}</strong><button type="button" data-dp="next" aria-label="Next month">&rsaquo;</button></div>
-              <div class="sdk-dp-grid">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((n) => `<span class="sdk-dp-dow">${n}</span>`).join('')}${cells}</div>
-              <div class="sdk-dp-foot"><button type="button" data-dp="today">Today</button>${options.clearable ? '<button type="button" data-dp="clear">Clear</button>' : '<span></span>'}</div>`;
+            const monthName = u.esc(month.toLocaleDateString([], { month: 'long', year: 'numeric' }));
+            const chevron = (d) => `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
+            pop.innerHTML = `<div class="sdk-dp-head"><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-dp="prev" aria-label="Previous month">${chevron('M10.7 1.9 4.6 8l6.1 6.1 1.4-1.4L7.4 8l4.7-4.7z')}</button><span class="sdk-dp-title">${monthName}</span><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-dp="next" aria-label="Next month">${chevron('M5.3 1.9 11.4 8l-6.1 6.1-1.4-1.4L8.6 8 3.9 3.3z')}</button></div>
+              <div class="sdk-dp-grid" role="group" aria-label="${monthName}">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((n) => `<span class="sdk-dp-dow" aria-hidden="true">${n}</span>`).join('')}${cells}</div>
+              <div class="sdk-dp-foot">${options.clearable ? '<button type="button" class="btn btn-quiet btn-small" data-dp="clear">Clear</button>' : '<span></span>'}<button type="button" class="btn btn-small" data-dp="today">Today</button></div>`;
           };
           pop.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1970,7 +1988,7 @@
           let top = r.bottom + 4;
           if (editor && top + pop.offsetHeight > window.innerHeight - 4) top = Math.max(4, r.top - pop.offsetHeight - 4);
           pop.style.top = top + 'px';
-          pop.style.left = box.left + Math.max(editor ? 4 : 8, Math.min(r.left - box.left, w - 252 - (editor ? 4 : 8))) + 'px';
+          pop.style.left = box.left + Math.max(editor ? 4 : 8, Math.min(r.left - box.left, w - pop.offsetWidth - (editor ? 4 : 8))) + 'px';
           document.addEventListener('keydown', key, true);
           env.root.addEventListener('pointerdown', away, true);
         };
@@ -2019,10 +2037,10 @@
       //   A `value` or set() id that is not in the groups shows an empty field saying "Unknown kind", never another kind;
       //   setGroups() dropping the chosen kind reports it as onChange(value). remember(id) records a kind as recently used.
       // Anything but an element throws "host.ui.kindPicker needs an element".
-      kindPicker: (el, o) => { ensureUiStyles(); return createKindPicker(el, o, editorDeps); },
+      kindPicker: (el, o) => createKindPicker(el, o, editorDeps),
       // A currency choice in a <select> the module already has: "Common" then "All currencies" by name, from the codes the
       // server takes (host.locale().currencies), with the current value kept and selected even when the server would not
-      // take it now. currencySelect(select, { value, empty, onChange }): `empty` true adds a first "" choice labelled
+      // take it now. currencySelect(select, { value, empty, onChange, currencies }): `currencies` overrides the server's list (a page that has its own); `empty` true adds a first "" choice labelled
       // "Default (<the server's currency>)", or give the label as text; onChange(code) on each change ("" for the default).
       // Call it once ready has resolved. Returns { set(value), value, destroy() }; set() refills with that value selected.
       currencySelect: (select, o) => {
@@ -2030,15 +2048,36 @@
         const fill = (value) => {
           const loc = locale();
           const empty = options.empty === true ? `Default (${loc.currency || 'USD'})` : options.empty;
-          return fillCurrencySelect(select, { value, currencies: loc.currencies, empty });
+          return fillCurrencySelect(select, { value, currencies: options.currencies || loc.currencies, empty });
         };
         fill(options.value);
         const changed = () => { if (typeof options.onChange === 'function') options.onChange(select.value); };
         select.addEventListener('change', changed);
+        // A person sees the kind picker's field and list (a styled, searchable list: the Pickers family); the select stays in the
+        // form, hidden, as the value (it is what the module reads and the form sends), and a choice sets it and sends `change`.
+        const doc = select.ownerDocument;
+        const groupsOf = () => [...select.children].map((n) => (n.tagName === 'OPTGROUP'
+          ? { label: n.label, options: [...n.children].map((x) => ({ id: x.value, label: x.textContent })) }
+          : { label: '', options: [{ id: n.value, label: n.textContent }] }));
+        let quiet = false; // set() chooses without telling the module, as filling the select always did
+        const box = doc.createElement('div');
+        select.after(box);
+        select.hidden = true;
+        const field = select.closest('label, .sdk-field');
+        const name = ((field && field.querySelector('.sdk-label') && field.querySelector('.sdk-label').textContent) || select.getAttribute('aria-label') || 'Currency').trim();
+        const picker = createKindPicker(box, {
+          label: name,
+          groups: groupsOf(),
+          value: select.value,
+          onChange: (id) => { if (quiet) return; select.value = id; select.dispatchEvent(new Event('change', { bubbles: true })); },
+        }, editorDeps);
+        picker.disabled = select.disabled;
+        const watch = typeof MutationObserver === 'function' ? new MutationObserver(() => { picker.disabled = select.disabled; }) : null;
+        if (watch) watch.observe(select, { attributes: true, attributeFilter: ['disabled'] });
         return {
-          set: (value) => { fill(value); },
+          set: (value) => { quiet = true; try { fill(value); picker.setGroups(groupsOf()); picker.set(select.value); } finally { quiet = false; } },
           get value() { return select.value; },
-          destroy: () => select.removeEventListener('change', changed),
+          destroy: () => { select.removeEventListener('change', changed); if (watch) watch.disconnect(); picker.destroy(); box.remove(); select.hidden = false; },
         };
       },
       // A view or filter switch, drawn in the toolbar (see host.toolbar.set) -- its most common tool, so
@@ -2088,13 +2127,12 @@
       // place's. Pass a button you already have (its data-action and listeners stay); omit it to make one.
       // { label } is the accessible name (defaults to the button's aria-label, or "More").
       moreButton: (el, o) => {
-        ensureUiStyles();
         const btn = el && el.nodeType === 1 ? el : document.createElement('button');
         btn.type = 'button';
-        btn.classList.add('sdk-more');
+        btn.classList.add('sdk-icon-btn', 'btn-quiet', 'btn-small');
         const label = String((o && o.label) || btn.getAttribute('aria-label') || 'More');
         if (!btn.getAttribute('aria-label')) btn.setAttribute('aria-label', label);
-        if (!btn.title) btn.title = label;
+        if (!btn.dataset.tip) btn.dataset.tip = label;
         btn.setAttribute('aria-haspopup', 'menu');
         if (!btn.querySelector('[data-icon], .ic, i, svg')) {
           const ic = document.createElement('span');
@@ -2759,7 +2797,6 @@
         const remember = (it) => { if (!memory || !it) return it; try { localStorage.setItem(memory, idOf(it)); } catch (err) { /* not kept */ } return it; };
         if (list.length < 2) return resolve(list[0] || null);
         // The same look as host.menu.show (its styles, an icon, the label, a hint): one menu, wherever it is asked.
-        ensureUiStyles();
         const rootEl = host.rootElement;
         const menu = document.createElement('div');
         menu.className = 'sdk-menu';
@@ -3126,6 +3163,7 @@
       const id = ++seq;
       pending.set(id, { resolve, reject });
       global.parent.postMessage({ host: 1, tk: secret, id, method, params }, '*');
+      if (method === 'ui.confirm') return; // a question waits as long as the person takes
       setTimeout(() => {
         if (!pending.delete(id)) return;
         reject(new Error('the host did not answer'));
@@ -3178,7 +3216,24 @@
   // rather than a second copy. See host.util.markdown above for what this covers.
   global.hostText = { esc, markdown, plain: plainText, localWhen, detailLines };
   // The currency list likewise, for Manage's Currency (a page, not a module): the same choices a module's currencySelect makes.
-  global.hostCurrency = { fill: fillCurrencySelect, name: currencyName, common: COMMON_CURRENCIES.slice() };
+  global.hostCurrency = {
+    fill: fillCurrencySelect,
+    name: currencyName,
+    common: COMMON_CURRENCIES.slice(),
+    // The same searchable list a module's currencySelect draws, for a page that has no module: select(select, { value, currencies, onChange }).
+    select: (select, o) => {
+      const page = createHost({
+        call: (method, params) => (method === 'icons.svg'
+          ? fetch(`/api/icons/${params.style === 'regular' || params.style === 'brands' ? params.style : 'solid'}/${encodeURIComponent(params.name)}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error('no such icon'))))
+          : Promise.reject(new Error('not available on a page'))),
+        root: document,
+        rootElement: document.documentElement,
+        elementAt: (pt) => document.elementFromPoint(pt.x, pt.y),
+        applyTheme: () => {},
+      });
+      return page.host.ui.currencySelect(select, o);
+    },
+  };
   // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),
   // Chat's Private | Shared and a destination's switches all draw and fit with these.
   global.hostSwitch = { fill: fillChoice, fit: fitSwitches, watch: watchSwitches };

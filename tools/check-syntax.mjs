@@ -97,7 +97,7 @@ for (const [html, want] of [
   ['<label>Password<input id="p" type="password"></label>', 0], ['<label>Hotkey<input id="hotkey-mute" type="text"></label>', 0],
   ["<label>Password<input id='p' type='password'></label>", 0], ['<input id="x" type="password" autocomplete="new-password">', 0],
   ['<input type="checkbox" data-key="x">', 0], ['<label>Login<input id="login" type="text"></label>', 0],
-  ['<label class="check"><input id="new-link" type="checkbox"> Personal link (no password needed)</label>', 0],
+  ['<label class="sdk-choice-row"><input id="new-link" type="checkbox"> Personal link (no password needed)</label>', 0],
   ['<label>Monkey<input id="monkey" type="text"></label>', 0], ['<input id="hotkey-field" type="text">', 0],
   ['<label for="login">Login</label><input id="login"><label for="pw">Password</label><input id="pw" type="password">', 0],
   ['<input id="search" aria-label="Search" autocomplete="username">', 0], ['<input id="keyword-input" type="text">', 0],

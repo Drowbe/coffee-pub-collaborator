@@ -17,8 +17,8 @@
   const SRC = window.DS_SOURCES || {};
   const FILES = SRC.files || {};
   const PATHS = {
-    'style.css': '/style.css', 'host.css': '/sdk/host.css', 'theme.css': '/theme.css', 'host.js': '/sdk/host.js',
-    'destination.css': '/destination.css', 'landing.css': '/landing.css', 'diag.css': '/diag.css', 'proposed.css': 'proposed.css',
+    'style.css': '/style.css', 'host.css': '/sdk/host.css', 'theme.css': '/theme.css', 'host.js': '/sdk/host.js', 'tooltip.js': '/tooltip.js',
+    'destination.css': '/destination.css', 'landing.css': '/landing.css', 'diag.css': '/diag.css',
   };
   const stats = { frames: 0, loaded: 0, families: 0, variants: 0, examples: 0, errors: [], notLoaded: [], forcedRules: 0, tokens: 0, icons: 0, orphans: [] };
   window.__dsStats = stats;
@@ -159,9 +159,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     const sheets = ctxSheets(ctx).map((s) => `<style>${s || ''}</style>`).join('');
     const m = opts.pin || mode;
     const inline = ctx === 'app' ? '' : ` style="${h(tokenStyle(m))}"`;
-    // The proposed system's rules (all under .ds-proposed) go only into the frames of the Proposed view.
-    const prop = opts.proposed ? `<style>${text['proposed.css'] || ''}</style>` : '';
-    return `<!doctype html><html lang="en" data-theme-mode="${m}"${inline}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${FA_HREF}">${sheets}${prop}<style>${FRAME_CSS}${opts.css || ''}</style></head><body><div class="dsf">${body}</div></body></html>`;
+    return `<!doctype html><html lang="en" data-theme-mode="${m}"${inline}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${FA_HREF}">${sheets}<style>${FRAME_CSS}${opts.css || ''}</style></head><body><div class="dsf">${body}</div></body></html>`;
   }
 
   // Forced states: for every rule with :hover, :focus or :active, add a copy that matches a class instead (right after
@@ -313,7 +311,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     }
     stats.variants += variants.length;
     stats.examples += variants.reduce((a, v) => a + 1 + (v.states || []).length, 0);
-    block.innerHTML = `<header><h3 id="${fam.id}-h"><a href="#today/${fam.id}">${h(fam.name)}</a></h3><span class="ds-count">${variants.length} look${variants.length === 1 ? '' : 's'} in ${groups.length} stylesheet context${groups.length === 1 ? '' : 's'}</span>${fam.dup ? `<span class="ds-dup" title="Several looks do the same job">${fam.dupCount ? fam.dupCount + ' ' : ''}duplicates</span>` : ''}</header>${fam.desc ? `<p class="ds-desc">${fam.desc}</p>` : ''}${fam.dup ? `<p class="ds-dupnote"><b>Duplicates.</b> ${fam.dup}</p>` : ''}${proposedOf(fam.id) ? `<p class="ds-desc ds-propnote"><span class="ds-status-chip ds-st-proposed">Proposed</span> A new look is proposed for this family. <a href="#proposed/${proposedOf(fam.id)}">See it in the Proposed system</a>.</p>` : ''}`;
+    block.innerHTML = `<header><h3 id="${fam.id}-h"><a href="#today/${fam.id}">${h(fam.name)}</a></h3><span class="ds-count">${variants.length} look${variants.length === 1 ? '' : 's'} in ${groups.length} stylesheet context${groups.length === 1 ? '' : 's'}</span>${fam.dup ? `<span class="ds-dup" title="Several looks do the same job">${fam.dupCount ? fam.dupCount + ' ' : ''}duplicates</span>` : ''}</header>${fam.desc ? `<p class="ds-desc">${fam.desc}</p>` : ''}${fam.dup ? `<p class="ds-dupnote"><b>Duplicates.</b> ${fam.dup}</p>` : ''}`;
     for (const g of groups) {
       const cap = mk('p', 'ds-ctx', `Drawn with: ${h(ctxLabel(g.ctx))}`);
       block.appendChild(cap);
@@ -327,14 +325,18 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
   const LIVE_PRELUDE = `
 window.Phases = window.Phases || {};
 window.__dsLog = [];
+// A live piece that takes focus (the editor window opens on its first field) must not scroll the design-system page to its frame.
+(function () { var f = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function (o) { return f.call(this, Object.assign({}, o, { preventScroll: true })); }; })();
 (function () {
   var svgs = ${JSON.stringify(SRC.svgs || {})};
   var locale = { language: 'en', clock: '12', currency: 'USD', currencies: ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF', 'SEK'], words: {} };
   function note(t) {
     var layer = document.getElementById('toast-layer');
-    if (!layer) { layer = document.createElement('div'); layer.id = 'toast-layer'; layer.className = 'toast-layer'; layer.style.position = 'static'; layer.style.pointerEvents = 'auto'; document.body.appendChild(layer); }
-    var b = document.createElement('button'); b.type = 'button'; b.className = 'toast toast-note'; b.setAttribute('role', 'status');
-    var s = document.createElement('span'); s.className = 'toast-text'; s.textContent = t; b.appendChild(s); b.addEventListener('click', function () { b.remove(); }); layer.appendChild(b);
+    if (!layer) { layer = document.createElement('div'); layer.id = 'toast-layer'; layer.className = 'sdk-toasts'; layer.style.position = 'static'; layer.style.pointerEvents = 'auto'; document.body.appendChild(layer); }
+    var b = document.createElement('div'); b.className = 'sdk-toast'; b.dataset.kind = 'info'; b.setAttribute('role', 'status');
+    var i = document.createElement('span'); i.className = 'sdk-toast-icon'; i.setAttribute('aria-hidden', 'true'); i.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    var m = document.createElement('div'); m.className = 'sdk-toast-body';
+    var s = document.createElement('span'); s.className = 'sdk-toast-title'; s.textContent = t; m.appendChild(s); b.appendChild(i); b.appendChild(m); b.addEventListener('click', function () { b.remove(); }); layer.appendChild(b);
   }
   window.__dsCall = function (m, p) {
     window.__dsLog.push(m);
@@ -360,6 +362,7 @@ window.__dsLog = [];
         win.addEventListener('error', (e) => stats.errors.push('live: ' + e.message));
         win.addEventListener('unhandledrejection', (e) => stats.errors.push('live: ' + (e.reason && e.reason.message)));
         injectScript(doc, LIVE_PRELUDE);
+        if (text['tooltip.js']) injectScript(doc, text['tooltip.js']); // the page's tooltip script, as brand.js gives a real page
         injectScript(doc, text['host.js'], { 'data-host-sdk': '' });
         if (!win.createHost) { doc.body.insertAdjacentHTML('beforeend', '<p class="dsf-note">The SDK did not start.</p>'); return; }
         injectScript(doc, `window.__dsDone = (async function () { var made = createHost({ call: window.__dsCall, root: document, rootElement: document.body }); var host = made.host; try { await host.ready(); } catch (e) {} ${spec.script} })().catch(function (e) { window.__dsFail = String(e && e.message || e); });`);
@@ -373,7 +376,7 @@ window.__dsLog = [];
       desc: 'Mounted by the real SDK on plain fields, as a module\'s script does. Click a field\'s button to open it.',
       title: 'Live pickers',
       body: `<div class="dsf-live"><form class="sdk-form" onsubmit="return false">
-        <div class="sdk-row">
+        <div class="sdk-form-row">
           <label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" id="d1" value="2026-10-09"><span class="sdk-hint"></span></label>
           <label class="sdk-field sdk-m"><span class="sdk-label">Currency</span><select id="currency1"></select><span class="sdk-hint"></span></label>
           <div class="sdk-field sdk-full"><span class="sdk-label">Kind</span><div id="f-types"></div></div>
@@ -388,8 +391,8 @@ window.__dsLog = [];
     {
       id: 'live-datepicker-open', name: 'Live: date picker, open', height: 330, title: 'Live date picker, open',
       desc: 'The month grid (.sdk-dp) opened under a field.',
-      body: '<div class="dsf-live"><form class="sdk-form" onsubmit="return false"><div class="sdk-row"><label class="sdk-field sdk-m"><span class="sdk-label">Departure day</span><input type="date" id="d2" value="2026-10-14"><span class="sdk-hint"></span></label></div></form></div>',
-      script: `host.ui.datePicker(document.getElementById('d2'), { clearable: true }); var b = document.querySelector('.sdk-field-btn, .sdk-dp-btn'); if (b) b.click();`,
+      body: '<div class="dsf-live"><form class="sdk-form" onsubmit="return false"><div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Departure day</span><input type="date" id="d2" value="2026-10-14"><span class="sdk-hint"></span></label></div></form></div>',
+      script: `host.ui.datePicker(document.getElementById('d2'), { clearable: true }); var b = document.querySelector('.sdk-datefield .sdk-icon-btn'); if (b) b.click();`,
     },
     {
       id: 'live-menu', name: 'Live: host.menu.show (the module menu and its flyout)', height: 330, title: 'Live menu',
@@ -418,7 +421,7 @@ window.__dsLog = [];
       desc: 'A &lt;dialog class="sdk-editor"&gt; opened with host.ui.editor, with the form standard inside. The SDK adds the Close button; this frame is not lifted, so a narrow width shows the phone sheet.',
       body: `<div class="dsf-live"><dialog class="sdk-editor" id="ed" aria-label="Add a place"><div class="sdk-editor-body"><h3 style="margin:0 0 12px">Add a place</h3><form class="sdk-form" onsubmit="return false">
           <label class="sdk-field sdk-full"><span class="sdk-label">Name</span><input type="text" value="Louvre" id="en"><span class="sdk-hint"></span></label>
-          <div class="sdk-row"><label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" value="2026-10-12"><span class="sdk-hint"></span></label>
+          <div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" value="2026-10-12"><span class="sdk-hint"></span></label>
           <label class="sdk-field sdk-m"><span class="sdk-label">Cost</span><input type="text" value="22" aria-invalid="true"><span class="sdk-error">Enter a number.</span></label></div>
           <div class="sdk-checks"><label class="sdk-check"><input type="checkbox" checked> Booked</label></div>
         </form></div><div class="sdk-editor-actions"><button type="button" class="btn btn-primary">Save</button><button type="button" class="btn" id="ec">Cancel</button></div></dialog></div>`,
@@ -629,12 +632,6 @@ window.__dsLog = [];
   // ---- the page ----
   const content = $('#ds-content');
   const nav = $('#ds-nav');
-  const navP = $('#ds-nav-p');
-  const contentP = $('#ds-content-p');
-  const PROP = window.DS_PROPOSED || { families: [] };
-  const proposedOf = (id) => { const p = (PROP.families || []).find((x) => (x.covers || [x.id]).includes(id)); return p ? p.id : ''; };
-  const STATUS = { proposed: 'Proposed', approved: 'Approved', undecided: 'Not yet decided' };
-  const chip = (st) => `<span class="ds-status-chip ds-st-${st}">${STATUS[st]}</span>`;
   const navItems = []; // { li, target (element), name }
   function navGroup(title, el) { const n = el || nav; n.appendChild(mk('h2', '', h(title))); const ul = mk('ul'); n.appendChild(ul); return ul; }
   function navItem(ul, label, id, count, search, href, chip) {
@@ -671,75 +668,19 @@ window.__dsLog = [];
     for (const f of frames) setWidth(f);
   }
 
-  // ---- the Proposed system view: the to-be system, one family at a time, each with a status ----
-  function buildProposed(families, order, byGroup) {
-    const sec = mk('section', 'ds-sec');
-    sec.id = 'p-top';
-    sec.innerHTML = `<h2>Proposed system</h2><p class="ds-lead">The system as it would be once Thomas has decided it, one family at a time. Only decided components are drawn, as specs, from the proposed rules (public/design-system/proposed.css, all under <code>.ds-proposed</code>, so the product is untouched). A family not yet decided is listed with a link to what exists today. Statuses: ${chip('proposed')} drawn and waiting for a decision, ${chip('approved')} decided, ${chip('undecided')} still the product's own.</p>`;
-    contentP.appendChild(sec);
-    const api = { mk, h, makeFrame, locate, ctxLabel, fam: (id) => families.find((f) => f.id === id), fa: (n, x) => `<i class="fa-solid fa-${n}${x ? ' ' + x : ''}" aria-hidden="true"></i>`, mode: () => mode };
-    const covered = new Set((PROP.families || []).flatMap((p) => p.covers || [p.id]));
-    for (const g of order) {
-      sec.appendChild(mk('h3', 'ds-group', h(g)));
-      const ul = navGroup(g, navP);
-      const done = (PROP.families || []).filter((p) => p.group === g);
-      for (const p of done) {
-        const b = p.render(api);
-        b.id = 'p-' + p.id; b.classList.add('ds-block'); b.dataset.name = (p.name + ' ' + p.id + ' proposed ' + (p.words || '')).toLowerCase();
-        sec.appendChild(b);
-        navItem(ul, p.name, 'p-' + p.id, null, p.name + ' ' + p.id + ' ' + (p.words || ''), '#proposed/' + p.id, chip(p.status));
-      }
-      for (const f of byGroup.get(g)) {
-        if (covered.has(f.id)) continue;
-        const n = (f.variants || []).length;
-        const b = mk('section', 'ds-block ds-undecided');
-        b.id = 'p-' + f.id; b.dataset.name = (f.name + ' ' + f.id).toLowerCase();
-        b.innerHTML = `<header><h3>${h(f.name)}</h3>${chip('undecided')}</header><p class="ds-desc">Not yet decided. Today it has ${n} look${n === 1 ? '' : 's'}${f.dupCount ? `, ${f.dupCount} of them duplicates` : ''}. <a href="#today/${f.id}">See it in Today</a>.</p>`;
-        sec.appendChild(b);
-        navItem(ul, f.name, 'p-' + f.id, null, f.name + ' ' + f.id, '#proposed/' + f.id, chip('undecided'));
-      }
-    }
-    const rest = navGroup('Other', navP);
-    for (const [id, label] of [['tokens-colour', 'Tokens'], ['icons', 'Icons'], ['live-pickers', 'Live SDK pieces']]) {
-      const b = mk('section', 'ds-block ds-undecided'); b.id = 'p-' + id; b.dataset.name = label.toLowerCase();
-      b.innerHTML = `<header><h3>${h(label)}</h3>${chip('undecided')}</header><p class="ds-desc">Not yet decided. <a href="#today/${id}">See it in Today</a>.</p>`;
-      sec.appendChild(b);
-      navItem(rest, label, 'p-' + id, null, label, '#proposed/' + id, chip('undecided'));
-    }
-    contentP.appendChild(sec);
-  }
-
-  // ---- the two views ----
-  let view = 'today';
-  const curNav = () => (view === 'proposed' ? navP : nav);
-  function setView(v) {
-    view = v;
-    $('#ds-today').hidden = v !== 'today';
-    contentP.hidden = v !== 'proposed';
-    nav.hidden = v !== 'today';
-    navP.hidden = v !== 'proposed';
-    nav.classList.remove('open'); navP.classList.remove('open');
-    $('#ds-menu-btn').setAttribute('aria-expanded', 'false');
-    for (const b of $$('#ds-view button')) { const on = b.dataset.view === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    $('.ds-sub').textContent = v === 'proposed' ? 'the proposed system' : 'what exists today';
-    D.title = v === 'proposed' ? 'Design system: the proposed system' : 'Design system: what exists today';
-    D.documentElement.dataset.view = v;
-    setTimeout(() => { for (const f of frames) if (f.fit) f.fit(); }, 60);
-  }
-  // #today/<id> and #proposed/<id>; a bare #<id> is an old link and means Today.
+  // #today/<id> and a bare #<id> scroll to that block. An old #proposed link, or ?view=proposed, goes to the proposed page.
   function route(first) {
     const hsh = decodeURIComponent(location.hash.slice(1));
-    const m = /^(today|proposed)(?:\/(.*))?$/.exec(hsh);
-    const v = m ? m[1] : (new URLSearchParams(location.search).get('view') === 'proposed' && !hsh ? 'proposed' : 'today');
-    const id = m ? (m[2] || '') : hsh;
-    setView(v);
-    if (id) { const t = D.getElementById(v === 'proposed' ? 'p-' + id : id); if (t) { t.scrollIntoView(); return; } }
+    const pm = /^proposed(?:\/(.*))?$/.exec(hsh);
+    if (pm || (new URLSearchParams(location.search).get('view') === 'proposed' && !hsh)) { location.replace('proposed.html' + (pm && pm[1] ? '#' + pm[1] : '')); return; }
+    const id = hsh.replace(/^today\//, '');
+    if (id) { const t = D.getElementById(id); if (t) { t.scrollIntoView(); return; } }
     if (!first) window.scrollTo(0, 0);
   }
 
   async function init() {
     FA_HREF = $('link[data-ds="fa"]').href;
-    await Promise.all(['style.css', 'host.css', 'theme.css', 'host.js', 'destination.css', 'landing.css', 'diag.css', 'proposed.css'].map(load));
+    await Promise.all(['style.css', 'host.css', 'theme.css', 'host.js', 'tooltip.js', 'destination.css', 'landing.css', 'diag.css'].map(load));
     $('#ds-status').textContent = 'Drawing the examples';
 
     const families = (window.DS_FAMILIES || []).slice();
@@ -784,7 +725,6 @@ window.__dsLog = [];
     content.appendChild(iconSection());
     navItem(ulMisc, 'Icons', 'icons', (SRC.icons || []).length);
 
-    buildProposed(families, order, byGroup);
     $('#ds-status').textContent = 'Loading the examples';
     await Promise.all(frameReady);
     const bad = stats.notLoaded.length ? ` Not loaded: ${stats.notLoaded.join(', ')}.` : '';
@@ -798,12 +738,11 @@ window.__dsLog = [];
   $('#ds-search').addEventListener('input', applySearch);
   $('#ds-mode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
   $('#ds-width').addEventListener('click', (e) => { const b = e.target.closest('button[data-w]'); if (b) setWidthAll(b.dataset.w); });
-  $('#ds-menu-btn').addEventListener('click', () => { const open = curNav().classList.toggle('open'); $('#ds-menu-btn').setAttribute('aria-expanded', String(open)); });
-  for (const n of [nav, navP]) n.addEventListener('click', (e) => { if (e.target.closest('a') && n.classList.contains('open')) { n.classList.remove('open'); $('#ds-menu-btn').setAttribute('aria-expanded', 'false'); } });
-  $('#ds-view').addEventListener('click', (e) => { const b = e.target.closest('button[data-view]'); if (b) location.hash = '#' + b.dataset.view; });
+  $('#ds-menu-btn').addEventListener('click', () => { const open = nav.classList.toggle('open'); $('#ds-menu-btn').setAttribute('aria-expanded', String(open)); });
+  for (const n of [nav]) n.addEventListener('click', (e) => { if (e.target.closest('a') && n.classList.contains('open')) { n.classList.remove('open'); $('#ds-menu-btn').setAttribute('aria-expanded', 'false'); } });
   window.addEventListener('hashchange', () => route(false));
   window.__dsReady = new Promise((r) => { window.__dsReadyResolve = r; });
-  window.__ds = { setMode, setWidth: setWidthAll, setView: (v) => { location.hash = '#' + v; }, frames, stats };
+  window.__ds = { setMode, setWidth: setWidthAll, frames, stats };
   const start = new URLSearchParams(location.search).get('mode');
   if (start === 'light' || start === 'dark') mode = start;
   setMode(mode);

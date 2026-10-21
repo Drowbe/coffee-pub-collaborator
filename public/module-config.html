@@ -13,8 +13,9 @@
   <link rel="stylesheet" href="/style.css">
   <script src="/theme-head.js"></script>
   <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/sdk/system.css">
 </head>
-<body>
+<body data-page="module-config">
   <header class="topbar"></header>
   <main class="admin">
     <a class="module-config-back" href="/admin#modules" data-fill><i class="fa-solid fa-arrow-left fa-fw" aria-hidden="true"></i> {Modules}</a>
@@ -22,7 +23,7 @@
       <div class="module-head">
         <i class="module-icon fa-solid fa-fw" id="cfg-icon" aria-hidden="true"></i>
         <div class="grow"><h1 id="cfg-name" data-fill>{Module}</h1><div class="hint" id="cfg-version"></div></div>
-        <span class="pill" id="cfg-state"></span>
+        <span class="sdk-status" id="cfg-state"></span>
       </div>
       <p id="cfg-desc"></p>
       <!-- Drawn by the host, not the module (plan-space-calendars.md, section 4), above the module's own settings and
@@ -33,11 +34,11 @@
         <h3>Calendar sharing</h3>
         <p class="hint" id="sharing-off" hidden></p>
         <div class="checks switch-list">
-          <label class="check"><input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses</label>
+          <label class="sdk-choice-row"><input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses</label>
           <p class="hint" id="calendar-feeds-hint" data-fill>Lets each person add this {environment}'s events, or one {space}'s, to their own calendar app with a private address.</p>
-          <label class="check"><input id="set-other-calendars" type="checkbox" class="switch" role="switch" aria-describedby="other-calendars-hint"> Other calendars and busy times</label>
+          <label class="sdk-choice-row"><input id="set-other-calendars" type="checkbox" class="sdk-switch" role="switch" aria-describedby="other-calendars-hint"> Other calendars and busy times</label>
           <p class="hint" id="other-calendars-hint" data-fill>Lets each person see their own calendars beside these events, only to them, and share when they are busy with {a space}'s {members}, never what they are doing.</p>
-          <label class="check"><input id="set-published-calendar" type="checkbox" class="switch" role="switch" aria-describedby="published-calendar-hint"> Published calendar</label>
+          <label class="sdk-choice-row"><input id="set-published-calendar" type="checkbox" class="sdk-switch" role="switch" aria-describedby="published-calendar-hint"> Published calendar</label>
           <p class="hint" id="published-calendar-hint" data-fill>One address with every {space}'s events, for anyone you give it to.</p>
         </div>
         <span class="status" id="calendar-feeds-status" role="status"></span>
@@ -86,7 +87,7 @@
             <label>Minimum zoom <input type="number" id="region-min-zoom" min="0" max="15" value="0" step="1"></label>
             <label>Maximum zoom <input type="number" id="region-zoom" min="0" max="15" value="14" step="1"></label>
             <label>File name <input type="text" id="region-filename" maxlength="100"></label>
-            <label class="check"><input type="checkbox" id="region-replace"> Replace a file already there with that name</label>
+            <label class="sdk-choice-row"><input type="checkbox" id="region-replace"> Replace a file already there with that name</label>
           </div>
           <p class="hint">Maximum zoom is how much detail the cut keeps, not how far it covers. 10 or below shows towns and the roads between them, not individual streets; 14, the default, shows streets and buildings; 15 is the most detail this can offer. Higher means a far bigger file for the same area. Minimum zoom trims the shallow end: leave it at 0 for a file meant to stand alone, or raise it when a wider, lower-zoom file (like "cover the whole world", above) already covers those zooms, so the two do not both carry the same low-zoom tiles. Check size shows the real cost for the box and zoom range you've chosen before anything downloads.</p>
           <div class="row">
@@ -100,7 +101,7 @@
         </div>
         <div class="region-progress" id="region-progress" hidden>
           <p id="region-progress-name"></p>
-          <progress max="100" value="0" id="region-progress-bar"></progress>
+          <progress class="sdk-progress" max="100" value="0" id="region-progress-bar" aria-label="Progress"></progress>
           <p class="hint" id="region-progress-message"></p>
         </div>
       </div>

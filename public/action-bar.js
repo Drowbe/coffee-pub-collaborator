@@ -40,8 +40,8 @@ export function actionBar({
   el.innerHTML = `
     <p class="action-bar-status" role="status" aria-live="polite"></p>
     <div class="action-bar-buttons">
-      <button type="${submit ? 'submit' : 'button'}" class="btn btn-small btn-primary action-bar-save"></button>
       <button type="button" class="btn btn-small action-bar-cancel"></button>
+      <button type="${submit ? 'submit' : 'button'}" class="btn btn-small btn-primary action-bar-save"></button>
     </div>
     <div class="action-bar-ask" role="alertdialog" aria-labelledby="action-bar-ask-text" hidden>
       <span class="action-bar-ask-text"></span>

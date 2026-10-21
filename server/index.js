@@ -2608,15 +2608,29 @@ hostRouter.delete('/api/host/admins/:key', requireHostAdmin, (req, res) => {
     sendHostError(err, res);
   }
 });
+// The product's use pages at the bare base domain: each address, its file in public/ and the template it advertises.
+// A page is live only while that template is among the host's offered ones (templateChoices(null)) and its file exists;
+// otherwise the address answers 404 like any unknown path (plan-product-pages.md, decisions 7, 8 and 10).
+const PRODUCT_PAGES = [
+  { path: '/travel', file: 'travel.html', template: 'travel' },
+  { path: '/games', file: 'games.html', template: 'games' },
+  { path: '/projects', file: 'projects.html', template: 'projects' },
+];
+const livePages = () => {
+  if (!BASE_DOMAIN) return [];
+  const offered = new Set(templateChoices(null).map((t) => t.id));
+  return PRODUCT_PAGES.filter((p) => offered.has(p.template) && fs.existsSync(page(p.file)));
+};
 // The product itself, for the landing page (the bare base domain) and the console (admin.<base>): public, no
 // session needed, and harmless anywhere else it happens to be reached. name and contact are configuration, never
 // code, since the product's own name is still being chosen. Registered on hostRouter here (admin.<base> only
 // ever reaches it through here anyway); the main app's own copy is registered after the resolver below, not
 // here, so an old-base-domain request still 301s instead of this one route quietly bypassing that.
+// `pages`: the use pages live on this host ([{ path, template }]), so the front page links only those.
 function productInfo(_req, res) {
   const plans = hostRegistry ? Object.entries(hostRegistry.plansCatalog()).map(([id, p]) => ({ id, name: p.name, caps: p.caps, checkoutUrl: checkoutUrlFor(id) })) : [];
   // `templates`: what a new environment can be made from ([{ id, name, description }]), for the sign-up form.
-  res.json({ name: PRODUCT_NAME, contact: CONTACT_EMAIL || null, baseDomain: BASE_DOMAIN || null, version: VERSION, signup: signupEnabled, plans, templates: BASE_DOMAIN ? templateChoices(null).map(({ id, name, description }) => ({ id, name, description })) : [] });
+  res.json({ name: PRODUCT_NAME, contact: CONTACT_EMAIL || null, baseDomain: BASE_DOMAIN || null, version: VERSION, signup: signupEnabled, plans, templates: BASE_DOMAIN ? templateChoices(null).map(({ id, name, description }) => ({ id, name, description })) : [], pages: livePages().map(({ path: p, template }) => ({ path: p, template })) });
 }
 hostRouter.get('/api/product', productInfo);
 // One environment's public name, for the product page's own Sign in (a slug is an address already, so confirming
@@ -2672,15 +2686,17 @@ if (BASE_DOMAIN) {
     // Font Awesome is asked for by every page including the console's own, but the icon set itself lives
     // outside hostRouter (mounted on `app`, below, since the bare base domain needs it too) -- let through to
     // there rather than into hostRouter, whose own catch-all would otherwise 404 it before it ever arrived.
-    if (host === `admin.${BASE_DOMAIN}`) return req.path.startsWith('/fa/') ? next() : hostRouter(req, res, next);
+    if (host === `admin.${BASE_DOMAIN}`) return (req.path.startsWith('/fa/') || req.path.startsWith('/fonts/')) ? next() : hostRouter(req, res, next);
     // The bare base domain: the product's own landing page (public/landing.html), never any one environment's
     // page -- no store is ever resolved here (see the "no environment" fallback in /theme.css and siteIcon
     // above). Only the handful of paths that page actually needs are let through; anything else is a plain 404,
     // same as an unknown subdomain.
     if (host === BASE_DOMAIN) {
-      if (req.path === '/') return res.sendFile(page('landing.html'));
+      if (req.path === '/') return res.sendFile(page('landing.html'), { dotfiles: 'allow' });
+      const useSite = livePages().find((p) => p.path === req.path);
+      if (useSite) return res.sendFile(page(useSite.file), { dotfiles: 'allow' });
       const BARE_BASE_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/signup'];
-      if (BARE_BASE_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/assets/images/brand/')) return next();
+      if (BARE_BASE_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
       return res.status(404).type('text').send('not found');
     }
     if (host.endsWith(`.${BASE_DOMAIN}`)) {
@@ -2743,7 +2759,7 @@ const NOT_FRAMED = { 'Content-Security-Policy': "frame-ancestors 'none'", 'X-Fra
 const FRAMED_HERE = { 'Content-Security-Policy': "frame-ancestors 'self'", 'X-Frame-Options': 'SAMEORIGIN' };
 const FRAMED_HERE_PATHS = new Set([
   '/profile', '/admin', '/login', '/login/verify', '/login/enrol', '/register',
-  '/profile.html', '/admin.html', '/ai-config.html', '/module-config.html', '/login.html', '/login-step.html', '/register.html', '/module.html', '/destination.html',
+  '/profile.html', '/admin.html', '/module-config.html', '/login.html', '/login-step.html', '/register.html', '/module.html', '/destination.html',
   ...destinations.DESTINATIONS.map((d) => d.path),
 ]);
 app.use((req, res, next) => {
@@ -2994,7 +3010,13 @@ const faDir = path.dirname(require.resolve('@fortawesome/fontawesome-free/packag
 const faProDir = path.join(DATA_DIR, 'fontawesome-pro');
 const hasFaPro = fs.existsSync(path.join(faProDir, 'css'));
 app.use('/fa/css', express.static(path.join(faProDir, 'css'), { maxAge: '7d' }), express.static(path.join(faDir, 'css'), { maxAge: '7d' }));
-app.use('/fa/webfonts', express.static(path.join(faProDir, 'webfonts'), { maxAge: '30d' }), express.static(path.join(faDir, 'webfonts'), { maxAge: '30d' }));
+// Font files are fetched by sandboxed module frames too (no origin, so only a wildcard CORS header lets them load),
+// hence the header here and on the icon webfonts, and on no other route. The URLs are not content-hashed; the files
+// change only with a release, so 30 days.
+const fontHeaders = { maxAge: '30d', setHeaders: (res) => res.set('Access-Control-Allow-Origin', '*') };
+app.use('/fa/webfonts', express.static(path.join(faProDir, 'webfonts'), fontHeaders), express.static(path.join(faDir, 'webfonts'), fontHeaders));
+app.use('/fonts', express.static(path.join(publicDir, 'fonts'), fontHeaders));
+app.use('/fonts', (req, res) => res.status(404).type('text').send('not found')); // a missing font ends here, not in the environment routes
 
 // Background blur's own dependencies, all self-hosted for the same reason
 // livekit-client is: nothing this page needs is fetched from a CDN at
@@ -7851,7 +7873,7 @@ app.get('/m/:id/:version/*path', (req, res) => {
   let html = fs.readFileSync(file, 'utf8');
   if (!html.includes('/sdk/host.js')) {
     const sdk = fs.readFileSync(path.join(publicDir, 'sdk', 'host.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
-    const css = /<meta[^>]+name=["']sdk-base["'][^>]+content=["']none["']/i.test(html) ? '' : fs.readFileSync(path.join(publicDir, 'sdk', 'host.css'), 'utf8');
+    const css = /<meta[^>]+name=["']sdk-base["'][^>]+content=["']none["']/i.test(html) ? '' : ['system.css', 'host.css'].map((f) => fs.readFileSync(path.join(publicDir, 'sdk', f), 'utf8')).join('\n'); // system.css first: the shared pieces (switches, buttons), host.css on top
     const inject = `${css ? `<style id="sdk-base">${css}</style>` : ''}<script id="sdk-script">${sdk}</script>`;
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + inject) : inject + html;
   }

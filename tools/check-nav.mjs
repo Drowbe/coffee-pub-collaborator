@@ -21,7 +21,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, tabBarZones, phoneTabs, phoneFold, TAB_MIN, TAB_GAP, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
 // Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
@@ -47,6 +47,18 @@ const test = (name, fn) => {
 const ids = (groups) => groups.map((g) => g.map((t) => t.id));
 // The status strip's block of style.css (status-strip:start to :end).
 const stripCssOf = (css) => css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
+
+test('the space bar on a phone: the "..." follows the module tabs in the left zone, so the keyboard order is the screen order', () => {
+  const click = () => {};
+  const byZone = {
+    left: [{ id: 'module-chooser', group: 'modules', order: 1, zone: 'left' }, { id: 'join-call', group: 'call', groupOrder: 1.5, order: 1, zone: 'left' }, { id: 'who-here', group: 'people', groupOrder: 2, order: 1, zone: 'left' }],
+    right: [{ id: 'rejoin-call', order: 52, zone: 'right', onClick: click }, { id: 'subnav-more', group: 'leave', order: 998, afterTabs: true, zone: 'right' }, { id: 'leave-space', group: 'leave', groupOrder: 999, order: 999, zone: 'right', onClick: click }],
+  };
+  const z = tabBarZones(byZone);
+  const ids = [...arrange(z.left), ...arrange(z.right)].flat().map((t) => t.id);
+  assert.deepEqual(ids, ['module-chooser', 'subnav-more', 'join-call', 'who-here', 'rejoin-call', 'leave-space']);
+  assert.deepEqual(tabBarZones({ left: [], right: [{ id: 'x', order: 1 }] }), { left: [], right: [{ id: 'x', order: 1 }] }, 'a tool that does not say afterTabs stays');
+});
 
 test('the bands: 1-10 core, 11-50 secondary, 51-100 utility, 101-998 a module, 999 last', () => {
   assert.equal(bandOf(1), 'core');
@@ -325,7 +337,7 @@ test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and c
   // The "..." had the keyboard and hides (the bar grew): to a tool it held, else the left zone; never <body>.
   assert.match(fit, /wasFocused === fold\.more && fold\.more\.hidden/);
   assert.match(fit, /heldBefore\.has\(c\.dataset\.navTool\)/);
-  assert.match(src, /more\.className = 'sdk-more nav-more'/);
+  assert.match(src, /more\.className = 'sdk-icon-btn btn-quiet btn-small nav-more'/);
   const hm = fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8');
   assert.match(hm, /'menuitemcheckbox'/);
   assert.match(hm, /aria-checked/);
@@ -379,7 +391,7 @@ test('the phone\'s fold of the space bar\'s right zone: every tool but Leave and
   assert.deepEqual(phoneFold([{ ...m, seq: 1 }]), ['todo:a'], 'so a module tool always goes into the "..." on a phone');
 });
 
-test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the stylesheet\'s tab width is TAB_MIN, Rejoin and the "..." are tabs, Join no longer narrows the tabs', () => {
+test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, every tab one slot of TAB_MIN, the module tabs, the "...", then the pinned call item and Leave; no Conference tab', () => {
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   const fit = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
   assert.ok(!/if \(!phoneNow/.test(fit), 'fitBar() no longer skips a phone');
@@ -388,7 +400,20 @@ test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the styleshe
   assert.match(phone, /phoneFold\(shown, \{ popped: /);
   assert.match(phone, /phoneTabs\(\{/);
   assert.match(phone, /t\.fit\(width\)/, 'Online draws its short count again in the window it is in (the narrow pop-out\'s full words, #160)');
-  assert.match(fit, /fold\.more\.classList\.toggle\('in-call', tabs\.some/, 'the in-call dot on the "..." while the conference\'s tab is folded');
+  assert.ok(!/in-call/.test(src), 'no in-call dot on the "...": the conference is not a tab, the call item says it (space.js, paintCallTab)');
+  assert.equal(TAB_GAP, 4, 'tabs 4px apart');
+  assert.match(phone, /const slot = TAB_MIN \+ TAB_GAP;/, 'every tab is one slot of the bar');
+  assert.match(phone, /width: width \+ TAB_GAP,\n\s*fixed: pinned \* slot,\n\s*more: slot,\n\s*tabMin: slot,/, 'the tools still shown (Join, Online, Rejoin call, Leave) take a slot each and never fold; the "..." one');
+  // 390 px (382 inside): six slots; Join, Online and Leave pinned: two module tabs and the "..."; on the call (no Join), three.
+  const slots = (inner, pinned, n) => phoneTabs({ width: inner + TAB_GAP, fixed: pinned * (TAB_MIN + TAB_GAP), more: TAB_MIN + TAB_GAP, tabMin: TAB_MIN + TAB_GAP, tabs: Array.from({ length: n }, (_, i) => `t${i + 1}`), shown: 't1' }).shown.length;
+  assert.equal(slots(382, 3, 8), 2, '390: Join, Online, Leave and the "...": two module tabs');
+  assert.equal(slots(382, 2, 8), 3, '390 on the call: three module tabs');
+  assert.equal(slots(312, 3, 8), 1, '320: one module tab, the chat');
+  assert.equal(slots(382, 3, 3), 3, 'three module tabs and the three pinned fit with no "..."');
+  // On a phone every tool shown in the space bar is a tab; the module tabs are canvas.js's.
+  assert.match(src, /if \(bar === 'secondary'\) markTabs\(b, phoneNow\);/);
+  assert.match(src, /if \(tab\) tab\.classList\.toggle\('sdk-tabbar-tab', phoneNow && t\.bar === 'secondary'\);/);
+  assert.match(src, /s\.className = 'sdk-tabbar-label';/, 'a tool\'s short word is its tab\'s label');
   assert.match(src, /for \(const tab of fold\.tabs\) n \+= unreadOf\(tab\);/, 'the folded tabs\' unread counts on the "..."');
   const menu = src.slice(src.indexOf('async function openFoldMenu('));
   assert.match(menu, /\[\.\.\.tabItems, \.\.\.\(tabItems\.length && items\.length \? \[\{ divider: true \}\] : \[\]\), \.\.\.items\]/, 'the folded tabs, a divider, then the tools');
@@ -396,11 +421,25 @@ test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the styleshe
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
   assert.ok(update.lastIndexOf("nav.draw('secondary');") > update.lastIndexOf('menu.appendChild(b);'), 'update() asks for the fold again after drawing the tabs');
+  assert.match(update, /filter\(\(def\) => def\.id !== 'conference' && /, 'the conference is not a tab on a phone: the call is the pinned call item');
+  assert.match(update, /b\.className = 'sdk-tabbar-tab';/);
+  assert.match(update, /<span class="sdk-tabbar-glyph"><i class="fa-solid fa-\$\{escapeHtml\(icon\)\} fa-fw" aria-hidden="true"><\/i>\$\{n \? `<span class="sdk-badge-micro" aria-hidden="true">/, 'the icon in its box, the Chips micro count at the box\'s corner');
+  assert.match(update, /if \(current\) b\.setAttribute\('aria-current', 'page'\);/);
+  assert.match(canvasJs, /view = shown\.includes\('chat'\) \? 'chat' : /, 'the chat is the view a phone starts on');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, new RegExp(`body\\.in-space \\.subnav-modules \\.modules-menu-item \\{\\n\\s*flex: 1 0 ${TAB_MIN}px;`), 'the stylesheet\'s tab least width is TAB_MIN');
+  const sys = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  const look = sys.slice(sys.indexOf('/* tabbar:start */'), sys.indexOf('/* tabbar:end */'));
+  assert.match(look, new RegExp(`--tabbar-min: ${TAB_MIN}px;`), 'the stylesheet\'s tab least width is TAB_MIN');
+  assert.match(look, /--tabbar-gap: var\(--space-1\);/, 'and its gap TAB_GAP (4px)');
+  assert.match(look, /\.sdk-tabbar \.sdk-tabbar-tab \{[^}]*flex: 1 1 0;[^}]*min-width: var\(--tabbar-min\);/, 'every tab one share of the bar, at least TAB_MIN');
+  assert.match(look, /--tabbar-box: var\(--icon-24\);/, 'the 24 by 24 icon box');
+  assert.match(look, /--tabbar-icon: var\(--icon-20\);/, 'a 20px icon');
+  assert.match(look, /\.sdk-tabbar \.sdk-tabbar-glyph > \.sdk-badge-micro \{ top: var\(--tabbar-badge-top\); right: var\(--tabbar-badge-right\); \}/, 'a module tab\'s count at its box\'s corner');
+  assert.match(look, /\.sdk-tabbar \.sdk-tabbar-tab > \.sdk-badge-micro \{\n\s*top: calc\(var\(--tabbar-pad-top\) \+ \(var\(--tabbar-icon\) - var\(--tabbar-box\)\) \/ 2 \+ var\(--tabbar-badge-top\)\);\n\s*right: calc\(50% - var\(--tabbar-box\) \/ 2 \+ var\(--tabbar-badge-right\)\);/, 'a tool\'s count at the same corner, measured from the centred box');
   assert.ok(!/\.subnav:has\(\.join-call/.test(css), 'no #165 rule narrows the tabs while Join shows');
-  assert.match(css, /body\.in-space \.subnav #rejoin-call,\n\s*body\.in-space \.subnav #subnav-more \{\n\s*position: relative;\n\s*flex-direction: column;/, 'Rejoin call and the "..." are tabs');
-  assert.match(css, /\.subnav \.nav-short \{\n\s*display: none;/, 'their short words only in the tab bar');
+  assert.match(css, /body\.in-space \.subnav\.sdk-tabbar \{\n\s*display: flex;/, 'the space bar is a row of tabs on a phone');
+  assert.match(css, /body\.in-space \.sdk-tabbar #subnav-more \{\n\s*order: 1;[\s\S]*?body\.in-space \.sdk-tabbar #join-call \{\n\s*order: 2;[\s\S]*?body\.in-space \.sdk-tabbar :is\(#who-here-toggle, #rejoin-call\) \{\n\s*order: 3;[\s\S]*?body\.in-space \.sdk-tabbar #leave-space \{\n\s*order: 4;/, 'the module tabs, the "...", then Join, Online or Rejoin call, and Leave at the right end');
+  assert.match(css, /\.subnav \.sdk-tabbar-label \{\n\s*display: none;/, 'their short words only in the tab bar');
   assert.match(css, /body\.in-space\.popout \.subnav \{\n\s*flex: 0 0 calc\(100% \+ 20px\);/, 'a narrow pop-out\'s bar is its own row');
   assert.match(css, /body\.in-space\.popout \.subnav \{\n\s*flex: 0 0 calc\(100% \+ 20px\);\n\s*min-width: 0;/, 'and never wider than the window');
   assert.match(css, /body\.in-space\.popout \.subnav > \.nav-left,\n\s*body\.in-space\.popout \.subnav > \.nav-right \{\n\s*margin: 0;\n\s*padding: 0;/, 'the header\'s zone padding and edge margins (.topbar .nav-left, .nav-right) are not the pop-out tab bar\'s');
@@ -408,6 +447,14 @@ test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the styleshe
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
   assert.match(placeSub, /nav\.draw\('secondary'\);/);
+  assert.match(placeSub, /subnav\.classList\.toggle\('sdk-tabbar', tabs\);/, 'the bar is the Tab bar family\'s on a phone');
+  // The call item: Online on the call shows the conference, carries the call's colour and is current while it is shown.
+  assert.match(space, /canvas\.showBuiltin\('conference'\); \/\/ shows the conference view/, 'Call settings shows the conference without a tab');
+  assert.match(space, /toggle\.classList\.toggle\('in-call', phone && inCall\);/);
+  assert.match(space, /toggle\.classList\.toggle\('on', callTabShown\(\)\);/);
+  assert.match(space, /event\.stopPropagation\(\); \/\/ the conference instead of the list\n\s*canvas\.showBuiltin\('conference'\);/);
+  assert.match(space, /joinCallButton\.dataset\.role = 'join';/);
+  assert.match(space, /tabRole\('leave-space', 'leave'\);/);
   const schedule = src.slice(src.indexOf('function scheduleFit(bar)'), src.indexOf('function watchFit('));
   assert.match(schedule, /if \(f\.frame && f\.frameView !== view\) \{/);
 });
@@ -513,10 +560,10 @@ test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s sha
   // host-menu.js: the item kinds the Layout menu needs, in the one shared component.
   for (const needle of ['item.toggle', 'item.radio', 'item.keepOpen', 'item.heading', 'item.element', 'item.more', "'menuitemcheckbox'", "'menuitemradio'", 'export function refreshHostMenu()', 'export function hostMenuOpen(trigger)']) assert.ok(menuJs.includes(needle), `host-menu.js has ${needle}`);
   assert.match(menuJs, /if \(item\.keepOpen \|\| item\.toggle\) \{/, 'a switch or a keepOpen item leaves the menu open and draws it again');
-  // The switch look is the Show list's own (input.switch), in the menu's ink.
-  assert.match(css, /\.host-menu-switch \{[\s\S]*?radial-gradient\(circle at 6px 50%, color-mix\(in srgb, var\(--switch-ink\) 70%, transparent\) 4px, transparent 4\.5px\)/);
-  assert.match(css, /\.host-menu-item\[aria-checked="true"\] \.host-menu-switch \{[\s\S]*?var\(--accent\);/);
-  assert.match(css, /\.host-menu \{\n\s*--switch-ink: var\(--text\);/);
+  // The switch look is the Fields' switch (36 by 20, thumb 14), drawn by the Menus block of system.css at the row's end.
+  const menusCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  assert.match(menusCss, /\.host-menu-switch \{[\s\S]*?width: 36px;\s*height: 20px;/);
+  assert.match(menusCss, /\.host-menu-item\[aria-checked="true"\] > \.host-menu-switch \{ background: var\(--accent-fill\); \}/);
   // The old panel is gone: no section rules, no hand-rolled list under the button.
   for (const cls of ['.module-chooser-arrange', '.module-chooser-show', '.module-chooser-section', '.module-chooser-action', '.module-chooser-layouts', '.module-chooser-toggle']) assert.ok(!css.includes(cls), `${cls} is gone from the stylesheet`);
   assert.ok(!/setMenuOpen|positionMenu/.test(canvasJs), 'canvas.js draws no menu of its own');
@@ -555,7 +602,7 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   // shown as it says them; a guest never saves.
   const sheet = space.slice(space.indexOf('function openLayoutSheet('), space.indexOf('function openSaveLayout() {'));
   assert.match(sheet, /dlg\.className = 'layout-sheet';/);
-  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', "submit: true,", "ids: { save: 'layout-save', cancel: 'layout-cancel' },"]) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
+  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="sdk-switch" role="switch" id="layout-shared">', "submit: true,", "ids: { save: 'layout-save', cancel: 'layout-cancel' },"]) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
   assert.match(sheet, /querySelector\('#layout-shared-label'\)\.textContent = `For everyone in this \$\{word\('space'\)\}`;/);
   assert.match(sheet, /b\.textContent = 'Replace it';/);
   assert.match(sheet, /dlg\.showModal\(\);/);
@@ -563,9 +610,9 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   assert.match(space, /title: 'Save this layout',\n\s*share: layoutList\.canShare \? false : null,/);
   assert.match(space, /title: 'Rename',\n\s*name: layout\.name,/);
   // The look: the menu's own for the entries; the sheet from the tokens.
-  assert.match(css, /\.layout-sheet \{[^}]*background: var\(--bg-section\);/);
-  assert.match(css, /\.host-menu-tag \{/);
-  assert.match(css, /\.host-menu-mark \{[^}]*color: var\(--accent\);/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /:is\(\.sdk-editor, \.layout-sheet, [^)]*\) \{[^}]*background: var\(--surface-panel\);/, 'the sheet is the dialog shell (the Dialogs block of system.css)');
+  assert.ok(fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8').includes("tag.className = 'sdk-chip-tag';"), 'a menu entry\'s tag is the Chips tag');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /\.host-menu-mark \{[^}]*color: var\(--text-muted\);/);
   // An aside has no layouts.
   assert.match(space, /const layoutSpaceId = \(\) => \(currentSpace && !currentSpace\.isAside \? currentSpace\.id : null\);/);
 });
@@ -650,7 +697,7 @@ test('favorite layouts, step 2 (plan-favorite-layouts.md): a ... on every row fo
   assert.match(row, /more: mayFavorite\(\) \|\| mayChangeLayout\(isShared\) \|\| maySetDefault\(isShared\) \? \(\) => layoutRowItems\(l\.id\) : undefined,/);
   assert.match(row, /mark: isFavorite\(l\.id\) \? 'heart' : undefined,/);
   assert.ok(row.indexOf("mark: isFavorite") > row.indexOf('label: l.name') && row.indexOf("mark: isFavorite") < row.indexOf('tag: l.id'), 'after the name, before Default');
-  assert.match(css, /\.host-menu-mark \{[^}]*color: var\(--accent\);/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /\.host-menu-mark \{[^}]*color: var\(--text-muted\);/);
   // The menu: Favorite (outline heart) or Unfavorite (filled heart) first, a divider before Make default.
   const menuFn = space.slice(space.indexOf('function layoutRowItems(layoutId) {'), space.indexOf('async function setFavorite('));
   assert.match(menuFn, /if \(mayFavorite\(\)\) \{\n\s*entries\.push\(isFavorite\(layoutId\)\n\s*\? \{ icon: 'heart', label: 'Unfavorite', onPick: \(\) => setFavorite\(layout, false\) \}\n\s*: \{ icon: 'heart', regular: true, label: 'Favorite', onPick: \(\) => setFavorite\(layout, true\) \}\);/, 'Unfavorite or Favorite, always on');
@@ -949,9 +996,9 @@ test('the space bar in two zones: Layout (the module chooser), then Online, on t
     }
   }
   assert.match(css, /\n\.subnav \{[^}]*background: var\(--nav-secondary-bg\);/, 'the whole bar is --nav-secondary-bg');
-  // The phone's tab bar: Online's count follows the tabs in the left zone, no divider there.
-  assert.match(css, /body\.in-space \.subnav \.nav-left > \.who-here \{\s*align-self: stretch;/);
-  assert.match(css, /body\.in-space \.subnav \.nav-left > \.nav-divider \{\s*display: none;/);
+  // The phone's tab bar: Online is a tab of the bar (its wrapper holds no box of its own), no divider there.
+  assert.match(css, /body\.in-space \.sdk-tabbar \.who-here \{\s*display: contents;/);
+  assert.match(css, /body\.in-space \.subnav \.nav-divider,[^{]*\{\s*display: none;/);
 });
 
 test('Who is here in the top bar (Thomas, 2026-10-14): the space\'s, after the layout tabs, giving way first; the tab bar\'s count on a phone; out of the column', () => {
@@ -992,14 +1039,13 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   // running; on a phone the tab reads "Start" or "Join"), the accent look and the Layout button's size, nothing new in
   // colour. Wider than a phone it sits at the right end of the chat's Discussion | Assistant row (#chat-views).
   assert.match(space, /joinCallButton\.id = 'join-call';/);
-  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/);
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-primary join-call nav-text';/);
   assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Start call'\);/);
-  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
+  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
   assert.match(space, /const verb = running \? 'Join' : 'Start';/, 'Join call while a call runs, Start call while none does');
   assert.match(space, /\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/, 'wider than a phone it is in the chat\'s view row');
   assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted \}\);/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /\n\.join-call \{/, 'its own size rule');
   assert.match(css, /\n\.join-call\[hidden\] \{\s*display: none;/, 'hidden means hidden, whatever its display');
   const own = [...css.matchAll(/([^{}]*\.join-call[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]).join('');
   assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(own), 'its rules use theme tokens only');
@@ -1079,9 +1125,12 @@ test('the space bar\'s lists draw above the modules and under a page opened over
   };
   const z = (sel) => (block(sel).match(/z-index:\s*([^;]+);/) || [])[1]?.trim();
   const menu = Number((css.match(/--z-menu:\s*(\d+);/) || [])[1]);
-  assert.ok(menu > Number(z('.module-layer')), '--z-menu is above the floating modules\' layer');
+  // A layer token (system.css, Foundations) read as its number.
+  const sys = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  const zNum = (v) => { const t = /^var\(--z-([a-z]+)\)$/.exec(v || ''); return t ? Number((sys.match(new RegExp(`--z-${t[1]}:\\s*(\\d+);`)) || [])[1]) : Number(v); };
+  assert.ok(menu > zNum(z('.module-layer')), '--z-menu is above the floating modules\' layer');
   assert.ok(menu < Number(z('.page-overlay')), '--z-menu is under a page opened over the call');
-  assert.ok(Number(z('.topbar')) < Number(z('.module-layer')), 'the header stays under a module dragged over it when nothing is open');
+  assert.ok(zNum(z('.topbar')) < zNum(z('.module-layer')), 'the header stays under a module dragged over it when nothing is open');
   for (const sel of ['.host-menu', '.module-chooser-list', '.who-here-list']) assert.equal(z(sel), 'var(--z-menu)', `${sel} is at the menus' level`);
   const lift = css.match(/\n\.topbar:has\(([^)]*\)[^{]*)\)\s*\{([^}]*)\}/);
   assert.ok(lift, 'the header rises while one of its lists is open (.topbar:has(...))');
@@ -1290,7 +1339,8 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.match(cssW, /--topbar-gap: 4px;/);
   assert.match(cssW, /@media \(min-width: 641px\) \{\n\s*\.topbar > \.nav-right \{\n\s*gap: var\(--topbar-gap\);/);
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
-  assert.match(src, /const wide = !fold && bar === 'primary';\n\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
+  assert.match(src, /const wide = !fold && bar === 'primary';\n(?:.*\n)?\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
+  assert.match(src, /bar === 'secondary' && view && typeof view\.matchMedia === 'function' && view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) Object\.assign\(byZone, tabBarZones\(byZone\)\)/, 'the space bar on a phone draws the "..." after the module tabs');
   assert.match(src, /flattenRuns\(list, doc, \{ divide: wide \}\)/, 'a divider between the two runs, in the top bar only');
   // setWorkspace: a Workspace tool registered on either bar goes to the bar named; the "..." stays its bar's own.
   register({ id: 'ws-test-a', bar: 'secondary', zone: 'right', icon: 'x', label: 'x', workspace: 'only', order: 11 });
@@ -1319,7 +1369,7 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   // The top bar's own "...": #topbar-more, last of the Workspace run, never folds, never moves.
   assert.match(src, /more\.id = bar === 'secondary' \? 'subnav-more' : 'topbar-more';/);
   assert.match(src, /register\(\{ bar, zone: 'right', group: 'more', groupOrder: 999, id: 'topbar-more', order: 998, fold: false, workspace: 'every', more: bar, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/);
-  assert.match(src, /register\(\{ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/, 'the space bar\'s "..." as before');
+  assert.match(src, /register\(\{ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, afterTabs: true, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/, 'the space bar\'s "..." as before');
   assert.match(src, /attachFold\(bar, el\);\n\s*draw\(bar\);/, 'both bars get a "..."');
   // The space page: Layout, Full screen and Pop out show on every layout tab, not in an aside; Pull participants back
   // in every view; Rejoin call only where the bar is the tab bar (the top bar's aside-rejoin is the other); the view and the
@@ -1346,7 +1396,7 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.match(css, /body\.in-space \.subnav:not\(:has\(> \.nav-left > :not\(\[hidden\], \[data-nav-divider\], \.nav-folded\)\)\):not\(:has\(> \.nav-right > :not\(\[hidden\], \[data-nav-divider\], \.nav-folded\)\)\) \{\n\s*display: none;/, 'the second row hides itself with nothing in it');
   assert.ok(css.indexOf('@media (min-width: 641px)') < css.indexOf('body.in-space .subnav:not(:has(> .nav-left'), 'wider than a phone only');
   assert.match(css, /\.subnav \.nav-folded,\n\.topbar > \.nav-right > \.nav-folded \{\n\s*display: none !important;/);
-  assert.match(css, /\.topbar > \.nav-right > \.sdk-more \{\n\s*width: 30px;\n\s*height: 30px;/);
+  assert.match(css, /\.topbar > \.nav-right > \.sdk-icon-btn,\n\.subnav \.sdk-icon-btn \{\n\s*--b-fg:/);
   assert.match(css, /\.topbar:has\(> \.nav-left > \.layout-tabs > \.layout-favorites-note:not\(\[hidden\]\)\) \{\n\s*z-index: var\(--z-menu\);/);
 });
 
@@ -1532,8 +1582,8 @@ test('no ☰ with nothing in its menu (a guest), and the place outlasts your nam
   assert.match(wire, /new MutationObserver\(syncToggle\)\.observe\(menu, \{ childList: true, subtree: true, attributes: true, attributeFilter: \['hidden'\] \}\)/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\.topbar \.nav-toggle\[hidden\] \{\s*display: none;/, 'the phone rule that shows the button gives way to [hidden]');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1000px\) \{\s*\.topbar button\.whoami #whoami \{\s*display: none;/, 'your name goes first');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar \.brand-home \.brand-name \{\s*display: none;/, 'then the environment\'s');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1200px\) \{\s*\.topbar button\.whoami #whoami \{\s*display: none;/, 'your name goes first');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 900px\) \{\s*\.topbar \.brand-home \.brand-name \{\s*display: none;/, 'then the environment\'s');
   assert.match(css, /\.topbar \.nav-left > \.crumb \{\s*flex: 0 1 auto;\s*min-width: 6em;/, 'the place keeps a few letters and its ellipsis at any width');
 });
 
@@ -1832,19 +1882,20 @@ test('destinations: on a phone the entry is in the menu after the Spaces slot\'s
   const menu = z.right.flatMap((run) => arrange(run).flatMap((g) => g.map((t) => t.id))).filter((id) => id !== 'dest-calendar');
   assert.deepEqual(menu, ['menu-environment', 'menu-home', 'menu-space-a', 'menu-space-b', 'menu-dest-calendar', 'menu-new-space']);
 });
-test('the top bar is two zones: no middle centred from 1001px, the phone\'s place for the bell not drawn wider, the entries icons only from 641 to 820px', () => {
+test('the top bar is two zones: no middle centred from 1001px, the phone\'s place for the bell not drawn wider, the entries icons only from 641 to 900px', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.ok(!/min-width: 1001px/.test(css), 'no 1001px rule centring a middle zone');
   assert.ok(!/\.topbar:has\(> \.nav-middle/.test(css), 'nothing reads what the middle holds');
   assert.match(css, /\n\.topbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the left zone takes what the right does not');
   assert.match(css, /@media \(min-width: 641px\) \{\s*\.topbar > \.nav-middle \{\s*display: none;/, '#core-nav is the phone\'s place only');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar > \.nav-left > \.core-link\[data-destination\] \.core-label \{\s*display: none;/, 'from 641 to 820px the entries in the left zone are their icons only');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 900px\) \{\s*\.topbar > \.nav-left > \.core-link\[data-destination\] \.core-label \{\s*display: none;/, 'from 641 to 900px the entries in the left zone are their icons only');
   assert.ok(!/\.nav-middle \.core-link/.test(css), 'no rule for entries in a middle zone');
   assert.match(css, /\.topbar > \.nav-left > \.core-link\[data-destination\] \{\s*flex: none;/, 'the destinations never shrink');
   // Their names keep the nav text in the branding's zone: the wordmark's larger size is the environment's name's alone
   // (no `.brand span` rule reaching every word in the zone, which the old `font-size: inherit` resets undid one by one).
   assert.ok(!/(^|\n)\.brand span \{/.test(css), 'no rule sizes every span in the branding\'s zone');
-  assert.match(css, /\n\.brand > span\[data-brand="environmentName"\],\n\.topbar \.brand-name \{\n\s*font-size: 17px;/, 'only the environment\'s name, the wordmark, is larger');
+  assert.match(css, /\n\.brand > span\[data-brand="environmentName"\],\n\.topbar \.brand-name \{\n\s*font-family: var\(--font-display\);\n\s*font-size: var\(--text-18\);\n\s*font-weight: var\(--weight-strong\);/, 'only the environment\'s name, the wordmark, is larger: Fraunces 600 at 18px (C3)');
+  assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.brand > span\[data-brand="environmentName"\],\n\s*\.topbar \.brand-name \{\n\s*font-family: var\(--font-ui\);\n\s*font-size: var\(--text-16\);/, 'below 640px the wordmark is Figtree at 16px (C3)');
   assert.match(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'), /el\.title = tool\.label;/, 'and keep their name as the tooltip');
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(navSrc, /const lookOf = \(t\) => \(t\.bar === 'primary' && t\.zone === 'left' \? 'core'/, 'the core links\' look in the top bar\'s left zone');
@@ -1859,7 +1910,7 @@ test('the anchor: nothing wider than a phone, the page\'s name as a plain label 
   assert.deepEqual(pageAnchor({ phone: true, name: ' Calendar ', icon: 'calendar-days' }), { label: 'Calendar', icon: 'calendar-days', title: 'Calendar', current: 'page' });
   assert.equal(pageAnchor({ phone: true, name: '' }), null, 'no name yet: nothing');
   const read = (f) => fs.readFileSync(path.join(ROOT, 'public', f), 'utf8');
-  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-setup.js', 'ai-config.js', 'module-config.js', 'module.js', 'host.js']) {
+  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-setup.js', 'module-config.js', 'module.js', 'host.js']) {
     const src = read(f);
     assert.ok(!/crumbLink\(/.test(src), `${f} calls no crumbLink()`);
     assert.ok(!/setTopbarLocation\(/.test(src), `${f} sets no segment`);
@@ -1898,7 +1949,7 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   // The space-settings page bar is gone on purpose: the Set up panel opens inside the space page, under its bar, so it
   // draws no page bar and no #subtabs of its own (its tabs are .setup-tab).
   assert.ok(!/renderPageBar|id="subtabs"/.test(read('space-setup.js')), 'the Set up panel draws no page bar');
-  assert.match(read('ai-config.js'), /renderPageBar\(\{ name: 'AI configuration'[^\n]*manage: '\/admin#modules' \}\)/);
+  assert.ok(!fs.existsSync(path.join(ROOT, 'public', 'ai-config.js')), 'the AI service is set up on its tab on Manage > Modules, not a page of its own');
   assert.match(read('module-config.js'), /renderPageBar\(\{ manage: '\/admin#modules' \}\)/);
   assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: mod\.name, icon: mod\.icon \}\)/);
   assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: title \|\| mod\.name, icon: mod\.icon \}\)/);
@@ -1910,7 +1961,7 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   for (const f of ['admin.html', 'profile.html']) assert.match(read(f), /<nav class="subtabs" id="subtabs">/, `${f} keeps #subtabs`);
   const css = read('style.css');
   assert.match(css, /\.subnav\.page-bar \.nav-left > \.subtabs \{\s*flex: 0 1 auto;\s*min-width: 0;/, 'the tabs give way inside the bar and scroll sideways');
-  assert.match(css, /\.page-bar \.subtab\[hidden\] \{\s*display: none;/, 'a hidden tab stays hidden (space settings\' Modules)');
+  assert.match(read('sdk/system.css'), /:is\(\[hidden\], \.layout-tab-out\) \{ display: none; \}/, 'a hidden tab stays hidden (space settings\' Modules), in the Tabs component');
   assert.match(css, /@media \(max-width: 640px\) \{\s*\.topbar > \.page-bar:not\(:has\(/, 'on a phone a bar with nothing to show is not drawn');
 });
 
@@ -1918,10 +1969,10 @@ test('the top bar\'s colour areas: the branding and the right zone, with default
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const root = css.slice(css.indexOf(':root {'), css.indexOf('\n}\n', css.indexOf(':root {')));
   assert.match(root, /--nav-primary-edge-bg: color-mix\(in srgb, var\(--header-bg\) 97%, black\);/, 'the shade, opaque');
-  assert.match(root, /--nav-brand-bg: var\(--nav-primary-edge-bg\);/);
-  assert.match(root, /--nav-brand-text: var\(--header-text\);/);
-  assert.match(root, /--nav-right-bg: var\(--nav-primary-edge-bg\);/);
-  assert.match(root, /--nav-right-text: var\(--header-text\);/);
+  assert.match(root, /--nav-brand-bg: var\(--surface-bar-brand, var\(--nav-primary-edge-bg\)\);/);
+  assert.match(root, /--nav-brand-text: var\(--text-bar-brand, var\(--header-text\)\);/);
+  assert.match(root, /--nav-right-bg: var\(--surface-bar-right, var\(--nav-primary-edge-bg\)\);/);
+  assert.match(root, /--nav-right-text: var\(--text-bar-right, var\(--header-text\)\);/);
   assert.match(css, /\n\.topbar > \.nav-left > \.brand-home \{\s*--header-text: var\(--nav-brand-text\);[^}]*background: var\(--nav-brand-bg\);/, 'the branding area, its text through --header-text');
   assert.match(css, /@media \(min-width: 641px\) \{\s*\.topbar > \.nav-right \{\s*--header-text: var\(--nav-right-text\);\s*color: var\(--header-text\);\s*background: var\(--nav-right-bg\);/, 'the right zone, wider than a phone');
   assert.ok(!/\.topbar \.nav-left,\s*\.topbar \.nav-right \{[^}]*background/.test(css), 'no descendant rule paints the zones (it reached the space bar)');
@@ -1971,7 +2022,7 @@ test('the facts are reachable at every width: where the strip hides its chips (7
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   // One number for the stylesheet's rule and the page's: the chips are hidden at FACT_CHIPS_HIDDEN_AT and below.
   assert.equal(FACT_CHIPS_HIDDEN_AT, 760);
-  assert.match(css, new RegExp(`@media \\(max-width: ${FACT_CHIPS_HIDDEN_AT}px\\) \\{\\n\\s*\\.status-strip \\.status-facts \\{\\n\\s*display: none;`), 'the stylesheet hides the chips at the same width');
+  assert.match(css, new RegExp(`@media \\(max-width: ${FACT_CHIPS_HIDDEN_AT}px\\) \\{\\n\\s*\\.sdk-strip \\.sdk-strip-facts \\{\\n\\s*display: none;`), 'the stylesheet hides the chips at the same width');
   for (const [width, inSheet] of [[390, true], [640, true], [641, true], [700, true], [760, true], [761, false], [1280, false]]) {
     assert.equal(factsInSheet(width), inSheet, `at ${width}px the sheet ${inSheet ? 'lists' : 'leaves out'} the facts`);
     // At every width a fact is somewhere: a chip, or the sheet.
@@ -1979,7 +2030,7 @@ test('the facts are reachable at every width: where the strip hides its chips (7
     assert.ok(chipsShown || factsInSheet(width), `at ${width}px a fact is reachable`);
   }
   assert.match(space, /if \(view\.matchMedia\(`\(max-width: \$\{FACT_CHIPS_HIDDEN_AT\}px\)`\)\.matches\) return true;/, 'the page asks the same width, in the header\'s own window');
-  assert.match(space, /return factsInOrder\(\)\.length > statusFacts\.querySelectorAll\('\.status-fact:not\(\.dropped\)'\)\.length;/, 'wider, a fact the line could not fit is in the sheet too');
+  assert.match(space, /return factsInOrder\(\)\.length > statusFacts\.querySelectorAll\('\.sdk-strip-fact:not\(\[hidden\]\)'\)\.length;/, 'wider, a fact the line could not fit is in the sheet too');
   assert.ok(!/facts: phoneWidth\(\)/.test(space), 'not only on a phone (641 to 760px had no way to them)');
 });
 
@@ -2007,65 +2058,79 @@ test('a fact\'s day: worded by the host against the viewer\'s own today, dropped
   assert.match(space, /for \(const f of factsNow\(m\.facts\)\) \{/, 'a chip\'s menu');
 });
 
-test('the status strip: the chip and its track, a tool of the space bar\'s left zone with no fit, a line under the top row on a phone', () => {
+test('the status strip: the chip and its journey bar, a tool of the space bar\'s left zone with no fit, a line under the top row on a phone', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  // Registered on the space bar's left zone (the row wider than a phone), with no fit: the track gives way instead.
+  const sys = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  const look = sys.slice(sys.indexOf('/* journey:start */'), sys.indexOf('/* journey:end */'));
+  assert.ok(look.length > 0, 'the Journey bar block is in system.css');
+  // Registered on the space bar's left zone (the row wider than a phone), with no fit: the bar gives way instead.
   assert.match(space, /const STATUS_STRIP_TOOL = \{ id: 'phase-chip', bar: 'secondary', zone: 'left', group: 'status', order: 1, [^\n]*element: statusStrip, visible: phaseChipWanted \};/, 'the strip is the space bar\'s left-zone tool');
   assert.ok(!/id: 'phase-chip'[^\n]*(fit:|fitFirst|yieldFirst)/.test(space), 'no fit on the chip in the strip');
   assert.ok(!/function fitPhaseChip|applyPhaseChipFit|chipFit/.test(space), 'the chip\'s old fit is gone');
   assert.ok(!/export function chipFit/.test(fs.readFileSync(path.join(ROOT, 'public/phase-sheet.js'), 'utf8')), 'and so is chipFit');
-  // The chip keeps its id, its button, dot and words, and opens the sheet; the track opens it too.
+  // The strip and its chips keep their ids; the classes are the Journey bar family's.
+  assert.match(space, /statusStrip\.id = 'status-strip';\nstatusStrip\.className = 'sdk-strip';/);
   assert.match(space, /phaseChip\.id = 'phase-chip';/);
+  assert.match(space, /phaseChip\.className = 'sdk-strip-chip sdk-strip-phase';/, 'the phase chip is a header chip');
   assert.match(space, /phaseChip\.setAttribute\('aria-haspopup', 'dialog'\)/);
-  assert.match(space, /phaseChip\.innerHTML = '<span class="phase-dot" aria-hidden="true"><\/span><span class="phase-chip-label"><\/span>';/, 'the chip ends with its words: no caret, and one label at every width');
+  assert.match(space, /phaseChip\.innerHTML = '<span class="sdk-strip-dot" aria-hidden="true"><\/span><span class="sdk-strip-sentence"><\/span>';/, 'the chip ends with its words: no caret, and one label at every width');
   assert.ok(!/phase-chip-caret|phase-chip-short/.test(space + css), 'no caret class on the chip, and no phone-only short words');
-  assert.ok(!/▾/.test(space.slice(space.indexOf('// --- the status strip'), space.indexOf('// --- end the status strip ---')) + css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'))), 'no caret, not even in the comments (plan-space-story-strip.md, decision 1)');
-  assert.match(space, /phaseChip\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);\nstatusTrack\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);\nstatusToGo\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/, 'the chip, the bar and the days to go open the sheet, and nothing else');
-  // A region named Status; the chip's words in one polite status, written only when they change; the track hidden from
-  // a screen reader (the words carry it).
+  assert.ok(!/▾/.test(space.slice(space.indexOf('// --- the status strip'), space.indexOf('// --- end the status strip ---')) + stripCssOf(css) + look), 'no caret, not even in the comments (plan-space-story-strip.md, decision 1)');
+  assert.ok(!/\b(status-track|status-band|status-togo|status-today|phase-chip-label|phase-dot|attention-count)\b/.test(css + sys + space.replace(/'attention-count'/g, '')), 'the old class names are gone from the page and its stylesheets');
+  // The chip, the days to go and a press on the bar (wider than a phone) open the sheet; on the phone's line a tap on a
+  // band says its name and dates.
+  assert.match(space, /phaseChip\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/);
+  assert.match(space, /statusTrack\.addEventListener\('click', \(\) => \{\n\s*if \(journeyPhone\(\)\) return;[^\n]*\n\s*openPhaseSheetFrom\(phaseChip\);/, 'the bar opens the sheet wider than a phone; the phone\'s line is for seeing');
+  assert.match(space, /band\.dataset\.tip = tip;\n\s*band\.setAttribute\('aria-label', tip\);/, 'a band\'s name and dates are the shared tooltip (data-tip, public/tooltip.js) and its name');
+  assert.ok(!/sdk-journey-tip|showJourneyTip/.test(space + sys), 'no tooltip of its own: the Tooltips family\'s');
+  assert.match(space, /statusToGo\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/);
+  assert.match(space, /statusToGo\.className = 'sdk-strip-chip sdk-strip-count';/, 'the days to go is a header chip, a button');
+  // A region named Status; the chip's words in one polite status, written only when they change; the bar a group named
+  // Journey, each band named by its name and dates, the pin by today's date.
   assert.match(space, /statusStrip\.setAttribute\('role', 'region'\);\nstatusStrip\.setAttribute\('aria-label', 'Status'\);/);
   assert.match(space, /statusSaid\.setAttribute\('role', 'status'\);/);
   assert.match(space, /statusSaid\.appendChild\(phaseChip\);\n/);
-  assert.match(space, /statusStrip\.append\(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention\);/, 'the sentence, the bar, the days to go, the slot kept for the facts, then the count last');
-  assert.match(space, /statusTrack\.setAttribute\('aria-hidden', 'true'\);/);
-  assert.match(space, /statusToGo\.setAttribute\('aria-hidden', 'true'\);/);
-  // The facts (host.facts, plan-space-story-strip.md step 5): a group of chips, not a live region (a fact that changes
-  // is not read out), drawn again only when the facts change, at most three, each a button in the nav text opening the
-  // shared menu; they give way one by one from the end while the line is crowded.
+  assert.match(space, /statusStrip\.append\(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention\);/, 'the sentence, the bar, the days to go, the facts, then the count last');
+  assert.match(space, /statusTrack\.setAttribute\('role', 'group'\);\nstatusTrack\.setAttribute\('aria-label', 'Journey'\);/);
+  // The facts (host.facts, plan-space-story-strip.md step 5): a group of chips, not a live region, drawn again only when
+  // the facts change, at most three, each a header chip opening the shared menu; they give way one by one from the end
+  // while the journey bar has less than its room.
   assert.match(space, /statusFacts\.setAttribute\('role', 'group'\);/, 'the facts are a group of buttons');
   assert.ok(!/statusFacts\.setAttribute\('(aria-live|role)', '(polite|status|assertive)'\)/.test(space), 'not a live region');
   assert.match(space, /const MAX_FACT_CHIPS = 3;/, 'up to three chips');
   assert.match(space, /const shown = phaseChipWanted\(\) \? factsInOrder\(\)\.slice\(0, MAX_FACT_CHIPS\) : \[\];/, 'only where the strip shows, three at most');
   assert.match(space, /if \(key !== factsDrawn\) \{\n\s*factsDrawn = key;\n\s*statusFacts\.replaceChildren\(\.\.\.shown\.map\(factChip\)\);/, 'drawn again only when the facts change');
-  assert.match(space, /b\.className = 'status-fact nav-text';/, 'a chip\'s words are the nav text');
+  assert.match(space, /b\.className = 'sdk-strip-chip sdk-strip-fact';/, 'a fact is a header chip');
   assert.match(space, /b\.addEventListener\('click', \(\) => openHostMenu\(b, \(\) => factMenuItems\(f\.module\)\)\);/, 'a chip opens the shared menu');
-  assert.match(space, /for \(let i = chips\.length - 1; i >= 0 && crowded\(\); i -= 1\) chips\[i\]\.classList\.add\('dropped'\);/, 'the last chip gives way first, one by one');
+  assert.match(space, /const JOURNEY_LEAST = 480;/, 'the day grid keeps 480px before a fact gives way');
+  assert.match(space, /for \(let i = chips\.length - 1; i >= 0 && crowded\(\); i -= 1\) chips\[i\]\.hidden = true;/, 'the last chip gives way first, one by one');
   assert.match(space, /facts: factsHiddenInStrip\(\) \? factsInOrder\(\)/, 'where the chips are hidden (a phone too) the facts head the phase sheet');
   // The words are the story sentence (Phases.storyParts), written only when it changes, each clause after the first its
   // own span so the end gives way whole and the label's text stays the whole sentence.
   const chipUpdate = space.slice(space.indexOf('function updatePhaseChip('), space.indexOf('async function savePhases('));
   assert.match(chipUpdate, /const parts = R\.storyParts\(bands, today\);\n\s*const words = parts\.join\(' · '\);/, 'the chip says the story sentence');
   assert.ok(!/chipWords/.test(chipUpdate), 'not the old words');
-  assert.match(space, /if \(phaseChip\.querySelector\('\.phase-chip-label'\)\.textContent !== words\) \{\n\s*writeStory\(parts\);/, 'the status changes only when the sentence changes');
+  assert.match(space, /if \(phaseChip\.querySelector\('\.sdk-strip-sentence'\)\.textContent !== words\) \{\n\s*writeStory\(parts\);/, 'the status changes only when the sentence changes');
   assert.match(space, /span\.className = i \? 'story-part' : 'story-part story-lead';\n\s*span\.textContent = i \? ` · \$\{part\}` : part;/, 'the clauses, their separators in their text');
   // Shown only with phases, never for a guest, in an aside, or with home over the space; redrawn from the presence poll.
   assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && \(phasesWanted\(\) \|\| attentionSeen\);/, 'no strip with no phases (unless a count has arrived), for a guest, in an aside, or with home over the space');
   assert.match(space, /const phasesWanted = \(\) => templatePhases\.length > 0 && Boolean\(phaseRule\(\)\);/, 'phases wanted: the template has some and the rule is loaded');
   assert.ok(!/phaseChipWanted = [^\n]*(currentLayoutTab|workspaceShown)/.test(space), 'on every layout tab');
   assert.match(space, /updatePhaseChip\(\); \/\/ the space's dates ride on its presence record/, 'redrawn from the presence poll');
-  // The track: one segment per dated phase, its share from bandShares, today's filled, a mark at todayPercent.
-  const track = space.slice(space.indexOf('function drawStatusTrack('), space.indexOf('function updatePhaseChip('));
-  assert.match(track, /const shares = bandShares\(bands, \{ today, rule: R \}\);/);
-  assert.match(track, /if \(!b\.dated\) return;/, 'no segment for an undated phase');
-  assert.match(track, /seg\.style\.flexGrow = String\(shares\[i\]\.grow\);/);
-  assert.match(track, /if \(b\.current\) seg\.classList\.add\('current'\);/);
-  assert.match(track, /const at = todayPercent\(b, shares\[i\]\.days, today, \{ rule: R \}\);/);
-  assert.match(track, /else if \(b\.end && today > b\.end\) seg\.classList\.add\('past'\);\n\s*if \(b\.main\) seg\.classList\.add\('main'\);/, 'past bands pale, the main one heavier');
-  assert.match(track, /name\.append\(b\.label\);/, 'each band carries its phase\'s name, the template\'s label');
-  assert.match(track, /if \(phaseIcons\[b\.id\]\) \{/, 'and its icon only when the template gives one');
-  assert.match(track, /dayOfMonth\.textContent = String\(Number\(today\.slice\(8, 10\)\)\);/, 'the pin at today carries the day of the month');
-  assert.match(track, /const togo = R\.countdown\(bands, today\);\n\s*statusToGo\.hidden = !togo;/, 'the days to go, gone when there are none');
+  // The bar: the day grid of journeyLayout (public/journey-layout.js, loaded before the page's script), laid out again
+  // when its width changes; dated phases by their days, an open-ended one two weeks past today, the undated ones as stubs.
+  assert.ok(html.indexOf('<script src="/journey-layout.js"></script>') > html.indexOf('<script src="/phases.js"></script>') && html.indexOf('<script src="/journey-layout.js"></script>') < html.indexOf('<script type="module" src="/space.js"></script>'), 'space.html loads the layout before the page');
+  const track = space.slice(space.indexOf('function layoutJourney('), space.indexOf('// A band\'s name and dates: on hover and focus'));
+  assert.match(track, /const lay = L\.journeyLayout\(dated\.map\(\(b\) => \(\{ n: b\.label, i: phaseIcons\[b\.id\] \|\| '', t: b\.tint, s: b\.start, e: endOf\(b\) \}\)\), today, width, \{ zone: phone \? 14 : 28, offs: offs\.length \}\);/, 'the bar is journeyLayout\'s, a 14px zone on a phone');
+  assert.match(track, /const endOf = \(b\) => b\.end \|\| R\.addDays\(today > b\.start \? today : b\.start, OPEN_DAYS_PAST_TODAY\);/, 'an open-ended phase runs two weeks past today');
+  assert.match(track, /band\.dataset\.state = b\.state;\n\s*band\.dataset\.tint = b\.t;/, 'each band carries its state and its phase\'s tint (Phases.tintOf)');
+  assert.match(track, /band\.setAttribute\('aria-label', tip\);\n\s*band\.tabIndex = 0;/, 'each band is named and reached by the keyboard');
+  assert.match(track, /icon\.className = `fa-solid fa-\$\{b\.i\} sdk-band-icon`;/, 'a band\'s icon, when the template gives one');
+  assert.match(track, /pin\.setAttribute\('role', 'img'\);/, 'the pin is named by today\'s date');
+  assert.match(space, /if \(typeof ResizeObserver === 'function'\) new ResizeObserver\(\(\) => layoutJourney\(\)\)\.observe\(statusTrack\);/, 'laid out again as its width changes');
+  assert.match(space, /const togo = R\.countdown\(bands, today\);\n\s*const doc = statusToGo\.ownerDocument;\n\s*statusToGo\.hidden = !togo;/, 'the days to go, gone when there are none');
   // placeSubnav() places it: the registry's tool wider than a phone, out of the registry and into the header on a phone.
   const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
   assert.match(placeSub, /placeStatusStrip\(tabs\);/);
@@ -2074,54 +2139,61 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(place, /if \(nav\.get\('phase-chip'\)\) nav\.unregister\('phase-chip'\);/);
   assert.match(place, /topbarEl\.insertBefore\(statusStrip, before\)/);
   assert.match(place, /nav\.register\(STATUS_STRIP_TOOL\);/);
-  // The stylesheet: one fixed height (a token), the row on every layout tab, the track's least and its way out.
-  assert.match(css, /\n\s*--status-strip-h: 44px;\n\s*--status-strip-slim-h: 28px;/, 'the tokens: the taller journey bar wider than a phone, a slim line on a phone');
-  assert.match(css, /\.status-strip \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*height: calc\(var\(--status-strip-h\) - 1px\);[^}]*overflow: hidden;/, 'one line: what does not fit wraps out of sight');
-  assert.match(css, /body\.in-space \.subnav:has\(> \.nav-left > \.status-strip:not\(\[hidden\]\)\) \{\n\s*box-sizing: border-box;\n\s*height: var\(--status-strip-h\);/, 'the row is the strip\'s height');
-  assert.match(css, /\.status-track \{\n\s*display: flex;\n\s*flex: 1 1 48px;\n\s*gap: 3px;\n\s*min-width: 48px;[^}]*height: 24px;/, 'the bar shrinks to 48px; 24px tall');
-  assert.match(css, /\.topbar > \.status-strip \.status-track \{\n\s*position: absolute;[^}]*height: 2px;/, 'on a phone a 2px track along the foot');
-  assert.match(css, /\.topbar > \.status-strip \{[^}]*height: var\(--status-strip-slim-h\);/, 'on a phone the slim line');
-  // The order things give way: the facts' slot last in the line (wraps first), the names below 760px, the bar at 48px,
-  // the sentence's later clauses whole, the first cut with an ellipsis.
-  assert.match(css, /\.status-facts \{\n\s*display: flex;\n\s*flex: none;/, 'the facts wrap out of sight whole rather than squeeze');
-  assert.match(css, /\.status-strip \.status-fact \{[^}]*border: 1px solid var\(--border\);[^}]*background: color-mix\(in srgb, var\(--header-text\) 8%, transparent\);/, 'a chip is filled, in the neutral border (no coloured border)');
-  assert.match(css, /\.status-fact-fill \{[^}]*width: var\(--fact-progress, 0%\);[^}]*background: color-mix\(in srgb, var\(--accent\) 32%, transparent\);/, 'progress is a fill of the accent');
-  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-facts \{\n\s*display: none;/, 'the facts are gone at 760px, with the names in the bands');
-  assert.ok(css.indexOf('.status-strip .status-facts {\n    display: none;') < css.indexOf('@media (max-width: 760px) {\n  .status-strip .status-band-name'), 'the facts give way before the names');
-  assert.ok(css.indexOf('.status-facts {') > css.indexOf('.status-togo {'), 'the slot after the days to go');
-  assert.match(track, /statusTrack\.classList\.toggle\('lead', outside === 'lead'\);\n\s*statusTrack\.classList\.toggle\('trail', outside === 'trail'\);/, 'today before the first phase or after the last: the pin at that end');
-  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-band-name \{\n\s*display: none;/, 'the names in the bands go before the bar, the icons stay');
-  assert.match(css, /\.topbar > \.status-strip \.status-band-box \{\n\s*display: none;/, 'on a phone\'s 2px line neither name nor icon');
-  assert.match(space, /icon\.className = `fa-solid fa-\$\{phaseIcons\[b\.id\]\} status-band-icon`;[\s\S]*box\.appendChild\(icon\);[\s\S]*box\.appendChild\(name\);[\s\S]*seg\.title = b\.label;/, 'a band\'s icon is its own item before the name, with the full name as the tooltip');
-  assert.match(css, /\.status-band-box \{\n\s*position: absolute;\n\s*inset: 0;\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'a name too long for its band drops out whole');
-  assert.match(css, /\.status-strip \.phase-chip \.phase-chip-label \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'the sentence\'s later clauses drop whole');
-  assert.match(css, /\.status-strip \.phase-chip \.story-lead \{\n\s*flex: 0 1 auto;\n\s*min-width: 0;\n\s*overflow: hidden;\n\s*text-overflow: ellipsis;/, 'the first clause is cut last, with an ellipsis');
-  // The phases' colours (Thomas: "we have all these colors in the phase tool but none of them show in the bar"; then,
-  // 2026-10-14: "no colored borders"): every band is FILLED with its own phase's tint (a soft wash ahead of today, a
-  // paler one behind, a stronger fill today) inside the theme's neutral border; the pin and the chip's dot are fills of
-  // the same tint; nothing generic (the accent) is left on the bands.
-  assert.match(track, /seg\.dataset\.tint = b\.tint;/, 'each band carries its phase\'s tint, from the timeline (Phases.tintOf), the sheet\'s own');
-  assert.match(track, /mark\.dataset\.tint = \(outside === 'lead' \? dated\[0\] : dated\[dated\.length - 1\]\)\.tint;/, 'the pin outside the bar takes the tint of the band it stands beside');
-  assert.match(space, /const here = bands\.find\(\(b\) => b\.current\) \|\| [^\n]*\n\s*const dot = phaseChip\.querySelector\('\.phase-dot'\);\n\s*if \(here\) dot\.dataset\.tint = here\.tint;/, 'the chip\'s dot takes the tint of the phase today is in');
-  assert.match(css, /\.status-band \{\n\s*position: relative;\n\s*box-sizing: border-box;\n\s*flex-basis: 0;\n\s*min-width: 4px;\n\s*border: 1px solid var\(--border\);\n\s*border-radius: var\(--radius-medium\);\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 22%, transparent\);/, 'a band ahead of today: a soft wash of its tint, in the neutral border of every control');
-  assert.match(css, /\.status-band\.current \{\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 50%, var\(--header-bg\)\);\n\s*color: var\(--header-text\);/, 'today\'s band a stronger fill of its own tint, its name in the header\'s text');
-  assert.match(css, /\.status-band\.past \{\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 12%, transparent\);/, 'past bands paler, from their own tint');
-  const bandCss = [...css.matchAll(/\n\.status-band[^{]*\{[^}]*\}/g)].map((m) => m[0]).join('');
-  assert.ok(!/box-shadow|var\(--on-accent\)/.test(bandCss), 'no generic outline or accent fill left on the bands');
-  // No coloured borders on the strip (Thomas, 2026-10-14): no border declaration in the strip names a tint or the
-  // accent, at any width; the bands' and the pin's colour is a fill.
-  for (const m of stripCssOf(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  // The stylesheets: the heights (tokens), the row on every layout tab, the 57px grid wider than a phone, the 28px line.
+  assert.match(css, /\n\s*--status-strip-h: 57px;\n\s*--status-strip-slim-h: 28px;/, 'the tokens: 57px with the day grid wider than a phone, a slim line on a phone');
+  assert.match(look, /\.sdk-strip \{\n\s*position: relative;\n\s*display: flex;\n\s*flex-wrap: nowrap;[^}]*height: calc\(var\(--status-strip-h\) - 1px\);[^}]*overflow: hidden;/, 'one line, the row\'s rule and the 56px grid');
+  assert.match(css, /body\.in-space \.subnav:has\(> \.nav-left > \.sdk-strip:not\(\[hidden\]\)\) \{\n\s*box-sizing: border-box;\n\s*height: var\(--status-strip-h\);/, 'the row is the strip\'s height');
+  assert.match(look, /\.sdk-journey \{[^}]*flex: 1 1 360px;[^}]*min-width: 48px;[^}]*height: calc\(var\(--status-strip-h\) - 1px\);/, 'the bar asks for 360px, shrinks to 48px, and is the grid\'s height');
+  assert.match(look, /--jr-band-h: 24px;/, 'a band is 24px');
+  assert.match(look, /--jr-bar-top: 15px;/, 'the bar sits under the pin\'s row');
+  assert.match(look, /@media \(max-width: 640px\) \{\n\s*\.sdk-strip \{ height: var\(--status-strip-slim-h\);/, 'on a phone the slim line');
+  assert.match(look, /\.sdk-strip \.sdk-journey \{ position: absolute;[^}]*left: 0; right: 0; bottom: var\(--jr-line-foot\);[^}]*height: var\(--jr-line\);/, 'on a phone a 2px line along the foot');
+  assert.match(look, /--jr-line: 2px;/);
+  assert.match(look, /\.sdk-strip \.sdk-journey > :is\(\.sdk-gap, \.sdk-tick, \.sdk-tick-label\) \{ display: none; \}/, 'on a phone no ticks or dates');
+  assert.match(look, /\.sdk-strip :is\(\.sdk-strip-count, \.sdk-strip-facts\) \{ display: none; \}/, 'on a phone no days to go and no facts');
+  // The facts give way first, at 760px (FACT_CHIPS_HIDDEN_AT); the sentence's later clauses whole, the first cut last.
+  assert.match(look, /\.sdk-strip-facts \{ display: flex; flex: none;/, 'the facts give way whole rather than squeeze');
+  assert.match(look, /\.sdk-strip-chip \{[^}]*height: var\(--jr-chip-h\);[^}]*border: 1px solid transparent;[^}]*background: color-mix\(in srgb, var\(--text-bar\) var\(--jr-fact\), transparent\);/, 'a chip is a neutral fill, no edge');
+  assert.match(look, /--jr-chip-h: 30px;/, 'every header chip is 30px');
+  assert.match(look, /\.sdk-strip-fact > \.sdk-strip-fact-fill \{[^}]*width: var\(--p, 0%\);[^}]*background: color-mix\(in srgb, var\(--accent-fill\) 22%, transparent\);/, 'progress is a fill of the accent');
+  assert.match(look, /\.sdk-strip-sentence \{ display: flex; flex-wrap: wrap;[^}]*overflow: hidden; \}/, 'the sentence\'s later clauses drop whole');
+  assert.match(look, /\.sdk-strip-sentence > \.story-lead \{ flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; \}/, 'the first clause is cut last, with an ellipsis');
+  // The phases' colours are fills (Thomas, 2026-10-14: "no colored borders"): past 12%, ahead 22%, the current band the
+  // selected fill with its name in the accent mix; the dot a fill of the tint; nothing coloured on an edge.
+  assert.match(look, /\.sdk-band \{[^}]*border: 1px solid var\(--edge-hairline\);[^}]*border-radius: var\(--radius-medium\);[^}]*background: color-mix\(in srgb, var\(--tint, var\(--accent-fill\)\) var\(--jr-ahead\), transparent\);/, 'a band ahead of today: a soft wash of its tint, in the neutral hairline');
+  assert.match(look, /\.sdk-band\[data-state="past"\] \{ background: color-mix\(in srgb, var\(--tint, var\(--accent-fill\)\) var\(--jr-past\), transparent\); \}/, 'past bands paler');
+  assert.match(look, /\.sdk-band\[data-state="current"\] \{ background: var\(--fill-selected\); color: var\(--jr-now\); font-weight: var\(--weight-strong\); \}/, 'today\'s band the selected fill');
+  assert.match(look, /--jr-past: 12%;\n\s*--jr-ahead: 22%;/);
+  assert.match(look, /\.sdk-strip-dot \{[^}]*background: var\(--tint, var\(--accent-fill\)\);/, 'the chip\'s dot in the tint');
+  assert.match(space, /const here = bands\.find\(\(b\) => b\.current\) \|\| [^\n]*\n\s*const dot = phaseChip\.querySelector\('\.sdk-strip-dot'\);\n\s*if \(here\) dot\.dataset\.tint = here\.tint;/, 'the chip\'s dot takes the tint of the phase today is in');
+  for (const m of (look + stripCssOf(css)).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const borders = m[2].split(';').map((d) => d.trim()).filter((d) => /^border(-top|-right|-bottom|-left)?(-color)?\s*:/.test(d));
     for (const d of borders) assert.ok(!/--tint|--accent|currentColor/.test(d), `${m[1].trim()}: a coloured border (${d})`);
   }
-  assert.match(css, /\.status-today \{[^}]*border: 0;[^}]*background: var\(--tint, var\(--accent\)\);/, 'the pin a fill of its phase\'s tint, no ring of it');
-  assert.match(css, /\.phase-dot \{[^}]*background: var\(--tint, var\(--accent\)\);/, 'the chip\'s dot in the tint');
-  assert.match(css, /\.topbar > \.status-strip \.status-band \{\n\s*border: 0;/, 'on a phone the 2px line is the colour, without a border');
   assert.deepEqual(Phases.TINTS, TINTS, 'the sheet and the rule share one list of tints');
   assert.deepEqual(Phases.timelineOf(TRAVEL, {}, { created: CREATED }).map((b, i) => b.tint === tintOf(i)), [true, true, true, true, true, true], 'every band\'s tint is the sheet\'s tintOf');
-  const stripCss = css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
-  assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(stripCss), 'theme tokens only in the strip');
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(stripCssOf(css) + look), 'theme tokens only in the strip');
   assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no strip row in an aside');
+});
+
+test('the journey bar\'s day grid: one journeyLayout, word for word the Proposed page\'s, a band as wide as its days, the pin at today', () => {
+  const region = (text) => { const a = text.indexOf('// journey-layout:start'); const b = text.indexOf('// journey-layout:end'); assert.ok(a >= 0 && b > a, 'the markers'); return text.slice(text.indexOf('\n', a) + 1, b).trimEnd(); };
+  const product = fs.readFileSync(path.join(ROOT, 'public/journey-layout.js'), 'utf8');
+  const proposed = fs.readFileSync(path.join(ROOT, 'public/design-system/proposed-journey.js'), 'utf8');
+  assert.equal(region(product), region(proposed), 'public/journey-layout.js and proposed-journey.js hold the same journeyLayout');
+  const { journeyLayout: L } = createRequire(import.meta.url)('../public/journey-layout.js');
+  const ph = (n, s, e) => ({ n, s, e, i: 'x' });
+  let r = L([ph('A', '2026-11-06', '2026-11-06'), ph('B', '2026-11-07', '2026-11-07'), ph('C', '2026-11-08', '2026-11-08')], '2026-11-07', 300);
+  assert.ok(Math.abs(r.dayW - 100) < 0.001 && r.bands.every((b, k) => Math.abs(b.w - 98) < 0.001 && Math.abs(b.x - (1 + k * 100)) < 0.001), 'three days in 300px: each band 98px at its day');
+  assert.ok(Math.abs(r.pin.x - 150) < 0.001 && r.pin.where === 'in', 'the pin at the middle of today\'s slice');
+  assert.deepEqual(r.bands.map((b) => b.state), ['past', 'current', 'ahead']);
+  r = L([ph('A', '2026-10-01', '2026-10-10'), ph('B', '2026-10-15', '2026-10-25')], '2026-10-12', 250);
+  assert.ok(r.gaps.length === 1 && r.gaps[0].days === 4, 'the days no phase covers are a gap');
+  r = L([ph('A', '2026-11-01', '2026-11-10')], '2026-10-20', 328);
+  assert.ok(r.pin.where === 'lead' && Math.abs(r.pin.x - 14) < 0.001, 'today before the trip: the pin in the 28px lead zone');
+  r = L([ph('A', '2026-11-01', '2026-11-10')], '2026-11-02', 176, { offs: 1 });
+  assert.ok(r.offs.length === 1 && Math.abs(r.dayW - 16) < 0.001, 'a phase with no dates keeps 16px at the end');
+  assert.equal(L([ph('A', '2026-09-01', '2026-11-29')], '2026-10-01', 800).tickMode, 'week', 'ticks each Monday up to 120 days');
 });
 
 test('the sheet\'s bar: each band\'s share is its days, an open-ended one runs past today, an undated one has none, the today line in its band', () => {
@@ -2319,7 +2391,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\.setup-first-visit \{[^}]*border: 0;/);
   assert.match(css, /\.setup-choice:has\(input:focus-visible\) \{[^}]*outline: 2px solid var\(--accent\);/, 'the keyboard ring on the row');
-  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.space-setup \.phase-row-tools \.btn,\n\s*\.space-setup \.phase-row-off \.btn,\n\s*\.space-setup \.phase-first \.btn,\n\s*#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
   assert.match(css, /\.space-setup \.phase-row \{\n\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);\n\s*grid-template-areas: "name name" "start end" "days tools" "problem problem";/, 'the rows as cards in the narrow panel');
   assert.match(css, /\.setup-status \{\n\s*margin: 8px 0 0;/, 'the refusal line stands clear of the last hint');
 });
@@ -2529,9 +2601,9 @@ test('the one bar: the switcher in the Spaces slot\'s place, the layout tabs aft
   assert.ok(!/\.view-frame/.test(css), 'the canvas never gives its place to a view');
   assert.match(css, /\n\.topbar > \.nav-left > \.space-switcher:not\(\[hidden\]\) ~ \.crumb \{\n\s*display: none;/, 'the breadcrumb is not drawn beside the switcher, at any width (step 8)');
   assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.topbar \.space-switcher-button \{\n\s*height: auto;\n\s*min-height: 44px;/, 'on a phone the switcher is the row\'s name, a 44px target');
-  assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.topbar:has\(> \.status-strip:not\(\[hidden\]\)\) \{\n\s*flex-wrap: wrap;/, 'on a phone the strip is a line of the header under the top row');
-  assert.match(css, /\.topbar > \.status-strip \.status-today-day,\n\s*\.topbar > \.status-strip \.status-togo,\n\s*\.topbar > \.status-strip \.status-facts \{\n\s*display: none;/, 'on a phone the line is the sentence and the thin track: no day in the pin, no days to go, no slot');
-  assert.ok(!/\.topbar \.phase-chip/.test(css), 'no rule for a chip in the top row');
+  assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.topbar:has\(> \.sdk-strip:not\(\[hidden\]\)\) \{\n\s*flex-wrap: wrap;/, 'on a phone the strip is a line of the header under the top row');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8'), /\.sdk-strip :is\(\.sdk-strip-count, \.sdk-strip-facts\) \{ display: none; \}/, 'on a phone the line is the sentence and the thin line: no days to go, no facts');
+  assert.ok(!/\.topbar \.(phase-chip|sdk-strip-phase)/.test(css), 'no rule for a chip in the top row');
   assert.ok(!/\.phase-chip-short/.test(space), 'one sentence at every width: the phone\'s line gives way clause by clause');
   assert.ok(!/\.crumb-here:has\(> \.setup-bar-name\)/.test(css) && !/crumb-here\[aria-current="location"\] \.crumb-label/.test(space), 'Set up\'s input has one place, the switcher, at every width (nothing left in the breadcrumb)');
   assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no Workspace toolbar in an aside');
@@ -2558,8 +2630,10 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
   const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.match(admin, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{spaces\.length\}`, description: '', members: \[\] \}\)/, 'Manage\'s own request is unchanged');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /\.space-choice-add \{[^}]*border: 2px dashed var\(--border\);/, 'the ghost card is a dashed outline');
-  assert.match(css, /\.space-choice-add:focus-visible/, 'and fills on keyboard focus');
+  const sysCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+  assert.match(sysCss, /:where\(\.sdk-card-add, \.space-choice-add\) \{[^}]*border: 1px dashed var\(--edge-hairline\);/, 'the ghost card is a dashed hairline (the Cards family in system.css)');
+  assert.match(sysCss, /:is\(\.sdk-card-add, \.space-choice-add\):focus-visible/, 'and has a focus outline');
+  assert.match(sysCss, /:is\(\.sdk-card-add, \.space-choice-add\):is\(\.sdk-card-add, \.space-choice-add\):hover/, 'and fills softly on hover');
   assert.match(space, /list\.insertBefore\(card, \$\('home-add-space'\)\)/, 'cards go before the ghost card, which stays last');
 });
 
@@ -2569,22 +2643,21 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
 // size or weight of its own. The environment's name (the wordmark) is the one larger word, by Thomas's decision.
 test('one nav text: the tokens set once, one rule, every element tool with words wears it, no one-off sizes', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  for (const token of ['--nav-font-size: 13px;', '--nav-font-weight: 600;', '--nav-letter-spacing: normal;', '--nav-line-height: normal;']) {
+  for (const token of ['--nav-font-size: var(--text-13);', '--nav-font-weight: var(--weight-strong);', '--nav-letter-spacing: normal;', '--nav-line-height: normal;']) {
     assert.equal(css.split(token).length - 1, 1, `${token} set once`);
   }
   assert.match(css, /\n\.nav-text,\n\.btn\.nav-text,\n\.core-link \{\n\s*font-family: inherit;\n\s*font-size: var\(--nav-font-size\);\n\s*font-weight: var\(--nav-font-weight\);\n\s*letter-spacing: var\(--nav-letter-spacing\);\n\s*line-height: var\(--nav-line-height\);\n\}/, 'the one rule: the layout tabs\' type (.core-link) and .nav-text, a labelled button\'s too');
-  assert.match(css, /\n\.nav-text:where\(:not\(\.btn\)\),\n\.core-link \{\n\s*color: var\(--icon, color-mix\(in srgb, var\(--header-text\) 75%, transparent\)\);/, 'and the bar\'s link colour at rest');
+  assert.match(css, /\n\.nav-text:where\(:not\(\.btn\)\),\n\.core-link \{\n\s*color: var\(--icon-bar\);/, 'and the bar\'s link colour at rest');
   // Each element tool with words carries the class where it is made.
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   const people = fs.readFileSync(path.join(ROOT, 'public/space-people.js'), 'utf8');
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(space, /spaceSwitcherButton\.className = 'core-link space-switcher-button';/, 'the space switcher');
-  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/, 'Join the call');
-  assert.match(space, /phaseChip\.className = 'phase-chip nav-text';/, 'the phase chip');
-  assert.match(space, /name\.className = 'status-band-name nav-text';/, 'a band\'s name');
-  assert.match(space, /statusToGo\.className = 'status-togo nav-text';/, 'the countdown chip\'s words');
-  assert.equal(space.split("dayOfMonth.className = 'status-today-day nav-text';").length - 1, 2, 'the pin\'s day, in and outside the bar');
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-primary join-call nav-text';/, 'Join the call');
+  // The status strip's chips and bands are not the nav text: they are the Journey bar family's header chips (13px,
+  // weight 500; design system step 30), in system.css.
+  assert.ok(!/(phaseChip|statusToGo)\.className = '[^']*nav-text/.test(space), 'the strip\'s chips are header chips');
   assert.match(people, /<button class="who-here-toggle nav-text" id="who-here-toggle"/, 'Who is here');
   assert.match(brand, /whoami\.className = 'whoami nav-text';/, 'your name');
   assert.match(brand, /nameEl\.className = 'page-bar-name nav-text';/, 'a page bar\'s name');
@@ -2593,8 +2666,8 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   // No rule on those elements sets a size or weight of its own (the phone's tab bar, inside body.in-space .subnav, and
   // the phone menu's rows are not the bar; the portraits' letters, the caption and icons are not words of the nav).
   const own = /^(font-size|font-weight|font)\s*:/;
-  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.phase-chip|\.story-part|\.story-lead|\.status-band|\.status-togo|\.status-today|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
-  const skip = /menu-open|body\.in-space (\.subnav|\.who-here)|\.status-band-name > i|\.status-band-box/;
+  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
+  const skip = /menu-open|body\.in-space (\.subnav|\.who-here)/;
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const sel of m[1].split(',').map((s) => s.trim().replace(/^\/\*[\s\S]*?\*\/\s*/, ''))) {
       if (!subject.test(sel.replace(/(:[\w-]+(\([^)]*\))?|\[[^\]]*\])+$/, '')) || skip.test(sel)) continue;
@@ -2621,7 +2694,6 @@ test('a selected, active, on or current state is a fill: no state rule adds a bo
   }
   // [selector (whole, as written), why it stays]
   const KEEP = [
-    ['.phase-band.current', 'a band on the phase timeline is a chart mark, not a control; its fill already carries the phase colour and the hover, so the ring is the only thing left to say "now"'],
     ['.pin.selected[data-cat] .pin-body', 'a map marker (the Maps module): a pin is drawn on the map, not a control; its ring is how a marker is picked out on a busy map'],
     ['.pin.selected .pin-body', 'a map marker, as above'],
     ['.pin[data-cat]:not(.selected) .pin-body', 'a map marker\'s own edge at rest, not the selected state'],
@@ -2634,7 +2706,7 @@ test('a selected, active, on or current state is a fill: no state rule adds a bo
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const decls = m[2].split(';').map((d) => d.trim()).filter(Boolean).map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]);
       const fill = decls.filter(([k]) => /^background(-color)?$/.test(k)).map(([, v]) => v);
-      for (const sel of m[1].split(',').map((x) => x.trim().replace(/\s+/g, ' '))) {
+      for (const sel of m[1].split(/,(?![^()]*\))/).map((x) => x.trim().replace(/\s+/g, ' '))) { // a comma inside :is( ) or :not( ) is not a selector break
         if (!STATE.test(sel) || /:focus(-visible|-within)?\b/.test(sel) || KEEP.some(([k]) => k === sel)) continue;
         for (const [k, v] of decls) {
           if (!PROP.test(k)) continue;

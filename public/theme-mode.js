@@ -224,7 +224,7 @@ export function themeSwitch(doc = document) {
 }
 function paintSwitch(button, mode) {
   button.setAttribute('aria-checked', String(mode === 'dark'));
-  button.title = mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  button.dataset.tip = mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 }
 
 // A guest has no event stream: it asks after /theme.css now and then (every minute while the page is in view, and when

@@ -34,24 +34,9 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
 
 .dest-bar .nav-left {
   gap: 12px;
-  padding: 3px 0;
+  padding: 4px 0;
 }
 
-/* The view switch: host.ui.viewSwitch's tabs, in the header's colours. */
-.dest-views .tb-tab {
-  color: color-mix(in srgb, var(--header-text) 75%, transparent);
-}
-
-.dest-views .tb-tab:hover {
-  color: var(--header-text);
-}
-
-.dest-views .tb-tab.on {
-  color: var(--on-accent);
-}
-
-.dest-views .tb-tab:focus-visible,
-.dest-side-head .tb-tab:focus-visible,
 .dest-tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -70,7 +55,7 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   gap: 4px;
   height: 24px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--text-12);
 }
 
 .dest-filter-toggle[aria-expanded="true"] {
@@ -81,36 +66,9 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
   z-index: var(--z-menu);
 }
 
-/* The search (the map): one field on the right of the page bar. */
-.dest-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* The search (the map): one search field (.sdk-search, system.css) on the right of the page bar. */
+.sdk-search.dest-search {
   width: min(380px, 40vw);
-  height: 26px;
-  margin: 2px 0;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text-dim);
-}
-
-.dest-search:focus-within {
-  border-color: var(--accent);
-}
-
-.dest-search input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
 }
 
 /* The parts. */
@@ -146,7 +104,7 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
 
 .dest-side-head {
   flex: none;
-  padding: 8px 10px 0;
+  padding: 8px 12px 0;
 }
 
 .dest-side-head .tb-tabs {
@@ -205,7 +163,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
 
 /* Too narrow for the panel beside the main part (in a docked column, a narrow window, or a phone's page): the panel is
    stacked below it, the page scrolling; the panel keeps its own switch. No bottom tabs (only a phone has them). */
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest {
     flex-direction: column;
     overflow-y: auto;
@@ -229,7 +187,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
 /* One scroll for the stacked parts: a part that reports its height (onResize in destination.js) is as tall as its content,
    so the main part, then the panel (its switch and list), follow each other in the page's one scroll, with no scroll of
    their own and no fixed split. A part that does not report (the map) keeps its set height. Not on a phone's tabs. */
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest-main.sized {
     height: auto;
   }
@@ -270,7 +228,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
     min-width: 0;
   }
 
-  .dest-bar.has-search .nav-right > .dest-search {
+  .dest-bar.has-search .nav-right > .sdk-search.dest-search {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;
@@ -298,7 +256,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
     min-width: 0;
     padding: 4px 2px;
     border: 0;
@@ -306,13 +264,13 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
     background: transparent;
     color: color-mix(in srgb, var(--header-text) 65%, transparent);
     font: inherit;
-    font-size: 11px;
-    line-height: 1.1;
+    font-size: var(--text-11);
+    line-height: var(--leading-display);
     cursor: pointer;
   }
 
   .dest-tab i {
-    font-size: 18px;
+    font-size: var(--text-18);
   }
 
   .dest-tab span {

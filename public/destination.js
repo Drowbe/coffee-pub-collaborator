@@ -301,9 +301,9 @@ function webglWorks() {
 // each time); Escape clears it. A pasted position or map link is the parts' to read from `q`.
 async function drawSearch(d) {
   const form = document.createElement('form');
-  form.className = 'dest-search';
+  form.className = 'sdk-search dest-search';
   form.setAttribute('role', 'search');
-  form.innerHTML = '<i class="fa-solid fa-magnifying-glass fa-fw" aria-hidden="true"></i><input type="search" id="dest-search" maxlength="200" autocomplete="off" enterkeyhint="search">';
+  form.innerHTML = '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="dest-search" maxlength="200" autocomplete="off" enterkeyhint="search">';
   const input = form.querySelector('input');
   const say = (text) => {
     input.placeholder = text;
@@ -447,7 +447,7 @@ function drawPageBar(d) {
     toggle.setAttribute('aria-expanded', String(yes));
     if (yes) {
       fill();
-      list.querySelector('input.switch')?.focus();
+      list.querySelector('input.sdk-switch')?.focus();
       // Calendars added or removed on Profile since the page opened: the list again, keeping the focus where it is.
       if (kind.external && !spaceId && !withinSpacePage()) {
         loadExternals().then(() => {

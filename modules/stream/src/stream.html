@@ -10,9 +10,9 @@
 </head>
 <body>
 <div id="app" class="app" hidden>
-  <p class="error" id="note" hidden></p>
+  <p class="sdk-form-error" id="note" hidden></p>
 
-  <section class="panel" id="key-panel" hidden>
+  <section class="sdk-panel" id="key-panel" hidden>
     <h2>Access key</h2>
     <p class="hint">A streaming program never signs in. Every link below carries this key instead, and Coffee Pub Studio fetches it by itself when you sign in there. Regenerating it makes every existing link stop working.</p>
     <div class="row">
@@ -24,7 +24,7 @@
     <p class="hint" id="key-status" aria-live="polite"></p>
   </section>
 
-  <section class="panel">
+  <section class="sdk-panel">
     <h2>Links</h2>
     <p class="hint">One browser source per player, on a transparent background. <strong>Player</strong> is the camera, or the Online picture when it is off, with the talking and muted borders. <strong>Character</strong> is the Character pictures only, never the video. Paste a link as a browser source and untick "Shutdown source when not visible".</p>
     <p class="hint" id="links-note" hidden></p>

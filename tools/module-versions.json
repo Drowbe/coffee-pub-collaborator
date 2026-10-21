@@ -1,42 +1,42 @@
 {
   "assistant": {
-    "version": "0.1.23",
-    "hash": "c473ff64b4a00b79"
+    "version": "0.1.24",
+    "hash": "fb5daf4b460aed5d"
   },
   "budget": {
-    "version": "0.1.6",
-    "hash": "66d76089f14896d9"
+    "version": "0.1.12",
+    "hash": "d29ec637105fa685"
   },
   "calendar": {
-    "version": "1.24.16",
-    "hash": "f8cf7479b3111387"
+    "version": "1.24.27",
+    "hash": "f5a390ad46a91557"
   },
   "maps": {
-    "version": "0.9.2",
-    "hash": "2e2b48ac2014d4e9"
+    "version": "0.9.9",
+    "hash": "05984e52a09e246a"
   },
   "places": {
-    "version": "0.12.4",
-    "hash": "a666b80e0abd5b37"
+    "version": "0.12.11",
+    "hash": "9c047c2f81ceb364"
   },
   "polls": {
-    "version": "1.15.9",
-    "hash": "f7dab83cc2389ecc"
+    "version": "1.15.18",
+    "hash": "ffad437da11125a0"
   },
   "research": {
-    "version": "0.4.11",
-    "hash": "12084ef1a0e1ea27"
+    "version": "0.4.18",
+    "hash": "141e74304e49b99e"
   },
   "stream": {
-    "version": "0.1.10",
-    "hash": "88f0cfde148e7bdc"
+    "version": "0.1.14",
+    "hash": "4a286431962d8247"
   },
   "todo": {
-    "version": "1.15.11",
-    "hash": "dc3280bc1a07e5fd"
+    "version": "1.15.17",
+    "hash": "a4a36980a56fd140"
   },
   "travel": {
-    "version": "0.15.29",
-    "hash": "f12be3219b13cb62"
+    "version": "0.15.39",
+    "hash": "5772325278affba8"
   }
 }

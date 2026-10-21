@@ -359,13 +359,16 @@ export function tidyBoxes(boxes, area, taken = []) {
     const all = pass(step / 20, false);
     if (all) return all;
   }
-  // Too many even at the smallest size: cascaded inside the area, a step down and across each.
+  // Too many even at the smallest size: cascaded inside the area, a step down and across each. A caller that tidies one box
+  // at a time (canvas.js's placeWaiting) passes the windows already there as `taken`, so each one lands a step after them
+  // instead of all on the area's corner.
   const out = new Map();
   boxes.forEach(({ id, box }, i) => {
     const size = sized(box, 0);
     const spanX = Math.max(1, A.w - size.w + 1);
     const spanY = Math.max(1, A.h - size.h + 1);
-    out.set(id, { x: A.x + ((i * 32) % spanX), y: A.y + ((i * 32) % spanY), ...size });
+    const n = i + fixed.length;
+    out.set(id, { x: A.x + ((n * 32) % spanX), y: A.y + ((n * 32) % spanY), ...size });
   });
   return out;
 }

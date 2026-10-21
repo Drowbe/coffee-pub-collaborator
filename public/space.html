@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/style.css">
   <script src="/theme-head.js"></script>
   <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/sdk/system.css">
 </head>
 <body>
   <header class="topbar" id="topbar"></header>
@@ -73,11 +74,11 @@
         <span class="hint space-choice-count"></span>
       </div>
       <p class="hint space-choice-desc"></p>
-      <div class="members"></div>
+      <div class="sdk-members"></div>
       <div class="space-choice-actions">
         <button class="btn btn-primary" data-join type="button"><i class="fa-solid fa-door-open fa-fw" data-join-icon aria-hidden="true"></i> <span class="join-label" data-join-label></span></button>
         <span class="space-choice-tools">
-          <a class="btn btn-small" data-link target="_blank" rel="noopener" href="#" title="Open this {space}'s link" data-fill hidden><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
+          <a class="btn btn-small" data-link target="_blank" rel="noopener" href="#" data-tip="Open this {space}'s link" aria-label="Open this {space}'s link" data-fill hidden><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
         </span>
       </div>
     </article>
@@ -101,14 +102,14 @@
   <div class="work" id="work">
   <aside class="side-column" id="side-column" aria-label="Call and chat">
     <!-- The handle: collapses the column to a rail and back. space.js remembers it per space. -->
-    <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" title="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
+    <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" data-tip="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
     <!-- The call's titlebar, as the chat's: its name (the environment's name for the conference, else Call) and a "..."
          with Pop out, Call position, Settings and Leave the call (space.js, the call's place). -->
     <header class="side-column-call-head" id="call-head">
       <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
       <span class="chat-tools">
-        <button class="sdk-more" id="call-head-popout" type="button" title="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
-        <button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+        <button class="sdk-icon-btn btn-quiet btn-small" id="call-head-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
+        <button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
       </span>
     </header>
     <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
@@ -120,10 +121,10 @@
     <div class="side-column-call-out" id="call-out" hidden>
       <span class="call-out-note" id="call-out-note">The call is in its own window</span>
       <span class="call-out-tools">
-        <button class="fbtn action-btn" id="call-out-mic" type="button" data-for="mic" title="Microphone (M)" aria-label="Microphone"><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="call-out-deafen" type="button" data-for="deafen" title="Mute what you hear (D)" aria-label="Mute what you hear"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="call-out-cam" type="button" data-for="cam" title="Camera (V)" aria-label="Camera"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="call-out-hangup" type="button" data-for="hangup" title="Leave the call" aria-label="Leave the call"><span class="glyph"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="call-out-mic" type="button" data-for="mic" data-tip="Microphone" data-tip-keys="M" aria-label="Microphone"><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="call-out-deafen" type="button" data-for="deafen" data-tip="Mute what you hear" data-tip-keys="D" aria-label="Mute what you hear"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="call-out-cam" type="button" data-for="cam" data-tip="Camera" data-tip-keys="V" aria-label="Camera"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="call-out-hangup" type="button" data-for="hangup" data-tip="Leave the call" aria-label="Leave the call"><span class="glyph"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i></span></button>
         <button class="btn btn-small call-out-back" id="call-back" type="button"><i class="fa-solid fa-arrow-left fa-fw" aria-hidden="true"></i> Bring the call back</button>
       </span>
     </div>
@@ -131,7 +132,7 @@
     <div class="side-column-chat" id="side-column-chat"></div>
     <!-- Collapsed: the faces on the call and the chat's unread count. -->
     <div class="side-column-rail" id="side-column-rail">
-      <button class="side-column-rail-chat" id="side-column-rail-chat" type="button" title="Chat" aria-label="Chat"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="badge" id="side-column-rail-unread" hidden></span></button>
+      <button class="side-column-rail-chat" id="side-column-rail-chat" type="button" data-tip="Chat" aria-label="Chat"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" id="side-column-rail-unread" hidden></span></button>
       <div class="side-column-rail-faces" id="side-column-rail-faces"></div>
     </div>
     <!-- The column's inner edge: dragged to make the column wider or narrower, or Left and Right with the keyboard
@@ -152,8 +153,8 @@
       <header class="mod-header conference-head">
         <span class="mod-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" data-module-icon></i> <span data-module-name>Conference</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
         <span class="mod-header-tools conference-tools">
-          <button class="msg-btn" id="conf-popout" type="button" title="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="conf-close" data-module-close type="button" title="Leave the call" aria-label="Leave the call"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="conf-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="conf-close" data-module-close type="button" data-tip="Leave the call" aria-label="Leave the call"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
       <div class="grid" id="grid"></div>
@@ -164,7 +165,7 @@
         <section class="no-call-who" aria-labelledby="no-call-who-title">
           <h3 class="no-call-who-title" id="no-call-who-title">Currently on the call</h3>
           <ul class="no-call-list" id="no-call-list"></ul>
-          <p class="no-call-empty" id="no-call-empty">No one is on the call yet. Be the first to join.</p>
+          <p class="sdk-empty-line" id="no-call-empty">No one is on the call yet. Be the first to join.</p>
         </section>
         <p class="no-call-hint no-call-error" id="no-call-error" role="alert" hidden></p>
         <button class="btn btn-primary no-call-join" id="no-call-join" type="button" aria-describedby="call-hint"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> Join the call</button>
@@ -227,26 +228,26 @@
       <div class="mod-bar video-bar" id="video-bar">
       <div class="float floatbar" id="floatbar">
         <div class="fbtn-wrap" data-collapse="10">
-          <button class="fbtn action-btn" id="mic" type="button" aria-label="Microphone" title="Microphone (M)"><span class="meter" id="meter"></span><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="mic" title="Microphone settings" aria-label="Microphone settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+          <button class="fbtn" id="mic" type="button" aria-label="Microphone" data-tip="Microphone" data-tip-keys="M"><span class="sdk-mic" id="meter" role="progressbar" aria-label="Microphone level" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" aria-valuetext="Silent"><span></span><span></span><span></span><span></span><span></span></span><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="mic" data-tip="Microphone settings" aria-label="Microphone settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
         <div class="fbtn-wrap" data-collapse="7">
-          <button class="fbtn action-btn" id="deafen" type="button" aria-label="Mute what you hear" title="Mute what you hear (D)"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="audio" title="Audio output settings" aria-label="Audio output settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+          <button class="fbtn" id="deafen" type="button" aria-label="Mute what you hear" data-tip="Mute what you hear" data-tip-keys="D"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="audio" data-tip="Audio output settings" aria-label="Audio output settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
         <div class="fbtn-wrap" data-collapse="9">
-          <button class="fbtn action-btn" id="cam" type="button" aria-label="Camera" title="Camera (V)"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="camera" title="Camera settings" aria-label="Camera settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+          <button class="fbtn" id="cam" type="button" aria-label="Camera" data-tip="Camera" data-tip-keys="V"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="camera" data-tip="Camera settings" aria-label="Camera settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
-        <button class="fbtn action-btn" id="screen-share" type="button" aria-label="Share your screen" title="Share your screen (S)" data-collapse="4" hidden><span class="glyph"><i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="screen-share" type="button" aria-label="Share your screen" data-tip="Share your screen" data-tip-keys="S" data-collapse="4" hidden><span class="glyph"><i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i></span></button>
         <div class="fbtn-wrap" data-collapse="6">
-          <button class="fbtn action-btn" id="layout" type="button" title="Tiles (L)" aria-label="Tiles"><span class="glyph"><i class="fa-solid fa-table-cells-large fa-fw" id="layout-glyph" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="layout" title="Tiles settings" aria-label="Tiles settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+          <button class="fbtn" id="layout" type="button" data-tip="Tiles" data-tip-keys="L" aria-label="Tiles"><span class="glyph"><i class="fa-solid fa-table-cells-large fa-fw" id="layout-glyph" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="layout" data-tip="Tiles settings" aria-label="Tiles settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
-        <button class="fbtn action-btn" id="away-toggle" type="button" aria-label="Away" title="Away: pauses your mic and camera, mutes what you hear, and lets everyone know" data-collapse="5"><span class="glyph"><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></span></button>
-      <button class="fbtn action-btn" id="react-toggle" type="button" aria-label="Reactions" title="Reactions (R, or keys 1 to 6)" data-collapse="3"><span class="glyph"><i class="fa-solid fa-heart fa-fw" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="floatbar-more" type="button" title="More" aria-label="More" hidden><span class="glyph"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn danger" id="hangup" type="button" aria-label="Leave the call" title="Leave the call (you stay in the {space})" data-fill><span class="glyph"><i class="fa-solid fa-phone-slash fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="away-toggle" type="button" aria-label="Away" data-tip="Away: pauses your mic and camera, mutes what you hear, and lets everyone know" data-collapse="5"><span class="glyph"><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></span></button>
+      <button class="fbtn" id="react-toggle" type="button" aria-label="Reactions" data-tip="Reactions (R, or keys 1 to 6)" data-collapse="3"><span class="glyph"><i class="fa-solid fa-heart fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="floatbar-more" type="button" data-tip="More" aria-label="More" hidden><span class="glyph"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn danger" id="hangup" type="button" aria-label="Leave the call" data-tip="Leave the call (you stay in the {space})" data-fill><span class="glyph"><i class="fa-solid fa-phone-slash fa-fw" aria-hidden="true"></i></span></button>
       </div>
       <div class="popover floatbar-overflow" id="floatbar-overflow" hidden></div>
 
@@ -261,9 +262,9 @@
           <label>Mic level <span class="hint" id="gain-value">100%</span><input type="range" id="gain" min="0" max="300" step="5" value="100"></label>
           <label>Noise gate <span class="hint" id="gate-value">off</span><input type="range" id="gate" min="0" max="60" step="1" value="0"></label>
           <div class="checks">
-            <label class="check"><input type="checkbox" id="noise" checked> Noise suppression</label>
-            <label class="check"><input type="checkbox" id="echo" checked> Echo cancellation</label>
-            <label class="check"><input type="checkbox" id="agc" checked> Auto gain</label>
+            <label class="sdk-choice-row"><input type="checkbox" id="noise" checked> Noise suppression</label>
+            <label class="sdk-choice-row"><input type="checkbox" id="echo" checked> Echo cancellation</label>
+            <label class="sdk-choice-row"><input type="checkbox" id="agc" checked> Auto gain</label>
           </div>
           <label>Talking<select id="talk-mode"><option value="open">Open mic</option><option value="ptt">Push to talk</option></select></label>
         </div>
@@ -281,7 +282,7 @@
           <h3>Video</h3>
           <label>Camera<select id="cam-select"></select></label>
           <label>Quality<select id="quality"><option value="360">360p (weak connection)</option><option value="540">540p</option><option value="720" selected>720p</option></select></label>
-          <label class="check"><input type="checkbox" id="mirror" checked> Mirror my own preview</label>
+          <label class="sdk-choice-row"><input type="checkbox" id="mirror" checked> Mirror my own preview</label>
           <label>Background<select id="background-mode">
             <option value="none">Off (your real background)</option>
             <option value="blur">Blur</option>
@@ -294,8 +295,8 @@
           <div class="layout-pick" id="layout-pick" role="group" aria-label="Tiles">
             <button type="button" data-view="grid"><i class="fa-solid fa-table-cells-large fa-fw" aria-hidden="true"></i> Grid</button>
             <button type="button" data-view="strip" title="Strip: one row or column"><i class="fa-solid fa-grip fa-fw" aria-hidden="true"></i> Strip</button>
-            <button type="button" data-view="focus" title="Focus: one big tile, pinned or picked by hand"><i class="fa-regular fa-square fa-fw" aria-hidden="true"></i> Focus</button>
-            <button type="button" data-view="spotlight" title="Spotlight: one big tile that follows whoever is speaking"><i class="fa-brands fa-square-web-awesome fa-fw" aria-hidden="true"></i> Spotlight</button>
+            <button type="button" data-view="focus" title="Focus: one big tile, pinned or picked by hand"><i class="fa-solid fa-expand fa-fw" aria-hidden="true"></i> Focus</button>
+            <button type="button" data-view="spotlight" title="Spotlight: one big tile that follows whoever is speaking"><i class="fa-solid fa-bullseye fa-fw" aria-hidden="true"></i> Spotlight</button>
           </div>
           <p class="hint">Drag tiles to reorder them. Click a tile to spotlight it. Hover a tile for its volume.</p>
         </div>
@@ -321,11 +322,11 @@
     <aside class="chat module module-chat" id="chat" hidden>
       <div class="chat-resize" id="chat-resize" title="Drag to resize"></div>
       <div class="mod-content" id="chat-content">
-      <header>
+      <header class="chat-head">
         <span data-module-name>Chat</span>
         <span class="chat-tools">
-          <button class="sdk-more" id="chat-more" type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-close" type="button" title="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-more" type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-close" type="button" data-tip="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
       <!-- Chat's two views (GitHub #203), one store: Discussion, what everyone sees, and Assistant, your own commands, AI
@@ -342,25 +343,25 @@
       <div class="messages" id="messages" data-view="discussion"></div>
       <div class="chat-format-bar" id="chat-format-bar">
         <span class="chat-format-side">
-          <button class="sdk-more" id="chat-format-more" type="button" data-more hidden title="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-pic" type="button" data-collapse="1" data-for="discussion" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-bold" type="button" data-collapse="2" data-for="discussion" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-italic" type="button" data-collapse="3" data-for="discussion" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-code" type="button" data-collapse="4" data-for="discussion" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-list" type="button" data-collapse="5" data-for="discussion" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-format-more" type="button" data-more hidden data-tip="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-pic" type="button" data-collapse="1" data-for="discussion" data-tip="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-bold" type="button" data-collapse="2" data-for="discussion" data-tip="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-italic" type="button" data-collapse="3" data-for="discussion" data-tip="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-code" type="button" data-collapse="4" data-for="discussion" data-tip="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-list" type="button" data-collapse="5" data-for="discussion" data-tip="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
           <span class="chat-format-item" data-collapse="6" data-for="discussion">
-            <button class="msg-btn" id="chat-emoji" type="button" title="Emoji" aria-label="Emoji"><i class="fa-regular fa-face-smile fa-fw" aria-hidden="true"></i></button>
+            <button class="sdk-icon-btn btn-quiet btn-small" id="chat-emoji" type="button" data-tip="Emoji" aria-label="Emoji"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></button>
             <div class="chat-emoji-popup" id="chat-emoji-popup" hidden></div>
           </span>
-          <button class="msg-btn" id="chat-import-copy" type="button" data-collapse="7" data-for="assistant" title="Copy prompt" aria-label="Copy prompt" hidden><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-bring" type="button" data-collapse="8" data-for="assistant" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-import-copy" type="button" data-collapse="7" data-for="assistant" data-tip="Copy prompt" aria-label="Copy prompt" hidden><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-bring" type="button" data-collapse="8" data-for="assistant" data-tip="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
         </span>
         <span class="chat-format-side">
           <span class="chat-format-item chat-command-wrap" id="chat-command-wrap" data-collapse="9">
-            <button class="msg-btn" id="chat-command" type="button" title="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
+            <button class="sdk-icon-btn btn-quiet btn-small" id="chat-command" type="button" data-tip="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
           </span>
           <span class="chat-format-item" data-collapse="10" data-for="discussion">
-            <button class="msg-btn" id="chat-help" type="button" title="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
+            <button class="sdk-icon-btn btn-quiet btn-small" id="chat-help" type="button" data-tip="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
             <div class="chat-help-popup" id="chat-help-popup" hidden>
               <p><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, and lines starting with <code>- </code> for a bulleted list all work. Links become clickable automatically. Paste or drop a picture to send it. Shift+Enter starts a new line without sending.</p>
             </div>
@@ -385,8 +386,8 @@
     </aside>
 
     <!-- Shown when nothing is open on the canvas (on a phone: no conference, no chat, no module). -->
-    <div class="canvas-empty" id="canvas-empty" hidden>
-      <p data-fill>Nothing is open. Open {a module} from the {space} bar.</p>
+    <div class="sdk-empty" id="canvas-empty" hidden>
+      <p class="sdk-empty-text" data-fill>Nothing is open. Open {a module} from the {space} bar.</p>
     </div>
 
   </main>
@@ -398,6 +399,7 @@
        exact text is pinned by a CSP hash above -- change one, change both. -->
   <script type="importmap">{"imports":{"livekit-client":"/lib/livekit-client.esm.mjs","@mediapipe/tasks-vision":"/lib/tasks-vision.mjs"}}</script>
   <script src="/phases.js"></script>
+  <script src="/journey-layout.js"></script>
   <script src="/sdk/host.js" data-host-sdk></script>
   <script type="module" src="/space.js"></script>
 </body>

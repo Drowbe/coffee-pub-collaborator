@@ -35,9 +35,9 @@ for (const file of files) {
   const lines = fs.readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, i) => {
     for (const { re, why } of WRONG) if (re.test(line)) problems.push(`${path.relative(root, file)}:${i + 1}: ${why}`);
-    // A "..." trigger in markup must be the shared button (.sdk-more). The call's More is its own .fbtn.
-    if (/\.html$/.test(file) && /<button\b/.test(line) && /ellipsis-vertical/.test(line) && !/sdk-more/.test(line) && !/\bfbtn\b/.test(line) && !/floatbar-more/.test(line)) {
-      problems.push(`${path.relative(root, file)}:${i + 1}: a "..." button must use the shared sdk-more class`);
+    // A "..." trigger in markup must be the shared button (.sdk-icon-btn with btn-quiet and btn-small). The call's More is its own .fbtn.
+    if (/\.html$/.test(file) && /<button\b/.test(line) && /ellipsis-vertical/.test(line) && !/sdk-icon-btn/.test(line) && !/\bfbtn\b/.test(line) && !/floatbar-more/.test(line)) {
+      problems.push(`${path.relative(root, file)}:${i + 1}: a "..." button must use the shared sdk-icon-btn class`);
     }
   });
 }
@@ -118,19 +118,24 @@ for (const id of EDITOR_MIGRATED) {
     for (const need of ['open', 'close', 'cancel']) {
       if (handle && typeof handle[need] !== 'function') problems.push(`public/sdk/host.js: the editor handle must have ${need}()`);
     }
-    const css = read('public/sdk/host.css');
-    const block = /\/\* editor:start[\s\S]*?\/\* editor:end \*\//.exec(css);
-    if (!block) problems.push('public/sdk/host.css: the editor window\'s rules must sit between "editor:start" and "editor:end"');
+    // The editor window's rules are the Dialogs block of public/sdk/system.css (between "dialogs:start" and "dialogs:end"): the two
+    // sizes are its tokens, held to the SDK's.
+    const css = read('public/sdk/system.css');
+    const block = /\/\* dialogs:start[\s\S]*?\/\* dialogs:end \*\//.exec(css);
+    if (!block) problems.push('public/sdk/system.css: the editor window\'s rules must sit between "dialogs:start" and "dialogs:end"');
     else {
-      const medium = /\.sdk-editor\s*\{[^}]*?width:\s*min\((\d+)px,\s*100vw - 32px\)/.exec(block[0]);
-      const large = /\.sdk-editor-large\s*\{[^}]*?width:\s*min\((\d+)px,\s*100vw - 32px\)/.exec(block[0]);
-      if (!medium || Number(medium[1]) !== EDITOR_SIZES.medium) problems.push(`public/sdk/host.css: .sdk-editor must be width: min(${EDITOR_SIZES.medium}px, 100vw - 32px)`);
-      if (!large || Number(large[1]) !== EDITOR_SIZES.large) problems.push(`public/sdk/host.css: .sdk-editor-large must be width: min(${EDITOR_SIZES.large}px, 100vw - 32px)`);
-      for (const need of ['.sdk-editor::backdrop', '.sdk-editor-close', '.sdk-editor-actions', '.sdk-editor-discard', '@media (max-width: 640px)', 'height: 100dvh', 'prefers-reduced-motion']) {
-        if (!block[0].includes(need)) problems.push(`public/sdk/host.css: the editor window's rules must include "${need}"`);
+      const medium = /--dlg-w-form:\s*(\d+)px/.exec(block[0]);
+      const large = /--dlg-w-browse:\s*(\d+)px/.exec(block[0]);
+      if (!medium || Number(medium[1]) !== EDITOR_SIZES.medium) problems.push(`public/sdk/system.css: --dlg-w-form must be ${EDITOR_SIZES.medium}px`);
+      if (!large || Number(large[1]) !== EDITOR_SIZES.large) problems.push(`public/sdk/system.css: --dlg-w-browse must be ${EDITOR_SIZES.large}px`);
+      if (!/--dlg-w:\s*var\(--dlg-w-form\);[\s\S]*?width:\s*min\(var\(--dlg-w\),\s*100vw - 32px\)/.test(block[0])) problems.push('public/sdk/system.css: .sdk-editor must be width: min(var(--dlg-w), 100vw - 32px) with --dlg-w the form size');
+      if (!/:is\(\.sdk-editor-large[^)]*\) \{ --dlg-w: var\(--dlg-w-browse\); \}/.test(block[0])) problems.push('public/sdk/system.css: .sdk-editor-large must take the browse size');
+      for (const need of ['::backdrop', '.sdk-editor-close', '.sdk-editor-head', '.sdk-editor-actions', '.sdk-editor-discard', '@media (max-width: 640px)', 'height: 100dvh', 'prefers-reduced-motion', 'var(--scrim)', 'var(--shadow-3)']) {
+        if (!block[0].includes(need)) problems.push(`public/sdk/system.css: the editor window's rules must include "${need}"`);
       }
-      if (/inset\s*:\s*0/.test(block[0])) problems.push('public/sdk/host.css: the editor window must not use inset: 0 (top: 0 with height: 100dvh on a phone; see architecture-canvas.md)');
-      for (const m of block[0].matchAll(/#[0-9a-f]{3,8}\b|\brgba?\((?!0,\s*0,\s*0)/gi)) problems.push(`public/sdk/host.css: the editor window's rules use a fixed colour "${m[0]}"; use the theme tokens`);
+      if (/inset\s*:\s*0/.test(block[0])) problems.push('public/sdk/system.css: the editor window must not use inset: 0 (top: 0 with height: 100dvh on a phone; see architecture-canvas.md)');
+      for (const m of block[0].matchAll(/#[0-9a-f]{3,8}\b|\brgba?\((?!0,\s*0,\s*0)/gi)) problems.push(`public/sdk/system.css: the editor window's rules use a fixed colour "${m[0]}"; use the theme tokens`);
+      if (/\/\* editor:start/.test(read('public/sdk/host.css'))) problems.push('public/sdk/host.css: the editor window\'s rules moved to system.css (the Dialogs block); none are kept here');
     }
     // The date picker (host.ui.datePicker) follows its field: disabled with it, so a read-only form has no Pick a date.
     const dp = sdk.indexOf('datePicker: (input, o)');
@@ -158,11 +163,10 @@ for (const id of EDITOR_MIGRATED) {
     const lift = /\/\* lift:start[\s\S]*?\/\* lift:end \*\//.exec(pageCss);
     if (!lift) problems.push('public/style.css: the lifted frame\'s rules must sit between "lift:start" and "lift:end"');
     else {
-      const medium = /iframe\.module-editor-lifted\s*\{[^}]*?width:\s*min\((\d+)px,\s*100vw - 32px\)/.exec(lift[0]);
-      const large = /iframe\.module-editor-lifted\.module-editor-lifted-large\s*\{[^}]*?width:\s*min\((\d+)px,\s*100vw - 32px\)/.exec(lift[0]);
-      if (!medium || Number(medium[1]) !== EDITOR_SIZES.medium) problems.push(`public/style.css: iframe.module-editor-lifted must be width: min(${EDITOR_SIZES.medium}px, 100vw - 32px)`);
-      if (!large || Number(large[1]) !== EDITOR_SIZES.large) problems.push(`public/style.css: iframe.module-editor-lifted.module-editor-lifted-large must be width: min(${EDITOR_SIZES.large}px, 100vw - 32px)`);
-      for (const need of ['.module-editor-backdrop', 'position: fixed', 'z-index: var(--z-menu)', '@media (max-width: 640px)', 'height: 100dvh', 'prefers-reduced-motion', 'color-mix(in srgb, var(--bg) 70%, transparent)']) {
+      // The widths are the Dialogs block's tokens (--dlg-w-form and --dlg-w-browse, held to the SDK's sizes above).
+      if (!/iframe\.module-editor-lifted\s*\{[^}]*?width:\s*min\(var\(--dlg-w-form\),\s*100vw - 32px\)/.test(lift[0])) problems.push('public/style.css: iframe.module-editor-lifted must be width: min(var(--dlg-w-form), 100vw - 32px)');
+      if (!/iframe\.module-editor-lifted\.module-editor-lifted-large\s*\{[^}]*?width:\s*min\(var\(--dlg-w-browse\),\s*100vw - 32px\)/.test(lift[0])) problems.push('public/style.css: iframe.module-editor-lifted.module-editor-lifted-large must be width: min(var(--dlg-w-browse), 100vw - 32px)');
+      for (const need of ['.module-editor-backdrop', 'position: fixed', 'z-index: var(--z-dialog)', '@media (max-width: 640px)', 'height: 100dvh', 'prefers-reduced-motion', 'var(--scrim)', 'var(--shadow-3)']) {
         if (!lift[0].includes(need)) problems.push(`public/style.css: the lifted frame's rules must include "${need}"`);
       }
       if (/inset\s*:\s*0/.test(lift[0])) problems.push('public/style.css: the lifted frame must not use inset: 0 (top: 0 with height: 100dvh on a phone; see architecture-canvas.md)');
@@ -314,11 +318,16 @@ for (const id of EDITOR_MIGRATED) {
     const block = /\/\* kind:start[\s\S]*?\/\* kind:end \*\//.exec(css);
     if (!block) problems.push('public/sdk/host.css: the kind picker\'s rules must sit between "kind:start" and "kind:end"');
     else {
-      for (const need of ['.sdk-kind-field', '.sdk-kind-chip', '.sdk-kind-list', '.sdk-kind-option', '.sdk-kind-group-title', '.sdk-kind-empty', 'var(--bar-control-h', 'var(--kind-color)', '@media (max-width: 640px)', 'max-height: 360px']) {
+      for (const need of ['.sdk-kind-field', '.sdk-kind-chip', 'var(--bar-control-h', 'var(--kind-color)', '@media (max-width: 640px)']) {
         if (!block[0].includes(need)) problems.push(`public/sdk/host.css: the kind picker's rules must include "${need}"`);
       }
+      // The list and its rows are the Menus family's (the Menus block of system.css).
+      const menus = /\/\* menus:start \*\/[\s\S]*?\/\* menus:end \*\//.exec(read('public/sdk/system.css'));
+      for (const need of ['.sdk-kind-list', '.sdk-kind-option', '.sdk-kind-group-title', '.sdk-kind-empty', 'max-height: min(360px']) {
+        if (!menus || !menus[0].includes(need)) problems.push(`public/sdk/system.css: the Menus block must include "${need}" (the kind picker's list)`);
+      }
       for (const m of block[0].matchAll(/#[0-9a-f]{3,8}\b|\brgba?\((?!0,\s*0,\s*0)/gi)) problems.push(`public/sdk/host.css: the kind picker's rules use a fixed colour "${m[0]}"; use the theme tokens`);
-      if (!/\[aria-selected="true"\] \.sdk-kind-icon \{[^}]*color: var\(--on-accent\)/.test(block[0])) problems.push('public/sdk/host.css: the chosen kind\'s icon on its solid colour must use --on-accent (text on an accent), not --bg');
+      if (!/\.sdk-kind-option\[aria-selected="true"\] \.sdk-kind-icon \{[^}]*var\(--kind-color/.test(read('public/sdk/system.css'))) problems.push('public/sdk/system.css: the chosen kind\'s icon must show the kind\'s colour (a tint of it behind the glyph)');
     }
   }
 }

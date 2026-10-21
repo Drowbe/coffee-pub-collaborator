@@ -1,0 +1,223 @@
+/* ==== Progress bars and meters (PROPOSED 2026-10-20; the research recommendations Thomas approved as a batch on 2026-10-20) ====
+   One track: 8px high, fully round (--radius-round, which is allowed for tracks, bars, dots and avatars), in --border, with an accent fill and a label with
+   the value in words (text, never colour alone). A small track, 6px, for toolbars and uploads. Every bar is role="progressbar" with aria-valuenow, -min and
+   -max and a name (aria-label); an indeterminate one has no valuenow and aria-busy.
+     .sdk-progress          the track (aliases .tb-progress, .ai-meter, .upload .bar, .bar in Budget); .sdk-progress-sm is the 6px one
+     .sdk-progress-fill     the fill (aliases .tb-progress-fill, .ai-meter span, .bar > span); its width is --pct (data)
+     .sdk-progress-planned  Budget: what is planned, the accent at 35%, under the spent fill
+     .sdk-progress.over     Budget over: the fill is the danger status fill and the words say "Over"
+     .sdk-progress.warn     the AI meter at 90% or more: the danger fill and the words "Almost full"
+     .sdk-progress.indeterminate   a shimmer; still under reduced motion
+     .sdk-progress-behind   a poll option: a 24% accent fill behind the row, the percent in text on the row
+     .sdk-meter             a bar with its label above (.sdk-meter-head: .sdk-meter-label, .sdk-meter-value)
+     .sdk-mic               the call's microphone level: vertical bars in the ok status fill (its own pattern)
+   The Status strip's fill (32% accent) stays in the Status strip family. Colours are theme tokens only. Radii are tokens. */
+
+.ds-proposed {
+  --pg-h: 8px;
+  --pg-track: var(--border);
+  --pg-fill: var(--accent);
+  --pg-planned: color-mix(in srgb, var(--accent) 35%, transparent);
+  --pg-behind: color-mix(in srgb, var(--accent) 24%, transparent);
+  --pg-over: var(--danger);
+  --pg-ok: var(--ok-mark);
+  --pg-shine: color-mix(in srgb, var(--accent) 40%, var(--bg-card));
+}
+
+/* ---- the track ---- */
+.ds-proposed :is(.sdk-progress, .tb-progress, .ai-meter, .upload .bar) {
+  position: relative;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: var(--pg-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--pg-track);
+  overflow: hidden;
+}
+
+.ds-proposed :is(.sdk-progress-sm, .tb-progress, .upload .bar, .sdk-toolbar .sdk-progress, .sdk-status-line .sdk-progress) {
+  --pg-h: 6px;
+}
+
+/* A bar in a toolbar or a status line is a short one beside text (the Module window family's size); everywhere else it runs the full width. */
+.ds-proposed :is(.sdk-toolbar, .sdk-status-line, .tb-progress) .sdk-progress, .ds-proposed .tb-progress { flex: 1 1 80px; min-width: 40px; max-width: 160px; }
+.ds-proposed :is(.sdk-progress-fill, .tb-progress-fill, .ai-meter > span, .upload .bar > span) {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: var(--pct, 0%);
+  height: auto;
+  border-radius: var(--radius-round);
+  background: var(--pg-fill);
+  transition: width var(--motion-base) var(--ease-out);
+}
+
+.ds-proposed .sdk-progress .sdk-progress-planned {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: var(--pct, 0%);
+  border-radius: var(--radius-round);
+  background: var(--pg-planned);
+  transition: width var(--motion-base) var(--ease-out);
+}
+
+/* Over budget: the danger status fill (a solid fill, not an edge), the whole track, and the words say "Over". */
+.ds-proposed .sdk-progress.over :is(.sdk-progress-fill, .sdk-progress-planned) {
+  width: 100%;
+  background: var(--pg-over);
+}
+
+.ds-proposed .sdk-progress.over .sdk-progress-planned {
+  display: none;
+}
+
+/* The AI meter: the danger fill from 90%, and the words "Almost full". */
+.ds-proposed :is(.sdk-progress.warn, .ai-meter.warn) :is(.sdk-progress-fill, span) {
+  background: var(--pg-over);
+}
+
+/* Indeterminate: a shimmer along the whole track. Under reduced motion it holds still at half. */
+.ds-proposed .sdk-progress.indeterminate .sdk-progress-fill {
+  width: 100%;
+  background: linear-gradient(90deg, var(--pg-fill) 0%, var(--pg-shine) 50%, var(--pg-fill) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed .sdk-progress.indeterminate .sdk-progress-fill {
+    width: 50%;
+    background: var(--pg-fill);
+    animation: none;
+  }
+
+  .ds-proposed :is(.sdk-progress-fill, .tb-progress-fill, .ai-meter > span, .sdk-progress-planned) { transition: none; }
+}
+
+/* ---- the bar with its label: the name and the value are text; the value is in words ---- */
+.ds-proposed .sdk-meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.ds-proposed .sdk-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.ds-proposed .sdk-meter-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-proposed .sdk-meter-value {
+  flex: none;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-proposed .sdk-meter-value b {
+  color: var(--f-error, var(--danger));
+  font-weight: 600;
+}
+
+.ds-proposed .sdk-meter-sub {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* A bar beside its value on one line (a toolbar, an upload row). */
+.ds-proposed .sdk-meter-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.ds-proposed .sdk-meter-inline > .sdk-progress {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.ds-proposed .sdk-meter-inline > .sdk-meter-value {
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ---- a poll option: the fill sits behind the row, the percent is text on it ---- */
+.ds-proposed .sdk-fillrow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  min-height: var(--check-h, 32px);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.ds-proposed .sdk-progress-behind {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pct, 0%);
+  background: var(--pg-behind);
+  pointer-events: none;
+}
+
+.ds-proposed .sdk-fillrow > :not(.sdk-progress-behind) {
+  position: relative;
+  z-index: 1;
+}
+
+.ds-proposed .sdk-fillrow .sdk-meter-value {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---- the call's microphone level: its own pattern, vertical bars in the ok status fill ---- */
+.ds-proposed .sdk-mic {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+
+.ds-proposed .sdk-mic > span {
+  display: block;
+  width: 3px;
+  border-radius: var(--radius-round);
+  background: var(--pg-track);
+}
+
+.ds-proposed .sdk-mic > span:nth-child(1) { height: 4px; }
+.ds-proposed .sdk-mic > span:nth-child(2) { height: 7px; }
+.ds-proposed .sdk-mic > span:nth-child(3) { height: 10px; }
+.ds-proposed .sdk-mic > span:nth-child(4) { height: 13px; }
+.ds-proposed .sdk-mic > span:nth-child(5) { height: 16px; }
+
+.ds-proposed .sdk-mic > span.on {
+  background: var(--pg-ok);
+}

@@ -4,10 +4,10 @@
  *
  * A view switch (host.ui.viewSwitch in a module's toolbar or its own page, Chat's Private | Shared, a destination's
  * switches) is a .tb-tabs of .tb-tab choices, each an icon and a word. Its rules sit between the markers
- * view-switch:start and view-switch:end in public/style.css and public/sdk/host.css, word for word the same, and its
+ * tabs:start and tabs:end in public/sdk/system.css (the Tabs component, once), and its
  * drawing and fit are hostSwitch in public/sdk/host.js (fill, fit, watch): while the words do not fit the switch's
  * container, the switch shows its icons only. This fails when:
- *   - the two copies of the rules differ, either is missing, or the icons-only rule is gone;
+ *   - the Tabs block is missing, an old copy of the rules is back in style.css or host.css, or the icons-only rule is gone;
  *   - host.ui.viewSwitch drops an option's icon on the way to the toolbar, or its `element` switch is not drawn the shared way;
  *   - a choice in icons only loses its word as its accessible name and tooltip, a choice without an icon loses its word,
  *     the fit changes what is selected, or the words do not come back once they fit again;
@@ -36,7 +36,6 @@ const test = async (name, fn) => {
 
 // --- 1. The rules ---------------------------------------------------------------------------------------------------
 const SIZE_PROPS = /^(width|height|min-width|min-height|max-width|max-height|padding|padding-[a-z]+|font|font-size|line-height|gap)$/;
-const BLOCK = /\/\* view-switch:start[\s\S]*?\/\* view-switch:end \*\//g;
 
 function rules(text) {
   const clean = text.replace(/\/\*[\s\S]*?\*\//g, (c) => ' '.repeat(c.length));
@@ -57,39 +56,34 @@ function rules(text) {
 // A selector aimed at the switch or one of its parts (its last compound names a tb-tab class).
 const aimsAtSwitch = (selector) => selector.split(',').some((s) => /\.tb-tab(s|-glyph|-word|-icon)?\b(?![-\w])/.test(s.trim().split(/\s+|>|~|\+/).filter(Boolean).pop() || ''));
 
-const style = read('public/style.css');
-const sdkCss = read('public/sdk/host.css');
-const blocks = {};
-for (const [rel, text] of [['public/style.css', style], ['public/sdk/host.css', sdkCss]]) {
-  const all = [...text.matchAll(BLOCK)];
-  if (all.length !== 1) fail(`${rel}: needs exactly one view-switch:start ... view-switch:end block, found ${all.length}`);
-  else blocks[rel] = all[0][0];
-}
-const a = blocks['public/style.css'];
-const b = blocks['public/sdk/host.css'];
-if (a && b && a !== b) {
-  const al = a.split('\n');
-  const bl = b.split('\n');
-  const at = al.findIndex((line, i) => line !== bl[i]);
-  fail(`the view switch's rules differ between public/style.css and public/sdk/host.css (block line ${at + 1}: "${al[at] ?? ''}" vs "${bl[at] ?? ''}"); keep them word for word the same`);
+const system = read('public/sdk/system.css');
+const TABS_BLOCK = /\/\* tabs:start[\s\S]*?\/\* tabs:end \*\//g;
+const found = [...system.matchAll(TABS_BLOCK)];
+let a = null;
+if (found.length !== 1) fail(`public/sdk/system.css: needs exactly one tabs:start ... tabs:end block, found ${found.length}`);
+else a = found[0][0];
+// The old copies are gone: the view switch's rules are the Tabs component in system.css, once.
+for (const rel of ['public/style.css', 'public/sdk/host.css']) {
+  if (/\/\* view-switch:start/.test(read(rel))) fail(`${rel}: still has a view-switch:start block; the view switch's rules live once, in the Tabs block of public/sdk/system.css`);
 }
 if (a) {
   const declared = rules(a);
-  const sel = (s) => declared.find((r) => r.selector.split(',').map((x) => x.trim()).includes(s));
-  for (const s of ['.tb-tabs', '.tb-tab', '.tb-tab.on', '.tb-tab-glyph', '.tb-tab-glyph svg', '.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word']) {
-    if (!sel(s)) fail(`the view switch's rules have no ${s}`);
+  const has = (s) => declared.some((r) => r.selector.replace(/\s+/g, ' ').includes(s));
+  for (const s of ['.tb-tabs', '.tb-tab', '.on', '.tb-tab-glyph', '.tb-tabs-compact > :is(.sdk-tab, .tb-tab) > :is(.sdk-tab-glyph, .tb-tab-glyph) ~ :is(.sdk-tab-word, .tb-tab-word)']) {
+    if (!has(s)) fail(`the Tabs block has no rule for ${s}`);
   }
   // Icons only hides the word only where there is an icon before it: a choice without one keeps its word.
-  const hide = sel('.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word');
+  const HIDE = /^\.tb-tabs-compact > :is\(\.sdk-tab, \.tb-tab\) > :is\(\.sdk-tab-glyph, \.tb-tab-glyph\) ~ :is\(\.sdk-tab-word, \.tb-tab-word\)$/;
+  const hide = declared.find((r) => HIDE.test(r.selector.replace(/\s+/g, ' ').trim()));
   if (hide && !hide.decls.some(([k, v]) => k === 'display' && v === 'none')) fail('the icons-only rule must hide the word (display: none) after an icon');
   for (const r of declared) {
-    if (/\.tb-tab-word/.test(r.selector) && r.decls.some(([k, v]) => k === 'display' && v === 'none') && !/\.tb-tabs-compact\s+\.tb-tab-glyph\s*~\s*\.tb-tab-word/.test(r.selector)) {
+    if (/-tab-word/.test(r.selector) && r.decls.some(([k, v]) => k === 'display' && v === 'none') && !HIDE.test(r.selector.replace(/\s+/g, ' ').trim())) {
       fail(`"${r.selector}" hides a choice's word outside icons only, or without an icon before it`);
     }
   }
   // Colours are the theme's tokens.
   for (const r of declared) {
-    for (const [k, v] of r.decls) if (/color|background|border/.test(k) && /#[0-9a-f]{3,8}\b|rgb\(/i.test(v)) fail(`the view switch's ${r.selector} { ${k} } uses a fixed colour; use a theme token`);
+    for (const [k, v] of r.decls) if (/color|background|border/.test(k) && /#[0-9a-f]{3,8}\b|rgb\(/i.test(v)) fail(`the Tabs block's ${r.selector} { ${k} } uses a fixed colour; use a theme token`);
   }
 }
 
@@ -97,7 +91,7 @@ if (a) {
 // flex are theirs) and every bundled module's CSS, inline <style> and script-made CSS.
 const hostSheets = fs.readdirSync(path.join(ROOT, 'public')).filter((f) => f.endsWith('.css')).map((f) => `public/${f}`).concat('public/sdk/host.css');
 for (const rel of hostSheets) {
-  const text = read(rel).replace(BLOCK, '');
+  const text = read(rel);
   for (const r of rules(text)) {
     if (!aimsAtSwitch(r.selector)) continue;
     const sized = r.decls.filter(([k]) => SIZE_PROPS.test(k)).map(([k]) => k);
@@ -265,7 +259,7 @@ await test('a choice shows its icon and its word, its word its accessible name',
   assert.equal(glyph.getAttribute('aria-hidden'), 'true');
   assert.equal(btn.querySelector(':scope > .tb-tab-word').textContent, 'Week');
   assert.equal(btn.getAttribute('aria-label'), 'Week');
-  assert.equal(btn.title, '', 'a choice that shows its word needs no tooltip');
+  assert.equal(btn.dataset.tip, undefined, 'a choice that shows its word needs no tooltip');
   const reg = choice(g, { id: 'open', label: 'Open', icon: 'circle', regular: true });
   assert.ok(/fa-regular/.test(reg.querySelector(':scope > .tb-tab-glyph').className));
   const bad = choice(g, { id: 'x', label: 'X', icon: 'not an icon"' });
@@ -279,13 +273,13 @@ await test('wide: the switch keeps its words; narrow: icons only, each word kept
   const plain = choice(g, { id: 'all', label: 'All' });
   sw.fit(box);
   assert.equal(g.classList.contains('tb-tabs-compact'), false, 'compact when the words fit');
-  assert.equal(day.title, '');
+  assert.equal(day.dataset.tip, undefined);
   box.boxWidth = 120; // narrower than the words (about 200), wide enough for the icons
   sw.fit(box);
   assert.equal(g.classList.contains('tb-tabs-compact'), true, 'not compact when the words do not fit');
   for (const [btn, word] of [[day, 'Day'], [agenda, 'Agenda']]) {
     assert.equal(btn.getAttribute('aria-label'), word, `${word}: accessible name lost in icons only`);
-    assert.equal(btn.title, word, `${word}: no tooltip in icons only`);
+    assert.equal(btn.dataset.tip, word, `${word}: no tooltip in icons only`);
     assert.equal(btn.querySelector(':scope > .tb-tab-word').textContent, word, `${word}: the word is gone, not hidden`);
   }
   // A choice without an icon keeps its word: there is no icon for the rule to hide it after.
@@ -300,7 +294,7 @@ await test('wide: the switch keeps its words; narrow: icons only, each word kept
   box.boxWidth = 1000;
   sw.fit(box);
   assert.equal(g.classList.contains('tb-tabs-compact'), false, 'still compact once the words fit again');
-  assert.equal(day.title, '');
+  assert.equal(day.dataset.tip, undefined);
   assert.equal(day.getAttribute('aria-label'), 'Day');
 });
 
@@ -323,7 +317,7 @@ await test('an icon-only choice (iconOnly) always has its word as title and aria
   const { g } = container(400);
   const btn = choice(g, { id: 'grid', label: 'Cards', icon: 'grip', iconOnly: true });
   assert.equal(btn.querySelector(':scope > .tb-tab-word'), null);
-  assert.equal(btn.title, 'Cards');
+  assert.equal(btn.dataset.tip, 'Cards');
   assert.equal(btn.getAttribute('aria-label'), 'Cards');
   assert.ok(btn.classList.contains('tb-tab-icon'));
 });
@@ -368,7 +362,7 @@ await test('host.ui.viewSwitch with `element` draws the shared switch in the pag
   holder.boxWidth = 60;
   sw.fit(holder);
   assert.ok(el.classList.contains('tb-tabs-compact'));
-  assert.equal(again[0].title, 'Open (3)');
+  assert.equal(again[0].dataset.tip, 'Open (3)');
   s.destroy();
 });
 

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Lee, an elf with long hair, pointed ears and a thin circlet, her player colour green. Flat and geometric, no features in
+       the face. Source of lee.png (the games seed's Character picture); render at 256 on a clear ground. -->
+  <path fill="#463A44" d="M86 112c0-36 18-54 42-54s42 18 42 54l6 92H80z"/>
+  <path fill="#6A8F3D" d="M26 256l18-52c10-18 40-28 84-28s74 10 84 28l18 52z"/>
+  <path fill="#4F6E2B" d="M82 184l46 22 46-22-4-12-42 18-42-18z"/>
+  <rect fill="#C99E7C" x="116" y="150" width="24" height="40"/>
+  <path fill="#E2B894" d="M102 116L76 94l24 40zM154 116l26-22-24 40z"/>
+  <ellipse fill="#E2B894" cx="128" cy="124" rx="28" ry="36"/>
+  <path fill="#000" opacity="0.18" d="M128 88a28 36 0 0 1 0 72zM154 116l26-22-24 40z"/>
+  <path fill="#463A44" d="M99 118c0-26 12-42 29-42s29 16 29 42l-8-14c-6-6-13-10-21-12-8 2-15 6-21 12z"/>
+  <path fill="none" stroke="#8DB45A" stroke-width="3" d="M100 108q28-12 56 0"/>
+  <path fill="#8DB45A" d="M128 94l5 7-5 7-5-7z"/>
+</svg>

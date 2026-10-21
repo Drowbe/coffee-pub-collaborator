@@ -1,6 +1,8 @@
 import { nav } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
+import '/tooltip.js';
+import { topBarTabs } from '/page-tabs.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
 import { profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
@@ -155,6 +157,9 @@ let freshModules = 0; // modules this server ships that are not installed yet: M
 let updatesWaiting = 0; // module updates available, for owners and the admin (GET /api/modules)
 let presentSpace = null; // the space this page is present in (an aside's parent in an aside); the space page says so
 let inSpace = false; // the space page showing a space (plan-one-bar.md, step 7): its one bar has the switcher in the Spaces slot's place
+// A page whose tabs are in the top bar (renderPageBar(), a control marked data-top-bar: Manage, #262): the bar is the
+// page's, so the Spaces slot and the switcher's entries in the phone menu leave it, and the anchor names the page.
+let pageTabsInBar = false;
 let bar = { adminHref: '/admin', withThemeSwitch: true, guest: false, hostConsole: false };
 
 // A page opened over a call (?from=space, Profile or Manage in the space page's frame): the same origin underneath.
@@ -229,7 +234,7 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
     </div>
     <div class="nav-middle core-nav" id="core-nav"></div>
     <nav class="nav-right links" aria-label="${guest ? 'Page' : 'You'}"></nav>
-    <button class="icon-link nav-toggle" id="nav-toggle" type="button" title="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
+    <button class="icon-link nav-toggle" id="nav-toggle" type="button" data-tip="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
   `;
   nav.attach('primary', header);
   registerSystemTools(header);
@@ -268,7 +273,7 @@ function refreshWords() {
   const caret = byId('spaces-switch');
   if (caret) {
     const text = `Switch ${word('space')}`;
-    caret.title = text;
+    caret.dataset.tip = text;
     caret.setAttribute('aria-label', text);
   }
   if (nav.get('menu-home')) nav.register({ ...nav.get('menu-home'), label: word('home') });
@@ -295,10 +300,10 @@ function registerSystemTools(header) {
     slot.innerHTML = '<a class="core-link nav-slot" id="spaces-link" href="/" target="_top"></a><button type="button" class="core-link nav-slot-caret" id="spaces-switch" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i></button>';
     slot.querySelector('#spaces-link').textContent = word('home');
     const caret = slot.querySelector('#spaces-switch');
-    caret.title = `Switch ${word('space')}`;
-    caret.setAttribute('aria-label', caret.title);
+    caret.dataset.tip = `Switch ${word('space')}`;
+    caret.setAttribute('aria-label', caret.dataset.tip);
     caret.addEventListener('click', () => openSwitcher(caret));
-    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() && !inSpace });
+    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() && !inSpace && !pageTabsInBar });
   }
   // The anchor: where you are, after the Spaces slot (setTopbarLocation; the space page's breadcrumb). On a phone only
   // its last segment shows (style.css).
@@ -330,7 +335,7 @@ function registerSystemTools(header) {
   bell.setAttribute('aria-haspopup', 'dialog');
   bell.setAttribute('aria-expanded', 'false');
   bell.setAttribute('aria-controls', 'notifications-list');
-  bell.innerHTML = '<i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="badge" aria-hidden="true" hidden></span>';
+  bell.innerHTML = '<i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true" hidden></span>';
   bell.addEventListener('click', (event) => {
     event.stopPropagation(); // not a click "elsewhere" for the phone menu or the list itself
     toggleNotices(bell);
@@ -401,7 +406,7 @@ async function loadDestinations({ wide, inMenuOnly }) {
       destinationIds.add(tool.id);
       if (!el) continue;
       el.dataset.destination = href;
-      el.title = tool.label;
+      if (!el.dataset.tip) el.title = tool.label;
       if (current) el.setAttribute('aria-current', 'page');
       destinationEls.add(el);
     }
@@ -496,7 +501,7 @@ async function refreshMenuSpaces() {
   menuSpaceIds = keep;
   entries.forEach((e, i) => {
     const hint = hereHint(e);
-    nav.register({ id: `menu-space-${e.id}`, bar: 'primary', zone: 'right', group: 'menu-where', order: 3 + Math.min(i, 900), icon: e.here ? 'location-dot' : 'door-open', label: hint ? `${e.name} (${hint})` : e.name, visible: () => onPhone() && account !== null, onClick: () => pickSpace(e.id) });
+    nav.register({ id: `menu-space-${e.id}`, bar: 'primary', zone: 'right', group: 'menu-where', order: 3 + Math.min(i, 900), icon: e.here ? 'location-dot' : 'door-open', label: hint ? `${e.name} (${hint})` : e.name, visible: () => onPhone() && account !== null && !pageTabsInBar, onClick: () => pickSpace(e.id) });
   });
 }
 // A pick: the space page enters it or goes back to it (app:enter-space, the space page underneath when this page is
@@ -723,9 +728,9 @@ function paintBell() {
   const bell = byId('notifications-bell');
   if (!bell) return;
   const { count, title } = bellNow();
-  bell.title = title;
+  bell.dataset.tip = title;
   bell.setAttribute('aria-label', title);
-  const badge = bell.querySelector('.badge');
+  const badge = bell.querySelector('.sdk-badge-micro');
   badge.hidden = !count;
   badge.textContent = count > 9 ? '9+' : String(count);
 }
@@ -766,7 +771,7 @@ function addToOpenNotices(n) {
   const { list } = noticesOpen;
   let ul = list.querySelector('.bell-notices');
   if (!ul) {
-    list.querySelector('.bell-empty')?.remove();
+    list.querySelector('[data-empty]')?.remove();
     ul = list.ownerDocument.createElement('ul');
     ul.className = 'bell-notices';
     list.appendChild(ul);
@@ -815,7 +820,7 @@ async function toggleNotices(bell) {
   list.setAttribute('role', 'dialog');
   list.setAttribute('aria-label', 'Notifications');
   list.tabIndex = -1;
-  list.innerHTML = '<div class="bell-head">Notifications</div><p class="bell-empty">Loading...</p>';
+  list.innerHTML = '<div class="bell-head">Notifications</div><p class="sdk-empty-line" data-empty><span class="sdk-spinner sdk-spinner-sm" aria-hidden="true"></span> Loading</p>';
   doc.body.appendChild(list);
   bell.setAttribute('aria-expanded', 'true');
   const place = () => {
@@ -869,7 +874,7 @@ async function toggleNotices(bell) {
     for (const n of sorted) parts.push(noticeHtml(n));
     parts.push('</ul>');
   } else if (!updates) {
-    parts.push('<p class="bell-empty">Nothing new.</p>');
+    parts.push('<p class="sdk-empty-line" data-empty>Nothing new.</p>');
   }
   list.innerHTML = parts.join('');
   noticesOpen.loaded = true;
@@ -908,58 +913,102 @@ export async function markModuleRead(moduleId) {
   }
 }
 
-function showToast(n) {
+// The toasts (design system, Toasts and banners): one stack, .sdk-toasts, with the newest nearest the screen edge (the top on a desktop,
+// the bottom on a phone). Three show at once; a fourth waits and comes in as one goes. A note goes after 4.5 s, a notice after 9 s, an
+// invite after 60 s; a pointer or the focus on a toast waits its clock. The close button, or Escape on the toast, closes it.
+const TOAST_SHOWING = 3;
+const toastWaiting = [];
+const toastCloseHtml = '<button type="button" class="sdk-icon-btn btn-quiet btn-small" data-toast-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>';
+function toastStack() {
   let layer = document.getElementById('toast-layer');
   if (!layer) {
     layer = document.createElement('div');
     layer.id = 'toast-layer';
-    layer.className = 'toast-layer';
+    layer.className = 'sdk-toasts';
+    layer.setAttribute('aria-label', 'Notifications');
     document.body.appendChild(layer);
   }
-  const toast = document.createElement('button');
-  toast.type = 'button';
-  toast.className = 'toast';
-  toast.innerHTML = `<i class="fa-solid fa-${escapeHtml(n.icon || 'bell')} fa-fw toast-icon" aria-hidden="true"></i><span class="toast-text"><strong>${escapeHtml(n.title)}</strong>${n.body ? `<span class="toast-body">${escapeHtml(n.body)}</span>` : ''}<span class="toast-from">${escapeHtml(n.moduleName || '')}</span></span>`;
-  const dismiss = () => toast.remove();
-  toast.addEventListener('click', () => {
-    if (manageTabOf(n)) {
-      openManage(manageTabOf(n));
-      dismiss();
-      return;
-    }
-    // The call page handles opening a space module's panel; anything else goes to the module's page.
-    const handled = !document.dispatchEvent(new CustomEvent('app:notification', { detail: n, cancelable: true }));
-    if (!handled && n.scope === 'environment') window.location.href = `/modules/${encodeURIComponent(n.module)}`;
-    dismiss();
+  return layer;
+}
+function closeToast(t) {
+  if (t.gone) return;
+  t.gone = true;
+  clearTimeout(t.timer);
+  t.el.dataset.state = 'leaving';
+  setTimeout(() => {
+    t.el.remove();
+    const next = toastWaiting.shift();
+    if (next) placeToast(next);
+  }, 200);
+}
+function placeToast(spec) {
+  const kind = spec.kind || 'info';
+  const el = document.createElement('div');
+  el.className = 'sdk-toast';
+  el.dataset.kind = kind;
+  el.setAttribute('role', kind === 'danger' ? 'alert' : 'status');
+  const head = `<span class="sdk-toast-title">${escapeHtml(spec.title || '')}</span>${spec.text ? `<span class="sdk-toast-text">${escapeHtml(spec.text)}</span>` : ''}${spec.from ? `<span class="sdk-toast-text">${escapeHtml(spec.from)}</span>` : ''}`;
+  el.innerHTML = `<span class="sdk-toast-icon" aria-hidden="true"><i class="fa-solid fa-${escapeHtml(spec.icon || 'circle-info')}"></i></span>`
+    + (spec.onOpen ? `<button type="button" class="sdk-toast-body" data-toast-open>${head}</button>` : `<div class="sdk-toast-body">${head}</div>`)
+    + `<div class="sdk-toast-end">${toastCloseHtml}</div>`
+    + (spec.actions ? `<div class="sdk-toast-actions">${spec.actions}</div>` : '');
+  const t = { el, left: spec.ms, started: 0, timer: 0, held: false, gone: false };
+  const start = () => {
+    if (t.held || t.gone) return;
+    t.started = Date.now();
+    clearTimeout(t.timer);
+    t.timer = setTimeout(() => closeToast(t), t.left);
+  };
+  const hold = () => {
+    if (t.gone) return;
+    t.held = true;
+    if (t.started) { t.left = Math.max(0, t.left - (Date.now() - t.started)); t.started = 0; }
+    clearTimeout(t.timer);
+  };
+  el.addEventListener('mouseenter', hold);
+  el.addEventListener('mouseleave', () => { if (!el.matches(':focus-within')) { t.held = false; start(); } });
+  el.addEventListener('focusin', hold);
+  el.addEventListener('focusout', () => { if (!el.matches(':hover') && !el.contains(document.activeElement)) { t.held = false; start(); } });
+  el.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeToast(t); });
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-toast-close]')) return closeToast(t);
+    if (spec.onClick && spec.onClick(e)) closeToast(t);
+    else if (spec.onOpen && e.target.closest('[data-toast-open]')) { spec.onOpen(); closeToast(t); }
   });
-  layer.appendChild(toast);
-  setTimeout(dismiss, 9000);
+  toastStack().prepend(el);
+  start();
+  return t;
+}
+// Shows a toast, or queues it behind the three showing.
+function pushToast(spec) {
+  const showing = [...toastStack().children].filter((e) => e.dataset.state !== 'leaving').length;
+  if (showing >= TOAST_SHOWING) { toastWaiting.push(spec); return; }
+  placeToast(spec);
 }
 
-// A short note that goes away by itself (a module's "Saved in ...", host.ui.toast): the notification toast's look, text only, never
-// kept in the bell. It is said aloud once (role=status) and goes after a few seconds, or when it is clicked.
+function showToast(n) {
+  pushToast({
+    kind: 'info',
+    icon: n.icon || 'bell',
+    title: n.title,
+    text: n.body,
+    from: n.moduleName || '',
+    ms: 9000,
+    onOpen: () => {
+      if (manageTabOf(n)) return openManage(manageTabOf(n));
+      // The call page handles opening a space module's panel; anything else goes to the module's page.
+      const handled = !document.dispatchEvent(new CustomEvent('app:notification', { detail: n, cancelable: true }));
+      if (!handled && n.scope === 'environment') window.location.href = `/modules/${encodeURIComponent(n.module)}`;
+    },
+  });
+}
+
+// A short note that goes away by itself (a module's "Saved in ...", host.ui.toast): a toast with a title only, never kept in the bell.
+// It is said aloud once (role=status) and goes after 4.5 s, or when it is closed.
 export function showNote(text) {
   const t = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
   if (!t) return;
-  let layer = document.getElementById('toast-layer');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'toast-layer';
-    layer.className = 'toast-layer';
-    document.body.appendChild(layer);
-  }
-  const toast = document.createElement('button');
-  toast.type = 'button';
-  toast.className = 'toast toast-note';
-  toast.setAttribute('role', 'status');
-  const body = document.createElement('span');
-  body.className = 'toast-text';
-  body.textContent = t;
-  toast.appendChild(body);
-  const dismiss = () => toast.remove();
-  toast.addEventListener('click', dismiss);
-  layer.appendChild(toast);
-  setTimeout(dismiss, 4500);
+  pushToast({ kind: 'info', icon: 'circle-info', title: t, ms: 4500 });
 }
 
 // A guest's page (a guest link, /guest/<token>, or a module it popped out, ?guest=): no account, so /api/me is not asked.
@@ -1068,31 +1117,25 @@ function startPresence() {
 // The toast for an invitation: who asked, and Join or Decline. The page can take it (the space page joins in place);
 // any other page goes to the spaces page, which joins.
 function showInvite(invite) {
-  let layer = document.getElementById('toast-layer');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'toast-layer';
-    layer.className = 'toast-layer';
-    document.body.appendChild(layer);
-  }
-  const toast = document.createElement('div');
-  toast.className = 'toast toast-invite';
-  toast.setAttribute('role', 'alert');
-  toast.innerHTML = `<i class="fa-solid fa-people-arrows fa-fw toast-icon" aria-hidden="true"></i><span class="toast-text"><strong>${escapeHtml(invite.fromName || 'Someone')} invites you to talk</strong><span class="toast-body">A private conversation, off the record.</span><span class="toast-actions"><button type="button" class="btn btn-primary btn-small" data-invite="join">Join</button><button type="button" class="btn btn-small" data-invite="decline">Decline</button></span></span>`;
-  const dismiss = () => toast.remove();
-  toast.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-invite]');
-    if (!b) return;
-    if (b.dataset.invite === 'join') {
-      const taken = !document.dispatchEvent(new CustomEvent('app:invite-accept', { detail: invite, cancelable: true }));
-      if (!taken) window.location.href = `/#join=${encodeURIComponent(invite.spaceId)}`;
-    } else {
-      fetch(`/api/asides/invite/${encodeURIComponent(invite.id)}/decline`, { method: 'POST' }).catch(() => {});
-    }
-    dismiss();
+  pushToast({
+    kind: 'info',
+    icon: 'people-arrows',
+    title: `${invite.fromName || 'Someone'} invites you to talk`,
+    text: 'A private conversation, off the record.',
+    ms: 60000,
+    actions: '<button type="button" class="btn btn-primary btn-small" data-invite="join">Join</button><button type="button" class="btn btn-small" data-invite="decline">Decline</button>',
+    onClick: (e) => {
+      const b = e.target.closest('[data-invite]');
+      if (!b) return false;
+      if (b.dataset.invite === 'join') {
+        const taken = !document.dispatchEvent(new CustomEvent('app:invite-accept', { detail: invite, cancelable: true }));
+        if (!taken) window.location.href = `/#join=${encodeURIComponent(invite.spaceId)}`;
+      } else {
+        fetch(`/api/asides/invite/${encodeURIComponent(invite.id)}/decline`, { method: 'POST' }).catch(() => {});
+      }
+      return true;
+    },
   });
-  layer.appendChild(toast);
-  setTimeout(dismiss, 60000);
 }
 
 // The module updates available (modules that ship with this server newer than the one installed), on the bell for
@@ -1173,20 +1216,29 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
   el.innerHTML = '<div class="nav-left"></div><span class="nav-right"></span>';
   header.appendChild(el);
   nav.attach('secondary', el);
-  const state = { name: String(name || ''), icon: String(icon || '') };
+  // A control marked data-top-bar (the page's tabs: Manage, #262) goes in the top bar instead (page-tabs.js), as a space's
+  // layout tabs do; the page's name is then the top bar's anchor at every width, and this row is left for navigation
+  // inside a tab (what the page registers into the secondary bar), not drawn while it has nothing.
+  const inBar = controls.filter((c) => c && c.hasAttribute('data-top-bar'));
+  const state = { name: String(name || ''), icon: String(icon || ''), tabsInBar: inBar.length > 0 };
+  if (state.tabsInBar) {
+    pageTabsInBar = true;
+    el.classList.add('page-bar-inside');
+  }
   const iconHtml = (i) => (i ? `<i class="${i.includes(' ') ? escapeHtml(i) : `fa-solid fa-${escapeHtml(i)}`} fa-fw" aria-hidden="true"></i>` : '');
   let nameEl = null;
   if (showName) {
     nameEl = doc.createElement('span');
     nameEl.className = 'page-bar-name nav-text'; // the nav text; the current page's name, so in --header-text
     nameEl.id = 'page-bar-name';
-    nav.register({ id: 'page-bar-name', bar: 'secondary', zone: 'left', group: 'page', groupOrder: 2, order: 1, fold: false, element: nameEl, visible: () => !onPhone() && Boolean(state.name) });
+    nav.register({ id: 'page-bar-name', bar: 'secondary', zone: 'left', group: 'page', groupOrder: 2, order: 1, fold: false, element: nameEl, visible: () => !onPhone() && Boolean(state.name) && !state.tabsInBar });
   }
   if (manage) {
     nav.register({ id: 'page-bar-manage', bar: 'secondary', zone: 'left', group: 'page-manage', groupOrder: 1, order: 1, fold: false, labelled: true, icon: 'gear', label: 'Manage', href: keepingQuery(manage), visible: () => seesUpdates(account?.role) });
     paintManageBadge();
   }
-  controls.filter(Boolean).forEach((c, i) => {
+  for (const c of inBar) topBarTabs({ strip: c, label: state.name });
+  controls.filter((c) => c && !inBar.includes(c)).forEach((c, i) => {
     c.classList.add('page-bar-control');
     nav.register({ id: c.id || `page-bar-control-${i + 1}`, bar: 'secondary', zone: 'left', group: 'page', order: 2 + i, fold: false, element: c });
   });
@@ -1198,6 +1250,7 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
     }
     paintPageAnchor(state);
     nav.draw('secondary');
+    if (state.tabsInBar) nav.draw('primary'); // the Spaces slot leaves, and the anchor's width changed
   };
   if (phoneQuery) phoneQuery.addEventListener('change', paint);
   paint();
@@ -1214,10 +1267,11 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
 
 // The anchor on a page with a page bar: nothing wider than a phone; on a phone the page's name, a plain label (not a
 // link, no separator), current, cut short with an ellipsis as the anchor is (style.css), the whole name as its title.
-function paintPageAnchor({ name, icon }) {
+// A page whose tabs are in the top bar has its name there at every width, before its tabs, as a space's name is.
+function paintPageAnchor({ name, icon, tabsInBar = false }) {
   const crumb = byId('topbar-crumb');
   if (!crumb) return;
-  const a = pageAnchor({ phone: onPhone(), name, icon });
+  const a = pageAnchor({ phone: onPhone(), name, icon }) || (tabsInBar ? pageAnchor({ phone: true, name, icon }) : null);
   crumb.replaceChildren();
   if (!a) return;
   const label = document.createElement('span');

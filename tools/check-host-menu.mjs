@@ -142,21 +142,21 @@ test('the page\'s shared menu: categories fly out, or drill in on a phone', () =
   assert.ok(src.includes('inSafeZone({ x: event.clientX, y: event.clientY }, fly.exit'), 'a row crossed on the way waits');
   assert.ok(src.includes("menuKeyAction(e.key, { inFlyout, onCategory, drilled: Boolean(sub && sub.label) })"));
   assert.ok(src.includes("sub = { items: entriesOf(item) || [], back: rows.indexOf(b), label: item.label }"), 'a phone drills in with Back');
-  const css = read('public/style.css');
-  assert.match(css, /\.host-menu-item \.host-menu-caret \{[^}]*color: var\(--text-dim\);/, 'the caret, from the tokens');
-  assert.match(css, /\.host-menu-category\.open \{[^}]*var\(--accent\)/);
+  const css = read('public/sdk/system.css');
+  assert.match(css, /:is\(\.sdk-menu-caret, \.host-menu-caret\) \{[^}]*color: var\(--text-muted\);/, 'the caret, from the roles (the Menus block)');
+  assert.match(css, /:is\(\.sdk-menu-item, \.host-menu-item\):is\(\[aria-expanded="true"\], \.open\) \{ background: var\(--menu-hover\); \}/, 'a category keeps the quiet fill while its flyout is open');
 });
 
 test('host.menu.show: categories fly out in a module too', () => {
   const show = sdkSrc.slice(sdkSrc.indexOf('  function showMenu('), sdkSrc.indexOf('  const host = {\n'));
   assert.match(show, /b\.setAttribute\('aria-haspopup', 'menu'\); b\.setAttribute\('aria-expanded', 'false'\);/);
-  assert.ok(show.includes("el.className = `sdk-menu sdk-menu-flyout${className ? ` ${className}` : ''}`;\n      el.setAttribute('role', 'menu');"), 'the flyout is a menu');
+  assert.ok(show.includes("el.className = `sdk-menu sdk-menu-flyout${narrow ? ' narrow' : ''}${className ? ` ${className}` : ''}`;\n      el.setAttribute('role', 'menu');"), 'the flyout is a menu');
   assert.ok(show.includes("submenuStyle({ width: window.innerWidth, framed, touch, boxWidth: bounds().w, need: menu.offsetWidth + 180 }) === 'drill'"));
   assert.ok(show.includes('flyoutPlace({ row:'));
   assert.ok(show.includes('inSafeZone({ x: e.clientX, y: e.clientY }, fly.exit'));
   assert.ok(show.includes("menuKeyAction(e.key, { inFlyout, onCategory, drilled: Boolean(sub) })"));
   assert.ok(show.includes("{ label: 'Back', icon: 'arrow-left', back: true }, { heading: sub.label }"), 'drilled in: Back and the category\'s name');
-  assert.match(sdkSrc, /\.sdk-menu-caret \{[^}]*var\(--text-dim\)/, 'the caret, from the tokens');
+  assert.match(read('public/sdk/system.css'), /:is\(\.sdk-menu-caret, \.host-menu-caret\) \{[^}]*var\(--text-muted\)/, 'the caret, from the roles (the Menus block)');
   assert.ok(sdkSrc.includes('// An item with `items` (or `submenu`'), 'the contract says so');
 });
 
@@ -190,7 +190,7 @@ test('the page\'s shared menu: a row\'s "..." (`more`) flies out beside it, the 
   assert.ok(!/sub = \{ items: entries, back: rows\.indexOf\(b\) \};/.test(src), 'the old drill-in that replaced the menu on a wide screen is gone');
   assert.ok(src.includes('if (b && menu.moreOf && [...menu.moreOf.values()].includes(b)) return b;'), 'Right on the "..." opens it, as on a category; Left and Escape close just the flyout');
   const css = read('public/style.css');
-  assert.match(css, /\.host-menu-more:hover,\n\.host-menu-more:focus-visible,\n\.host-menu-more\.open \{[^}]*var\(--accent\)/, 'the "..." keeps its look while its flyout is open');
+  assert.match(read('public/sdk/system.css'), /\.host-menu-more:hover, \.host-menu-more\.open \{ background: var\(--menu-hover\)/, 'the "..." keeps its look while its flyout is open');
   // The only user, the Layout menu's saved layouts (space.js), hands its entries over unchanged.
   assert.ok(read('public/space.js').includes('more: mayFavorite() || mayChangeLayout(isShared) || maySetDefault(isShared) ? () => layoutRowItems(l.id) : undefined,'));
 });

@@ -2,6 +2,37 @@
 // host (GET /api/product, public), so the page never hard-codes a name while the name is still being chosen.
 const fill = (sel, text) => { for (const el of document.querySelectorAll(sel)) el.textContent = text; };
 
+// The walkthrough (See it in action): the screens crossfade by themselves in CSS, 10 seconds round. This only adds the
+// controls: Pause, and a button for each screen, which stops the animation and shows that screen. Without this script the
+// animation still runs; with reduced motion it starts still, on the first screen.
+(() => {
+  const box = document.getElementById('tour-box');
+  const bar = document.getElementById('tour-bar');
+  if (!box || !bar) return;
+  const frames = [...box.querySelectorAll('.tour-frame')];
+  const tabs = [...bar.querySelectorAll('[data-frame]')];
+  const toggle = document.getElementById('tour-toggle');
+  bar.hidden = false;
+  const show = (n) => {
+    box.classList.remove('paused');
+    box.classList.add('manual');
+    toggle.textContent = 'Play';
+    frames.forEach((f, i) => f.classList.toggle('on', i === n));
+    tabs.forEach((t, i) => (i === n ? t.setAttribute('aria-current', 'true') : t.removeAttribute('aria-current')));
+  };
+  for (const t of tabs) t.addEventListener('click', () => show(Number(t.dataset.frame)));
+  toggle.addEventListener('click', () => {
+    if (box.classList.contains('manual')) { // back to the animation
+      box.classList.remove('manual');
+      toggle.textContent = 'Pause';
+      tabs.forEach((t) => t.removeAttribute('aria-current'));
+      return;
+    }
+    const paused = box.classList.toggle('paused');
+    toggle.textContent = paused ? 'Play' : 'Pause';
+  });
+})();
+
 let product = { name: 'Coffee Pub', contact: null, baseDomain: '', version: '' };
 try {
   const res = await fetch('/api/product');
@@ -11,7 +42,8 @@ try {
 }
 
 fill('[data-product]', product.name);
-document.title = product.name;
+// A use page names its own title: <title data-title="Plan trips together: {name}">; the front page's is the name alone.
+document.title = document.querySelector('title[data-title]')?.dataset.title.replace('{name}', product.name) || product.name;
 for (const img of document.querySelectorAll('[data-product-alt]')) {
   img.alt = product.name;
   // the name in text if the logo cannot load (a host that does not serve the brand folder at its base)
@@ -22,6 +54,18 @@ for (const img of document.querySelectorAll('[data-product-alt]')) {
 fill('[data-version]', product.version ? String(product.version) : '');
 const example = document.querySelector('[data-example-host]');
 if (example && product.baseDomain) example.textContent = `yourname.${product.baseDomain}`;
+
+// The use cards on the front page: a card links to its page (/travel, /games, /projects) only when this host has that page
+// (GET /api/product's `pages`); otherwise it stays a plain card, still shown as a use.
+const pagePaths = new Set((Array.isArray(product.pages) ? product.pages : []).map((p) => p && p.path));
+for (const card of document.querySelectorAll('.aud[data-page]')) {
+  if (!pagePaths.has(card.dataset.page)) continue;
+  const go = document.createElement('a');
+  go.className = 'aud-go';
+  go.href = card.dataset.page;
+  go.textContent = `More about ${card.querySelector('h3').textContent.toLowerCase()}`;
+  card.append(go);
+}
 
 // Whether anyone can make an environment from this page (the host's SIGNUP switch, on a host with a base domain). Off,
 // every call to action reads "Coming soon" and does nothing (the author: not ready for this), and the Get started band
@@ -117,7 +161,7 @@ const capLine = (caps) => {
     Array.isArray(c.modules) ? `${c.modules.length} modules` : 'every module',
   ];
 };
-if (Array.isArray(product.plans) && product.plans.length) {
+if (Array.isArray(product.plans) && product.plans.length && document.getElementById('plans-grid')) {
   const grid = document.getElementById('plans-grid');
   grid.replaceChildren(...product.plans.map((p) => {
     const box = document.createElement('div');
@@ -148,7 +192,9 @@ if (Array.isArray(product.plans) && product.plans.length) {
 const signup = document.getElementById('signup-form');
 const ask = document.getElementById('start-ask');
 const startLede = document.getElementById('start-lede');
-if (signupOpen) {
+if (!signup) {
+  // a use page: its Get started links to the front page's form
+} else if (signupOpen) {
   signup.hidden = false;
   document.querySelector('[data-signup-domain]').textContent = `.${product.baseDomain}`;
   const slugInput = document.getElementById('signup-slug');
@@ -178,6 +224,10 @@ if (signupOpen) {
       return label;
     };
     options.replaceChildren(option('', 'None', 'Start plain: the usual words and settings.'), ...templates.map((t) => option(t.id, t.name || t.id, t.description || '')));
+    // /?template=travel#start (from a use page) chooses that template, when this host offers it; otherwise None stays chosen
+    const wanted = new URLSearchParams(location.search).get('template');
+    const wantedInput = wanted && [...options.querySelectorAll('input')].find((i) => i.value === wanted);
+    if (wantedInput) wantedInput.checked = true;
     templateBox.hidden = false;
   }
   let checkToken = 0;

@@ -12,60 +12,58 @@
 <div id="app" class="app" hidden>
   <header class="bar">
     <div class="nav">
-      <button class="btn" id="prev" type="button" aria-label="Previous">&lsaquo;</button>
-      <button class="btn" id="today" type="button">Today</button>
-      <button class="btn" id="next" type="button" aria-label="Next">&rsaquo;</button>
+      <button class="btn btn-small" id="prev" type="button" aria-label="Previous">&lsaquo;</button>
+      <button class="btn btn-small" id="today" type="button">Today</button>
+      <button class="btn btn-small" id="next" type="button" aria-label="Next">&rsaquo;</button>
       <h2 id="title"></h2>
     </div>
     <div class="nav">
       <button class="btn btn-primary" id="add" type="button" hidden>Add event</button>
     </div>
   </header>
-  <div id="filters" class="filters" hidden></div>
+  <div id="filters" class="sdk-chips" hidden></div>
   <main id="body" class="body"></main>
 
   <dialog id="editor" class="sdk-editor">
-    <form id="form" class="editor-card">
+    <form id="form" class="sdk-form">
       <h3 id="editor-title">New event</h3>
-      <label id="f-where-wrap" hidden>Where<select id="f-where"></select></label>
-      <p class="hint" id="f-readonly" hidden></p>
-      <label>Title<input id="f-title" type="text" maxlength="100" required></label>
-      <div class="row">
-        <label>Starts<input id="f-date" type="date" required></label>
-        <label id="f-time-wrap">at<input id="f-time" type="time"></label>
+      <label class="sdk-field" id="f-where-wrap" hidden><span class="sdk-label">Where</span><select id="f-where"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-hint" id="f-readonly" hidden></div>
+      <label class="sdk-field"><span class="sdk-label">Title</span><input id="f-title" type="text" maxlength="100" required><span class="sdk-hint"></span></label>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Starts</span><input id="f-date" type="date" required aria-labelledby="f-date-label"><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s" id="f-time-wrap"><span class="sdk-label">at</span><input id="f-time" type="time"><span class="sdk-hint"></span></label>
       </div>
-      <div class="row">
-        <label>Ends (optional)<input id="f-end-date" type="date"></label>
-        <label id="f-end-wrap">at<input id="f-end" type="time"></label>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-end-date-label"><span class="sdk-label" id="f-end-date-label">Ends <span class="sdk-optional">(optional)</span></span><input id="f-end-date" type="date" aria-labelledby="f-end-date-label"><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s" id="f-end-wrap"><span class="sdk-label">at</span><input id="f-end" type="time"><span class="sdk-hint"></span></label>
       </div>
-      <label class="check"><input id="f-allday" type="checkbox"> All day</label>
-      <div class="row">
-        <label>Repeats<select id="f-repeat">
+      <div class="sdk-choice-list"><label class="sdk-choice-row"><input id="f-allday" type="checkbox"><span>All day</span></label></div>
+      <div class="sdk-form-row" id="f-repeat-row">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Repeats</span><select id="f-repeat">
           <option value="">Does not repeat</option>
           <option value="day">Every day</option>
           <option value="week">Every week</option>
           <option value="2weeks">Every 2 weeks</option>
           <option value="month">Every month</option>
           <option value="year">Every year</option>
-        </select></label>
-        <label id="f-until-wrap">Until (optional)<input id="f-until" type="date"></label>
+        </select><span class="sdk-hint"></span></label>
+        <div class="sdk-field sdk-m" id="f-until-wrap" role="group" aria-labelledby="f-until-label"><span class="sdk-label" id="f-until-label">Until <span class="sdk-optional">(optional)</span></span><input id="f-until" type="date" aria-labelledby="f-until-label"><span class="sdk-hint"></span></div>
       </div>
-      <label>Details<textarea id="f-desc" rows="3" maxlength="600"></textarea></label>
-      <label>Remind people<select id="f-remind">
+      <label class="sdk-field"><span class="sdk-label">Details</span><textarea id="f-desc" rows="3" maxlength="600"></textarea><span class="sdk-hint"></span></label>
+      <label class="sdk-field"><span class="sdk-label">Remind people</span><select id="f-remind">
         <option value="">No reminder</option>
         <option value="0">When it starts</option>
         <option value="15">15 minutes before</option>
         <option value="60">1 hour before</option>
         <option value="1440">1 day before</option>
-      </select></label>
-      <p class="hint" id="f-remind-hint"></p>
-      <div class="links-wrap" id="f-links-wrap" hidden><span class="lbl">Linked from</span><div class="links" id="f-links"></div></div>
-      <p class="error" id="f-error" hidden></p>
-      <div class="row buttons sdk-editor-actions">
-        <button class="btn btn-primary" type="button" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Cancel</button>
-        <span class="grow"></span>
+      </select><span class="sdk-hint" id="f-remind-hint"></span></label>
+      <div class="sdk-field" id="f-links-wrap" role="group" aria-labelledby="f-links-label" hidden><span class="sdk-label" id="f-links-label">Linked from</span><div class="links" id="f-links"></div></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden></div>
+      <div class="sdk-editor-actions">
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="f-save">Save</button>
       </div>
     </form>
   </dialog>

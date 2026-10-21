@@ -1164,7 +1164,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if (!text) { line?.remove(); return; }
     if (!line) {
       line = document.createElement('p');
-      line.className = 'chat-view-empty';
+      line.className = 'sdk-empty-line chat-view-empty';
     }
     // Only when the words differ: setting them again replaces the text node, which the observer below sees as a change
     // and runs syncEmpty again, for ever (the page hangs).
@@ -1284,7 +1284,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     row.className = 'chat-object-keeprow';
     const keep = document.createElement('button');
     keep.type = 'button';
-    keep.className = 'msg-btn chat-object-keep';
+    keep.className = 'btn btn-quiet btn-small chat-object-keep';
     keep.textContent = 'Keep';
     const where = document.createElement('span');
     where.className = 'chat-object-place';
@@ -1335,7 +1335,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       }
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'msg-btn chat-object-place-btn';
+      btn.className = 'btn btn-quiet btn-small chat-object-place-btn';
       btn.setAttribute('aria-haspopup', 'menu');
       btn.setAttribute('aria-label', `Keep in ${t.moduleName}: choose another place`);
       btn.title = 'Choose where';
@@ -1352,7 +1352,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
         const last = lastPlace(summary.kind);
         openMenu(btn, targets.map((x) => ({
           label: x.label,
-          ...(pick === 'choose' ? { checked: x.id === shown.id } : {}),
+          ...(pick === 'choose' ? { radio: true, checked: x.id === shown.id } : {}),
           hint: x.local && !canvas.isOpen(x.module) ? `Open ${x.moduleName} first` : x.id === last ? 'Last used' : '',
           onPick: async () => {
             if (state) return;
@@ -1918,7 +1918,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       const movedWords = moved ? `${moved} ${moved === 1 ? 'has' : 'have'} a new place: the one before is no longer allowed. ` : '';
       if (!split.going.length) { setNote(`${movedWords}${leftOut || 'Nothing here can keep those yet.'}`.trim()); refresh(); return; }
       const what = keepCountWords(split.going.map((p) => ({ kind: p.kind, moduleName: p.target.moduleName })), objectWords());
-      if (!window.confirm(`${movedWords}Keep ${what}?${leftOut ? ` ${leftOut}` : ''}`)) { refresh(); return; }
+      // Loaded when asked: this file also runs in Node (the checks), where the page's /confirm.js is not a path.
+      const { confirmDialog } = await import('/confirm.js');
+      if (!await confirmDialog({ title: `Keep ${what}?`, message: `${movedWords}${leftOut}`.trim(), action: 'Keep' })) { refresh(); return; }
       keepTicked.disabled = true;
       // One after another, as before; then how they all went, in one note.
       const waits = [];

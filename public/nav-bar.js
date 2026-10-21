@@ -286,6 +286,20 @@ export function phoneZones(byZone) {
   };
 }
 
+// The space bar on a phone is the tab bar, and the screen's order is the module tabs, the "...", Join, Online, then Leave
+// (system.css, tabbar block). The "..." is registered in the right zone, before Leave, for the wider bar; a tool that says
+// `afterTabs` moves into the left zone right after the module chooser here, so the keyboard goes in the order the screen
+// shows. Pure, for check-nav.
+export function tabBarZones(byZone) {
+  const moved = (t) => t.afterTabs === true;
+  const chooser = byZone.left.find((t) => t.group === 'modules');
+  const order = chooser ? orderOf(chooser) + 0.5 : 0.5;
+  return {
+    left: [...byZone.left, ...byZone.right.filter(moved).map((t) => ({ ...t, zone: 'left', group: 'modules', groupOrder: undefined, order }))],
+    right: byZone.right.filter((t) => !moved(t)),
+  };
+}
+
 // The top bar wider than a phone (plan-one-bar.md, step 7, Thomas 2026-10-13: the space bar's controls in the top bar):
 // the Workspace's tools (`workspace`, and the bar's own "...", which folds them) sit nearest the middle of the bar,
 // after the bar's own in the left zone and before them in the right (Pull participants back, a module's tools and the
@@ -327,6 +341,7 @@ export function draw(bar) {
     for (const d of zone.querySelectorAll(':scope > [data-nav-divider]')) d.remove();
   }
   const wide = !fold && bar === 'primary';
+  if (bar === 'secondary' && view && typeof view.matchMedia === 'function' && view.matchMedia('(max-width: 640px)').matches) Object.assign(byZone, tabBarZones(byZone));
   const runs = fold ? phoneZones(byZone) : wide ? wideZones(byZone) : { left: [byZone.left], right: [byZone.right], bar: [] };
   for (const [z, list] of Object.entries(runs)) if (targets[z]) place(targets[z], flattenRuns(list, doc, { divide: wide }));
   scheduleFit(bar);
@@ -399,11 +414,11 @@ function iconEl(doc, name, extra) {
   return i;
 }
 
-// The word under a tool's icon where the space bar is the phone's tab bar (style.css shows it only there); its
-// accessible name stays the tool's label.
+// The word under a tool's icon where the space bar is the phone's tab bar: the tab's label (system.css, tabbar block;
+// style.css shows it only there); its accessible name stays the tool's label.
 function shortEl(doc, text) {
   const s = doc.createElement('span');
-  s.className = 'nav-short';
+  s.className = 'sdk-tabbar-label';
   s.setAttribute('aria-hidden', 'true');
   s.textContent = text;
   return s;
@@ -421,8 +436,10 @@ function apply(el, t) {
   }
   const label = String(t.label || '');
   const title = t.title || (look === 'icon' ? label : '');
-  if (title) el.title = title;
-  else el.removeAttribute('title');
+  // An icon-only tool names itself with the tooltip (data-tip, the same words as its aria-label); a tool with a word keeps a plain hint.
+  el.removeAttribute('title');
+  el.removeAttribute('data-tip');
+  if (title) el.setAttribute(look === 'icon' ? 'data-tip' : 'title', title);
   el.setAttribute('aria-label', label);
   if (t.toggleable) el.setAttribute('aria-pressed', String(Boolean(t.active)));
   else el.removeAttribute('aria-pressed');
@@ -444,7 +461,7 @@ function apply(el, t) {
 }
 
 function paintBadge(el, t) {
-  const cls = lookOf(t) === 'core' ? 'nav-badge' : 'badge';
+  const cls = lookOf(t) === 'core' ? 'sdk-badge' : 'sdk-badge-micro';
   let badge = el.querySelector(`:scope > .${cls}`);
   const n = Number(t.badge) || 0;
   if (!n) {
@@ -456,7 +473,7 @@ function paintBadge(el, t) {
     badge.className = cls;
     el.appendChild(badge);
   }
-  badge.classList.toggle('badge-ok', t.badgeTone === 'ok');
+  if (t.badgeTone === 'ok') badge.dataset.tone = 'ok'; else delete badge.dataset.tone;
   if (t.badgeLabel) {
     badge.removeAttribute('aria-hidden');
     badge.setAttribute('role', 'img');
@@ -586,14 +603,17 @@ export function foldCount({ width, gap = 0, left = 0, right = 0, more = 0, steps
   return steps.length;
 }
 
-// --- the space bar on a phone (plan-phone-space-bar.md) ---------------------------------------------
+// --- the space bar on a phone (plan-phone-space-bar.md; the Tab bar family, design system step 31) -------------------
 // At 640px and below (the bar's own window: a phone, a narrow window, a narrow pop-out) the bar is the tab bar: the
-// module tabs that fit, Join, Online's count, Rejoin call, the "..." and Leave. Every right-zone tool but those that say
-// `phone: 'bar'` goes into the "..." (phoneFold), and the tabs that do not fit go in it too, ahead of the tools
-// (phoneTabs); the tab of the view being shown always stays.
+// module tabs that fit, the "...", then the pinned call item (Join, Online, Rejoin call) and Leave, every one a tab of
+// the same width (system.css, tabbar block). Every right-zone tool but those that say `phone: 'bar'` goes into the "..."
+// (phoneFold), and the tabs that do not fit go in it too, ahead of the tools (phoneTabs); the tab of the view being
+// shown always stays, and the pinned ones never fold.
 
-// The least width of a tab (decision 7). style.css's tab rule (`flex: 1 0 56px`) says the same; check-nav holds them equal.
+// The least width of a tab (decision 7) and the space between two: system.css's --tabbar-min and --tabbar-gap say the
+// same; check-nav holds them equal. A tab takes one slot of TAB_MIN + TAB_GAP of the bar's width (and one gap more).
 export const TAB_MIN = 56;
+export const TAB_GAP = 4;
 
 // Which tabs show and which fold. `width` is the bar's inner width, `fixed` the width of what always shows (Join when
 // shown, Online, Rejoin call when shown, Leave, and the gaps), `more` the "..."'s, `tabs` the tab ids in order, `shown`
@@ -622,7 +642,7 @@ export function phoneFold(list, { popped = false } = {}) {
 const hasEntry = (t) => Boolean(t) && !(t.element && typeof t.onClick !== 'function' && !t.href);
 // A phone tab's id: its module (`module:<id>`) or built-in (`builtin:<id>`), as canvas.js draws it.
 const tabKey = (tab) => (!tab ? null : tab.dataset.builtin ? `builtin:${tab.dataset.builtin}` : `module:${tab.dataset.module}`);
-const unreadOf = (tab) => parseInt(tab.querySelector(':scope > .badge')?.textContent || '0', 10) || 0;
+const unreadOf = (tab) => parseInt(tab.querySelector('.sdk-badge-micro')?.textContent || '0', 10) || 0;
 
 // Each bar's fold: its "..." (`more`), the ids folded into it, the folded tabs (the phone's tab bar) and what was last
 // picked from its menu.
@@ -635,8 +655,8 @@ function attachFold(bar, el) {
   const more = doc.createElement('button');
   more.type = 'button';
   more.id = bar === 'secondary' ? 'subnav-more' : 'topbar-more';
-  more.className = 'sdk-more nav-more'; // the same "..." as a module's bars (host.ui.moreButton, module-host.js)
-  more.title = 'More';
+  more.className = 'sdk-icon-btn btn-quiet btn-small nav-more'; // the same "..." as a module's bars (host.ui.moreButton, module-host.js)
+  more.dataset.tip = 'More';
   more.setAttribute('aria-label', 'More');
   more.setAttribute('aria-haspopup', 'menu');
   more.setAttribute('aria-expanded', 'false');
@@ -647,7 +667,7 @@ function attachFold(bar, el) {
   folds[bar] = fold;
   // The space bar's: just before Leave, in its group, so the divider before Leave's group comes before it too. The top
   // bar's: last of the Workspace's run (`more` marks it the bar's own, so setWorkspace never moves it).
-  if (bar === 'secondary') register({ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
+  if (bar === 'secondary') register({ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, afterTabs: true, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
   else register({ bar, zone: 'right', group: 'more', groupOrder: 999, id: 'topbar-more', order: 998, fold: false, workspace: 'every', more: bar, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
 }
 
@@ -721,8 +741,9 @@ function naturalWidth(zone, skip, { margins = true } = {}) {
 }
 
 // The phone's fold (plan-phone-space-bar.md, "Where it runs"): the right zone's tools into the "..." (phoneFold), then
-// the tabs that do not fit (phoneTabs), measured with the bar as it is drawn (no `nav-measuring`: the tabs' strip takes
-// what the rest leaves, style.css). Gives the folded tool ids and the folded tab elements.
+// the tabs that do not fit (phoneTabs). Every tab is one slot of the bar (TAB_MIN, TAB_GAP apart): the tools still
+// shown in it (Join, Online, Rejoin call, Leave) take one each and never fold, the "..." one when it shows, and the
+// module tabs share the rest. Gives the folded tool ids and the folded tab elements.
 function fitPhone(b, el, width) {
   const doc = el.ownerDocument;
   const right = b.zones.right;
@@ -738,18 +759,19 @@ function fitPhone(b, el, width) {
   const shown = inOrder.filter((t) => isShown(t, (x) => Boolean(els.get(x.id)?.hidden)));
   const ids = new Set(phoneFold(shown, { popped: Boolean(doc.body && doc.body.classList.contains('popout')) }));
   for (const id of ids) els.get(id).classList.add(FOLDED);
-  const strip = b.zones.left ? b.zones.left.querySelector('.subnav-modules') : null;
-  const tabEls = strip ? [...strip.querySelectorAll(':scope > .modules-menu-item')] : [];
+  const strip = b.zones.left ? b.zones.left.querySelector('.sdk-tabbar-tabs') : null;
+  const tabEls = strip ? [...strip.querySelectorAll(':scope > .sdk-tabbar-tab')] : [];
   if (!tabEls.length) return { ids, tabs: [] };
-  // The strip takes the width the rest leaves: measured without the "..." and with it.
-  fold.more.hidden = true;
-  const bare = strip.getBoundingClientRect().width;
-  fold.more.hidden = false;
-  const withMore = strip.getBoundingClientRect().width;
+  const slot = TAB_MIN + TAB_GAP;
+  const pinned = [...tools.values()].filter((t) => {
+    const tool = t.bar === 'secondary' ? els.get(t.id) : null;
+    return Boolean(tool) && tool !== fold.more && !tool.contains(strip) && !tool.classList.contains(FOLDED) && shownEl(tool);
+  }).length;
   const answer = phoneTabs({
-    width,
-    fixed: width - bare,
-    more: Math.max(0, bare - withMore),
+    width: width + TAB_GAP,
+    fixed: pinned * slot,
+    more: slot,
+    tabMin: slot,
     tabs: tabEls.map(tabKey),
     shown: tabKey(tabEls.find((t) => t.classList.contains('on'))),
     foldsTools: [...ids].some((id) => hasEntry(tools.get(id))),
@@ -785,6 +807,19 @@ function fitLeft(bar, { width, gap, right }) {
   if (first.length) for (const t of fitting) { if (!t.fitFirst) { try { t.fit(0); } catch { /* keeps its size */ } } }
   for (const t of fitting) fitOne(t);
   for (const t of first) fitOne(t);
+}
+
+// On a phone every tool shown in the space bar is a tab (system.css, tabbar block): the tool's button (an element tool's
+// own, Online's toggle in its box) takes the tab's class there and drops it wider. The module tabs are canvas.js's.
+function markTabs(b, phoneNow) {
+  const strip = b.zones.left ? b.zones.left.querySelector('.sdk-tabbar-tabs') : null;
+  for (const t of tools.values()) {
+    const tool = els.get(t.id);
+    if (!tool || (strip && tool.contains(strip))) continue;
+    const tab = tool.matches('button, a') ? tool : tool.querySelector(':scope > button');
+    // A tool that moved to the top bar (Online, wider than a phone) drops it too.
+    if (tab) tab.classList.toggle('sdk-tabbar-tab', phoneNow && t.bar === 'secondary');
+  }
 }
 
 // Fit a bar to its width (plan-one-bar.md, step 7: one fit for both bars). Its left-zone tools that can give way
@@ -823,6 +858,7 @@ function fitBar(bar) {
     paintMoreBadge(bar);
     return;
   }
+  if (bar === 'secondary') markTabs(b, phoneNow);
   if (phoneNow) {
     if (width > 0 && shownEl(el)) ({ ids, tabs } = fitPhone(b, el, width));
   } else {
@@ -852,8 +888,6 @@ function fitBar(bar) {
   fold.tabs = tabs;
   fold.showMore = tabs.length > 0 || [...ids].some((id) => hasEntry(tools.get(id)));
   fold.more.hidden = !fold.showMore;
-  // The conference's tab folded while in the call: its in-call dot is on the "..." (style.css), so nobody talks unseen.
-  fold.more.classList.toggle('in-call', tabs.some((t) => t.classList.contains('in-call')));
   // No divider with nothing shown before it since the last one (a group that folded away).
   let seen = false;
   for (const c of right.children) {
@@ -866,7 +900,7 @@ function fitBar(bar) {
   }
   paintMoreBadge(bar);
   // A tab picked from the "..." is named by its id: canvas.js draws the tabs afresh as the view changes.
-  const picked = typeof fold.picked === 'string' ? (b.zones.left ? [...b.zones.left.querySelectorAll('.subnav-modules > .modules-menu-item')].find((t) => tabKey(t) === fold.picked) : null) : fold.picked;
+  const picked = typeof fold.picked === 'string' ? (b.zones.left ? [...b.zones.left.querySelectorAll('.sdk-tabbar-tabs > .sdk-tabbar-tab')].find((t) => tabKey(t) === fold.picked) : null) : fold.picked;
   fold.picked = null;
   const focusable = (node) => node && (node.matches('button, a[href], input, select, [tabindex]') ? node : node.querySelector('button, a[href], input, select, [tabindex]'));
   const visible = (node) => node && node.isConnected && !node.closest(`.${FOLDED}`) && shownEl(node) && node.getBoundingClientRect().width > 0;
@@ -907,10 +941,10 @@ async function openFoldMenu(bar) {
   for (const tab of fold.tabs) {
     if (!tab.isConnected) continue;
     const key = tabKey(tab);
-    const icon = [...(tab.querySelector(':scope > i')?.classList || [])].filter((c) => c !== 'fa-fw').join(' ');
+    const icon = [...(tab.querySelector('.sdk-tabbar-glyph > i')?.classList || [])].filter((c) => c !== 'fa-fw').join(' ');
     tabItems.push({
       icon: icon || undefined,
-      label: tab.querySelector(':scope > span:not(.badge)')?.textContent || '',
+      label: tab.querySelector('.sdk-tabbar-label')?.textContent || '',
       badge: unreadOf(tab),
       onPick: () => {
         fold.picked = key;

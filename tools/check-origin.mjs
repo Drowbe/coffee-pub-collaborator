@@ -81,7 +81,7 @@ function call(method, sub, urlPath, { headers = {}, body, type = 'application/js
         let json = null;
         try { json = JSON.parse(text); } catch { /* not JSON */ }
         const cookies = (res.headers['set-cookie'] || []).map((c) => c.split(';')[0]);
-        resolve({ status: res.status || res.statusCode, json, text, cookies, location: res.headers.location });
+        resolve({ status: res.status || res.statusCode, json, text, cookies, location: res.headers.location, headers: res.headers });
       });
     });
     req.on('error', reject);
@@ -110,7 +110,7 @@ try {
     environmentName: (await call('GET', 'aaa', '/api/settings', { headers: { cookie: ownerCookie } })).json.settings.environmentName,
     hostName: (await call('GET', 'admin', '/api/host/environments', { headers: { cookie: hostCookie } })).json.environments.find((e) => e.slug === 'bbb').name,
   });
-  const set = { bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff' };
+  const set = { 'surface-page': '#ffffff', 'surface-panel': '#f5f7f8', 'edge-hairline': '#dde3e6', 'text-primary': '#222222', 'text-muted': '#6b7479', 'accent-fill': '#1c7c8c', 'text-on-accent': '#ffffff' };
   const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a8b90000000049454e44ae426082', 'hex');
   // [what, method, subdomain, path, body, type, cookie]
   const ROUTES = [
@@ -192,9 +192,123 @@ try {
       assert.ok(r.cookies.some((c) => c.startsWith('app_session=')), 'signed in');
     }
   });
+  await test('a module frame page inlines the shared styles (system.css) and the SDK styles (host.css), unless it opts out', async () => {
+    const sys = fs.readFileSync(new URL('../public/sdk/system.css', import.meta.url), 'utf8');
+    const hostCss = fs.readFileSync(new URL('../public/sdk/host.css', import.meta.url), 'utf8');
+    const list = await call('GET', 'aaa', '/api/modules', { headers: { cookie: ownerCookie } });
+    const entry = (list.json.modules || []).find((m) => m.id === 'stream');
+    assert.ok(entry, `the stream module is listed: ${list.text.slice(0, 120)}`);
+    const r = await call('GET', 'aaa', `/m/stream/${entry.version}/${entry.surfaces.page.entry}`, { headers: { cookie: ownerCookie, accept: 'text/html' } });
+    assert.equal(r.status, 200, r.text.slice(0, 120));
+    const style = /<style id="sdk-base">([\s\S]*?)<\/style>/.exec(r.text);
+    assert.ok(style, 'the base style block is there');
+    assert.ok(style[1].includes(sys.slice(0, 200)) && style[1].includes(hostCss.slice(-200)), 'both stylesheets are inlined');
+    assert.ok(style[1].indexOf(sys.slice(0, 200)) < style[1].indexOf(hostCss.slice(-200)), 'system.css comes first');
+  });
+
+  await test('/fonts: served on the bare base domain, a subdomain and the console; font files (and /fa/webfonts) send a wildcard CORS header, nothing else does', async () => {
+    for (const sub of ['', 'aaa', 'admin']) {
+      const r = await call('GET', sub, '/fonts/figtree/latin.woff2');
+      assert.equal(r.status, 200, `${sub || 'bare'} /fonts`);
+      assert.equal(r.headers['access-control-allow-origin'], '*', `${sub || 'bare'} CORS`);
+      assert.match(r.headers['cache-control'] || '', /max-age=2592000/, `${sub || 'bare'} cache`);
+    }
+    const fa = await call('GET', 'aaa', '/fa/webfonts/fa-solid-900.woff2');
+    assert.equal(fa.status, 200);
+    assert.equal(fa.headers['access-control-allow-origin'], '*');
+    // Other public files stay shut on the bare base domain and carry no wildcard header anywhere.
+    for (const p of ['/app.js', '/sdk/host.js', '/fonts-other/x', '/fontsx/figtree/latin.woff2', '/fonts/nope.woff2']) {
+      assert.equal((await call('GET', '', p)).status, 404, `bare ${p}`);
+    }
+    for (const [sub, p] of [['aaa', '/style.css'], ['aaa', '/sdk/host.js'], ['', '/style.css'], ['', '/fa/css/all.min.css']]) {
+      const r = await call('GET', sub, p);
+      assert.equal(r.status, 200, `${sub || 'bare'} ${p}`);
+      assert.equal(r.headers['access-control-allow-origin'], undefined, `${p} must not carry the CORS header`);
+    }
+  });
+  // plan-product-pages.md, decisions 7, 8, 10 and the contract: the use pages at the bare base domain.
+  const same = (sub) => ({ cookie: hostCookie, origin: originOf(sub), 'sec-fetch-site': 'same-origin' });
+  await test('/travel and /games answer 200 with their pages while their templates are offered; /projects (no template) answers 404', async () => {
+    const travel = await call('GET', '', '/travel', { headers: { accept: 'text/html' } });
+    assert.equal(travel.status, 200, travel.text.slice(0, 120));
+    assert.equal(travel.text, fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8'), 'the page is public/travel.html');
+    const games = await call('GET', '', '/games', { headers: { accept: 'text/html' } });
+    assert.equal(games.status, 200, games.text.slice(0, 120));
+    assert.equal(games.text, fs.readFileSync(path.join(ROOT, 'public', 'games.html'), 'utf8'), 'the page is public/games.html');
+    for (const p of ['/projects', '/travel/', '/travel.html', '/games/', '/games.html']) assert.equal((await call('GET', '', p)).status, 404, p);
+    const info = await call('GET', '', '/api/product');
+    assert.deepEqual(info.json.pages, [{ path: '/travel', template: 'travel' }, { path: '/games', template: 'games' }]);
+  });
+  await test('a use page is only at the bare base domain: an environment and the console do not send it', async () => {
+    const file = fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8');
+    for (const sub of ['aaa', 'admin']) assert.notEqual((await call('GET', sub, '/travel', { headers: { accept: 'text/html' } })).text, file, sub);
+  });
+  await test('hiding the travel template takes /travel to 404 and out of `pages`; showing it brings it back', async () => {
+    const hide = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: true } });
+    assert.equal(hide.status, 200, hide.text);
+    assert.equal((await call('GET', '', '/travel')).status, 404, 'hidden: 404');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/games', template: 'games' }], 'games stays');
+    assert.equal((await call('GET', '', '/games')).status, 200, 'games still 200');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.templates.map((t) => t.id), ['games']);
+    const hideGames = await call('PATCH', 'admin', '/api/host/templates/games', { headers: same('admin'), body: { hidden: true } });
+    assert.equal(hideGames.status, 200, hideGames.text);
+    assert.equal((await call('GET', '', '/games')).status, 404, 'games hidden: 404');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [], 'both hidden: none');
+    const showGames = await call('PATCH', 'admin', '/api/host/templates/games', { headers: same('admin'), body: { hidden: false } });
+    assert.equal(showGames.status, 200, showGames.text);
+    const show = await call('PATCH', 'admin', '/api/host/templates/travel', { headers: same('admin'), body: { hidden: false } });
+    assert.equal(show.status, 200, show.text);
+    assert.equal((await call('GET', '', '/travel')).status, 200, 'shown again: 200');
+    assert.deepEqual((await call('GET', '', '/api/product')).json.pages, [{ path: '/travel', template: 'travel' }, { path: '/games', template: 'games' }]);
+  });
+  await test('the bundled games template, and a host template called projects, (a template with no file gives no page)', async () => {
+    assert.equal((await call('GET', '', '/games')).status, 200);
+    assert.ok((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/games'));
+    assert.ok((await call('GET', '', '/api/product')).json.templates.some((t) => t.id === 'games'), 'the games template is offered');
+    assert.equal((await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'games', name: 'Games', description: 'A test.', modules: ['chat'] } })).status, 409, 'its id is taken');
+    const made = await call('POST', 'admin', '/api/host/templates', { headers: same('admin'), body: { id: 'projects', name: 'Projects', description: 'A test.', modules: ['chat'] } });
+    assert.equal(made.status, 201, made.text);
+    const projectsPage = fs.existsSync(path.join(ROOT, 'public', 'projects.html'));
+    assert.equal((await call('GET', '', '/projects')).status, projectsPage ? 200 : 404);
+    assert.equal((await call('GET', '', '/api/product')).json.pages.some((p) => p.path === '/projects'), projectsPage);
+    await call('DELETE', 'admin', '/api/host/templates/projects', { headers: same('admin') });
+  });
 } finally {
   await new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
   fs.rmSync(dataDir, { recursive: true, force: true });
+}
+
+// No BASE_DOMAIN: there are no product pages. /travel is not a page, and /api/product lists none (single-environment installs behave as before).
+{
+  const one = fs.mkdtempSync(path.join(os.tmpdir(), 'check-origin-single-'));
+  const solo = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
+    cwd: ROOT,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: one, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let soloOut = '';
+  solo.stdout.on('data', (d) => { soloOut += d; });
+  solo.stderr.on('data', (d) => { soloOut += d; });
+  try {
+    const soloPort = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`the single-environment server did not start:\n${soloOut}`)), 20000);
+      const look = () => { const m = /listening on :(\d+)/.exec(soloOut); if (m) { clearTimeout(timer); resolve(Number(m[1])); } };
+      solo.stdout.on('data', look);
+      solo.stderr.on('data', look);
+    });
+    await test('without BASE_DOMAIN: /travel, /games and /projects are not pages, and /api/product lists no pages', async () => {
+      for (const p of ['/travel', '/games', '/projects']) {
+        const r = await fetch(`http://127.0.0.1:${soloPort}${p}`, { redirect: 'manual' });
+        assert.equal(r.status, 404, p);
+        assert.notEqual(await r.text(), fs.readFileSync(path.join(ROOT, 'public', 'travel.html'), 'utf8'), p);
+      }
+      const info = await (await fetch(`http://127.0.0.1:${soloPort}/api/product`)).json();
+      assert.deepEqual([info.pages, info.templates, info.baseDomain], [[], [], null]);
+    });
+  } finally {
+    await new Promise((resolve) => { if (solo.exitCode !== null) return resolve(); solo.once('exit', resolve); solo.kill('SIGTERM'); });
+    fs.rmSync(one, { recursive: true, force: true });
+  }
 }
 
 if (failed) {

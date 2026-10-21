@@ -1,7 +1,7 @@
 // A list of switches, one per module: its switch, its icon and its name (and a short note, and a count). One piece for
 // every list of modules to turn on and off: the space bar's module chooser (canvas.js, shown or hidden on the canvas),
 // Open with on the space list (space.js, what this person's own layout opens with), and in space settings Opens with
-// (what a first visit opens) and the space's modules (which are on in the space; space-settings.js). The switch is the space bar's own look (`.switch` in style.css) on a
+// (what a first visit opens) and the space's modules (which are on in the space; space-settings.js). The switch is the space bar's own look (`.sdk-switch` in system.css) on a
 // real checkbox with role="switch", so a screen reader says "on" or "off" and Space toggles it; wireSwitchList() adds
 // Enter to toggle and the arrow keys to move between them. Each page listens for `change` (or `click`) on the list.
 //
@@ -15,11 +15,12 @@ const ICON = /^[a-z0-9-]{1,40}$/;
 const TINT = /^(gold|blue|green|teal|purple|red|orange|pink)$/;
 export function switchRowHtml({ id, icon, name, on = false, note = '', badge = 0, disabled = false, tint = null }, attr) {
   const n = Number(badge) || 0;
-  return `<label class="switch-row${disabled ? ' disabled' : ''}"><input type="checkbox" class="switch" role="switch" data-${attr}="${escapeHtml(id)}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
+  return `<label class="sdk-choice-row${disabled ? ' disabled' : ''}">`
     + `<i class="fa-solid fa-${ICON.test(icon || '') ? icon : 'puzzle-piece'} fa-fw" aria-hidden="true"${TINT.test(tint || '') ? ` data-tint="${tint}"` : ''}></i>`
-    + `<span class="switch-name">${escapeHtml(name)}</span>`
-    + (note ? ` <span class="hint">(${escapeHtml(note)})</span>` : '')
-    + (n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : '')
+    + `<span class="sdk-choice-text"><span class="sdk-choice-label">${escapeHtml(name)}${n ? ` <span class="sdk-badge">${n > 9 ? '9+' : n}</span>` : ''}</span>`
+    + (note ? `<span class="sdk-choice-desc">${escapeHtml(note)}</span>` : '')
+    + '</span>'
+    + `<input type="checkbox" class="sdk-switch" role="switch" data-${attr}="${escapeHtml(id)}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
     + '</label>';
 }
 
@@ -33,14 +34,14 @@ export function wireSwitchList(list) {
   if (!list || wired.has(list)) return;
   wired.add(list);
   list.addEventListener('keydown', (event) => {
-    const input = event.target.closest?.('input.switch');
+    const input = event.target.closest?.('input.sdk-switch');
     if (!input || !list.contains(input)) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       input.click();
       return;
     }
-    const all = [...list.querySelectorAll('input.switch:not(:disabled)')];
+    const all = [...list.querySelectorAll('input.sdk-switch:not(:disabled)')];
     const at = all.indexOf(input);
     const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: all.length - 1 }[event.key];
     if (to === undefined) return;

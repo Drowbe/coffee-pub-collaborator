@@ -4,7 +4,8 @@
 import { loadBranding, api, renderTopbar } from '/brand.js';
 import { wireRegionCut } from '/region-cut.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
-import { renderOffer, switchQuestion } from '/template-offer.js';
+import { renderOffer, switchConfirm } from '/template-offer.js';
+import { confirmDialog } from '/confirm.js';
 import { initTemplates } from '/host-templates.js';
 import { wireFlightSchedule } from '/flight-schedule.js';
 
@@ -89,7 +90,7 @@ function aiServiceRow(c, s) {
   slot(form, 'name').textContent = c.name;
   const offered = slot(form, 'offered');
   offered.textContent = s.offered ? 'Offered' : 'Not offered';
-  offered.classList.toggle('on', Boolean(s.offered));
+  if (s.offered) offered.dataset.tone = 'ok'; else delete offered.dataset.tone;
   slot(form, 'address-row').hidden = c.id !== 'compatible';
   form.elements.address.value = s.address || '';
   slot(form, 'workspace-row').hidden = c.id !== 'anthropic'; // an organisation-level key must name its workspace
@@ -103,7 +104,7 @@ function aiServiceRow(c, s) {
   const syncKey = () => {
     const set = (s.keySet || keyMode === 'replace') && keyMode !== 'clear';
     keyState.textContent = s.keyFromEnvironment ? 'set by the server\'s environment' : keyMode === 'clear' ? 'will be removed' : set ? 'set' : 'not set';
-    keyState.classList.toggle('on', set);
+    if (set) keyState.dataset.tone = 'ok'; else delete keyState.dataset.tone;
     keyInput.hidden = keyMode !== 'replace';
     replaceBtn.hidden = Boolean(s.keyFromEnvironment);
     replaceBtn.textContent = keyMode === 'replace' ? 'Cancel' : s.keySet ? 'Replace the key' : 'Set a key';
@@ -192,7 +193,7 @@ async function loadShared() {
   const KIND_WORDS = { picture: 'Picture', vector: 'Map data' }; // from the file's own header, blank when it says nothing
   const hasKinds = files.some((f) => f.kind);
   $('shared-files').innerHTML = files.length
-    ? `<table class="files-table"><thead><tr><th>File</th>${hasKinds ? '<th>Type</th>' : ''}${hasZooms ? '<th>Zoom</th>' : ''}<th>Size</th><th></th></tr></thead><tbody>${files.map((f) => `<tr><td>${escapeHtml(f.name)}</td>${hasKinds ? `<td class="hint">${KIND_WORDS[f.kind] || ''}</td>` : ''}${hasZooms ? `<td class="hint">${f.zoom ? (f.zoom.minZoom === f.zoom.maxZoom ? f.zoom.maxZoom : `${f.zoom.minZoom}–${f.zoom.maxZoom}`) : ''}</td>` : ''}<td class="hint">${size(f.size)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(f.name)}" title="Delete ${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('')}</tbody></table>`
+    ? `<div class="sdk-table-wrap"><table class="sdk-table" aria-label="Map files"><thead><tr><th scope="col">File</th>${hasKinds ? '<th scope="col">Type</th>' : ''}${hasZooms ? '<th scope="col">Zoom</th>' : ''}<th scope="col" class="num">Size</th><th scope="col"><span class="visually-hidden">Delete</span></th></tr></thead><tbody>${files.map((f) => `<tr><th scope="row">${escapeHtml(f.name)}</th>${hasKinds ? `<td class="sdk-table-dim">${KIND_WORDS[f.kind] || ''}</td>` : ''}${hasZooms ? `<td class="sdk-table-dim">${f.zoom ? (f.zoom.minZoom === f.zoom.maxZoom ? f.zoom.maxZoom : `${f.zoom.minZoom}–${f.zoom.maxZoom}`) : ''}</td>` : ''}<td class="num sdk-table-dim">${size(f.size)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(f.name)}" data-tip="Delete ${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('')}</tbody></table></div>`
     : '<p class="hint">No map files yet. Every environment shows an empty map until one is here.</p>';
   if (!regionWired) {
     regionWired = true;
@@ -256,14 +257,15 @@ function renderEnvironments() {
     slot(el, 'slug').textContent = `${t.slug}.${settings.baseDomain}`;
     const status = slot(el, 'status');
     status.textContent = t.status === 'pastDue' ? 'past due' : t.status || 'active';
-    status.dataset.status = t.status || 'active';
+    if (t.status === 'pastDue') status.dataset.tone = 'danger';
+    else if (t.status === 'suspended') status.dataset.tone = 'neutral';
     el.querySelector('[data-action="suspend"]').textContent = t.status === 'suspended' ? 'Resume' : 'Suspend';
     // Refused (its data is from a newer version of the product, its app.json can't be read, or its data update could not finish): it answers its visitors with
     // a 503 until a good backup is restored, so the card says so and why, and has nothing to count.
     const refused = t.refused || null;
     if (refused) {
       status.textContent = "won't open";
-      status.dataset.status = 'refused';
+      status.dataset.tone = 'danger';
       const box = slot(el, 'refused');
       const when = refused.at ? new Date(refused.at) : null;
       const refusedCopy_ = refusedCopy();
@@ -282,7 +284,7 @@ function renderEnvironments() {
     // need a host admin's eye (past due, degraded, a deletion asked for) marked.
     el.dataset.status = refused ? 'refused' : t.status || 'active';
     const pctOf = (used, limit) => (limit ? Math.min(100, Math.round((used / limit) * 100)) : null);
-    const tile = (key, value, pct = null, warn = false) => `<div class="fact${warn || (pct !== null && pct >= 90) ? ' fact-warn' : ''}"><span class="fact-key">${escapeHtml(key)}</span><span class="fact-value">${escapeHtml(value)}</span>${pct === null ? '' : `<span class="env-cap-bar${pct >= 90 ? ' warn' : ''}"><span style="width:${pct}%"></span></span>`}</div>`;
+    const tile = (key, value, pct = null, warn = false) => `<div class="fact${warn || (pct !== null && pct >= 90) ? ' fact-warn' : ''}"><span class="fact-key">${escapeHtml(key)}</span><span class="fact-value">${escapeHtml(value)}</span>${pct === null ? '' : `<span class="sdk-progress env-cap-bar${pct >= 90 ? ' warn' : ''}" role="progressbar" aria-label="${escapeHtml(key)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-valuetext="${pct} percent${pct >= 90 ? ', almost full' : ''}"><span class="sdk-progress-fill" style="--pct:${pct}%"></span></span>`}</div>`;
     const none = '\u2014'; // a refused environment has nothing to count
     const storageText = refused ? none : u.storageBytes == null ? (p.storageBytes ? `not measured yet, cap ${gb(p.storageBytes)}` : 'not measured yet') : p.storageBytes ? `${gb(u.storageBytes)} of ${gb(p.storageBytes)}` : `${gb(u.storageBytes)}, no cap`;
     slot(el, 'facts').innerHTML = [
@@ -408,14 +410,14 @@ $('environments').addEventListener('change', (e) => {
   restoreFiles.set(slug, file);
   b.textContent = 'Replace its data?';
   b.title = `Replace everything in ${slug} with ${file.name}`;
-  b.classList.add('danger');
+  b.classList.add('btn-danger');
   b.focus();
   setTimeout(() => {
     if (restoreFiles.get(slug) !== file) return; // already restored, or another zip chosen since
     restoreFiles.delete(slug);
     b.textContent = 'Restore backup';
     b.title = '';
-    b.classList.remove('danger');
+    b.classList.remove('btn-danger');
   }, 8000);
 });
 $('environments').addEventListener('change', (e) => {
@@ -515,7 +517,7 @@ async function refreshEnvironments(slug, message, error = false) {
 async function switchEnvironmentTemplate(card, t) {
   const value = slot(card, 'template-select').value;
   const chosen = templates.find((x) => x.id === value);
-  if (!window.confirm(switchQuestion(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
+  if (!await confirmDialog(switchConfirm(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
   const button = card.querySelector('[data-action="template-switch"]');
   button.disabled = true;
   say(slot(card, 'template-status'), 'Switching…');
@@ -585,7 +587,7 @@ function renderCreateChoices() {
   box.hidden = !offered.length;
   const options = slot(box, 'options');
   const chosen = box.querySelector('input:checked')?.value || '';
-  const option = (id, name, description) => `<label class="template-option"><input type="radio" name="new-template" value="${escapeHtml(id)}"${id === chosen ? ' checked' : ''}><span><strong>${escapeHtml(name)}</strong><span class="hint">${escapeHtml(description)}</span></span></label>`;
+  const option = (id, name, description) => `<label class="sdk-choice-row sdk-choice-boxed"><input type="radio" name="new-template" value="${escapeHtml(id)}"${id === chosen ? ' checked' : ''}><span class="sdk-choice-text"><span class="sdk-choice-label">${escapeHtml(name)}</span><span class="sdk-choice-desc">${escapeHtml(description)}</span></span></label>`;
   options.innerHTML = option('', 'None', 'Start plain: the usual words and settings.')
     + offered.map((t) => option(t.id, t.name || t.id, t.description || '')).join('');
   if (!options.querySelector('input:checked')) options.querySelector('input').checked = true;
@@ -619,6 +621,15 @@ function selectTab(name) {
   const tab = TABS.includes(name) ? name : 'environments';
   for (const t of TABS) { const el = $(`tab-${t}`); if (el) el.hidden = tab !== t; }
   for (const b of document.querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
+  // A strip wider than the page scrolls inside itself: bring the chosen tab into it, the page left as it is.
+  const strip = $('subtabs');
+  const on = strip.querySelector('.subtab.active');
+  if (on && strip.scrollWidth > strip.clientWidth) {
+    const t = on.getBoundingClientRect();
+    const s = strip.getBoundingClientRect();
+    if (t.left < s.left) strip.scrollLeft += t.left - s.left;
+    else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
+  }
   if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
 }
 $('subtabs').addEventListener('click', (event) => {
@@ -754,16 +765,18 @@ function renderHostMfa() {
   if (!offered) return;
   const on = Boolean(me.mfaEnrolled);
   $('host-mfa-state').textContent = on ? (me.mfaBypass ? 'on, bypassed' : 'on') : 'off';
-  $('host-mfa-state').classList.toggle('on', on && !me.mfaBypass);
+  if (on && !me.mfaBypass) $('host-mfa-state').dataset.tone = 'ok'; else delete $('host-mfa-state').dataset.tone;
   $('host-mfa-on').hidden = on;
   $('host-mfa-off').hidden = !on || me.mfaRequired || me.mfaBypass;
   $('host-mfa-reset').hidden = !on || !me.mfaBypass;
-  if (me.mfaBypass && !document.querySelector('.env-page-banner[data-mfa-bypass]')) {
+  if (me.mfaBypass && !document.querySelector('.sdk-banner-wide[data-mfa-bypass]')) {
     const b = document.createElement('div');
-    b.className = 'env-page-banner';
+    b.className = 'sdk-banner sdk-banner-wide';
+    b.dataset.kind = 'warn';
     b.dataset.mfaBypass = '1';
     b.setAttribute('role', 'status');
-    b.textContent = 'The admin lockout bypass is on: host admins are not asked for their two-step code. Reset your factor on the Host tab if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.';
+    b.innerHTML = '<span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span><span class="sdk-banner-text"></span>';
+    b.querySelector('.sdk-banner-text').textContent = 'The admin lockout bypass is on: host admins are not asked for their two-step code. Reset your factor on the Host tab if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.';
     const topbar = document.querySelector('.topbar');
     if (topbar) topbar.after(b); else document.body.prepend(b);
   }

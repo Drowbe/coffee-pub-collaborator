@@ -1,11 +1,11 @@
-// The AI service's form, shared by two pages that carry the same fields (the same ids): an environment's AI
-// configuration page (/ai-config.html, where the choice is the host's managed service or a custom one) and the host
-// console's Managed AI panel (the one service the host offers every environment). The person picks a company by name
+// The AI service's setup on its tab on Manage > Modules (admin.html, #modules/ai): the host's managed service or a custom
+// one of this environment's own. The person picks a company by name
 // and the server knows its address; the models are listed from the company's own list, not typed. The key is
 // write-only: the page is told only whether one is set, and a typed key replaces it.
 //
-// mountAiForm({ get, put, models, source, cap, usage }): `get`, `put` and `models` are the API paths; `source` draws the
-// managed/custom choice (the environment's page), `cap` the monthly allowance, `usage` this month's use.
+// mountAiForm({ get, put, models, source, cap, usage, onSave }): `get`, `put` and `models` are the API paths; `source`
+// draws the managed/custom choice, `cap` the monthly allowance, `usage` this month's use; `onSave` is
+// called after a save the server took.
 import { api, fill, word } from '/brand.js';
 
 const $ = (id) => document.getElementById(id);
@@ -23,7 +23,7 @@ const AI_NOTICES = {
 };
 const COMPANY = { openai: 'OpenAI', anthropic: 'Anthropic', compatible: 'another service', none: 'none' };
 
-export function mountAiForm({ get, put, models, source = false, cap = false, usage = false }) {
+export function mountAiForm({ get, put, models, source = false, cap = false, usage = false, onSave = null }) {
   let aiState = { provider: 'none', keySet: false, keyFromEnvironment: false, model: '', source: 'custom', managed: { available: false } };
   let aiKeyMode = 'keep'; // keep | replace | clear
   let aiManual = false; // typing the model's name because the list could not be had
@@ -51,10 +51,10 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     if (source) {
       const s = offered().find((x) => x.provider === managedProvider());
       $('ai-managed-note').hidden = !managed;
-      $('ai-managed-note').textContent = s ? `Every request goes to ${COMPANY[s.provider] || s.provider}${s.model ? ' (' + s.model + ')' : ''} under the host's own account and key. Nothing is set up here; the allowance below is this ${word('environment')}'s own.` : '';
+      $('ai-managed-note-text').textContent = s ? `Every request goes to ${COMPANY[s.provider] || s.provider}${s.model ? ' (' + s.model + ')' : ''} under the host's own account and key. Nothing is set up here; the allowance below is this ${word('environment')}'s own.` : '';
       for (const el of document.querySelectorAll('[data-ai-custom]')) el.hidden = managed;
     }
-    $('ai-notice').textContent = managed ? '' : fill(AI_NOTICES[provider] || '');
+    $('ai-notice-text').textContent = managed ? '' : fill(AI_NOTICES[provider] || '');
     $('ai-notice').hidden = managed || !AI_NOTICES[provider];
     for (const el of $('ai-panel').querySelectorAll('[data-ai-for]')) el.hidden = managed || !el.dataset.aiFor.split(' ').includes(provider);
     $('ai-key-optional').hidden = provider !== 'compatible';
@@ -62,8 +62,8 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     // A saved key this server can't read (the server says why in keyProblem): it counts as none and has to be entered again.
     const problem = aiState.keyProblem && aiKeyMode === 'keep' ? aiState.keyProblem.charAt(0).toUpperCase() + aiState.keyProblem.slice(1) : '';
     $('ai-key-state').textContent = aiState.keyFromEnvironment ? 'set by the server\'s environment' : aiKeyMode === 'clear' ? 'will be removed' : set ? 'set' : problem ? 'can\'t be read' : 'not set';
-    $('ai-key-state').classList.toggle('on', set);
-    $('ai-key-state').classList.toggle('warn', Boolean(problem));
+    const keyTone = problem ? 'warn' : set ? 'ok' : '';
+    if (keyTone) $('ai-key-state').dataset.tone = keyTone; else delete $('ai-key-state').dataset.tone;
     $('ai-key').hidden = aiKeyMode !== 'replace';
     $('ai-key-replace').hidden = aiState.keyFromEnvironment;
     $('ai-key-replace').textContent = aiKeyMode === 'replace' ? 'Cancel' : aiState.keySet ? 'Replace the key' : problem ? 'Enter the key again' : 'Set a key';
@@ -135,7 +135,6 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     $('ai-key').value = '';
     syncAiPanel();
     loadAiModels();
-    syncAiEnable();
     if (!usage) return;
     const limit = (used && used.monthlyTokens) || 0;
     const off = managedChosen() ? !offered().some((s) => s.provider === managedProvider()) : ai.provider === 'none';
@@ -143,33 +142,18 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
     const pct = limit ? Math.min(100, Math.round(((used.tokens || 0) / limit) * 100)) : 0;
     $('ai-meter').hidden = !limit;
     $('ai-meter').setAttribute('aria-valuenow', String(pct));
-    $('ai-meter-fill').style.width = pct + '%';
+    $('ai-meter').setAttribute('aria-valuetext', pct >= 90 ? `${pct} percent, almost full` : `${pct} percent`);
+    $('ai-meter-fill').style.setProperty('--pct', pct + '%');
     $('ai-meter').classList.toggle('warn', pct >= 90);
     const tasks = Object.entries((used && used.byTask) || {}).map(([k, v]) => k + ' ' + Number(v).toLocaleString()).join(', ');
-    $('ai-usage-text').textContent = Number((used && used.tokens) || 0).toLocaleString() + ' tokens in ' + Number((used && used.calls) || 0).toLocaleString() + ' calls' + (limit ? ', ' + pct + '% of the ' + limit.toLocaleString() + ' allowance' : ', no limit set') + (tasks ? '. By task: ' + tasks + '.' : '.');
-  }
-
-  // The state pill only: enabling is on the card of the Modules tab. `enabled` comes from the server.
-  function syncAiEnable() {
-    const pill = $('ai-state');
-    if (!pill) return;
-    const saved = managedChosen() ? offered().some((s) => s.provider === managedProvider()) : aiState.provider !== 'none' && aiState.model;
-    // The host's own form has no enable step: its service is offered or not. An environment's says whether it is enabled.
-    if (!source && aiState.enabled === undefined) {
-      pill.textContent = saved ? 'Offered' : 'Not offered';
-      pill.classList.toggle('on', Boolean(saved));
-      return;
-    }
-    const on = Boolean(saved && (aiState.enabled === undefined ? true : aiState.enabled));
-    pill.textContent = on ? 'Enabled' : saved ? 'Disabled' : 'Off';
-    pill.classList.toggle('on', on);
+    $('ai-usage-text').textContent = Number((used && used.tokens) || 0).toLocaleString() + ' tokens in ' + Number((used && used.calls) || 0).toLocaleString() + ' calls' + (limit ? ', ' + pct + '% of the ' + limit.toLocaleString() + ' allowance' + (pct >= 90 ? '. Almost full' : '') : ', no limit set') + (tasks ? '. By task: ' + tasks + '.' : '.');
   }
 
   async function loadAi() {
     try { showAi(await api('GET', get)); } catch { $('ai-panel').hidden = true; }
   }
 
-  if (source) $('ai-source').addEventListener('change', () => { syncAiPanel(); loadAiModels(); syncAiEnable(); });
+  if (source) $('ai-source').addEventListener('change', () => { syncAiPanel(); loadAiModels(); });
   $('ai-provider').addEventListener('change', () => { aiManual = false; $('ai-model-select').replaceChildren(); syncAiPanel(); loadAiModels(); });
   $('ai-address').addEventListener('change', loadAiModels);
   $('ai-workspace').addEventListener('change', loadAiModels);
@@ -196,6 +180,7 @@ export function mountAiForm({ get, put, models, source = false, cap = false, usa
       await api('PUT', put, body);
       await loadAi();
       say($('ai-status'), 'saved');
+      if (onSave) onSave();
     } catch (err) {
       say($('ai-status'), err.message, true);
     }

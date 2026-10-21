@@ -9,11 +9,21 @@
  *                                                    the product uses and their SVGs), which the page itself reads when it is
  *                                                    served by the app; the snapshot always rebuilds it
  *
- * The folder holds: index.html (paths made relative), ds.css, ds.js, components*.js, proposed.js and proposed.css (the Proposed system view: the
- * proposed rules, all under .ds-proposed, which the page puts into the frames of that view only), sources.js (every stylesheet and the SDK as
- * text, so the page works from disk and from any static host), style.css, theme.css (Strong Coffee's light set; the dark set is
- * style.css's own), fa/ (Font Awesome's stylesheet and fonts), no external script. Stylesheets are the only thing the page loads
- * by link. Fails above 12 MB.
+ *   TODAY_URL=https://... PROPOSED_URL=https://...   (optional) the hosted copies' addresses: the cross-link in each page then points there
+ *                                                    and opens in a new tab (the proposed page links to TODAY_URL, today's to PROPOSED_URL)
+ *   PAGE=proposed OUT=/tmp/ds-proposed node tools/design-system-snapshot.mjs
+ *                                                    builds the proposed system page instead (public/design-system/proposed.html, written
+ *                                                    as the folder's index.html): index.html, style.css, theme.css, fa/, ds.css,
+ *                                                    proposed.css, proposed.js, proposed-families.json, every file that manifest names
+ *                                                    (each family's script and stylesheet) and fonts/ (the bundled woff2 files and their
+ *                                                    OFL.txt) only. No sources.js, no components, no inventory. The manifest is also written
+ *                                                    into index.html (window.DS_PROPOSED_MANIFEST), so the folder works from a file on disk
+ *
+ * The folder of the default page (PAGE=today) holds: index.html (paths made relative), ds.css, ds.js, components*.js, sources.js (every
+ * stylesheet and the SDK as text, so the page works from disk and from any static host), style.css, theme.css (Strong Coffee's light
+ * set; the dark set is style.css's own), fa/ (Font Awesome's stylesheet and fonts), no external script. Its Proposed system link
+ * points to proposed.html, which the folder does not hold (build the proposed page for that). Stylesheets are the only thing the
+ * page loads by link. Fails above 12 MB.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +37,17 @@ const FA = path.join(root, 'node_modules', '@fortawesome', 'fontawesome-free');
 const DS = path.join(root, 'public', 'design-system');
 const rd = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const rel = (p) => path.relative(root, p).split(path.sep).join('/');
+
+// The proposed page's families (public/design-system/proposed-families.json): the one list the page and this tool both read.
+export function proposedManifest() {
+  const m = JSON.parse(fs.readFileSync(path.join(DS, 'proposed-families.json'), 'utf8'));
+  if (!m || !Array.isArray(m.families)) throw new Error('proposed-families.json has no "families" list');
+  for (const f of m.families) {
+    if (!f.id || !/^[a-z0-9-]+$/.test(f.id)) throw new Error(`proposed-families.json: a family needs an id of lower-case letters, digits and hyphens (${JSON.stringify(f.id)})`);
+    for (const k of ['js', 'css']) if (f[k] && (!/^[A-Za-z0-9._-]+$/.test(f[k]) || !fs.existsSync(path.join(DS, f[k])))) throw new Error(`proposed-families.json: ${f.id}: ${k} file ${f[k]} is missing or not a plain file name`);
+  }
+  return m;
+}
 
 // ---- module stylesheets, in the order a module page carries them (server/module-build.js): lib css, then its own ----
 export function moduleStyles() {
@@ -105,9 +126,8 @@ export function buildSources({ withFiles } = {}) {
     const { themeCss } = require('../server/theme-css.js');
     const { DEFAULT_THEME } = require('../server/store.js');
     data.files = {
-      'style.css': rd('public/style.css'), 'host.css': rd('public/sdk/host.css'), 'host.js': rd('public/sdk/host.js'),
+      'style.css': rd('public/style.css'), 'host.css': rd('public/sdk/host.css'), 'host.js': rd('public/sdk/host.js'), 'tooltip.js': rd('public/tooltip.js'),
       'destination.css': rd('public/destination.css'), 'landing.css': rd('public/landing.css'), 'diag.css': rd('public/diag.css'),
-      'proposed.css': rd('public/design-system/proposed.css'),
       'theme.css': themeCss({ light: DEFAULT_THEME.light, dark: null }, 'dark'),
     };
   }
@@ -122,16 +142,53 @@ function walkSize(dir) {
 }
 const rel2 = (dir, p) => p;
 
-export function buildSnapshot(out) {
+export function buildSnapshot(out, page = 'today') {
+  if (page !== 'today' && page !== 'proposed') throw new Error(`PAGE must be today or proposed, not ${page}`);
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   // The page, paths made relative.
-  let html = fs.readFileSync(path.join(DS, 'index.html'), 'utf8');
+  let html = fs.readFileSync(path.join(DS, page === 'proposed' ? 'proposed.html' : 'index.html'), 'utf8');
   html = html.replace('href="/fa/css/all.min.css"', 'href="fa/css/all.min.css"').replace('href="/style.css"', 'href="style.css"').replace('href="/theme.css"', 'href="theme.css"');
+  // The review copies are hosted inside a frame, where a relative link goes nowhere: TODAY_URL and PROPOSED_URL, when set, make the
+  // cross-link (#ds-other) an absolute link that opens in a new tab. In the product it stays relative.
+  const other = page === 'proposed' ? process.env.TODAY_URL : process.env.PROPOSED_URL;
+  if (other) {
+    if (!/^https:\/\/[^\s"<>]+$/.test(other)) throw new Error('TODAY_URL and PROPOSED_URL must be https URLs');
+    html = html.replace(/(<a class="btn btn-small") href="[^"]*"( id="ds-other")/, `$1 href="${other}" target="_blank" rel="noopener"$2`);
+    if (!html.includes(`href="${other}"`)) throw new Error('the cross-link (#ds-other) was not found in the page');
+  }
+  let keep;
+  if (page === 'proposed') {
+    // The families the manifest names, and the manifest itself (also written into the page: a file on disk cannot read it by XHR).
+    const m = proposedManifest();
+    const names = new Set(['ds.css', 'proposed.js', 'proposed.css', 'proposed-families.json']);
+    for (const f of m.families) for (const k of ['js', 'css']) if (f[k]) names.add(f[k]);
+    keep = (f) => names.has(f);
+    const tag = `<script>window.DS_PROPOSED_MANIFEST = ${JSON.stringify(m).replace(/</g, '\\u003c')};</script>\n  `;
+    if (!html.includes('<script src="proposed.js">')) throw new Error('proposed.html does not load proposed.js');
+    html = html.replace('<script src="proposed.js">', tag + '<script src="proposed.js">');
+  } else {
+    const rx = /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
+    keep = (f) => rx.test(f);
+  }
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  for (const f of fs.readdirSync(DS)) if (/^(ds\.css|ds\.js|components[-0-9]*\.js|proposed\.(js|css))$/.test(f)) copy(path.join(DS, f), path.join(out, f));
-  const { data, js, unknown } = buildSources({ withFiles: true });
-  fs.writeFileSync(path.join(out, 'sources.js'), js);
+  for (const f of fs.readdirSync(DS)) if (keep(f)) copy(path.join(DS, f), path.join(out, f));
+  // The proposed page's bundled fonts (fonts/<family>/*.woff2 and each OFL.txt), self-hosted beside it. Today's page carries none.
+  if (page === 'proposed' && fs.existsSync(path.join(DS, 'fonts'))) {
+    const walkCopy = (from, to) => { for (const e of fs.readdirSync(from, { withFileTypes: true })) { const a = path.join(from, e.name); const b = path.join(to, e.name); if (e.isDirectory()) walkCopy(a, b); else if (/\.(woff2|txt)$/.test(e.name)) copy(a, b); } };
+    walkCopy(path.join(DS, 'fonts'), path.join(out, 'fonts'));
+  }
+  let data; let unknown = [];
+  if (page === 'proposed') {
+    // Only the two stylesheets the frames read; no sources.js, no module stylesheets, no icon scan.
+    const { themeCss } = require('../server/theme-css.js');
+    const { DEFAULT_THEME } = require('../server/store.js');
+    data = { files: { 'style.css': rd('public/style.css'), 'theme.css': themeCss({ light: DEFAULT_THEME.light, dark: null }, 'dark') }, icons: [] };
+  } else {
+    const built = buildSources({ withFiles: true });
+    data = built.data; unknown = built.unknown;
+    fs.writeFileSync(path.join(out, 'sources.js'), built.js);
+  }
   fs.writeFileSync(path.join(out, 'style.css'), data.files['style.css']);
   fs.writeFileSync(path.join(out, 'theme.css'), data.files['theme.css']);
   // Font Awesome: the stylesheet and its fonts, beside it as the stylesheet expects (../webfonts/).
@@ -150,8 +207,9 @@ async function main() {
     console.log(`design-system-snapshot: wrote public/design-system/sources.js (${Math.round(js.length / 1024)} KB: ${Object.keys(data.modules).length} modules, ${data.icons.length} icons${unknown.length ? `; not in Font Awesome Free: ${unknown.join(', ')}` : ''})`);
     return 0;
   }
-  const out = path.resolve(process.env.OUT || '/tmp/ds-snapshot');
-  const r = buildSnapshot(out);
+  const out = path.resolve(process.env.OUT || (process.env.PAGE === 'proposed' ? '/tmp/ds-proposed' : '/tmp/ds-snapshot'));
+  const page = process.env.PAGE || 'today';
+  const r = buildSnapshot(out, page);
   for (const f of r.files) console.log(`  ${String(f.size).padStart(9)}  ${f.file}`);
   console.log(`design-system-snapshot: ${r.files.length} files, ${(r.total / 1024 / 1024).toFixed(2)} MB in ${out}${r.unknown.length ? `\n  names that look like icons but are not in Font Awesome Free solid (left out): ${r.unknown.join(', ')}` : ''}`);
   if (r.total > LIMIT) { console.error(`design-system-snapshot: over the ${LIMIT / 1024 / 1024} MB limit`); return 1; }

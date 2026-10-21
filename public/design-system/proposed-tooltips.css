@@ -1,0 +1,78 @@
+/* ==== Tooltips (PROPOSED 2026-10-20; Thomas's decisions of 2026-10-20, plan-design-system.md "Feedback") ====
+   A new component: a small label that names a control. It is the INVERSE of the page: the text colour is the fill and the page colour is the text, so it is a
+   dark chip on a light page and a light chip on a dark page. 12px, --radius-small, 240px at most, 4px by 8px of padding, --shadow-2.
+   It shows after 500ms of hover, at once on keyboard focus, and hides on Escape, on leaving and on blur. Never on touch hover: on a phone the label shows on a long
+   press, or is in the menu. role="tooltip", and the control gets aria-describedby while it shows. An arrow is optional. It sits on top by default and flips to the
+   other side when the top is clipped.
+   Applied first to icon-only controls and tabs, which need BOTH an accessible name (aria-label) and the tooltip. The other native title hints stay native for now.
+   Names. New: .sdk-tooltip (with [data-show], [data-arrow], [data-placement]) and its kbd; .sdk-truncate (the truncated-text variant's target).
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --tip-max-w: 240px;
+  --tip-delay: 500ms;
+  --tip-ms: 120ms;
+  --z-tooltip: 70;
+}
+
+.ds-proposed .sdk-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-tooltip);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: var(--tip-max-w);
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-small);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--tip-ms) ease-out, visibility var(--tip-ms);
+}
+.ds-proposed .sdk-tooltip[data-show] { opacity: 1; visibility: visible; }
+
+/* The shortcut hint: a small key chip at the end of the label. */
+.ds-proposed .sdk-tooltip kbd {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 4px;
+  border-radius: var(--radius-min);
+  background: color-mix(in srgb, var(--bg) 22%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+/* The arrow (optional): a small square turned 45 degrees, in the same fill, on the side that faces the control. */
+.ds-proposed .sdk-tooltip[data-arrow]::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--text);
+  transform: rotate(45deg);
+  left: calc(var(--arrow-x, 50%) - 4px);
+  bottom: -3px;
+}
+.ds-proposed .sdk-tooltip[data-arrow][data-placement="bottom"]::after { top: -3px; bottom: auto; }
+.ds-proposed .sdk-tooltip[data-arrow][data-placement="left"]::after { left: auto; right: -3px; top: calc(50% - 4px); bottom: auto; }
+.ds-proposed .sdk-tooltip[data-arrow][data-placement="right"]::after { left: -3px; top: calc(50% - 4px); bottom: auto; }
+
+/* The truncated-text variant: the label shows only while the text is cut. */
+.ds-proposed .sdk-truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed .sdk-tooltip { transition: none; }
+}

@@ -39,10 +39,15 @@ const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
 const defs = css.match(/--module-header-h\s*:/g) || [];
 if (defs.length !== 1) fail('public/style.css', `--module-header-h must be defined exactly once (found ${defs.length})`);
 
-// A rule for a module header (anything named like .mod-header, or a chat header) must take its height from the token.
-for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+// The Module window block of system.css (design system step 28): the title bar, the toolbar, the status line and the window's look.
+const sysCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
+const chromeBlock = sysCss.slice(sysCss.indexOf('/* modulechrome:start */'), sysCss.indexOf('/* modulechrome:end */'));
+if (chromeBlock.length < 100) fail('public/sdk/system.css', 'the Module window block (modulechrome:start to modulechrome:end) is missing');
+
+// A rule for a module header (anything named like .mod-header, or the chat's .chat-head) must take its height from the token.
+for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const selector = m[1].trim();
-  if (!/(\.mod-header|\.chat\s+header)\b/.test(selector)) continue;
+  if (!/(\.mod-header|\.chat-head|\.chat\s+header)\b/.test(selector)) continue;
   const body = m[2];
   for (const decl of body.split(';')) {
     const hm = decl.match(/^\s*(min-|max-)?height\s*:\s*(.+)$/);
@@ -380,6 +385,17 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // Many on a small canvas, more than fit even at the smallest size: every one placed, every one still on the canvas.
   const small = { x: 8, y: 8, w: 684, h: 400 };
   check('twelve on a small canvas', Array.from({ length: 12 }, (_, i) => ({ id: `m${i}`, box: { x: 900 + i * 10, y: -100, w: 500, h: 400 } })), small, { apart: false });
+  // One at a time with nowhere free left (Maps over Research, 2026-10-21): each box tidied alone, the earlier ones passed as `taken`,
+  // must not land on the same spot as the one before.
+  {
+    const wall = { x: area.x, y: area.y, w: area.w, h: area.h };
+    const placedAlone = [];
+    for (let i = 0; i < 3; i += 1) {
+      const b = tidyBoxes([{ id: `w${i}`, box: { x: 0, y: 0, w: 440, h: 634 } }], area, [wall, ...placedAlone]).get(`w${i}`);
+      if (placedAlone.some((p) => p.x === b.x && p.y === b.y)) fail('public/snap-grid.js', `nowhere free, tidied one at a time: window ${i} sits on the spot of an earlier one: ${JSON.stringify([...placedAlone, b])}`);
+      placedAlone.push(b);
+    }
+  }
   // As many as fit at the smallest size: apart.
   check('four smallest on a small canvas', Array.from({ length: 4 }, (_, i) => ({ id: `n${i}`, box: { x: 0, y: 0, w: 600, h: 380 } })), small);
   // Snap off and on alike: every size from a phone-wide canvas to a wide one, six modules piled up, all on it and apart.
@@ -505,9 +521,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/win\.innerWidth - SNAP_GAP\)/.test(canvasJs) || !/win\.innerHeight - SNAP_GAP\)/.test(canvasJs)) fail('public/canvas.js', 'clampBox keeps SNAP_GAP clear of the window\'s edges');
   if (!/const half = SNAP_GAP \/ 2;\n\s*return gridFor\(\{ left: s\.left \+ half, top: s\.top \+ half, width: Math\.max\(1, s\.width - SNAP_GAP\), height: Math\.max\(1, s\.height - SNAP_GAP\) \}, snapPitch\(\)\);/.test(canvasJs)) fail('public/canvas.js', 'snapGrid() lays the grid half a gutter in from the canvas\'s edges');
   if ((canvasJs.match(/\{ x: g\.x \+ TIDY_GAP \/ 2, y: g\.y \+ TIDY_GAP \/ 2, w: g\.w - TIDY_GAP, h: g\.h - TIDY_GAP \}/g) || []).length !== 2) fail('public/canvas.js', 'floatAll() and placeWaiting() tidy within half a gutter of the grid (a gutter from the edge)');
-  const floating = /\.module-floating \{([^}]*)\}/.exec(css);
-  if (!floating || !/box-shadow: 0 1px 3px color-mix\(in srgb, black 18%, transparent\);/.test(floating[1])) fail('public/style.css', 'a floating window\'s shadow is a hairline (0 1px 3px, black at 18%)');
-  if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px color-mix\(in srgb, black 25%, transparent\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, black at 25%)');
+  // A floating module is a window: the one shadow of what floats, --shadow-2 (the Module window family, approved 2026-10-21).
+  if (!/:is\(\.sdk-window-floating, \.module-floating\) \{ box-shadow: var\(--shadow-2\); \}/.test(chromeBlock)) fail('public/sdk/system.css', 'a floating window\'s shadow is --shadow-2');
+  const floating = /\n\.module-floating \{([^}]*)\}/.exec(css);
+  if (!floating || /box-shadow|background|border/.test(floating[1])) fail('public/style.css', 'the floating window\'s look is the Module window block\'s alone (.module-floating in style.css is where it sits)');
+  if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px var\(--shadow-color\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, the shadow colour)');
   if (/inset 0 3px 0 var\(--tint\)/.test(css)) fail('public/style.css', 'no 3px tint edge anywhere');
 }
 
@@ -923,8 +941,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // The chooser's button hides only while its list is the tab bar, and phone or wide is the header's own window (a
   // narrow pop-out is a phone there), not the main window's.
   for (const r of rules) {
-    if (/\.module-chooser-toggle\s*$/.test(r.selector) && /display:\s*none/.test(r.body) && !/\.subnav-modules/.test(r.selector)) {
-      fail('public/style.css', `${r.selector} hides the chooser's button without the list being the tab bar; scope it to .subnav-modules`);
+    if (/\.module-chooser-toggle\s*$/.test(r.selector) && /display:\s*none/.test(r.body) && !/\.sdk-tabbar-tabs/.test(r.selector)) {
+      fail('public/style.css', `${r.selector} hides the chooser's button without the list being the tab bar; scope it to .sdk-tabbar-tabs`);
     }
   }
   const place = spaceJs.slice(spaceJs.indexOf('function phoneWidth('), spaceJs.indexOf('placeSubnav();\n'));
@@ -1050,7 +1068,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       ${helpers}
       return { setAway, toggleCam, restartCamera, showAway, syncCallAttributes, set call(c) { call = c; }, set inCall(v) { inCall = v; }, get isAway() { return isAway; } };
     `)(
-      { Source: { Camera: 'camera' } }, { encode: (text) => text }, () => ({ classList: { toggle() {}, add() {}, remove() {} } }),
+      { Source: { Camera: 'camera' } }, { encode: (text) => text }, () => ({ classList: { toggle() {}, add() {}, remove() {} }, dataset: {} }),
       () => {}, () => {}, () => {}, (identity, on, message) => overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'),
       (text) => { said = text; }, async () => {}, () => ({ deviceId: prefs.camId }), prefs,
     );
@@ -1450,7 +1468,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\.home \{\s*--home-chat-w: 360px;\s*--home-modules-w: 320px;[^}]*grid-template-columns: var\(--home-chat-w\) minmax\(0, 1fr\) var\(--home-modules-w\);\s*grid-template-areas: "chat main modules";/.test(css)) fail('public/style.css', 'Home is three columns: Chat (360px), the spaces, the Modules (320px)');
   if (!/\.home-chat \{\s*grid-area: chat;\s*position: sticky;\s*top: 0;\s*height: var\(--home-h\);/.test(css)) fail('public/style.css', 'the chat column is the page\'s full height under the top bar, staying put');
   if (!/@media \(max-width: 1200px\) \{\s*\.home \{\s*grid-template-columns: var\(--home-chat-w\) minmax\(0, 1fr\);\s*grid-template-areas: "chat main" "chat modules";/.test(css)) fail('public/style.css', 'below 1200px the Modules go under the space cards');
-  if (!/@media \(max-width: 760px\) \{\s*\.home,[^{]*\{\s*grid-template-columns: minmax\(0, 1fr\);\s*grid-template-areas: "main" "chat" "modules";/.test(css)) fail('public/style.css', 'at 760px and below Home is one column, the spaces first');
+  if (!/@media \(max-width: 900px\) \{\s*\.home,[^{]*\{\s*grid-template-columns: minmax\(0, 1fr\);\s*grid-template-areas: "main" "chat" "modules";/.test(css)) fail('public/style.css', 'at 900px and below Home is one column, the spaces first');
   if (!/\.home-modules:has\(> \.dashboard\[hidden\]\) \{\s*display: none;/.test(css)) fail('public/style.css', 'no tiles, no Modules column');
   if (!/\.home-main \.space-list \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, max\(260px, calc\(\(100% - 18px\) \/ 2\)\)\), 1fr\)\);/.test(css)) fail('public/style.css', 'the space cards are two wide where they fit, never more');
   // Chat only on Home (GitHub #326, Thomas 2026-10-15): no Assistant tab, no Start call, no commands there; a space has all
@@ -1541,7 +1559,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const bar = html.slice(html.indexOf('id="floatbar"'), html.indexOf('id="floatbar-overflow"'));
   // Pop out is on the call's titlebar (#call-head-popout) and the conference's own (#conf-popout), not the toolbar (Thomas, 2026-10-14).
-  if (!/id="call-head-popout"[^>]*title="Pop out the call"[^>]*aria-label="Pop out the call"/.test(html)) fail('public/space.html', 'the call\'s titlebar has a Pop out button (#call-head-popout, "Pop out the call")');
+  if (!/id="call-head-popout"[^>]*data-tip="Pop out the call"[^>]*aria-label="Pop out the call"/.test(html)) fail('public/space.html', 'the call\'s titlebar has a Pop out button (#call-head-popout, "Pop out the call")');
   for (const id of ['call-popout', 'call-place', 'call-place-wrap', 'settings-toggle']) if (bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar no longer has #${id}; it lives in the titlebar's menus`);
   for (const id of ['call-out', 'call-out-note', 'call-back']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
   // No "Hide the video" (Thomas, 2026-10-14: "I am not sure we need to 'hide the video'... remove it"): no button at
@@ -1572,7 +1590,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!head) fail('public/space.html', 'the column needs the call\'s titlebar (<header class="side-column-call-head" id="call-head">)');
   else {
     if (!/id="call-head-name">Call</.test(head)) fail('public/space.html', 'the call\'s titlebar reads Call (#call-head-name) until the environment names it');
-    if (!/<button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
+    if (!/<button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
   }
   if (html.indexOf('id="call-head"') > html.indexOf('id="side-column-strip"')) fail('public/space.html', 'the call\'s titlebar sits above the call (before #side-column-strip)');
   if (!/openHostMenu\(event\.currentTarget, callMenuItems\)/.test(spaceJs)) fail(F, 'the call\'s "..." opens on the shared menu (openHostMenu, callMenuItems)');
@@ -1628,14 +1646,16 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/<header class="mod-header module-floating-head"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs) || !/<header class="mod-header"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked header carry data-tint');
   const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
   if (!/\$\('module-titlebar'\)\.dataset\.tint = tint;/.test(moduleJs)) fail('public/module.js', 'the popped-out page\'s titlebar carries data-tint');
-  const rule = /\.mod-header\[data-tint\] \{([^}]*)\}/.exec(css);
-  if (!rule) fail('public/style.css', 'a rule for .mod-header[data-tint]');
+  const S = 'public/sdk/system.css';
+  const rule = /:is\(\.sdk-titlebar, \.mod-header, \.chat-head\)\[data-tint\] \{([^}]*)\}/.exec(chromeBlock);
+  if (!rule) fail(S, 'a rule for the tinted title bar (.mod-header[data-tint])');
   else {
-    if (/box-shadow/.test(rule[1])) fail('public/style.css', 'no coloured top edge on the titlebar (Thomas, 2026-10-13): the tint is the wash and the icon only');
-    if (!/color-mix\(in srgb, var\(--tint\) 10%, transparent\)/.test(rule[1])) fail('public/style.css', 'the wash is a 10% mix of the tint over the header\'s own background');
-    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail('public/style.css', 'the titlebar\'s accent uses the tint token, never a raw colour');
+    if (/box-shadow/.test(rule[1])) fail(S, 'no coloured top edge on the titlebar (Thomas, 2026-10-13): the tint is the wash and the icon only');
+    if (!/background: color-mix\(in srgb, var\(--tint\) var\(--mc-wash\), var\(--surface-panel\)\)/.test(rule[1]) || !/--mc-wash: 10%;/.test(chromeBlock)) fail(S, 'the wash is a 10% mix of the tint over the window\'s step');
+    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail(S, 'the titlebar\'s accent uses the tint token, never a raw colour');
   }
-  if (!/\.mod-header\[data-tint\] \.mod-title > i \{[^}]*color: var\(--tint\);/.test(css)) fail('public/style.css', 'the title\'s icon takes the tint');
+  if (!/\)\[data-tint\] :is\(\.sdk-titlebar-title, \.mod-title\) > i \{[^}]*color: color-mix\(in srgb, var\(--tint\) 62%, var\(--text-primary\)\);/.test(chromeBlock)) fail(S, 'the title\'s icon takes the tint (the readable mix)');
+  if (/\.mod-header\[data-tint\]/.test(css)) fail('public/style.css', 'the tinted title bar is the Module window block\'s alone');
 }
 
 // The call's toolbar in the always-on column (plan-one-bar.md, step 6; Thomas, 2026-10-13: "Where did all of the other
@@ -1802,7 +1822,14 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const wideRules = [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
   const zOf = (list, selector) => { const r = list.filter((x) => x.selector === selector && /z-index:/.test(x.body)).pop(); return r ? r.body.match(/z-index:\s*([^;]+)/)[1].trim() : null; };
   const zMenu = Number((plain.match(/--z-menu:\s*(\d+)/) || [])[1]);
-  const num = (v) => (v === 'var(--z-menu)' ? zMenu : Number(v));
+  // The layer tokens (system.css, Foundations): var(--z-*), and the one step under the bars, calc(var(--z-bar) - 1).
+  const zTok = (n) => { const m = sysCss.match(new RegExp(`--z-${n}:\\s*(\\d+);`)); return m ? Number(m[1]) : NaN; };
+  const num = (v) => {
+    if (v === 'var(--z-menu)') return zMenu;
+    const t = /^var\(--z-([a-z]+)\)$/.exec(v || ''); if (t) return zTok(t[1]);
+    const c = /^calc\(var\(--z-([a-z]+)\) - (\d+)\)$/.exec(v || ''); if (c) return zTok(c[1]) - Number(c[2]);
+    return Number(v);
+  };
   const layerPhone = num(zOf(phoneRules, '.module-layer') ?? zOf(wideRules, '.module-layer'));
   const topbar = num(zOf(phoneRules, '.topbar') ?? zOf(wideRules, '.topbar'));
   const tabbarRule = phoneRules.filter((r) => r.selector === 'body.in-space .subnav' && /z-index:/.test(r.body)).pop();
@@ -1811,7 +1838,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!tabbarRule || !/position:\s*(relative|sticky|fixed|absolute)/.test(tabbarRule.body)) fail(S, 'on a phone the tab bar (body.in-space .subnav) must be positioned, with a z-index, to stack over the floating layer');
   if (!(tabbar > layerPhone)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must be above the floating layer (${layerPhone})`);
   if (!(tabbar < zMenu)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must stay under an editor's lift and the menus (--z-menu, ${zMenu})`);
-  if (num(zOf(phoneRules, '.module-layer:has(.module-editor-lifted)')) !== zMenu) fail(S, 'on a phone the floating layer rises to the menus\' level (var(--z-menu)) while it holds a lifted editor');
+  if (num(zOf(wideRules, '.module-layer:has(.module-editor-lifted)')) !== zTok('dialog')) fail(S, 'the floating layer rises to the dialog layer (var(--z-dialog)) while it holds a lifted editor');
   // Dock at a phone's width: the resize moves the floating modules (placeForWidth) before a box is fitted to the new width.
   const bind = canvasJs.slice(canvasJs.indexOf('  function bindDoc(doc) {'), canvasJs.indexOf('  bindDoc(document);'));
   const crossing = bind.indexOf('placeForWidth(narrow)');

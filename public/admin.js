@@ -3,8 +3,13 @@ import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import { wireFlightSchedule } from '/flight-schedule.js';
 import '/slot-paste.js'; // paste a picture into any image slot
-import { renderOffer, switchQuestion } from '/template-offer.js';
+import { renderOffer, switchConfirm } from '/template-offer.js';
+import { confirmDialog } from '/confirm.js';
 import { fileText } from '/file-text.js';
+import { rowTabs } from '/page-tabs.js';
+import { moduleConfigMarkup, drawModuleConfig } from '/module-config.js';
+import { nav } from '/nav-bar.js';
+import { mountAiForm } from '/ai-form.js';
 
 const $ = (id) => document.getElementById(id);
 const userCards = new Map(); // key -> the user's card element
@@ -52,7 +57,8 @@ function buildHomeIconGrid() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset.icon = id;
-    btn.title = label || id;
+    btn.dataset.tip = label || id;
+    btn.setAttribute('aria-label', label || id);
     btn.innerHTML = `<i class="${escapeHtml(classes)} fa-fw" aria-hidden="true"></i>`;
     btn.addEventListener('click', () => {
       selectedHomeIcon = id;
@@ -106,21 +112,37 @@ function imgUrl(key, slot) {
 
 // Environment / Template / Theme / Spaces / Roles / Users / Modules / About tabs, remembered in the address
 const TABS = ['environment', 'template', 'theme', 'spaces', 'roles', 'users', 'modules', 'about'];
-// Their old names, from links and bookmarks: #settings and #server are the Environment tab, #rooms the Spaces tab.
-const OLD_TABS = { settings: 'environment', server: 'environment', rooms: 'spaces' };
-// Old names of sections that moved to the Template tab (addendum 2; Reactions and Icons came from Theme): a link to one opens the tab at it.
-const OLD_SECTIONS = { words: 'words-panel', 'home-icon': 'home-icon-section', reactions: 'reactions-section', icons: 'icons-section' };
-function selectTab(name) {
-  if (OLD_TABS[name]) name = OLD_TABS[name];
-  // A link to a section (an element's id, such as #words-panel or a module's row on the Template tab) opens its tab at it.
-  const at = !TABS.includes(name) && name ? $(OLD_SECTIONS[name] || name) : null;
-  const inTab = at && at.closest('section[id^="tab-"]');
-  if (inTab) name = inTab.id.slice(4);
-  const tab = TABS.includes(name) ? name : 'environment';
-  for (const t of TABS) $(`tab-${t}`).hidden = tab !== t;
-  for (const b of document.querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
-  // A strip wider than the page scrolls inside itself (style.css): bring the chosen tab into it, the page left as it is.
-  const strip = $('subtabs');
+// The Environment tab's parts (#261): General (the plan, the name and icon, the sign-in page), Localization and Stream,
+// each a stack of its own, chosen in the page bar's row (#env-subtabs). The address names the part shown: #general,
+// #localization, #stream (#environment, the tab's own name, opens General).
+const ENV_PARTS = ['general', 'localization', 'stream'];
+let envPart = 'general';
+function showEnvPart(part) {
+  envPart = ENV_PARTS.includes(part) ? part : 'general';
+  for (const el of document.querySelectorAll('#tab-environment > [data-env-part]')) el.hidden = el.dataset.envPart !== envPart;
+  for (const b of $('env-subtabs').querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.envPart === envPart);
+}
+// The Modules tab's parts (#264), in the page bar's row (#module-subtabs): Configuration (the list, the filters, the
+// activity), then a tab for each module that is on, Conference's while it is on. A tab that is not there (a module that
+// is off, or was just turned off or uninstalled) opens Configuration, once the list has loaded.
+let modulePart = 'config';
+let modulesLoaded = false;
+function showModulePart(part) {
+  const known = modulesLoaded ? moduleTabIds() : null;
+  modulePart = !known || known.includes(part) ? part : 'config';
+  $('module-part-config').hidden = modulePart !== 'config';
+  $('module-part-conference').hidden = modulePart !== 'conference';
+  $('module-part-ai').hidden = modulePart !== 'ai';
+  $('module-part-module').hidden = ['config', 'conference', 'ai'].includes(modulePart);
+  for (const b of $('module-subtabs').querySelectorAll('.subtab')) {
+    const on = b.dataset.modulePart === modulePart;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  }
+  if (modulesLoaded) drawModuleTab();
+}
+// A strip wider than the page scrolls inside itself (style.css): bring the chosen tab into it, the page left as it is.
+function scrollToChosen(strip) {
   const on = strip.querySelector('.subtab.active');
   if (on && strip.scrollWidth > strip.clientWidth) {
     const t = on.getBoundingClientRect();
@@ -128,7 +150,39 @@ function selectTab(name) {
     if (t.left < s.left) strip.scrollLeft += t.left - s.left;
     else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
   }
-  if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
+}
+let tabNow = 'environment';
+function selectTab(name) {
+  let part = 'general';
+  if (ENV_PARTS.includes(name)) {
+    part = name;
+    name = 'environment';
+  }
+  // The Modules tab's parts (#264): #modules/<id> a module's tab (Conference's and the AI service's too); #modules is
+  // Configuration.
+  let modPart = 'config';
+  if (name && name.startsWith('modules/')) {
+    modPart = decodeURIComponent(name.slice('modules/'.length)) || 'config';
+    name = 'modules';
+  }
+  // A link to a section (an element's id, such as #words-panel or a module's row on the Template tab) opens its tab at it.
+  const at = !TABS.includes(name) && name ? $(name) : null;
+  const inTab = at && at.closest('section[id^="tab-"]');
+  if (inTab) name = inTab.id.slice(4);
+  const inPart = at && at.closest('#tab-environment > [data-env-part]');
+  if (inPart) part = inPart.dataset.envPart;
+  const tab = TABS.includes(name) ? name : 'environment';
+  tabNow = tab;
+  for (const t of TABS) $(`tab-${t}`).hidden = tab !== t;
+  for (const b of $('subtabs').querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
+  if (tab === 'environment') showEnvPart(part);
+  if (tab === 'modules') showModulePart(modPart);
+  nav.draw('secondary'); // the page bar's row holds the Environment tab's parts, or the Modules tab's, only while it is shown
+  if (tab === 'environment') requestAnimationFrame(() => scrollToChosen($('env-subtabs')));
+  if (tab === 'modules') requestAnimationFrame(() => scrollToChosen($('module-subtabs')));
+  scrollToChosen($('subtabs'));
+  const hash = tab === 'environment' ? envPart : tab === 'modules' && modulePart !== 'config' ? `modules/${encodeURIComponent(modulePart)}` : tab;
+  if (location.hash !== `#${hash}`) history.replaceState(null, '', `#${hash}`);
   // Who has a calendar feed changes on their own Profile, so the Users tab asks again each time it opens.
   if (tab === 'users' && users.length) loadFeeds().then(renderUsers);
   if (inTab) {
@@ -141,6 +195,17 @@ function selectTab(name) {
 $('subtabs').addEventListener('click', (event) => {
   const b = event.target.closest('.subtab');
   if (b) selectTab(b.dataset.tab);
+});
+$('env-subtabs').addEventListener('click', (event) => {
+  const b = event.target.closest('.subtab');
+  if (b) selectTab(b.dataset.envPart);
+});
+$('module-subtabs').addEventListener('click', (event) => {
+  const b = event.target.closest('.subtab');
+  if (!b) return;
+  const was = modulePart;
+  selectTab(b.dataset.modulePart === 'config' ? 'modules' : `modules/${b.dataset.modulePart}`);
+  if (modulePart !== was) window.scrollTo(0, 0); // a new part starts at its top
 });
 window.addEventListener('hashchange', () => selectTab(location.hash.slice(1)));
 // A section drawn later (a module's row on the Template tab) is opened again once the page has drawn it (init).
@@ -202,7 +267,7 @@ function userOf(card) {
 }
 
 function wire(card) {
-  card.addEventListener('click', (event) => {
+  card.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-action]');
     if (!button || !card.contains(button)) return;
     const user = userOf(card);
@@ -210,12 +275,12 @@ function wire(card) {
     if (action === 'mute') {
       api('POST', `/api/users/${user.key}/mute`, { muted: true }).then(refreshLive).catch((err) => say($('party-status'), err.message, true));
     } else if (action === 'feed-off') {
-      if (!window.confirm(`Turn off ${user.displayName}'s calendar feed? Their address stops working. They can make a new one.`)) return;
+      if (!await confirmDialog({ title: `Turn off ${user.displayName}'s calendar feed?`, message: 'Their address stops working. They can make a new one.', action: 'Turn off', kind: 'destructive' })) return;
       api('DELETE', `/api/users/${user.key}/feed`)
         .then(() => { feeds.delete(user.key); fill(card, user); say($('party-status'), 'calendar feed turned off'); })
         .catch((err) => say($('party-status'), err.message, true));
     } else if (action === 'kick') {
-      if (!window.confirm(`Kick ${user.displayName} from the call? They can rejoin.`)) return;
+      if (!await confirmDialog({ title: `Kick ${user.displayName} from the call?`, message: 'They can rejoin.', action: 'Kick', kind: 'destructive' })) return;
       api('POST', `/api/users/${user.key}/kick`).then(refreshLive).catch((err) => say($('party-status'), err.message, true));
     }
   });
@@ -273,17 +338,17 @@ const ROLE_COLUMNS = ['owner', 'moderator', 'member', 'guest'];
 
 function renderRoles({ permissions, roles }) {
   const label = (role) => word(role, { cap: true });
-  const rows = ['<thead><tr><th></th>' + ROLE_COLUMNS.map((role) => `<th>${escapeHtml(label(role))}</th>`).join('') + '</tr></thead><tbody>'];
+  const rows = ['<thead><tr><th scope="col"><span class="visually-hidden">What they can do</span></th>' + ROLE_COLUMNS.map((role) => `<th scope="col" class="is-center">${escapeHtml(label(role))}</th>`).join('') + '</tr></thead><tbody>'];
   let group = null;
   for (const p of permissions) {
     if (p.group !== group) {
       group = p.group;
-      rows.push(`<tr class="roles-group"><th colspan="${ROLE_COLUMNS.length + 1}">${escapeHtml(group)}</th></tr>`);
+      rows.push(`<tr class="sdk-table-group"><th scope="colgroup" colspan="${ROLE_COLUMNS.length + 1}">${escapeHtml(group)}</th></tr>`);
     }
     rows.push(`<tr><th scope="row">${escapeHtml(p.label)}</th>` + ROLE_COLUMNS.map((role) => {
       const noGuestAi = role === 'guest' && p.key === 'useAi'; // the server refuses guests whatever the box says
       const locked = role === 'owner' || noGuestAi;
-      return `<td><input type="checkbox" data-role="${role}" data-perm="${p.key}" ${(roles[role] || {})[p.key] && !noGuestAi ? 'checked' : ''} ${locked ? `disabled title="${escapeHtml(noGuestAi ? `${word('guest', { many: true, cap: true })} can never use AI` : `${word('owner', { many: true, cap: true })} can always do this`)}"` : ''} aria-label="${escapeHtml(p.label)}, ${escapeHtml(label(role))}"></td>`;
+      return `<td class="is-center"><input type="checkbox" data-role="${role}" data-perm="${p.key}" ${(roles[role] || {})[p.key] && !noGuestAi ? 'checked' : ''} ${locked ? `disabled title="${escapeHtml(noGuestAi ? `${word('guest', { many: true, cap: true })} can never use AI` : `${word('owner', { many: true, cap: true })} can always do this`)}"` : ''} aria-label="${escapeHtml(p.label)}, ${escapeHtml(label(role))}"></td>`;
     }).join('') + '</tr>');
   }
   rows.push('</tbody>');
@@ -648,12 +713,13 @@ $('words-list').addEventListener('click', async (event) => {
 // Language, time and money: the currency list is the one every picker uses (window.hostCurrency, from /sdk/host.js): the
 // common ones first, then every other the server takes, by name, plus whatever is set if it is in neither (so a code chosen
 // elsewhere is shown, not lost). Without the server's list it falls back to the browser's.
+let picker = null; // the searchable list over the select (host.ui.currencySelect's)
 async function fillCurrencies(current) {
   const select = $('set-currency');
-  window.hostCurrency.fill(select, { value: current }); // at once, so Save never sends an empty choice
-  let currencies = null;
-  try { ({ currencies } = await api('GET', '/api/currencies')); } catch (err) { return; }
-  window.hostCurrency.fill(select, { value: select.value || current, currencies });
+  let currencies;
+  try { ({ currencies } = await api('GET', '/api/currencies')); } catch (err) { currencies = undefined; }
+  if (picker) picker.destroy();
+  picker = window.hostCurrency.select(select, { value: current, currencies });
 }
 $('save-locale').addEventListener('click', () => saveSettings({ language: $('set-language').value, clock: $('set-clock').value, currency: $('set-currency').value }, $('locale-status')));
 $('save-features').addEventListener('click', () => saveSettings({
@@ -674,34 +740,43 @@ $('save-login').addEventListener('click', () => saveSettings({ loginText: $('set
 // Every theme holds a light and a dark set (either may be missing: the
 // other then stands in); Strong Coffee's two come from the server and
 // can't be edited.
+const TC = window.ThemeColour; // public/theme-colour.js (the picks and the Auto formulas, shared with the server), loaded by admin.html
+// The key of a theme set IS the colour role (server/store.js THEME_BASE and THEME_OPTIONAL), and the role is the CSS property.
 const THEME_FIELDS = [
-  ['theme-bg', '--bg', 'bg'],
-  ['theme-bg-section', '--bg-section', 'bgSection'],
-  ['theme-border', '--border', 'border'],
-  ['theme-text', '--text', 'text'],
-  ['theme-text-dim', '--text-dim', 'textDim'],
-  ['theme-accent', '--accent', 'accent'],
-  ['theme-on-accent', '--on-accent', 'onAccent'],
+  ['theme-bg', '--surface-page', 'surface-page'],
+  ['theme-bg-section', '--surface-panel', 'surface-panel'],
+  ['theme-border', '--edge-hairline', 'edge-hairline'],
+  ['theme-text', '--text-primary', 'text-primary'],
+  ['theme-text-dim', '--text-muted', 'text-muted'],
+  ['theme-accent', '--accent-fill', 'accent-fill'],
+  ['theme-on-accent', '--text-on-accent', 'text-on-accent'],
 ];
-// Colors a theme may leave on Auto (the stylesheet derives them). For an Auto
-// field the preview sets the same formula style.css uses, so what you see is
-// right whichever theme happens to be live.
+// Colors a theme may leave on Auto (system.css derives them). For an Auto field the preview sets the same formula
+// (ThemeColour.AUTO_CSS), so what you see is right whichever theme happens to be live.
 const THEME_OPTIONAL_FIELDS = [
-  ['theme-card', '--bg-card', 'card', 'var(--bg-input)'],
-  ['theme-header-bg', '--header-bg', 'headerBg', 'var(--bg)'],
-  ['theme-header-text', '--header-text', 'headerText', 'var(--text)'],
+  ['theme-card', 'surface-card'],
+  ['theme-header-bg', 'surface-bar-top'],
+  ['theme-header-text', 'text-bar'],
   // The top bar's colour areas (plan-two-zone-nav.md decision 8): the branding area and the right side.
-  ['theme-nav-brand-bg', '--nav-brand-bg', 'navBrandBg', 'var(--nav-primary-edge-bg)'],
-  ['theme-nav-brand-text', '--nav-brand-text', 'navBrandText', 'var(--header-text)'],
-  ['theme-nav-right-bg', '--nav-right-bg', 'navRightBg', 'var(--nav-primary-edge-bg)'],
-  ['theme-nav-right-text', '--nav-right-text', 'navRightText', 'var(--header-text)'],
-  ['theme-icon', '--icon', 'icon', 'initial'], // initial: unset, so the fallbacks in style.css apply
-  ['theme-icon-hover', '--icon-hover', 'iconHover', 'var(--accent)'],
-  ['theme-primary-hover', '--primary-hover', 'primaryHover', 'var(--accent-hover)'],
-  ['theme-secondary', '--secondary', 'secondary', 'var(--surface)'],
-  ['theme-secondary-text', '--secondary-text', 'secondaryText', 'var(--text)'],
-  ['theme-secondary-hover', '--secondary-hover', 'secondaryHover', 'var(--surface-hover)'],
-];
+  ['theme-nav-brand-bg', 'surface-bar-brand'],
+  ['theme-nav-brand-text', 'text-bar-brand'],
+  ['theme-nav-right-bg', 'surface-bar-right'],
+  ['theme-nav-right-text', 'text-bar-right'],
+  ['theme-icon', 'icon-default'],
+  ['theme-icon-hover', 'icon-hover'],
+  ['theme-primary-hover', 'accent-fill-hover'],
+  ['theme-secondary', 'fill-secondary'],
+  ['theme-secondary-text', 'text-on-secondary'],
+  ['theme-secondary-hover', 'fill-secondary-hover'],
+  // The status colours' bases (the text on each and each as text are picked from them, theme-colour.js): Auto is the mode's own
+  // fill (TC.STATUS_AUTO), not a formula, so these have none here.
+  ['theme-status-danger', 'status-danger-fill'],
+  ['theme-status-ok', 'status-ok-fill'],
+  ['theme-status-warn', 'status-warn-fill'],
+  ['theme-status-info', 'status-info-fill'],
+].map(([id, key]) => [id, `--${key}`, key, TC.AUTO_CSS[key] ?? null]);
+// What an Auto field is set to on the page while previewing: its formula, or for a status fill the Auto fill of the mode being edited.
+const autoCssFor = (key, formula) => formula ?? TC.STATUS_AUTO[selectedMode][key.split('-')[1]];
 const autoBox = (id) => document.querySelector(`[data-auto-for="${id}"]`);
 const isAuto = (id) => autoBox(id).checked;
 let colorProbeCtx = null;
@@ -763,6 +838,16 @@ function loadThemeInputsFrom(colors) {
     if (!auto) $(id).value = colors[key];
   }
 }
+// The set the inputs show now: every base colour, and each optional one or null when it is on Auto.
+function currentThemeSet() {
+  const set = {};
+  for (const [id, , key] of THEME_FIELDS) set[key] = $(id).value;
+  for (const [id, , key] of THEME_OPTIONAL_FIELDS) set[key] = isAuto(id) ? null : $(id).value;
+  return set;
+}
+// Every property the preview has put on :root, so that leaving the preview takes exactly those off again.
+const previewed = new Set();
+const setPreviewVar = (name, value) => { document.documentElement.style.setProperty(name, value); previewed.add(name); };
 // Sets these straight on :root (not just a scoped preview box) -- several
 // other rules (button surfaces, hover shades) are themselves computed FROM
 // these seven with color-mix(), and that only recomputes for real when the
@@ -772,19 +857,27 @@ function loadThemeInputsFrom(colors) {
 // persists it. Not previewing, the colors go on only long enough to read the Auto fields' values, and come off again
 // before the page paints.
 function updateThemePreview() {
-  const root = document.documentElement;
-  for (const [id, cssVar] of THEME_FIELDS) root.style.setProperty(cssVar, $(id).value);
-  for (const [id, cssVar, , formula] of THEME_OPTIONAL_FIELDS) {
-    root.style.setProperty(cssVar, isAuto(id) ? formula : $(id).value);
+  for (const [id, cssVar] of THEME_FIELDS) setPreviewVar(cssVar, $(id).value);
+  for (const [id, cssVar, key, formula] of THEME_OPTIONAL_FIELDS) {
+    const auto = isAuto(id);
+    setPreviewVar(cssVar, auto ? autoCssFor(key, formula) : $(id).value);
+    const old = TC.LEGACY[key]; // the old token the server also writes for this role (theme-colour.js LEGACY)
+    if (old) setPreviewVar(old, auto ? TC.LEGACY_AUTO[old] : $(id).value);
   }
-  // An Auto field shows what it currently works out to.
-  for (const [id, cssVar] of THEME_OPTIONAL_FIELDS) {
+  // What the server picks for this set (text on the accent and on the status fills, the accent and status colours as text).
+  const got = TC.resolve(currentThemeSet(), selectedMode);
+  if (got) for (const [role, hex] of Object.entries(got.picks)) setPreviewVar(`--${role}`, hex);
+  renderThemeContrast();
+  // An Auto field shows what it currently works out to: what the product draws, which for the four roles that still have an old
+  // token with a default of its own (theme-colour.js LEGACY) is that token's. --icon has no value when Auto; show what an icon on
+  // the header's main colour draws (style.css, .topbar .icon-link). Not read from the sample header's icons: they sit in its right
+  // side, whose text colour a theme may set apart.
+  for (const [id, cssVar, key] of THEME_OPTIONAL_FIELDS) {
     if (!isAuto(id)) continue;
-    // --icon has no value when Auto; show what an icon on the header's main colour draws (style.css, .topbar .icon-link).
-    // Not read from the sample header's icons: they sit in its right side, whose text colour a theme may set apart.
-    $(id).value = cssVar === '--icon'
+    const old = TC.LEGACY[key];
+    $(id).value = old === '--icon'
       ? toHex(computedColor('var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent))'))
-      : resolvedVar(cssVar);
+      : resolvedVar(old || cssVar);
   }
   if (!previewing) clearThemePreview();
 }
@@ -798,10 +891,74 @@ document.addEventListener('app:theme', () => {
   if (!previewing && defaultTheme) updateThemePreview();
 });
 function clearThemePreview() {
-  const root = document.documentElement;
-  for (const [, cssVar] of THEME_FIELDS) root.style.removeProperty(cssVar);
-  for (const [, cssVar] of THEME_OPTIONAL_FIELDS) root.style.removeProperty(cssVar);
+  for (const name of previewed) document.documentElement.style.removeProperty(name);
+  previewed.clear();
 }
+// The contrast panel: how the colors being edited read together, with the same picks and the same ratios the server uses
+// (theme-colour.js): text on the page and a panel, muted text, the accent as text and as a mark, the text on the accent and on each
+// status fill, each status colour as text and as a mark, and the border. A pair under its minimum (4.5 : 1 for text, 3 : 1 for a
+// mark) is named in a plain sentence above the list of pairs. The text on the accent has an Auto-fix: the server picks it, so the button
+// only shows the colour that was picked, in the field.
+const ratioText = (x) => `${x.toFixed(2)} : 1`;
+const mk = (tag, className, text) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+function renderThemeContrast() {
+  const box = $('theme-contrast');
+  const got = TC.resolve(currentThemeSet(), selectedMode);
+  if (!got) { box.replaceChildren(); return; }
+  const notes = mk('ul', 'theme-contrast-notes');
+  for (const r of got.report) {
+    if (r.id === 'on-accent' && r.picked) {
+      const own = r.own === null ? '' : `The text on the accent reads at ${ratioText(r.own)}, under the 4.5 : 1 text needs. `;
+      const item = mk('li');
+      if (r.ok) {
+        item.append(mk('span', '', `${own}${productName()} uses ${r.pick} instead, which reads at ${ratioText(r.ratio)}.`));
+        const fix = mk('button', 'btn btn-small', 'Auto-fix');
+        fix.type = 'button';
+        fix.dataset.fixOnAccent = r.pick;
+        fix.title = `Set the text on the accent to ${r.pick}, the color picked for it`;
+        item.append(fix);
+      } else {
+        item.append(mk('span', '', `Neither white nor near-black reaches 4.5 : 1 on this accent; the better one reads at ${ratioText(r.ratio)}. Pick a lighter or a darker accent.`));
+      }
+      notes.append(item);
+    } else if (!r.ok) {
+      notes.append(mk('li', '', `${r.label} reads at ${ratioText(r.ratio)}; ${r.kind === 'mark' ? 'a mark needs 3 : 1' : 'text needs 4.5 : 1'}.`));
+    }
+  }
+  const pairs = mk('table', 'theme-contrast-pairs');
+  const theme = selectedTheme() || defaultTheme;
+  pairs.append(mk('caption', 'hint', `${theme.name}, ${selectedMode}`));
+  const head = mk('tr');
+  for (const name of ['Pair', 'Looks like', 'Reads at', 'Needs', '']) head.append(mk('th', '', name));
+  const thead = mk('thead');
+  thead.append(head);
+  const body = mk('tbody');
+  for (const r of got.report) {
+    const row = mk('tr');
+    row.append(mk('td', '', r.label));
+    const sample = mk('td');
+    const chip = mk('span', 'theme-contrast-sample', r.kind === 'mark' ? '■' : 'Aa');
+    chip.style.setProperty('--sample-fg', r.fg);
+    chip.style.setProperty('--sample-bg', r.bg);
+    sample.append(chip);
+    row.append(sample, mk('td', '', ratioText(r.ratio)), mk('td', '', r.min ? ratioText(r.min) : '-'));
+    row.append(mk('td', `theme-contrast-state${r.min === 0 ? '' : r.ok ? ' pass' : ' fail'}`, r.min === 0 ? 'No minimum' : r.ok ? 'Reads well' : 'Too low'));
+    body.append(row);
+  }
+  pairs.append(thead, body);
+  box.replaceChildren(notes.children.length ? notes : mk('p', 'theme-contrast-ok', 'Every pair reads well.'), pairs);
+}
+$('theme-contrast').addEventListener('click', (event) => {
+  const fix = event.target.closest('[data-fix-on-accent]');
+  if (!fix) return;
+  $('theme-on-accent').value = fix.dataset.fixOnAccent;
+  previewThemeEdit();
+});
 for (const [id] of THEME_FIELDS) $(id).addEventListener('input', previewThemeEdit);
 for (const [id] of THEME_OPTIONAL_FIELDS) {
   $(id).addEventListener('input', previewThemeEdit);
@@ -959,7 +1116,7 @@ $('theme-update').addEventListener('click', async () => {
 $('theme-delete').addEventListener('click', async () => {
   const selected = themes.find((t) => t.id === selectedThemeId);
   if (!selected) return;
-  if (!window.confirm(`Delete the theme "${selected.name}"? This can't be undone.`)) return;
+  if (!await confirmDialog({ title: `Delete the theme "${selected.name}"?`, message: "This can't be undone.", action: 'Delete', kind: 'final' })) return;
   try {
     await api('DELETE', `/api/themes/${selected.id}`);
     themes = themes.filter((t) => t.id !== selected.id);
@@ -996,22 +1153,22 @@ function renderInviteSpaces() {
     let label = container.querySelector(`[data-space="${CSS.escape(space.id)}"]`);
     if (!label) {
       label = document.createElement('label');
-      label.className = 'member member-toggle';
+      label.className = 'sdk-member sdk-member-toggle';
       label.dataset.space = space.id;
       const input = document.createElement('input');
       input.type = 'checkbox';
       const name = document.createElement('span');
-      name.className = 'member-name';
+      name.className = 'sdk-member-name';
       label.append(input, name);
       container.appendChild(label);
     }
-    label.querySelector('.member-name').textContent = space.name;
+    label.querySelector('.sdk-member-name').textContent = space.name;
   }
   for (const label of [...container.children]) if (!keep.has(label.dataset.space)) label.remove();
 }
 
 $('invite-spaces').addEventListener('change', (event) => {
-  event.target.closest('.member-toggle')?.classList.toggle('online', event.target.checked);
+  event.target.closest('.sdk-member-toggle')?.classList.toggle('is-on', event.target.checked);
 });
 
 $('make-invite').addEventListener('click', async () => {
@@ -1095,11 +1252,21 @@ async function loadModules() {
   installedModules = data.modules;
   builtinModules = data.builtin || [];
   bundledModules = data.bundled || [];
+  modulesLoaded = true;
+  await loadAi(); // the AI service's entry and tab come from it
+  renderModuleTabs();
   renderModules();
+  // The tab shown again from the list as it is now; a module's tab that has gone (turned off or uninstalled) leaves
+  // Configuration shown, and the address says so.
+  showModulePart(modulePart);
+  if (tabNow === 'modules') {
+    const hash = modulePart === 'config' ? 'modules' : `modules/${encodeURIComponent(modulePart)}`;
+    if (location.hash !== `#${hash}`) history.replaceState(null, '', `#${hash}`);
+    nav.draw('secondary');
+  }
   renderModuleNames();
   renderTemplateNote();
   loadActivity();
-  loadAi();
   // Say on the tab itself when an update is waiting, so it is seen without opening it.
   const updates = bundledModules.filter((b) => b.update).length;
   const fresh = bundledModules.filter((b) => !b.installed).length;
@@ -1122,8 +1289,8 @@ async function loadModules() {
   }
 }
 
-// What a module needs turned on first, as HTML: the AI service (with the way to its page), or another module.
-const needsText = (r) => (r === 'ai' ? '<a href="/ai-config.html">the AI service</a> enabled' : `${escapeHtml(shownNameOf(r))} installed and turned on`);
+// What a module needs turned on first, as HTML: the AI service (with the way to its tab), or another module.
+const needsText = (r) => (r === 'ai' ? '<a href="#modules/ai">the AI service</a> enabled' : `${escapeHtml(shownNameOf(r))} installed and turned on`);
 
 // What a bundled module still needs before it can be turned on (Maps needs Places): said in its row of the list, so the
 // admin installs those first instead of meeting a disabled Approve button afterwards.
@@ -1134,7 +1301,20 @@ function bundledNeeds(b) {
   return `<div class="hint module-needs"><i class="fa-solid fa-circle-info fa-fw" aria-hidden="true"></i> Needs ${waiting.map((r) => `<strong>${escapeHtml(name(r))}</strong>`).join(' and ')} installed and turned on first.</div>`;
 }
 
-function moduleCard(m) {
+// The switch that turns a module, a built-in one or the AI service on and off (#264): one control in place of the
+// Enabled pill and the Disable button, the switch (input.sdk-switch) with its word beside it. Its name says whose it is.
+function enabledSwitch({ id, attr, name, on, disabled = false }) {
+  return `<label class="sdk-choice-row module-toggle"><input type="checkbox" class="sdk-switch" role="switch" ${attr}="${escapeHtml(id)}" aria-label="${escapeHtml(name)} enabled"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}> Enabled</label>`;
+}
+
+// An installed module's card, in one of four shapes (#264):
+//   'row'  on the Configuration tab, for a module that is on: its head (the switch), notes and what it does; its name
+//          opens its tab, where the rest is;
+//   'full' on the Configuration tab, for a module that is off (it has no tab): everything, so what it asks for is read
+//          before it is turned on, and its versions and Uninstall are still within reach;
+//   'tab'  the top of its own tab: its head, notes, what it does and the name it is shown as;
+//   'more' the foot of its own tab: what it is approved to do, how it runs, its versions and Uninstall.
+function moduleCard(m, shape = 'full') {
   // Where it shows (a person's own data is not a place of its own).
   // An outdated module's old scopes are not read, so it has no place to show: say why instead.
   const scopes = m.outdated ? 'Can\'t run until it is updated' : m.scope.filter((s) => s !== 'person').map((s) => (s === 'environment' ? `${word('environment', { cap: true })} page` : `${word('space', { cap: true })} ${word('canvas')}`)).join(' + ');
@@ -1151,38 +1331,46 @@ function moduleCard(m) {
     ...(m.actions && m.actions.uses.length ? [`<li><strong>Ask other ${escapeHtml(word('module', { many: true }))} to do things</strong> <span class="hint">${escapeHtml(m.actions.uses.map((c) => c === '*' ? `any ${word('module')}` : c.replace(':', ' ')).join(', '))}: each request is carried out by the ${escapeHtml(word('module'))} that owns the action</span></li>`] : []),
     ...(m.refs && m.refs.consumes.length ? [`<li><strong>Link to other ${escapeHtml(word('module', { many: true }))}' ${escapeHtml(word('object', { many: true }))}</strong> <span class="hint">${escapeHtml(m.refs.consumes.map((c) => c.replace(':', ' ')).join(', '))}, shown only to people who can already see them</span></li>`] : []),
   ];
-  const modeTag = m.runMode === 'page' ? '<span class="pill warn">In the page</span>' : '<span class="pill">Sandboxed</span>';
-  const state = modeTag + ' ' + (m.outdated ? '<span class="pill warn">Needs an update</span>' : m.enabled ? '<span class="pill on">Enabled</span>' : m.needsApproval ? '<span class="pill warn">Needs approval</span>' : '<span class="pill">Disabled</span>');
+  const modeTag = m.runMode === 'page' ? '<span class="sdk-status" data-tone="warn">In the page</span>' : '<span class="sdk-status">Sandboxed</span>';
+  // The state: one switch (#264); a module built for an older version of the product can't be turned on, so it says so.
+  const control = m.outdated ? '<span class="sdk-status" data-tone="warn">Needs an update</span>' : `${m.needsApproval && !m.enabled ? '<span class="sdk-status" data-tone="warn">Needs approval</span> ' : ''}${enabledSwitch({ id: m.id, attr: 'data-module-enabled', name: shownName(m), on: m.enabled, disabled: !m.enabled && Boolean(m.missing?.length || m.needsUpdate?.length) })}`;
   const several = m.versions.length > 1; // the picker lists every kept version, the running one selected
-  const el = document.createElement('article');
-  el.className = 'panel module-card';
-  el.dataset.id = m.id;
-  el.innerHTML = `
+  const name = escapeHtml(shownName(m));
+  const head = `
     <div class="module-head">
       <i class="fa-solid fa-${escapeHtml(shownIcon(m))} fa-fw module-icon" aria-hidden="true"></i>
-      <div class="grow"><h2>${escapeHtml(shownName(m))} <span class="hint">${m.displayName ? `${escapeHtml(m.name)} ` : ''}v${escapeHtml(m.version)}${m.author ? ' by ' + escapeHtml(m.author) : ''}</span></h2>
+      <div class="grow"><h2>${shape === 'row' ? `<a href="#modules/${escapeHtml(encodeURIComponent(m.id))}" title="Open ${name}'s tab">${name}</a>` : name} <span class="hint">${m.displayName ? `${escapeHtml(m.name)} ` : ''}v${escapeHtml(m.version)}${m.author ? ' by ' + escapeHtml(m.author) : ''}</span></h2>
         <div class="hint">${escapeHtml(scopes)}</div></div>
-      ${state}
-    </div>
-    ${m.description ? `<p>${escapeHtml(m.description)}</p>` : ''}
-    ${shownAsLink(m)}
+      ${modeTag} ${control}
+    </div>`;
+  const about = `${m.description ? `<p>${escapeHtml(m.description)}</p>` : ''}`;
+  const approvals = `
     <p class="hint">${asks.length ? (m.needsApproval ? 'Asks for these -- enabling approves them:' : 'Approved to:') : 'Asks for nothing beyond showing itself.'}</p>
     ${asks.length ? `<ul class="module-asks">${asks.join('')}</ul>` : ''}
     <div class="module-runmode">
       <p class="hint"><strong>${m.runMode === 'page' ? 'Runs in the page' : 'Runs sandboxed'}</strong>${m.source === 'bundled' ? ', ships with this server' : ', uploaded'}. ${m.runMode === 'page' ? `It can read and change anything on the page, including what you can see and do. Only allow that for ${escapeHtml(word('module', { a: true }))} you trust.` : `It is walled off in its own frame and can only reach the host through its approved permissions. ${escapeHtml(word('module', { a: true, cap: true }))} in a frame cannot take part in drag and drop between ${escapeHtml(word('module', { many: true }))}.`}</p>
       ${m.source === 'bundled' || m.outdated || hostOnlyHidden() ? '' : `<button class="btn" data-module-runmode="${m.runMode === 'page' ? 'sandbox' : 'page'}" type="button">${m.runMode === 'page' ? 'Switch back to sandboxed' : 'Run in the page...'}</button>`}
-    </div>
+    </div>`;
+  const actions = `
     <div class="row">
-      ${m.outdated || m.needsUpdate?.length ? '' : isConfigurable(m) ? `<a class="btn" href="/module-config.html?id=${encodeURIComponent(m.id)}" title="Change what ${escapeHtml(shownName(m))} does in this ${escapeHtml(word('environment'))}"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> ${escapeHtml(word('module', { cap: true }))} Configuration</a>` : `<button class="btn" type="button" disabled title="${escapeHtml(shownName(m))} has no settings"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> ${escapeHtml(word('module', { cap: true }))} Configuration</button><span class="hint">No settings.</span>`}
-      ${m.outdated ? '' : `<button class="btn ${m.enabled ? '' : 'btn-primary'}" data-module-action="toggle" type="button" ${!m.enabled && (m.missing?.length || m.needsUpdate?.length) ? 'disabled' : ''}>${m.enabled ? 'Disable' : m.needsApproval ? 'Approve and enable' : 'Enable'}</button>`}
       ${m.scope.includes('space') && !m.outdated && m.lobby === false ? `<span class="hint">${escapeHtml(notInLobby())}</span>` : ''}
       ${!m.outdated && !m.enabled && m.missing?.length ? `<span class="hint">Needs ${m.missing.map(needsText).join(', and ')} first.</span>` : ''}
       ${!m.outdated && m.needsUpdate?.length ? `<span class="hint">Needs ${m.needsUpdate.map(nameOf).join(' and ')}, which ${m.needsUpdate.length === 1 ? 'needs' : 'need'} an update from ${m.needsUpdate.length === 1 ? 'its author' : 'their authors'}.</span>` : ''}
       ${several ? `<select data-module-version aria-label="Version">${m.versions.map((v) => `<option value="${escapeHtml(v)}"${v === m.version ? ' selected' : ''}${staleVersions.has(v) && v !== m.version ? ' disabled' : ''}>${escapeHtml(v)}${v === m.version ? ' (current)' : ''}${staleVersions.has(v) ? ' (needs an update)' : ''}</option>`).join('')}</select><button class="btn" data-module-action="rollback" type="button" disabled>Switch to this version</button>` : ''}
       <button class="btn btn-danger" data-module-action="uninstall" type="button">Uninstall</button>
     </div>`;
+  const el = document.createElement('article');
+  el.className = 'panel module-card';
+  el.dataset.id = m.id;
+  if (shape === 'more') {
+    el.innerHTML = `<h2>Permissions and versions</h2>${approvals}${actions}`;
+    return el;
+  }
+  el.innerHTML = shape === 'row' ? `${head}${about}`
+    : shape === 'tab' ? `${head}${about}${shownAsLink(m)}<p class="status" id="module-tab-status" role="status"></p>`
+      : `${head}${about}${shownAsLink(m)}${approvals}${actions}`;
   // Built for an older version of the product (its module.json uses a name that has since changed): it can't be turned on until its author
-  // updates it. Say so plainly, and what exactly, and offer no Enable; Update, another version and Uninstall still work.
+  // updates it. Say so plainly, and what exactly, and offer no switch; Update, another version and Uninstall still work.
   if (m.outdated) {
     const why = document.createElement('div');
     why.className = 'module-outdated';
@@ -1195,9 +1383,30 @@ function moduleCard(m) {
   if (newer) {
     const note = document.createElement('div');
     note.className = 'module-update';
-    note.innerHTML = `<span class="pill warn">Update available</span> <strong>Version ${escapeHtml(newer.version)}</strong> comes with this server. <button class="btn btn-primary btn-small" data-bundled-action="install" data-bundled-id="${escapeHtml(newer.id)}" type="button">Update to ${escapeHtml(newer.version)}</button> <span class="hint">Your data stays as it is, and you can switch back below. If it asks for anything new you approve it first.</span>`;
+    note.innerHTML = `<span class="sdk-status" data-tone="warn">Update available</span> <strong>Version ${escapeHtml(newer.version)}</strong> comes with this server. <button class="btn btn-primary btn-small" data-bundled-action="install" data-bundled-id="${escapeHtml(newer.id)}" type="button">Update to ${escapeHtml(newer.version)}</button> <span class="hint">Your data stays as it is, and you can switch back${shape === 'full' ? ' below' : ` on its tab`}. If it asks for anything new you approve it first.</span>`;
     (el.querySelector('.module-outdated') || el.querySelector('.module-head')).after(note);
   }
+  return el;
+}
+
+// A built-in module's card (the conference, chat): not removable; the conference has a switch, chat is always on. On
+// the Configuration tab (`link`) the name of one with a tab opens it.
+function builtinCard(b, { link = false } = {}) {
+  const el = document.createElement('article');
+  el.className = 'panel module-card';
+  el.dataset.builtin = b.id;
+  const name = escapeHtml(shownName(b));
+  const control = b.switchable ? enabledSwitch({ id: b.id, attr: 'data-builtin-toggle', name: shownName(b), on: b.enabled }) : '<span class="sdk-status" data-tone="ok">Always on</span>';
+  el.innerHTML = `
+    <div class="module-head">
+      <i class="fa-solid fa-${escapeHtml(shownIcon(b))} fa-fw module-icon" aria-hidden="true"></i>
+      <div class="grow"><h2>${link && builtinHasTab(b) ? `<a href="#modules/${escapeHtml(encodeURIComponent(b.id))}" title="Open ${name}'s tab">${name}</a>` : name} <span class="hint">${b.displayName ? `${escapeHtml(b.name)}, ` : ''}built in</span></h2>
+        <div class="hint">On ${escapeHtml(word('space', { a: true }))}'s ${escapeHtml(word('canvas'))}</div></div>
+      ${control}
+    </div>
+    <p>${escapeHtml(b.description)}</p>
+    ${shownAsLink(b)}
+    <p class="hint">It comes with the server and can't be removed. Its permissions are on the Roles tab: ${escapeHtml(b.permissions)}.${b.switchable && b.needs ? ` ${escapeHtml(b.needs)}` : ''}</p>`;
   return el;
 }
 
@@ -1229,7 +1438,7 @@ function displayEditor(m) {
   const back = fromT ? "Back to the template's name and icon" : 'Back to its own name and icon';
   const note = !fromT ? '' : own ? (t.name ? `The template's: ${t.name}` : '') : 'From the template';
   const firstIcon = t.icon ? "The template's icon" : 'Its own icon';
-  const iconButton = (id, label, pressed) => `<button type="button" data-display-icon="${escapeHtml(id)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}"${pressed ? ' class="selected"' : ''}><i class="fa-solid fa-${escapeHtml(id || fallbackIcon)} fa-fw" aria-hidden="true"></i></button>`;
+  const iconButton = (id, label, pressed) => `<button type="button" data-display-icon="${escapeHtml(id)}" data-tip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}"${pressed ? ' class="selected"' : ''}><i class="fa-solid fa-${escapeHtml(id || fallbackIcon)} fa-fw" aria-hidden="true"></i></button>`;
   return `<div class="module-display" data-display-id="${escapeHtml(m.id)}" data-display-chosen="${escapeHtml(chosen)}" data-display-fallback="${escapeHtml(fallbackIcon)}" data-display-was-name="${escapeHtml(m.ownDisplayName || '')}" data-display-was-icon="${escapeHtml(chosen)}"${own ? ' data-display-own="1"' : ''} role="group" aria-label="What this ${escapeHtml(word('environment'))} calls it">
       <div class="module-display-head"><span class="field-label">Shown as</span>${note ? `<span class="from-template">${escapeHtml(note)}</span>` : ''}</div>
       <div class="module-display-row">
@@ -1371,39 +1580,14 @@ async function loadActivity() {
 }
 setInterval(() => { if (!document.hidden && !$('tab-modules').hidden) loadActivity(); }, 15000);
 
-// The AI service: a summary card here (which service and model, and this month's use); the setup is its own page, /ai-config.html.
-let aiCard = { saved: false, on: false, dependents: [] };
-// Whether the AI service card has anything to show at all (false only when its API call fails, e.g. not an admin);
-// separate from moduleFilter, which decides whether it is worth showing under the current filter.
-let aiAvailable = true;
-function syncAiVisibility() {
-  $('ai-panel').hidden = !aiAvailable || moduleFilter === 'updates';
-}
-// Enabling and disabling is here, on the card, like every module's; the setup is on its own page.
-$('ai-toggle').addEventListener('click', async () => {
-  const name = AI_NAMES[aiCard.provider] || 'the service';
-  let force = false;
-  if (aiCard.on) {
-    let msg = 'Disable AI for everyone?\n\nModules that use it are told AI is not available. Your setup is kept.';
-    if (aiCard.dependents?.length) {
-      const names = aiCard.dependents.map((d) => d.name).join(' and ');
-      msg = `${names} need${aiCard.dependents.length === 1 ? 's' : ''} the AI service. Turn ${aiCard.dependents.length === 1 ? 'it' : 'them'} off too?`;
-      force = true;
-    }
-    if (!window.confirm(msg)) return;
-  } else if (!window.confirm(`Enable AI?\n\nModules that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`)) return;
-  $('ai-toggle').disabled = true;
-  try {
-    const wasOn = aiCard.on;
-    await api('PUT', '/api/ai', { enabled: !wasOn, ...(force ? { force: true } : {}) });
-    await loadModules(); // refreshes both the module list (a forced cascade may have disabled some) and the AI card
-    say($('modules-status'), wasOn ? 'AI disabled' : 'AI enabled');
-  } catch (err) {
-    $('ai-toggle').disabled = false;
-    say($('modules-status'), err.message, true);
-  }
-});
+// The AI service: server-wide (the one service, model and key the Assistant, Chat's AI and Research share), not one
+// module's setting. Like a module it has an entry on the Configuration tab with its switch, and a tab of its own
+// (#modules/ai): the same entry, then its setup (/ai-form.js). The tab is always there, since the service is set up
+// there before it can be turned on.
 const AI_NAMES = { openai: 'OpenAI', anthropic: 'Anthropic', compatible: 'Other (OpenAI-compatible)' };
+let aiCard = { saved: false, on: false, provider: 'none', model: '', usage: {}, dependents: [] };
+// Whether there is anything to show at all (false only when its API call fails, e.g. not an admin): no entry, no tab.
+let aiAvailable = false;
 async function loadAi() {
   try {
     const { ai, usage, dependents } = await api('GET', '/api/ai');
@@ -1411,31 +1595,82 @@ async function loadAi() {
     const custom = ai.source !== 'managed';
     const provider = custom && ai.provider === 'openai' && ai.address && !/api\.openai\.com/.test(ai.address) ? 'compatible' : ai.active.provider;
     const saved = provider !== 'none';
-    const on = saved && ai.enabled !== false;
-    aiCard = { saved, on, provider, model: ai.active.model, dependents: dependents || [] };
-    $('ai-state').textContent = on ? 'Enabled' : saved ? 'Disabled' : 'Off';
-    $('ai-state').classList.toggle('on', on);
-    $('ai-toggle').textContent = on ? 'Disable' : 'Approve and enable';
-    $('ai-toggle').classList.toggle('btn-primary', !on && saved);
-    $('ai-toggle').disabled = !saved;
-    $('ai-toggle-hint').textContent = saved ? '' : 'Set up a service first (AI Configuration).';
-    $('ai-summary').textContent = on ? `${AI_NAMES[provider] || provider}, ${aiCard.model || 'no model chosen'}. ${on ? `${Number(usage.tokens || 0).toLocaleString()} tokens this month${usage.monthlyTokens ? ' of ' + usage.monthlyTokens.toLocaleString() : ''}.` : 'Set up, and switched off.'}` : 'Not set up.';
+    aiCard = { saved, on: saved && ai.enabled !== false, provider, model: ai.active.model, usage: usage || {}, dependents: dependents || [] };
     aiAvailable = true;
   } catch {
     aiAvailable = false;
   }
-  syncAiVisibility();
 }
+function aiSummary() {
+  if (!aiCard.saved) return 'Not set up.';
+  if (!aiCard.on) return 'Set up, and switched off.';
+  const used = aiCard.usage;
+  return `${AI_NAMES[aiCard.provider] || aiCard.provider}, ${aiCard.model || 'no model chosen'}. ${Number(used.tokens || 0).toLocaleString()} tokens this month${used.monthlyTokens ? ` of ${used.monthlyTokens.toLocaleString()}` : ''}.`;
+}
+// Its entry: on the Configuration tab (`link`) its name opens its tab.
+function aiEntry({ link = false } = {}) {
+  const el = document.createElement('article');
+  el.className = 'panel module-card';
+  el.dataset.ai = '';
+  const setUp = link ? '<a href="#modules/ai">Set it up on its tab</a> first.' : 'Set it up below first.';
+  el.innerHTML = `
+    <div class="module-head">
+      <i class="fa-solid fa-wand-magic-sparkles fa-fw module-icon" aria-hidden="true"></i>
+      <div class="grow"><h2>${link ? '<a href="#modules/ai" title="Open the AI service\'s tab">AI service</a>' : 'AI service'} <span class="hint">built in</span></h2>
+        <div class="hint">${escapeHtml(aiSummary())}</div></div>
+      ${enabledSwitch({ id: 'ai', attr: 'data-ai-toggle', name: 'AI service', on: aiCard.on, disabled: !aiCard.saved })}
+    </div>
+    <p class="hint">Lets ${escapeHtml(word('module', { many: true }))} that ask for it summarise and answer questions about the ${escapeHtml(word('object', { many: true }))} a person selects, with one service, model and key for all of them.${aiCard.saved ? '' : ` ${setUp}`}</p>`;
+  return el;
+}
+// Its setup, loaded the first time its tab opens; a save draws the entry again (a service set up can be turned on).
+const aiForm = mountAiForm({ get: '/api/ai', put: '/api/ai', models: '/api/ai/models', source: true, cap: true, usage: true, onSave: () => loadModules() });
+let aiFormLoaded = false;
+// Turned on and off with its switch (#264), like every module.
+$('tab-modules').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-ai-toggle]');
+  if (!input) return;
+  const name = AI_NAMES[aiCard.provider] || 'the service';
+  let force = false;
+  if (aiCard.on) {
+    let ask = { title: 'Disable AI for everyone?', message: `${word('module', { many: true, cap: true })} that use it are told AI is not available. Your setup is kept.`, action: 'Disable', kind: 'destructive' };
+    if (aiCard.dependents?.length) {
+      const names = aiCard.dependents.map((d) => d.name).join(' and ');
+      ask = { title: `${names} need${aiCard.dependents.length === 1 ? 's' : ''} the AI service. Turn ${aiCard.dependents.length === 1 ? 'it' : 'them'} off too?`, action: 'Turn off', kind: 'destructive' };
+      force = true;
+    }
+    if (!await confirmDialog(ask)) { input.checked = true; return; }
+  } else if (!await confirmDialog({ title: 'Enable AI?', message: `${word('module', { many: true, cap: true })} that use it can send what a person selects, and their question, to ${name} under your account. Only people whose role allows it (Roles tab) can use it.`, action: 'Enable' })) { input.checked = false; return; }
+  input.disabled = true;
+  const status = () => (modulePart === 'ai' ? $('ai-status') : $('modules-status'));
+  try {
+    const wasOn = aiCard.on;
+    await api('PUT', '/api/ai', { enabled: !wasOn, ...(force ? { force: true } : {}) });
+    await loadModules(); // the list (a forced cascade may have turned some off) and the entry
+    say(status(), wasOn ? 'AI disabled' : 'AI enabled');
+  } catch (err) {
+    input.checked = aiCard.on;
+    input.disabled = false;
+    say(status(), err.message, true);
+  }
+});
 
-// Which modules the tab lists: all of them, or only those with an update waiting.
+// Which modules the Configuration tab lists: all of them, those with an update waiting, those with settings, or those
+// that could be turned on (#264: installed and off, and the ones that ship with this server and are not installed yet).
 let moduleFilter = 'all';
 const hasUpdate = (id) => bundledModules.some((b) => b.id === id && b.update);
-// A module can be configured when it has settings the admin chooses for the server (what Module Configuration shows).
-// A module has a configuration page when it has environment settings, takes part in calendar sharing (GET /api/modules'
+// A module can be configured when it has settings the admin chooses for the server (what its tab's Settings shows).
+// A module has a configuration when it has environment settings, takes part in calendar sharing (GET /api/modules'
 // `sharing`), or its page is a top bar destination's main part (Show in the top bar): plan-space-calendars.md, section 4.
 const isDestinationMain = (m) => (m.surfaces?.destination || []).some((p) => p && p.part === 'main');
 const isConfigurable = (m) => !m.outdated && !m.needsUpdate?.length && ((m.settings || []).some((d) => d.scope === 'environment') || m.sharing === true || isDestinationMain(m));
-const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : moduleFilter === 'configurable' ? isConfigurable(m) : true;
+const canTurnOn = (m) => !m.enabled && !m.outdated;
+const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : moduleFilter === 'configurable' ? isConfigurable(m) : moduleFilter === 'available' ? canTurnOn(m) : true;
+// The built-in modules each filter shows: every one under All; Conference under Configurable while it has its tab, and
+// under Available while it is off.
+// The AI service's entry under each filter: All and Configurable (it has its tab); Available while set up and off.
+const aiShownFor = (filter) => filter === 'all' || filter === 'configurable' || (filter === 'available' && aiCard.saved && !aiCard.on);
+const builtinsFor = (filter) => filter === 'all' ? builtinModules : filter === 'configurable' ? builtinModules.filter(builtinHasTab) : filter === 'available' ? builtinModules.filter((b) => b.switchable && !b.enabled) : [];
 function syncModuleFilters() {
   const updates = installedModules.filter((m) => hasUpdate(m.id)).length;
   for (const b of document.querySelectorAll('[data-module-filter]')) {
@@ -1445,20 +1680,21 @@ function syncModuleFilters() {
   }
   const all = $('module-filters').querySelector('[data-count="all"]');
   const up = $('module-filters').querySelector('[data-count="updates"]');
-  all.textContent = String(builtinModules.length + installedModules.length);
+  const ai = (filter) => (aiAvailable && aiShownFor(filter) ? 1 : 0);
+  all.textContent = String(builtinModules.length + ai('all') + installedModules.length);
   up.textContent = String(updates);
   up.hidden = !updates;
   greenCount(up, updates, `${updates} ${updates === 1 ? 'update' : 'updates'} available`);
   const conf = $('module-filters').querySelector('[data-count="configurable"]');
-  conf.textContent = String(installedModules.filter(isConfigurable).length);
+  conf.textContent = String(installedModules.filter(isConfigurable).length + builtinsFor('configurable').length + ai('configurable'));
   const avail = $('module-filters').querySelector('[data-count="available"]');
-  const availableNow = bundledModules.filter((b) => !b.installed).length;
+  const availableNow = bundledModules.filter((b) => !b.installed).length + installedModules.filter(canTurnOn).length + builtinsFor('available').length + ai('available');
   avail.textContent = String(availableNow);
   greenCount(avail, availableNow, `${availableNow} available`);
 }
 // A count above zero is a green pill with a spoken name; at zero it is the neutral grey one.
 function greenCount(el, n, label) {
-  el.classList.toggle('badge-ok', n > 0);
+  if (n > 0) el.dataset.tone = 'ok'; else delete el.dataset.tone;
   if (n > 0) { el.setAttribute('role', 'img'); el.setAttribute('aria-label', label); } else { el.removeAttribute('role'); el.removeAttribute('aria-label'); }
 }
 $('module-filters').addEventListener('click', (event) => {
@@ -1472,38 +1708,25 @@ function renderModules() {
   const list = $('modules-list');
   list.textContent = '';
   syncModuleFilters();
-  // The AI service card is not a versioned module, so it has no update to offer; it does have its own
-  // configuration page, so it stays visible under Configurable.
-  syncAiVisibility();
-  // "Available" isolates the not-yet-installed list below; every other filter hides it and works on what is installed.
-  const showAvailableOnly = moduleFilter === 'available';
-  const updatesOnly = moduleFilter !== 'all' && !showAvailableOnly;
-  // The built-in modules first: always on, and not removable.
-  for (const b of updatesOnly || showAvailableOnly ? [] : builtinModules) {
-    const el = document.createElement('article');
-    el.className = 'panel module-card';
-    el.innerHTML = `
-      <div class="module-head">
-        <i class="fa-solid fa-${escapeHtml(shownIcon(b))} fa-fw module-icon" aria-hidden="true"></i>
-        <div class="grow"><h2>${escapeHtml(shownName(b))} <span class="hint">${b.displayName ? `${escapeHtml(b.name)}, ` : ''}built in</span></h2>
-          <div class="hint">On ${escapeHtml(word('space', { a: true }))}'s ${escapeHtml(word('canvas'))}</div></div>
-        <span class="pill ${b.switchable ? (b.enabled ? 'on' : '') : 'on'}">${b.switchable ? (b.enabled ? 'Enabled' : 'Disabled') : 'Always on'}</span>
-      </div>
-      <p>${escapeHtml(b.description)}</p>
-      ${shownAsLink(b)}
-      <p class="hint">It comes with the server and can't be removed. Its permissions are on the Roles tab: ${escapeHtml(b.permissions)}.</p>
-      ${b.switchable ? `<div class="row"><button class="btn ${b.enabled ? '' : 'btn-primary'}" type="button" data-builtin-toggle="${escapeHtml(b.id)}">${b.enabled ? 'Disable' : 'Approve and enable'}</button>${b.needs ? `<span class="hint">${escapeHtml(b.needs)}</span>` : ''}</div>` : ''}`;
-    list.appendChild(el);
-  }
-  if (!showAvailableOnly && (updatesOnly ? !installedModules.some(moduleMatches) : !installedModules.length)) {
+  // The AI service's entry: not a versioned module, so never under Updates; it has its tab, so it is under Configurable.
+  const aiRow = $('ai-row');
+  aiRow.hidden = !aiAvailable || !aiShownFor(moduleFilter);
+  aiRow.replaceChildren(...(aiRow.hidden ? [] : [aiEntry({ link: true })]));
+  // The built-in modules first: not removable; Conference can be turned off, Chat is always on.
+  const builtins = builtinsFor(moduleFilter);
+  for (const b of builtins) list.appendChild(builtinCard(b, { link: true }));
+  // Installed modules: one that is on is a short card whose name opens its tab; one that is off (it has no tab) shows
+  // everything, so what it asks for is read before it is turned on.
+  const shown = installedModules.filter(moduleMatches);
+  if (moduleFilter !== 'available' && !shown.length) {
     const none = document.createElement('div');
     none.className = 'panel';
-    none.innerHTML = updatesOnly ? `<p class="hint">${moduleFilter === 'configurable' ? `No installed ${escapeHtml(word('module'))} has settings.` : 'Everything is up to date.'}</p>` : `<p class="hint">No other ${escapeHtml(word('module', { many: true }))} installed yet.</p>`;
+    none.innerHTML = moduleFilter === 'updates' ? '<p class="hint">Everything is up to date.</p>' : moduleFilter === 'configurable' ? `<p class="hint">No installed ${escapeHtml(word('module'))} has settings.</p>` : `<p class="hint">No other ${escapeHtml(word('module', { many: true }))} installed yet.</p>`;
     list.appendChild(none);
   }
-  if (!showAvailableOnly) for (const m of installedModules) if (moduleMatches(m)) list.appendChild(moduleCard(m));
-  // Modules that ship with this server and are not installed yet: shown under All, and on their own under Available.
-  const available = updatesOnly ? [] : bundledModules.filter((b) => !b.installed);
+  for (const m of shown) list.appendChild(moduleCard(m, moduleHasTab(m) ? 'row' : 'full'));
+  // Modules that ship with this server and are not installed yet: shown under All and under Available.
+  const available = moduleFilter === 'all' || moduleFilter === 'available' ? bundledModules.filter((b) => !b.installed) : [];
   if (available.length) {
     const box = document.createElement('div');
     box.className = 'panel';
@@ -1514,47 +1737,83 @@ function renderModules() {
         <button class="btn btn-primary" data-bundled-action="install" data-bundled-id="${escapeHtml(b.id)}" type="button" ${b.notInPlan ? `disabled title="Your plan does not include this ${escapeHtml(word('module'))}"` : ''}>Install</button>
       </div>`).join('')}`;
     list.appendChild(box);
-  } else if (showAvailableOnly) {
+  } else if (moduleFilter === 'available' && !shown.length && !builtins.length && $('ai-row').hidden) {
     const none = document.createElement('div');
     none.className = 'panel';
-    none.innerHTML = '<p class="hint">Nothing new to install right now.</p>';
+    none.innerHTML = '<p class="hint">Nothing new to install or turn on right now.</p>';
     list.appendChild(none);
   }
 }
 
-// A built-in feature the admin may switch off (the conference): it goes through the same enable step as a module.
-$('modules-list').addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-builtin-toggle]');
-  if (!button) return;
-  const b = builtinModules.find((x) => x.id === button.dataset.builtinToggle);
+// What happened, said on the Configuration tab and on the module's tab while it is shown.
+function sayModules(text, error = false) {
+  say($('modules-status'), text, error);
+  const here = $('module-tab-status');
+  if (here && !$('module-part-module').hidden) say(here, text, error);
+}
+
+// A built-in module's switch (the conference): it goes through the same enable step as a module.
+$('tab-modules').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-builtin-toggle]');
+  if (!input) return;
+  const b = builtinModules.find((x) => x.id === input.dataset.builtinToggle);
   if (!b) return;
-  const enable = !b.enabled;
-  if (!enable && !window.confirm(`Turn off ${shownName(b)} for everyone?\n\n${b.turnOff || `It stops working in every ${word('space')} until you enable it again.`}`)) return;
-  if (enable && !window.confirm(`Enable ${shownName(b)}?\n\n${b.turnOn || b.description}`)) return;
-  button.disabled = true;
+  const enable = input.checked;
+  if (!enable && !await confirmDialog({ title: `Turn off ${shownName(b)} for everyone?`, message: b.turnOff || `It stops working in every ${word('space')} until you enable it again.`, action: 'Turn off', kind: 'destructive' })) { input.checked = true; return; }
+  if (enable && !await confirmDialog({ title: `Enable ${shownName(b)}?`, message: b.turnOn || b.description, action: 'Enable' })) { input.checked = false; return; }
+  input.disabled = true;
   try {
     await api('PATCH', '/api/settings', { [b.setting || `${b.id}Enabled`]: enable });
     await loadModules();
     say($('modules-status'), `${shownName(b)} ${enable ? 'enabled' : 'disabled'}`);
   } catch (err) {
-    button.disabled = false;
+    input.checked = !enable;
+    input.disabled = false;
     say($('modules-status'), err.message, true);
   }
 });
 
+// An installed module's switch (#264): on approves what it asks for (said first when it waits for approval); off asks
+// first when other modules need it, and turns them off too.
+$('tab-modules').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-module-enabled]');
+  if (!input) return;
+  const m = installedModules.find((x) => x.id === input.dataset.moduleEnabled);
+  if (!m) return;
+  const enable = input.checked;
+  let force = false;
+  if (!enable && m.dependents?.length) {
+    const names = m.dependents.map(shownNameOf).join(' and ');
+    if (!await confirmDialog({ title: `${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`, action: 'Turn off', kind: 'destructive' })) { input.checked = true; return; }
+    force = true;
+  }
+  if (enable && m.needsApproval && !await confirmDialog({ title: `Turn on ${shownName(m)}?`, message: 'This approves what it asks for, listed under its name.', action: 'Turn on' })) { input.checked = false; return; }
+  input.disabled = true;
+  try {
+    await api('PATCH', `/api/modules/${m.id}`, { enabled: enable, ...(force ? { force: true } : {}) });
+    await loadModules();
+    await loadRoles(); // a module's permissions join the Roles grid when it is on
+    sayModules(`${shownName(m)} ${enable ? 'enabled' : 'disabled'}`);
+  } catch (err) {
+    input.checked = !enable;
+    input.disabled = false;
+    sayModules(err.message, true);
+  }
+});
+
 // Install or update a module that ships with this server, by building it here.
-$('modules-list').addEventListener('click', async (event) => {
+$('tab-modules').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-bundled-action]');
   if (!button) return;
   button.disabled = true;
-  say($('modules-status'), 'installing...');
+  sayModules('installing...');
   try {
     const { module } = await api('POST', `/api/modules/bundled/${encodeURIComponent(button.dataset.bundledId)}/install`);
     await loadModules();
     await loadRoles();
-    say($('modules-status'), `${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then enable'}`);
+    sayModules(`${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then turn it on'}`);
   } catch (err) {
-    say($('modules-status'), err.message, true);
+    sayModules(err.message, true);
     button.disabled = false;
   }
 });
@@ -1568,68 +1827,140 @@ $('module-install').addEventListener('click', async () => {
     $('module-file').value = '';
     await loadModules();
     await loadRoles(); // a module's permissions join the Roles grid when it is on
-    say($('modules-status'), `${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then enable'}`);
+    say($('modules-status'), `${shownName(module)} ${module.version} installed${module.enabled ? '' : ' -- review it below, then turn it on'}`);
   } catch (err) {
     say($('modules-status'), err.message, true);
   }
 });
 
-$('modules-list').addEventListener('click', async (event) => {
+$('tab-modules').addEventListener('click', async (event) => {
   const mode = event.target.closest('[data-module-runmode]');
   if (!mode) return;
   const m = installedModules.find((x) => x.id === mode.closest('.module-card').dataset.id);
   const to = mode.dataset.moduleRunmode;
   try {
-    if (to === 'page' && !window.confirm(`Run ${shownName(m)} in the page?\n\n${word('module', { a: true, cap: true })} in the page is not walled off. It can read and change everything on the page, act as you, and reach anything you can. the host cannot hold it to its approved permissions.\n\nOnly continue if you trust whoever wrote it.`)) return;
+    if (to === 'page' && !await confirmDialog({ title: `Run ${shownName(m)} in the page?`, message: `${word('module', { a: true, cap: true })} in the page is not walled off. It can read and change everything on the page, act as you, and reach anything you can. the host cannot hold it to its approved permissions.\n\nOnly continue if you trust whoever wrote it.`, action: 'Run in the page', kind: 'destructive' })) return;
     await api('PATCH', `/api/modules/${m.id}`, { runMode: to, acceptRisk: to === 'page' });
     await loadModules();
-    say($('modules-status'), `${shownName(m)} now runs ${to === 'page' ? 'in the page' : 'sandboxed'}`);
+    sayModules(`${shownName(m)} now runs ${to === 'page' ? 'in the page' : 'sandboxed'}`);
   } catch (err) {
-    say($('modules-status'), err.message, true);
+    sayModules(err.message, true);
   }
 });
 
-$('modules-list').addEventListener('click', async (event) => {
+$('tab-modules').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-module-action]');
   if (!button) return;
   const card = button.closest('.module-card');
   const m = installedModules.find((x) => x.id === card.dataset.id);
   try {
-    if (button.dataset.moduleAction === 'toggle') {
-      let force = false;
-      if (m.enabled && m.dependents?.length) {
-        const names = m.dependents.map(shownNameOf).join(' and ');
-        if (!window.confirm(`${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`)) return;
-        force = true;
-      }
-      await api('PATCH', `/api/modules/${m.id}`, { enabled: !m.enabled, ...(force ? { force: true } : {}) });
-    } else if (button.dataset.moduleAction === 'rollback') {
+    if (button.dataset.moduleAction === 'rollback') {
       const version = card.querySelector('[data-module-version]').value;
       if (version === m.version) return;
-      if (!window.confirm(`Switch ${shownName(m)} to version ${version}? Its data stays as it is.`)) return;
+      if (!await confirmDialog({ title: `Switch ${shownName(m)} to version ${version}?`, message: 'Its data stays as it is.', action: 'Switch' })) return;
       await api('POST', `/api/modules/${m.id}/rollback`, { version });
     } else if (button.dataset.moduleAction === 'uninstall') {
-      if (!window.confirm(`Uninstall ${shownName(m)}?${m.dependents?.length ? ' ' + m.dependents.map(shownNameOf).join(' and ') + ' needs it and will be turned off.' : ''}`)) return;
-      const wipe = window.confirm(`Also delete ${shownName(m)}'s saved data?\n\nOK deletes it for good. Cancel keeps it, so a later reinstall picks up where it left off.\n\nFiles you placed in the ${word('module')}'s own folder (a map file, say) are never deleted.`);
+      if (!await confirmDialog({ title: `Uninstall ${shownName(m)}?`, message: m.dependents?.length ? `${m.dependents.map(shownNameOf).join(' and ')} needs it and will be turned off.` : '', action: 'Uninstall', kind: 'destructive' })) return;
+      const wipe = await confirmDialog({ title: `Also delete ${shownName(m)}'s saved data?`, message: `Keep it, and a later reinstall picks up where it left off.\n\nFiles you placed in the ${word('module')}'s own folder (a map file, say) are never deleted.`, action: 'Delete data too', cancel: 'Keep data', kind: 'final' });
       await api('DELETE', `/api/modules/${m.id}?keepData=${wipe ? 0 : 1}`);
     }
     await loadModules();
     await loadRoles(); // a module's permissions join the Roles grid when it is on
-    say($('modules-status'), '');
+    sayModules('');
   } catch (err) {
-    say($('modules-status'), err.message, true);
+    sayModules(err.message, true);
   }
 });
 
-$('modules-list').addEventListener('change', async (event) => {
+$('tab-modules').addEventListener('change', async (event) => {
   if (event.target.matches('[data-module-version]')) {
     // Switching is only offered for a version that is not the running one.
     const card = event.target.closest('.module-card');
     const m = installedModules.find((x) => x.id === card.dataset.id);
     card.querySelector('[data-module-action="rollback"]').disabled = event.target.value === m.version;
-    return;
   }
 });
+
+// The Modules tab's row (#264): Configuration, Conference while it is on (its settings are its call features), the AI
+// service, then each installed module that is on, by the name it is shown as. Drawn again only when the list changes.
+const builtinHasTab = (b) => b.id === 'conference' && b.switchable && b.enabled;
+const moduleHasTab = (m) => m.enabled && !m.outdated;
+function moduleTabIds() {
+  return ['config', ...builtinModules.filter(builtinHasTab).map((b) => b.id), ...(aiAvailable ? ['ai'] : []), ...installedModules.filter(moduleHasTab).map((m) => m.id)];
+}
+let moduleTabsDrawn = '';
+function renderModuleTabs() {
+  const strip = $('module-subtabs');
+  const named = (m) => [m.id, shownName(m)];
+  const want = [...builtinModules.filter(builtinHasTab).map(named), ...(aiAvailable ? [['ai', 'AI service']] : []), ...installedModules.filter(moduleHasTab).map(named)];
+  const key = JSON.stringify(want);
+  if (key === moduleTabsDrawn) return;
+  moduleTabsDrawn = key;
+  for (const b of [...strip.querySelectorAll('.subtab')]) if (b.dataset.modulePart !== 'config') b.remove();
+  for (const [id, name] of want) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'subtab';
+    b.dataset.modulePart = id;
+    b.textContent = name;
+    strip.append(b);
+  }
+}
+
+// The tab shown, drawn from the list as it is now: Conference's card, the AI service's, or an installed module's card, its settings and
+// the rest. The settings (module-config.html's markup) are drawn again only for another module, version or state, so
+// a refresh of the list never drops what someone is typing in them.
+let moduleConfigKey = '';
+let moduleConfigSeq = 0;
+function drawModuleTab() {
+  if (modulePart === 'config') return;
+  if (modulePart === 'conference') {
+    const b = builtinModules.find((x) => x.id === 'conference');
+    if (b) $('conference-card').replaceChildren(builtinCard(b));
+    return;
+  }
+  if (modulePart === 'ai') {
+    $('ai-tab-card').replaceChildren(aiEntry());
+    if (!aiFormLoaded) { aiFormLoaded = true; aiForm.load(); }
+    return;
+  }
+  const m = installedModules.find((x) => x.id === modulePart);
+  if (!m) return;
+  $('module-tab-card').replaceChildren(moduleCard(m, 'tab'));
+  $('module-tab-more').replaceChildren(moduleCard(m, 'more'));
+  const key = `${m.id}:${m.version}:${m.enabled}`;
+  if (key !== moduleConfigKey) drawModuleSettings(m, key);
+}
+async function drawModuleSettings(m, key) {
+  moduleConfigKey = key;
+  const seq = ++moduleConfigSeq;
+  const live = () => seq === moduleConfigSeq;
+  const box = $('module-tab-settings');
+  box.replaceChildren(); // the last module's copy leaves first: its ids are the ones the next copy uses
+  let section;
+  try {
+    section = await moduleConfigMarkup();
+  } catch (err) {
+    if (!live()) return;
+    moduleConfigKey = '';
+    box.innerHTML = `<div class="panel"><p class="status error">The settings could not be read (${escapeHtml(err.message)}). Reload the page to try again.</p></div>`;
+    return;
+  }
+  if (!live()) return;
+  // The card above already names the module and says what it does: the copy keeps only its settings, under a heading.
+  section.querySelector('.module-head').hidden = true;
+  section.querySelector('#cfg-desc').hidden = true;
+  const heading = document.createElement('h2');
+  heading.textContent = 'Settings';
+  section.prepend(heading);
+  box.append(section);
+  applyWords(section);
+  try {
+    await drawModuleConfig(m, { live });
+  } catch (err) {
+    if (live()) sayModules(err.message, true);
+  }
+}
 
 // --- Font Awesome icons -----------------------------------------------------
 // Paste the HTML Font Awesome gives you; we keep just its classes.
@@ -1845,7 +2176,7 @@ $('stream-show').addEventListener('click', () => {
 });
 $('stream-copy').addEventListener('click', () => copy(streamKey, $('settings-status')));
 $('stream-regen').addEventListener('click', async () => {
-  if (!window.confirm('Regenerate the access key? Every link made with it and the Studio app need the new one.')) return;
+  if (!await confirmDialog({ title: 'Regenerate the access key?', message: 'Every link made with it and the Studio app need the new one.', action: 'Regenerate', kind: 'destructive' })) return;
   try {
     ({ streamKey } = await api('POST', '/api/stream-key/regenerate'));
     showStreamKey();
@@ -1858,12 +2189,14 @@ $('stream-regen').addEventListener('click', async () => {
 
 // The server's admin lockout bypass is on: say so on Manage until it is turned off (plans/plan-mfa.md, "The server's two switches").
 function mfaBypassBanner() {
-  if (document.querySelector('.env-page-banner[data-mfa-bypass]')) return;
+  if (document.querySelector('.sdk-banner-wide[data-mfa-bypass]')) return;
   const b = document.createElement('div');
-  b.className = 'env-page-banner';
+  b.className = 'sdk-banner sdk-banner-wide';
+  b.dataset.kind = 'warn';
   b.dataset.mfaBypass = '1';
   b.setAttribute('role', 'status');
-  b.textContent = `The lockout bypass is on: ${word('owner', { many: true })} and the admin are not asked for their two-step code. Reset your factor on your profile if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.`;
+  b.innerHTML = '<span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span><span class="sdk-banner-text"></span>';
+  b.querySelector('.sdk-banner-text').textContent = `The lockout bypass is on: ${word('owner', { many: true })} and the admin are not asked for their two-step code. Reset your factor on your profile if you need to, then turn ADMIN_MFA_LOCKOUT_BYPASS off on the server.`;
   const topbar = document.querySelector('.topbar');
   if (topbar) topbar.after(b); else document.body.prepend(b);
 }
@@ -1939,7 +2272,7 @@ $('template-select').addEventListener('change', syncTemplateSwitch);
 $('template-switch').addEventListener('click', async () => {
   const value = $('template-select').value;
   const chosen = templateChoices.find((c) => c.id === value);
-  if (!window.confirm(switchQuestion(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
+  if (!await confirmDialog(switchConfirm(value === 'none' ? null : chosen ? chosen.name || chosen.id : value))) return;
   const button = $('template-switch');
   button.disabled = true;
   say($('template-status'), 'Switching...');
@@ -2026,7 +2359,7 @@ function renderTemplateNote() {
     const name = escapeHtml(x.name || shownNameOf(x.id));
     // Installed and in every space, but off until what it needs is set up.
     if (installed) {
-      const missing = (installed.missing || []).map((r) => (r === 'ai' ? '<a href="/ai-config.html">the AI service</a>' : escapeHtml(shownNameOf(r))));
+      const missing = (installed.missing || []).map((r) => (r === 'ai' ? '<a href="#modules/ai">the AI service</a>' : escapeHtml(shownNameOf(r))));
       const then = missing.length ? `Once ${missing.join(' and ')} ${missing.length === 1 ? 'is' : 'are'} ready, turn it on under ${modulesLink}.` : `Once that is done, turn it on under ${modulesLink}.`;
       return item('circle-pause', `${name}: not on yet`, `${escapeHtml(sentence(x.why))} ${then}`);
     }
@@ -2059,7 +2392,7 @@ function renderTemplateFiles() {
   list.hidden = !imported.length;
   list.innerHTML = imported.map((c) => {
     const inUse = madeFrom && madeFrom.id === c.id;
-    return `<li class="list-row"><span class="template-file-name"><strong>${escapeHtml(c.name || c.id)}</strong> <span class="hint">Imported, version ${escapeHtml(String(c.version || 1))}${inUse ? ', in use' : ''}</span></span>`
+    return `<li class="sdk-row list-row"><span class="template-file-name"><strong>${escapeHtml(c.name || c.id)}</strong> <span class="hint">Imported, version ${escapeHtml(String(c.version || 1))}${inUse ? ', in use' : ''}</span></span>`
       + `<a class="btn btn-small" href="/api/templates/${encodeURIComponent(c.id)}/export" download>Export</a>`
       + `<button class="btn btn-small btn-danger" type="button" data-template-delete="${escapeHtml(c.id)}"${inUse ? ' disabled title="In use: switch to another template first"' : ''}>Delete</button></li>`;
   }).join('');
@@ -2096,7 +2429,7 @@ $('template-imported').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-template-delete]');
   if (!b) return;
   const t = templateChoices.find((c) => c.id === b.dataset.templateDelete);
-  if (!window.confirm(`Delete the ${templateName(t) || b.dataset.templateDelete} template? Its file can be imported again.`)) return;
+  if (!await confirmDialog({ title: `Delete the ${templateName(t) || b.dataset.templateDelete} template?`, message: 'Its file can be imported again.', action: 'Delete', kind: 'destructive' })) return;
   try {
     await api('DELETE', `/api/templates/${encodeURIComponent(b.dataset.templateDelete)}`);
     await loadTemplate();
@@ -2141,15 +2474,15 @@ function renderEnvironment() {
   $('env-caps').innerHTML = rows.map(([label, used, cap, fmt, kind]) => {
     const pct = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
     const text = kind === 'modules' ? fmt(used) : cap ? `${fmt(used)} of ${fmt(cap)}` : `${fmt(used)}, no cap`;
-    return `<dt>${escapeHtml(label)}</dt><dd><span class="env-cap-text">${escapeHtml(text)}</span>${cap ? `<span class="env-cap-bar${pct >= 90 ? ' warn' : ''}"><span style="width:${pct}%"></span></span>` : ''}</dd>`;
+    return `<dt>${escapeHtml(label)}</dt><dd><span class="env-cap-text">${escapeHtml(text)}</span>${cap ? `<span class="sdk-progress env-cap-bar${pct >= 90 ? ' warn' : ''}" role="progressbar" aria-label="${escapeHtml(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-valuetext="${pct} percent${pct >= 90 ? ', almost full' : ''}"><span class="sdk-progress-fill" style="--pct:${pct}%"></span></span>` : ''}</dd>`;
   }).join('');
   const banner = $('env-banner');
   if (e.status === 'pastDue') {
     const until = e.graceEndsAt ? new Date(e.graceEndsAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'soon';
-    banner.textContent = `Payment for this ${word('environment')} is overdue. It goes to the free plan on ${until}; nothing is deleted.`;
+    $('env-banner-text').textContent = `Payment for this ${word('environment')} is overdue. It goes to the free plan on ${until}; nothing is deleted.`;
     banner.hidden = false;
   } else if (e.status === 'suspended') {
-    banner.textContent = `This ${word('environment')} is suspended by the ${word('host')}.`;
+    $('env-banner-text').textContent = `This ${word('environment')} is suspended by the ${word('host')}.`;
     banner.hidden = false;
   } else banner.hidden = true;
   const up = $('env-upgrade');
@@ -2199,7 +2532,14 @@ const flightSchedule = wireFlightSchedule('/api/flight-schedule');
 
 async function init() {
   renderTopbar();
-  renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the tabs in the page bar (plan-two-zone-nav.md)
+  // The tabs in the top bar (#262), as a space's layout tabs are; the page bar's row is left for navigation inside a tab.
+  $('subtabs').toggleAttribute('data-top-bar', true);
+  renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the page bar (plan-two-zone-nav.md), its tabs in the top bar
+  // The page bar's row: the Environment tab's parts, while that tab is shown (#261).
+  rowTabs({ strip: $('env-subtabs'), label: `${word('environment', { cap: true })} settings`, visible: () => tabNow === 'environment' });
+  // And the Modules tab's: Configuration and a tab per module that is on (#264), while that tab is shown.
+  rowTabs({ strip: $('module-subtabs'), label: word('module', { many: true, cap: true }), visible: () => tabNow === 'modules' });
+  requestAnimationFrame(() => scrollToChosen($('env-subtabs'))); // a link to a part: its tab in view in the row
   await loadBranding();
   buildHomeIconGrid(); // after the branding: the choices are its icon list
   wireOverlayBack(word('space', { many: true, cap: true }));
@@ -2253,7 +2593,7 @@ async function init() {
     await loadEnvironment();
     await loadTemplate();
     if (!environment.hosted) await flightSchedule.load(); // a hosted server's is the host console's: no section here
-    if (firstHash && !TABS.includes(firstHash) && !OLD_TABS[firstHash]) selectTab(firstHash); // a section drawn just now
+    if (firstHash && !TABS.includes(firstHash) && !ENV_PARTS.includes(firstHash)) selectTab(firstHash); // a section drawn just now
     setInterval(refreshLive, 5000);
   } catch (err) {
     location.href = '/login?next=/admin';

@@ -15,6 +15,39 @@
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
 
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
   const { esc, ymd, parseYmd, objectKey, id: newId } = host.util;
 
   /*__LIB__*/
@@ -23,7 +56,7 @@
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'The to-do list could not start: ' + err.message;
+    showMsg('The to-do list could not start', err.message, () => location.reload());
     return;
   }
   const inSpace = info.context.scope === 'space';
@@ -274,9 +307,9 @@
     const due = t.due ? dueText(t.due) : null;
     const notes = t.notes ? `<small>${esc(t.notes.split('\n')[0].slice(0, 90))}</small>` : '';
     const links = (t.links || []).length ? `<span class="links">${t.links.map((r) => linkChip(r, false)).join('')}</span>` : '';
-    return `<div class="task ${t.done ? 'done' : ''}" data-task="${esc(x.key)}">
-      <input class="tick" type="checkbox" data-tick="${esc(x.key)}" ${t.done ? 'checked' : ''} ${editable ? '' : 'disabled'} aria-label="Done">
-      <button class="text" type="button" data-open="${esc(x.key)}">${part && x.scope === 'spaces' ? spaceIcon(x.spaceId) : ''}${esc(t.title)}${notes}${links}</button>
+    return `<div class="sdk-row task ${t.done ? 'done' : ''}" data-task="${esc(x.key)}">
+      <label class="sdk-row-tick"><input class="tick" type="checkbox" data-tick="${esc(x.key)}" ${t.done ? 'checked' : ''} ${editable ? '' : 'disabled'} aria-label="Done"></label>
+      <button class="sdk-open text" type="button" data-open="${esc(x.key)}">${part && x.scope === 'spaces' ? spaceIcon(x.spaceId) : ''}${esc(t.title)}${notes}${links}</button>
       ${due && !t.done ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ''}
     </div>`;
   }
@@ -286,7 +319,7 @@
     if (!shown.length) return '';
     const open = sorted(shown.filter((x) => !x.t.done), false);
     const done = sorted(shown.filter((x) => x.t.done), true);
-    return `<section class="group">${label ? `<h4>${label}</h4>` : ''}${[...open, ...done].map(taskHtml).join('')}</section>`;
+    return `<section class="sdk-list-group">${label ? `<h4 class="sdk-group-head">${label}</h4>` : ''}<div class="sdk-list">${[...open, ...done].map(taskHtml).join('')}</div></section>`;
   }
 
   // Open / Done / All is the toolbar's view switch.
@@ -320,7 +353,7 @@
     const openCount = shown.filter((x) => !x.t.done).length;
     filterSwitch.set(show, FILTERS.map((f) => (f.id === 'open' && openCount ? { ...f, label: `Open (${openCount})` } : f)));
     if (!inSpace && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id))) {
-      $('body').innerHTML = `<p class="empty">Pick at least one in ${esc(word('space', { many: true, cap: true }))}.</p>`;
+      $('body').innerHTML = `<p class="sdk-empty">Pick at least one in ${esc(word('space', { many: true, cap: true }))}.</p>`;
       return;
     }
     let html = '';
@@ -328,14 +361,14 @@
       const open = shown.filter((x) => !x.t.done);
       for (const [id, label] of DUE_GROUPS) {
         const list = sorted(open.filter((x) => dueGroup(x.t) === id), false);
-        if (list.length) html += `<section class="group"><h4>${esc(label)}</h4>${list.map(taskHtml).join('')}</section>`;
+        if (list.length) html += `<section class="sdk-list-group"><h4 class="sdk-group-head">${esc(label)}</h4><div class="sdk-list">${list.map(taskHtml).join('')}</div></section>`;
       }
     }
     if (show !== 'open') {
       const done = sorted(shown.filter((x) => x.t.done), true);
-      if (done.length) html += `<section class="group">${show === 'all' ? '<h4>Done</h4>' : ''}${done.map(taskHtml).join('')}</section>`;
+      if (done.length) html += `<section class="sdk-list-group">${show === 'all' ? '<h4 class="sdk-group-head">Done</h4>' : ''}<div class="sdk-list">${done.map(taskHtml).join('')}</div></section>`;
     }
-    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
+    $('body').innerHTML = html || `<p class="sdk-empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
   }
 
   function render() {
@@ -356,7 +389,7 @@
       if (hiddenSpaces.has(r.id)) continue;
       html += groupHtml(`${spaceIcon(r.id)} ${esc(r.name)}`, [...tasks.values()].filter((x) => x.scope === 'spaces' && x.spaceId === r.id));
     }
-    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
+    $('body').innerHTML = html || `<p class="sdk-empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
   }
 
   function showNote(text) {
@@ -557,7 +590,7 @@
       const c = summaries.get(objectKey(r));
       for (const ev of kindEvents.get(r.module + ':' + r.kind) || []) {
         const chosen = (editingRules[objectKey(r)] || {})[ev.name] || '';
-        rows.push(`<label class="rule"><span>${esc(c && !c.error ? c.title : `That ${word('object')}`)}: ${esc(ev.label)}</span><select data-rule="${esc(objectKey(r))}|${esc(ev.name)}" ${readOnly ? 'disabled' : ''}><option value="">Do nothing</option>${outcomesFor(ev).map((o) => `<option value="${o.id}"${o.id === chosen ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>`);
+        rows.push(`<label class="sdk-field"><span class="sdk-label">${esc(c && !c.error ? c.title : `That ${word('object')}`)}: ${esc(ev.label)}</span><select data-rule="${esc(objectKey(r))}|${esc(ev.name)}" ${readOnly ? 'disabled' : ''}><option value="">Do nothing</option>${outcomesFor(ev).map((o) => `<option value="${o.id}"${o.id === chosen ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select><span class="sdk-hint"></span></label>`);
       }
     }
     $('f-rules').innerHTML = rows.join('');
@@ -603,7 +636,7 @@
       if (inSpace) found.push(...await host.objects.search(text, { scope: 'environment' }).catch(() => []));
       const fresh = found.filter((c) => !editingLinks.some((r) => objectKey(r) === objectKey(c.ref))).slice(0, 12);
       for (const c of fresh) summaries.set(objectKey(c.ref), c);
-      box.innerHTML = fresh.length ? fresh.map((c) => `<button type="button" class="result" data-link="${esc(objectKey(c.ref))}"><span>${esc(c.module.name)}: ${esc(c.title)}</span><small>${esc(dateText(c.when, c.allDay))}</small></button>`).join('') : '<span class="hint">Nothing found.</span>';
+      box.innerHTML = fresh.length ? fresh.map((c) => `<button type="button" class="sdk-row result" data-link="${esc(objectKey(c.ref))}"><span>${esc(c.module.name)}: ${esc(c.title)}</span><small>${esc(dateText(c.when, c.allDay))}</small></button>`).join('') : '<span class="hint">Nothing found.</span>';
       box.dataset.found = JSON.stringify(fresh.map((c) => c.ref));
     } catch (err) {
       box.innerHTML = '';
@@ -869,20 +902,24 @@
 
   $('add').hidden = true;
   $('new-form').hidden = true;
-  try {
-    await loadKinds();
-    await loadAskable();
-    await load();
-  } catch (err) {
-    $('msg').textContent = 'The to-do list could not load: ' + err.message;
-    return;
+  async function start() {
+    try {
+      await loadKinds();
+      await loadAskable();
+      await load();
+    } catch (err) {
+      showMsg('The to-do list could not load', err.message, start);
+      return;
+    }
+    if (pickedSpaces) for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
+    showAdd();
+    loaded = true;
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    render();
   }
-  if (pickedSpaces) for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
-  showAdd();
-  loaded = true;
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
+  await start();
   // Other modules say what happens to their objects (a poll closing, say); the host delivers what this module
   // was approved to hear. Each link on a task can carry a rule for an event it may report: tick the task, keep
   // the result in its notes, use it as the title, or link what the object picked. A task from before rules that

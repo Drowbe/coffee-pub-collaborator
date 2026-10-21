@@ -13,16 +13,49 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Budget could not start: ' + err.message;
+    showMsg('Budget could not start', err.message, () => location.reload());
     return;
   }
   if (info.context.scope !== 'space') {
-    $('msg').textContent = `${info.module.name} opens in ${word('space', { a: true })}.`;
+    showMsg(`${info.module.name} opens in ${word('space', { a: true })}.`);
     return;
   }
   /*__LIB__*/
@@ -218,11 +251,11 @@
     hide(bar, !tv.amount);
     if (tv.amount) {
       const pct = (x) => `${Math.max(0, Math.min(100, (x / tv.amount) * 100)).toFixed(1)}%`;
-      $('bar-spent').style.width = pct(t.spent);
-      $('bar-expected').style.width = pct(t.expected);
+      $('bar-spent').style.setProperty('--pct', pct(t.spent));
+      $('bar-expected').style.setProperty('--pct', pct(t.expected));
       bar.classList.toggle('over', t.over);
       bar.setAttribute('aria-valuenow', String(Math.round(Math.min(100, (t.spent / tv.amount) * 100))));
-      bar.setAttribute('aria-valuetext', `${money(t.spent)} of ${money(tv.amount)} spent`);
+      bar.setAttribute('aria-valuetext', t.over ? `Over by ${money(Math.abs(t.left))}: ${money(t.spent)} of ${money(tv.amount)} spent` : `${money(t.spent)} of ${money(tv.amount)} spent`);
     }
     const sums = [sumRow('Planned', money(t.planned)), sumRow('Paid', money(t.spent)), sumRow('Expected', money(t.expected))];
     if (tv.amount) sums.push(sumRow(t.over ? 'Over by' : 'Left', money(Math.abs(t.left)), t.over));
@@ -248,8 +281,12 @@
         setIcon(el.querySelector('[data-icon]'), r.icon);
         const text = r.actual && r.planned ? `${money(r.actual)} of ${money(r.planned)}` : r.actual ? `${money(r.actual)} paid` : `${money(r.planned)} planned`;
         fill(el, { name: `${r.label} · ${r.count}`, amount: text });
-        el.querySelector('.cat-plan').style.width = `${((r.planned / scale) * 100).toFixed(1)}%`;
-        el.querySelector('.cat-paid').style.width = `${((r.actual / scale) * 100).toFixed(1)}%`;
+        el.querySelector('.sdk-progress-planned').style.setProperty('--pct', `${((r.planned / scale) * 100).toFixed(1)}%`);
+        el.querySelector('.sdk-progress-fill').style.setProperty('--pct', `${((r.actual / scale) * 100).toFixed(1)}%`);
+        const catBar = el.querySelector('.cat-bar');
+        catBar.setAttribute('aria-label', `${r.label}: ${text}`);
+        catBar.setAttribute('aria-valuenow', String(Math.round((r.actual / scale) * 100)));
+        catBar.setAttribute('aria-valuetext', text);
         return el;
       }));
     }
@@ -490,7 +527,7 @@
     $('f-readonly').textContent = readOnly ? `You can look at the costs but not change them.` : '';
     hide($('f-readonly'), !readOnly);
     $('f-title').value = shown.title;
-    for (const u of $('form').querySelectorAll('[data-slot="unit"]')) u.textContent = `(${currencyCode()})`;
+    for (const u of $('form').querySelectorAll('[data-slot="unit"]')) u.textContent = currencyCode();
     $('f-planned').value = amountText(shown.planned);
     $('f-actual').value = amountText(shown.actual);
     // A category taken off the list shows as Other and is kept as it was until another is chosen.
@@ -513,7 +550,7 @@
     $('f-by').textContent = shown.by ? `Added by ${nameOf(shown.by) || 'someone'}` : '';
     state.editing.ref = shown.ref;
     editorError('');
-    $('f-fields').disabled = readOnly;
+    for (const el of $('form').querySelectorAll('input, select, textarea')) el.disabled = readOnly;
     hide($('f-save'), readOnly);
     hide($('f-cancel'), readOnly);
     hide($('f-delete'), readOnly || !id);
@@ -651,31 +688,38 @@
     if (last === 'overview' || last === 'costs' || last === 'settle') state.view = last;
   } catch (err) { /* the default */ }
   viewSwitch = host.ui.viewSwitch({ id: 'view', options: VIEW_OPTIONS(), value: state.view === 'settle' ? 'overview' : state.view, onChange: showView });
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  try {
-    const [people, settings, canTarget] = await Promise.all([
-      host.people().catch(() => []),
-      host.settings.get().catch(() => null),
-      host.budget ? host.budget.can().catch(() => false) : false,
-      loadCosts(),
-      refreshPulled(),
-    ]);
-    state.people = people;
-    state.cats = cleanCategories(settings && settings.categories);
-    state.canTarget = canTarget === true;
-    if (host.space() && host.space().budget) state.target = host.space().budget;
-    host.settings.onChange((v) => { state.cats = cleanCategories(v && v.categories); if (state.loaded) render(); });
-    await Promise.all([...new Set(['plus', 'pen', 'eye', 'trash', 'check', 'tag', 'wallet', 'layer-group', 'calendar-day', 'user', 'arrow-up-right-from-square', ...state.cats.map((c) => c.icon)])].map(wantIcon));
-    state.loaded = true;
-    render();
-    const pullTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(pullTimer); else if (!document.hidden) refreshPulled(); }, 30000);
-    window.addEventListener('focus', refreshPulled);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPulled(); });
-    if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
-  } catch (err) {
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The costs could not load: ' + err.message;
+  let wired = false; // the timers and listeners are set once, however many times it is tried
+  async function load() {
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
+    try {
+      const [people, settings, canTarget] = await Promise.all([
+        host.people().catch(() => []),
+        host.settings.get().catch(() => null),
+        host.budget ? host.budget.can().catch(() => false) : false,
+        loadCosts(),
+        refreshPulled(),
+      ]);
+      state.people = people;
+      state.cats = cleanCategories(settings && settings.categories);
+      state.canTarget = canTarget === true;
+      if (host.space() && host.space().budget) state.target = host.space().budget;
+      await Promise.all([...new Set(['plus', 'pen', 'eye', 'trash', 'check', 'tag', 'wallet', 'layer-group', 'calendar-day', 'user', 'arrow-up-right-from-square', ...state.cats.map((c) => c.icon)])].map(wantIcon));
+      state.loaded = true;
+      render();
+      if (!wired) {
+        wired = true;
+        host.settings.onChange((v) => { state.cats = cleanCategories(v && v.categories); if (state.loaded) render(); });
+        const pullTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(pullTimer); else if (!document.hidden) refreshPulled(); }, 30000);
+        window.addEventListener('focus', refreshPulled);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPulled(); });
+      }
+      if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
+    } catch (err) {
+      $('app').hidden = true;
+      showMsg('The costs could not load', err.message, load);
+    }
   }
+  await load();
 })();

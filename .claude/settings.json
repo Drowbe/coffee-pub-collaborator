@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status *)", "Bash(git log *)", "Bash(git diff *)", "Bash(git show *)",
+      "Bash(git fetch *)", "Bash(git add *)", "Bash(git commit *)",
+      "Bash(git push origin HEAD:claude/*)", "Bash(git push -u origin claude/*)",
+      "Bash(git rebase *)", "Bash(git worktree *)", "Bash(git checkout *)",
+      "Bash(gh api *)",
+      "Bash(npm run check*)", "Bash(npm run shots*)", "Bash(npm run docs:build*)", "Bash(npm ci*)",
+      "Bash(node tools/*)", "Bash(node --check *)",
+      "Bash(DS_ONLY=* node tools/check-design-system.mjs*)",
+      "Bash(DS_SCENARIO=* node tools/check-design-system.mjs*)",
+      "Bash(LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=devsecretdevsecret ADMIN_PASSWORD=testpass1234 * node server/index.js*)",
+      "Bash(curl -s *localhost*)",
+      "Bash(ls *)", "Bash(cat *)", "Bash(head *)", "Bash(tail *)", "Bash(grep *)", "Bash(find *)",
+      "Bash(wc *)", "Bash(du *)", "Bash(df *)", "Bash(uptime*)", "Bash(pgrep *)",
+      "Bash(mkdir *)", "Bash(cp *)", "Bash(ln -s *)", "Bash(sed -n *)", "Bash(diff *)",
+      "Read(**)", "Glob(**)", "Grep(**)", "Artifact(*)"
+    ]
+  }
+}

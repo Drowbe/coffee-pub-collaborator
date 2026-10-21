@@ -1,0 +1,527 @@
+/* ==== Menus and popovers (PROPOSED 2026-10-18; Thomas's decisions of 2026-10-18, plan-design-system.md "Menus and popovers") ====
+   One menu surface and one menu item for host.menu.show, the nav registry's menu, the Layout and Modules menus, the chat command menu, a card's
+   "..." menu, the dropdown lists (the kind picker's list), and the popovers (date picker, call popovers, filter popovers, emoji picker, the bell panel).
+   - Surface: --bg-card, a 1px neutral hairline (--border), --radius-medium, ONE shadow (--shadow-2), 4px of padding, 180 to 320px wide, one
+     layer (--z-menu). A popover is the same surface with its own padding: 8px around a grid or a list, 14px around controls.
+   - Item: 32px high (44px on a phone, and when the menu has .narrow), 1px transparent edge + 6x9 padding = 7x10, icon 1em, label, hint 12px dim,
+     count, tick box or switch, submenu arrow. Hover = a quiet neutral fill (--text 10%). Focus = a 2px accent outline inside the item (offset -2px),
+     the mechanism of the Fields and the Tabs. The current choice = --selected-bg with text in the accent mix (accent 55% into --text).
+     A check mark only in a tick-box row. Danger = red text only (--danger 70% into --text, the Danger button's text); hover stays the quiet fill.
+     Disabled = half strength.
+   - Heading: 11px uppercase dim. Divider: a 1px --border line, 4px above and below, 6px in from each side.
+   Names: the contract is .sdk-menu and .sdk-menu-*; the older names are aliases, so no markup is edited (list in the page, "Aliases").
+   Colours are theme tokens only. Radii are --radius-* tokens. No state draws a coloured edge, a bar or an underline. */
+
+.ds-proposed {
+  /* ONE shadow for what floats: menus, popovers, the list under a field: --shadow-2, the Foundations token (0 2px 8px). Windows get --shadow-3. */
+  /* The scrim behind a bottom sheet is --scrim, the Foundations token (black at 55% in both modes); this family does not define it. */
+  --menu-pad: 4px;
+  --menu-w-min: 180px;
+  --menu-w-max: 320px;
+  --menu-item-h: 32px;
+  --menu-font: 14px;
+  --menu-hover: color-mix(in srgb, var(--text) 10%, transparent);
+  --menu-press: color-mix(in srgb, var(--text) 16%, transparent);
+  --menu-current-hover: color-mix(in srgb, var(--accent) 33%, transparent);
+  --menu-current-fg: color-mix(in srgb, var(--accent) 55%, var(--text));
+  --menu-danger-fg: color-mix(in srgb, var(--danger) 70%, var(--text));
+  /* On the quiet fill the same red is 4.3 to 1 in dark mode, so a hovered or focused danger row, and a hint on a filled row, take one step more. */
+  --menu-danger-fg-strong: color-mix(in srgb, var(--danger) 55%, var(--text));
+  --menu-hint-strong: color-mix(in srgb, var(--text-dim) 50%, var(--text));
+  --pop-pad: 14px;
+  --dp-day: 30px;
+}
+
+
+@media (max-width: 640px) {
+  .ds-proposed { --menu-item-h: 44px; --dp-day: 44px; }
+}
+
+.ds-proposed :is(.sdk-menu, .host-menu, .modules-menu, .menu, .chat-command-menu, .sdk-kind-list, .sdk-menu-flyout, .sdk-menu-sheet).narrow {
+  --menu-item-h: 44px;
+}
+
+/* ---- The surface: a menu, a flyout, a dropdown list ---- */
+.ds-proposed :is(.sdk-menu, .host-menu, .modules-menu, .menu, .chat-command-menu, .sdk-kind-list, .sdk-menu-flyout, .host-menu-flyout, .sdk-popover, .popover, .sdk-dp, .bell-list) {
+  box-sizing: border-box;
+  z-index: var(--z-menu);
+  margin: 0;
+  padding: var(--menu-pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: var(--shadow-2);
+  font-size: var(--menu-font);
+  line-height: 18px;
+  list-style: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ds-proposed :is(.sdk-menu, .host-menu, .modules-menu, .menu, .chat-command-menu, .sdk-kind-list, .sdk-menu-flyout, .host-menu-flyout) {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: var(--menu-w-min);
+  max-width: min(var(--menu-w-max), calc(100vw - 16px));
+  max-height: 360px;
+}
+
+/* A popover: the same surface, the padding of what it holds. 14px around controls (call and filter popovers); 8px around a grid or a list. */
+.ds-proposed :is(.sdk-popover, .popover, .bell-list) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--pop-pad);
+  max-width: calc(100vw - 16px);
+}
+
+.ds-proposed :is(.sdk-popover-dense, .sdk-dp, .sdk-emoji) {
+  --pop-pad: 8px;
+  padding: var(--pop-pad);
+}
+
+/* ---- The item ---- */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label), .sdk-kind-option) {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--menu-item-h);
+  min-height: 0;
+  margin: 0;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--menu-font);
+  font-weight: 400;
+  line-height: 18px;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  outline: none;
+  opacity: 1;
+  transform: none;
+  transition: background 0.12s;
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label), .sdk-kind-option):hover {
+  background: var(--menu-hover);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label), .sdk-kind-option):active {
+  background: var(--menu-press);
+}
+
+/* Focus: 2px accent over the 1px edge, inside the item (the Fields' and Tabs' mechanism). The item also takes the quiet fill, as the arrow keys move focus. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label), .sdk-kind-option):focus-visible {
+  background: var(--menu-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The keyboard cursor in a list that keeps focus elsewhere (the chat command menu, a listbox): the quiet fill, no ring. */
+.ds-proposed :is(.sdk-menu-item, .chat-command-item):is(.active, [aria-selected="true"]):not([aria-current], .current, .on) {
+  background: var(--menu-hover);
+}
+
+/* The current choice: a radio row, a place, "you are here". The neutral selected fill, text in the accent mix. Never a check mark, an edge or a bar. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label)):is([aria-current="true"], [aria-current="page"], [role="menuitemradio"][aria-checked="true"], .current, .on) {
+  background: var(--selected-bg);
+  color: var(--menu-current-fg);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label)):is([aria-current="true"], [aria-current="page"], [role="menuitemradio"][aria-checked="true"], .current, .on):hover {
+  background: var(--menu-current-hover);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label)):is([aria-current="true"], [aria-current="page"], [role="menuitemradio"][aria-checked="true"], .current, .on):focus-visible {
+  background: var(--menu-current-hover);
+  outline: 2px solid var(--menu-current-fg);
+  outline-offset: -2px;
+}
+
+/* Danger: red text only. Hover and focus are the same quiet fill as any item. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label)):is(.danger, .sdk-menu-danger, [data-danger]) {
+  color: var(--menu-danger-fg);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label)):is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .menu > :is(button, a, label)):is(.danger, .sdk-menu-danger, [data-danger]):is(:hover, :focus-visible, [aria-expanded="true"], .open) {
+  color: var(--menu-danger-fg-strong);
+}
+
+/* A hint on a filled row (hover, focus, cursor, open) is a step darker than at rest; on the current row it takes the row's text colour. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .chat-command-item):is(:hover, :focus-visible, [aria-expanded="true"], .open, .active, [aria-selected="true"]) :is(.sdk-menu-hint, .host-menu-hint) {
+  color: var(--menu-hint-strong);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .chat-command-item):is([aria-current="true"], [aria-current="page"], [role="menuitemradio"][aria-checked="true"], .current, .on) :is(.sdk-menu-hint, .host-menu-hint) {
+  color: inherit;
+}
+
+/* A category: its row keeps the quiet fill while its flyout is open beside it. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item):is([aria-expanded="true"], .open) {
+  background: var(--menu-hover);
+}
+
+/* ---- The parts ---- */
+.ds-proposed :is(.sdk-menu-icon, .host-menu-icon) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  font-size: 1em;
+  line-height: 1;
+}
+
+.ds-proposed :is(.sdk-menu-icon, .host-menu-icon) svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+.ds-proposed :is(.sdk-menu-label, .host-menu-label) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-proposed :is(.sdk-menu-hint, .host-menu-hint) {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.ds-proposed :is(.sdk-menu-label, .host-menu-label) + :is(.sdk-menu-hint, .host-menu-hint) { margin-left: 12px; }
+
+/* The count or tag after the label is the Chips family's: the neutral count (.sdk-badge, 18px) and the tag (.sdk-chip-tag, 24px). The menu only places it,
+   at the row's end and 12px after the label. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item) > :is(.sdk-badge, .badge, .sdk-chip-tag, .host-menu-tag) { margin: 0 0 0 auto; }
+
+.ds-proposed :is(.sdk-menu-label, .host-menu-label) + :is(.sdk-badge, .badge, .sdk-chip-tag, .host-menu-tag) { margin-left: 12px; }
+
+/* The submenu arrow: an icon at the row's end. */
+.ds-proposed :is(.sdk-menu-caret, .host-menu-caret) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0 0 0 auto;
+  border: 0;
+  transform: none;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.ds-proposed :is(.sdk-menu-label, .host-menu-label) + :is(.sdk-menu-caret, .host-menu-caret) { margin-left: 12px; }
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item):is(:hover, :focus-visible, [aria-expanded="true"], .open) :is(.sdk-menu-caret, .host-menu-caret) {
+  color: var(--text);
+}
+
+/* A tick-box row: the box at the start, drawn as the Fields' tick box (16px, the check in --on-accent when checked). A span, because a button holds no input. */
+.ds-proposed .sdk-menu-check {
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--text-dim);
+  border-radius: var(--radius-min);
+  background: var(--bg-input);
+}
+
+.ds-proposed .sdk-menu-check::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--on-accent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item)[aria-checked="true"] > .sdk-menu-check {
+  border-color: transparent;
+  background: var(--accent);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item)[aria-checked="true"] > .sdk-menu-check::before {
+  transform: scale(1);
+}
+
+/* A small mark after a label (a favorite's heart): dim, not accent. */
+.ds-proposed .host-menu-mark {
+  flex: none;
+  width: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* A category row: its arrow is pushed to the row's end. */
+.ds-proposed :is(.sdk-menu-category, .host-menu-category) > :is(.sdk-menu-caret, .host-menu-caret) { margin-left: auto; }
+
+/* A switch row: the Fields' switch (36 by 20, thumb 14) at the row's end. */
+.ds-proposed :is(.sdk-menu-switch, .host-menu-switch) {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 36px;
+  height: 20px;
+  margin: 0 0 0 auto;
+  border-radius: var(--radius-round);
+  background: var(--text-dim);
+}
+
+.ds-proposed :is(.sdk-menu-switch, .host-menu-switch)::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-round);
+  background: var(--bg-input);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item)[aria-checked="true"] > :is(.sdk-menu-switch, .host-menu-switch) {
+  background: var(--accent);
+}
+
+.ds-proposed :is(.sdk-menu-item, .host-menu-item)[aria-checked="true"] > :is(.sdk-menu-switch, .host-menu-switch)::before {
+  background: var(--on-accent);
+  transform: translateX(16px);
+}
+
+/* ---- Heading and divider ---- */
+.ds-proposed :is(.sdk-menu-heading, .host-menu-heading, .sdk-kind-group-title, .sdk-popover-heading, .popover h3, .bell-head) {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 10px 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.ds-proposed :is(.sdk-popover, .popover, .bell-list) > :is(.sdk-popover-heading, h3) { padding: 0; }
+
+.ds-proposed :is(.sdk-menu-sep, .host-menu-sep) {
+  flex: none;
+  height: 1px;
+  margin: 4px 6px;
+  padding: 0;
+  border: 0;
+  background: var(--border);
+}
+
+/* ---- A flyout: a second menu beside the row that opens it. Its first row lines up with that row (the 4px padding and 1px edge are the offset). ---- */
+.ds-proposed .sdk-menu-flyout {
+  margin-left: 2px;
+}
+
+/* ---- The long-list bottom sheet (a phone): the kind picker's sheet, for a list with a search field or more than about 8 rows ---- */
+.ds-proposed .sdk-menu-scrim {
+  background: var(--scrim);
+  z-index: var(--z-menu);
+}
+
+.ds-proposed .sdk-menu-sheet {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 80%;
+  padding: 0 var(--menu-pad) var(--menu-pad);
+  border: 1px solid var(--border);
+  border-top-left-radius: var(--radius-large);
+  border-top-right-radius: var(--radius-large);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: var(--menu-font);
+  box-shadow: none;
+  z-index: var(--z-menu);
+  --menu-item-h: 44px;
+}
+
+.ds-proposed .sdk-menu-grip {
+  flex: none;
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 6px;
+  border-radius: var(--radius-round);
+  background: var(--text-dim);
+  opacity: 0.5;
+}
+
+.ds-proposed .sdk-menu-sheet > :is(.sdk-search, .sdk-menu-sheet-search) {
+  width: auto;
+  flex: none;
+  margin: 4px 6px 6px;
+}
+
+.ds-proposed .sdk-menu-sheet > .sdk-menu-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+/* ---- The date picker popup ---- */
+.ds-proposed .sdk-dp {
+  display: block;
+  width: fit-content;
+  max-width: calc(100vw - 16px);
+}
+
+.ds-proposed .sdk-dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.ds-proposed .sdk-dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, var(--dp-day));
+  gap: 2px;
+}
+
+.ds-proposed .sdk-dp-dow {
+  padding: 2px 0 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 14px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.ds-proposed .sdk-dp-day {
+  box-sizing: border-box;
+  width: var(--dp-day);
+  height: var(--dp-day);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+}
+
+.ds-proposed .sdk-dp-day:hover { background: var(--menu-hover); }
+.ds-proposed .sdk-dp-day:active { background: var(--menu-press); }
+.ds-proposed .sdk-dp-day:focus-visible { background: var(--menu-hover); outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed .sdk-dp-day.other { color: var(--text-dim); }
+.ds-proposed .sdk-dp-day.other:hover { color: var(--menu-hint-strong); }
+.ds-proposed .sdk-dp-day:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+/* Today: the selected fill at half strength, no outline. A range: the quiet fill. */
+.ds-proposed .sdk-dp-day.today { background: color-mix(in srgb, var(--selected-bg) 50%, transparent); font-weight: 700; }
+.ds-proposed .sdk-dp-day.inrange { background: var(--menu-hover); }
+.ds-proposed .sdk-dp-day.today:hover, .ds-proposed .sdk-dp-day.inrange:hover { background: var(--menu-press); }
+
+/* The chosen day: the one place a selection is a solid accent fill (it is the single value the picker is for). On its own focus the ring is the on-accent colour. */
+.ds-proposed .sdk-dp-day.sel,
+.ds-proposed .sdk-dp-day[aria-pressed="true"],
+.ds-proposed .sdk-dp-day[aria-selected="true"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.ds-proposed .sdk-dp-day.sel:hover, .ds-proposed .sdk-dp-day[aria-pressed="true"]:hover { background: var(--primary-hover); }
+.ds-proposed .sdk-dp-day.sel:focus-visible, .ds-proposed .sdk-dp-day[aria-pressed="true"]:focus-visible { background: var(--accent); outline-color: var(--on-accent); }
+
+.ds-proposed .sdk-dp-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* ---- The kind picker's list: the menu surface, the menu item, kind-coloured icons ---- */
+.ds-proposed .sdk-kind-list { max-height: 360px; }
+
+.ds-proposed .sdk-kind-group { padding: 0; }
+
+.ds-proposed .sdk-kind-group + .sdk-kind-group::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+.ds-proposed .sdk-kind-option .sdk-kind-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-small);
+  color: var(--kind-color, var(--text));
+  font-size: 1em;
+}
+/* Two glyphs are drawn off the middle of their box (the bag's handles, the mug's handle): moved by what was measured (badgeInk, within 0.5px of the middle of the 22px box). */
+.ds-proposed .sdk-kind-icon > .fa-bag-shopping { transform: translateY(0.07em); }
+.ds-proposed .sdk-kind-icon > .fa-mug-hot { transform: translate(-0.05em, 0.03em); }
+
+.ds-proposed .sdk-kind-option .sdk-kind-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.ds-proposed .sdk-kind-option:is(.active, [aria-selected="true"]) { background: var(--menu-hover); }
+
+.ds-proposed .sdk-kind-option[aria-selected="true"] { font-weight: 700; }
+
+.ds-proposed .sdk-kind-option[aria-selected="true"] .sdk-kind-icon {
+  background: color-mix(in srgb, var(--kind-color, var(--text)) 22%, transparent);
+}
+
+/* ---- A popover's content ---- */
+.ds-proposed .sdk-dp-title { font-size: 14px; font-weight: 600; }
+.ds-proposed .sdk-popover-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ds-proposed :is(.sdk-menu, .host-menu, .modules-menu, .menu, .chat-command-menu, .sdk-kind-list, .sdk-menu-flyout, .sdk-popover, .popover, .sdk-dp, .sdk-menu-sheet, .sdk-menu-scrim)[hidden] { display: none; }
+.ds-proposed :is(.sdk-popover, .popover) .sdk-popover-foot { display: flex; justify-content: flex-end; gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .sdk-kind-option, .sdk-menu-switch)::before,
+  .ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item, .chat-command-item, .sdk-kind-option) { transition: none; }
+}

@@ -11,8 +11,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .app { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 0; gap: 8px; position: relative; }
-.msg { padding: 16px; color: var(--text-dim); }
-.error { margin: 0; color: var(--danger); }
+.msg { padding: 16px; color: var(--text-muted); }
 
 /* ---- the trip header ---- */
 .trip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 12px; }
@@ -22,48 +21,35 @@ body { display: flex; flex-direction: column; overflow: hidden; }
    syncHeader). The trip name is host.setTitle; dates, days and travellers stay in the page.
    The four views live in the toolbar (host.ui.viewSwitch), always drawn there. */
 .hosted-header .tools { display: none; }
-.trip-title { margin: 0; font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
-.phase-line { margin: 2px 0 0; color: var(--text); font-weight: 600; }
+.trip-title { margin: 0; font-size: var(--text-18); line-height: var(--leading-title); overflow-wrap: anywhere; }
+.phase-line { margin: 2px 0 0; color: var(--text-primary); font-weight: var(--weight-strong); }
 .phase-head { margin: 16px 0 2px; }
-.phase-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+.phase-head h2 { margin: 0; font-size: var(--text-13); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-muted); }
 .undated { margin: 0 0 8px; }
-.undated > h2 { margin: 0 0 8px; font-size: 16px; }
-.undated-group h3 { margin: 10px 0 4px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
-.trip-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; color: var(--text-dim); }
+.undated > h2 { margin: 0 0 8px; font-size: var(--text-16); }
+.undated-group h3 { margin: 10px 0 4px; font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }
+.trip-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; color: var(--text-muted); }
 .trip-when { color: inherit; }
-.trip-sep { color: var(--text-dim); }
+.trip-sep { color: var(--text-muted); }
 .trip-facts { display: flex; flex-wrap: wrap; gap: 4px 10px; color: inherit; font-size: inherit; }
-.trip-facts b { color: var(--text); font-weight: 600; }
-.tool { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 38px; height: 34px; padding: 0 10px; font-size: 15px; }
-.tool .ic svg { width: 1em; height: 1em; fill: currentColor; }
+.trip-facts b { color: var(--text-primary); font-weight: var(--weight-strong); }
 .actions { display: flex; gap: 6px; }
-.tool-edit, .tool-empty { border-radius: var(--radius-medium); }
-.tool[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--bg-card)); color: var(--accent); }
 
 /* ---- the day strip (phones): jump to a day ---- */
 .stripbar { display: flex; align-items: center; gap: 4px; }
-.strip-arrow { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text); font-size: 13px; cursor: pointer; }
-.strip-arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.strip-arrow { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 44px; padding: 0; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-primary); font-size: var(--text-13); cursor: pointer; }
+.strip-arrow:hover:not(:disabled) { border-color: var(--accent-fill); color: var(--accent); }
 .strip-arrow:disabled { opacity: 0.3; cursor: default; }
 .strip-arrow .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .daystrip { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 6px; scroll-behavior: smooth; scrollbar-width: none; }
 .daystrip::-webkit-scrollbar { display: none; }
-.daychip { flex: none; display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: 11px; line-height: 1.25; cursor: pointer; }
-.daychip b { color: var(--text); font-size: 15px; font-weight: 600; }
-.daychip { transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
-.daychip:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-/* the chosen day: filled, lifted and glowing, so it cannot be missed */
-.daychip.current { background: var(--accent); border-color: var(--accent); color: var(--on-accent); transform: translateY(-2px); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 45%, transparent); }
-.daychip.current b { color: var(--on-accent); }
-.daychip.current.today::after { background: var(--on-accent); }
-@media (prefers-reduced-motion: reduce) { .daychip, .daystrip { transition: none; scroll-behavior: auto; } .daychip.current { transform: none; } }
-.daychip.today::after { content: ""; width: 5px; height: 5px; margin-top: 2px; border-radius: var(--radius-round); background: var(--accent); }
+/* A day in the strip is the Day cards block's day chip (.sdk-daychip, system.css); the chosen day is aria-current. */
 
 /* ---- the days ---- */
 .body { flex: 1; min-height: 0; overflow: auto; margin: 0 -12px; padding: 0 12px 16px; }
 /* The days run top to bottom at every width, so a long trip is just a longer list; on a wide pane the list stays a readable width. */
 .days { display: block; max-width: 900px; margin: 0 auto; }
-.day-empty { margin: 0; padding: 18px 10px; border: 1px dashed var(--border); border-radius: var(--radius-medium); color: var(--text-dim); text-align: center; font-size: 13px; }
+.day-empty { margin: 0; padding: 18px 10px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); text-align: center; font-size: var(--text-13); }
 
 /* ---- an item ---- */
 
@@ -77,74 +63,51 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* An item with no drag handle (a stay's later nights, or a viewer who cannot edit) has one column fewer. */
 
 /* a journey: from, to, and a reference code */
-.code { padding: 0 6px; border: 1px solid var(--border); border-radius: var(--radius-min); background: var(--bg); color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 18px; letter-spacing: 0.04em; }
+.code { padding: 0 6px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-min); background: var(--surface-page); color: var(--text-primary); font-family: ui-monospace, Menlo, monospace; font-size: var(--text-11); line-height: 18px; letter-spacing: var(--tracking-caps); }
 
 /* another module's item: the same frame, a source line, a read-only body, an open action */
 
 /* dated items other modules hold on this day, offered to the plan */
 .suggestions { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; }
-.suggestions-title { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-.suggestion { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px dashed var(--border); border-radius: var(--radius-medium); color: var(--text-dim); font-size: 12px; }
+.suggestions-title { color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.suggestion { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); font-size: var(--text-12); }
 .suggestion .suggestion-main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.suggestion .suggestion-main b { color: var(--text); font-weight: 600; }
-.suggestion .btn { flex: none; padding: 1px 8px; font-size: 12px; }
+.suggestion .suggestion-main b { color: var(--text-primary); font-weight: var(--weight-strong); }
 
 /* the time between two timed items */
 
 /* the item was changed by someone else while it was open */
-.conflict-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 4px 0; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-medium); color: var(--text); font-size: 12px; }
-.conflict-bar span { flex: 1 1 100%; }
-.conflict-bar .btn { padding: 2px 8px; font-size: 12px; }
+.sdk-banner[data-bar] { grid-column: 1 / -1; margin: var(--space-2) var(--space-1) 0; }
 
 /* the add row at the foot of a day */
-.add-row { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg-section) 92%, var(--text)); }
+.add-row { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--edge-hairline); background: color-mix(in srgb, var(--surface-panel) 92%, var(--text-primary)); }
 /* with the host's bottom bar in use, the days do not need their own */
 .add-row.hosted { display: none; }
-.add-row input { flex: 1; min-width: 0; padding: 7px 9px; }
-.add-row .btn { flex: none; padding-inline: 10px; }
+.add-row input { flex: 1; min-width: 0; }
+.add-row .btn { flex: none; }
 
 /* the open decisions list */
-.decisions { display: flex; flex-direction: column; gap: 6px; max-width: 720px; margin: 0; padding: 0; list-style: none; }
-.decision { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); }
-.decision .ic { color: var(--accent); font-size: 16px; }
+.decisions { display: flex; flex-direction: column; gap: var(--space-2); max-width: 720px; margin: 0; padding: 0; list-style: none; }
+.decision .ic { color: var(--accent); font-size: var(--text-16); }
 .decision-main { flex: 1; min-width: 0; }
-.decision-title { font-weight: 600; overflow-wrap: anywhere; }
-.decision-sub { color: var(--text-dim); font-size: 12px; }
+.decision-title { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.decision-sub { color: var(--text-muted); font-size: var(--text-12); }
 .decision .code { display: inline-block; margin-top: 4px; }
 .code:empty { display: none; }
-.decision .btn { flex: none; padding: 2px 10px; font-size: 12px; }
-.section-title { margin: 12px 0 6px; color: var(--text-dim); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-
-/* the item menu (Edit, Earlier, Later, Move to day, Delete): a popover under the button that opened it */
-.menu { position: absolute; z-index: 20; min-width: 210px; max-width: calc(100% - 16px); padding: 6px; display: flex; flex-direction: column; gap: 2px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 10px 28px color-mix(in srgb, black 35%, transparent); }
-.menu button, .menu label { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.menu button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
-.menu .danger { color: var(--danger); }
-.menu select { flex: 1; min-width: 0; }
 
 /* the item, plan and day editors: forms in the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), drawn by the form
    standard (.sdk-form in /sdk/host.css: fields, rows, sizes, sections). This module sets only the layout of what it shows for which kind
    (travel-lib-editor.css); no field, label or box is drawn here. */
-/* "Pick a date..." under the item menu's button */
-.date-pop[hidden] { display: none; }
-.date-pop label { flex-direction: column; align-items: stretch; gap: 3px; color: var(--text-dim); font-size: 12px; cursor: default; }
-.date-pop-buttons { display: flex; gap: 6px; }
-.date-pop .btn { width: auto; justify-content: center; }
-.date-pop .btn { background: var(--bg-card); }
-.date-pop #date-pop-go { background: var(--accent); color: var(--on-accent); }
+/* "Pick a date..." under the item menu's button: the SDK's popover surface, placed here */
+.date-pop { position: absolute; z-index: var(--z-popover); min-width: 210px; max-width: calc(100% - 16px); }
 
 /* states */
-.state { max-width: 420px; margin: 8vh auto; padding: 0 16px; text-align: center; color: var(--text-dim); }
-.state h2 { color: var(--text); }
-.skeleton { display: grid; gap: 10px; }
-.skel { height: 54px; border-radius: var(--radius-medium); background: linear-gradient(90deg, var(--bg-card), color-mix(in srgb, var(--bg-card) 80%, var(--text)), var(--bg-card)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-@keyframes shimmer { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.sdk-empty { max-width: 420px; margin: 8vh auto; }
+.sdk-skel-block { --h: 54px; }
 
 /* ---- phones and narrow panes: the same list, with touch-sized items and the menu instead of the drag handle ---- */
 /* phones and narrow panes: the script sets .narrow on .app from the pane width (under 720 px), not the window's */
 .app.narrow .body { padding-bottom: 24px; }
 
-.app.narrow .add-row input { font-size: 16px; }
 
-.app.narrow .trip-title { font-size: 18px; }
+.app.narrow .trip-title { font-size: var(--text-18); }

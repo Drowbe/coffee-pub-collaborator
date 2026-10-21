@@ -237,7 +237,7 @@ try {
     assert.equal(r.status, 200, r.text);
     assert.ok(r.json.settings, 'the settings, as before');
     assert.deepEqual([r.json.template.id, r.json.template.name, r.json.template.offerOpen, r.json.template.appliedAt], ['travel', 'Travel', true, null]);
-    assert.deepEqual(r.json.offer.modules.map((m) => [m.id, m.allowed]), [['travel', true], ['places', true], ['maps', true], ['research', true]], 'the Calendar is on in every space already; the conference is on');
+    assert.deepEqual(r.json.offer.modules.map((m) => [m.id, m.allowed]), [['travel', true], ['places', true], ['maps', true], ['research', true], ['budget', true]], 'the Calendar is on in every space already; the conference is on');
     assert.deepEqual(r.json.offer.lobby, { name: 'Home base', description: 'Everyone on every trip.' });
     assert.deepEqual(r.json.offer.spaceDefaults, { profile: 'participants', opensWith: ['travel', 'chat'] });
     const b = await words();
@@ -252,7 +252,7 @@ try {
     const again = await as('PATCH', '/api/settings', { template: 'travel' });
     assert.deepEqual([again.status, again.json.template.offerOpen], [200, true], 'the same template: nothing changes');
     const view = (await as('GET', '/api/environment/template')).json;
-    assert.deepEqual([view.template.id, view.template.source, view.offer.modules.length, view.choices.map((c) => c.id)], ['travel', 'bundled', 4, ['travel']]);
+    assert.deepEqual([view.template.id, view.template.source, view.offer.modules.length, view.choices.map((c) => c.id)], ['travel', 'bundled', 5, ['games', 'travel']]);
   });
 
   await test('switching to a template puts its phases on the module context at once', async () => {
@@ -314,7 +314,7 @@ try {
     as = (method, url, body) => call(server, '', method, url, { cookie, body });
     const view = (await as('GET', '/api/environment/template')).json;
     assert.deepEqual([view.template.offerOpen, view.template.appliedAt], [true, null]);
-    assert.deepEqual(view.offer.modules.map((m) => m.id), ['research'], 'only what is missing');
+    assert.deepEqual(view.offer.modules.map((m) => m.id), ['research', 'budget'], 'only what is missing');
     assert.ok(!server.output().includes('Applied the "travel" template'), server.output());
     assert.equal((await as('GET', '/api/spaces')).json.spaces.find((s) => s.id === 'lobby').name, 'Lobby');
     const spaces = (await as('GET', '/api/spaces')).json.spaces;
@@ -334,7 +334,7 @@ try {
     assert.deepEqual(await as('POST', '/api/templates/import', travel.json).then((r) => [r.status, r.json]), [409, { error: 'There is already a template called travel.' }]);
     const mine = await as('POST', '/api/templates/import?id=my-trips', { ...travel.json, name: 'My trips' });
     assert.deepEqual([mine.status, mine.json.template.source, mine.json.template.name], [201, 'imported', 'My trips'], mine.text);
-    assert.deepEqual((await as('GET', '/api/environment/template')).json.choices.map((c) => [c.id, c.source]), [['my-trips', 'imported'], ['travel', 'bundled']]);
+    assert.deepEqual((await as('GET', '/api/environment/template')).json.choices.map((c) => [c.id, c.source]), [['my-trips', 'imported'], ['games', 'bundled'], ['travel', 'bundled']]);
     assert.equal((await as('PATCH', '/api/settings', { template: 'my-trips' })).status, 200);
     assert.deepEqual(await as('DELETE', '/api/templates/my-trips').then((r) => [r.status, r.json]), [409, { error: 'This environment uses this template. Switch to another one first.' }]);
     assert.equal((await as('PATCH', '/api/settings', { template: 'travel' })).status, 200);
@@ -352,7 +352,7 @@ try {
   const console_ = (method, url, body) => call(server, 'admin', method, url, { cookie: host, body });
 
   await test('hosted: the host switches an environment made with no template; the plan\'s refusal is in the offer and recorded', async () => {
-    const made = await console_('POST', '/api/host/environments', { slug: 'beta', name: 'Beta', plan: { modules: ['travel', 'places', 'research', 'calendar', 'stream'] }, owner: { login: 'owner', password: 'owner-password-1' } });
+    const made = await console_('POST', '/api/host/environments', { slug: 'beta', name: 'Beta', plan: { modules: ['travel', 'places', 'research', 'calendar', 'budget', 'polls', 'todo', 'stream'] }, owner: { login: 'owner', password: 'owner-password-1' } });
     assert.equal(made.status, 201, made.text);
     assert.deepEqual(await console_('PATCH', '/api/host/environments/beta', { template: 'nope' }).then((r) => [r.status, r.json]), [400, { error: 'There is no template called nope.' }]);
     assert.deepEqual(await console_('PATCH', '/api/host/environments/nope', { template: 'travel' }).then((r) => [r.status, r.json]), [404, { error: 'no such environment' }]);
@@ -362,7 +362,7 @@ try {
     assert.deepEqual(r.json.environment.offer.modules.find((m) => m.id === 'maps'), { id: 'maps', name: 'Maps', allowed: false, why: 'not in the plan' });
     const review = await console_('GET', '/api/host/environments/beta/template');
     assert.equal(review.status, 200, review.text);
-    assert.deepEqual([review.json.template.id, review.json.template.offerOpen, review.json.offer.modules.length, review.json.choices.map((c) => c.id)], ['travel', true, r.json.environment.offer.modules.length, ['travel']], 'the console reads the offer without switching again');
+    assert.deepEqual([review.json.template.id, review.json.template.offerOpen, review.json.offer.modules.length, review.json.choices.map((c) => c.id)], ['travel', true, r.json.environment.offer.modules.length, ['games', 'travel']], 'the console reads the offer without switching again');
     assert.deepEqual(await console_('GET', '/api/host/environments/nope/template').then((x) => [x.status, x.json]), [404, { error: 'no such environment' }]);
     assert.equal(readJson(path.join(hosted, 'environments', 'beta', 'app.json')).templateHistory.length, 1, 'reading it switched nothing');
     const shownIcon = (await call(server, 'beta', 'GET', '/api/branding')).json.homeIcon;
@@ -394,9 +394,40 @@ try {
     assert.equal((await console_('PATCH', '/api/host/environments/beta', { template: 'none' })).json.environment.template, null);
   });
 
+  // plan-template-games.md: an environment made from the games template reads in its words and opens with the chat and Sessions.
+  await test('hosted: an environment made from the games template has its words, names, Lobby and modules (Places and Maps offered, off)', async () => {
+    const made = await console_('POST', '/api/host/environments', { slug: 'dice', name: 'Dice', template: 'games', owner: { login: 'owner', password: 'owner-password-1' } });
+    assert.equal(made.status, 201, made.text);
+    const owner = cookieOf(await call(server, 'dice', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
+    const asOwner = (method, url, body) => call(server, 'dice', method, url, { cookie: owner, body });
+    for (let i = 0; i < 100 && !server.output().includes('[dice] Applied the "games" template'); i += 1) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(server.output().includes('[dice] Applied the "games" template'), 'applied at creation');
+    const b = (await asOwner('GET', '/api/branding')).json;
+    assert.deepEqual([b.words.environment.one, b.words.space.one, b.words.home.many, b.words.owner.one, b.words.aside.one, b.words.member.one, b.words.moderator.one, b.words.guest.one], ['group', 'campaign', 'Campaigns', 'game master', 'whisper', 'player', 'moderator', 'guest']);
+    assert.equal(b.homeIcon, 'dice-d20');
+    assert.deepEqual(b.phases || [], [], 'no phases');
+    const lobby = (await asOwner('GET', '/api/spaces')).json.spaces.find((s) => s.id === 'lobby');
+    assert.deepEqual([lobby.name, lobby.description], ['Common room', 'Everyone in every campaign.']);
+    const mods = (await asOwner('GET', '/api/modules')).json.modules;
+    const on = (id) => mods.find((m) => m.id === id)?.enabled === true;
+    for (const id of ['travel', 'calendar', 'polls', 'todo']) assert.equal(on(id), true, `${id} on`);
+    for (const id of ['places', 'maps', 'budget', 'assistant']) assert.equal(on(id), false, `${id} off`);
+    const campaign = await asOwner('POST', '/api/spaces', { name: 'The Ashen Crown' });
+    assert.equal(campaign.status, 200, campaign.text);
+    assert.equal(campaign.json.space.profile, 'roleplaying');
+    const inside = (await asOwner('GET', `/api/modules/for-space?space=${campaign.json.space.id}`)).json.modules;
+    const shown = Object.fromEntries(inside.filter((m) => ['travel', 'calendar', 'todo'].includes(m.id)).map((m) => [m.id, [m.name, m.icon]]));
+    assert.deepEqual(shown.travel, ['Campaign planner', 'scroll']);
+    assert.deepEqual([shown.calendar[0], shown.todo[0]], ['Sessions', 'Quests']);
+    const home = (await asOwner('GET', '/api/modules/for-space?space=lobby')).json;
+    assert.deepEqual(home.spaceDefaultsOpensWith, ['chat', 'calendar']);
+    assert.equal((await asOwner('GET', '/api/settings')).json.settings.showMap, false);
+    assert.equal((await console_('DELETE', '/api/host/environments/dice')).status < 500, true);
+  });
+
   // --- addendum 2: the host's own templates and template files (#68) ------------------------------------------------
   await test('hosted: a host template is made, used, edited (live at once, a new module offered), hidden, refused deletion, exported and imported', async () => {
-    const set = { bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff' };
+    const set = { 'surface-page': '#ffffff', 'surface-panel': '#f5f7f8', 'edge-hairline': '#dde3e6', 'text-primary': '#222222', 'text-muted': '#6b7479', 'accent-fill': '#1c7c8c', 'text-on-accent': '#ffffff' };
     const harbour = { id: 'harbour', name: 'Harbour', description: 'Sailing trips.', words: { space: { one: 'voyage', many: 'voyages' } }, verbs: { enter: 'Board' }, modules: ['travel', 'places', 'chat', 'conference'], reactions: [{ id: 'wave', glyph: '👋', label: 'Wave' }], theme: { name: 'Harbour', light: set, dark: null } };
     const made = await console_('POST', '/api/host/templates', harbour);
     assert.equal(made.status, 201, made.text);

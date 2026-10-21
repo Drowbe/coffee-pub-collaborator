@@ -61,7 +61,8 @@ test('the styles: locked to the bottom, the safe area, tokens only, 44 px on a p
   assert.match(block, /\.action-bar \{[^}]*padding: 12px 16px calc\(12px \+ env\(safe-area-inset-bottom, 0px\)\);/, 'respects the safe area');
   assert.match(block, /\.action-bar \{[^}]*background: var\(--bg-section\);/);
   assert.match(block, /\.action-content \{[^}]*overflow-y: auto;/, 'the content scrolls above it');
-  assert.match(block, /@media \(max-width: 640px\) \{[\s\S]*min-height: 44px;/);
+  // 44 px on a phone is the Buttons block's --btn-h (system.css); the bar only shares the row out.
+  assert.match(block, /@media \(max-width: 640px\) \{[\s\S]*\.action-bar-buttons \.btn \{\s*flex: 1 1 0;/);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block) && !/rgba?\(/.test(block), 'tokens only');
 });
 
@@ -156,7 +157,9 @@ test('the layout sheet: Save is the submit button, Enter saves, Save and Rename 
 
 // The sweep: a script that opens a modal <dialog> of its own is a surface (the editor window, host.ui.editor, is the
 // model and has its own discard row; a confirmation is a menu row, not a <dialog>). Anything new must use the bar.
-const EXCEPTIONS = new Set(['public/sdk/host.js', 'public/action-bar.js']);
+// The Dialogs family of the design system page opens real <dialog>s only to show how the proposed ones behave (Escape, Tab, the backdrop): a spec demo on a review page, not a surface of the product.
+// The styled confirm (public/confirm.js) is a question, not an edit surface: nothing in it is saved, and a click outside it is the answer No.
+const EXCEPTIONS = new Set(['public/sdk/host.js', 'public/action-bar.js', 'public/confirm.js', 'public/design-system/proposed-dialogs.js']);
 const files = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === 'vendor' || e.name === 'node_modules' ? [] : files(`${dir}/${e.name}`)) : [`${dir}/${e.name}`]));
 test('the sweep: every script in public/ that opens a modal dialog or closes one on its backdrop uses the action bar', () => {
   const offenders = [];
@@ -183,9 +186,10 @@ test('the lifted editor window (a module in a frame): a click on the host\'s bac
 
 test('the model stays: the editor window asks "Discard your changes?" and sticks its button row to the bottom', () => {
   const host = read('public/sdk/host.js');
-  const hostCss = read('public/sdk/host.css');
+  const dialogs = read('public/sdk/system.css'); // the Dialogs block
   assert.match(host, /Discard your changes\?/);
-  assert.match(hostCss, /\.sdk-editor-actions,\n\.sdk-editor-discard \{\s*\n\s*position: sticky;\s*\n\s*bottom: 0;/);
+  assert.match(dialogs, /\.sdk-editor-actions \{\s*\n\s*position: sticky;\s*\n\s*bottom: 0;/);
+  assert.match(dialogs, /\.sdk-editor-discard \{\s*\n\s*position: sticky;\s*\n\s*bottom: 0;/);
 });
 
 if (failed) {

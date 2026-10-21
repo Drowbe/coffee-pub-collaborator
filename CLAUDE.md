@@ -32,9 +32,14 @@ decide those.
 
 - Read the plan in `documentation/plans/` and the matching architecture or API document before
   changing something they cover. The plan is the contract; if the code must differ, say so.
-- Keep existing element ids, routes, API field names and stored keys unless the task is to change
-  them. Nothing a person has stored or linked should break. When a rename is ever needed, it ships
-  with a data migration, as the 0.4.0 renaming did (see Names).
+- The product is not released. No compatibility layers, aliases, deprecation periods, redirects,
+  legacy code paths or data migrations: change things cleanly and replace what is there. Ids,
+  routes, hashes, API fields and stored keys may be renamed when that is cleaner; test data may be
+  reset. (The 0.4.0 names migration and its allow-listed old words remain only because that code
+  exists; do not extend them.) Once the product is released this rule is removed. Thomas, 2026-10-21.
+- Do not change element ids, routes, API field names and stored keys unasked; no renaming for its
+  own sake. This no longer promises that nothing stored or linked breaks, and a rename needs no
+  data migration (see the rule above).
 - Configuration goes in environment variables, never in code. A single-environment install (no
   `BASE_DOMAIN`) must keep behaving exactly as before.
 - Colors come from the theme tokens (`documentation/designsystem/design-theme.md`). Reuse the SDK's

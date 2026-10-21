@@ -1,7 +1,7 @@
 // The Research module's page: notes, links and photos a group keeps while it plans, each a card that can be tagged, found again,
 // linked from anywhere and dragged onto a plan. The objects live in the module's store (see research-lib.js). This page draws into
 // the markup in research.html by cloning its templates and filling their [data-slot] and [data-icon] hooks, and toggles the state
-// classes and data attributes CONTRACT.md lists. It builds no markup from strings and sets no style (a tag's colour, --tag, and the
+// classes and data attributes CONTRACT.md lists. It builds no markup from strings and sets no style (a tag's colour, --chip-tone, and the
 // object menu's position are the exceptions). "Research this" asks in Chat (`host.chat.ask`) with that object as context.
 (async () => {
   'use strict';
@@ -12,12 +12,45 @@
   const root = host.root;
   const word = host.util.word; // the environment's word for a level or role (host.locale().words)
   const $ = (id) => root.getElementById(id);
+  // States: loading is the skeleton in #loading; a failure or a plain notice is the block in #msg (.sdk-empty: an icon, a heading, a line,
+  // and Retry on a failure, data-kind="error").
+  function showMsg(title, text, retry) {
+    $('loading').hidden = true;
+    const m = $('msg');
+    const icon = document.createElement('span');
+    icon.className = 'ic';
+    host.ui.icon(retry ? 'triangle-exclamation' : 'circle-info').then((svg) => { icon.innerHTML = svg; }).catch(() => {});
+    const head = document.createElement('h2');
+    head.className = 'sdk-empty-title';
+    head.textContent = title;
+    const parts = [icon, head];
+    if (text) {
+      const line = document.createElement('p');
+      line.className = 'sdk-empty-text';
+      line.textContent = text;
+      parts.push(line);
+    }
+    if (retry) {
+      const actions = document.createElement('div');
+      actions.className = 'sdk-empty-actions';
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn';
+      again.textContent = 'Retry';
+      again.addEventListener('click', () => { m.hidden = true; $('loading').hidden = false; retry(); });
+      actions.append(again);
+      parts.push(actions);
+    }
+    m.replaceChildren(...parts);
+    if (retry) m.dataset.kind = 'error'; else delete m.dataset.kind;
+    m.hidden = false;
+  }
 
   let info;
   try {
     info = await host.ready();
   } catch (err) {
-    $('msg').textContent = 'Research could not start: ' + err.message;
+    showMsg('Research could not start', err.message, () => location.reload());
     return;
   }
   const inSpace = info.context.scope === 'space';
@@ -129,7 +162,7 @@
     const el = clone(tplId);
     fill(el, { label: tag });
     const c = colorOf(tag);
-    if (c) el.style.setProperty('--tag', c);
+    if (c) el.style.setProperty('--chip-tone', c);
     return el;
   }
 
@@ -185,6 +218,7 @@
     el.dataset.id = it.id;
     el.dataset.kind = it.kind;
     el.classList.toggle('open', state.open.has(it.id));
+    el.classList.toggle('on', state.open.has(it.id));
     el.setAttribute('aria-expanded', state.open.has(it.id) ? 'true' : 'false');
     const pen = el.querySelector('[data-action="edit"]');
     if (pen) { pen.setAttribute('aria-label', canEdit ? 'Edit' : 'View'); pen.title = canEdit ? 'Edit' : 'View'; }
@@ -269,11 +303,11 @@
       hydrate(root);
       return;
     }
-    for (const b of $('kinds').querySelectorAll('.rs-chip')) b.classList.toggle('on', b.dataset.kind === state.kind);
+    for (const b of $('kinds').querySelectorAll('.sdk-chip')) { b.classList.toggle('on', b.dataset.kind === state.kind); b.setAttribute('aria-pressed', String(b.dataset.kind === state.kind)); }
     const counts = tagCounts(all);
     // Only the tags chosen as filters show here, each with an x; every tag in use is in the toolbar's Tags chooser.
     state.tags = state.tags.filter((t) => counts.some((c) => c.tag === t)); // a tag no object carries any more drops out
-    $('tag-chips').replaceChildren(...state.tags.map((tag) => { const c = tagNode(tag, 'tpl-chip-tag'); c.dataset.tag = tag; return c; }));
+    $('tag-chips').replaceChildren(...state.tags.map((tag) => { const c = tagNode(tag, 'tpl-chip-tag'); c.dataset.tag = tag; c.querySelector('.sdk-chip-x').setAttribute('aria-label', `Stop filtering by ${tag}`); return c; }));
     hide($('tag-chips'), !state.tags.length);
     if (tagsButton) tagsButton.set({ label: state.tags.length ? `Tags ${state.tags.length}` : 'Tags', on: state.tags.length > 0 });
     const dl = $('tag-list');
@@ -381,10 +415,10 @@
   }
 
   $('filter').addEventListener('input', () => { state.filter = $('filter').value; render(); });
-  $('kinds').addEventListener('click', (ev) => { const b = ev.target.closest('.rs-chip'); if (b) { state.kind = b.dataset.kind; render(); } });
+  $('kinds').addEventListener('click', (ev) => { const b = ev.target.closest('.sdk-chip'); if (b) { state.kind = b.dataset.kind; render(); } });
   // A chosen tag's chip drops that tag from the filter; choosing one is the toolbar's Tags menu (openTagMenu).
   $('tag-chips').addEventListener('click', (ev) => {
-    const b = ev.target.closest('.rs-chip');
+    const b = ev.target.closest('.sdk-chip-x') && ev.target.closest('[data-tag]');
     if (!b) return;
     state.tags = state.tags.filter((t) => t !== b.dataset.tag);
     render();
@@ -485,6 +519,7 @@
   const formSnapshot = () => JSON.stringify([$('f-title').value, $('f-caption').value, $('f-url').value, $('f-body').value, $('f-excerpt').value, $('f-tags').value, $('f-point').value, $('f-date').value, state.editing ? state.editing.icon : '']);
   const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
   const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { state.editing = null; } });
+  const datePicker = host.ui.datePicker($('f-date'), { clearable: true }); // its weekday shows in the field's hint
   function paintIconChoices() {
     const icon = state.editing && state.editing.kind === 'note' ? noteIcon(state.editing.icon) : '';
     for (const b of $('f-icons').querySelectorAll('[data-action="pick-icon"]')) {
@@ -493,7 +528,7 @@
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }
-  const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
+  const dropConflict = () => { for (const n of $('form').querySelectorAll('[data-bar]')) n.remove(); if (state.editing) state.editing.conflict = null; };
   // Every control in the form, the type buttons and Suggest tags too: a read-only view takes no input.
   const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select, .format-bar button, #f-icons button, [data-action="suggest-tags"]')) f.disabled = !yes; };
   // The same marks chat writes: **bold**, *italic*, `code`, and "- " at the start of a line.
@@ -635,6 +670,7 @@
     $('f-by').textContent = it.by ? `Added by ${nameOf(it.by) || 'someone'}${it.at ? ' on ' + dayText(it.at.slice(0, 10)) : ''}` : '';
     editorError('');
     setFormEditable(canEdit);
+    datePicker.refresh();
     hide($('f-save'), !canEdit);
     hide($('form').querySelector('[data-action="suggest-tags"]'), !(state.ai && canEdit && id && kind !== 'photo'));
     hide($('f-delete'), !id || !cur || !mayRemove(cur));
@@ -674,7 +710,7 @@
     e.conflict = { version };
     const bar = clone('tpl-conflict');
     fill(bar, { text: 'Someone changed this while you were editing.' });
-    $('form').querySelector('.editor-buttons').before(bar);
+    $('form').querySelector('.sdk-editor-actions').before(bar);
     editorError('');
   }
   $('form').addEventListener('click', (ev) => {
@@ -874,6 +910,7 @@
     const open = on === undefined ? !state.open.has(el.dataset.id) : on;
     if (open) state.open.add(el.dataset.id); else state.open.delete(el.dataset.id);
     el.classList.toggle('open', open);
+    el.classList.toggle('on', open);
     el.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
   // An object can be dragged out to another module (onto a day of a plan, or a task that links to it): press its card and move.
@@ -1016,41 +1053,48 @@
   }
   try { const last = localStorage.getItem('research-view'); if (allowed[last]) view = last; } catch (err) { /* the default */ }
   viewSwitch?.set(view);
-  $('msg').hidden = true;
-  $('app').hidden = false;
-  render();
-  try {
-    await ensureLoaded(view);
-    state.people = await host.people().catch(() => []);
-    const applySettings = (v) => { loadTagColors(v); state.previews = Boolean(v && v.linkPreviews); };
-    try { applySettings(await host.settings.get()); } catch (err) { applySettings(null); }
-    host.settings.onChange((v) => { applySettings(v); if (state.loaded) render(); });
-    const choices = $('f-icons');
-    choices.replaceChildren(...NOTE_ICONS.map(([icon, label]) => {
-      const el = clone('tpl-icon-choice');
-      el.dataset.iconName = icon;
-      el.title = label;
-      el.setAttribute('aria-label', label);
-      setIcon(el.querySelector('[data-icon]'), icon);
-      fill(el, { label });
-      return el;
-    }));
-    choices.addEventListener('click', (ev) => {
-      const b = ev.target.closest('[data-action="pick-icon"]');
-      if (!b || !state.editing || state.editing.kind !== 'note') return;
-      state.editing.icon = b.dataset.iconName;
-      paintIconChoices();
-    });
-    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(KIND_ICON), NOTE_ICONS.map(([icon]) => icon)))].filter(Boolean).map(wantIcon));
-    hydrate(choices);
-    state.loaded = true;
+  let wired = false; // the settings and the icon choices are listened to once, however many times it is tried
+  async function load() {
+    $('msg').hidden = true;
+    $('loading').hidden = true;
+    $('app').hidden = false;
     render();
-    loadLinks().catch(() => {});
-    checkAi();
-    if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
-  } catch (err) {
-    $('app').hidden = true;
-    $('msg').hidden = false;
-    $('msg').textContent = 'The research could not load: ' + message(err);
+    try {
+      await ensureLoaded(view);
+      state.people = await host.people().catch(() => []);
+      const applySettings = (v) => { loadTagColors(v); state.previews = Boolean(v && v.linkPreviews); };
+      try { applySettings(await host.settings.get()); } catch (err) { applySettings(null); }
+      if (!wired) host.settings.onChange((v) => { applySettings(v); if (state.loaded) render(); });
+      const choices = $('f-icons');
+      choices.replaceChildren(...NOTE_ICONS.map(([icon, label]) => {
+        const el = clone('tpl-icon-choice');
+        el.dataset.iconName = icon;
+        el.title = label;
+        el.setAttribute('aria-label', label);
+        setIcon(el.querySelector('[data-icon]'), icon);
+        fill(el, { label });
+        return el;
+      }));
+      if (!wired) {
+        choices.addEventListener('click', (ev) => {
+          const b = ev.target.closest('[data-action="pick-icon"]');
+          if (!b || !state.editing || state.editing.kind !== 'note') return;
+          state.editing.icon = b.dataset.iconName;
+          paintIconChoices();
+        });
+      }
+      wired = true;
+      await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(KIND_ICON), NOTE_ICONS.map(([icon]) => icon)))].filter(Boolean).map(wantIcon));
+      hydrate(choices);
+      state.loaded = true;
+      render();
+      loadLinks().catch(() => {});
+      checkAi();
+      if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
+    } catch (err) {
+      $('app').hidden = true;
+      showMsg('The research could not load', message(err), load);
+    }
   }
+  await load();
 })();

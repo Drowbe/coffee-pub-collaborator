@@ -9,13 +9,11 @@
   --bg: #1a1410;
   --bg-section: #241c16;
   --bg-card: #2a2119;
-  --bg-input: #2a2119;
   --border: #3b2e24;
   --text: #f1e6d8;
   --text-dim: #a8998a;
   --accent: #c8873a;
   --on-accent: #1a1206;
-  --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
   /* The five corner radii; nothing else is ever written as a radius (tools/check-radius.mjs). Min: tiny tags, scrollbar
      thumbs, kbd, checkboxes, bar ends. Small: buttons, inputs, tabs, chips, menu items, view-switch segments. Medium:
      cards, menus, popovers, list rows that are boxes. Large: panels, windows, dialogs, sheets, kind lists. Round:
@@ -25,8 +23,6 @@
   --radius-medium: 7px;
   --radius-large: 11px;
   --radius-round: 999px;
-  --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent); /* a selected, on or current control: a fill, never a border */
-  --primary-hover: var(--accent-hover);
   --secondary: color-mix(in srgb, var(--bg-section) 90%, var(--accent) 10%);
   --secondary-text: var(--text);
   --secondary-hover: color-mix(in srgb, var(--bg-section) 78%, var(--accent) 22%);
@@ -41,13 +37,11 @@
   --tint-red: #e07a6e;
   --tint-orange: #e8964a;
   --tint-pink: #e58ab8;
-  /* The action button's size and its icon's share of it, the same as the page's own (public/style.css). */
-  --action-btn-h: 38px;
-  --action-icon-ratio: calc(20 / 38);
   /* The host's status bar under the module (host.status.set), the same as the page's own (public/style.css). */
   --status-bar-h: 24px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  /* Figtree in the page (public/sdk/system.css); a sandboxed frame has no system.css, so the system stack there. */
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
+  font-size: var(--text-14);
 }
 
 :root[data-theme-mode="light"],
@@ -61,6 +55,16 @@
   --tint-orange: #b35a00;
   --tint-pink: #ad3a78;
 }
+
+/* A tint by name (data-tint="<name>"): a card's icon chip and its words (Cards, system.css). The same lines are in public/style.css. */
+[data-tint="gold"] { --tint: var(--tint-gold); }
+[data-tint="blue"] { --tint: var(--tint-blue); }
+[data-tint="green"] { --tint: var(--tint-green); }
+[data-tint="teal"] { --tint: var(--tint-teal); }
+[data-tint="purple"] { --tint: var(--tint-purple); }
+[data-tint="red"] { --tint: var(--tint-red); }
+[data-tint="orange"] { --tint: var(--tint-orange); }
+[data-tint="pink"] { --tint: var(--tint-pink); }
 
 * {
   box-sizing: border-box;
@@ -76,6 +80,18 @@ h1, h2, h3 {
   margin: 0 0 8px;
 }
 
+/* The interface font on every control too, and one strong weight (the browser's bold is 700). */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+h1, h2, h3, h4, h5, h6, b, strong, th {
+  font-weight: var(--weight-strong);
+}
+
 a {
   color: var(--accent);
 }
@@ -85,239 +101,36 @@ a {
   color: var(--text-dim);
 }
 
-.btn {
-  background: var(--secondary);
-  color: var(--secondary-text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  padding: 6px 12px;
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.btn:hover {
-  background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-}
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.btn-danger {
-  background: transparent;
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
-   chat's Send, a module's own bottom buttons). Its size is --action-btn-h and its icon
-   --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
-   rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
-   so and keeps a module from sizing the button itself. */
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  box-sizing: border-box;
-  width: var(--action-btn-h);
-  height: var(--action-btn-h);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.action-btn:hover {
-  background: var(--secondary-hover);
-  border-color: var(--accent);
-}
-
-.action-btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
-.action-btn.primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-/* action-btn:end */
-
-/* view-switch:start -- the view switch: a row of choices (.tb-tab) in a .tb-tabs, each an icon (.tb-tab-glyph, a Font
-   Awesome <i> or an inline SVG) and a word (.tb-tab-word). host.ui.viewSwitch draws it (in a module's toolbar, or in
-   the module's own page), and the host's pages use it as it is (Chat's Private | Shared, a destination's switches).
-   When the words do not fit the switch's container (its width, not the window's), the shared fit (hostSwitch.fit in
-   public/sdk/host.js) adds .tb-tabs-compact: a choice with an icon shows only its icon, its word kept as its tooltip
-   and accessible name; a choice without one keeps its word. These rules are word for word the same in
-   public/style.css and public/sdk/host.css; tools/check-switches.mjs keeps them so and keeps a module from sizing the
-   switch itself. */
-.tb-tabs {
-  display: inline-flex;
-  flex: none;
-}
-
-.tb-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.tb-tab-icon,
-.tb-tabs-compact .tb-tab:has(> .tb-tab-glyph) {
-  padding-inline: 8px;
-}
-
-.tb-tab-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25em;
-}
-
-.tb-tab-glyph svg {
-  width: 1em;
-  height: 1em;
-  fill: currentColor;
-}
-
-.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word {
-  display: none;
-}
-
-.tb-tab:first-child {
-  border-radius: var(--radius-small) 0 0 var(--radius-small);
-}
-
-.tb-tab:last-child {
-  border-radius: 0 var(--radius-small) var(--radius-small) 0;
-}
-
-.tb-tab:not(:first-child) {
-  margin-left: -1px;
-}
-
-.tb-tab.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-/* view-switch:end */
-
-input,
-textarea,
-select {
-  background: var(--bg-input);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  padding: 6px 8px;
-  font: inherit;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-medium);
-  padding: 10px 12px;
-}
-
-.section {
-  background: var(--bg-section);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  padding: 14px;
-}
 
 /* form:start -- the form standard (documentation/plans/plan-form-standard.md): one look for every field of a form, so a
    module and an app page draw the same field. These rules are word for word the same in public/style.css and
    public/sdk/host.css; a form puts .sdk-form on its <form> and writes no field CSS of its own.
-   Tokens (layout, no theme sets them): --field-h (38px, 44px on a phone) is the height of every one-line control (text,
-   number, date, time, select, the kind picker, a button in a field); --field-pad-x the side padding; --field-font the text
-   in a field (16px on a phone, so iOS does not zoom); --field-gap between fields and rows; --label-size and --label-gap a
-   label and its distance to the field; --section-gap above a section. On a phone they change inside a form only (the page
-   at 640px or less, or a lifted editor window that says data-lift="phone"), so a control outside a form keeps its size.
+   The LOOK of a field (the edge, the fill, the focus, the placeholder, the error, the tick box, radio and switch, the label,
+   hint and error lines) is the Fields block of public/sdk/system.css; this block is the LAYOUT: rows, columns, groups and
+   sections. The tokens --field-h (38px, 44px on a phone), --field-pad-x, --field-font, --label-size, --label-gap and --check-h
+   are in system.css; --field-gap between fields and rows and --section-gap above a section are here.
    Classes:
      .sdk-form     the <form>: a column of rows; its width, not the page's, sets the columns of its rows (container query).
      .sdk-field    one field: <label class="sdk-field"><span class="sdk-label">Title</span><input><span class="sdk-hint"></span></label>.
                    More than one control (a day with its buttons, hours and minutes): <div class="sdk-field" role="group"
                    aria-labelledby="..."> with the id on the span.sdk-label. The hint slot (.sdk-hint) holds a hint, a chip, the
                    weekday, or the field's error (.sdk-error).
-     .sdk-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
+     .sdk-form-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
                    three grid lines (label, control, hint), so labels, controls and hints line up across the row. A field that
                    does not fit moves whole to the next line. .sdk-when is a row too.
      .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
      .sdk-group    the line inside a composite field: controls and buttons at --field-h, never wrapping. .sdk-unit a dim word after
-                   a control ("h", "min", "USD"). .sdk-field-btn a square --field-h icon button in that line. .sdk-btn a text button
+                   a control ("h", "min", "USD"). .sdk-icon-btn a square icon button in that line. .sdk-btn a text button
                    --field-h tall (a word like "Find", in a field's line or on its own); .sdk-btn.primary the main one, a fill.
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
-     .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. .sdk-choice one of a few, a segmented row, the chosen one a
-                   fill. .sdk-people people as chips (a tick box or a radio each). .sdk-form-error a refusal that is not one field's. */
+     .sdk-choice-list tick boxes in a list, each label.sdk-choice-row (system.css, Choice rows). One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
+                   .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
+                   .sdk-form-error a refusal that is not one field's (system.css, States). */
 :root {
-  --field-h: 38px;
-  --field-pad-x: 10px;
-  --field-font: 14px;
   --field-gap: 12px;
-  --label-size: 12px;
-  --label-gap: 4px;
   --section-gap: 20px;
-}
-
-@media (max-width: 640px) {
-  .sdk-form {
-    --field-h: 44px;
-    --field-font: 16px;
-  }
-}
-
-.sdk-editor[data-lift="phone"] .sdk-form {
-  --field-h: 44px;
-  --field-font: 16px;
 }
 
 .sdk-form {
@@ -328,90 +141,13 @@ select:focus {
   min-width: 0;
 }
 
-.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea) {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 0 var(--field-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--field-font);
-}
-
-.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select) {
-  height: var(--field-h);
-}
-
-.sdk-form textarea {
-  padding: 8px var(--field-pad-x);
-  line-height: 1.4;
-  min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
-  resize: vertical;
-}
-
-.sdk-form :is(input, select, textarea):focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-form :is(input, select, textarea):disabled {
-  opacity: 0.6;
-}
-
-.sdk-form input[aria-invalid="true"],
-.sdk-form select[aria-invalid="true"],
-.sdk-form textarea[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-
-.sdk-form input[type="checkbox"],
-.sdk-form input[type="radio"] {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
 .sdk-field {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.sdk-label {
-  display: block;
-  padding-bottom: var(--label-gap);
-  color: var(--text-dim);
-  font-size: var(--label-size);
-  font-weight: 500;
-  line-height: 16px;
-}
-
-.sdk-hint,
-.sdk-error {
-  display: block;
-  padding-top: var(--label-gap);
-  color: var(--text-dim);
-  font-size: var(--label-size);
-  line-height: 16px;
-}
-
-.sdk-hint:empty,
-.sdk-error:empty {
-  display: none;
-}
-
-.sdk-error {
-  color: var(--danger-text, var(--danger));
-}
-
-.sdk-row {
+.sdk-form-row {
   --cols: 2;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -421,45 +157,45 @@ select:focus {
 }
 
 @container (min-width: 440px) {
-  .sdk-row {
+  .sdk-form-row {
     --cols: 4;
   }
 }
 
 @container (min-width: 760px) {
-  .sdk-row {
+  .sdk-form-row {
     --cols: 6;
   }
 }
 
-.sdk-row > .sdk-field,
-.sdk-row > .sdk-pair {
+.sdk-form-row > .sdk-field,
+.sdk-form-row > .sdk-pair {
   grid-row: span 3;
   grid-template-rows: subgrid;
   padding-bottom: var(--field-gap);
 }
 
-.sdk-row > .sdk-field {
+.sdk-form-row > .sdk-field {
   display: grid;
   grid-column: span 2;
 }
 
-.sdk-row > .sdk-field > .sdk-label {
+.sdk-form-row > .sdk-field > .sdk-label {
   grid-row: 1;
 }
 
-.sdk-row > .sdk-field > .sdk-hint,
-.sdk-row > .sdk-field > .sdk-error {
+.sdk-form-row > .sdk-field > .sdk-hint,
+.sdk-form-row > .sdk-field > .sdk-error {
   grid-row: 3;
 }
 
-.sdk-row > .sdk-s { grid-column: span 1; }
-.sdk-row > .sdk-m { grid-column: span 2; }
-.sdk-row > .sdk-l { grid-column: span 3; }
-.sdk-row > .sdk-full { grid-column: 1 / -1; }
+.sdk-form-row > .sdk-s { grid-column: span 1; }
+.sdk-form-row > .sdk-m { grid-column: span 2; }
+.sdk-form-row > .sdk-l { grid-column: span 3; }
+.sdk-form-row > .sdk-full { grid-column: 1 / -1; }
 
 @container (max-width: 439px) {
-  .sdk-row > .sdk-l { grid-column: span 2; }
+  .sdk-form-row > .sdk-l { grid-column: span 2; }
 }
 
 .sdk-group {
@@ -471,7 +207,7 @@ select:focus {
   min-width: 0;
 }
 
-.sdk-row > .sdk-field > .sdk-group {
+.sdk-form-row > .sdk-field > .sdk-group {
   grid-row: 2;
 }
 
@@ -485,92 +221,6 @@ select:focus {
   flex: none;
   color: var(--text-dim);
   font-size: var(--label-size);
-}
-
-.sdk-field-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: var(--field-h);
-  height: var(--field-h);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.sdk-field-btn:hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-field-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-field-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdk-field-btn svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
-
-.sdk-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: var(--field-h);
-  margin: 0;
-  padding: 0 var(--field-pad-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font: inherit;
-  font-size: var(--field-font);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.sdk-btn:hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-btn:active {
-  background: var(--secondary-hover);
-}
-
-.sdk-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sdk-btn.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.sdk-btn.primary:hover,
-.sdk-btn.primary:active {
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
 }
 
 .sdk-pair {
@@ -617,361 +267,20 @@ select:focus {
   padding: 12px 0 0;
   border-top: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--text-11);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
 
-.sdk-checks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--field-gap);
-}
-
-.sdk-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  cursor: pointer;
-}
-
-@media (max-width: 640px) {
-  .sdk-form .sdk-check { min-height: 44px; }
-}
-
-.sdk-editor[data-lift="phone"] .sdk-form .sdk-check {
-  min-height: 44px;
-}
-
-.sdk-choice {
-  display: inline-flex;
-  box-sizing: border-box;
-  height: var(--field-h);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-}
-
-.sdk-choice > :is(label, button) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--field-font);
-  cursor: pointer;
-}
-
-.sdk-choice > :is(label, button):hover {
-  background: var(--secondary-hover);
-}
-
-.sdk-choice > :is(label:has(input:checked), [aria-pressed="true"], .on) {
-  background: var(--selected-bg);
-}
-
-.sdk-choice input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sdk-people {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.sdk-people > label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: var(--radius-round);
-  background: var(--secondary);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.sdk-people > label:has(input:checked) {
-  background: var(--selected-bg);
-}
-
-.sdk-people input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sdk-people > label:has(input:focus-visible),
-.sdk-choice > label:has(input:focus-visible),
-.sdk-check:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.sdk-choice > label:has(input:focus-visible) {
-  outline-offset: -2px;
-}
-
-.sdk-form-error {
-  color: var(--danger-text, var(--danger));
-  font-size: var(--label-size);
-}
-
-.sdk-form-error:empty {
-  display: none;
-}
 /* form:end */
 
-/* datepicker:start -- the date picker (host.ui.datePicker): the month grid (.sdk-dp) and the field's button and weekday. In a
-   .sdk-form the field is a .sdk-group of the input, a .sdk-field-btn (the calendar) and, with the `list` option, a second
-   .sdk-field-btn (the list), and the weekday is the field's .sdk-hint; outside a .sdk-form the old look stays (a 30px button,
-   the weekday line in .tv-dow-hint). Today in the month is a fill, never a border. These rules were in host.js. */
-.sdk-datefield { display: flex; gap: 4px; align-items: center; }
-.sdk-datefield input { flex: 1; min-width: 0; }
-.sdk-datefield input::-webkit-calendar-picker-indicator { display: none; }
-.sdk-form .sdk-datefield { gap: 8px; height: var(--field-h); }
-.sdk-dp-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--secondary); color: var(--secondary-text); cursor: pointer; }
-.sdk-dp-btn:hover { background: var(--secondary-hover); }
-.tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: 11px; font-weight: 600; }
-.sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
-.sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
-.sdk-dp-head button, .sdk-dp-foot button { border: 0; border-radius: var(--radius-small); padding: 3px 9px; background: var(--secondary); color: var(--secondary-text); font: inherit; cursor: pointer; }
-.sdk-dp-head button:hover, .sdk-dp-foot button:hover { background: var(--secondary-hover); }
-.sdk-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.sdk-dp-dow { padding: 2px 0; text-align: center; color: var(--text-dim); font-size: 10px; text-transform: uppercase; }
-.sdk-dp-day { height: 30px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; cursor: pointer; }
-.sdk-dp-day:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.sdk-dp-day.other { color: var(--text-dim); opacity: .55; }
-.sdk-dp-day.inrange { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.sdk-dp-day.today { background: var(--selected-bg); font-weight: 700; }
-.sdk-dp-day.sel { background: var(--accent); color: var(--on-accent); font-weight: 700; }
-.sdk-dp-foot { display: flex; justify-content: space-between; margin-top: 6px; }
+/* datepicker:start -- the date picker (host.ui.datePicker): the field is a .sdk-datefield of the input and the calendar button (and,
+   with the `list` option, a second button, the list); the buttons sit inside the field's trailing edge (the Fields block of
+   system.css). In a .sdk-form the wrapper is also a .sdk-group and the weekday is the field's .sdk-hint; outside one the weekday
+   line is .tv-dow-hint. The month grid (.sdk-dp) is the Pickers block of system.css. */
+.tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: var(--text-11); font-weight: var(--weight-strong); }
 /* datepicker:end */
-
-/* editor:start -- the editor window: a module's Add or Edit form as a modal <dialog> (host.ui.editor), drawn in the
-   browser's top layer above every module and the header, sized to the form (560 px, or 880 px with .sdk-editor-large;
-   tools/check-module-window.mjs holds these to the SDK's EDITOR_SIZES), a full-screen sheet at 640 px and below. The
-   dialog itself scrolls: the module's button row marked .sdk-editor-actions sticks to its bottom so Save is always in
-   view, and the SDK's close button sits in a zero-height sticky block (.sdk-editor-corner) so it stays in the top right
-   corner. The "Discard your changes?" row (.sdk-editor-discard) sticks to the bottom over the button row while it shows.
-   Colours from the tokens; the backdrop is the same tint the modules' own overlays used. */
-.sdk-editor {
-  --sdk-editor-pad: 16px;
-  --sdk-editor-top: 40px;
-  box-sizing: border-box;
-  width: min(560px, 100vw - 32px);
-  max-width: none;
-  max-height: calc(100dvh - 48px);
-  margin: auto;
-  padding: 0 var(--sdk-editor-pad);
-  overflow: auto;
-  overscroll-behavior: contain;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  background: var(--bg-section);
-  color: var(--text);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-}
-
-.sdk-editor-large {
-  width: min(880px, 100vw - 32px);
-}
-
-.sdk-editor::backdrop {
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-}
-
-.sdk-editor:focus {
-  outline: none;
-}
-
-/* The corner is the dialog's top strip (its top padding, in effect), stuck to the top while the form scrolls under it;
-   the close button hangs from it, and the strip is as tall as the button so a scrolled form passes under the strip,
-   never beside the button. Sticky at 0 with no top padding on the dialog, so browsers that measure the sticky offset
-   from the content box and those that use the padding box agree. */
-.sdk-editor-corner {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  height: var(--sdk-editor-top);
-  background: var(--bg-section);
-}
-
-.sdk-editor-close {
-  position: absolute;
-  top: 4px;
-  right: calc(8px - var(--sdk-editor-pad));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-small);
-  background: var(--bg-section);
-  color: var(--text-dim);
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.sdk-editor-close:hover {
-  background: color-mix(in srgb, var(--text) 10%, var(--bg-section));
-  color: var(--text);
-}
-
-.sdk-editor-close:focus-visible {
-  color: var(--text);
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.sdk-editor-close svg,
-.sdk-editor-close i {
-  width: 16px;
-  height: 16px;
-  font-size: 16px;
-  fill: currentColor;
-}
-
-.sdk-editor-actions,
-.sdk-editor-discard {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 0 var(--sdk-editor-pad);
-  border-top: 1px solid var(--border);
-  background: var(--bg-section);
-}
-
-.sdk-editor-discard {
-  z-index: 2;
-  margin-top: 8px;
-}
-
-.sdk-editor-discard-text {
-  flex: 1 1 auto;
-  font-weight: 600;
-}
-
-/* A phone (the page 640 px wide or less): a full-screen sheet. The same rules serve a dialog in a lifted frame when the
-   host says the page is a phone (data-lift="phone"), and not by the frame's own width: a lifted frame is the editor's
-   width, which is under 640 px, so the media query alone would make every lifted editor a phone sheet. */
-@media (max-width: 640px) {
-  .sdk-editor:not(.sdk-editor-lifted) {
-    --sdk-editor-pad: 12px;
-    --sdk-editor-top: calc(48px + env(safe-area-inset-top, 0px));
-    position: fixed;
-    top: 0;
-    bottom: auto;
-    left: 0;
-    right: auto;
-    width: 100vw;
-    height: 100dvh;
-    max-height: none;
-    margin: 0;
-    padding-left: calc(12px + env(safe-area-inset-left, 0px));
-    padding-right: calc(12px + env(safe-area-inset-right, 0px));
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .sdk-editor:not(.sdk-editor-lifted)::backdrop {
-    background: var(--bg);
-  }
-
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-close {
-    top: calc(2px + env(safe-area-inset-top, 0px));
-    width: 44px;
-    height: 44px;
-  }
-
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-actions,
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-discard {
-    --action-btn-h: 44px;
-    min-height: 44px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-actions .btn,
-  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-discard .btn {
-    min-height: 44px;
-  }
-}
-
-/* In a sandboxed frame the host lifts the frame itself over the canvas, exactly the editor's size (module-host.js,
-   editor.lift), and the frame is the window: the dialog fills it, whatever its size, with no backdrop showing. The
-   frame's border and corners stand in for the dialog's. */
-.sdk-editor.sdk-editor-lifted {
-  position: fixed;
-  top: 0;
-  bottom: auto;
-  left: 0;
-  right: auto;
-  width: 100vw;
-  height: 100dvh;
-  max-height: none;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.sdk-editor.sdk-editor-lifted::backdrop {
-  background: var(--bg);
-}
-
-/* ... and on a phone, the sheet's touch sizes (the frame carries the safe areas). */
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] {
-  --sdk-editor-pad: 12px;
-  --sdk-editor-top: 48px;
-}
-
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-close {
-  top: 2px;
-  width: 44px;
-  height: 44px;
-}
-
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-actions,
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-discard {
-  --action-btn-h: 44px;
-  min-height: 44px;
-}
-
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-actions .btn,
-.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-discard .btn {
-  min-height: 44px;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .sdk-editor[open],
-  .sdk-editor[open]::backdrop {
-    animation: sdk-editor-in 0.15s ease-out;
-  }
-
-  @keyframes sdk-editor-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-}
-/* editor:end */
 
 /* kind:start -- the kind picker (host.ui.kindPicker): one row, --bar-control-h tall, with the chosen kind's icon on a
    tinted chip in its colour (--kind-color, set per kind by the script), the field that names it and filters as you type,
@@ -991,40 +300,14 @@ select:focus {
   height: 100%;
 }
 
-.sdk-kind-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: var(--field-h, var(--bar-control-h, 38px));
-  padding: 0 8px 0 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  background: var(--bg-input);
-  color: var(--text);
-  cursor: text;
-}
-
-.sdk-kind-field:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.sdk-kind.disabled .sdk-kind-field {
-  opacity: 0.6;
-  cursor: default;
-}
-
 /* The kind's colour: --kind-color, set inline on the chip and on each option by the script (the icon inherits it); the
    accent until a kind has one. */
 .sdk-kind-field,
 .sdk-kind-option {
-  --kind-color: var(--accent);
+  --kind-color: var(--accent-fill);
 }
 
-.sdk-kind-chip,
-.sdk-kind-icon {
+.sdk-kind-chip {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -1032,18 +315,17 @@ select:focus {
   width: 26px;
   height: 26px;
   border-radius: var(--radius-round);
-  background: color-mix(in srgb, var(--kind-color) 22%, var(--bg-card));
+  background: color-mix(in srgb, var(--kind-color) 22%, var(--surface-card));
   color: var(--kind-color);
-  font-size: 13px;
-  line-height: 1;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
 }
 
 .sdk-kind-chip[hidden] {
   display: none;
 }
 
-.sdk-kind-chip svg,
-.sdk-kind-icon svg {
+.sdk-kind-chip svg {
   width: 1em;
   height: 1em;
   fill: currentColor;
@@ -1069,7 +351,7 @@ select:focus {
 .sdk-kind-chevron {
   flex: none;
   display: inline-flex;
-  color: var(--text-dim);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
@@ -1077,90 +359,32 @@ select:focus {
   transform: rotate(180deg);
 }
 
-.sdk-kind-list {
-  position: fixed;
-  z-index: 9999;
-  box-sizing: border-box;
-  min-width: 220px;
-  max-height: 360px;
-  margin: 0;
-  padding: 4px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  list-style: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-large);
-  background: var(--bg-card);
-  color: var(--text);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  font-size: 13px;
-}
-
-.sdk-kind-group {
-  padding: 2px 0;
-}
-
-.sdk-kind-group + .sdk-kind-group {
-  border-top: 1px solid var(--border);
-}
-
-.sdk-kind-group-title {
-  padding: 6px 8px 3px;
-  color: var(--text-dim);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.sdk-kind-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: var(--radius-small);
-  cursor: pointer;
-}
-
-.sdk-kind-option.active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-.sdk-kind-option[aria-selected="true"] .sdk-kind-name {
-  font-weight: 600;
-}
-
-.sdk-kind-option[aria-selected="true"] .sdk-kind-icon {
-  background: var(--kind-color);
-  color: var(--on-accent);
-}
-
-.sdk-kind-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sdk-kind-empty {
-  padding: 10px 8px;
-  color: var(--text-dim);
-}
-
 @media (max-width: 640px) {
+  /* The long-list bottom sheet (the Menus family): the menu surface with a grip, over the scrim. */
   .sdk-kind.open .sdk-kind-sheet {
     position: fixed;
-    z-index: 10000;
+    z-index: var(--z-popover);
     left: 0;
     right: 0;
     bottom: 0;
     height: max(50dvh, min(100dvh, 440px));
-    padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px));
-    border-top: 1px solid var(--border);
+    padding: var(--space-5) calc(var(--space-2) + env(safe-area-inset-right, 0px)) calc(var(--space-2) + env(safe-area-inset-bottom, 0px)) calc(var(--space-2) + env(safe-area-inset-left, 0px));
+    border: 1px solid var(--edge-menu);
     border-radius: var(--radius-large) var(--radius-large) 0 0;
-    background: var(--bg-section);
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+    background: var(--surface-menu);
+  }
+
+  .sdk-kind.open .sdk-kind-sheet::after {
+    content: "";
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    transform: translateX(-50%);
+    border-radius: var(--radius-round);
+    background: var(--text-muted);
+    opacity: 0.5;
   }
 
   .sdk-kind.open .sdk-kind-sheet::before {
@@ -1171,7 +395,7 @@ select:focus {
     width: 100vw;
     height: 100dvh;
     z-index: -1;
-    background: color-mix(in srgb, var(--bg) 60%, transparent);
+    background: var(--scrim);
   }
 
   .sdk-kind.open .sdk-kind-field {
@@ -1179,23 +403,24 @@ select:focus {
     height: 44px;
   }
 
-  .sdk-kind.open .sdk-kind-input {
-    font-size: 16px;
+  /* 16 px on a phone whether or not the sheet is open, so iOS does not zoom (the Fields rule); the :focus rule above
+     sets font: inherit, so it is named here too. */
+  .sdk-kind .sdk-kind-input,
+  .sdk-kind .sdk-kind-input:focus {
+    font-size: var(--text-16);
   }
 
   .sdk-kind.open .sdk-kind-list {
     position: static;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+    max-width: none;
     max-height: none;
     margin-top: 8px;
     border: 0;
     background: none;
     box-shadow: none;
-  }
-
-  .sdk-kind-option {
-    min-height: 44px;
   }
 }
 

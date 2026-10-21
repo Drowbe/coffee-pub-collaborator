@@ -3,102 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1a1410">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FBF6EC" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1A2B" media="(prefers-color-scheme: dark)">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:">
   <link rel="icon" href="/img/site/icon">
-  <title data-product>Coffee Pub</title>
-  <meta name="description" content="One place for a group: talk face to face, and plan, decide and remember together, with the tools you choose, at your own address.">
-  <link rel="stylesheet" href="/fa/css/all.min.css">
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/theme.css" id="theme-link">
+  <!-- The page's own title; landing.js puts the product's name where {name} is. -->
+  <title data-title="{name}: one place for the whole group">One place for the whole group</title>
+  <meta name="description" content="A private chat for your group, with a call when you want one and the tools beside it. Self-hosted, on your own address.">
+  <!-- The front page: one stylesheet (with the product's two fonts, served from /fonts), no scripts but landing.js (which fills in the
+       product's name and the plans from the host, and links each use card to its page when the host has that page). It has no big picture:
+       the three use cards are the picture. The travel art and tour are on /travel. -->
   <link rel="stylesheet" href="/landing.css">
 </head>
 <body class="landing">
-  <header class="land-top">
-    <a class="land-brand" href="/"><img class="land-logo" src="/assets/images/brand/logo-light.png" alt="" data-product-alt><span class="sr-only" data-product></span></a>
-    <nav class="land-links">
-      <a href="#what">What it is</a>
-      <a href="#modules">Modules</a>
-      <a href="#how">How it works</a>
-      <a href="#plans">Plans</a>
-      <a class="btn btn-small" href="#signin" id="nav-signin">Sign in</a>
-      <a class="btn btn-primary btn-small" href="#start" data-contact-link>Get started</a>
+  <a class="skip" href="#main">Skip to the page</a>
+
+  <!-- The pictures, drawn once and used by name: spot illustrations for the three uses. -->
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="i-todo" viewBox="0 0 64 64"><rect class="s-a s-l" x="12" y="9" width="40" height="49" rx="7"/><rect class="s-c s-l" x="23" y="5" width="18" height="9" rx="4"/><path class="s-b s-l" d="M19 27l3 3 6-7"/><path class="s-l" d="M33 28h13M33 41h13"/><path class="s-b s-l" d="M19 40l3 3 6-7"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 64 64"><path class="s-l" d="M20 28v-8a12 12 0 0 1 24 0v8"/><rect class="s-a s-l" x="12" y="27" width="40" height="30" rx="8"/><circle class="s-b s-l" cx="32" cy="40" r="4.500"/><path class="s-l" d="M32 44v6"/></symbol>
+    <symbol id="i-suitcase" viewBox="0 0 64 64"><rect class="s-b s-l" x="8" y="20" width="48" height="34" rx="8"/><path class="s-l" d="M23 20v-5a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v5"/><path class="s-l" d="M22 20v34M42 20v34"/><path class="s-c s-l" d="M8 34h48"/><circle class="s-a s-l" cx="32" cy="34" r="3.500"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 64 64"><rect class="s-a s-l" x="8" y="18" width="34" height="34" rx="8" transform="rotate(-8 25 35)"/><circle class="s-l" cx="17" cy="28" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="33" cy="28" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="25" cy="36" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="17" cy="44" r="2.200" transform="rotate(-8 25 35)"/><circle class="s-l" cx="33" cy="44" r="2.200" transform="rotate(-8 25 35)"/><rect class="s-b s-l" x="36" y="8" width="22" height="22" rx="6" transform="rotate(14 47 19)"/><circle class="s-c" cx="42" cy="14" r="2" transform="rotate(14 47 19)"/><circle class="s-c" cx="52" cy="24" r="2" transform="rotate(14 47 19)"/></symbol>
+    <symbol id="i-tick" viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <header class="top">
+    <a class="brand" href="/"><img class="brand-mark" src="/assets/images/brand/landing/mark.webp" alt="" width="96" height="92"><span class="brand-name" data-product>Coffee Pub</span></a>
+    <nav class="top-links" aria-label="Page">
+      <a class="hide-small" href="#who">Uses</a>
+      <a class="hide-small" href="#how">How it works</a>
+      <a class="hide-small" href="#plans">Plans</a>
+      <a class="btn btn-quiet" href="#signin" id="nav-signin">Sign in</a>
+      <a class="btn btn-go" href="#start" data-contact-link>Get started</a>
     </nav>
   </header>
 
-  <main>
-    <section class="hero">
-      <img class="hero-logo" src="/assets/images/brand/logo-light.png" alt="" data-product-alt>
-      <p class="eyebrow">A place for your group</p>
-      <h1>Talk face to face. Plan, decide and remember, together.</h1>
-      <p class="lede">One address for the people you do things with. A video call and a chat that are always there, and beside them the tools the group actually needs: a planner, a calendar, a to-do list, polls, places and maps, research, an assistant. Each tool knows about the others, so a task can land on a day, a place can go on a plan, and a poll can settle where to eat.</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="#start" data-contact-link>Get your own environment</a>
-        <a class="btn" href="#how">See how it works</a>
-      </div>
-      <p class="hero-note">Your own environment at <code data-example-host>yourname.example</code>: your people, your spaces, your tools, nobody else's.</p>
-    </section>
-
-    <section id="what" class="band">
-      <h2>What it is</h2>
-      <div class="cols">
-        <div class="col">
-          <i class="fa-solid fa-video fa-fw" aria-hidden="true"></i>
-          <h3>A call that stays open</h3>
-          <p>Video and voice for the whole group, with a chat beside it. Step into a side conversation and come back; pop the call out into its own window; join with only the chat when that is all you need.</p>
+  <main id="main">
+    <section class="hero hero-plain" aria-labelledby="hero-title">
+      <div class="hero-text">
+        <h1 id="hero-title">One place for the whole group.</h1>
+        <p class="lede">Chat all week, call when it counts, and keep the plans, the maps and the notes right beside it. Yours, on your own address.</p>
+        <div class="hero-actions">
+          <a class="btn btn-go btn-big" href="#start" data-contact-link>Get your own environment</a>
+          <a class="btn btn-quiet btn-big" href="#who">See what it is for</a>
         </div>
-        <div class="col">
-          <i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i>
-          <h3>Tools beside the call</h3>
-          <p>Open the calendar next to the video, float the planner over it, snap the to-do list into a grid. Every tool is a module you can dock, float or open in its own window, and your layout is remembered.</p>
-        </div>
-        <div class="col">
-          <i class="fa-solid fa-link fa-fw" aria-hidden="true"></i>
-          <h3>Tools that know each other</h3>
-          <p>Drag a task onto a day. Drop a place on the plan. Link a poll to a decision and let its result land where it belongs. Nothing is copied; everything points at the one real thing.</p>
-        </div>
+        <p class="hero-note">Your own environment at <code data-example-host>yourname.example</code>: your people, your spaces, your tools.</p>
       </div>
     </section>
 
-    <section id="modules" class="band alt">
-      <h2>The modules</h2>
-      <p class="band-lede">Turn on the ones your group needs. Each environment picks its own.</p>
-      <ul class="modules">
-        <li><i class="fa-solid fa-suitcase-rolling fa-fw" aria-hidden="true"></i><b>Planner</b><span>A trip day by day, or anything that unfolds over dates: what you know, what your options are, what you have decided. Flights, stays, stops, ideas between days, costs and who paid.</span></li>
-        <li><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i><b>Calendar</b><span>The group's dates, a month, a week or a list, with the events of every space you belong to.</span></li>
-        <li><i class="fa-solid fa-list-check fa-fw" aria-hidden="true"></i><b>To-do</b><span>Tasks with due dates, linked to the things they are about, with reminders for the people who are away.</span></li>
-        <li><i class="fa-solid fa-square-poll-vertical fa-fw" aria-hidden="true"></i><b>Polls</b><span>Decide together: pick one, pick any, suggest another option; the result can carry straight onto a plan.</span></li>
-        <li><i class="fa-solid fa-location-dot fa-fw" aria-hidden="true"></i><b>Places</b><span>The places that matter, yours and the group's, with an address, a position and a note.</span></li>
-        <li><i class="fa-solid fa-map fa-fw" aria-hidden="true"></i><b>Maps</b><span>Everything with a position on one map, including regions kept on the server for when you are offline.</span></li>
-        <li><i class="fa-solid fa-book-open fa-fw" aria-hidden="true"></i><b>Research</b><span>Notes, links, photos and answers, tagged and shared, laid out as cards or a list.</span></li>
-        <li><i class="fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i><b>Assistant</b><span>Ask about anything the group holds, and drop the answer where it is useful.</span></li>
-      </ul>
-    </section>
-
-    <section id="how" class="band">
-      <h2>How it works</h2>
-      <ol class="steps">
-        <li><b>You get an environment.</b> Its own address, its own sign-in, its own people. Nothing in it is shared with anyone else's.</li>
-        <li><b>You make spaces in it.</b> A space is a place to meet: a call, a chat and the modules you turn on for it. A family might have one; a company might have one per team; a game night has one per campaign.</li>
-        <li><b>People come in with a link.</b> Members sign in; guests can come into a space with just a name when you allow it.</li>
-        <li><b>You run it, we host it.</b> The owner sets the name, the look, the members, the spaces and the modules. The rest -- the servers, the call service, the updates, the backups -- is ours. Or run the whole thing yourself: the same software is available to self-host.</li>
-      </ol>
-    </section>
-
-    <section id="plans" class="band alt">
-      <h2>Plans</h2>
-      <p class="band-lede" id="plans-lede">An environment plus the modules you choose. Each plan says how many people, how much storage, how much of the assistant and how many calls at once it includes.</p>
-      <div class="plans" id="plans-grid">
-        <div class="plan"><h3>For a family or a group of friends</h3><p>One environment, a few spaces, the planner, the calendar, polls and places. The trip, the reunion, the season.</p></div>
-        <div class="plan"><h3>For a small company</h3><p>Spaces per team, the calendar and to-do for everyone, research and the assistant, more people and more capacity.</p></div>
-        <div class="plan"><h3>For a group of players</h3><p>A space per campaign, side conversations for whispers, the calendar for session nights, and a stream-ready view of who is speaking.</p></div>
+    <section id="who" class="band" aria-labelledby="who-title">
+      <div class="head">
+        <h2 id="who-title">What it is for</h2>
+        <p class="band-lede">Name things the way your group does. A space can be a trip, a campaign or a team.</p>
       </div>
+      <div class="three">
+        <article class="aud" data-page="/travel">
+          <svg class="spot big" aria-hidden="true"><use href="#i-suitcase"/></svg>
+          <h3>Trips</h3>
+          <p>Plan the trip with the people coming. Put flights and stays on the plan, drop the places you like on the map, vote on where to eat, and split the costs at the end.</p>
+          <ul class="ticks">
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A plan, places and a map in one space</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A calendar for the dates that matter</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Polls for the choices, a budget for the sums</li>
+          </ul>
+        </article>
+        <article class="aud" data-page="/games">
+          <svg class="spot big" aria-hidden="true"><use href="#i-dice"/></svg>
+          <h3>Game nights</h3>
+          <p>One space for each campaign, with side conversations for whispers and a calendar for session nights. For a stream, every player is an OBS source: their camera on a clear background, with a border that lights up when they talk.</p>
+          <ul class="ticks">
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>A chat that stays open between sessions</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Every player as a browser source for OBS</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Notes and research your group can find again</li>
+          </ul>
+        </article>
+        <article class="aud" data-page="/projects">
+          <svg class="spot big" aria-hidden="true"><use href="#i-todo"/></svg>
+          <h3>Projects and mentoring</h3>
+          <p>Plan a product or design project with the people on it, and talk the problem through. Keep the tasks, the dates and the research in one space. Or run a mentoring group: meet for each session, vote on what to cover next, and keep the notes.</p>
+          <ul class="ticks">
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Chat, and a call for working things out</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>To-do, the plan and a calendar for the steps and dates</li>
+            <li><svg aria-hidden="true"><use href="#i-tick"/></svg>Polls and research your group can find again</li>
+          </ul>
+        </article>
+      </div>
+      <p class="band-lede aud-more">Or anything else your group does together.</p>
     </section>
 
     <!-- Sign in: the host knows where a person has been (the env_hint cookie an environment leaves on the parent domain), never who they are -->
-    <section id="signin" class="band cta">
-      <h2>Sign in</h2>
-      <p id="signin-lede">Each environment has its own sign-in. Which one is yours?</p>
+    <section id="signin" class="signin" aria-labelledby="signin-title">
+      <div class="signin-text">
+        <h2 id="signin-title">Sign in</h2>
+        <p id="signin-lede">Each environment has its own sign-in. Which one is yours?</p>
+      </div>
       <form class="signin-form" id="signin-form" method="post" action="#signin">
         <label for="signin-env" class="sr-only">Environment</label>
         <select id="signin-env" name="environment" required><option value="">Choose an environment</option></select>
@@ -108,45 +107,82 @@
           <label for="signin-password" class="sr-only">Password</label>
           <input id="signin-password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
           <input type="hidden" name="next" value="/">
-          <button class="btn btn-primary" type="submit">Sign in</button>
+          <button class="btn btn-go" type="submit">Sign in</button>
         </div>
       </form>
       <p class="hint" id="signin-note" hidden></p>
     </section>
 
-    <section id="start" class="band cta">
-      <h2 id="start-title">Get started</h2>
-      <p id="start-lede">Your own environment, on the free plan, in a minute: pick its address, name it, and make the owner's account.</p>
-      <form class="signup-form" id="signup-form" autocomplete="off" hidden>
-        <label>Address
-          <span class="signup-slug"><input id="signup-slug" name="slug" type="text" minlength="3" maxlength="30" pattern="[a-z0-9\-]+" placeholder="yourname" autocapitalize="off" spellcheck="false" required><span class="signup-domain" data-signup-domain></span></span>
-          <span class="hint" id="signup-slug-note">Letters, digits and hyphens, 3 to 30; it cannot be changed later.</span>
-        </label>
-        <label>Environment name<input id="signup-name" name="name" type="text" maxlength="60" placeholder="The Elegant Eight" required></label>
-        <!-- What it is set up for (plan-environment-templates): None, then each of the host's templates. Filled by landing.js; hidden when there are none. -->
-        <fieldset class="template-choice" id="signup-template" hidden>
-          <legend>Template</legend>
-          <p class="hint">Set it up for one use: its words, home icon and modules. You can change anything it sets later.</p>
-          <div class="template-options" id="signup-template-options"></div>
-        </fieldset>
-        <div class="signup-owner">
-          <label>Owner login<input id="signup-login" name="login" type="text" maxlength="40" autocapitalize="off" autocomplete="off" required></label>
-          <label>Display name<input id="signup-display" name="displayName" type="text" maxlength="40" autocomplete="off"></label>
-          <label>Password<input id="signup-password" name="password" type="password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
+    <section id="how" class="band alt" aria-labelledby="how-title">
+      <div class="head">
+        <h2 id="how-title">How it works</h2>
+      </div>
+      <ol class="steps">
+        <li><span class="num" aria-hidden="true">1</span><h3>Get an environment</h3><p>Its own address, its own sign-in, its own people. Nothing in it is shared with anyone else's.</p></li>
+        <li><span class="num" aria-hidden="true">2</span><h3>Make spaces in it</h3><p>A space is a place to meet: a chat, a call when you want one, and the modules you turn on for it. A family might have one, a company one per team, a game night one per campaign.</p></li>
+        <li><span class="num" aria-hidden="true">3</span><h3>Share a link</h3><p>Members sign in. Guests can come into a space with just a name, when you allow it.</p></li>
+      </ol>
+      <p class="band-lede centered">The owner sets the name, the look, the people, the spaces and the modules. The servers, the call service, the updates and the backups are ours. Or run the whole thing yourself: the same software is open to self-host.</p>
+    </section>
+
+    <section id="private" class="band" aria-labelledby="private-title">
+      <div class="private">
+        <svg class="spot big" aria-hidden="true"><use href="#i-lock"/></svg>
+        <div>
+          <h2 id="private-title">Yours, and private</h2>
+          <p>No ads, and nobody selling what you say. Your people, plans and files live in your environment and are not shared with anyone else's. You can run it on your own server if you would rather.</p>
+          <p><a href="https://github.com/Drowbe/coffee-pub-collaborator" rel="noopener">Self-host it</a></p>
         </div>
-        <div class="row">
-          <button class="btn btn-primary" type="submit" id="signup-submit">Create my environment</button>
-          <span class="status" id="signup-status" role="status"></span>
-        </div>
-        <p class="hint">The owner runs the environment: its people, spaces, settings and modules. Another plan can be chosen from inside it later.</p>
-      </form>
-      <p id="start-ask" hidden><a class="btn btn-primary" data-contact-link href="#start">Ask for an environment</a></p>
-      <p class="hint" data-contact-hint hidden></p>
+      </div>
+    </section>
+
+    <section id="plans" class="band alt" aria-labelledby="plans-title">
+      <div class="head">
+        <h2 id="plans-title">Plans</h2>
+        <p class="band-lede" id="plans-lede">An environment plus the modules you choose. Each plan says how many people, how much storage, how much of the assistant and how many calls at once it includes.</p>
+      </div>
+      <div class="plans" id="plans-grid">
+        <div class="plan"><h3>For a family or a group of friends</h3><p>One environment, a few spaces, the planner, the calendar, polls and places. The trip, the reunion, the season.</p></div>
+        <div class="plan"><h3>For a small company</h3><p>Spaces per team, the calendar and to-do for everyone, research and the assistant, more people and more capacity.</p></div>
+        <div class="plan"><h3>For a group of players</h3><p>A space per campaign, side conversations for whispers, the calendar for session nights, and a stream-ready view of who is speaking.</p></div>
+      </div>
+    </section>
+
+    <section id="start" class="band close" aria-labelledby="start-title">
+      <div class="close-box">
+        <h2 id="start-title">Get started</h2>
+        <p id="start-lede">Your own environment, on the free plan, in a minute: pick its address, name it, and make the owner's account.</p>
+        <form class="signup-form" id="signup-form" autocomplete="off" hidden>
+          <label>Address
+            <span class="signup-slug"><input id="signup-slug" name="slug" type="text" minlength="3" maxlength="30" pattern="[a-z0-9\-]+" placeholder="yourname" autocapitalize="off" spellcheck="false" required><span class="signup-domain" data-signup-domain></span></span>
+            <span class="hint" id="signup-slug-note">Letters, digits and hyphens, 3 to 30; it cannot be changed later.</span>
+          </label>
+          <label>Environment name<input id="signup-name" name="name" type="text" maxlength="60" placeholder="The Elegant Eight" required></label>
+          <!-- What it is set up for (plan-environment-templates): None, then each of the host's templates. Filled by landing.js; hidden when there are none. -->
+          <fieldset class="template-choice" id="signup-template" hidden>
+            <legend>Template</legend>
+            <p class="hint">Set it up for one use: its words, home icon and modules. You can change anything it sets later.</p>
+            <div class="template-options" id="signup-template-options"></div>
+          </fieldset>
+          <div class="signup-owner">
+            <label>Owner login<input id="signup-login" name="login" type="text" maxlength="40" autocapitalize="off" autocomplete="off" required></label>
+            <label>Display name<input id="signup-display" name="displayName" type="text" maxlength="40" autocomplete="off"></label>
+            <label>Password<input id="signup-password" name="password" type="password" minlength="8" maxlength="200" autocomplete="new-password" required></label>
+          </div>
+          <div class="row">
+            <button class="btn btn-go btn-big" type="submit" id="signup-submit">Create my environment</button>
+            <span class="status" id="signup-status" role="status"></span>
+          </div>
+          <p class="hint">The owner runs the environment: its people, spaces, settings and modules. Another plan can be chosen from inside it later.</p>
+        </form>
+        <p id="start-ask" hidden><a class="btn btn-go btn-big" data-contact-link href="#start">Ask for an environment</a></p>
+        <p class="hint" data-contact-hint hidden></p>
+      </div>
     </section>
   </main>
 
-  <footer class="land-foot">
-    <span data-product></span> <span data-version></span> <span class="dot">&middot;</span> <a href="https://github.com/Drowbe/coffee-pub-collaborator" rel="noopener">Self-host it</a>
+  <footer class="foot">
+    <span data-product></span> <span data-version></span> <span class="dot" aria-hidden="true">&middot;</span> <a href="https://github.com/Drowbe/coffee-pub-collaborator" rel="noopener">Self-host it</a>
   </footer>
 
   <script type="module" src="/landing.js"></script>

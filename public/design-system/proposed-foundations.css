@@ -1,0 +1,104 @@
+/* ==== Foundations: spacing, elevation, motion, icons and layout (PROPOSED 2026-10-20; Thomas's decisions of 2026-10-20, plan-design-system.md) ====
+   The tokens the other families already lean on (--shadow-1, --shadow-2, --scrim, --z-menu, --icon-hover) and the ones they will need, in one place.
+   Page-local: nothing in style.css has them yet, so every rule is under .ds-proposed. The example-page rules of this family (the bars, the stack,
+   the demos and their keyframes) are in proposed-foundations.js, so this file holds only what the product would take.
+
+   Spacing   a strict 4px scale. --space-0 is the 2px hairline step; --space-1 to --space-9 are 4, 8, 12, 16, 20, 24, 32, 40, 48.
+             6px and 10px are not on it. A row's 8 by 10 is written as 8 + the 2px step.
+   Elevation three shadows (1 a dragged card, 2 menus popovers toasts, 3 dialogs sheets windows), one scrim (55% black), and the named layers.
+   Radius    unchanged: --radius-min/small/medium/large/round (3/5/7/11/999). Only a usage table is drawn.
+   Motion    two durations (120ms and 200ms), one easing, and ONE blanket prefers-reduced-motion rule.
+   Icons     five sizes tied to the type steps; Font Awesome solid only.
+   Layout    breakpoints 640, 900 and 1200 (a media query cannot read a token, so they are written out); heights and widths as tokens. */
+
+.ds-proposed {
+  /* ---- Spacing ---- */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+
+  /* ---- Elevation: three shadows and one scrim (shadows made smaller 2026-10-21: a hairline already separates a surface, so a shadow only suggests lift).
+     Black at 35% in dark; the text colour at a low strength in light, so a shadow is never a black smudge on a pale page. ---- */
+  --shadow-1: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  /* ---- Layers. Inside a block, content uses 0 to 9 and stays inside it; these are the named layers between blocks. ---- */
+  --z-content: 0;
+  --z-bar: 20;
+  --z-window: 25;
+  --z-menu: 26;
+  --z-page: 30;
+  --z-dialog: 40;
+  --z-popover: 50;
+  --z-toast: 60;
+  --z-debug: 100;
+
+  /* ---- Motion ---- */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Icons: the first three are the type steps of the same number; 20 and 24 are for buttons and empty states ---- */
+  --icon-12: var(--text-12);
+  --icon-14: var(--text-14);
+  --icon-16: var(--text-16);
+  --icon-20: 20px;
+  --icon-24: 24px;
+
+  /* ---- Layout ---- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --topbar-h: 44px;
+  --page-pad: 16px;
+  --measure-reading: 720px;
+  --page-max: 1200px;
+  --module-head-h: 34px;
+  --toolbar-h: 34px;
+  --status-h: 24px;
+  --bottom-bar-h: 54px;
+  --bottom-bar-total: calc(var(--bottom-bar-h) + var(--safe-bottom));
+}
+
+.ds-proposed:is(:root[data-theme-mode="light"] *) {
+  --shadow-2: 0 2px 8px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-3: 0 4px 16px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-1: 0 1px 4px color-mix(in srgb, var(--text) 8%, transparent);
+  --scrim: rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --page-pad: 12px; --module-head-h: 42px; }
+}
+
+/* ---- The one reduced-motion rule. Every transition and animation on the page ends at once (0.01ms, so animationend and transitionend still fire
+   and nothing that waits for them hangs), and nothing repeats. A component writes no reduce block of its own; the 15 hand-written ones go.
+   The second selector is the same rule for the "Simulate reduced motion" switch on the proposed page; the product has only the media query. ---- */
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed, .ds-proposed *, .ds-proposed *::before, .ds-proposed *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+.ds-proposed[data-reduce="on"], .ds-proposed[data-reduce="on"] *, .ds-proposed[data-reduce="on"] *::before, .ds-proposed[data-reduce="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}

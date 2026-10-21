@@ -16,10 +16,10 @@ export function pickBackground({ title = 'Choose a background' } = {}) {
     root.setAttribute('aria-label', title);
     root.innerHTML = `
       <div class="bgpick-card">
-        <header class="bgpick-head"><h2>${escapeHtml(title)}</h2><button class="bgpick-close" type="button" data-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
+        <header class="bgpick-head"><h2>${escapeHtml(title)}</h2><button class="sdk-icon-btn btn-quiet btn-small bgpick-close" type="button" data-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
         <div class="bgpick-filters" hidden>
-          <div class="bgpick-chips" data-group="theme" role="group" aria-label="Theme"></div>
-          <div class="bgpick-chips" data-group="style" role="group" aria-label="Style"></div>
+          <div class="sdk-chips" data-group="theme" role="group" aria-label="Theme"></div>
+          <div class="sdk-chips" data-group="style" role="group" aria-label="Style"></div>
         </div>
         <div class="bgpick-body"><p class="hint bgpick-msg">Loading...</p></div>
         <footer class="bgpick-foot"><span class="bgpick-picked hint">Pick one to preview it.</span><span class="grow"></span><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="button" data-use disabled>Use this background</button></footer>
@@ -73,7 +73,7 @@ export function pickBackground({ title = 'Choose a background' } = {}) {
       }
     });
 
-    const chips = (group, values) => `<button class="bgpick-chip${filter[group] === '' ? ' on' : ''}" type="button" data-chip="">All ${group}s</button>` + values.map((v) => `<button class="bgpick-chip${filter[group] === v ? ' on' : ''}" type="button" data-chip="${escapeHtml(v)}">${escapeHtml(v.charAt(0).toUpperCase() + v.slice(1))}</button>`).join('');
+    const chips = (group, values) => `<button class="sdk-chip${filter[group] === '' ? ' on' : ''}" type="button" data-chip="">All ${group}s</button>` + values.map((v) => `<button class="sdk-chip${filter[group] === v ? ' on' : ''}" type="button" data-chip="${escapeHtml(v)}">${escapeHtml(v.charAt(0).toUpperCase() + v.slice(1))}</button>`).join('');
     function draw() {
       const themes = [...new Set(list.map((b) => b.theme))];
       const styles = [...new Set(list.filter((b) => !filter.theme || b.theme === filter.theme).map((b) => b.style))];

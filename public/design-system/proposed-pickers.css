@@ -1,0 +1,415 @@
+/* ==== Pickers beyond menus (PROPOSED 2026-10-20; the research recommendations Thomas approved as a batch on 2026-10-20) ====
+   One trigger for every picker: the Fields look (--field-h high, 38px, 44px on a phone; --bg-input, the 1px --border hairline, --radius-small,
+   the accent focus edge and ring, a fill on hover) with the picker's value on the left and its trailing icon inside the box. The flyout is the
+   Menus family's surface (a menu or a popover: --radius-medium, --shadow-2, the item rows, hover and current rules, all from proposed-menus.css).
+   On a phone a long list is the Menus bottom sheet. Pickers drawn here: kind, currency, icon, colour, background (a Dialog, drawn by the Dialogs
+   family: only its content is here). The date picker's grid is the Menus family's; only its trigger is a field.
+     .sdk-picker            the trigger (a <button>; aliases .sdk-kind-field)
+     .sdk-picker-value      the value, or .sdk-picker-ph when nothing is chosen (--text-dim, as a placeholder)
+     .sdk-picker-lead       a small tinted tile in front of the value (the kind's icon); .sdk-picker-sw is a colour swatch in front
+     .sdk-picker-icon       the trailing icon (the chevron turns over while the flyout is open)
+     .sdk-iconpick-grid, .sdk-iconpick-btn   the icon grid: 8 columns of 32px buttons (6 columns of 44px on a phone)
+     .sdk-swatch-grid, .sdk-swatch           the colour grid: 24px swatches (a 44px target on a phone), .sdk-swatch-custom the native input
+     .sdk-tile-grid, .sdk-tile               the background grid
+   Selected is a neutral fill: a list row is --selected-bg with the accent-mix text (the Menus rule, no mark); a grid tile is --selected-bg with a check;
+   a swatch is a check on a neutral disc. Never an accent border. Colours are theme tokens only, and a swatch's colour is data (--sw). Radii are tokens. */
+
+.ds-proposed {
+  --pk-icon: 32px;
+  --pk-cols: 8;
+  --pk-sw: 24px;
+  --pk-sw-cell: 28px;
+  --pk-lead: 22px;
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --pk-icon: 44px; --pk-cols: 6; --pk-sw-cell: 44px; }
+}
+
+/* ---- the trigger ---- */
+.ds-proposed :is(.sdk-picker, .sdk-kind-field) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0 var(--field-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: normal;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.ds-proposed :is(.sdk-picker, .sdk-kind-field):hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--f-bg-h);
+}
+
+.ds-proposed :is(.sdk-picker, .sdk-kind-field)[aria-expanded="true"] {
+  background: var(--f-bg-h);
+}
+
+/* Focus: the Fields mechanism. A 2px accent outline drawn over the 1px hairline (offset -2px) and a soft 2px ring, equal on all four sides. */
+.ds-proposed :is(.sdk-picker, .sdk-kind-field):focus-visible,
+.ds-proposed .sdk-kind-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--f-ring) !important;
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
+}
+
+.ds-proposed :is(.sdk-picker, .sdk-kind-field)[aria-invalid="true"] {
+  border-color: var(--danger);
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
+}
+
+.ds-proposed :is(.sdk-picker, .sdk-kind-field)[aria-invalid="true"]:focus-visible {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 2px var(--f-ring-danger) !important;
+  outline: 2px solid var(--danger) !important;
+  outline-offset: -2px !important;
+}
+
+.ds-proposed :is(.sdk-picker, .sdk-kind-field):is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-input);
+}
+
+.ds-proposed .sdk-picker-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-proposed .sdk-picker-ph {
+  color: var(--text-dim);
+}
+
+.ds-proposed .sdk-picker-icon {
+  flex: none;
+  width: 14px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.ds-proposed .sdk-picker[aria-expanded="true"] .sdk-picker-icon {
+  transform: rotate(180deg);
+}
+
+/* In front of the value: the kind's icon on its tinted tile (--tone is data), a colour swatch (--sw is data), a background thumbnail (--img is data). */
+.ds-proposed .sdk-picker-lead {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pk-lead);
+  height: var(--pk-lead);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--tone, var(--text-dim)) 18%, var(--bg-input));
+  color: color-mix(in srgb, var(--tone, var(--text-dim)) 65%, var(--text));
+  font-size: 12px;
+}
+
+.ds-proposed .sdk-picker-sw {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--pk-lead);
+  height: var(--pk-lead);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--sw, var(--text-dim));
+}
+
+.ds-proposed .sdk-picker-thumb {
+  flex: none;
+  width: 32px;
+  height: var(--pk-lead);
+  border-radius: var(--radius-min);
+  background: var(--img, var(--text-dim));
+}
+
+.ds-proposed .sdk-picker-value .sdk-hex {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the flyouts: the Menus surface, placed under the trigger by its host; here drawn in place ---- */
+.ds-proposed .sdk-picker-flyout {
+  position: static;
+  margin-top: 4px;
+}
+
+.ds-proposed .sdk-popover.sdk-picker-pop {
+  display: block;
+  width: fit-content;
+  max-width: calc(100vw - 16px);
+}
+
+/* a list picker's option: code and name (currency) */
+.ds-proposed .sdk-menu-item .sdk-pk-code {
+  min-width: 36px;
+  font-weight: 600;
+}
+
+/* ---- the icon grid ---- */
+.ds-proposed .sdk-iconpick-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--pk-cols), var(--pk-icon));
+  gap: 2px;
+  max-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ds-proposed .sdk-iconpick-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--pk-icon);
+  height: var(--pk-icon);
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.ds-proposed .sdk-iconpick-btn:hover {
+  background: var(--menu-hover);
+}
+
+.ds-proposed .sdk-iconpick-btn:active {
+  background: var(--menu-press);
+}
+
+.ds-proposed .sdk-iconpick-btn:focus-visible {
+  background: var(--menu-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Selected: the neutral selected fill and a check in the corner. No accent fill, no accent edge. */
+.ds-proposed .sdk-iconpick-btn[aria-checked="true"] {
+  background: var(--selected-bg);
+  color: var(--menu-current-fg);
+}
+
+.ds-proposed .sdk-tile-check {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: none;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.ds-proposed :is(.sdk-iconpick-btn, .sdk-tile)[aria-checked="true"] > .sdk-tile-check,
+.ds-proposed .sdk-tile[aria-pressed="true"] > .sdk-tile-check {
+  display: block;
+}
+
+/* ---- the colour grid ---- */
+.ds-proposed .sdk-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--pk-cols), var(--pk-sw-cell));
+  gap: 0;
+}
+
+.ds-proposed .sdk-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--pk-sw-cell);
+  height: var(--pk-sw-cell);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.ds-proposed .sdk-swatch::before {
+  content: "";
+  box-sizing: border-box;
+  width: var(--pk-sw);
+  height: var(--pk-sw);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--sw, var(--text-dim));
+}
+
+.ds-proposed .sdk-swatch:hover {
+  background: var(--menu-hover);
+}
+
+.ds-proposed .sdk-swatch:focus-visible {
+  background: var(--menu-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Selected: a check on a neutral disc over the swatch, so it reads on any colour. No accent border, no ring. */
+.ds-proposed .sdk-swatch > i {
+  position: absolute;
+  inset: 0;
+  display: none;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-round);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.ds-proposed .sdk-swatch[aria-checked="true"] > i {
+  display: block;
+}
+
+/* The custom colour: the browser's own input is the last option. */
+.ds-proposed .sdk-swatch-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ds-proposed .sdk-swatch-custom > span {
+  flex: 1 1 auto;
+}
+
+.ds-proposed .sdk-swatch-custom input[type="color"] {
+  flex: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: var(--pk-sw);
+  height: var(--pk-sw);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: none;
+  cursor: pointer;
+}
+
+.ds-proposed .sdk-swatch-custom input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.ds-proposed .sdk-swatch-custom input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--radius-min);
+}
+
+.ds-proposed .sdk-swatch-custom input[type="color"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- the background tiles (inside a Dialog) ---- */
+.ds-proposed .sdk-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.ds-proposed .sdk-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-medium);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.ds-proposed .sdk-tile:hover {
+  background: var(--menu-hover);
+}
+
+.ds-proposed .sdk-tile:focus-visible {
+  background: var(--menu-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ds-proposed .sdk-tile .sdk-tile-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-small);
+  background: var(--img, var(--text-dim));
+}
+
+.ds-proposed .sdk-tile[aria-pressed="true"] {
+  background: var(--selected-bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ds-proposed .sdk-tile > .sdk-tile-check {
+  top: 12px;
+  right: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-round);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 17px; /* the check sits a hair low in an 18px line, and a hair left: a line 1px shorter and 0.75px of padding on the left (badgeInk, within 0.5px of the middle of the disc) */
+  padding-left: 0.75px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.ds-proposed .sdk-tile[aria-pressed="true"] > .sdk-tile-check {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-picker, .sdk-kind-field, .sdk-iconpick-btn, .sdk-tile, .sdk-picker-icon) { transition: none; }
+}

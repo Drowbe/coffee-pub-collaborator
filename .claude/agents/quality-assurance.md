@@ -30,7 +30,10 @@ the reports as claims to check, not facts.
    - a single-environment install (no `BASE_DOMAIN`) and a hosted one (with `BASE_DOMAIN`);
    - empty, missing, oversized and malformed input; repeated and simultaneous requests;
    - a narrow module, a phone width, the keyboard alone;
-   - existing data and links: do stored keys, routes, element ids and old installs still work?
+   - existing data and links: the product is not released, so do not fail a change for breaking
+     old stored keys, routes, element ids or installs, and do not ask for aliases, redirects or
+     migrations (the 0.4.0 names migration stays as is). Check only that the change is clean and
+     nothing in the current code still points at what was replaced.
 5. **Security.** Anything touching auth, sessions, two-step sign-in, environments, caps, uploads, module
    sandboxing, the billing webhook or access keys: can someone reach what they shouldn't, skip a
    check, or read another environment's data? Is every refusal the right status with a plain sentence?

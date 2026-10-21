@@ -1,0 +1,107 @@
+{
+  "about": "check-spacing: today's spacing values off the scale (0 1 2 4 8 12 16 20 24 32 40 48 px), per file and value. Counts may only fall; lower them with: node tools/check-spacing.mjs --update",
+  "counts": {
+    "modules/budget/src/budget.css": {
+      "3px": 1,
+      "6px": 3,
+      "10px": 4,
+      "14px": 1
+    },
+    "modules/calendar/src/calendar-widget.css": {
+      "-2.5px": 1,
+      "5px": 1,
+      "10px": 2
+    },
+    "modules/calendar/src/calendar.css": {
+      "3px": 2,
+      "5px": 1,
+      "6px": 5,
+      "10px": 3
+    },
+    "modules/places/src/places.css": {
+      "3px": 1,
+      "5px": 1,
+      "6px": 8,
+      "7px": 3,
+      "10px": 3,
+      "14px": 3
+    },
+    "modules/polls/src/polls-widget.css": {
+      "5px": 1
+    },
+    "modules/polls/src/polls.css": {
+      "6px": 5,
+      "10px": 3
+    },
+    "modules/research/src/research.css": {
+      "5px": 1,
+      "6px": 7,
+      "7px": 1,
+      "10px": 7,
+      "14px": 4,
+      "74px": 1
+    },
+    "modules/stream/src/stream-keyed.css": {
+      "10px": 1
+    },
+    "modules/stream/src/stream.css": {
+      "6px": 4,
+      "10px": 4
+    },
+    "modules/todo/src/todo-widget.css": {
+      "5px": 1
+    },
+    "modules/todo/src/todo.css": {
+      "5px": 1,
+      "6px": 4,
+      "7px": 2,
+      "10px": 1
+    },
+    "modules/travel/src/travel-lib-cards.css": {
+      "-6px": 3,
+      "-28px": 1,
+      "3px": 2,
+      "5px": 1,
+      "6px": 19,
+      "7px": 2,
+      "9px": 2,
+      "10px": 24,
+      "14px": 18,
+      "26px": 1,
+      "28px": 1
+    },
+    "modules/travel/src/travel-lib-editor.css": {
+      "6px": 1,
+      "10px": 2
+    },
+    "modules/travel/src/travel-widget.css": {
+      "5px": 1
+    },
+    "modules/travel/src/travel.css": {
+      "5px": 1,
+      "6px": 8,
+      "10px": 4,
+      "18px": 1
+    },
+    "public/layout-debug.js": {
+      "6px": 1
+    },
+    "public/module-host.js": {
+      "3px": 1,
+      "9px": 1,
+      "10px": 1
+    },
+    "public/style.css": {
+      "-6px": 1,
+      "-10px": 4,
+      "3px": 7,
+      "5px": 4,
+      "6px": 64,
+      "7px": 3,
+      "10px": 51,
+      "14px": 13,
+      "18px": 10,
+      "28px": 1
+    }
+  }
+}

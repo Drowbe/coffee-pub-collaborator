@@ -181,7 +181,6 @@ async function fromHost() {
   const note = document.getElementById('signin-note');
   const sayNote = (text) => { note.textContent = text; note.hidden = !text; };
   const select = document.getElementById('signin-env');
-  const navSignin = document.getElementById('nav-signin');
 
   (async () => {
     let environments = [];
@@ -209,9 +208,8 @@ async function fromHost() {
     const recent = !onBase ? undefined : cookie('env_hint').split(',').map((s) => s.trim()).find((s) => environments.some((e) => e.slug === s));
     if (recent) {
       select.value = recent;
-      const env = environments.find((e) => e.slug === recent);
-      if (navSignin) { navSignin.href = envUrl(recent); navSignin.textContent = `Sign in to ${env.name || recent}`; }
-      chosen();
+      // only here, in the Sign in section: the bar's Sign in names no environment, on a page anyone can see
+      chosen({ focus: false }); // preselected on arrival: no focus, so the page does not jump to the form
     }
   })();
 
@@ -219,14 +217,14 @@ async function fromHost() {
   // plain, top-level form post, so its session cookie is first-party), which signs the person in and sends them on.
   const creds = document.getElementById('signin-creds');
   const form = document.getElementById('signin-form');
-  function chosen() {
+  function chosen({ focus = true } = {}) {
     const slug = select.value;
     const ok = slugOk(slug) && Boolean(product.baseDomain);
     creds.hidden = !ok;
     form.action = ok ? envUrl(slug) : '#signin';
-    if (ok) { sayNote(''); document.getElementById('signin-login').focus(); }
+    if (ok) { sayNote(''); if (focus) document.getElementById('signin-login').focus(); }
   }
-  select.addEventListener('change', chosen);
+  select.addEventListener('change', () => chosen());
   form.addEventListener('submit', (e) => {
     const slug = select.value;
     if (!slugOk(slug) || !product.baseDomain) { e.preventDefault(); sayNote('Choose an environment first.'); return; }

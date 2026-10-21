@@ -116,6 +116,15 @@ test('light or dark is chosen, not followed from the browser', () => {
   assert.ok(/return 'light';/.test(early), 'landing.js: light is not the default');
 });
 
+// The bar's Sign in reads "Sign in" for everyone and goes to the Sign in section: the environment this browser was last in
+// (env_hint) is only preselected in that section's chooser, never named in the bar of a public page.
+test('the bar names no environment', () => {
+  const js = fs.readFileSync(path.join(PUBLIC, 'landing.js'), 'utf8');
+  for (const f of files) assert.ok(/<a class="btn btn-quiet" href="#signin" id="nav-signin">Sign in<\/a>/.test(pages[f]), `${f}: the bar's Sign in is not plain`);
+  assert.ok(!/nav-signin/.test(js), 'landing.js changes the bar\'s Sign in');
+  assert.ok(/select\.value = recent/.test(js), 'landing.js no longer preselects the recent environment in the Sign in section');
+});
+
 // The sign-up name note (public/landing.js slugChecker) and the host console's Sign-up line (public/host.js signupFact),
 // run from their source with stubs.
 const fromSource = (file, name) => {

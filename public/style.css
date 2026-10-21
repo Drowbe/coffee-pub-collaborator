@@ -8509,8 +8509,8 @@ body.in-aside .side-column-strip > .canvas {
 }
 
 /* Call position Left (space.js, callPlaceFor): in a column at least 560px wide the call sits beside the chat, the
-   column's full height: its titlebar at the top, the tiles from the top as big as the height lets them be (fitTiles
-   measures the strip, less the toolbar), the toolbar right under them, then the Join row out of the call; the chat
+   column's full height: its titlebar at the top, the tiles in all the height there is, the toolbar pinned to the bottom
+   (as when the call floats or is popped out), the Join row out of the call; the chat
    on the right with all of its parts. The line between them (#side-column-call-splitter) sets the call's width
    (--side-column-call-w). The handle sits over the chat's titlebar, so that keeps clear of it. */
 .side-column.call-left {
@@ -8552,15 +8552,10 @@ body:not(.in-aside) .side-column.call-left > .side-column-chat {
 }
 
 .side-column.call-left .side-column-strip > .canvas {
-  flex: none;
+  flex: 1 1 auto;
+  min-height: 0;
   height: auto;
-  grid-template-rows: auto auto;
-}
-
-/* The tiles' own height: what fitTiles() used for them (--grid-used-h), so no band above or below them. */
-.side-column.call-left .side-column-strip .grid {
-  flex: none;
-  height: var(--grid-used-h, auto);
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .side-column.call-left #chat-content > header {

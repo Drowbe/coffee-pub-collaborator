@@ -3415,9 +3415,6 @@ function applyLayout() {
 // window shape. Sizes go into CSS variables the layouts read.
 const RATIO = 16 / 9;
 const GAP = 10;
-// Beside the chat (Call position Left) the tiles take only the height they use, from the top, with the toolbar right
-// under them (Thomas, 2026-10-14: no tile floating in a tall empty column): they are sized to the strip's whole height
-// less the toolbar, and the grid is then as tall as what they used (--grid-used-h, style.css).
 function fitTiles(grid, portrait) {
   // Ghost tiles (members stepped into an aside) are real .tile elements in
   // the grid too -- size for all of them, or the ones left out get the
@@ -3426,16 +3423,8 @@ function fitTiles(grid, portrait) {
   const style = getComputedStyle(grid);
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const W = grid.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  const beside = grid.closest('.side-column.call-left .side-column-strip');
-  const toolbar = beside ? beside.querySelector('.video-bar') : null;
-  const H = beside ? beside.clientHeight - (toolbar ? toolbar.offsetHeight : 0) - padY : grid.clientHeight - padY;
-  if (!beside) grid.style.removeProperty('--grid-used-h');
-  else {
-    portrait = H > W; // the room's shape, not the grid's (as tall as its tiles there)
-    grid.classList.toggle('portrait', portrait);
-  }
+  const H = grid.clientHeight - padY;
   if (n === 0 || W <= 0 || H <= 0) return;
-  let rowsUsed = 1;
   let w = 0;
   let h = 0;
   let sw = 0;
@@ -3468,15 +3457,8 @@ function fitTiles(grid, portrait) {
       if (tw > w) {
         w = tw;
         h = th;
-        rowsUsed = rows;
       }
     }
-  }
-  if (beside) {
-    let used = rowsUsed * Math.floor(h) + GAP * (rowsUsed - 1);
-    if (prefs.layout === 'strip') used = portrait ? n * Math.floor(h) + GAP * (n - 1) : Math.floor(h);
-    else if (prefs.layout === 'spotlight' && n > 1) used = Math.floor(h) + GAP + Math.floor(sh);
-    grid.style.setProperty('--grid-used-h', `${Math.ceil(Math.min(H, used) + padY)}px`);
   }
   grid.style.setProperty('--tw', `${Math.floor(w)}px`);
   grid.style.setProperty('--th', `${Math.floor(h)}px`);
@@ -3487,7 +3469,7 @@ function fitTiles(grid, portrait) {
 // Refit whenever the grid area changes (window resize, chat drawer, pop out).
 const refit = new ResizeObserver(() => applyLayout());
 refit.observe($('grid'));
-if ($('side-column-strip')) refit.observe($('side-column-strip')); // beside the chat the grid is as tall as its tiles: the strip says the room
+if ($('side-column-strip')) refit.observe($('side-column-strip')); // the column's strip: its splitter and Call position change the room
 
 // Click a tile: pin it as the spotlight (click again to unpin).
 function spotlight(identity) {

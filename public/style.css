@@ -3292,8 +3292,12 @@ a.crumb-here:hover {
   background: color-mix(in srgb, var(--accent) 80%, black);
 }
 
-#mic.on .meter {
-  background: color-mix(in srgb, var(--on-accent) 35%, transparent);
+#mic.on .sdk-mic > span {
+  background: color-mix(in srgb, var(--text-on-accent) 35%, transparent);
+}
+
+#mic.on .sdk-mic > span.on {
+  background: var(--status-ok-mark);
 }
 
 /* Off is calm: the neutral fill and the slashed glyph, nothing red. */
@@ -3497,22 +3501,19 @@ a.crumb-here:hover {
   z-index: 1;
 }
 
-/* microphone level fills the button from the bottom */
-.fbtn .meter {
+/* The microphone level (the SDK's .sdk-mic, five bars) sits at the bottom of the button, behind the glyph. It still tracks your real input
+   level while muted (so you can see you're talking before you unmute), but lit bars there read as "still live": they go muted. */
+.fbtn .sdk-mic {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(var(--level, 0) * 100%);
-  background: rgba(111, 174, 107, 0.55);
-  transition: height 0.08s linear;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
-/* The meter still tracks your real input level while muted (so you can see
-   you're talking before you unmute), but a green fill there read as "still
-   live" -- a grey one reads as off. */
-.fbtn.off .meter {
-  background: color-mix(in srgb, var(--text) 18%, transparent);
+.fbtn.off .sdk-mic > span.on,
+.fbtn.gated .sdk-mic > span.on {
+  background: var(--text-muted);
 }
 
 /* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. The column keeps its own overflow, so a tall import panel scrolls inside the column instead of pushing the formatting row out from under the input. */
@@ -4147,10 +4148,6 @@ a.crumb-here:hover {
 .checks > .sdk-choice-row,
 .check-group > .sdk-choice-row {
   width: auto;
-}
-
-.fbtn.gated .meter {
-  background: rgba(168, 153, 138, 0.35);
 }
 
 .fbtn.ptt .glyph::after {

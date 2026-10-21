@@ -4606,6 +4606,31 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   background: var(--pg-behind);
   pointer-events: none;
 }
+
+/* ---- the call's microphone level: its own pattern, five vertical bars, the lit ones in the ok mark (.on); in the call bar it sits in the button (public/style.css) ---- */
+.sdk-mic {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+
+.sdk-mic > span {
+  display: block;
+  width: 3px;
+  border-radius: var(--radius-round);
+  background: var(--pg-track);
+}
+
+.sdk-mic > span:nth-child(1) { height: 4px; }
+.sdk-mic > span:nth-child(2) { height: 7px; }
+.sdk-mic > span:nth-child(3) { height: 10px; }
+.sdk-mic > span:nth-child(4) { height: 13px; }
+.sdk-mic > span:nth-child(5) { height: 16px; }
+
+.sdk-mic > span.on {
+  background: var(--status-ok-mark);
+}
 /* progress:end */
 
 /* ================= Choice rows (design system step 27) =================

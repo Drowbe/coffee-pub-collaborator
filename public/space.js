@@ -4919,13 +4919,25 @@ async function openMic() {
   return mic.track;
 }
 
+// The call bar's microphone level: five bars, the first n lit (n from 0 to 5).
+let micBarsLit = -1;
+function showMicLevel(level) {
+  const n = Math.min(5, Math.round(level * 5));
+  if (n === micBarsLit) return;
+  micBarsLit = n;
+  const el = $('meter');
+  [...el.children].forEach((bar, i) => bar.classList.toggle('on', i < n));
+  el.setAttribute('aria-valuenow', String(n));
+  el.setAttribute('aria-valuetext', ['Silent', 'Quiet', 'Quiet', 'Medium', 'Loud', 'Loud'][n]);
+}
+
 function closeMic() {
   if (mic.raw) mic.raw.stop();
   if (mic.source) mic.source.disconnect();
   mic.raw = null;
   mic.source = null;
   mic.shown = 0;
-  $('meter').style.setProperty('--level', '0');
+  showMicLevel(0);
 }
 
 function applyMicSettings() {
@@ -4941,7 +4953,7 @@ function applyMicSettings() {
 // reads better than raw samples.
 function onMicLevel({ level, open }) {
   mic.shown = Math.max(Math.min(1, level * 4), mic.shown * 0.85);
-  $('meter').style.setProperty('--level', mic.shown.toFixed(2));
+  showMicLevel(mic.shown);
   if (open !== mic.open) {
     mic.open = open;
     $('mic').classList.toggle('gated', !open);

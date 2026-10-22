@@ -13,7 +13,7 @@
   const screens = data.screens || [];
   const themes = data.themes || [];
   const nav = $('#ds-nav');
-  const stage = $('#pt-stage');
+  const view = $('#pt-view');
   const status = $('#pt-status');
   const state = { id: '', w: 0, mode: 'dark', theme: themes[0] ? themes[0].id : 'strong-coffee', measure: false, scale: 'fit' };
   let frame = null; let box = null; let counts = null;
@@ -64,11 +64,11 @@
   function fit() {
     if (!box) return;
     const v = variantOf(screenOf(state.id), state.w);
-    const room = stage.clientWidth;
-    const k = state.scale === 'fit' && room > 0 && room < v.width + 2 ? room / (v.width + 2) : 1;
+    const avail = view.clientWidth;
+    const k = state.scale === 'fit' && avail > 0 && avail < v.width + 2 ? avail / (v.width + 2) : 1;
     box.style.transform = k === 1 ? '' : `scale(${k})`;
-    stage.classList.toggle('pt-fit', k !== 1);
-    stage.style.height = `${Math.ceil((v.height + 2) * k)}px`;
+    view.classList.toggle('pt-fit', k !== 1);
+    view.style.height = `${Math.ceil((v.height + 2) * k)}px`;
     box.dataset.scale = String(Math.round(k * 1000) / 1000);
     say();
   }
@@ -83,7 +83,7 @@
 
   function load() {
     const s = screenOf(state.id);
-    if (!s) { stage.innerHTML = '<p class="pt-empty">No screens yet. Run <code>node tools/prototype-build.mjs</code>.</p>'; status.textContent = ''; return; }
+    if (!s) { view.innerHTML = '<p class="pt-empty">No screens yet. Run <code>node tools/prototype-build.mjs</code>.</p>'; status.textContent = ''; return; }
     const v = variantOf(s, state.w);
     state.w = v.width;
     $('#pt-title').textContent = s.name;
@@ -93,7 +93,7 @@
     counts = null;
     const q = new URLSearchParams({ mode: state.mode, theme: state.theme });
     if (state.measure) q.set('measure', '1');
-    stage.innerHTML = '';
+    view.innerHTML = '';
     box = D.createElement('div');
     box.className = 'pt-box';
     box.style.width = `${v.width + 2}px`;
@@ -104,7 +104,7 @@
     frame.style.width = `${v.width + 2}px`; frame.style.height = `${v.height + 2}px`;
     frame.src = `prototype/${v.file}?${q}`;
     box.appendChild(frame);
-    stage.appendChild(box);
+    view.appendChild(box);
     fit();
   }
 

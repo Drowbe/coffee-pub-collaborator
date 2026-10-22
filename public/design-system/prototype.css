@@ -6,8 +6,8 @@
 .pt-head .ds-status { margin: 0; }
 .pt-measure { display: inline-flex; align-items: center; border-radius: var(--radius-small); }
 /* The screen at its own width and height; scaled down to the column when Fit is chosen (prototype.js sets the scale). */
-.pt-stage { overflow: auto; border-radius: var(--radius-medium); background: var(--surface-page); }
-.pt-stage.pt-fit { overflow: hidden; }
+.pt-view { overflow: auto; border-radius: var(--radius-medium); background: var(--surface-page); }
+.pt-view.pt-fit { overflow: hidden; }
 .pt-box { position: relative; transform-origin: 0 0; }
 .pt-frame { display: block; border: 1px solid var(--edge-hairline); background: var(--surface-page); }
 .pt-empty { padding: 24px; color: var(--text-muted); }

@@ -110,7 +110,7 @@ async function browserPart() {
     await s('Page.enable'); await s('Runtime.enable'); await s('Log.enable');
     const evalIn = async (expr) => { const r = await s('Runtime.evaluate', { expression: `(async () => (${expr}))()`, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text); return r.result.value; };
     const until = async (expr, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await evalIn(expr).catch(() => false)) return true; await sleep(100); } return false; };
-    const FR = `document.querySelector('#pt-stage iframe')`;
+    const FR = `document.querySelector('#pt-view iframe')`;
     const ready = `(() => { const f = ${FR}; const d = f && f.contentDocument; if (!d || !d.documentElement.hasAttribute('data-proto-ready')) return false; return [...d.querySelectorAll('iframe[src]')].every((x) => x.contentDocument && x.contentDocument.documentElement.hasAttribute('data-proto-ready')); })()`;
     const colour = `getComputedStyle(${FR}.contentDocument.body).backgroundColor`;
     const looked = [];

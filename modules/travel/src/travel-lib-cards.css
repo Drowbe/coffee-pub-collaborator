@@ -190,7 +190,7 @@
 .stay .ins b { font-size: var(--text-14); font-variant-numeric: tabular-nums; }
 .stay .ins .sep { width: 34px; border-top: 2px dotted color-mix(in srgb, var(--tone) 55%, transparent); }
 .stay .ins > div:last-child { text-align: right; }
-.stay .foot { padding: 0 14px 12px; }
+.stay .foot { margin-top: 0; padding: 8px 14px 12px; } /* the card has no padding: each part owns its own, so the chips' 8px is padding here, not a margin */
 .stay.mid { display: flex; align-items: center; gap: 10px; padding: 7px 40px 7px 10px; border-style: dashed; background: transparent; }
 .stay.mid .badge { width: 28px; height: 28px; font-size: var(--text-12); }
 .stay.mid h3 { font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }

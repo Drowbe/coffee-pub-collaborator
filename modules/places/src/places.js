@@ -395,25 +395,20 @@
     return el;
   };
 
-  // Beside the map in a Workspace's Map (a composite): Add a place is the composite's "+" (host.add.set answers true there;
-  // on the /map page it answers false, and Add a place stays at the top of the list), and the status line names the
-  // selected place and its kind ("Blue Door · Food"). The empty state's own button stays: it adds to an empty list.
+  // Beside the map (the Map destination's panel, on the /map page or a Workspace's Map): Add a place is the page's "+" once
+  // it is known where the viewer may add, and the status line names the selected place and its kind ("Blue Door · Food").
+  // The empty state's own button stays: it adds to an empty list.
   const ADD_PLACE = { id: 'place', label: 'Add a place', icon: 'location-dot' };
-  let addHosted = false;
   let addAsked = null;
   function syncChrome() {
-    if (asPart && host.add) {
+    if (asPart) {
       const want = state.loaded && canAdd() ? 'place' : '';
       if (want !== addAsked) {
         addAsked = want;
-        host.add.set(want ? [ADD_PLACE] : []).then((drawn) => {
-          if (Boolean(drawn) === addHosted) return;
-          addHosted = Boolean(drawn);
-          hide($('part-head'), !state.loaded || !canAdd() || addHosted);
-        }).catch(() => {});
+        host.add.set(want ? [ADD_PLACE] : []).catch(() => {});
       }
     }
-    if (!host.status || !state.loaded) return;
+    if (!state.loaded) return;
     if (asPart) {
       const sel = state.selected ? entries().find((x) => rowKey(x.w, x.p.id) === state.selected) : null;
       host.status.set(sel ? [{ text: sel.p.title }, { text: catOf(sel.p).label }] : []).catch(() => {});
@@ -431,27 +426,24 @@
     host.status.set(items).catch(() => {});
   }
   // Add a place is the "+" in the titlebar: it opens the dialog (its Position field takes pasted coordinates or a map link).
-  if (host.add) host.on('add', (e) => { if (e.id === 'place' && canAdd()) { closeFound(); openEditor(null, null); } });
+  host.on('add', (e) => { if (e.id === 'place' && canAdd()) { closeFound(); openEditor(null, null); } });
 
   function render() {
     syncChrome();
     const all = entries().map((x) => x.p);
     const empty = state.loaded && !all.length;
-    hide($('app').querySelector('.head'), empty || asPart);
-    hide($('part-head'), !asPart || !state.loaded || !canAdd() || addHosted);
-    hide($('chips'), empty || !state.loaded);
-    fill($('app').querySelector('.head'), { count: all.length ? String(all.length) : '' });
     const body = $('body');
-    if (!state.loaded) { body.replaceChildren(clone('tpl-state-loading')); return; }
+    if (!state.loaded) { syncToolbar(empty, []); body.replaceChildren(clone('tpl-state-loading')); return; }
     // Beside the map, with nothing on in the page's filter (named Show in a space, with the space word's plural elsewhere).
     if (asPart && !shownWheres().length) {
       const none = clone('tpl-state-none');
       fill(none, { text: `Pick at least one in ${inSpace ? 'Show' : word('space', { many: true, cap: true })}.` });
       body.replaceChildren(none);
-      hide($('chips'), true);
+      syncToolbar(empty, []);
       return;
     }
     if (empty) {
+      syncToolbar(empty, []);
       const st = clone('tpl-state-empty');
       if (asPart) { fill(st, { title: 'No places here yet.' }); hide(st.querySelector('[data-slot="text"]'), true); }
       body.replaceChildren(st);
@@ -461,22 +453,13 @@
       hydrate(root);
       return;
     }
-    // The chips: All, then a chip per category with places, each with its count of what the search leaves.
+    // The toolbar's chips: one per category with places, its count of what the search leaves in its tooltip (one on or none).
     const searched = visible().map((x) => x.p);
     const counts = Object.fromEntries(cats.map((c) => [c.id, searched.filter((p) => catOf(p).id === c.id).length]));
-    const chips = [];
-    const chip = (key, icon, label, count) => {
-      const c = clone('tpl-chip');
-      c.dataset.cat = key;
-      if (key) tone(c, categoryColor(cats, catRow(key)));
-      setIcon(c.querySelector('[data-icon]'), icon);
-      fill(c, { label, count: String(count) });
-      c.setAttribute('aria-pressed', String(state.cat === key));
-      chips.push(c);
-    };
-    chip('', 'layer-group', 'All', searched.length);
-    for (const c of cats) if (counts[c.id]) chip(c.id, c.icon, c.label, counts[c.id]);
-    $('chips').replaceChildren(...chips);
+    syncToolbar(empty, cats.filter((c) => counts[c.id] || state.cat === c.id).map((c) => {
+      const look = categoryColor(cats, c);
+      return { id: c.id, label: c.label, ...(ICON_NAME.test(c.icon || '') ? { icon: c.icon } : {}), ...(look.tint ? { tint: look.tint } : {}), note: String(counts[c.id] || 0), on: state.cat === c.id };
+    }));
     // The groups.
     const shown = visible().filter((x) => !state.cat || catOf(x.p).id === state.cat);
     if (!shown.length) {
@@ -523,7 +506,24 @@
     return stores[key];
   }
 
-  $('filter').addEventListener('input', () => { state.filter = $('filter').value; render(); });
+  // The toolbar row: the filter (on its own; beside the map the page's search filters instead) and the category chips, then
+  // the view switch (whose places), which follows in the same row. No filter while there is nothing to filter.
+  function syncToolbar(empty, chips) {
+    const items = [];
+    if (!asPart && !empty) items.push({ type: 'search', id: 'search', value: state.filter, placeholder: 'Filter places', label: 'Filter places' });
+    if (chips.length) items.push({ type: 'chips', id: 'category', label: 'Category', icon: 'filter', options: chips });
+    host.toolbar.set(items).catch(() => {});
+  }
+  host.on('toolbar', (e) => {
+    if (e.id === 'search' && !asPart && typeof e.value === 'string') {
+      if (e.value === state.filter) return;
+      state.filter = e.value;
+      render();
+    } else if (e.id === 'category' && typeof e.value === 'string') {
+      state.cat = e.on ? e.value : state.cat === e.value ? '' : state.cat;
+      render();
+    }
+  });
 
   // Beside the map: mark the selected place (the map's or this list's), and bring it into view when the map picked it.
   function markSelected(scroll) {
@@ -1275,7 +1275,7 @@
     }
     if (t && t.dataset.action === 'add-place') return openEditor(null, null);
     if (t && t.dataset.action === 'find-new') return void (state.q && showFound(state.q, sharedSearch(state.q)));
-    if (t && t.dataset.action === 'clear-filter') { if (!asPart) { state.filter = ''; $('filter').value = ''; } state.cat = ''; return render(); }
+    if (t && t.dataset.action === 'clear-filter') { if (!asPart) state.filter = ''; state.cat = ''; return render(); }
     const chip = ev.target.closest('.sdk-chip');
     if (chip) { state.cat = chip.dataset.cat === state.cat ? '' : chip.dataset.cat; return render(); }
     if (rowEl && !ev.target.closest('.item-menu')) {
@@ -1616,7 +1616,7 @@
     { id: 'space', label: `This ${word('space')}`, icon: 'users' },
     { id: 'global', label: everyoneName(), icon: 'globe' },
   ].filter((o) => allowed[o.id]);
-  if (!asPart && host.add) host.add.set(canAdd() ? [ADD_PLACE] : []).catch(() => {});
+  if (!asPart) host.add.set(canAdd() ? [ADD_PLACE] : []).catch(() => {});
   const viewSwitch = !asPart && VIEW_OPTIONS.length > 1 ? host.ui.viewSwitch({ id: 'whose', options: VIEW_OPTIONS, value: view, onChange: showView }) : null;
   function showView(next) {
     if (!allowed[next]) next = inSpace ? 'space' : 'my';

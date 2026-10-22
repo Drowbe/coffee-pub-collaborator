@@ -5,23 +5,16 @@
  * `.app.narrow`, which the script sets from the pane's width (under 720 px), not the window's.
  */
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body { margin: 0; overflow: hidden; }
 [hidden] { display: none !important; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .msg { padding: 16px; color: var(--text-muted); }
-.app { display: flex; flex-direction: column; height: 100%; padding: 0; gap: var(--space-2); position: relative; background: var(--surface-page); }
-/* Everything but the filter's band (.head, a .sdk-toolbar: the window's own toolbar band, full width) sits var(--space-3) in. */
-.app > :not(.head, .found, dialog) { margin-inline: var(--space-3); }
-.app:has(> .head[hidden]) { padding-top: var(--space-2); }
-
-/* ---- the top: a title, a filter, the categories ---- */
-/* .head is a toolbar band (.sdk-toolbar, system.css modulechrome): its height, inset, search and count are the window's. */
-.sdk-chip[data-cat] { --tone: var(--accent-fill); --chip-glyph: var(--tone); } /* the script sets --tone to the category's colour; it shows on the icon only */
+/* #app is the content slot (.sdk-slot, system.css): the host fills the frame with it and pads it. The title, the toolbar row
+   (the filter and the category chips) and the status line are the host's. */
+.app { background: var(--surface-page); }
 
 /* ---- the list, grouped by category ---- */
-.app > .body { flex: 1; min-height: 0; overflow: auto; margin-inline: 0; padding: 0 var(--space-3) var(--space-4); }
+.body { flex: 1; min-height: 0; overflow: auto; }
 /* the group header, the banded card and its icon chip are the Cards family of system.css */
 .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-2); }
 
@@ -68,8 +61,7 @@ body { margin: 0; overflow: hidden; }
 .app.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: -4px; }
 .view-note .ic { color: var(--accent); }
 
-/* ---- as the Map destination's panel: no header or bar; Add a place on top, search results above the list ---- */
-.part-head { display: flex; gap: 8px; }
+/* ---- as the Map destination's panel: search results above the list ---- */
 .scope-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; color: var(--text-muted); font-size: var(--text-11); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scope-mark .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .find-more { margin: 14px 0 0; text-align: center; }

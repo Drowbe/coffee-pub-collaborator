@@ -966,7 +966,7 @@
    "family": "Places",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "tier": "core"
   },
   {
@@ -974,7 +974,7 @@
    "family": "Places",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": "button.tb-tab",
@@ -989,7 +989,7 @@
    "family": "Places",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": "button.tb-tab:nth-of-type(3)",
@@ -1012,10 +1012,10 @@
    "family": "Chips and badges",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
-     "click": "#module-frame >>> button.sdk-chip",
+     "click": ".tb-chips button.sdk-chip",
      "text": "Sights"
     }
    ],
@@ -1026,7 +1026,7 @@
    "family": "Menus",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": "#module-frame >>> button[data-action=menu]"
@@ -1039,7 +1039,7 @@
    "family": "Banners, toasts and notices",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": "#module-frame >>> button[data-action=menu]"
@@ -1056,7 +1056,7 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": ".titlebar-add > button"
@@ -1069,7 +1069,7 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": ".titlebar-add > button"
@@ -1086,7 +1086,7 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/modules/places?space={trip}",
-   "wait": "#module-frame >>> .sdk-chip",
+   "wait": "#module-frame >>> .place-row",
    "steps": [
     {
      "click": "#module-frame >>> article.place-row .title"

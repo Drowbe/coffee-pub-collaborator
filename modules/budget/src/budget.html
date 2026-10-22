@@ -21,25 +21,29 @@
     <!-- Overview: the target, what is spent, each category, the burndown -->
     <section id="view-overview" class="view" aria-label="Overview" hidden>
       <p class="hint note" data-slot="withheld-note" hidden></p>
-      <div class="sdk-card target" id="target-tile">
-        <div class="target-head">
-          <h2 class="sdk-card-title" data-slot="target-title">Target</h2>
-          <button class="btn btn-small" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
+      <div class="sdk-card-banded target" id="target-tile">
+        <header class="sdk-card-head">
+          <div class="sdk-card-main"><h2 class="sdk-card-title" data-slot="target-title">Target</h2></div>
+          <button class="btn btn-small btn-quiet" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
+        </header>
+        <div class="sdk-card-body">
+          <p class="big" data-slot="big"></p>
+          <div class="sdk-progress" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="sdk-progress-planned" id="bar-expected"></span><span class="sdk-progress-fill" id="bar-spent"></span></div>
+          <dl class="sums" id="sums"></dl>
+          <p class="hint" data-slot="target-note" hidden></p>
         </div>
-        <p class="big" data-slot="big"></p>
-        <div class="sdk-progress" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="sdk-progress-planned" id="bar-expected"></span><span class="sdk-progress-fill" id="bar-spent"></span></div>
-        <dl class="sums" id="sums"></dl>
-        <p class="hint" data-slot="target-note" hidden></p>
       </div>
-      <div class="sdk-card" id="cats-tile">
-        <h2 class="sdk-card-title">By category</h2>
-        <div class="sdk-card-list" id="cat-rows"></div>
+      <div class="sdk-card-banded" id="cats-tile">
+        <header class="sdk-card-head"><div class="sdk-card-main"><h2 class="sdk-card-title">By category</h2></div></header>
+        <div class="sdk-card-body"><div class="sdk-card-list" id="cat-rows"></div></div>
       </div>
-      <div class="sdk-card" id="burn-tile">
-        <h2 class="sdk-card-title">Target left over time</h2>
-        <div class="chart" id="chart"></div>
-        <ul class="legend" id="legend" aria-hidden="true"></ul>
-        <p class="hint" id="burn-words"></p>
+      <div class="sdk-card-banded" id="burn-tile">
+        <header class="sdk-card-head"><div class="sdk-card-main"><h2 class="sdk-card-title">Target left over time</h2></div></header>
+        <div class="sdk-card-body">
+          <div class="chart" id="chart"></div>
+          <ul class="legend" id="legend" aria-hidden="true"></ul>
+          <p class="hint" id="burn-words"></p>
+        </div>
       </div>
     </section>
 

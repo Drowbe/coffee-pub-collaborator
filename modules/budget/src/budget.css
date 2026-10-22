@@ -19,8 +19,9 @@ body { margin: 0; overflow: hidden; }
 .app:not(.narrow) #view-overview { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .app:not(.narrow) #burn-tile { grid-column: 1 / -1; }
 
-/* ---- cards: the card, its title, the rows and the group headers are the Cards family of system.css ---- */
-.target-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* ---- the overview's three boxes are the shared banded card (Cards, system.css): the band holds the title (and the target's
+   one button), the body is a stack, its parts one gap apart. The rows and the group headers are the Cards family too. ---- */
+#view-overview .sdk-card-banded > .sdk-card-body { display: flex; flex-direction: column; gap: var(--gap-in); }
 .big { margin: 0; font-size: var(--text-22); font-weight: var(--weight-strong); line-height: var(--leading-title); overflow-wrap: anywhere; }
 .big .of { color: var(--text-muted); font-size: var(--text-14); font-weight: var(--weight-regular); }
 .big.over { color: var(--danger); }

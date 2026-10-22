@@ -1380,8 +1380,8 @@
   transition: background var(--motion-fast);
 }
 
-/* A row inside a card takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
-:where(.sdk-card, .user-card, .space-choice) :where(.sdk-row) {
+/* A row inside a card (or a banded card) takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
+:where(.sdk-card, .sdk-card-banded, .user-card, .space-choice) :where(.sdk-row) {
   --s: var(--surface-field);
   border-color: transparent;
   border-radius: var(--radius-small);

@@ -12,8 +12,9 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .nav h2 { margin: 0 6px 0 0; font-size: var(--text-18); }
 .body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 
-/* a poll */
-/* the card, its title and menu slot, the rows and the group headers are the Cards family of system.css */
+/* a poll: the shared banded card (Cards, system.css). The band holds the question and the votes and the "...", the body the
+   rest, one gap apart; the option rows and the group headers are the Cards family too */
+.poll > .sdk-card-body { display: flex; flex-direction: column; gap: var(--gap-in); }
 .poll.closed { opacity: 0.85; }
 .poll h3 { cursor: grab; }
 
@@ -47,7 +48,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .opt-row input { flex: 1; min-width: 0; }
 
 .sdk-chip-tag b { font-weight: var(--weight-strong); }
-.poll.flash { background: var(--fill-selected); }
+.poll.flash { --s: color-mix(in srgb, var(--accent-fill) 28%, var(--surface-card)); } /* the band, a step of the box, follows */
 
 .opt.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 .optlink { display: flex; align-items: center; gap: 4px; margin: 2px 0 6px 4px; }

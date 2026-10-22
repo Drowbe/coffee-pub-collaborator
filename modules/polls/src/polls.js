@@ -305,15 +305,16 @@
     }).join('');
     const canManage = mayManage(x);
     const status = closesText(p);
-    return `<article class="sdk-card poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
-      ${canManage ? `<button class="sdk-card-menu sdk-icon-btn btn-quiet btn-small" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}
-      <h3 class="sdk-card-title" data-drag="${esc(x.key)}" title="Drag onto a to-do to link it">${esc(p.question)}</h3>
-      <div class="meta">${p.multi ? 'Pick any' : 'Pick one'} &middot; ${voters} ${voters === 1 ? 'vote' : 'votes'}${status ? `<span class="sdk-chip-tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
+    return `<article class="sdk-card-banded poll ${closed ? 'closed' : ''}" data-poll="${esc(x.key)}">
+      <header class="sdk-card-head"><div class="sdk-card-main"><h3 class="sdk-card-title" data-drag="${esc(x.key)}" title="${esc(p.question)}. Drag onto a to-do to link it">${esc(p.question)}</h3><span class="sdk-card-sub">${voters} ${voters === 1 ? 'vote' : 'votes'}</span></div>${canManage ? `<button class="sdk-icon-btn btn-quiet btn-small" type="button" data-menu="${esc(x.key)}" aria-haspopup="menu" aria-label="Poll actions" title="Poll actions">${moreSvg}</button>` : ''}</header>
+      <div class="sdk-card-body">
+      <div class="meta">${p.multi ? 'Pick any' : 'Pick one'}${status ? `<span class="sdk-chip-tag">${esc(status)}</span>` : ''}<br>Started by ${esc(p.by || 'someone')}</div>
       <div class="sdk-card-list">${opts}</div>
       ${p.addable && votable && p.options.length < MAX_OPTIONS ? `<div class="addopt"><input type="text" maxlength="100" placeholder="Suggest another option" data-addtext="${esc(x.key)}" aria-label="Suggest another option"><button class="btn btn-small" type="button" data-addopt="${esc(x.key)}">Add</button></div>` : ''}
       ${x.scope === 'spaces' && !closed ? `<div class="meta">Vote in that ${esc(word('space'))}.</div>` : ''}
       ${backlinksHtml(x)}
       ${closed && x.scope === 'own' && offeredFor(x).length ? `<div class="actions">${offeredFor(x).map((a) => `<button class="btn btn-small" type="button" data-action="${esc(x.key)}|${esc(a.action)}" title="${esc(a.moduleName)}">${esc(a.label)}</button>`).join('')}</div>` : ''}
+      </div>
     </article>`;
   }
 

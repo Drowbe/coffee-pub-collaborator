@@ -29,7 +29,7 @@
   <p class="sdk-form-error" id="note" hidden></p>
   <main id="body" class="body"></main>
   <!-- the results of a search, over the foot of the pane while there are some (the script fills it from the tpl-found-* templates) -->
-  <div id="found" class="found" role="listbox" aria-label="Search results" hidden></div>
+  <div id="found" class="sdk-card-banded found" role="listbox" aria-label="Search results" hidden></div>
 
   <!-- a place, in the editor window (host.ui.editor: a modal dialog over everything, never clipped by the module's box): a form for
        someone who may edit, read-only for anyone else (the script fills #f-* and shows .readonly instead) -->
@@ -87,12 +87,11 @@
 <template id="tpl-chip"><button class="sdk-chip" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="sdk-badge" data-slot="count"></span></button></template>
 <template id="tpl-group"><section class="sdk-list-group"><h2 class="sdk-group-head"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="sdk-list rows"></div></section></template>
 
-<!-- a place. The element gets data-id and data-cat (a category id from the environment list; do, eat, stay, travel, other to start). -->
+<!-- a place: the shared banded card (Cards, system.css), the band its icon, its name and its menu. The element gets data-id and data-cat (a category id from the environment list; do, eat, stay, travel, other to start). -->
 <template id="tpl-place">
-  <article class="sdk-card place-row" tabindex="0">
-    <span class="sdk-card-icon"><span class="ic" data-icon=""></span></span>
-    <div class="main">
-      <h3 class="title" data-slot="title"></h3>
+  <article class="sdk-card-banded place-row" tabindex="0">
+    <header class="sdk-card-head"><div class="sdk-card-main"><span class="sdk-card-icon"><span class="ic" data-icon=""></span></span><h3 class="sdk-card-title title" data-slot="title"></h3></div><button class="item-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></header>
+    <div class="sdk-card-body">
       <p class="sub" data-slot="address"></p>
       <div class="meta">
         <span class="scope-mark" hidden><span class="ic" data-icon=""></span><span data-slot="scope"></span></span>
@@ -105,11 +104,10 @@
         <span class="links" data-slot="links"></span>
       </div>
     </div>
-    <button class="item-menu sdk-card-menu sdk-icon-btn btn-quiet btn-small" type="button" data-action="menu" aria-label="Place menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
   </article>
 </template>
-<!-- find a place: the heading ("Results for", the text) and the rows; a row is a result with a Save button -->
-<template id="tpl-found-head"><div class="found-head"><span data-slot="label">Results for</span><b data-slot="query"></b><span class="grow"></span><button class="found-close" type="button" data-action="close-found" aria-label="Close results"><span class="ic" data-icon="xmark"></span></button></div></template>
+<!-- find a place: #found is a banded card, its band the heading ("Results for", the text, the close button), then the rows; a row is a result with a Save button -->
+<template id="tpl-found-head"><header class="sdk-card-head found-head"><div class="sdk-card-main"><span class="sdk-card-sub" data-slot="label">Results for</span><b class="sdk-card-title" data-slot="query"></b></div><button class="found-close sdk-icon-btn btn-quiet btn-small" type="button" data-action="close-found" aria-label="Close results"><span class="ic" data-icon="xmark"></span></button></header></template>
 <template id="tpl-found-row"><div class="found-row" role="option" tabindex="0"><span class="mark"><span class="ic" data-icon="location-dot"></span></span><div><h3 class="title" data-slot="title"></h3><p class="sub" data-slot="address"></p><p class="source" data-slot="source"></p></div><button class="btn btn-primary" type="button" data-action="save-found">Save</button></div></template>
 <template id="tpl-found-searching"><div class="found-rows"><div class="sdk-skel-list" aria-busy="true"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div></template>
 <template id="tpl-found-state"><p class="found-state" data-slot="text"></p></template>

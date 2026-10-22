@@ -539,7 +539,7 @@
    ]
   },
   {
-   "id": "planner-narrow-cards",
+   "id": "planner-narrow-boxes",
    "family": "Planner",
    "as": "mia",
    "url": "/modules/travel?space={trip}",

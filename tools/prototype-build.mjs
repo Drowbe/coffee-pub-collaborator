@@ -337,7 +337,7 @@ async function main() {
     const used = new Set();
     for (const f of fs.readdirSync(dirs.screens)) for (const m of fs.readFileSync(path.join(dirs.screens, f), 'utf8').matchAll(/data-proto-css="(?:sdk )?([0-9a-f]{12})"/g)) used.add(`${m[1]}.txt`);
     for (const f of fs.readdirSync(dirs.styles)) if (!used.has(f)) fs.rmSync(path.join(dirs.styles, f));
-    say(`${list.length} screens in ${path.relative(root, OUT) || OUT}, ${Math.round((Date.now() - started) / 1000)} s`);
+    say(`${list.length} screens in ${OUT.startsWith(root + path.sep) ? path.relative(root, OUT) : OUT}, ${Math.round((Date.now() - started) / 1000)} s`);
     for (const p of problems) say(`FAILED ${p}`);
     return problems.length ? 1 : 0;
   } finally {

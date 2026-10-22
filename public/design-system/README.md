@@ -140,6 +140,11 @@ nobody in it), and Maps' map (no map files in the seed: Maps shows its "not set 
 `node tools/check-prototype.mjs` builds the screens into a folder of its own and checks, in headless Chromium, that every screen at
 every width loads with no console error and no missing file, follows Light and each theme, and that Measure draws labels with numbers.
 `--no-build` checks the committed screens; `--look=<folder>` also writes a picture of each screen at 1x and 2x, dark and light.
+To see how close a screen is to the live page: `node tools/prototype-build.mjs --out=<scratch> --live=<folder>` keeps a picture of each
+live page just before it is captured, then `node tools/check-prototype.mjs --no-build --look=<the same folder>` writes a diff picture
+beside each and says what share of the pixels differ (dark, 1x, the default theme). Today every screen is at 0 % but two: the confirm
+(the live Theme tab previews the theme being deleted; the screen follows the page's theme switch instead) and the Planner at 390 (a
+few rows sit 2px lower).
 
 The review copy: `PAGE=prototype OUT=/tmp/dsT node tools/design-system-snapshot.mjs` builds a folder with the page, the screens and the
 product files they read, laid out as the app serves them; serve the folder with any static server and open `design-system/prototype.html`

@@ -44,9 +44,14 @@ body.dest-in-composite .topbar {
   display: none;
 }
 
-/* A phone (the screen's, destination.js bandsFollowScreen, not the frame's): the toolbar row has more room each side, as a
-   module window's has on a phone. */
-body.destination-page.dest-phone .dest-toolbar {
+/* The toolbar rows' inset follows the screen the window is on (destination.js bandsFollowScreen), not the frame's own width (a
+   docked column is narrower than a phone, and the phone value of --pad-toolbar-x would hold in it): 8px, and on a phone 12px,
+   as a module window's. */
+body.destination-page :is(.dest-toolbar, .dest-side-toolbar) {
+  padding-inline: var(--space-2);
+}
+
+body.destination-page.dest-phone :is(.dest-toolbar, .dest-side-toolbar) {
   padding-inline: var(--space-3);
 }
 

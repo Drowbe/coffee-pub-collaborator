@@ -60,7 +60,7 @@ function wireList(el, def) {
 function control(def, draft = false) {
   if (def.type === 'list') return listControl(def);
   const id = `ms-${def.key}`;
-  if (def.type === 'boolean') return `<label class="sdk-choice-row"><input type="checkbox" data-key="${escapeHtml(def.key)}" ${def.value ? 'checked' : ''}> ${escapeHtml(def.label)}</label>`;
+  if (def.type === 'boolean') return `<label class="sdk-choice-row"><input type="checkbox" data-key="${escapeHtml(def.key)}" ${def.value ? 'checked' : ''}><span class="sdk-choice-text">${escapeHtml(def.label)}</span></label>`;
   // A note has no control and no value: a label (its help under it), for a module to say where something is set up.
   if (def.type === 'note') return `<span class="field-label">${escapeHtml(def.label)}</span>`; // its help follows, as every setting's does
   const head = `<label>${escapeHtml(def.label)}`;

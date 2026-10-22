@@ -210,7 +210,9 @@ const SYMMETRY = String.raw`((families) => {
         const inner = { top: b.top + parseFloat(cs.borderTopWidth), bottom: b.bottom - parseFloat(cs.borderBottomWidth), left: b.left + parseFloat(cs.borderLeftWidth), right: b.right - parseFloat(cs.borderRightWidth) };
         const parts = [];
         for (const k of kids) parts.push(R(k));
-        for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); for (const x of rg.getClientRects()) parts.push(x); }
+        // A bare text's range is its glyphs' box; its line box is that plus half the leading above and below (CSS puts it so).
+        const lh = parseFloat(cs.lineHeight);
+        for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); for (const x of rg.getClientRects()) { const half = lh > x.height ? (lh - x.height) / 2 : 0; parts.push({ top: x.top - half, bottom: x.bottom + half, left: x.left, right: x.right }); } }
         if (!parts.length) return null;
         const c = { top: Math.min(...parts.map((x) => x.top)), bottom: Math.max(...parts.map((x) => x.bottom)), left: Math.min(...parts.map((x) => x.left)), right: Math.max(...parts.map((x) => x.right)) };
         return { t: Math.round(c.top - inner.top), bo: Math.round(inner.bottom - c.bottom), l: Math.round(c.left - inner.left), ri: Math.round(inner.right - c.right) };
@@ -248,7 +250,7 @@ const SYMMETRY = String.raw`((families) => {
         // The children whose top or bottom margin adds to the padding or the gap: tagged, so the check can name the rule that sets it.
         const marginKids = kids.filter((k) => { const m = getComputedStyle(k); return parseFloat(m.marginTop) || parseFloat(m.marginBottom); }).slice(0, 4);
         marginKids.forEach((k, i) => { k.dataset.symmetryKid = n + '-' + i; });
-        out.push({ n, kids: marginKids.length, sides: why.map((w) => w.split(' ')[0]), family: f.name, el: label(el), why: why.join('; '), padding: cs.padding, margins: marginKids.map((k) => { const m = getComputedStyle(k); return label(k) + ' ' + m.marginTop + ' ' + m.marginBottom; }).join(' | ') });
+        out.push({ n, kids: marginKids.length, sides: why.map((w) => w.split(' ')[0]), family: f.name, el: label(el), says: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40), why: why.join('; '), padding: cs.padding, margins: marginKids.map((k) => { const m = getComputedStyle(k); return label(k) + ' ' + m.marginTop + ' ' + m.marginBottom; }).join(' | ') });
       }
     }
   }
@@ -524,7 +526,7 @@ async function main() {
     if (symmetryRows.length) {
       console.log('Padding symmetry: each box (family, element), what differs, its padding and its children\'s margins (top bottom):');
       for (const o of symmetryRows) {
-        console.log(`  ${o.family.padEnd(24)} ${o.el.padEnd(44)} ${o.why}  padding ${o.padding}${o.margins ? `  child margins ${o.margins}` : ''}  (${o.context})`);
+        console.log(`  ${o.family.padEnd(24)} ${o.el.padEnd(44)}${o.says ? ` "${o.says}"` : ''} ${o.why}  padding ${o.padding}${o.margins ? `  child margins ${o.margins}` : ''}  (${o.context})`);
         for (const r of o.rules || []) console.log(`      ${r}`);
       }
     }

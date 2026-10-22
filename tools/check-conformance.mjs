@@ -32,7 +32,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { findBrowser, launch, freePort, stopServer, bootSeeded, Tab, sleep, fill, driveScreen } from './shots.mjs';
 
-const TABLE = process.argv.includes('--table');
+const HEIGHTS = process.argv.includes('--table');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7); // only the views whose name holds this text (for working on one)
 const say = (...a) => console.log('check-conformance:', ...a);
 const started = Date.now();
@@ -158,7 +158,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.message .message-body', name: 'message body', h: false, stack: '*', box: false },
   { sel: '.sdk-card:not(.sdk-card-banded)', name: 'card', h: true, stack: '*', stackExcept: '.sdk-card-foot' },
   { sel: '.user-card, .space-choice, .sdk-card-add, .space-choice-add', name: 'card (page)', h: false },
-  { sel: '.sdk-panel, .panel', name: 'panel', h: false, stack: '*' },
+  { sel: '.sdk-panel, .panel', name: 'content box', h: false, stack: '*' },
   { sel: '.sdk-row', name: 'row', h: false },
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
@@ -241,7 +241,7 @@ const SYMMETRY = String.raw`((families) => {
       if (f.box !== false && f.h && !cornerBtn && !(f.hExcept && el.matches(f.hExcept)) && Math.abs(l - ri) > 1 && reach(l, parseFloat(cs.paddingLeft)) && reach(ri, parseFloat(cs.paddingRight))) why.push('left ' + l + ' / right ' + ri);
       if (f.stack && (f.stack === '*' || el.matches(f.stack)) && kids.length > 2) {
         // Only a column: each part below the one before (a row of parts, a grid or a wrapped cluster is not a stack). A part's
-        // negative bottom margin takes back room inside it by design (a form row's last 12px, the form standard), so its end is drawn back by it.
+        // negative bottom margin takes back space inside it by design (a form row's last 12px, the form standard), so its end is drawn back by it.
         const gaps = []; for (let i = 1; i < kids.length; i++) if (!(f.stackExcept && kids[i].matches(f.stackExcept))) gaps.push(Math.round(R(kids[i]).top - (R(kids[i - 1]).bottom + Math.min(0, parseFloat(getComputedStyle(kids[i - 1]).marginBottom) || 0))));
         if (gaps.length > 1 && gaps.every((g) => g >= -1) && Math.max(...gaps) - Math.min(...gaps) > 1) why.push('gaps ' + gaps.join(', '));
       }
@@ -373,7 +373,7 @@ async function symmetry(tab, context) {
   }
   await tab.eval(`(() => { const all = [document]; const walk = (r) => { for (const e of r.querySelectorAll('*')) if (e.shadowRoot) { all.push(e.shadowRoot); walk(e.shadowRoot); } }; walk(document); for (const r of all) for (const e of r.querySelectorAll('[data-symmetry-offender], [data-symmetry-kid]')) { delete e.dataset.symmetryOffender; delete e.dataset.symmetryKid; } })()`).catch(() => {});
 }
-const tables = [];
+const results = [];
 function judge(context, phone, windows) {
   const want = phone ? WANT.phone : WANT.wide;
   for (const w of windows) {
@@ -407,7 +407,7 @@ function judge(context, phone, windows) {
       rows.push(`    search   h ${String(s.h).padStart(5)}  ${s.what}`);
       if (Math.abs(s.h - want.search) > 0.5) bad(`search field (${s.what})`, s.h, want.search);
     }
-    tables.push({ context, head: `  ${w.name} (${w.kind})`, rows, failed: rows.some((r) => r.includes('!!')) });
+    results.push({ context, head: `  ${w.name} (${w.kind})`, rows, failed: rows.some((r) => r.includes('!!')) });
   }
 }
 
@@ -451,7 +451,7 @@ async function main() {
         for (let n = 0; n < 30; n++) { strip = await tab.eval(stripExpr); const key = JSON.stringify(strip); if (key === prev) break; prev = key; await sleep(300); }
         const rows = [`    strip    in ${strip ? `${strip.left} / ${strip.right}` : 'none'}`];
         if (!strip || strip.left !== 12 || strip.right < 12) { failures.push({ context: 'Workspace, 1280 px, light', window: 'status strip', what: 'status strip inset', got: strip ? `${strip.left} / ${strip.right}` : 'none', should: '12 / at least 12' }); rows.push(`    !! status strip inset: ${strip ? `${strip.left} / ${strip.right}` : 'none'}, should be 12 / at least 12`); }
-        tables.push({ context: 'Workspace, 1280 px, light', head: '  Status strip', rows, failed: rows.length > 1 });
+        results.push({ context: 'Workspace, 1280 px, light', head: '  Status strip', rows, failed: rows.length > 1 });
       } finally { await closeTab(tab); }
     }]);
     // 2. The Workspace on a phone, dark: each module through the tab bar.
@@ -490,9 +490,9 @@ async function main() {
     // They run after the windows above (a space page's strip shows the Budget's fact once the Workspace has opened it), with the
     // Map off and its picture map removed (with a map file, Places is part of the Map and /modules/places goes to /map).
     const screenJobs = [];
-    const table = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'shots-screens.json'), 'utf8')).screens;
+    const screenList = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'shots-screens.json'), 'utf8')).screens;
     for (const [id, sizes] of SCREENS) {
-      const screen = table.find((x) => x.id === id);
+      const screen = screenList.find((x) => x.id === id);
       if (!screen) { failures.push({ context: 'screens', window: id, what: 'no such screen in tools/shots-screens.json', got: '', should: '' }); continue; }
       for (const size of sizes) {
         const mode = size <= 640 ? 'dark' : 'light';
@@ -526,10 +526,10 @@ async function main() {
     await pool(screenJobs.filter(([name]) => keep(name)));
     if (process.env.CONFORMANCE_TIMES) for (const [n, ms] of times.sort((a, b) => b[1] - a[1]).slice(0, 15)) say(`${String(Math.round(ms / 100) / 10).padStart(5)} s  ${n}`);
 
-    const contexts = [...new Set(tables.map((t) => t.context))];
-    if (TABLE || failures.length) {
+    const contexts = [...new Set(results.map((t) => t.context))];
+    if (HEIGHTS || failures.length) {
       for (const c of contexts) {
-        const ts = tables.filter((t) => t.context === c && (TABLE || t.failed));
+        const ts = results.filter((t) => t.context === c && (HEIGHTS || t.failed));
         if (!ts.length) continue;
         console.log(c);
         for (const t of ts) { console.log(t.head); for (const r of t.rows) console.log(r); }
@@ -543,7 +543,7 @@ async function main() {
       }
     }
     for (const f of failures.filter((x) => x.context === 'load')) console.log(`  could not measure ${f.window}: ${f.what}`);
-    const windows = tables.length;
+    const windows = results.length;
     if (failures.length) {
       const byWhat = new Map();
       for (const f of failures) byWhat.set(f.what.replace(/ \(.*\)$/, ''), (byWhat.get(f.what.replace(/ \(.*\)$/, '')) || 0) + 1);

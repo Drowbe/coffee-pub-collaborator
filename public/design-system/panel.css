@@ -1,0 +1,32 @@
+/* The panel page (panel.html, panel.js): the page around the panels only. The panel's own look is the moduleframe block of
+   public/sdk/system.css; change it there. */
+body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); color: var(--text-primary); font-size: var(--text-14); line-height: var(--leading-body); }
+
+.pp-top { position: sticky; top: 0; z-index: var(--z-dialog); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--edge-hairline); background: var(--surface-panel); }
+.pp-title { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
+.pp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-left: auto; }
+.pp-tools .mf-switch-btn { font-family: inherit; cursor: pointer; }
+.pp-tools .mf-switch-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+.pp-main { display: flex; flex-direction: column; gap: var(--space-7); padding: var(--space-5) var(--space-4) var(--space-9); }
+.pp-state { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.pp-state-name { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
+.pp-state-note { margin: 0; color: var(--text-muted); font-size: var(--text-13); }
+/* The canvas colour around the panel, so its edge and shadow show; it scrolls sideways when the panel is wider than the screen. */
+.pp-frame { min-width: 0; padding: var(--space-5); overflow-x: auto; border-radius: var(--radius-large); background: var(--surface-canvas); outline: 1px dashed var(--edge-hairline); outline-offset: -1px; }
+.pp-frame > .mf { width: var(--pp-w, 700px); height: 360px; }
+.pp-frame.pp-narrow > .mf { width: 300px; }
+
+/* Sample content: plain rows, so the content area's padding and scrolling show. */
+.pp-rows { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.pp-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-card); }
+.pp-row-words { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pp-row-note { flex: none; color: var(--text-muted); font-size: var(--text-12); }
+.pp-log { margin: 0; color: var(--text-muted); font-size: var(--text-12); }
+
+/* A phone: the frame gives up its padding, so a 390 pixel panel fits a 390 pixel screen. */
+@media (max-width: 640px) {
+  .pp-main { padding-inline: 0; }
+  .pp-state-name, .pp-state-note, .pp-log { padding-inline: var(--space-4); }
+  .pp-frame { padding: 0; border-radius: 0; outline: 0; }
+}

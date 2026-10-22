@@ -13,6 +13,7 @@
 // What is changed on the way out, and why:
 //   - Every script is removed, and every on* attribute: a screen is a picture of a moment, it runs nothing of the product's. A large
 //     part that is hidden and not drawn (the other tabs of Manage) is left out.
+//   - Links to the product's files are written relative (../../../style.css), so a screen works wherever the folder is served.
 //   - The link to /theme.css becomes a link to prototype/themes/<theme>.css, one per shipped theme (written here from the themes the
 //     seeded server lists, by server/theme-css.js, the same code that writes /theme.css), so the page can switch the theme.
 //   - A module's stylesheet in its shadow root (public/sdk/host.css, public/sdk/system.css and the module's own CSS, scoped as
@@ -21,6 +22,7 @@
 //     style.css, system.css or host.css shows on the prototype at the next reload, with no rebuild; the module's own CSS needs one.
 //   - Pictures the server makes (avatars, the environment's icon, link previews) are written to prototype/assets/; the product's own
 //     files (fonts, icons, stylesheets) stay links to the product, so the screens follow the product's files.
+//   - A colour a script set on <html> or <body> (the theme editor's preview) is left out, so the page's theme switch decides.
 //   - What a script did that markup does not keep is written as data-proto-* attributes for prototype-frame.js to put back: where a
 //     list was scrolled to, which dialog was open as a modal (showModal) and which popover was open; the value of each field is
 //     written as its value attribute.
@@ -42,9 +44,10 @@ import { findBrowser, launch, freePort, bootSeeded, stopServer, Tab, sleep, fill
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
-const OUT = path.join(root, 'public', 'design-system', 'prototype');
 const args = process.argv.slice(2);
 const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); return a ? a.slice(name.length + 3) : null; };
+// Where the screens go: public/design-system/prototype, or --out=<folder> (tools/check-prototype.mjs builds into a folder of its own).
+const OUT = path.resolve(opt('out') || path.join(root, 'public', 'design-system', 'prototype'));
 const ONLY = opt('only');
 const say = (...a) => console.log('prototype:', ...a);
 const HEIGHT = 900; // the window's height, as the screenshot tool's
@@ -136,6 +139,9 @@ const CAPTURE = `(() => {
     for (const e of all) if (e.isConnected && e.hasAttribute('hidden') && e.localName !== 'template' && getComputedStyle(e).display === 'none' && e.outerHTML.length > 2000) drop.push(e);
     for (const e of drop) e.remove();
     const html = doc.documentElement;
+    // A colour set on the page itself (Manage's theme editor previews a theme so) would hold the screen to that theme: left out, so the
+    // page's theme switch decides (a colour, or a role set to another role). Sizes set there (--app-vh) stay.
+    for (const e of [html, doc.body]) if (e) for (const k of [...e.style]) if (k.startsWith('--') && /#[0-9a-f]{3,8}\\b|rgba?\\(|hsla?\\(|color-mix\\(|oklch\\(|var\\(/i.test(e.style.getPropertyValue(k))) e.style.removeProperty(k);
     if (se && (se.scrollTop || se.scrollLeft)) html.setAttribute('data-proto-scroll', Math.round(se.scrollTop) + ',' + Math.round(se.scrollLeft));
     const attrs = [...html.attributes].map((a) => ' ' + a.name + '="' + a.value.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"').join('');
     docs[n] = { url: doc.URL, html: '<!DOCTYPE html>\\n<html' + attrs + '>' + html.getHTML({ serializableShadowRoots: true, shadowRoots: roots }) + '</html>\\n' };
@@ -219,14 +225,16 @@ async function assetFor(url, jar, cache) {
       const name = `${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12)}.${EXT[type]}`;
       fs.mkdirSync(path.join(OUT, 'assets'), { recursive: true });
       fs.writeFileSync(path.join(OUT, 'assets', name), buf);
-      out = `${PREFIX}assets/${name}`;
+      out = `../assets/${name}`;
     }
   } catch { /* left out */ }
   cache.set(url, out);
   return out;
 }
 
-const PREFIX = '/design-system/prototype/';
+// A screen is prototype/screens/<file>.htm: the product's root is three folders up, so the links work wherever the folder is served
+// (the app, at /design-system/prototype/, or the review copy, tools/design-system-snapshot.mjs PAGE=prototype).
+const ROOT = '../../../';
 async function rewrite(html, base, jar, cache, notes) {
   const origin = new URL(base).origin;
   // Every absolute URL of the throwaway server in an attribute or a url(): a product file stays a root-relative link; anything else
@@ -237,7 +245,7 @@ async function rewrite(html, base, jar, cache, notes) {
   for (const u of urls) {
     const p = new URL(u);
     if (p.pathname === '/theme.css') continue;
-    if (publicFile(p.pathname) || STATIC_MOUNTS.test(p.pathname)) { map.set(u, p.pathname + p.hash); continue; }
+    if (publicFile(p.pathname) || STATIC_MOUNTS.test(p.pathname)) { map.set(u, ROOT + p.pathname.slice(1) + p.hash); continue; }
     const data = await assetFor(u, jar, cache);
     if (data) map.set(u, data); else { map.set(u, ''); notes.add(`dropped ${p.pathname}`); }
   }
@@ -246,7 +254,7 @@ async function rewrite(html, base, jar, cache, notes) {
   // The live server's content policy is the server's, not the prototype's.
   out = out.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/gi, '');
   // The theme: one of prototype/themes/, chosen by the page.
-  out = out.replace(/<link\b[^>]*href="https?:\/\/[^"]*\/theme\.css[^"]*"[^>]*>/g, `<link rel="stylesheet" href="${PREFIX}themes/strong-coffee.css" data-proto-theme="">`);
+  out = out.replace(/<link\b[^>]*href="https?:\/\/[^"]*\/theme\.css[^"]*"[^>]*>/g, '<link rel="stylesheet" href="../themes/strong-coffee.css" data-proto-theme="">');
   return out;
 }
 
@@ -304,7 +312,7 @@ async function main() {
           html = html.replace(/__PROTO_FRAME_(\d+)__/g, (_, k) => names[Number(k)]);
           html = html.replace(/data-proto-css="(\d+)"/g, (_, k) => `data-proto-css="${cssFile(got.css[Number(k)])}"`);
           // The prototype's own script, last in the head: it puts back what the markup does not keep and answers the page's switches.
-          html = html.replace(/<\/head>/i, `<script src="/design-system/prototype-frame.js"></script></head>`);
+          html = html.replace(/<\/head>/i, '<script src="../../prototype-frame.js"></script></head>');
           fs.writeFileSync(path.join(dirs.screens, names[i]), html);
         }
         const size = got.docs.reduce((a, d) => a + d.html.length, 0);
@@ -315,13 +323,13 @@ async function main() {
       list.push(entry);
     }
     list.sort((a, b) => SCREENS.findIndex((s) => s.id === a.id) - SCREENS.findIndex((s) => s.id === b.id));
-    const manifest = { generated: 'by tools/prototype-build.mjs', built: new Date().toISOString().slice(0, 10), height: HEIGHT, themes: themes.map((t) => ({ id: t.id, name: t.name })), screens: list };
+    const manifest = { generated: 'by tools/prototype-build.mjs', height: HEIGHT, themes: themes.map((t) => ({ id: t.id, name: t.name })), screens: list };
     fs.writeFileSync(listPath, `/* Generated by tools/prototype-build.mjs: do not edit. The Prototype page's screens. */\nwindow.PROTO_SCREENS = ${JSON.stringify(manifest, null, 1)};\n`);
     // Styles no screen names any more (an --only run leaves the others' alone).
     const used = new Set();
     for (const f of fs.readdirSync(dirs.screens)) for (const m of fs.readFileSync(path.join(dirs.screens, f), 'utf8').matchAll(/data-proto-css="(?:sdk )?([0-9a-f]{12})"/g)) used.add(`${m[1]}.txt`);
     for (const f of fs.readdirSync(dirs.styles)) if (!used.has(f)) fs.rmSync(path.join(dirs.styles, f));
-    say(`${list.length} screens in ${path.relative(root, OUT)}, ${Math.round((Date.now() - started) / 1000)} s`);
+    say(`${list.length} screens in ${path.relative(root, OUT) || OUT}, ${Math.round((Date.now() - started) / 1000)} s`);
     for (const p of problems) say(`FAILED ${p}`);
     return problems.length ? 1 : 0;
   } finally {

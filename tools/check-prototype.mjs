@@ -5,6 +5,7 @@
 //   node tools/check-prototype.mjs --no-build   checks the screens as they are in public/design-system/prototype/
 //   node tools/check-prototype.mjs --look=<dir> also writes a picture of each screen (1x and 2x, light and dark) to <dir>
 //
+// The build goes to a folder of its own (--no-build checks public/design-system/prototype/ instead).
 // Static: the screens' list names files that exist; no screen runs a script but prototype-frame.js; no address of the throwaway server
 // is left; the scoping of a module's stylesheet in prototype-frame.js and tools/prototype-build.mjs is public/module-host.js's.
 // In a browser (headless Chromium over the DevTools protocol, the page served from public/ by a small static server here): every screen
@@ -24,14 +25,16 @@ const args = process.argv.slice(2);
 const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); return a ? a.slice(name.length + 3) : null; };
 const LOOK = opt('look');
 const DS = path.join(root, 'public', 'design-system');
-const OUT = path.join(DS, 'prototype');
+const BUILD = !args.includes('--no-build');
+// Built into a folder of its own (the screens in public/ are left as they are) and served there as /design-system/prototype/.
+const OUT = BUILD ? fs.mkdtempSync(path.join(os.tmpdir(), 'check-prototype-')) : path.join(DS, 'prototype');
 const problems = [];
 const bad = (m) => problems.push(m);
 const say = (...a) => console.log('check-prototype:', ...a);
 
-if (!args.includes('--no-build')) {
-  say('building the screens (tools/prototype-build.mjs)');
-  const r = spawnSync(process.execPath, [path.join(root, 'tools', 'prototype-build.mjs')], { cwd: root, stdio: 'inherit' });
+if (BUILD) {
+  say(`building the screens (tools/prototype-build.mjs) into ${OUT}`);
+  const r = spawnSync(process.execPath, [path.join(root, 'tools', 'prototype-build.mjs'), `--out=${OUT}`], { cwd: root, stdio: 'inherit' });
   if (r.status !== 0) { say('FAIL: the build failed'); process.exit(1); }
 }
 
@@ -51,9 +54,9 @@ if (manifest) {
 }
 for (const f of fs.existsSync(path.join(OUT, 'screens')) ? fs.readdirSync(path.join(OUT, 'screens')) : []) {
   const text = fs.readFileSync(path.join(OUT, 'screens', f), 'utf8');
-  const scripts = [...text.matchAll(/<script\b[^>]*>/gi)].map((m) => m[0]).filter((t) => t !== '<script src="/design-system/prototype-frame.js">');
+  const scripts = [...text.matchAll(/<script\b[^>]*>/gi)].map((m) => m[0]).filter((t) => t !== '<script src="../../prototype-frame.js">');
   if (scripts.length) bad(`screens/${f}: runs a script that is not prototype-frame.js (${scripts[0]})`);
-  if (!text.includes('<script src="/design-system/prototype-frame.js">')) bad(`screens/${f}: does not load prototype-frame.js`);
+  if (!text.includes('<script src="../../prototype-frame.js">')) bad(`screens/${f}: does not load prototype-frame.js`);
   if (/https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(text)) bad(`screens/${f}: an address of the throwaway server is left in it`);
   if (/<[a-z][^<>]*\son[a-z]+="/i.test(text)) bad(`screens/${f}: an on* attribute is left in it`);
   for (const m of text.matchAll(/data-proto-css="(?:sdk )?([0-9a-f]{12})"/g)) if (!fs.existsSync(path.join(OUT, 'styles', `${m[1]}.txt`))) bad(`screens/${f}: styles/${m[1]}.txt is missing`);
@@ -70,6 +73,7 @@ const FA = path.join(root, 'node_modules', '@fortawesome', 'fontawesome-free');
 function fileFor(pathname) {
   let p; try { p = decodeURIComponent(pathname); } catch { return null; }
   if (p === '/theme.css') return path.join(OUT, 'themes', 'strong-coffee.css');
+  if (p.startsWith('/design-system/prototype/')) { const abs = path.join(OUT, p.slice('/design-system/prototype/'.length)); return abs.startsWith(OUT + path.sep) ? abs : null; }
   if (p.startsWith('/fa/')) return path.join(FA, p.slice(4));
   const abs = path.join(root, 'public', p);
   return abs.startsWith(path.join(root, 'public') + path.sep) ? abs : null;
@@ -166,6 +170,7 @@ async function browserPart() {
 }
 
 await browserPart();
+if (BUILD) fs.rmSync(OUT, { recursive: true, force: true });
 if (problems.length) { for (const p of problems) console.log(`  ${p}`); say(`FAIL (${problems.length})`); process.exit(1); }
 say(`ok: ${variants.length} screens and widths load with no console error, follow Light and the ${(manifest?.themes || []).length} themes, and measure`);
 process.exit(0);

@@ -45,7 +45,7 @@
     const groups = new Map();
     for (const s of screens) { if (!groups.has(s.group)) groups.set(s.group, []); groups.get(s.group).push(s); }
     nav.innerHTML = [...groups.entries()].map(([g, list]) => `<h2>${h(g)}</h2><ul>${list.map((s) => `<li><a href="#${encodeURIComponent(s.id)}" data-id="${h(s.id)}"><span>${h(s.name)}</span><span class="n">${s.variants.map((v) => v.width).join(' · ')}</span></a></li>`).join('')}</ul>`).join('')
-      + `<h2>Refresh</h2><p class="ds-use">Built ${h(data.built || 'never')}. <code>node tools/prototype-build.mjs</code></p>`;
+      + `<h2>Refresh</h2><p class="ds-use">The screens are the product's own markup, captured by <code>node tools/prototype-build.mjs</code>; run it again to refresh them.</p>`;
   }
   function pressed(group, attr, value) { for (const b of $$(`${group} button`)) { const on = b.dataset[attr] === String(value); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); } }
 
@@ -69,7 +69,6 @@
     box.style.transform = k === 1 ? '' : `scale(${k})`;
     stage.classList.toggle('pt-fit', k !== 1);
     stage.style.height = `${Math.ceil((v.height + 2) * k)}px`;
-    stage.style.width = k === 1 && state.scale === '1' ? '' : '';
     box.dataset.scale = String(Math.round(k * 1000) / 1000);
     say();
   }

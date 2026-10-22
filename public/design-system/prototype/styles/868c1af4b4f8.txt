@@ -37,7 +37,7 @@
    It stays on the panel step, so the item cards inside it (the card step) still stand out from it. Its head and its timeline have their own
    padding, so the in-day rails stay on the plan's line (--spine-x). The head sticks to the top while the day scrolls, on the card's own fill. */
 .sdk-day { --day-step: var(--surface-panel); gap: 0; padding: 0; margin-bottom: 14px; }
-.sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--card-pad) var(--card-pad) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
+.sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--pad-card) var(--pad-card) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
 .sdk-day-actions .menu-btn { position: relative; }
 .sdk-day-labels > .sdk-chip-tag[data-tone="custom"] { --chip-tone: var(--ph); max-width: 100%; }
 .sdk-day .suggestions, .sdk-day .add-row { margin: 0; }

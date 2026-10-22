@@ -18,7 +18,10 @@
    window.__protoMeasure for tools/check-prototype.mjs. */
 (() => {
   'use strict';
-  const PREFIX = '/design-system/prototype/';
+  // Where things are, from this script's own address (public/design-system/): the screens' folder and the product's root.
+  const DS = new URL('./', document.currentScript.src);
+  const PREFIX = new URL('prototype/', DS).href;
+  const ROOT = new URL('../', DS).href;
   const html = document.documentElement;
   const params = new URLSearchParams(location.search);
   const state = { mode: params.get('mode') || 'dark', theme: params.get('theme') || 'strong-coffee', measure: params.get('measure') === '1' };
@@ -26,8 +29,9 @@
   // public/module-host.js's scopeCss (tools/check-prototype.mjs holds the two equal).
   const scopeCss = (text) => text.replace(/:root\s*\{[^}]*\}/g, '').replace(/(^|[\s,}])(html|body)(?=[\s,{.:[])/g, '$1:host');
   const texts = new Map();
+  // A stylesheet's text with its url()s made absolute (it is put into a <style>, where they would be read from the screen's address).
   const read = (url) => {
-    if (!texts.has(url)) texts.set(url, fetch(url).then((r) => (r.ok ? r.text() : '')).catch(() => ''));
+    if (!texts.has(url)) texts.set(url, fetch(url).then((r) => (r.ok ? r.text() : '')).catch(() => '').then((t) => t.replace(/url\((['"]?)([^'")]+)\1\)/g, (m, q, u) => (/^(data|blob|https?):|^#/.test(u) ? m : `url("${new URL(u, url).href}")`))));
     return texts.get(url);
   };
   const shadowRoots = (r = document, out = []) => { for (const e of r.querySelectorAll('*')) if (e.shadowRoot) { out.push(e.shadowRoot); shadowRoots(e.shadowRoot, out); } return out; };
@@ -37,7 +41,7 @@
     const jobs = deepAll('style[data-proto-css]').map(async (st) => {
       const parts = st.getAttribute('data-proto-css').split(/\s+/);
       const own = parts.pop();
-      const sdk = parts.includes('sdk') ? scopeCss(await read('/sdk/host.css')) + '\n' + scopeCss(await read('/sdk/system.css')) + '\n' : '';
+      const sdk = parts.includes('sdk') ? scopeCss(await read(`${ROOT}sdk/host.css`)) + '\n' + scopeCss(await read(`${ROOT}sdk/system.css`)) + '\n' : '';
       st.textContent = sdk + await read(`${PREFIX}styles/${own}.txt`);
     });
     await Promise.all(jobs);

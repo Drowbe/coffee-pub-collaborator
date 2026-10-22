@@ -297,7 +297,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     stats.families = decided.length;
     const sec = mk('section', 'ds-sec');
     sec.id = 'top';
-    sec.innerHTML = `<h2>Design system: proposed</h2><p class="ds-lead">The system as Thomas has decided it, one family at a time. Only decided components are drawn, as specs, from the proposed rules (<code>proposed.css</code>, all under <code>.ds-proposed</code>, so the product is untouched). What is only on Today's inventory is listed by name. ${chip('approved')} decided, ${chip('undecided')} Today only. What exists today is on its own page: <a href="index.html">Today's inventory</a>.</p><p class="ds-lead" id="ds-note"><b>This is the design system.</b> Today's inventory is a separate page until the migration ends.</p>`;
+    sec.innerHTML = `<h2>Design system: proposed</h2><p class="ds-lead">The system as Thomas has decided it, one family at a time. Only decided components are drawn, as specs, from the proposed rules (<code>proposed.css</code>, all under <code>.ds-proposed</code>, so the product is untouched). What is only on Legacy inventory is listed by name. ${chip('approved')} decided, ${chip('undecided')} Today only. What exists today is on its own page: <a href="index.html">Legacy inventory</a>.</p><p class="ds-lead" id="ds-note"><b>This is the design system.</b> Legacy inventory is a separate page until the migration ends.</p>`;
     content.appendChild(sec);
     api = { mk, h, makeFrame, mode: () => mode };
     sec.appendChild(mk('h3', 'ds-group', 'Decided'));
@@ -319,7 +319,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
         const id = 'u-' + slug(name);
         const b = mk('section', 'ds-block ds-undecided');
         b.id = id; b.dataset.name = (name + ' ' + g.group).toLowerCase();
-        b.innerHTML = `<header><h3>${h(name)}</h3>${chip('undecided')}<span class="ds-count">${h(g.group)}</span></header><p class="ds-desc">Today only: it is in Today's inventory, not in this system.</p>`;
+        b.innerHTML = `<header><h3>${h(name)}</h3>${chip('undecided')}<span class="ds-count">${h(g.group)}</span></header><p class="ds-desc">Today only: it is in Legacy inventory, not in this system.</p>`;
         sec.appendChild(b);
         navItem(gul, name, id, 'undecided', name + ' ' + g.group);
       }

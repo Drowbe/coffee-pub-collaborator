@@ -1096,8 +1096,8 @@ export function drawHeaderItems(header, clean, send) {
 // gets each control's event ({ id, value?, on?, submit?, x? }); an item that carries its own `send(data, button)` (the host
 // page's own items, and a destination's parts' items, mixed into the page's one row) gets it instead. `box()` is the module's area, for a button's `x`.
 // The row stays one line: while it is too narrow, first the chips fold into one menu button (their switches in the host's
-// menu), then a view switch shows only its icons (hostSwitch), then the title is cut; the search field gives way to its
-// least width. A search field and a folded chips button are kept between draws, so typing and an open menu survive a
+// menu), then a view switch shows only its icons (hostSwitch), then that menu button shows only its icon, then the title is
+// cut; the search field gives way to its least width. A search field and a folded chips button are kept between draws, so typing and an open menu survive a
 // redraw. Returns { set(items) -> the cleaned items, destroy() }.
 export function createToolbar(row, { send, box = null }) {
   const doc = row.ownerDocument;
@@ -1117,11 +1117,13 @@ export function createToolbar(row, { send, box = null }) {
   function fit() {
     frame = 0;
     if (!row.isConnected || row.hidden) return;
-    row.classList.remove('tb-chips-folded');
+    row.classList.remove('tb-chips-folded', 'tb-chips-iconic');
     row.classList.add('tb-measure');
     const over = () => row.scrollWidth > row.clientWidth + 1;
     if (row.querySelector('.tb-chips') && over()) row.classList.add('tb-chips-folded');
     if (win.hostSwitch) win.hostSwitch.fit(row);
+    row.classList.remove('tb-chips-iconic');
+    if (row.classList.contains('tb-chips-folded') && over()) row.classList.add('tb-chips-iconic');
     row.classList.remove('tb-measure');
   }
   const later = () => { if (!frame) frame = win.requestAnimationFrame(fit); };

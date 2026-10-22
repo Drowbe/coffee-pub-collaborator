@@ -134,6 +134,8 @@ let searchText = ''; // what is typed in the row's search (the map)
 let searchWords = ''; // its placeholder: the filter's words, or the place search's once that is set up
 let filterShown = false; // the filter is in the row (a destination with one; in a space only once there is a kind to switch)
 let row = null; // the toolbar row (createToolbar)
+let sideRow = null; // the panel's row, while the panel is stacked under the main part
+const stackedQuery = window.matchMedia('(max-width: 900px)'); // destination.css stacks the panel under the main part
 let d = null; // the destination, as the server answered
 
 function missing(text) {
@@ -240,6 +242,8 @@ async function start() {
   drawPageBar(d); // also names the page in the anchor on a phone (no segment wider: the top bar's entry is current)
   drawTabs(d);
   row = createToolbar($('dest-toolbar'), { send: () => {} }); // every item carries its own send (drawRow)
+  sideRow = createToolbar($('dest-side-toolbar'), { send: () => {} });
+  stackedQuery.addEventListener('change', drawRow);
   if (kind.search) loadSearchWords(d);
 
   // The parts: the main one fills the page; each panel in the panel, one shown at a time.
@@ -472,7 +476,8 @@ function filterWords() {
 
 // --- the toolbar row: one band over every part ---------------------------------------------------
 // The main part's items, then the page's own (the view switch, the filter's chips, the search), then the panel's switch
-// and the shown panel's items. On a phone, the tab showing: the main part's tab has the main part's items, the view switch
+// and the shown panel's items. While the panel is stacked under the main part (a narrow window or column, not a phone), the
+// panel's switch and items are the panel's own row, at its top, where they act. On a phone, the tab showing: the main part's tab has the main part's items, the view switch
 // and the filter; a panel's tab that panel's items; the search shows on every tab. A part's control answers that part
 // (its `x` measured from the part's own edge, for a menu under it); the page's answer the page.
 function partItems(m) {
@@ -524,12 +529,11 @@ function drawRow() {
       layout();
     },
   }] : [];
-  const groups = [
-    onMain && main ? partItems(main) : [],
-    page,
-    [...panelSwitch, ...(shownPanel ? partItems(shownPanel) : [])],
-  ].filter((g) => g.length);
+  const side = [...panelSwitch, ...(shownPanel ? partItems(shownPanel) : [])];
+  const stacked = !phone && panels.length > 0 && (stackedQuery.matches || document.body.classList.contains('dest-no-webgl'));
+  const groups = [onMain && main ? partItems(main) : [], page, stacked ? [] : side].filter((g) => g.length);
   row.set(groups.flatMap((g, i) => (i ? [{ separator: true }, ...g] : g)));
+  sideRow.set(stacked ? side : []);
 }
 
 function drawTabs(d) {

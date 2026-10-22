@@ -19,6 +19,12 @@
  *                                                    OFL.txt) only. No sources.js, no components, no inventory. The manifest is also written
  *                                                    into index.html (window.DS_PROPOSED_MANIFEST), so the folder works from a file on disk
  *
+ *   PAGE=prototype OUT=/tmp/ds-prototype node tools/design-system-snapshot.mjs
+ *                                                    builds the Prototype page (public/design-system/prototype.html and the screens
+ *                                                    in prototype/, written by tools/prototype-build.mjs) with the product files they
+ *                                                    read, laid out as the app serves them; index.html leads to design-system/prototype.html.
+ *                                                    Serve the folder (a screen reads its stylesheets with fetch)
+ *
  * The folder of the default page (PAGE=today) holds: index.html (paths made relative), ds.css, ds.js, components*.js, sources.js (every
  * stylesheet and the SDK as text, so the page works from disk and from any static host), style.css, theme.css (Strong Coffee's light
  * set; the dark set is style.css's own), fa/ (Font Awesome's stylesheet and fonts), no external script. Its Proposed system link
@@ -142,8 +148,45 @@ function walkSize(dir) {
 }
 const rel2 = (dir, p) => p;
 
+// The Prototype page (PAGE=prototype): the page, its screens and the product files they read, laid out as the app serves them
+// (design-system/..., style.css, sdk/, fonts/, fa/), with an index.html that leads to design-system/prototype.html. Every link in
+// the page and the screens is relative, so the folder works from any static host; a screen reads stylesheets with fetch, so it must
+// be served, not opened from a disk.
+export function buildPrototypeSnapshot(out) {
+  fs.rmSync(out, { recursive: true, force: true });
+  fs.mkdirSync(out, { recursive: true });
+  const proto = path.join(DS, 'prototype');
+  if (!fs.existsSync(path.join(proto, 'screens.js'))) throw new Error('public/design-system/prototype/ has no screens: run node tools/prototype-build.mjs');
+  const walkCopy = (from, to, keep = () => true) => { for (const e of fs.readdirSync(from, { withFileTypes: true })) { const a = path.join(from, e.name); const b = path.join(to, e.name); if (e.isDirectory()) walkCopy(a, b, keep); else if (keep(e.name)) copy(a, b); } };
+  for (const f of ['prototype.html', 'prototype.js', 'prototype.css', 'prototype-frame.js', 'ds.css']) copy(path.join(DS, f), path.join(out, 'design-system', f));
+  walkCopy(proto, path.join(out, 'design-system', 'prototype'));
+  copy(path.join(root, 'public', 'style.css'), path.join(out, 'style.css'));
+  copy(path.join(root, 'public', 'sdk', 'host.css'), path.join(out, 'sdk', 'host.css'));
+  // system.css names its fonts from the server's root (url(/fonts/...)): made relative to sdk/.
+  fs.writeFileSync(path.join(out, 'sdk', 'system.css'), rd('public/sdk/system.css').replace(/url\(\/fonts\//g, 'url(../fonts/'));
+  walkCopy(path.join(root, 'public', 'fonts'), path.join(out, 'fonts'));
+  fs.copyFileSync(path.join(proto, 'themes', 'strong-coffee.css'), path.join(out, 'theme.css'));
+  copy(path.join(FA, 'css', 'all.min.css'), path.join(out, 'fa', 'css', 'all.min.css'));
+  for (const f of fs.readdirSync(path.join(FA, 'webfonts'))) copy(path.join(FA, 'webfonts', f), path.join(out, 'fa', 'webfonts', f));
+  copy(path.join(FA, 'LICENSE.txt'), path.join(out, 'fa', 'LICENSE.txt'));
+  // Any other product file a screen links (../../../<path> from prototype/screens/).
+  const missing = new Set();
+  for (const f of fs.readdirSync(path.join(proto, 'screens'))) {
+    for (const m of fs.readFileSync(path.join(proto, 'screens', f), 'utf8').matchAll(/(?:href|src)="\.\.\/\.\.\/\.\.\/([^"#?]+)/g)) {
+      const to = path.join(out, m[1]);
+      if (fs.existsSync(to)) continue;
+      const from = path.join(root, 'public', m[1]);
+      if (fs.existsSync(from) && fs.statSync(from).isFile()) copy(from, to); else missing.add(m[1]);
+    }
+  }
+  fs.writeFileSync(path.join(out, 'index.html'), '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=design-system/prototype.html"><title>Design system: prototype</title></head><body><a href="design-system/prototype.html">Design system: prototype</a></body></html>\n');
+  const files = walkSize(out).map((f) => ({ file: path.relative(out, f.abs).split(path.sep).join('/'), size: f.size }));
+  return { files, total: files.reduce((a, f) => a + f.size, 0), unknown: [...missing].map((m) => `a screen links ${m}, which is not in public/`), icons: 0 };
+}
+
 export function buildSnapshot(out, page = 'today') {
-  if (page !== 'today' && page !== 'proposed') throw new Error(`PAGE must be today or proposed, not ${page}`);
+  if (page === 'prototype') return buildPrototypeSnapshot(out);
+  if (page !== 'today' && page !== 'proposed') throw new Error(`PAGE must be today, proposed or prototype, not ${page}`);
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   // The page, paths made relative.
@@ -207,11 +250,11 @@ async function main() {
     console.log(`design-system-snapshot: wrote public/design-system/sources.js (${Math.round(js.length / 1024)} KB: ${Object.keys(data.modules).length} modules, ${data.icons.length} icons${unknown.length ? `; not in Font Awesome Free: ${unknown.join(', ')}` : ''})`);
     return 0;
   }
-  const out = path.resolve(process.env.OUT || (process.env.PAGE === 'proposed' ? '/tmp/ds-proposed' : '/tmp/ds-snapshot'));
+  const out = path.resolve(process.env.OUT || (process.env.PAGE === 'proposed' ? '/tmp/ds-proposed' : process.env.PAGE === 'prototype' ? '/tmp/ds-prototype' : '/tmp/ds-snapshot'));
   const page = process.env.PAGE || 'today';
   const r = buildSnapshot(out, page);
   for (const f of r.files) console.log(`  ${String(f.size).padStart(9)}  ${f.file}`);
-  console.log(`design-system-snapshot: ${r.files.length} files, ${(r.total / 1024 / 1024).toFixed(2)} MB in ${out}${r.unknown.length ? `\n  names that look like icons but are not in Font Awesome Free solid (left out): ${r.unknown.join(', ')}` : ''}`);
+  console.log(`design-system-snapshot: ${r.files.length} files, ${(r.total / 1024 / 1024).toFixed(2)} MB in ${out}${r.unknown.length ? `\n  ${page === 'prototype' ? 'left out' : 'names that look like icons but are not in Font Awesome Free solid (left out)'}: ${r.unknown.join(', ')}` : ''}`);
   if (r.total > LIMIT) { console.error(`design-system-snapshot: over the ${LIMIT / 1024 / 1024} MB limit`); return 1; }
   return 0;
 }

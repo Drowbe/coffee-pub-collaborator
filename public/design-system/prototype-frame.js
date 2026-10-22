@@ -4,7 +4,9 @@
 
    On load: each module's shadow root gets its stylesheet (the SDK's host.css and system.css read from the product now, scoped as
    public/module-host.js scopes them, and the module's own part from prototype/styles/<hash>.txt); lists are scrolled back to where
-   they were (data-proto-scroll), a dialog that was open as a modal is opened as one again (data-proto-modal), an open popover too;
+   they were (data-proto-scroll), a dialog that was open as a modal is opened as one again (data-proto-modal), an open popover too, and the
+   field that had the focus has it again when the screen is opened on its own (data-proto-focus; not inside the page, where it would
+   take the keyboard away from the page's list);
    links and forms do nothing.
 
    Switches, from the address (?mode=light&theme=<id>&measure=1) and from the page by postMessage ({ proto: 'set', mode, theme,
@@ -50,6 +52,9 @@
   function putBack() {
     for (const d of deepAll('dialog[data-proto-modal]')) { try { d.removeAttribute('open'); d.showModal(); } catch (e) { d.setAttribute('open', ''); } }
     for (const p of deepAll('[data-proto-popover]')) { try { p.showPopover(); } catch (e) { /* not a popover here */ } }
+    // The focus, only where the screen is opened on its own: inside the page it would take the keyboard away from the page's list.
+    const focused = deepAll('[data-proto-focus]')[0];
+    if (focused && parent === window && !deepAll('dialog[data-proto-modal]').length) { try { focused.focus({ preventScroll: true }); } catch (e) { /* not focusable */ } }
     for (const e of [html, ...deepAll('[data-proto-scroll]')]) {
       const v = e.getAttribute('data-proto-scroll');
       if (!v) continue;

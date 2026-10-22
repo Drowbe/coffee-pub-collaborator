@@ -40,7 +40,7 @@
 
   <!-- The spaces page scrolls in here, under the header, so the scrollbar starts below it. -->
   <div class="page-scroll" id="page-scroll">
-  
+  <div class="join" id="join" hidden="" data-proto-emptied=""></div>
 
   <!-- A guest link (/guest/<token>) shows this instead: a name, nothing else. -->
   <form class="join guest-join" id="guest-join" hidden="">
@@ -204,9 +204,9 @@
 
       <!-- Filled in from the server's reaction list (Manage > Settings); the
            admin can add, remove or reorder what shows up here. -->
-      
+      <div class="popover tray" id="react-tray" hidden="" data-proto-emptied=""></div>
   
-      
+      <div class="popover" id="settings" hidden="" data-proto-emptied=""></div>
       </div>
     </section></div></div>
     <!-- The split between the call's strip and the chat: dragged, or Up and Down with the keyboard. Shown on the call. -->
@@ -256,7 +256,7 @@
           <button class="sdk-icon-btn btn-quiet btn-small" id="chat-list" type="button" data-collapse="5" data-for="discussion" data-tip="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
           <span class="chat-format-item" data-collapse="6" data-for="discussion">
             <button class="sdk-icon-btn btn-quiet btn-small" id="chat-emoji" type="button" data-tip="Emoji" aria-label="Emoji"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></button>
-            
+            <div class="chat-emoji-popup" id="chat-emoji-popup" hidden="" data-proto-emptied=""></div>
           </span>
           <button class="sdk-icon-btn btn-quiet btn-small" id="chat-import-copy" type="button" data-collapse="7" data-for="assistant" data-tip="Copy prompt" aria-label="Copy prompt" hidden="" data-off="1"><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
           <button class="sdk-icon-btn btn-quiet btn-small" id="chat-bring" type="button" data-collapse="8" data-for="assistant" data-tip="Bring in research" aria-label="Bring in research" hidden="" data-off="1"><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>

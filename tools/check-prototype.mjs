@@ -18,7 +18,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findBrowser, launch, sleep } from './shots.mjs';
+import { findBrowser, launch, sleep, decodePng, encodePng, diffImages } from './shots.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -161,7 +161,23 @@ async function browserPart() {
         const png = Buffer.from((await s('Page.captureScreenshot', { format: 'png' })).data, 'base64');
         fs.writeFileSync(path.join(LOOK, `${screen.id}-${v.width}-${mode}-${scale}x${measure ? '-measure' : ''}.png`), png);
       }
+      // The page itself, wide and on a phone, with Light and Measure on.
+      for (const w of [1440, 390]) {
+        await s('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: w < 600 });
+        await s('Page.navigate', { url: `${base}/design-system/prototype.html#workspace?w=1280&mode=light&theme=calming-teal&measure=1` });
+        await until(ready); await sleep(800);
+        fs.writeFileSync(path.join(LOOK, `page-${w}.png`), Buffer.from((await s('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+      }
       say(`pictures in ${LOOK}`);
+      // With the live pages' pictures beside them (tools/prototype-build.mjs --live=<the same folder>): how many pixels differ.
+      for (const { screen, v } of looked) {
+        const live = path.join(LOOK, `${screen.id}-${v.width}-live.png`);
+        if (!fs.existsSync(live)) continue;
+        const d = diffImages(decodePng(fs.readFileSync(live)), decodePng(fs.readFileSync(path.join(LOOK, `${screen.id}-${v.width}-dark-1x.png`))));
+        if (d.sizeChanged) { say(`  ${screen.id} at ${v.width}: the live picture is another size`); continue; }
+        fs.writeFileSync(path.join(LOOK, `${screen.id}-${v.width}-diff.png`), encodePng(d.diff));
+        say(`  ${screen.id} at ${v.width}: ${(d.differing / d.total * 100).toFixed(2)} % of the pixels differ from the live page`);
+      }
     }
   } finally {
     try { cdp.ws.close(); const done = new Promise((r) => browser.child.once('exit', r)); browser.child.kill(); await Promise.race([done, sleep(5000)]); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* best effort */ }

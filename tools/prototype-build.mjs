@@ -12,7 +12,7 @@
 //
 // What is changed on the way out, and why:
 //   - Every script is removed, and every on* attribute: a screen is a picture of a moment, it runs nothing of the product's. A large
-//     part that is hidden and not drawn (the other tabs of Manage) is left out.
+//     part that is hidden and not drawn (the other tabs of Manage) is emptied (the element itself stays, for the rules that ask for it).
 //   - Links to the product's files are written relative (../../../style.css), so a screen works wherever the folder is served.
 //   - The link to /theme.css becomes a link to prototype/themes/<theme>.css, one per shipped theme (written here from the themes the
 //     seeded server lists, by server/theme-css.js, the same code that writes /theme.css), so the page can switch the theme.
@@ -24,7 +24,7 @@
 //     files (fonts, icons, stylesheets) stay links to the product, so the screens follow the product's files.
 //   - A colour a script set on <html> or <body> (the theme editor's preview) is left out, so the page's theme switch decides.
 //   - What a script did that markup does not keep is written as data-proto-* attributes for prototype-frame.js to put back: where a
-//     list was scrolled to, which dialog was open as a modal (showModal) and which popover was open; the value of each field is
+//     list was scrolled to, which dialog was open as a modal (showModal), which popover was open and what had the focus; the value of each field is
 //     written as its value attribute.
 //
 // Files (all under public/design-system/prototype/, rewritten whole each run; nothing else is touched):
@@ -32,7 +32,8 @@
 //   assets/<hash>.<ext>, screens.js (the list the page reads: window.PROTO_SCREENS). The screens are .htm, the module CSS .txt: they are captured output,
 //   not source, so the code checks (check-names, check-syntax) do not read them as code; their source is checked where it lives.
 //
-// Options: --only=<screen id, several with commas> (rebuild those, keep the rest), --list, --keep-server (print the server's
+// Options: --only=<screen id, several with commas> (rebuild those, keep the rest), --out=<folder>, --live=<folder> (also a picture of
+// each live page as it was kept, to compare with the screen), --list, --keep-server (print the server's
 // address and wait, for poking at it). Browser: CHROME_PATH, else a Playwright or system Chromium; with none it says so and exits 1.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -49,6 +50,7 @@ const opt = (name) => { const a = args.find((x) => x.startsWith(`--${name}=`)); 
 // Where the screens go: public/design-system/prototype, or --out=<folder> (tools/check-prototype.mjs builds into a folder of its own).
 const OUT = path.resolve(opt('out') || path.join(root, 'public', 'design-system', 'prototype'));
 const ONLY = opt('only');
+const LIVE = opt('live') ? path.resolve(opt('live')) : null;
 const say = (...a) => console.log('prototype:', ...a);
 const HEIGHT = 900; // the window's height, as the screenshot tool's
 const SETTLE_MS = 2500; // the space page keeps drawing for a while after it is connected
@@ -135,9 +137,13 @@ const CAPTURE = `(() => {
     for (const r of roots) if (r.adoptedStyleSheets && r.adoptedStyleSheets.length) {
       const s = doc.createElement('style'); s.textContent = r.adoptedStyleSheets.map((sh) => [...sh.cssRules].map((x) => x.cssText).join('\\n')).join('\\n'); r.prepend(s);
     }
-    // What is not drawn and is large (Manage's other tabs) is left out: a screen keeps what can be seen.
-    for (const e of all) if (e.isConnected && e.hasAttribute('hidden') && e.localName !== 'template' && getComputedStyle(e).display === 'none' && e.outerHTML.length > 2000) drop.push(e);
     for (const e of drop) e.remove();
+    // What is not drawn and is large (Manage's other tabs) is emptied: the element stays, so a rule that asks for it (.work:has(>
+    // .canvas[hidden])) still holds, but its inside is not kept.
+    for (const e of all) if (e.isConnected && e.hasAttribute('hidden') && e.localName !== 'template' && !e.shadowRoot && getComputedStyle(e).display === 'none' && e.innerHTML.length > 2000) { e.textContent = ''; e.setAttribute('data-proto-emptied', ''); }
+    let focused = doc.activeElement;
+    while (focused && focused.shadowRoot && focused.shadowRoot.activeElement) focused = focused.shadowRoot.activeElement;
+    if (focused && focused !== doc.body && focused !== doc.documentElement) focused.setAttribute('data-proto-focus', '');
     const html = doc.documentElement;
     // A colour set on the page itself (Manage's theme editor previews a theme so) would hold the screen to that theme: left out, so the
     // page's theme switch decides (a colour, or a role set to another role). Sizes set there (--app-vh) stay.
@@ -203,6 +209,8 @@ async function capture(tab, screen, base, cookies, ctx, size) {
     await tab.mouse('mouseMoved', 0, 0, { button: 'none', clickCount: 0 });
     await sleep(600);
     await tab.settle();
+    // --live=<folder>: a picture of the live page just before it is kept, to compare with the screen (tools/check-prototype.mjs --look).
+    if (LIVE) { fs.mkdirSync(LIVE, { recursive: true }); fs.writeFileSync(path.join(LIVE, `${screen.id}-${size}-live.png`), await tab.shoot(false)); }
     const got = await tab.eval(CAPTURE);
     return { ...got, errors };
   } catch (e) {

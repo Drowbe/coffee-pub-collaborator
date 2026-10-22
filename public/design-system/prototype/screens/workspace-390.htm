@@ -31,7 +31,7 @@
 
   <!-- The spaces page scrolls in here, under the header, so the scrollbar starts below it. -->
   <div class="page-scroll" id="page-scroll">
-  
+  <div class="join" id="join" hidden="" data-proto-emptied=""></div>
 
   <!-- A guest link (/guest/<token>) shows this instead: a name, nothing else. -->
   <form class="join guest-join" id="guest-join" hidden="">
@@ -125,9 +125,9 @@
     <!-- Each module owns a column of the space's grid: a content area over
          an action bar, the bars sharing one bottom row so they line up. Video
          and chat are the first two; see documentation/architecture/architecture-canvas.md. -->
-    
+    <section class="module module-video" id="conference" hidden="" data-proto-emptied=""></section>
 
-    
+    <aside class="chat module module-chat" id="chat" hidden="" data-view="discussion" data-proto-emptied=""></aside>
 
     <!-- Shown when nothing is open on the canvas (on a phone: no conference, no chat, no module). -->
     <div class="sdk-empty" id="canvas-empty" hidden="">

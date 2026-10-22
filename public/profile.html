@@ -305,7 +305,8 @@
   </template>
 
   <template id="space-section-template">
-    <section class="panel space-section" data-slot-group>
+    <section class="panel space-section sdk-groups" data-slot-group>
+      <div class="sdk-stack">
       <div class="section-head">
         <div class="space-section-heading">
           <img class="space-token" alt="" hidden>
@@ -314,13 +315,17 @@
         <button class="btn btn-small btn-danger" data-action="space-remove" type="button" data-fill hidden>Remove from {space}</button>
       </div>
       <p class="hint space-section-hint"></p>
+      </div>
 
+      <div class="sdk-stack">
       <h3>Permissions</h3>
       <div class="checks">
         <label class="sdk-choice-row" data-fill><input type="checkbox" data-permission="moderator"> {Moderator}</label>
       </div>
       <p class="hint" data-permissions-hint></p>
+      </div>
 
+      <div class="sdk-stack">
       <label class="sdk-choice-row"><input type="checkbox" data-use-default> Use Default Profile Images</label>
       <div data-space-images hidden>
       <div class="group" data-group="participant" data-slot-group hidden>
@@ -344,6 +349,7 @@
           <div class="slot" data-slot="characterAside"><div class="slot-pick-wrap"><label class="slot-pick still" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="slot-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span data-fill>{Aside}</span></div>
           <div class="slot" data-slot="characterPrivate"><div class="slot-pick-wrap"><label class="slot-pick still" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="slot-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Private</span></div>
         </div>
+      </div>
       </div>
       </div>
     </section>

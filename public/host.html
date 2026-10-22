@@ -89,13 +89,15 @@
         </form>
       </section>
       <!-- The flight schedule (plan-flight-lookup.md, step 5): one for the whole host, learned from every environment's saved flights; drawn by /flight-schedule.js on /api/host/flight-schedule. -->
-      <section class="panel flight-schedule" id="flight-schedule-section" hidden>
+      <section class="panel flight-schedule sdk-groups" id="flight-schedule-section" hidden>
+        <div class="sdk-stack">
         <div class="section-head">
           <h2>Flight schedule</h2>
           <span class="status" id="flight-schedule-status" role="status" aria-live="polite"></span>
         </div>
         <p id="flight-schedule-count">This server has learned 0 flights from saved trips.</p>
         <p class="hint">Flights people save in their trips teach this server when each flight number usually flies, so a later lookup can fill it in. It keeps the airline, the airports, the times and the terminal, never who flew.</p>
+        </div>
         <form class="flight-forget" id="flight-forget-form" autocomplete="off">
           <label class="field-label" for="flight-forget-number">Flight number</label>
           <div class="row">

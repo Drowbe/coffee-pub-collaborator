@@ -162,7 +162,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.sdk-row', name: 'row', h: false },
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
-  { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase' },
+  { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase, .sdk-strip-attn' },
   { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, #dest-bar, .dest-side-head', name: 'band', h: false },
   { sel: '.sdk-search', name: 'search field', h: false },
   { sel: '.btn, .tb-tab', name: 'button', h: false },
@@ -170,7 +170,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.sdk-menu-item, .host-menu-item, .chat-command-item, .sdk-kind-option', name: 'menu item', h: false },
   { sel: '.sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp', name: 'popover', h: false },
   { sel: '.sdk-editor-head, .phase-sheet-head, .bgpick-head, .sdk-dialog-head, .sdk-editor-actions, .sdk-editor-discard, .bgpick-foot, .sdk-dialog-foot, .action-bar', name: 'dialog band', h: false },
-  { sel: '.sdk-editor > form, .layout-form-body, .sdk-dialog-body, .phase-sheet-body', name: 'dialog body', h: false, box: false, stack: '*' },
+  { sel: '.sdk-editor > form, .layout-form-body, .sdk-dialog-body, .phase-sheet-body', name: 'dialog body', h: false, box: false, stack: '*', stackExcept: '.sdk-editor-actions, .sdk-editor-discard' },
   { sel: '.sdk-toast, .sdk-banner', name: 'toast', h: false },
   { sel: '.sdk-empty', name: 'empty state', h: true },
   { sel: '.sdk-choice-row, .sdk-choice-boxed', name: 'choice row', h: false },
@@ -186,7 +186,11 @@ const SYMMETRY_FAMILIES = [
 // - a card's foot (.sdk-card-foot) sits one step further from what is above it (8px gap and 4px: the approved Cards value), so the
 //   gap before it is not held to the card's other gaps;
 // - a box stretched by its row (cards in a grid or flex line as tall as the tallest) is judged at its own height: the room under
-//   its content is the row's, not its padding.
+//   its content is the row's, not its padding;
+// - the strip's attention pill (.sdk-strip-attn) starts with its icon: 6px before it and 8px after the count (4 and 6 on a phone),
+//   the approved Journey bar value (public/design-system/proposed-journey.css), so it is not held to left = right;
+// - a dialog's button row (.sdk-editor-actions, or the discard row in its place) is a band of its own over a hairline, --pad-dialog-y
+//   under the last field, so the gap before it is not held to the fields' gap.
 const SYMMETRY = String.raw`((families) => {
   const R = (e) => e.getBoundingClientRect();
   const shown = (e) => e && e.getClientRects().length && R(e).width >= 1 && R(e).height >= 1 && getComputedStyle(e).visibility !== 'hidden';

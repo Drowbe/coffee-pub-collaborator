@@ -1509,6 +1509,11 @@
 :where(.sdk-stack) { display: flex; flex-direction: column; gap: var(--stack-gap); min-width: 0; }
 :where(.sdk-cluster) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cluster-gap); min-width: 0; }
 .sdk-stack > *, .sdk-cluster > * { margin-block: 0; }
+/* .sdk-groups: a panel (or a stack) whose parts are groups, each a .sdk-stack: the groups --gap-group apart (16px), the parts
+   of each one --gap-in apart (8px). A heading that starts a group is its stack's first part, so it carries no margin. */
+:where(.sdk-panel, .panel, .sdk-stack).sdk-groups { gap: var(--gap-group); }
+/* A status line with nothing to say takes no room in a stack (it would add one more gap); one that announces (role or aria-live) stays. */
+:where(.sdk-panel, .panel, .sdk-stack) > p.status:empty:not([role], [aria-live]) { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   :is(.sdk-card, .sdk-row, .space-choice, .sdk-card-add, .space-choice-add) { transition: none; }

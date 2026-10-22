@@ -1733,7 +1733,7 @@ body.in-space .page-scroll {
   font-size: var(--text-16);
 }
 
-.panel h3 {
+.panel :where(h3) { /* weightless past .panel, so a group (.sdk-stack) takes its own margin off */
   margin: 14px 0 6px;
   font-size: var(--text-13);
   color: var(--text-dim);
@@ -2649,7 +2649,7 @@ button.whoami:focus-visible {
 }
 
 .danger-row {
-  margin-top: 16px;
+  margin-top: 0;
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
@@ -4490,7 +4490,6 @@ a.crumb-here:hover {
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
-  margin-bottom: 14px;
 }
 
 .theme-preview {
@@ -4833,7 +4832,6 @@ a.crumb-here:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 12px;
 }
 
 .reaction-row {
@@ -5731,7 +5729,7 @@ body.chat-window {
 /* the filters at the top of the Modules tab */
 .module-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 /* recent module activity: a box of rows that scrolls, newest first; the text can be selected and copied */
-.activity-head { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 6px; }
+.activity-head { display: flex; align-items: baseline; gap: 10px; margin: 0; }
 .activity-head h3 { margin: 0; font-size: var(--text-16); }
 .activity-log-box { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-input, var(--bg-card)); user-select: text; }
 .activity-log-box:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -6325,7 +6323,6 @@ body.chat-window {
 .module-config-back { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--text-dim); text-decoration: none; font-size: var(--text-13); }
 .module-config-back:hover { color: var(--accent); }
 .module-config h1 { margin: 0; font-size: var(--text-22); }
-.module-config .module-head { margin-bottom: 8px; }
 .module-config .module-settings-card { border: 0; padding: 0; margin-top: 12px; }
 
 /* a table of files to tick (a module setting that takes several) */
@@ -6491,7 +6488,7 @@ body.chat-window {
 /* The admin's Flight schedule section (host console and admin page): the count, a flight number with its Forget button
    on one line (the field takes the room, the button keeps its width; on a narrow screen the button goes under the
    field), then Clear all below a rule. */
-.flight-forget { display: grid; gap: 4px; margin: 12px 0 4px; max-width: 420px; }
+.flight-forget { display: grid; gap: 4px; margin: 0; max-width: 420px; }
 .flight-forget input { flex: 1 1 160px; min-width: 0; }
 .flight-forget .btn { flex: none; }
 
@@ -6505,7 +6502,7 @@ body.chat-window {
 
 /* Manage > Environment > Words: one row per level or role word, its name, then its singular, plural and article. On a
    phone each row stacks: the name and Reset across the top, the three fields beneath, each with its own label. */
-.words-list { display: grid; gap: 0; margin: 8px 0 12px; }
+.words-list { display: grid; gap: 0; margin: 0; }
 .word-row { display: grid; grid-template-columns: minmax(10em, 1.3fr) repeat(3, minmax(0, 1fr)) auto; gap: 8px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
 .word-row-head { border-top: none; padding-bottom: 0; }
 .word-row-head .field-label { margin: 0; }
@@ -6549,8 +6546,8 @@ body.chat-window {
 
 /* Manage's Template tab (plan-environment-templates, addendum 2): the switch, the offer after it (shared with the host
    console's environment card, /template-offer.js), and one row per module's name and icon. */
-.template-note .hint { margin: 4px 0 0; }
-.template-switch { margin-top: 12px; align-items: flex-end; }
+.template-note .hint { margin: 0; }
+.template-switch { align-items: flex-end; }
 .template-switch-pick { flex: 1 1 14rem; min-width: 0; max-width: 24rem; }
 .template-switch-pick select { width: 100%; min-width: 0; }
 .template-offer-note { margin-top: 12px; }
@@ -6570,7 +6567,7 @@ body.chat-window {
 .module-name-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
 .module-name-head .module-icon { color: var(--accent); }
 .module-name-row .module-display { margin-top: 8px; }
-.module-shown-as { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 12px 0; font-size: var(--text-14); }
+.module-shown-as { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; font-size: var(--text-14); }
 .module-shown-as .field-label { margin: 0; }
 #home-icon-section, #module-names-section, #words-panel, #template-panel, #reactions-section, #icons-section { scroll-margin-top: 80px; }
 /* The console's environment card: the same switch and offer, in its own box under the facts. */
@@ -6579,7 +6576,6 @@ body.chat-window {
 .env-template-pick { flex: 1 1 12rem; min-width: 0; max-width: 20rem; }
 .env-template-pick select { width: 100%; min-width: 0; }
 /* Manage > Template: template files (addendum 2), and the offer's reactions and icons. */
-.template-files { margin-top: 16px; }
 .template-files .list-row { flex-wrap: wrap; }
 .template-file-name { flex: 1; min-width: 12em; }
 .offer-glyphs { margin-left: 4px; }

@@ -7,7 +7,7 @@
    Corners        panel and card --radius-large, a row on a panel --radius-medium, a row inside a card --radius-small. (Proposed; Thomas decides.)
    Spacing        one rule: 8px between things (inside a card or a row, and between cards or rows in a list: rows in a list NEVER touch), 16px between groups.
                   The one refinement (2026-10-21): rows INSIDE a card are 4px apart, because each is a quiet fill (--bg-input) that the step already separates.
-                  Padding (decided 2026-10-21, on the spacing scale): row 8px by 10px (10 is 8 + 2), card 12px, panel 16px at every width, the Home space card 20px (its own larger variant).
+                  Padding (decided 2026-10-21, on the spacing scale): row 8px by 8px, card 12px, panel 16px at every width, the Home space card 20px (its own larger variant).
    Phone          a row is 44px high (38px wider); a hit area is 44px (the tick, the "..." button).
    Focus          a 2px --accent outline drawn over the 1px hairline, inside the box (offset -2px): the Fields and Tabs mechanism, equal on all
                   four sides at any display scale.
@@ -25,7 +25,7 @@
   --panel-pad: 16px;
   --home-pad: 20px;
   --row-pad-y: 8px;
-  --row-pad-x: 10px;
+  --row-pad-x: 8px;
   --gap-in: 8px;
   --gap-card-rows: 4px; /* rows inside a card: the fill step separates them, so 4px; rows in a list on a panel or a window: 8px */
   --gap-group: 16px;
@@ -38,7 +38,7 @@
 }
 
 @media (max-width: 640px) {
-  .ds-proposed { --tick-hit: 44px; --tick-edge: -10px; }
+  .ds-proposed { --tick-hit: 44px; --tick-edge: -8px; }
 }
 
 /* ---- the tints (a module's colour, on its icon and its words only) ---- */
@@ -141,7 +141,7 @@
 }
 
 /* A row inside a card or a panel's card takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
-.ds-proposed :is(.sdk-card, .card, .tile, .rcard, .editor-card, .space-choice) :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) {
+.ds-proposed :is(.sdk-card, .sdk-card-banded, .card, .tile, .rcard, .editor-card, .space-choice) :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) {
   --s: var(--bg-input);
   border-color: transparent;
   border-radius: var(--radius-small);
@@ -405,3 +405,8 @@
 .ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: 11px; }
 .ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: 12px; }
+.ds-proposed .sdk-card-banded > .sdk-card-head > :is(.sdk-icon-btn, .btn-small) { flex: none; }
+/* The band alone: a banded card with nothing shown under its band has no hairline under it and every corner round. */
+.ds-proposed .sdk-card-banded > .sdk-card-head:not(:has(~ :not([hidden]))) { border-bottom: 0; border-radius: var(--radius-medium); }
+/* The body of a module's object box is a stack: its parts one gap apart. */
+.ds-proposed .sdk-card-banded > .sdk-card-body.pm-cd-stack { display: flex; flex-direction: column; gap: 8px; }

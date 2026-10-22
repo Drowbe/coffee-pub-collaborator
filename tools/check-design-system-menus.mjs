@@ -3,7 +3,7 @@
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: an item not 32px high (44px in a frame of 640px or less, with .narrow, and in the sheet); a surface that is not --bg-card with a 1px
- * --border hairline on all four sides, --radius-medium, --shadow-2 and the padding of its kind (4px a menu, 14px a popover, 8px a dense one); a menu outside
+ * --border hairline on all four sides, --radius-medium, --shadow-2 and the padding of its kind (4px a menu, 12px a popover, 8px a dense one); a menu outside
  * 180 to 320px; a hover (forced) that is not the quiet neutral fill, or that is tinted by the accent or by danger; a current row that is not --selected-bg with
  * the accent-mix text, or that carries a check mark; a check mark anywhere but a tick-box row; a danger row with a fill at rest or on hover, or with text under
  * 4.5 to 1 (rest and hover, in light and dark mode); a disabled row not at half strength; a focus that is not a 2px accent outline at offset -2px, or not the same
@@ -125,7 +125,7 @@ const menusProbe = async () => {
       if (!/ 0px 2px 8px 0px$/.test(cs.boxShadow)) bad(`${nm}: the shadow is ${cs.boxShadow}, not 0 2px 8px`);
       { const s1 = tok(d, 'var(--shadow-1)', 'boxShadow'); const blur = (v) => Number((/ 0px (-?\d+)px (\d+)px/.exec(v) || [])[2]); if (s1 !== 'none' && !(blur(s1) < blur(cs.boxShadow))) bad(`${nm}: --shadow-1 (${s1}) is not smaller than --shadow-2 (${cs.boxShadow})`); }
       const isPop = el.matches('.sdk-popover, .popover'); const dense = el.matches('.sdk-popover-dense, .sdk-dp');
-      const want = isPop && !dense ? 14 : dense ? 8 : 4;
+      const want = isPop && !dense ? 12 : dense ? 8 : 4;
       for (const s of SIDES) if (Math.abs(parseFloat(cs['padding' + s]) - want) > 0.1) bad(`${nm}: padding ${s.toLowerCase()} is ${cs['padding' + s]}, expected ${want}px`);
       if (el.matches('.sdk-menu, .host-menu, .modules-menu, .menu, .chat-command-menu, .sdk-menu-flyout') && !el.closest('.sdk-menu-sheet, .pm-zoom, [hidden]')) { const w = el.getBoundingClientRect().width; if (w < 179.5 || w > 320.5) bad(`${nm}: ${w}px wide, outside 180 to 320`); }
     }
@@ -213,7 +213,7 @@ const menusProbe = async () => {
   // Chat command menu: the cursor row; a call popover's heading.
   { const d = get('Menus, chat command menu'); const act = d.querySelector('.chat-command-item.active'); if (getComputedStyle(act).backgroundColor !== bgTok(d, HOVER)) bad('the chat command menu cursor row is not the quiet fill');
     const p = get('Menus, popovers'); const hd = p.querySelector('.sdk-popover-heading'); const cs = getComputedStyle(hd); if (cs.color !== tok(p, 'var(--text-dim)') || cs.fontSize !== '11px' || cs.textTransform !== 'uppercase') bad(`a popover heading is ${cs.color} ${cs.fontSize}, not the neutral 11px heading`);
-    const pp = p.querySelector('.sdk-popover'); if (Math.abs(pp.querySelector('.sdk-popover-heading').getBoundingClientRect().left - pp.getBoundingClientRect().left - 15) > 0.6) bad('a popover is not padded 14px (plus its edge)'); }
+    const pp = p.querySelector('.sdk-popover'); if (Math.abs(pp.querySelector('.sdk-popover-heading').getBoundingClientRect().left - pp.getBoundingClientRect().left - 13) > 0.6) bad('a popover is not padded 12px (plus its edge)'); }
 
   // Aliases: today's class names take the same surface (checked above for every surface) and the same row; the heading of .popover is neutral.
   { const d = get('Menus, aliases'); const want = d.defaultView.innerWidth <= 640 ? 44 : 32;

@@ -230,13 +230,15 @@
     moreInto(el, item);
     roundTripInto(el, item);
     if (!canEdit) el.querySelector('.menu-btn')?.remove();
+    // A part with nothing shown in it takes no room: a line of chips, then the body (the card is then its band alone).
+    for (const box of [...el.querySelectorAll('.chips2'), ...el.querySelectorAll('.sdk-card-body > .main'), el.querySelector(':scope > .sdk-card-body')]) if (box) hide(box, ![...box.children].some((k) => !k.hidden));
     return el;
   }
 
   // A leg of a round trip: a line under its card with the other leg's day ("Round trip · Return Fri, Oct 9"), and on a return placed
   // before its outbound, a warning (it is allowed).
   function roundTripInto(el, item) {
-    if (item.kind !== 'journey') return;
+    if (item.kind !== 'journey' || !el.matches('.sdk-card-banded')) return;
     const out = plan.outboundFor(item);
     const other = out || plan.returnFor(item.id);
     if (!other) return;
@@ -257,7 +259,7 @@
   // terminal, the cost... Only what the item has and the template did not show (a slot of that name); "More" opens it,
   // and a card someone opened stays open through redraws.
   function moreInto(el, item) {
-    if (item.kind === 'link' || item.kind === 'lane') return;
+    if (item.kind === 'link' || item.kind === 'lane' || !el.matches('.sdk-card-banded')) return; // not on a one-line row (a stay's nights between)
     const has = (name) => Boolean(slot(el, name));
     const rows = [];
     const add = (label, value, slotName) => { if (value && !(slotName && has(slotName))) rows.push([label, value]); };

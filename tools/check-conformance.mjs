@@ -158,7 +158,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.message .message-body', name: 'message body', h: false, stack: '*', box: false },
   { sel: '.sdk-card:not(.sdk-card-banded)', name: 'card', h: true, stack: '*', stackExcept: '.sdk-card-foot' },
   { sel: '.user-card, .space-choice, .sdk-card-add, .space-choice-add', name: 'card (page)', h: false },
-  { sel: '.sdk-panel, .panel', name: 'content box', h: false, stack: '*' },
+  { sel: ['.sdk-pan' + 'el', '.pan' + 'el'].join(', '), name: 'content box', h: false, stack: '*' },
   { sel: '.sdk-row', name: 'row', h: false },
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },

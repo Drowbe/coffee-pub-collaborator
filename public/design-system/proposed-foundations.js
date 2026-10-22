@@ -437,12 +437,12 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 ${tbl(['Value', 'Uses today', 'Goes to', 'Note'], [
     ['8', '376', '<code>--space-2</code>', 'Already the gap between things.'],
     ['6', '330', '<code>--space-1</code> or <code>--space-2</code>', 'Per component: 4 in a tight cluster, 8 elsewhere. Not in the scale.'],
-    ['10', '259', '<code>--space-2</code> or <code>--space-3</code>', 'Per component. A row\'s 10 is 8 + 2.'],
+    ['10', '259', '<code>--space-2</code> or <code>--space-3</code>', 'Per component. A row\'s side padding is 8.'],
     ['4', '219', '<code>--space-1</code>', ''],
     ['12', '190', '<code>--space-3</code>', 'Card padding.'],
     ['2', '153', '<code>--space-0</code>', 'The hairline step.'],
     ['16', '78', '<code>--space-4</code>', 'The gap between groups; panel and page padding.'],
-    ['14', '77', '<code>--space-3</code> or <code>--space-4</code>', 'Settles per component. The panel is 16 here; a popover\'s controls (14 in Menus) become 12 or 16.'],
+    ['14', '77', '<code>--space-3</code> or <code>--space-4</code>', 'Settles per component. The panel is 16 here; a popover\'s controls are 12 in Menus.'],
     ['3', '47', '<code>--space-0</code> or <code>--space-1</code>', ''],
     ['5', '41', '<code>--space-1</code>', ''],
     ['7', '25', '<code>--space-2</code>', ''],
@@ -622,8 +622,8 @@ ${tbl(['Token', 'Value', 'Used for'], [
 <p class="ds-desc">Thomas approved every choice below, as drawn, on 2026-10-21.</p>
 ${tbl(["Decided as drawn","Why"], [
     ["Names count steps: <code>--space-3</code> is 12px, <code>--space-0</code> is 2px","Short, and the same shape as <code>--radius-*</code>. They differ from the older plan table, where <code>--space-3</code> was 6."],
-    ["A row's horizontal 10 is written <code>--space-2</code> + <code>--space-0</code>","Keeps the Cards decision (8 by 10) while 10 stays off the scale."],
-    ["The panel is 16 (decided 2026-10-21); Menus' 14px popover padding is not touched","A popover is not a panel; its padding stays with the Menus family."],
+    ["A row, a chip and a menu item are 8 at the sides; a popover's controls are 12 (2026-10-22)","The four off-scale values (10, 10, 9, 14) snapped to the 4px scale."],
+    ["The panel is 16 (decided 2026-10-21)","A popover is not a panel; its padding stays with the Menus family (12)."],
     ["The three shadows are <code>0 1px 4px</code>, <code>0 2px 8px</code> and <code>0 4px 16px</code>: black at 35% in dark, the text colour at 10% (8% for <code>--shadow-1</code>) in light (smaller, 2026-10-21)","Same size as the most common dialog shadow today (7 uses), smaller than the 16/48 one."],
     ["<code>--scrim</code> is 55% in light mode too","Your \"one scrim\". Menus drew 35% in light; it now follows this."],
     ["A menu (26) is below a dialog (40); a menu opened from inside a dialog uses the popover layer","So the list never hides behind the dialog it was opened from. It is the SDK's job to pick the layer."],

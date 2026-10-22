@@ -520,6 +520,44 @@
    "tier": "state"
   },
   {
+   "id": "planner-narrow-stay",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.stay"
+    }
+   ],
+   "tier": "state",
+   "sizes": [
+    260
+   ],
+   "themes": [
+    "light"
+   ]
+  },
+  {
+   "id": "planner-narrow-boxes",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "tier": "state",
+   "sizes": [
+    260
+   ],
+   "themes": [
+    "light"
+   ],
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.ticket"
+    }
+   ]
+  },
+  {
    "id": "planner-card-train",
    "family": "Planner",
    "as": "mia",

@@ -125,11 +125,16 @@ const cardsProbe = async () => {
     const d = get('Cards, left bar replacements'); for (const r of d.querySelectorAll('.sdk-bar-kept')) barOk(r, 'Cards exception row'); const r = d.querySelector('.sdk-bar-kept'); if (r) { const p = cs(r, '::before'); if (p.width !== '3px') bad(`the Calendar bar is ${p.width}, expected 3px`); if (cs(r).borderLeftWidth !== '1px' || cs(r).borderLeftColor !== tok(d, 'var(--border)')) bad('the Calendar row has a coloured or heavy edge, not the hairline');
       if (!/Exception, kept/.test(d.body.textContent)) bad('the Calendar exception is not flagged "Exception, kept" in its frame'); } }
   // Surface steps, corners and the hairline, on the real components.
-  // Paddings (decided 2026-10-21, on the spacing scale): panel 16 at every width, card 12, row 8 by 10 (8 + 2), Home card 20.
+  // Paddings (decided 2026-10-21, on the spacing scale): panel 16 at every width, card 12, row 8 by 8, Home card 20.
   // The banded card (decided 2026-10-21): one hairline box, a 30px band (31 with its hairline) shaded from the role over the box's own surface, a hairline under it, the same band on a chat message.
   { const d = get('Cards, object box with a head band'); const boxes = d ? [...d.querySelectorAll('.sdk-card-banded')] : []; const border = d && tok(d, 'var(--border)');
-    if (boxes.length < 4) bad(`the head band frame shows ${boxes.length} banded boxes, expected 4 (two objects, two chat messages)`);
+    if (boxes.length < 9) bad(`the head band frame shows ${boxes.length} banded boxes, expected 9 (two objects, two chat messages, five modules' object boxes)`);
     if (!boxes.some((b) => b.matches('.sdk-message'))) bad('the head band frame shows no chat message as an instance');
+    // The modules' object boxes with a title row are instances of it (2026-10-22): the Planner's cards, Research's cards, a poll, a place, Budget's overview boxes.
+    for (const m of ['travel', 'research', 'polls', 'places', 'budget']) if (!boxes.some((b) => b.dataset.module === m)) bad(`the head band frame shows no ${m} object box as an instance`);
+    // A row inside a banded card takes the next step, as in a card: the field surface, its edge transparent, the small corner.
+    { const r = d && d.querySelector('.sdk-card-banded .sdk-row:not([aria-current])'); if (!r) bad('the head band frame shows no row inside a banded card');
+      else { const c = cs(r); if (c.backgroundColor !== tok(d, 'var(--bg-input)', 'backgroundColor') || c.borderTopColor !== 'rgba(0, 0, 0, 0)' || c.borderTopLeftRadius !== rTok(d, '--radius-small')) bad(`a row inside a banded card is ${c.backgroundColor}, edge ${c.borderTopColor}, corner ${c.borderTopLeftRadius}: not the next step (--bg-input, no edge, --radius-small)`); } }
     const hs = new Set();
     for (const b of boxes) { const c = cs(b); const head = b.querySelector(':scope > :is(.sdk-card-head, .sdk-message-head)'); const body = b.querySelector(':scope > :is(.sdk-card-body, .sdk-message-body)');
       if (!head || !body) { bad('a banded box has no head band or no body'); continue; }
@@ -145,7 +150,7 @@ const cardsProbe = async () => {
   { const d = get('Cards, nested rows'); const pn = d.querySelector('.sdk-panel'), cd = d.querySelector('.sdk-card'), rw = d.querySelector('.sdk-panel > .pm-cd-two > div > .sdk-list > .sdk-row') || d.querySelector('.sdk-row');
     if (cs(pn).paddingTop !== '16px' || cs(pn).paddingLeft !== '16px') bad(`the panel padding is ${cs(pn).paddingTop} ${cs(pn).paddingLeft}, expected 16px at every width`);
     if (cs(cd).paddingTop !== '12px' || cs(cd).paddingLeft !== '12px') bad(`the card padding is ${cs(cd).paddingTop} ${cs(cd).paddingLeft}, expected 12px`);
-    if (cs(rw).paddingTop !== '8px' || cs(rw).paddingLeft !== '10px') bad(`the row padding is ${cs(rw).paddingTop} ${cs(rw).paddingLeft}, expected 8px 10px`); }
+    if (cs(rw).paddingTop !== '8px' || cs(rw).paddingLeft !== '8px') bad(`the row padding is ${cs(rw).paddingTop} ${cs(rw).paddingLeft}, expected 8px 8px`); }
   { const d = get('Cards, nested rows'); const panel = d.querySelector('.sdk-panel'); const card = d.querySelector('.sdk-card'); const inner = card.querySelector('.sdk-row'); const onPanel = d.querySelector('.sdk-panel > .pm-cd-two > div > .sdk-list > .sdk-row');
     const border = tok(d, 'var(--border)');
     if (cs(panel).backgroundColor !== bgTok(d, '--bg-section')) bad(`the panel is ${cs(panel).backgroundColor}, not --bg-section`);
@@ -175,9 +180,9 @@ const cardsProbe = async () => {
     if (c(rest).outlineStyle !== 'none') bad(`${nm}: an outline at rest`);
     if (c(dis).opacity !== '0.5') bad(`${nm}: disabled is not half strength (${c(dis).opacity})`);
     if (nm === 'card') { const drag = els[5]; if (c(drag).boxShadow === 'none') bad('a dragged card has no shadow'); }
-    if (Math.abs(c(rest).paddingLeft.replace('px', '') - (nm === 'card' ? 12 : 10)) > 1.1) bad(`${nm}: padding ${c(rest).paddingLeft}`);
+    if (Math.abs(c(rest).paddingLeft.replace('px', '') - (nm === 'card' ? 12 : 8)) > 1.1) bad(`${nm}: padding ${c(rest).paddingLeft}`);
   }
-  // Rows: height 38 (44 on a phone), padding 8 by 10 (the edge is 1px), at most one primary button in a box, the menu slot.
+  // Rows: height 38 (44 on a phone), padding 8 by 8 (the edge is 1px), at most one primary button in a box, the menu slot.
   for (const t of TITLES) {
     const d = get(t); const want = phone(d) ? 44 : 38;
     for (const el of d.querySelectorAll('.sdk-row')) { const h = el.getBoundingClientRect().height; if (h < want - 0.6) bad(`${t}: a row is ${h}px high, under ${want}`); }

@@ -2,7 +2,7 @@
    One menu surface and one menu item for host.menu.show, the nav registry's menu, the Layout and Modules menus, the chat command menu, a card's
    "..." menu, the dropdown lists (the kind picker's list), and the popovers (date picker, call popovers, filter popovers, emoji picker, the bell panel).
    - Surface: --bg-card, a 1px neutral hairline (--border), --radius-medium, ONE shadow (--shadow-2), 4px of padding, 180 to 320px wide, one
-     layer (--z-menu). A popover is the same surface with its own padding: 8px around a grid or a list, 14px around controls.
+     layer (--z-menu). A popover is the same surface with its own padding: 8px around a grid or a list, 12px around controls.
    - Item: 32px high (44px on a phone, and when the menu has .narrow), 1px transparent edge + 6x9 padding = 7x10, icon 1em, label, hint 12px dim,
      count, tick box or switch, submenu arrow. Hover = a quiet neutral fill (--text 10%). Focus = a 2px accent outline inside the item (offset -2px),
      the mechanism of the Fields and the Tabs. The current choice = --selected-bg with text in the accent mix (accent 55% into --text).
@@ -28,7 +28,7 @@
   /* On the quiet fill the same red is 4.3 to 1 in dark mode, so a hovered or focused danger row, and a hint on a filled row, take one step more. */
   --menu-danger-fg-strong: color-mix(in srgb, var(--danger) 55%, var(--text));
   --menu-hint-strong: color-mix(in srgb, var(--text-dim) 50%, var(--text));
-  --pop-pad: 14px;
+  --pop-pad: 12px;
   --dp-day: 30px;
 }
 
@@ -68,7 +68,7 @@
   max-height: 360px;
 }
 
-/* A popover: the same surface, the padding of what it holds. 14px around controls (call and filter popovers); 8px around a grid or a list. */
+/* A popover: the same surface, the padding of what it holds. 12px around controls (call and filter popovers); 8px around a grid or a list. */
 .ds-proposed :is(.sdk-popover, .popover, .bell-list) {
   display: flex;
   flex-direction: column;
@@ -94,7 +94,7 @@
   height: var(--menu-item-h);
   min-height: 0;
   margin: 0;
-  padding: 6px 9px;
+  padding: 6px 8px;
   border: 1px solid transparent;
   border-radius: var(--radius-small);
   background: transparent;

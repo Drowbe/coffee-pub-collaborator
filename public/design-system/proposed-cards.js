@@ -52,9 +52,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   };
 
   // One banded card (an object box with a head band). o: icon, tint, title, meta, body (html), cls, portrait (a letter: a chat head).
-  const banded = (o = {}) => `<div class="sdk-card-banded${o.cls ? ' ' + o.cls : ''}"${o.tint ? ` data-tint="${o.tint}"` : ''}>
-      <div class="sdk-card-head"><div class="sdk-card-main">${o.icon ? `<span class="sdk-card-icon">${fa(o.icon)}</span>` : ''}<h4 class="sdk-card-title">${o.title}</h4>${o.meta ? `<span class="sdk-card-sub">${o.meta}</span>` : ''}</div>${MENU}</div>
-      <div class="sdk-card-body">${o.body}</div>
+  // o.module names the module whose object box it draws (data-module), o.action a quiet button in the band in place of the "...", o.tintMeta the meta in the kind's colour.
+  const banded = (o = {}) => `<div class="sdk-card-banded${o.cls ? ' ' + o.cls : ''}"${o.tint ? ` data-tint="${o.tint}"` : ''}${o.module ? ` data-module="${o.module}"` : ''}>
+      <div class="sdk-card-head"><div class="sdk-card-main">${o.icon ? `<span class="sdk-card-icon">${fa(o.icon)}</span>` : ''}<h4 class="sdk-card-title">${o.title}</h4>${o.meta ? `<span class="sdk-card-sub${o.tintMeta ? ' sdk-tint-text' : ''}">${o.meta}</span>` : ''}</div>${o.action ? `<button type="button" class="btn btn-small btn-quiet">${o.action}</button>` : o.menu === false ? '' : MENU}</div>
+      <div class="sdk-card-body${o.stack ? ' pm-cd-stack' : ''}">${o.body}</div>
     </div>`;
   // A chat message as an instance of it: the Chat family's markup, the same band.
   const bandedMsg = (o = {}) => `<div class="sdk-card-banded sdk-message${o.own ? ' own' : ''}"><div class="sdk-message-head"><span class="sdk-message-who"><span class="sdk-message-portrait" aria-hidden="true">${o.who[0]}</span><span class="sdk-message-name">${o.who}</span><time class="sdk-message-time">${o.time}</time></span><span class="sdk-message-tools">${MENU}</span></div><div class="sdk-message-body"><div class="sdk-message-text">${o.text}</div></div></div>`;
@@ -124,7 +125,16 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const bandedBody = () => wrap(`<div class="sdk-panel"><div class="pm-cd-two">
     <div>${CAPTION('Object boxes')}<div class="sdk-list">${banded({ icon: 'utensils', tint: 'orange', title: 'Lunch at Café Marly', meta: 'Day 2, 12:30', body: '<p class="sdk-card-body">A terrace on the Louvre. Book for four.</p>' })}${banded({ icon: 'landmark', tint: 'blue', title: 'Louvre', meta: 'Day 2, 9:30', body: '<p class="sdk-card-body">Book the timed entry before Friday.</p>' })}</div></div>
     <div>${CAPTION('Chat messages: the same band')}<div class="sdk-list">${bandedMsg({ who: 'Sam', time: '10:41', text: '<p>Anyone checked the museum hours?</p>' })}${bandedMsg({ who: 'You', own: true, time: '10:42', text: '<p>Open until 9 on Fridays.</p>' })}</div></div>
-  </div></div>`);
+  </div>
+  <div class="pm-cd-cap" style="margin-top:14px">In the modules: every object box with a title row</div>
+  <div class="pm-cd-grid">
+    <div>${CAPTION('Planner: a flight')}${banded({ module: 'travel', icon: 'plane', tint: 'blue', title: 'TAP Air Portugal TP 205', meta: 'Flight', tintMeta: true, stack: true, body: '<p class="sdk-card-body"><b>JFK</b> 7:40 AM to <b>LIS</b> 10:35 AM</p><p class="sdk-card-sub">Seat 14A, gate B22</p>' })}</div>
+    <div>${CAPTION('Research: a link')}${banded({ module: 'research', icon: 'link', tint: 'teal', title: 'Lisbon tram guide', meta: 'Link', tintMeta: true, stack: true, body: '<p class="sdk-card-sub">example.com</p><p class="sdk-card-body">Which lines are worth the ride, and when to avoid the crowds.</p>' })}</div>
+    <div>${CAPTION('Polls: a poll')}${banded({ module: 'polls', title: 'Where do we eat on the first night?', meta: '2 votes', stack: true, body: `<p class="sdk-card-sub">Pick one</p><div class="sdk-card-list">${row({ title: 'Taberna da Rua', meta: '1', sel: true })}${row({ title: 'Time Out Market', meta: '1' })}</div>` })}</div>
+    <div>${CAPTION('Places: a place')}${banded({ module: 'places', icon: 'utensils', tint: 'orange', title: 'Time Out Market', stack: true, body: '<p class="sdk-card-sub">Av. 24 de Julho 49</p>' })}</div>
+    <div>${CAPTION('Budget: the target')}${banded({ module: 'budget', title: 'Target', action: 'Set a target', stack: true, body: '<p class="sdk-card-title">$3,596.00 spent</p><p class="sdk-card-sub">A target lets you see how much is left.</p>' })}</div>
+  </div>
+  <p class="pm-cd-note">Left as rows, not banded cards (a row has no title row over a body): a To-do task, a Budget cost, category and person, a poll's option, a Planner time block and a stay's nights between, a Places search result.</p></div>`);
 
   const phoneBody = () => wrap(`<div class="sdk-panel"><div class="sdk-list-group"><h4 class="sdk-group-head">Today<span class="sdk-group-count">3</span></h4><div class="sdk-list">
     ${row({ tick: true, title: 'Book the flights', meta: 'Fri', menu: true })}
@@ -253,7 +263,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <div data-slot="anatomy"></div>
 ${dim([
     ['1 Surface', 'A 1px <code>--border</code> hairline, no shadow, no gradient. Panel and card <code>--radius-large</code>; a row on a panel <code>--radius-medium</code>; a row inside a card <code>--radius-small</code>.'],
-    ['2 Padding', 'Row 8px by 10px (the 10 is 8 + 2 on the spacing scale). Card 12px. Panel 16px at every width (decided 2026-10-21; it was 14px on a phone). Home\'s space card 20px, its own larger variant.'],
+    ['2 Padding', 'Row 8px by 8px. Card 12px. Panel 16px at every width (decided 2026-10-21; it was 14px on a phone). Home\'s space card 20px, its own larger variant.'],
     ['3 Spacing', 'One rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups. Rows in a list are separated by 8px and never touch (a list is <code>.sdk-list</code>, or a window\'s content, which is a column with an 8px gap). Rows inside a card are 4px apart: each is a quiet fill, so the step does the separating and 8px would be loose (Thomas, 2026-10-21; this is the one proposal, he may take a hairline instead).'],
     ['3b Nesting', 'A panel or a window holds a card or a row, and a card holds a row: two surfaces, no more. A row inside a row, or a box inside that, has no fill and no edge of its own. A child\'s corner is never larger than its parent\'s, and its padding is at most the space to the parent\'s edge (Foundations, "Nesting and corners").'],
     ['4 Icon chip', 'Optional. 32px in a card, 28px in a row; <code>--radius-small</code>. The category tint is a quiet fill behind the icon and the icon itself; nothing else is coloured.'],
@@ -357,7 +367,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--selected-bg</code>', 'the theme\'s', 'A selected card or row.'],
     ['<code>--radius-large</code> <code>--radius-medium</code> <code>--radius-small</code>', '11px, 7px, 5px', 'Card and panel; a row on a panel; a row in a card and the icon chip.'],
     ['<code>--card-pad</code> <code>--panel-pad</code> <code>--home-pad</code>', '12px, 16px, 20px', 'Padding. Proposed tokens.'],
-    ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 10px', 'A row\'s padding. Proposed tokens.'],
+    ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 8px', 'A row\'s padding. Proposed tokens.'],
     ['<code>--gap-in</code> <code>--gap-group</code>', '8px, 16px', 'The one spacing rule. Proposed tokens.'],
     ['<code>--ls-label</code>', '0.04em', 'Group header letter spacing. Proposed token.'],
     ['<code>--shadow-1</code>', '0 1px 4px, black at 35% (dark), the text colour at 8% (light)', 'A card while it is dragged. Smaller than the menu\'s <code>--shadow-2</code> (<code>0 2px 8px</code>). The Foundations token.'],
@@ -403,7 +413,7 @@ ${dim([
 <p class="ds-desc">Thomas approved these on 2026-10-19 and said "we can start with this" about the radii and the paddings, so those two may be tuned later without reopening the family.</p>
 ${tbl(['Decided 2026-10-19', 'Why', 'Other way, if tuned later'], [
     ['Radii: card and panel large, a row on a panel medium, a row in a card small', 'Each box inside another has a smaller corner, so the corners stay concentric.', 'Make the card medium and the row small everywhere.'],
-    ['Padding: card 12, panel 16, row 8 by 10 (8 + 2), Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
+    ['Padding: card 12, panel 16, row 8 by 8, Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
     ['Group header: 12px, weight 600, muted, upper case, 0.04em, with a hairline under it', 'The most common of the three today, and the divider is part of the decision.', 'Sentence case with no letter spacing; no hairline.'],
     ['The ghost add slot is a dashed neutral hairline with no fill', 'The add variant keeps its dashed edge, quiet like the rest.', 'A solid hairline.'],
   ])}

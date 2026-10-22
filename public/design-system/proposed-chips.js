@@ -312,7 +312,7 @@ ${tbl(['Today', 'Where', 'Proposed', 'What changes visually'], [
 ${tbl(['Token', 'Use here', ''], [
     ['<code>--chip-h</code>, <code>--chip-h-tag</code>', 'The two heights: 30px and 24px.', 'new'],
     ['<code>--chip-font</code>, <code>--chip-font-tag</code>', '13px and 12px.', 'new'],
-    ['<code>--chip-pad-x</code>, <code>--chip-pad-x-tag</code>, <code>--chip-gap</code>', '10px and 8px side padding; 6px between icon and label.', 'new'],
+    ['<code>--chip-pad-x</code>, <code>--chip-pad-x-tag</code>, <code>--chip-gap</code>', '8px side padding; 6px between icon and label.', 'new'],
     ['<code>--chip-avatar</code>, <code>--chip-x</code>', '22px avatar; 20px x button.', 'new'],
     ['<code>--chip-fill</code>, <code>--chip-fill-hover</code>, <code>--chip-fill-active</code>', '<code>--text</code> at 8%, 14% and 20%.', 'new'],
     ['<code>--chip-tint</code>, <code>--chip-surface</code>, <code>--chip-tone</code>', 'The tint strength (18%), the surface the chip sits on (<code>--bg-section</code>; <code>--bg-card</code> in a card), the tone of this chip.', 'new'],

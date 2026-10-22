@@ -30,36 +30,25 @@ body { margin: 0; overflow: hidden; }
    (see masonry() in research.js), so nothing leaves a hole under a short card; the columns come from auto-fill */
 .rs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-auto-rows: 8px; gap: var(--space-2); align-items: start; }
 .rs-grid > .rcard { align-self: start; }
-/* the list: one row per item, the kind icon, the title, one line of the excerpt, the tags and the meta */
+/* the list: one row per object, the band, then the picture beside one line of the excerpt, the tags and the meta */
 .rs-list { display: flex; flex-direction: column; gap: var(--space-2); }
-.rs-list .rcard { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 74px 8px 12px; }
-.rs-list .rcard .thumb { order: -1; width: 48px; height: 36px; margin: 0; aspect-ratio: auto; border-radius: var(--radius-medium); }
-.rs-list .rcard .top { flex: 1 1 180px; min-width: 0; gap: 6px; }
-.rs-list .rcard .top .kicker { display: none; }
-.rs-list .rcard .top .menu { order: 9; }
-.rs-list .rcard .head-main { min-width: 0; }
+.rs-list .rcard { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.rs-list .rcard > .sdk-card-head { grid-column: 1 / -1; }
+.rs-list .rcard .thumb { align-self: center; width: 48px; height: 36px; margin-left: var(--space-3); aspect-ratio: auto; border-radius: var(--radius-small); }
+.rs-list .rcard > .sdk-card-body { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px var(--space-3); }
 .rs-list .rcard .excerpt { flex: 3 1 240px; min-width: 0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--text-12); }
-.rs-list .rcard .site { flex: 0 1 auto; }
-.rs-list .rcard .tags { flex: none; }
-.rs-list .rcard .meta { flex: none; margin-left: auto; }
-.rs-list .rcard .menu { position: absolute; top: 6px; right: 6px; }
-.rs-list .rcard .edit { position: absolute; top: 6px; right: 38px; margin: 0; }
+.rs-list .rcard .site, .rs-list .rcard .tags, .rs-list .rcard .meta { flex: none; }
+.rs-list .rcard .meta { margin-left: auto; }
 .rs.narrow .rs-list .rcard .excerpt { flex-basis: 100%; }
-
-/* a research card: a note, a link (snippet), a photo or a kept answer. The card is the Cards family of system.css; the kind's hue (turned from the accent) is on its icon chip and its kicker words only. */
+/* a card: the shared banded card (Cards, system.css). The band holds the kind's icon, the title, the kind and the two buttons; the
+   kind's colour is on its icon chip and its words (--tint). The body is a stack, its parts one gap apart. */
 .rcard { --turn: 0; --tone: color-mix(in srgb, var(--accent-fill) 65%, var(--text-primary)); --tint: var(--tone); cursor: pointer; }
 @supports (color: oklch(from red l c h)) { .rcard { --tone: oklch(from var(--accent-fill) l calc(c * 0.95) calc(h + var(--turn))); } }
 .rcard[data-kind="note"] { --turn: 25; } .rcard[data-kind="link"] { --turn: 195; } .rcard[data-kind="photo"] { --turn: 305; } .rcard[data-kind="answer"] { --turn: 255; }
+.rcard > .sdk-card-body { display: flex; flex-direction: column; gap: var(--space-2); }
 .rs-grid .rcard:not(.open) .excerpt { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .rs-list .rcard.open .excerpt { display: block; -webkit-line-clamp: unset; flex-basis: 100%; }
-.rcard .top { display: flex; align-items: center; gap: 10px; }
-.rcard .head-main { min-width: 0; flex: 1; }
-.rcard .kicker { display: block; color: color-mix(in srgb, var(--tone) 62%, var(--text-primary)); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .rcard .ai-mark { margin-left: 4px; padding: 0 6px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 24%, transparent); font-size: var(--text-11); letter-spacing: var(--tracking-caps); }
-.rcard .menu { margin-left: auto; }
-.rcard .edit { margin-left: auto; }
-.rcard .edit + .menu { margin-left: 0; }
-.rcard h3 { margin: 0; font-size: var(--text-14); line-height: var(--leading-section); overflow-wrap: anywhere; }
 .rcard .excerpt { margin: 0; color: var(--text-primary); opacity: 0.88; line-height: var(--leading-body); overflow-wrap: anywhere; }
 .rcard .excerpt :is(p, ul, ol, blockquote, h1, h2, h3, pre) { margin: 0; }
 .rcard .excerpt :is(h1, h2, h3) { font-size: inherit; }
@@ -69,7 +58,8 @@ body { margin: 0; overflow: hidden; }
 .rcard .excerpt code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 .rcard .excerpt pre { white-space: pre-wrap; }
 .rcard .site { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--text-12); }
-.rcard .thumb { display: block; width: calc(100% + 24px); margin: -12px -12px 4px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-large) var(--radius-large) 0 0; background: color-mix(in srgb, var(--tone) 25%, var(--surface-card)); }
+/* a photo, or a link's page picture: cropped 4:3 across the card under the band */
+.rcard .thumb { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: color-mix(in srgb, var(--tone) 25%, var(--surface-card)); }
 .rcard .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-muted); font-size: var(--text-11); }
 .rcard .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .rcard .by { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
@@ -84,8 +74,6 @@ body { margin: 0; overflow: hidden; }
 .rs.narrow .rs-grid { grid-template-columns: minmax(0, 1fr); }
 
 /* ---- the item menu trigger, the dialog, sources, states ---- */
-/* .menu is the card's own "..." trigger button (the menu itself is host.menu.show, drawn by the SDK). */
-.rcard .menu { position: relative; }
 .rs-body { position: relative; }
 /* #editor is a <dialog> the SDK draws as the editor window (host.ui.editor): the box, its padding, the backdrop and the
    sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. */
@@ -118,7 +106,7 @@ body { margin: 0; overflow: hidden; }
 .rs.drop-target::after { content: ""; position: absolute; inset: 6px; z-index: 40; border: 2px dashed var(--accent-fill); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent-fill) 6%, transparent); pointer-events: none; }
 .drop-hint { position: absolute; left: 50%; bottom: 72px; z-index: 41; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--radius-round); background: var(--accent-fill); color: var(--text-on-accent); font-weight: var(--weight-strong); box-shadow: 0 8px 22px color-mix(in srgb, black 35%, transparent); pointer-events: none; }
 /* where a card is used: small pills along the foot of the card, above a dashed rule */
-.rcard .backlinks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--edge-hairline); }
+.rcard .backlinks { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 6px; border-top: 1px solid var(--edge-hairline); }
 .backlink { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 22px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent-fill) 40%, var(--edge-hairline)); border-radius: var(--radius-small); background: color-mix(in srgb, var(--accent-fill) 10%, var(--bg-card)); color: var(--text-primary); font: inherit; font-size: var(--text-11); cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .backlink .ic { color: var(--accent); font-size: var(--text-11); }
 .backlink:hover, .backlink:focus-visible { border-color: var(--accent-fill); color: var(--accent); outline: none; }

@@ -117,7 +117,7 @@ export const nestingProbe = (only, dump) => {
       if (isScaffold(el)) continue; const nx = el.nextElementSibling; if (!nx || !nx.matches(ITEM)) continue;
       const a = el.getBoundingClientRect(); const b2 = nx.getBoundingClientRect(); if (a.width < 2 || b2.width < 2) continue;
       const gap = b2.top - a.bottom; if (b2.top < a.bottom - 1) continue; // side by side
-      const inCard = !!el.parentElement.closest('.sdk-card, .card, .tile, .rcard, .editor-card, .space-choice');
+      const inCard = !!el.parentElement.closest('.sdk-card, .sdk-card-banded, .card, .tile, .rcard, .editor-card, .space-choice');
       const want = inCard ? 4 : 8;
       if (gap < want - 0.6) bad(`e|${label(el)}|${label(el.parentElement)}`, `${label(el)} rows touch or are ${Math.round(gap * 10) / 10}px apart in ${label(el.parentElement)} (things in a list are ${want}px apart)`);
     }

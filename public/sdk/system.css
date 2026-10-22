@@ -47,17 +47,17 @@
   --pad-home: var(--space-5); /* 20: Home's space card and its add slot */
   --pad-window: var(--space-3); /* 12: a module window's content, the chat's list of messages */
   --pad-row-y: var(--space-2); /* 8 */
-  --pad-row-x: calc(var(--space-2) + var(--space-0)); /* 10, OFF THE 4px SCALE (approved, Cards): a row, a table cell */
+  --pad-row-x: var(--space-2); /* 8: a row, a table cell */
   --pad-band-x: var(--space-3); /* 12: where a band's or a banded head's first thing starts; a banded body's sides */
   --pad-band-body-top: var(--space-2); /* 8: a banded body under its head band */
   --pad-toolbar-x: var(--space-2); /* 8 from the start of a toolbar (12 on a phone, below) */
-  --pad-chip-x: calc(var(--space-2) + var(--space-0)); /* 10, OFF THE 4px SCALE (approved, Chips) */
+  --pad-chip-x: var(--space-2); /* 8 */
   --pad-tag-x: var(--space-2); /* 8: a tag chip */
   --pad-field-x: var(--space-2); /* 8: words in a field */
   --pad-menu: var(--space-1); /* 4: around a menu's items */
   --pad-menu-item-y: var(--space-1); /* 4 */
-  --pad-menu-item-x: calc(var(--space-2) + 1px); /* 9, OFF THE 4px SCALE: with the item's 1px clear edge its words start 10px in (approved, Menus) */
-  --pad-popover: calc(var(--space-3) + var(--space-0)); /* 14, OFF THE 4px SCALE (approved, Menus): around a popover's controls */
+  --pad-menu-item-x: var(--space-2); /* 8: with the item's 1px clear edge its words start 9px in */
+  --pad-popover: var(--space-3); /* 12: around a popover's controls */
   --pad-popover-dense: var(--space-2); /* 8: around a popover's grid or list */
   --pad-dialog-x: var(--space-6); /* 24: a dialog's sides */
   --pad-dialog-x-narrow: var(--space-4); /* 16: a dialog's sides on a phone (full screen) */
@@ -1224,7 +1224,7 @@
 }
 
 @media (max-width: 640px) {
-  :root { --tick-hit: 44px; --tick-edge: -10px; }
+  :root { --tick-hit: 44px; --tick-edge: -8px; }
 }
 
 /* ---- the panel: the surface a module or a page part sits on ---- */
@@ -1314,7 +1314,7 @@
   color: var(--text-primary);
   box-shadow: none;
 }
-:where(.sdk-card-banded) > .sdk-card-head,
+.sdk-card-banded > .sdk-card-head,
 :where(.message) > .message-head {
   display: flex;
   align-items: center;
@@ -1335,11 +1335,24 @@
   margin: 0;
   padding: var(--space-2) var(--space-3) var(--space-3); /* 12 in line with the head; a card inside keeps 12 from the edge */
 }
+/* A banded card with nothing shown under its band (its body hidden) is the band alone: no hairline under it, every corner round. */
+.sdk-card-banded > .sdk-card-head:not(:has(~ :not([hidden]))) { border-bottom: 0; border-radius: var(--radius-medium); }
 /* The head's parts in a banded object box: the icon (24px), the title in one line, the meta, then the "..." at the right. */
 .sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: var(--text-12); line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: var(--text-11); }
 .sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: var(--text-12); }
+/* A button in the band (the "..." or one small action) is the band's 30px and sits on its line. */
+.sdk-card-banded > .sdk-card-head > :is(.sdk-icon-btn, .btn-small) { flex: none; }
+/* The banded card's states: the same fills as a card, made on the box's own surface (--s), so the band, a step of it, follows. */
+.sdk-card-banded:is(:has(.sdk-open), a, button:not(:disabled), [role="button"], [tabindex="0"]):hover { --s: color-mix(in srgb, var(--text-primary) 8%, var(--surface-card)); }
+.sdk-card-banded:is(:has(.sdk-open), a, button:not(:disabled), [role="button"], [tabindex="0"]):active { --s: color-mix(in srgb, var(--text-primary) 14%, var(--surface-card)); }
+.sdk-card-banded:is([aria-current="true"], [aria-selected="true"], .on) { --s: color-mix(in srgb, var(--accent-fill) 28%, var(--surface-card)); }
+.sdk-card-banded:has(.sdk-open:focus-visible),
+.sdk-card-banded:is(a, button, [role="button"], [tabindex="0"]):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.sdk-card-banded.is-dragging { box-shadow: var(--shadow-1); cursor: grabbing; }
+.sdk-card-banded[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+:where(.sdk-card-banded) :where(.sdk-icon-btn, .btn, .sdk-row-tick) { position: relative; z-index: 1; } /* above the .sdk-open cover */
 
 /* ---- the row ---- */
 :where(.sdk-row) {
@@ -1367,8 +1380,8 @@
   transition: background var(--motion-fast);
 }
 
-/* A row inside a card takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
-:where(.sdk-card, .user-card, .space-choice) :where(.sdk-row) {
+/* A row inside a card (or a banded card) takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
+:where(.sdk-card, .sdk-card-banded, .user-card, .space-choice) :where(.sdk-row) {
   --s: var(--surface-field);
   border-color: transparent;
   border-radius: var(--radius-small);
@@ -3271,7 +3284,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   /* On the quiet fill the same red is 4.3 to 1 in dark mode, so a hovered or focused danger row, and a hint on a filled row, take one step more. */
   --menu-danger-fg-strong: color-mix(in srgb, var(--status-danger-fill) 55%, var(--text-primary));
   --menu-hint-strong: color-mix(in srgb, var(--text-muted) 50%, var(--text-primary));
-  --pop-pad: var(--pad-popover); /* 14px around controls */
+  --pop-pad: var(--pad-popover); /* 12px around controls */
 }
 
 @media (max-width: 640px) {

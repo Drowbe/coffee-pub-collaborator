@@ -2,11 +2,8 @@
 html, body { height: 100%; }
 body { display: flex; flex-direction: column; overflow: hidden; }
 [hidden] { display: none !important; }
-.app { display: flex; flex-direction: column; height: 100%; padding: 10px; gap: 8px; position: relative; }
+.app { display: flex; flex-direction: column; height: 100%; padding: 10px; position: relative; }
 .msg { padding: 16px; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-.nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.nav h2 { margin: 0 0 0 6px; font-size: var(--text-18); }
 .body { flex: 1; min-height: 0; overflow: auto; }
 
 /* The month, the week and the day: the cell, the event chip, the hour row and the agenda's rows are the design system's Calendar
@@ -50,9 +47,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* A narrow pane (docked beside the video and chat): the month on top, that month's list beneath. */
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .stack .list-title { margin: 6px 0 0; font-size: var(--text-13); color: var(--text-muted); }
-.hosted { display: none !important; }
 
-/* Other spaces' events on the environment page: the space's icon, and a row to show or hide each space. */
+/* Other spaces' events on the environment page: the space's icon. */
 .ri { display: inline-flex; align-items: center; margin-right: 3px; }
 .ri svg { width: 1em; height: 1em; fill: currentColor; }
 
@@ -70,9 +66,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* The day's phase bar stays at the top of the scroll; scrollDay() stops the first row just beneath it. */
 .dayview .phasehead { position: sticky; top: 0; z-index: 2; }
 
-/* As a part of the Calendar destination. */
-.app.part { padding: 8px; }
-
 /* The person's own other calendars (plan-google-calendar.md, Part 2): read only and muted, each calendar's tint on the kept
    bar only (design-theme.md, "Tints"), in the same order as the destination's filter. */
 .ext-0 { --tint: var(--tint-blue); }
@@ -81,8 +74,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ext-3 { --tint: var(--tint-green); }
 .ext-4 { --tint: var(--tint-orange); }
 .sdk-cal-agenda > .is-ext .sdk-chip-tag { --chip-tone: var(--tint, var(--text-muted)); }
-.sdk-chip.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); box-shadow: inset 0 0 0 1.5px var(--tint, var(--text-muted)); }
-.sdk-chip.ext.on .dot { background: var(--tint, var(--text-muted)); }
 
 /* Markers (plan-calendar-markers.md): other modules' objects with a date, a task due or a poll's closing time. Not
    events: the module's icon and the kept bar in its tint (design-theme.md, "Tints"), a quiet background, dimmed once past. */

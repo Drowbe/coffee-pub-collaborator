@@ -235,7 +235,7 @@ test('the host: no old bar; bar.set folds into the "+", add.set\'s list wins, a 
 });
 
 test('the "+" and the status bar as drawn: names, the shared menu, the live node, focus back to the "+"', () => {
-  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus \} from '\/module-chrome\.js';/);
+  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus, cleanToolbarItems, chipsSummary \} from '\/module-chrome\.js';/);
   assert.match(host, /openHostMenu\(addButton, \(\) => addMenuItems\(addEntries, \(id\) => send\('add', \{ id \}\)\)\)/, 'several: the shared menu');
   assert.match(host, /if \(now\.kind === 'direct'\) \{ if \(!now\.leaf\.disabled\) send\('add', \{ id: now\.leaf\.id \}\); return; \}/, 'one: at once');
   assert.match(host, /addButton\.setAttribute\('aria-label', label\);/);
@@ -275,7 +275,7 @@ test('popped out and on the module\'s own page: the "+" and the status bar (step
   assert.match(moduleJs, /nav\.register\(\{ id: 'page-bar-add', bar: 'secondary', zone: 'right',[^}]*fold: false, element: slot \}\);/, 'the page bar\'s "+" through the nav registry, never folded');
   assert.ok(/\n    add,\n    status,\n/.test(moduleJs), 'the mount gets both');
   const sys = read('public/sdk/system.css');
-  assert.match(sys, /:is\(\.sdk-window-popout, body\.module-page\) \{ --safe-b: var\(--safe-bottom\); \}/, 'clear of the home indicator: the inset on a module\'s own page');
+  assert.match(sys, /:is\(\.sdk-window-popout, body\.module-page, body\.destination-page:not\(\.dest-has-tabs\)\) \{ --safe-b: var\(--safe-bottom\); \}/, 'clear of the home indicator: the inset on a module\'s own page and a destination\'s (over the phone\'s tabs, none)');
   assert.match(sys, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*padding: 0 var\(--pad-band-x\) var\(--safe-b\);/, 'the status line grows by the inset');
   assert.match(css, /body\.module-popout \.module-titlebar \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, popped out');
   assert.match(css, /\.page-bar-add > \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, in the page bar');
@@ -392,11 +392,39 @@ test('a toolbar redraw puts focus back on the same control', () => {
   assert.equal(R.focusedToolbarKey(row), null, 'focus outside the row is left alone');
   assert.equal(R.restoreToolbarFocus(row, null), false);
   const host = read('public/module-host.js');
-  const set = host.slice(host.indexOf("async 'toolbar.set'"), host.indexOf('// The module\'s tools in the nav bars'));
-  assert.ok(set.indexOf('focusedToolbarKey(toolbar)') > -1 && set.indexOf('focusedToolbarKey(toolbar)') < set.indexOf("toolbar.textContent = ''"), 'focus is read before the row is cleared');
-  assert.ok(set.indexOf('restoreToolbarFocus(toolbar, focusKey)') > set.indexOf("toolbar.hidden = clean.length"), 'and put back after it is drawn');
+  const set = host.slice(host.indexOf('export function createToolbar('), host.indexOf('// The status bar (host.status.set)'));
+  const draw = set.slice(set.indexOf('function set(items)'));
+  assert.ok(draw.indexOf('focusedToolbarKey(row)') > -1 && draw.indexOf('focusedToolbarKey(row)') < draw.indexOf('child.remove()'), 'focus is read before the row is cleared');
+  assert.ok(draw.indexOf('restoreToolbarFocus(row, focusKey)') > draw.indexOf('row.hidden = clean.length'), 'and put back after it is drawn');
   assert.ok(/b\.setAttribute\('aria-pressed', String\(opt\.id === item\.value\)\)/.test(set), 'a switch choice says whether it is pressed');
-  assert.ok(/tbKey = toolbarKey\('tab'/.test(set) && /tbKey = toolbarKey\('btn'/.test(set) && /tbKey = toolbarKey\('range'/.test(set), 'every control carries its key');
+  assert.ok(/tbKey = toolbarKey\('tab'/.test(set) && /tbKey = toolbarKey\('btn'/.test(set) && /tbKey = toolbarKey\('range'/.test(set) && /tbKey = toolbarKey\('chip'/.test(set) && /tbKey = key/.test(set), 'every control carries its key');
+  assert.ok(/if \(!typing \|\| doc\.activeElement !== typing\) restoreToolbarFocus/.test(draw), 'a search being typed in keeps its focus through a redraw');
+});
+
+// The toolbar's items (plan-unified-layout.md, "One toolbar row"): a title, a search, filter chips, beside the old ones.
+test('the toolbar row: title, search and chips cleaned, the rest dropped', () => {
+  const clean = R.cleanToolbarItems([
+    { type: 'title', text: 'October 2026' },
+    { type: 'search', id: 'find', placeholder: 'Find a place', value: 'paris' },
+    { type: 'search' }, // no id
+    { type: 'chips', id: 'show', label: 'Trips', options: [{ id: 'a', label: 'Paris', icon: 'plane', tint: 'blue', on: true }, { id: 'b', label: 'Rome', on: false, tint: 'nope' }, { id: '', label: 'x' }] },
+    { type: 'chips', id: 'none', options: [] },
+    { id: 'prev', icon: 'chevron-left', title: 'Previous' },
+    { type: 'tabs', id: 'view', value: 'month', options: [{ id: 'month', label: 'Month', icon: 'calendar-days' }] },
+    { separator: true },
+    { type: 'nonsense', id: 'x' }, // a button with neither label nor icon: dropped
+    { type: 'title', text: 'x', send: () => {} },
+  ]);
+  assert.deepEqual(clean.map((i) => i.type || 'sep'), ['title', 'search', 'chips', 'button', 'tabs', 'sep', 'title']);
+  assert.equal(clean[1].label, 'Find a place', 'a search is named by its placeholder when it has no label');
+  assert.equal(clean[1].value, 'paris');
+  assert.deepEqual(clean[2].options.map((o) => [o.id, o.on, o.tint || null, o.icon || null]), [['a', true, 'blue', 'plane'], ['b', false, null, null]]);
+  assert.equal(clean[2].icon, 'filter', 'chips fold into a filter button');
+  assert.equal(clean[3].title, 'Previous', 'an icon button keeps its title');
+  assert.equal(typeof clean[6].send, 'function', 'the host page\'s own items keep their send');
+  assert.equal(R.chipsSummary(clean[2]), 'Trips · 1 off');
+  assert.equal(R.chipsSummary({ label: 'Filter', options: [{ on: true }] }), 'Filter');
+  assert.equal(R.cleanToolbarItems(Array.from({ length: 30 }, (_, i) => ({ type: 'text', text: String(i) }))).length, R.TOOLBAR_LIMITS.items);
 });
 
 test('the "+": one entry for one add (Thomas, 2026-10-14: the Map\'s "+" offered "Add a place" twice)', () => {

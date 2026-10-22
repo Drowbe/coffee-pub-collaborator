@@ -63,18 +63,6 @@
     },
     {
       "module": "calendar",
-      "selector": ".sdk-chip.ext .dot",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
-      "count": 1
-    },
-    {
-      "module": "calendar",
-      "selector": ".sdk-chip.ext.on .dot",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
-      "count": 1
-    },
-    {
-      "module": "calendar",
       "selector": "body",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
       "count": 1
@@ -82,12 +70,6 @@
     {
       "module": "calendar",
       "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
-      "count": 1
-    },
-    {
-      "module": "calendar",
-      "selector": "markup: <header>",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
       "count": 1
     },

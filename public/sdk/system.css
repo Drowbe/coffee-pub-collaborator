@@ -2541,7 +2541,7 @@ input:is([type="date"], [type="time"])::-webkit-datetime-edit {
 }
 
 /* Search: one field with the magnifier inside, at the same height as any field. */
-:is(.sdk-search, .map-search) {
+.sdk-search {
   position: relative;
   display: block;
   box-sizing: border-box;
@@ -2556,7 +2556,7 @@ input:is([type="date"], [type="time"])::-webkit-datetime-edit {
   color: var(--text-muted);
 }
 
-:is(.sdk-search, .map-search) > :is(i, svg) {
+.sdk-search > :is(i, svg) {
   position: absolute;
   top: 50%;
   left: var(--space-3);
@@ -2572,11 +2572,11 @@ input:is([type="date"], [type="time"])::-webkit-datetime-edit {
 }
 
 /* The magnifier sits 12px in and is 14px wide; the text starts 36px in. */
-:is(.sdk-search, .map-search) > input {
+.sdk-search > input {
   padding-left: calc(var(--space-9) - var(--space-3));
 }
 
-:is(.sdk-search, .map-search) > input::-webkit-search-cancel-button {
+.sdk-search > input::-webkit-search-cancel-button {
   cursor: pointer;
 }
 
@@ -3715,9 +3715,9 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 /* A docked module is a column of the space's grid: the window's step; its edge is the column's divider (style.css). */
 .module-docked > .mod-content { background: var(--surface-panel); }
 
-/* A page in its own window (popped out, or a module's own page) is the one that reaches the bottom of the screen: no edge, no
+/* A page in its own window (popped out, a module's own page, a destination's page) is the one that reaches the bottom of the screen: no edge, no
    corner, and the status line keeps clear of the home indicator. */
-:is(.sdk-window-popout, body.module-page) { --safe-b: var(--safe-bottom); }
+:is(.sdk-window-popout, body.module-page, body.destination-page:not(.dest-has-tabs)) { --safe-b: var(--safe-bottom); }
 
 .sdk-window-content {
   display: flex;
@@ -3845,6 +3845,30 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 }
 
 :is(.sdk-toolbar-text, .tb-text) { color: var(--text-muted); font-size: var(--text-12); white-space: nowrap; }
+
+/* The row's title (host.toolbar.set's `title`: Calendar's "October 2026"): it takes the room the row has left, cut with an
+   ellipsis, never folded. */
+.mod-toolbar .tb-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-14);
+  font-weight: var(--weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The filter chips (host.toolbar.set's `chips`): a row of Choice chips, or, while the row is too narrow for them
+   (module-host.js createToolbar, .tb-chips-folded), the one Quiet small button they fold into, which opens them as switches
+   in the host's menu. While the row is measured (.tb-measure) the title keeps its own width and a search its least. */
+.mod-toolbar .tb-chips { flex-wrap: nowrap; }
+.mod-toolbar .tb-chips-menu { display: none; }
+.mod-toolbar.tb-chips-folded .tb-chips { display: none; }
+.mod-toolbar.tb-chips-folded .tb-chips-menu { display: inline-flex; max-width: 240px; }
+.mod-toolbar .tb-chips-word { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mod-toolbar.tb-measure .tb-title { flex: none; }
+.mod-toolbar.tb-measure .sdk-search { flex: 0 0 96px; }
 
 :is(.sdk-sep, .tb-sep) {
   align-self: center;

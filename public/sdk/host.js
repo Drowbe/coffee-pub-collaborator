@@ -1111,87 +1111,21 @@
   let info = null;
   const call = env.call;
   ensureTooltips();
-  // The toolbar's view switches (host.ui.viewSwitch), in the order they were made; they share the one toolbar row.
+  // The one toolbar row: the module's own items (host.toolbar.set), then its view switches and toolbar buttons
+  // (host.ui.viewSwitch, host.ui.toolbarButton) in the order they were made, a separator between. Any of them changing
+  // draws the row again; the same row twice is not sent.
   const switches = [];
-  let switchesSig = '';
-  function drawSwitches() {
-    const items = switches.flatMap((s, i) => (i ? [{ type: 'separator' }, s.item()] : [s.item()]));
+  let ownToolbar = [];
+  let toolbarSig = '';
+  function drawToolbar() {
+    const tools = switches.flatMap((s, i) => (i ? [{ type: 'separator' }, s.item()] : [s.item()]));
+    const items = [...ownToolbar, ...(ownToolbar.length && tools.length ? [{ type: 'separator' }] : []), ...tools];
     const sig = JSON.stringify(items);
-    if (sig === switchesSig) return;
-    switchesSig = sig;
-    host.toolbar.set(items).catch(() => {});
+    if (sig === toolbarSig) return Promise.resolve(true);
+    toolbarSig = sig;
+    return call('toolbar.set', { items });
   }
-
-  // host.ui.viewSwitch with `element`: the switch in the module's own page, drawn with the shared fillChoice and fitted
-  // to the element's parent. Its buttons are kept between draws (only a change of choices rebuilds them), so the
-  // keyboard stays on the choice it was on.
-  function pageSwitch({ element, options, value, onChange }) {
-    let current = value;
-    let opts = Array.isArray(options) ? options : [];
-    let shape = '';
-    element.classList.add('tb-tabs');
-    if (!element.getAttribute('role')) element.setAttribute('role', 'group');
-    const holder = () => element.parentElement || element;
-    const draw = () => {
-      const valid = opts.filter((o) => o && o.id && (o.label || o.icon));
-      const nextShape = JSON.stringify(valid.map((o) => [String(o.id), o.icon || '', Boolean(o.regular), Boolean(o.iconOnly)]));
-      if (nextShape !== shape) {
-        shape = nextShape;
-        element.textContent = '';
-        for (const o of valid) {
-          const b = element.ownerDocument.createElement('button');
-          b.type = 'button';
-          b.dataset.choice = String(o.id);
-          const glyph = fillChoice(b, { ...o, svg: true });
-          if (glyph) {
-            menuIcon(o.icon, o.regular ? 'regular' : 'solid').then((svg) => {
-              if (!svg) return;
-              glyph.innerHTML = svg;
-              fitSwitches(holder());
-            });
-          }
-          element.appendChild(b);
-        }
-      } else {
-        // The same choices: only the words can have changed ("Open (3)").
-        valid.forEach((o, i) => {
-          const b = element.children[i];
-          const w = b && b.querySelector(':scope > .tb-tab-word');
-          if (w && w.textContent !== String(o.label || '')) w.textContent = String(o.label || '');
-          else if (b && !w) {
-            b.setAttribute('aria-label', String(o.label || o.id));
-            b.dataset.tip = String(o.label || o.id);
-          }
-        });
-      }
-      for (const b of element.querySelectorAll(':scope > .tb-tab')) {
-        const on = b.dataset.choice === String(current);
-        b.classList.toggle('on', on);
-        b.setAttribute('aria-pressed', String(on));
-      }
-      watchSwitches(holder());
-    };
-    const click = (e) => {
-      const b = e.target.closest('[data-choice]');
-      if (!b || b.parentElement !== element || b.dataset.choice === String(current)) return;
-      current = b.dataset.choice;
-      draw();
-      if (typeof onChange === 'function') onChange(current);
-    };
-    element.addEventListener('click', click);
-    draw();
-    return {
-      set(newValue, newOptions) {
-        current = newValue;
-        if (Array.isArray(newOptions)) opts = newOptions;
-        draw();
-      },
-      destroy: () => {
-        element.removeEventListener('click', click);
-        element.textContent = '';
-      },
-    };
-  }
+  const drawSwitches = () => { drawToolbar().catch(() => {}); };
 
   // An "open this object" from the host can arrive before the module has said what to do with one.
   let pendingOpen = null;
@@ -1235,6 +1169,8 @@
     info = result;
     if (result && result.destinationState && typeof result.destinationState === 'object') destinationState = result.destinationState;
     if (env.applyTheme) env.applyTheme(result.theme);
+    // How the content fills the host's slot (the manifest's `content`): "flush" (edge to edge, a map) or "padded".
+    if (result && env.rootElement && (result.content === 'flush' || result.content === 'padded')) env.rootElement.setAttribute('data-content', result.content);
     return result;
   });
 
@@ -2090,11 +2026,8 @@
       // toolbar, drawn in the order they were made with a separator between, and any one changing redraws the row.
       // Each choice shows its icon and its word, and only its icon while the switch's row is too narrow for the words
       // (the word stays its tooltip and accessible name); a choice with no icon always shows its word.
-      // `element`: an element in the module's own page to draw the switch in instead of the toolbar (where there is
-      // no toolbar row: a destination's panel). The same look, choices, fit and set()/destroy(); its icons are the SVGs
-      // host.ui.icon gives, so they show in a frame too.
-      viewSwitch: ({ id, options, value, onChange, element }) => {
-        if (element && element.nodeType === 1) return pageSwitch({ element, options, value, onChange });
+      // The switch is always in the toolbar: the host draws that row wherever the module is drawn.
+      viewSwitch: ({ id, options, value, onChange }) => {
         let current = value;
         let opts = options;
         const off = host.on('toolbar', (e) => {
@@ -2148,7 +2081,7 @@
         const off = host.on('toolbar', (e) => {
           if (e.id === id && typeof onClick === 'function') onClick(e);
         });
-        const mine = { item: () => ({ type: 'button', id, label: state.label, icon: state.icon, iconOnly: state.iconOnly, on: state.on }) };
+        const mine = { item: () => ({ type: 'button', id, ...(state.iconOnly && state.icon ? { label: '', title: state.label } : { label: state.label }), icon: state.icon, on: state.on }) };
         switches.push(mine);
         drawSwitches();
         return {
@@ -2946,9 +2879,9 @@
     // top-level entries, 12 per category and 40 leaves (the host drops the rest); a category with one leaf is that leaf.
     // Exactly one leaf: the "+" runs it at once, its label the tooltip ("Add event"). More: the "+" ("Add") opens the
     // host's menu, a category's leaves in a flyout beside it (a drill-in on a phone). A pick arrives as the 'add' event
-    // { id }. An empty list takes the "+" away: send one for a person who may not add. Resolves true when the host drew
-    // it (a window's titlebar, popped out too, or the page bar on the module's own page), false where there is none (a
-    // destination's part, a dashboard widget): keep your own add there.
+    // { id }. An empty list takes the "+" away: send one for a person who may not add. The host draws it wherever the
+    // module is drawn (a window's titlebar, popped out too, the page bar on the module's own page and on a destination's
+    // page, a composite's titlebar on a space's canvas) and resolves true; only a dashboard widget answers false.
     // Detect it with `if (host.add)`.
     add: {
       set: (entries) => call('add.set', { entries }),
@@ -2959,8 +2892,8 @@
     // as a small pill (a filter); `title` its tooltip (else its text); `quiet` keeps it out of what a screen reader
     // hears (a ticking time); `end` puts it at the right end (one). Nothing in it is a button. The host reads the
     // non-quiet text out politely once it has been still a moment, and draws nothing for the same items again, so call
-    // it on every render. set([]) hides it. Resolves true when drawn (a window, popped out too, or the module's own
-    // page), false where there is none (a destination's part, a dashboard widget). Detect it with `if (host.status)`.
+    // it on every render. set([]) hides it. Resolves true wherever the module is drawn (a window, popped out too, its own
+    // page, a destination's page, a composite's window); only a dashboard widget answers false. Detect it with `if (host.status)`.
     status: {
       set: (items) => call('status.set', { items }),
     },
@@ -3001,37 +2934,43 @@
     // Icon buttons in the module's titlebar, ahead of the host's own buttons and set off by a pipe:
     // set([{ id, icon, title, on, regular, disabled, overflow }]), where `icon` is a Font Awesome name (solid, or
     // regular with `regular: true`) and `on` marks the current choice. A click arrives as the 'header'
-    // event with the button's id. Resolves true when the host drew them, false when it has no titlebar
-    // to draw in (a module's server page), in which case keep the controls in the page. More than 5 items
+    // event with the button's id. Resolves true wherever the module is drawn (on its own page and a destination's page
+    // they are in the page bar); only a dashboard widget answers false. More than 5 items
     // (or any item marked `overflow: true`, e.g. a destructive one you always want tucked away) collapse
     // into a host-drawn "..." at the end -- the same idea as host.menu.show, but for the host's own chrome.
     header: {
       set: (items) => call('header.set', { items }),
     },
 
-    // An optional row under the titlebar, above the content: a small kit of reusable tools about the
-    // module's current state -- a view switch, a filter, a progress bar, a slider -- not window-level
-    // actions (those are the titlebar) and not the module's primary inputs (those are the action bar).
-    // It is not a second row of titlebar icons: use 'button' sparingly, for the one action that goes with
-    // the toolbar's own state, not a place to relocate the titlebar's row. 'tabs' can carry an icon per
-    // option when the icon itself is meaningful (Places' Mine/This space/Everyone, say) -- that is different
-    // from a button row standing in for a titlebar. set([item, ...]) where item is one of:
-    //   { type: 'text', text }                                             -- plain dim label
-    //   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] } -- a segmented
-    //       switch; give label, icon, or both per option (iconOnly hides the label, kept for aria-label
-    //       and the tooltip). With label and icon both, the option shows only its icon while the row is too narrow
-    //       for the words. A click arrives as the 'toolbar' event { id, value: optionId }
-    //   { type: 'progress', value, label? }                               -- a read-only bar, value 0-100
-    //   { type: 'slider', id, value, min?, max?, step?, label?, disabled? } -- a range input; moving it
-    //       arrives as the 'toolbar' event { id, value } (min 0, max 100, step 1 unless given)
-    //   { type: 'button', id, label?, icon?, on?, primary?, disabled?, overflow? } (the default type) --
-    //       a click arrives as the 'toolbar' event { id }
+    // The one row under the titlebar, above the content: the tools about the module's current state -- a view
+    // switch, the period's title, a search, filter chips, a progress bar, a slider -- not window-level actions (those are
+    // the titlebar) and not the module's add actions (the titlebar's "+"). The host draws it wherever the module is drawn
+    // (a window, popped out, its own page, a destination's page) and keeps it one line: while it is too narrow the chips
+    // fold into one menu button, then a view switch shows only its icons, then the title is cut. Use 'button' sparingly,
+    // for the one action that goes with the toolbar's own state (Calendar's back, Today and forward). set([item, ...]):
+    //   { type: 'title', text }                                            -- the row's title ("October 2026"); takes the
+    //       room left over, cut with an ellipsis
+    //   { type: 'text', text }                                             -- a plain dim label
+    //   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] } -- a segmented switch (prefer
+    //       host.ui.viewSwitch); a click arrives as the 'toolbar' event { id, value: optionId }
+    //   { type: 'search', id, value?, placeholder?, label? }               -- the band's small search field; typing arrives
+    //       as { id, value }, Enter as { id, value, submit: true }, Escape clears it ({ id, value: '' }). `value` is put
+    //       in the field only when it differs from the last `value` you sent, never under the person's typing
+    //   { type: 'chips', id, label?, icon?, options: [{ id, label, icon?, tint?, on, note? }] } -- filter chips that each
+    //       turn on and off; a click arrives as { id, value: optionId, on }. Folded, they are one button (`label`, else
+    //       "Filter", with "· 2 off" when some are) opening a menu of switches. Draw them again with the new `on`
+    //   { type: 'progress', value, label? }                                -- a read-only bar, value 0-100
+    //   { type: 'slider', id, value, min?, max?, step?, label?, disabled? } -- a range input; { id, value } as it moves
+    //   { type: 'button', id, label?, title?, icon?, on?, primary?, disabled?, overflow? } (the default type) -- a
+    //       click arrives as { id, x } (x: its left edge across the module, for a menu under it); an icon with no label
+    //       is an icon button, `title` its tooltip and name
     //   { separator: true }                                                -- a vertical divider
-    // Only 'button' items count toward the 5-item cap and collapse into a host-drawn "..."; text, tabs,
-    // progress and slider items always show. Resolves true when the host drew it, false when it has
-    // nowhere to (a module's server page), same as header.set.
+    // Only 'button' items count toward the 5-item cap and collapse into a host-drawn "...". Your view switches and
+    // toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) follow your items in the same row; call set on every
+    // render (the same row is not drawn twice). Resolves true wherever the module is drawn; only a dashboard widget
+    // answers false.
     toolbar: {
-      set: (items) => call('toolbar.set', { items }),
+      set: (items) => { ownToolbar = Array.isArray(items) ? items : []; return drawToolbar(); },
     },
 
     // The module's tools in the space's nav bar (the secondary nav, the row under the header on the call page), drawn by

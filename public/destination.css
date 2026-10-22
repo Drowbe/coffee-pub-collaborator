@@ -39,80 +39,20 @@ body.destination-page .subnav {
 body.destination-page .subnav > .nav-left { grid-column: 1; }
 body.destination-page .subnav > .nav-right { grid-column: 2; }
 
-/* The bar is the module window's toolbar band (public/sdk/system.css, modulechrome): --toolbar-h high, its first item
-   var(--space-2) in (var(--space-3) on a phone), the zones without the top bar's own padding and full-bleed margins (style.css
-   .topbar .nav-left/.nav-right, which would otherwise reach this row), its controls the Buttons block's small ones and its
-   search the band's small field (.sdk-search-small, destination.js). On the space's canvas (dest-no-topbar) it also wears the toolbar's colours, so a Calendar or
-   a Map there has the same toolbar as every other module. tools/check-conformance.mjs measures it. */
-body.destination-page .topbar > .dest-bar {
-  box-sizing: border-box;
-  height: var(--toolbar-h);
-  min-height: 0;
-  padding: var(--band-room) var(--space-2) 0;
-  column-gap: var(--space-2);
+/* In a composite's frame on a space's canvas the composite's titlebar is the titlebar: no header here at all. */
+body.dest-in-composite .topbar {
+  display: none;
 }
 
-body.destination-page .topbar > .dest-bar > :is(.nav-left, .nav-right) {
-  align-self: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-}
-
-/* Under the page's own top bar the bar's hairline is on its top (style.css .subnav), the top bar's edge under it: the room is
-   above it and 2px under its items, so they sit 2px from each edge as in every toolbar. */
-body.destination-page:not(.dest-no-topbar) .topbar > .dest-bar {
-  padding-bottom: var(--space-0);
-}
-
-body.dest-no-topbar .topbar > .dest-bar {
-  width: 100%; /* the header has no side padding here, so the bar's full bleed (style.css .subnav) has nothing to cancel */
-  margin: 0;
-  border-top: 0;
-  border-bottom: 1px solid var(--edge-hairline);
-  background: var(--surface-toolbar);
-}
-
-body.dest-no-topbar .topbar {
-  border-bottom: 0;
-}
-
-
-/* A phone (the screen's, destination.js bandsFollowScreen, not the frame's): more room each side. */
-body.destination-page.dest-phone .topbar > .dest-bar,
-body.destination-page.dest-phone .dest-side-head {
+/* A phone (the screen's, destination.js bandsFollowScreen, not the frame's): the toolbar row has more room each side, as a
+   module window's has on a phone. */
+body.destination-page.dest-phone .dest-toolbar {
   padding-inline: var(--space-3);
 }
 
 .dest-tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-/* The filter: a button with the space word and a count, its list of switches under it (the module chooser's look). */
-.dest-filter {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.dest-filter-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.dest-filter-toggle[aria-expanded="true"] {
-  border-color: var(--accent);
-}
-
-.topbar:has(.dest-filter-list:not([hidden])) {
-  z-index: var(--z-menu);
-}
-
-/* The search (the map): one search field (.sdk-search, system.css) on the right of the page bar. */
-.sdk-search.dest-search {
-  width: min(380px, 40vw);
 }
 
 /* The parts. */
@@ -141,30 +81,8 @@ body.destination-page.dest-phone .dest-side-head {
 .dest-main[hidden],
 .dest-side[hidden],
 .dest-side-part[hidden],
-.dest-side-head[hidden],
 .dest-tabs[hidden] {
   display: none;
-}
-
-/* The panel's head is a toolbar band too (the modulechrome toolbar's height, inset, edge and colour). */
-.dest-side-head {
-  display: flex;
-  align-items: center;
-  flex: none;
-  box-sizing: border-box;
-  height: var(--toolbar-h);
-  padding: var(--band-room) var(--space-2) 0;
-  border-bottom: 1px solid var(--edge-hairline);
-  background: var(--surface-toolbar);
-}
-
-.dest-side-head .tb-tabs {
-  display: flex;
-}
-
-.dest-side-head .tb-tab {
-  flex: 1;
-  justify-content: center;
 }
 
 .dest-side-body,
@@ -213,7 +131,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
 }
 
 /* Too narrow for the panel beside the main part (in a docked column, a narrow window, or a phone's page): the panel is
-   stacked below it, the page scrolling; the panel keeps its own switch. No bottom tabs (only a phone has them). */
+   stacked below it, the page scrolling; the panel's switch stays in the toolbar row. No bottom tabs (only a phone has them). */
 @media (max-width: 900px) {
   body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest {
     flex-direction: column;
@@ -236,7 +154,7 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
 }
 
 /* One scroll for the stacked parts: a part that reports its height (onResize in destination.js) is as tall as its content,
-   so the main part, then the panel (its switch and list), follow each other in the page's one scroll, with no scroll of
+   so the main part, then the panel, follow each other in the page's one scroll, with no scroll of
    their own and no fixed split. A part that does not report (the map) keeps its set height. Not on a phone's tabs. */
 @media (max-width: 900px) {
   body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest-main.sized {
@@ -266,29 +184,6 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
     min-width: 0;
     max-width: none;
     border-left: 0;
-  }
-
-  /* With a search, the page bar is the filter and the field taking the rest of the row. */
-  body.destination-page .dest-bar.has-search {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-
-  .dest-bar.has-search .nav-right {
-    justify-self: stretch;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .dest-bar.has-search .nav-right > .sdk-search.dest-search {
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-  }
-
-  /* The filter shows its icon and caret only; its words stay its name for a screen reader. */
-  .dest-filter-label {
-    display: none;
   }
 
   .dest-tabs {

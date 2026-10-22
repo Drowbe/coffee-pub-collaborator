@@ -110,11 +110,11 @@ const COLLECT = String.raw`(() => {
     const title = titleSel ? win.querySelector(titleSel) : null;
     if (title && shown(title)) { w.bands.push(band('title', title)); seen.add(title); }
     for (const r of roots(win)) {
-      for (const t of r.querySelectorAll('.mod-toolbar, .sdk-toolbar, #dest-bar, .dest-side-head')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('toolbar', t)); }
+      for (const t of r.querySelectorAll('.mod-toolbar, .sdk-toolbar')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('toolbar', t)); }
       for (const t of r.querySelectorAll('.mod-status')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('status', t)); }
       // A tab strip or view switch outside those bands (a row of a module's own) is a band of its own: the row that holds it.
       for (const st of r.querySelectorAll(STRIPS)) {
-        if (!shown(st) || st.closest('.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, #dest-bar, .dest-side-head, .mod-status, .sdk-field, .sdk-menu, .host-menu, [role=dialog], .sdk-editor')) continue;
+        if (!shown(st) || st.closest('.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, .sdk-field, .sdk-menu, .host-menu, [role=dialog], .sdk-editor')) continue;
         const row = st.parentElement && st.parentElement !== r && st.parentElement.children.length > 1 ? st.parentElement : st;
         if (!seen.has(row)) { seen.add(row); w.bands.push(band('tabrow', row)); }
       }
@@ -186,7 +186,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
   { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase, .sdk-strip-attn' },
-  { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, #dest-bar, .dest-side-head', name: 'band', h: false },
+  { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status', name: 'band', h: false },
   { sel: '.sdk-search', name: 'search field', h: false },
   { sel: '.btn, .tb-tab', name: 'button', h: false },
   { sel: '.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list', name: 'menu', h: false },

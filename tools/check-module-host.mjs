@@ -654,8 +654,8 @@ test('host.facts (plan-space-story-strip.md step 5): set and clear in the SDK, a
 
 test('the budget target: a module is let in by its manifest flag, which the mounts hand the host; set() never clears by omission', () => {
   const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-  assert.match(read('public/canvas.js'), /module: \{ id: m\.id, version: m\.version, scope: m\.scope, budget: m\.budget === true \},/, 'the canvas passes the flag');
-  assert.match(read('public/module.js'), /module: \{ id: mod\.id, version: mod\.version, scope: mod\.scope, budget: mod\.budget === true \},/, 'a pop-out passes the flag');
+  assert.match(read('public/canvas.js'), /module: \{ id: m\.id, version: m\.version, scope: m\.scope, budget: m\.budget === true, content: m\.content \},/, 'the canvas passes the flag');
+  assert.match(read('public/module.js'), /module: \{ id: mod\.id, version: mod\.version, scope: mod\.scope, budget: mod\.budget === true, content: mod\.content \},/, 'a pop-out passes the flag');
   const host = read('public/module-host.js');
   assert.match(host, /if \(module\.budget !== true \|\| scope !== 'space'/, 'can() needs the flag');
   assert.match(host, /if \(module\.budget !== true\) throw[^\n]*\n\s*if \(budget === undefined\) throw/, 'set() needs the flag and a target');

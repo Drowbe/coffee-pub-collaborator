@@ -202,6 +202,90 @@ export function topmostAt(candidates, x, y) {
   return best;
 }
 
+// What host.toolbar.set sent, cleaned (plan-unified-layout.md, "The contract"): at most 16 items, each one of
+//   { separator: true }
+//   { type: 'text', text }                                  a dim label
+//   { type: 'title', text }                                 the row's title (Calendar's "October 2026"); it takes the room
+//                                                           left over and is cut with an ellipsis, never folded
+//   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] }
+//   { type: 'progress', value, label? }
+//   { type: 'slider', id, value, min?, max?, step?, label?, disabled? }
+//   { type: 'search', id, value?, placeholder?, label? }    the band's small search field
+//   { type: 'chips', id, label?, icon?, options: [{ id, label, icon?, tint?, on, note? }] }
+//                                                           filter chips; folded into one menu button (`label`, else
+//                                                           "Filter") while the row is too narrow for them
+//   { type: 'button', id, label?, title?, icon?, on?, primary?, disabled?, overflow? }   (the default type)
+// Anything else is dropped. A function `send` on an item (the host page's own items, never a module's: a module's go through
+// postMessage or this cleaning first) is kept, so the page can mix its own items into a part's row.
+export const TOOLBAR_LIMITS = { items: 16, tabs: 8, chips: 24, text: 80, title: 80, label: 30, placeholder: 80, value: 200 };
+export function cleanToolbarItems(items) {
+  const s = (v, n) => String(v ?? '').slice(0, n);
+  const id = (v) => s(v, 40);
+  const icon = (v) => (ICON.test(v || '') ? v : '');
+  const out = [];
+  for (const i of (Array.isArray(items) ? items : []).slice(0, TOOLBAR_LIMITS.items)) {
+    if (!i || typeof i !== 'object') continue;
+    const own = typeof i.send === 'function' ? { send: i.send } : {};
+    if (i.separator || i.type === 'separator') { out.push({ separator: true }); continue; }
+    const type = ['tabs', 'text', 'title', 'progress', 'slider', 'search', 'chips'].includes(i.type) ? i.type : 'button';
+    if (type === 'text' || type === 'title') { const text = s(i.text, TOOLBAR_LIMITS[type]); out.push({ type, text, ...own }); continue; }
+    if (type === 'progress') { out.push({ type, value: Math.max(0, Math.min(100, Number(i.value) || 0)), label: s(i.label, 40) }); continue; }
+    if (type === 'slider') {
+      if (!id(i.id)) continue;
+      const min = Number.isFinite(Number(i.min)) ? Number(i.min) : 0;
+      const max = Number.isFinite(Number(i.max)) ? Number(i.max) : 100;
+      const step = Number.isFinite(Number(i.step)) && Number(i.step) > 0 ? Number(i.step) : 1;
+      const top = max > min ? max : min + 1;
+      out.push({ type, id: id(i.id), min, max: top, step, value: Math.max(min, Math.min(top, Number.isFinite(Number(i.value)) ? Number(i.value) : min)), label: s(i.label, 40), disabled: Boolean(i.disabled), ...own });
+      continue;
+    }
+    if (type === 'tabs') {
+      const options = (Array.isArray(i.options) ? i.options : []).slice(0, TOOLBAR_LIMITS.tabs).map((o) => ({
+        id: id(o?.id), label: s(o?.label, TOOLBAR_LIMITS.label), icon: icon(o?.icon), regular: Boolean(o?.regular), iconOnly: Boolean(o?.iconOnly),
+      })).filter((o) => o.id && (o.label || o.icon));
+      if (id(i.id) && options.length) out.push({ type, id: id(i.id), value: id(i.value), options, ...own });
+      continue;
+    }
+    if (type === 'search') {
+      if (!id(i.id)) continue;
+      const placeholder = s(i.placeholder, TOOLBAR_LIMITS.placeholder);
+      out.push({ type, id: id(i.id), value: s(i.value, TOOLBAR_LIMITS.value), placeholder, label: s(i.label, TOOLBAR_LIMITS.placeholder) || placeholder || 'Search', ...own });
+      continue;
+    }
+    if (type === 'chips') {
+      const options = (Array.isArray(i.options) ? i.options : []).slice(0, TOOLBAR_LIMITS.chips).map((o) => {
+        const opt = { id: id(o?.id), label: s(o?.label, 40), on: o?.on !== false, note: s(o?.note, 20) };
+        if (icon(o?.icon)) opt.icon = o.icon;
+        if (TINT.test(o?.tint || '')) opt.tint = o.tint;
+        return opt;
+      }).filter((o) => o.id && o.label);
+      if (id(i.id) && options.length) out.push({ type, id: id(i.id), label: s(i.label, 60) || 'Filter', icon: icon(i.icon) || 'filter', options, ...own });
+      continue;
+    }
+    const b = {
+      type: 'button',
+      id: id(i.id),
+      label: s(i.label, TOOLBAR_LIMITS.label),
+      title: s(i.title, 40),
+      icon: icon(i.icon),
+      on: typeof i.on === 'boolean' ? i.on : null, // null: not a toggle, so no pressed state
+      primary: Boolean(i.primary),
+      disabled: Boolean(i.disabled),
+      overflow: Boolean(i.overflow),
+      ...own,
+    };
+    if (b.id && (b.label || b.icon)) out.push(b);
+  }
+  return out;
+}
+
+// The words on the folded chips' menu button: its label, and how many are on when some are off ("Trips (3 of 5)" is the
+// module's own label; "Filter · 2 off" when it gave none that says so). Pure, for the check.
+export function chipsSummary(item) {
+  const off = (item?.options || []).filter((o) => !o.on).length;
+  return off ? `${item.label} · ${off} off` : item.label;
+}
+
 // A toolbar row drawn again keeps the keyboard where it was (issue #155): each drawn control carries a key (its
 // item id, and the choice's id inside a switch), read before the row is cleared and found again after it is built.
 export const toolbarKey = (kind, id, choice = '') => `${kind}:${id}${choice === '' ? '' : `:${choice}`}`;

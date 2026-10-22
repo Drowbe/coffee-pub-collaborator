@@ -1,6 +1,7 @@
 // check-narrow.mjs: three layout rules measured in the running product (headless Chromium, the screenshot seed), each at the
 // size where it once broke.
-//   1. Maps: its notice (#state, "Maps is not set up yet") sits in the content area, below the search field, never over it
+//   1. Maps: its notice (#state, "Maps is not set up yet") sits in the content area, below the search field (the host's toolbar
+//      field, .tb-search, in the module's window), never over it
 //      (the Workspace with Maps open in a window; Maps' own page at 390 px).
 //   2. Planner (Itinerary): in a narrow window (260 px) no word of a card's title is broken across lines (a word is only ever
 //      split when it is longer than the line).
@@ -20,7 +21,7 @@ const shown = `const shown = (e) => e && !e.hidden && e.getClientRects().length 
 
 const MAPS = `(() => { ${ROOTS} ${shown}
   const out = [];
-  for (const r of roots) { const st = r.querySelector('#state'); const se = r.querySelector('.map-search');
+  for (const r of roots) { const st = r.querySelector('#state'); const win = r.host ? r.host.closest('.module, .module-floating, body') : null; const se = win ? win.querySelector('.mod-toolbar .tb-search') : null;
     if (!shown(st) || st.querySelector('.sdk-skel')) continue;
     const a = st.getBoundingClientRect(); const own = a.top;
     const title = st.querySelector('.sdk-empty-title'); const t = title ? title.getBoundingClientRect() : null;

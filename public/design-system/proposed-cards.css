@@ -141,7 +141,7 @@
 }
 
 /* A row inside a card or a panel's card takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
-.ds-proposed :is(.sdk-card, .card, .tile, .rcard, .editor-card, .space-choice) :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) {
+.ds-proposed :is(.sdk-card, .sdk-card-banded, .card, .tile, .rcard, .editor-card, .space-choice) :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) {
   --s: var(--bg-input);
   border-color: transparent;
   border-radius: var(--radius-small);
@@ -405,3 +405,8 @@
 .ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: 11px; }
 .ds-proposed .sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: 12px; }
+.ds-proposed .sdk-card-banded > .sdk-card-head > :is(.sdk-icon-btn, .btn-small) { flex: none; }
+/* The band alone: a banded card with nothing shown under its band has no hairline under it and every corner round. */
+.ds-proposed .sdk-card-banded > .sdk-card-head:not(:has(~ :not([hidden]))) { border-bottom: 0; border-radius: var(--radius-medium); }
+/* The body of a module's object box is a stack: its parts one gap apart. */
+.ds-proposed .sdk-card-banded > .sdk-card-body.pm-cd-stack { display: flex; flex-direction: column; gap: 8px; }

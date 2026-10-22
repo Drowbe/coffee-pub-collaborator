@@ -52,9 +52,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   };
 
   // One banded card (an object box with a head band). o: icon, tint, title, meta, body (html), cls, portrait (a letter: a chat head).
-  const banded = (o = {}) => `<div class="sdk-card-banded${o.cls ? ' ' + o.cls : ''}"${o.tint ? ` data-tint="${o.tint}"` : ''}>
-      <div class="sdk-card-head"><div class="sdk-card-main">${o.icon ? `<span class="sdk-card-icon">${fa(o.icon)}</span>` : ''}<h4 class="sdk-card-title">${o.title}</h4>${o.meta ? `<span class="sdk-card-sub">${o.meta}</span>` : ''}</div>${MENU}</div>
-      <div class="sdk-card-body">${o.body}</div>
+  // o.module names the module whose object box it draws (data-module), o.action a quiet button in the band in place of the "...", o.tintMeta the meta in the kind's colour.
+  const banded = (o = {}) => `<div class="sdk-card-banded${o.cls ? ' ' + o.cls : ''}"${o.tint ? ` data-tint="${o.tint}"` : ''}${o.module ? ` data-module="${o.module}"` : ''}>
+      <div class="sdk-card-head"><div class="sdk-card-main">${o.icon ? `<span class="sdk-card-icon">${fa(o.icon)}</span>` : ''}<h4 class="sdk-card-title">${o.title}</h4>${o.meta ? `<span class="sdk-card-sub${o.tintMeta ? ' sdk-tint-text' : ''}">${o.meta}</span>` : ''}</div>${o.action ? `<button type="button" class="btn btn-small btn-quiet">${o.action}</button>` : o.menu === false ? '' : MENU}</div>
+      <div class="sdk-card-body${o.stack ? ' pm-cd-stack' : ''}">${o.body}</div>
     </div>`;
   // A chat message as an instance of it: the Chat family's markup, the same band.
   const bandedMsg = (o = {}) => `<div class="sdk-card-banded sdk-message${o.own ? ' own' : ''}"><div class="sdk-message-head"><span class="sdk-message-who"><span class="sdk-message-portrait" aria-hidden="true">${o.who[0]}</span><span class="sdk-message-name">${o.who}</span><time class="sdk-message-time">${o.time}</time></span><span class="sdk-message-tools">${MENU}</span></div><div class="sdk-message-body"><div class="sdk-message-text">${o.text}</div></div></div>`;
@@ -124,7 +125,16 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const bandedBody = () => wrap(`<div class="sdk-panel"><div class="pm-cd-two">
     <div>${CAPTION('Object boxes')}<div class="sdk-list">${banded({ icon: 'utensils', tint: 'orange', title: 'Lunch at Café Marly', meta: 'Day 2, 12:30', body: '<p class="sdk-card-body">A terrace on the Louvre. Book for four.</p>' })}${banded({ icon: 'landmark', tint: 'blue', title: 'Louvre', meta: 'Day 2, 9:30', body: '<p class="sdk-card-body">Book the timed entry before Friday.</p>' })}</div></div>
     <div>${CAPTION('Chat messages: the same band')}<div class="sdk-list">${bandedMsg({ who: 'Sam', time: '10:41', text: '<p>Anyone checked the museum hours?</p>' })}${bandedMsg({ who: 'You', own: true, time: '10:42', text: '<p>Open until 9 on Fridays.</p>' })}</div></div>
-  </div></div>`);
+  </div>
+  <div class="pm-cd-cap" style="margin-top:14px">In the modules: every object box with a title row</div>
+  <div class="pm-cd-grid">
+    <div>${CAPTION('Planner: a flight')}${banded({ module: 'travel', icon: 'plane', tint: 'blue', title: 'TAP Air Portugal TP 205', meta: 'Flight', tintMeta: true, stack: true, body: '<p class="sdk-card-body"><b>JFK</b> 7:40 AM to <b>LIS</b> 10:35 AM</p><p class="sdk-card-sub">Seat 14A, gate B22</p>' })}</div>
+    <div>${CAPTION('Research: a link')}${banded({ module: 'research', icon: 'link', tint: 'teal', title: 'Lisbon tram guide', meta: 'Link', tintMeta: true, stack: true, body: '<p class="sdk-card-sub">example.com</p><p class="sdk-card-body">Which lines are worth the ride, and when to avoid the crowds.</p>' })}</div>
+    <div>${CAPTION('Polls: a poll')}${banded({ module: 'polls', title: 'Where do we eat on the first night?', meta: '2 votes', stack: true, body: `<p class="sdk-card-sub">Pick one</p><div class="sdk-card-list">${row({ title: 'Taberna da Rua', meta: '1', sel: true })}${row({ title: 'Time Out Market', meta: '1' })}</div>` })}</div>
+    <div>${CAPTION('Places: a place')}${banded({ module: 'places', icon: 'utensils', tint: 'orange', title: 'Time Out Market', stack: true, body: '<p class="sdk-card-sub">Av. 24 de Julho 49</p>' })}</div>
+    <div>${CAPTION('Budget: the target')}${banded({ module: 'budget', title: 'Target', action: 'Set a target', stack: true, body: '<p class="sdk-card-title">$3,596.00 spent</p><p class="sdk-card-sub">A target lets you see how much is left.</p>' })}</div>
+  </div>
+  <p class="pm-cd-note">Left as rows, not banded cards (a row has no title row over a body): a To-do task, a Budget cost, category and person, a poll's option, a Planner time block and a stay's nights between, a Places search result.</p></div>`);
 
   const phoneBody = () => wrap(`<div class="sdk-panel"><div class="sdk-list-group"><h4 class="sdk-group-head">Today<span class="sdk-group-count">3</span></h4><div class="sdk-list">
     ${row({ tick: true, title: 'Book the flights', meta: 'Fri', menu: true })}

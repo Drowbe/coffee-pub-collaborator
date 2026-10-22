@@ -128,8 +128,13 @@ const cardsProbe = async () => {
   // Paddings (decided 2026-10-21, on the spacing scale): panel 16 at every width, card 12, row 8 by 10 (8 + 2), Home card 20.
   // The banded card (decided 2026-10-21): one hairline box, a 30px band (31 with its hairline) shaded from the role over the box's own surface, a hairline under it, the same band on a chat message.
   { const d = get('Cards, object box with a head band'); const boxes = d ? [...d.querySelectorAll('.sdk-card-banded')] : []; const border = d && tok(d, 'var(--border)');
-    if (boxes.length < 4) bad(`the head band frame shows ${boxes.length} banded boxes, expected 4 (two objects, two chat messages)`);
+    if (boxes.length < 9) bad(`the head band frame shows ${boxes.length} banded boxes, expected 9 (two objects, two chat messages, five modules' object boxes)`);
     if (!boxes.some((b) => b.matches('.sdk-message'))) bad('the head band frame shows no chat message as an instance');
+    // The modules' object boxes with a title row are instances of it (2026-10-22): the Planner's cards, Research's cards, a poll, a place, Budget's overview boxes.
+    for (const m of ['travel', 'research', 'polls', 'places', 'budget']) if (!boxes.some((b) => b.dataset.module === m)) bad(`the head band frame shows no ${m} object box as an instance`);
+    // A row inside a banded card takes the next step, as in a card: the field surface, its edge transparent, the small corner.
+    { const r = d && d.querySelector('.sdk-card-banded .sdk-row:not([aria-current])'); if (!r) bad('the head band frame shows no row inside a banded card');
+      else { const c = cs(r); if (c.backgroundColor !== tok(d, 'var(--bg-input)', 'backgroundColor') || c.borderTopColor !== 'rgba(0, 0, 0, 0)' || c.borderTopLeftRadius !== rTok(d, '--radius-small')) bad(`a row inside a banded card is ${c.backgroundColor}, edge ${c.borderTopColor}, corner ${c.borderTopLeftRadius}: not the next step (--bg-input, no edge, --radius-small)`); } }
     const hs = new Set();
     for (const b of boxes) { const c = cs(b); const head = b.querySelector(':scope > :is(.sdk-card-head, .sdk-message-head)'); const body = b.querySelector(':scope > :is(.sdk-card-body, .sdk-message-body)');
       if (!head || !body) { bad('a banded box has no head band or no body'); continue; }

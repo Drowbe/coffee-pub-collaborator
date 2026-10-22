@@ -521,6 +521,18 @@
   --tabs-gap: var(--space-1);
 }
 
+/* A strip or a view switch in a band (the Chat's Discussion | Assistant row, a module's view switch, a destination's views and its
+   panel's tabs): the band is the toolbar (modulechrome: 34px, 8px in, 12px on a phone) and the tabs are the small ones, 30px on
+   every width, 2px from each edge of the band. The same in every module and the chat column: no module or page sets its own. */
+:is(.sdk-toolbar, .mod-toolbar, .sdk-titlebar, .mod-header) :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs) {
+  --tab-h: var(--tab-h-small);
+  --tab-font: var(--text-13);
+  --tab-icon: var(--icon-14);
+  --tab-icon-dy: 0px;
+  --tab-gap: var(--space-1);
+  align-self: center;
+}
+
 /* The wrapper. A strip scrolls sideways; the script that selects a tab scrolls it into view. */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
   display: flex;
@@ -3664,7 +3676,8 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    status line .mod-status and its -items, -item, -text, -sep. The old toolbar pill, message button and tinted "+" are retired: a
    band's buttons are the Buttons block's Quiet small (.btn.btn-small.btn-quiet, .sdk-icon-btn.btn-small.btn-quiet), the "+"
    included. Layout (where a window sits, its size, the drag and the resize grip, the phone's touch widths) stays in style.css.
-   Bands: title bar --module-header-h (34px, 42px on a phone; style.css), toolbar --toolbar-h (34px; style.css), status line
+   Bands: title bar --module-header-h (34px, 42px on a phone; style.css), toolbar --toolbar-h (34px; style.css; its 30px items 2px
+   from its top and 2px from its bottom edge, the hairline counted: --band-room), status line
    --status-bar-h (24px) plus the home-indicator inset where the window ends the screen (a module's own page or popped-out window).
    Surfaces: the window is --surface-panel. The title bar is the window's step with the module's tint as a 10% wash (the only tinted
    band) and the tint on its icon in the readable mix. The toolbar is --surface-toolbar. The status line is the window's step under a
@@ -3675,6 +3688,8 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   --mc-wash: 10%; /* the tint's wash on the title bar */
   --mc-chip-h: 20px; /* a status label in the 24px status line */
   --safe-b: 0px; /* the home-indicator inset under the status line; set where the window ends the screen */
+  --band-room: 1px; /* the toolbar band's room over its items: with its 1px hairline under them, a 30px item (a tab, a button, a
+                       search) sits 2px from each edge of the 34px band */
 }
 
 /* ---- the window ---- */
@@ -3803,7 +3818,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   height: var(--toolbar-h);
   min-width: 0;
   margin: 0;
-  padding: 0 var(--pad-toolbar-x);
+  padding: var(--band-room) var(--pad-toolbar-x) 0;
   border-bottom: 1px solid var(--edge-hairline);
   background: var(--surface-toolbar);
   overflow-x: auto;

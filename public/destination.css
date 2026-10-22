@@ -19,6 +19,13 @@ body.destination-page .topbar {
    header is the page bar's row alone, no taller than that. */
 body.dest-no-topbar .topbar {
   min-height: 0;
+  padding: 0; /* not the header's own (style.css; a phone's 4px above and below matches a narrow frame): the bar is the row */
+}
+
+/* The bar is the last row of the header: nothing of the header under it (a phone's 4px, style.css), so the content starts at its
+   hairline, as under every module's toolbar. */
+body.destination-page .topbar {
+  padding-bottom: 0;
 }
 
 /* Two zones (plan-two-zone-nav.md): the left takes what the right does not. Each zone in its own column. */
@@ -41,7 +48,7 @@ body.destination-page .topbar > .dest-bar {
   box-sizing: border-box;
   height: var(--toolbar-h);
   min-height: 0;
-  padding: 0 var(--space-2);
+  padding: var(--band-room) var(--space-2) 0;
   column-gap: var(--space-2);
 }
 
@@ -52,7 +59,15 @@ body.destination-page .topbar > .dest-bar > :is(.nav-left, .nav-right) {
   padding: 0;
 }
 
+/* Under the page's own top bar the bar's hairline is on its top (style.css .subnav), the top bar's edge under it: the room is
+   above it and 2px under its items, so they sit 2px from each edge as in every toolbar. */
+body.destination-page:not(.dest-no-topbar) .topbar > .dest-bar {
+  padding-bottom: var(--space-0);
+}
+
 body.dest-no-topbar .topbar > .dest-bar {
+  width: 100%; /* the header has no side padding here, so the bar's full bleed (style.css .subnav) has nothing to cancel */
+  margin: 0;
   border-top: 0;
   border-bottom: 1px solid var(--edge-hairline);
   background: var(--surface-toolbar);
@@ -66,7 +81,7 @@ body.dest-no-topbar .topbar {
 /* A phone (the screen's, destination.js bandsFollowScreen, not the frame's): more room each side. */
 body.destination-page.dest-phone .topbar > .dest-bar,
 body.destination-page.dest-phone .dest-side-head {
-  padding: 0 var(--space-3);
+  padding-inline: var(--space-3);
 }
 
 .dest-tab:focus-visible {
@@ -138,7 +153,7 @@ body.destination-page.dest-phone .dest-side-head {
   flex: none;
   box-sizing: border-box;
   height: var(--toolbar-h);
-  padding: 0 var(--space-2);
+  padding: var(--band-room) var(--space-2) 0;
   border-bottom: 1px solid var(--edge-hairline);
   background: var(--surface-toolbar);
 }

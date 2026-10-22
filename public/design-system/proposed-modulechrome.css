@@ -178,7 +178,7 @@
   height: var(--toolbar-h);
   min-width: 0;
   margin: 0;
-  padding: 0 8px;
+  padding: 1px 8px 0; /* 1px over its items and the 1px hairline under them: a 30px item 2px from each edge of the 34px band */
   border-bottom: 1px solid var(--border);
   background: var(--bg-input);
   overflow-x: auto;
@@ -328,7 +328,7 @@
 
 /* A phone: the status line grows by the inset (set by .sdk-window-popout from env(safe-area-inset-bottom)); the toolbar scrolls by touch. */
 @media (max-width: 640px) {
-  .ds-proposed :is(.sdk-toolbar, .mod-toolbar) { padding: 0 12px; }
+  .ds-proposed :is(.sdk-toolbar, .mod-toolbar) { padding: 1px 12px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

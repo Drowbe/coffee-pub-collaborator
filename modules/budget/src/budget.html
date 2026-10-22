@@ -14,9 +14,10 @@
     [data-slot=name]   set its textContent (or hide it when there is no value)
     [data-icon=name]   replace its content with host.ui.icon(name)
   It sets no style of its own, except the few values a drawing needs (a bar's width, a category's colour as a custom property,
-  the chart's marks). The views are switched by host.ui.viewSwitch in the toolbar.
+  the chart's marks). The host draws the title, the toolbar row (the views, and on Costs the find field and the group, sort and
+  filter buttons), the "+" and the status line; #app is the content slot.
 -->
-<div id="app" class="app" hidden>
+<div id="app" class="app sdk-slot" hidden>
   <main id="body" class="body">
     <!-- Overview: the target, what is spent, each category, the burndown -->
     <section id="view-overview" class="view" aria-label="Overview" hidden>
@@ -49,15 +50,6 @@
 
     <!-- Costs: every cost, grouped by day or category -->
     <section id="view-costs" class="view" aria-label="Costs" hidden>
-      <div class="list-tools">
-        <div class="sdk-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="find" type="search" maxlength="100" placeholder="Find a cost" aria-label="Find a cost" autocomplete="off"></div>
-        <div class="sdk-chips" role="group" aria-label="Show the costs">
-          <button class="sdk-chip" type="button" id="tool-group"><span class="ic" data-icon="layer-group"></span><span class="sdk-chip-label" data-slot="label">By day</span></button>
-          <button class="sdk-chip" type="button" id="tool-sort"><span class="ic" data-icon="arrow-down-wide-short"></span><span class="sdk-chip-label" data-slot="label">Date, earliest first</span></button>
-          <button class="sdk-chip" type="button" id="tool-category"><span class="ic" data-icon="tag"></span><span class="sdk-chip-label" data-slot="label">All categories</span></button>
-          <button class="sdk-chip" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span class="sdk-chip-label" data-slot="label">Anyone paid</span></button>
-        </div>
-      </div>
       <p class="hint note" data-slot="withheld-note" hidden></p>
       <div id="groups"></div>
     </section>

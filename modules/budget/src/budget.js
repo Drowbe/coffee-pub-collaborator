@@ -220,6 +220,7 @@
     if (state.view === 'overview') renderOverview();
     else if (state.view === 'costs') renderCosts();
     else renderSettle();
+    if (state.view !== 'costs') syncToolbar(false, '');
     for (const n of root.querySelectorAll('[data-slot="withheld-note"]')) fill(n, { 'withheld-note': withheldNote(state.withheld) });
     hydrate(root);
     chrome();
@@ -397,11 +398,7 @@
     const people = [{ key: '', label: 'Anyone paid' }, { key: '-', label: 'Nobody paid yet' }, ...state.people.map((p) => ({ key: p.key, label: `Paid by ${p.name}` }))];
     if (state.payer && !people.some((p) => p.key === state.payer)) state.payer = '';
     if (state.category && !state.cats.some((c) => c.id === state.category)) state.category = '';
-    const tool = (id, label, on) => { const b = $(id); fill(b, { label }); b.classList.toggle('on', Boolean(on)); };
-    tool('tool-group', state.groupBy === 'day' ? 'By day' : 'By category', false);
-    tool('tool-sort', SORT_WORDS[state.sort], state.sort !== 'date-asc');
-    tool('tool-category', state.category ? catRow(state.cats, state.category).label : 'All categories', state.category);
-    tool('tool-payer', (people.find((p) => p.key === state.payer) || people[0]).label, state.payer);
+    syncToolbar(all.length > 0, (people.find((p) => p.key === state.payer) || people[0]).label);
     const host_ = $('groups');
     if (!all.length) {
       const el = clone('tpl-state');
@@ -459,14 +456,31 @@
     }
     host.menu.show({ id: `cost-${id}`, anchor: button, items });
   }
-  function chooser(button, id, entries, current, pick) {
-    host.menu.show({ id, anchor: button, items: entries.map((en) => ({ id: String(en.id), label: en.label, icon: en.id === current ? 'check' : en.icon, onClick: () => { pick(en.id); render(); } })) });
+  // The toolbar row while Costs shows and has costs: find a cost, then how they are grouped and sorted and which show, each a
+  // button whose choices open under it (its `x`); the view switch follows in the same row. Nothing of it in the other views.
+  function syncToolbar(any, payerLabel) {
+    host.toolbar.set(state.view === 'costs' && any ? [
+      { type: 'search', id: 'find', value: state.text, placeholder: 'Find a cost', label: 'Find a cost' },
+      { type: 'button', id: 'group', label: state.groupBy === 'day' ? 'By day' : 'By category', icon: 'layer-group' },
+      { type: 'button', id: 'sort', label: SORT_WORDS[state.sort], icon: 'arrow-down-wide-short', on: state.sort !== 'date-asc' },
+      { type: 'button', id: 'category', label: state.category ? catRow(state.cats, state.category).label : 'All categories', icon: 'tag', on: Boolean(state.category) },
+      { type: 'button', id: 'payer', label: payerLabel, icon: 'user', on: Boolean(state.payer) },
+    ] : []).catch(() => {});
   }
-  $('tool-group').addEventListener('click', (e) => chooser(e.currentTarget, 'group', [{ id: 'day', label: 'By day' }, { id: 'category', label: 'By category' }], state.groupBy, (v) => { state.groupBy = v; }));
-  $('tool-sort').addEventListener('click', (e) => chooser(e.currentTarget, 'sort', SORTS.map((id) => ({ id, label: SORT_WORDS[id] })), state.sort, (v) => { state.sort = v; }));
-  $('tool-category').addEventListener('click', (e) => chooser(e.currentTarget, 'category', [{ id: '', label: 'All categories' }, ...state.cats.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))], state.category, (v) => { state.category = v; }));
-  $('tool-payer').addEventListener('click', (e) => chooser(e.currentTarget, 'payer', [{ id: '', label: 'Anyone paid' }, { id: '-', label: 'Nobody paid yet' }, ...state.people.map((p) => ({ id: p.key, label: `Paid by ${p.name}`, icon: 'user' }))], state.payer, (v) => { state.payer = v; }));
-  $('find').addEventListener('input', (e) => { state.text = e.target.value; renderCosts(); hydrate(root); });
+  function chooser(e, entries, current, pick) {
+    host.menu.show({ id: e.id, at: { x: Number(e.x) || 0, y: 4 }, items: entries.map((en) => ({ id: String(en.id), label: en.label, icon: en.id === current ? 'check' : en.icon, onClick: () => { pick(en.id); render(); } })) });
+  }
+  host.on('toolbar', (e) => {
+    if (e.id === 'find' && typeof e.value === 'string') {
+      if (e.value === state.text) return;
+      state.text = e.value;
+      renderCosts();
+      hydrate(root);
+    } else if (e.id === 'group') chooser(e, [{ id: 'day', label: 'By day' }, { id: 'category', label: 'By category' }], state.groupBy, (v) => { state.groupBy = v; });
+    else if (e.id === 'sort') chooser(e, SORTS.map((id) => ({ id, label: SORT_WORDS[id] })), state.sort, (v) => { state.sort = v; });
+    else if (e.id === 'category') chooser(e, [{ id: '', label: 'All categories' }, ...state.cats.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))], state.category, (v) => { state.category = v; });
+    else if (e.id === 'payer') chooser(e, [{ id: '', label: 'Anyone paid' }, { id: '-', label: 'Nobody paid yet' }, ...state.people.map((p) => ({ id: p.key, label: `Paid by ${p.name}`, icon: 'user' }))], state.payer, (v) => { state.payer = v; });
+  });
 
   // --- Settle up ----------------------------------------------------------------------------------------------------------
   function renderSettle() {
@@ -492,8 +506,8 @@
   const ADD_COST = { id: 'cost', label: 'Add a cost', icon: 'plus' };
   let factsSent = '';
   function chrome() {
-    if (host.add) host.add.set(canEdit ? [ADD_COST] : []).catch(() => {});
-    if (host.status) host.status.set([{ text: statusWords(costs(), (n) => money(n)), icon: 'wallet' }]).catch(() => {});
+    host.add.set(canEdit ? [ADD_COST] : []).catch(() => {});
+    host.status.set([{ text: statusWords(costs(), (n) => money(n)), icon: 'wallet' }]).catch(() => {});
     reportFacts();
   }
   // "Spent $X of $Y" for the space's status strip: kept for a week and renewed whenever this module is open and changes.
@@ -505,7 +519,7 @@
     factsSent = sig;
     host.facts.set(facts).catch(() => { factsSent = ''; });
   }
-  if (host.add) host.on('add', (e) => { if (e.id === 'cost' && canEdit) openEditor(null); });
+  host.on('add', (e) => { if (e.id === 'cost' && canEdit) openEditor(null); });
 
   // --- the cost, in the editor window ---------------------------------------------------------------------------------------
   const editorError = (text) => { $('f-error').textContent = text; $('f-error').hidden = !text; };

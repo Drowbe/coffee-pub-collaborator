@@ -1499,6 +1499,8 @@
 .sdk-list-group > .sdk-group-head { margin-bottom: var(--gap-in); }
 :where(.sdk-list) { display: flex; flex-direction: column; gap: var(--gap-in); min-width: 0; } /* :where, so a module can lay the list out as a grid */
 
+:where(.sdk-panel, .panel, .sdk-card, .user-card, .space-choice, .sdk-stack, .sdk-cluster) > :where(p, h1, h2, h3, h4, h5, h6, ul, ol, dl, figure, blockquote, form, fieldset) { margin-block: 0; }
+
 /* ---- the stacking rule's two containers (Foundations, Padding): parts one gap apart, no part with a margin of its own ----
    .sdk-stack: a column, --stack-gap apart (8px; --gap-group for groups, --gap-card-rows for rows in a card).
    .sdk-cluster: a row that wraps, --cluster-gap apart both ways (8px), its parts centred on the line.
@@ -3163,7 +3165,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    Each band a fill of its phase's tint by state (past 12%, ahead 22%, current the selected fill with its name in the accent mix
    and "Now"), the neutral hairline, the medium corner; no coloured top edge and no ring. Today is a 2px dashed neutral line
    drawn as a block (not an edge), with the word "Today" above it. Its width is its share of the days (phase-sheet.js). */
-.sdk-phase-strip { margin: var(--space-3) 0 var(--space-1); padding: var(--space-5) 0 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.sdk-phase-strip { margin: 0; padding: var(--space-5) 0 0; overflow-x: auto; overscroll-behavior-x: contain; }
 .sdk-phase-bands { position: relative; display: flex; align-items: stretch; gap: var(--space-1); box-sizing: border-box; width: 100%; min-width: max-content; height: var(--jr-phase-h); margin: 0; padding: 0; list-style: none; }
 .sdk-phase-band {
   --s: var(--surface-field);
@@ -4308,6 +4310,9 @@ span.message-vis {
 
 .phase-sheet-body {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   min-height: 0;
   box-sizing: border-box;
   padding: 0 var(--dlg-pad-x) var(--pad-dialog-y);
@@ -4345,6 +4350,10 @@ html[data-dialog-open] { overflow: hidden; }
   margin: var(--space-4) calc(-1 * var(--dlg-pad-x)) 0;
   padding: var(--pad-dialog-y) var(--dlg-pad-x);
 }
+
+/* In a form of the form standard (.sdk-form, its fields --field-gap apart) the row's margin makes up the rest of the dialog's
+   --pad-dialog-y, so the last field is as far above the hairline as the first is below the head. */
+.sdk-form > .sdk-editor-actions { margin-top: calc(var(--pad-dialog-y) - var(--field-gap)); }
 
 /* The discard row replaces the button row: a question and two choices, over it. */
 .sdk-editor-discard {
@@ -5322,7 +5331,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   width: 100%;
   min-height: var(--check-h);
   margin: 0;
-  padding: 0 var(--cr-pad-x);
+  padding: var(--space-1) var(--cr-pad-x);
   border: 0;
   border-radius: var(--radius-small);
   background: transparent;

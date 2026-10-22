@@ -254,6 +254,9 @@
 .app.tiny .pass .stub::before, .app.tiny .admit .stub::before { left: -9px; top: -9px; }
 .app.tiny .pass .stub::after, .app.tiny .admit .stub::after { left: auto; right: -9px; top: -9px; bottom: auto; }
 .app.tiny .pass .bars { flex-basis: 100%; }
+/* A meal or a check-out in a tiny pane: the time goes under the name (beside it, the name had no width left and stood one letter a line). */
+.app.tiny :is(.meal, .stay.out) { grid-template-columns: auto minmax(0, 1fr); }
+.app.tiny :is(.meal, .stay.out) .side { grid-column: 2; padding-right: 0; text-align: left; }
 /* on a phone the time moves above its card so the card gets the whole width */
 .app.narrow .row { grid-template-columns: 14px minmax(0, 1fr); column-gap: 8px; grid-template-areas: "rail when" "rail slot"; }
 .app.narrow .rail { grid-area: rail; }

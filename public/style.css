@@ -2784,7 +2784,7 @@ button.whoami:focus-visible {
 
 .panel .version {
   align-self: flex-end;
-  margin: 4px 0 -8px;
+  margin: 0;
 }
 
 /* --- the canvas: full-window call with floating controls ------------------- */
@@ -4481,7 +4481,7 @@ a.crumb-here:hover {
    this box (see admin.js's updateThemePreview()) so picking a color shows
    its real effect without recoloring the whole settings page underneath. */
 .about p {
-  margin: 0 0 10px;
+  margin: 0;
 }
 
 .theme-preview {
@@ -7191,7 +7191,7 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
 
 /* --- the rows --- */
 .phase-rows {
-  margin-top: 12px;
+  margin: 0;
 }
 
 .phase-rows-head,
@@ -7349,7 +7349,7 @@ body.in-space .subnav > .nav-left:has(> .sdk-strip:not([hidden])) {
 }
 
 .phase-sheet-hint {
-  margin: 10px 0 0;
+  margin: 0;
 }
 
 .phase-sheet-status {

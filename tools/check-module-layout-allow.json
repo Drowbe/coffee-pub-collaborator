@@ -1,0 +1,431 @@
+{
+  "about": "check-module-layout: what a module still draws or restyles that the host should (plan-unified-layout.md). Each entry is a module, a selector, the reason it is allowed and a count; counts may only fall, and an entry the check no longer finds is deleted. Lower them with: node tools/check-module-layout.mjs --update",
+  "entries": [
+    {
+      "module": "assistant",
+      "selector": "#app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 9)",
+      "count": 1
+    },
+    {
+      "module": "budget",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
+      "count": 1
+    },
+    {
+      "module": "budget",
+      "selector": "#view-overview .sdk-card-banded > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "budget",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
+      "count": 2
+    },
+    {
+      "module": "budget",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
+      "count": 1
+    },
+    {
+      "module": "budget",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
+      "count": 3
+    },
+    {
+      "module": "calendar",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": ".links .sdk-chip-tag b",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": ".sdk-cal-agenda .sdk-chip-tag",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": ".sdk-cal-agenda > .is-ext .sdk-chip-tag",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": ".sdk-chip.ext .dot",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": ".sdk-chip.ext.on .dot",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "calendar",
+      "selector": "markup: class sdk-status",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "maps",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "maps",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 2
+    },
+    {
+      "module": "maps",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
+      "count": 1
+    },
+    {
+      "module": "places",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 1
+    },
+    {
+      "module": "places",
+      "selector": ".place-row > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "places",
+      "selector": ".sdk-chip[data-cat]",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 1
+    },
+    {
+      "module": "places",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 2
+    },
+    {
+      "module": "places",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 1
+    },
+    {
+      "module": "places",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 3
+    },
+    {
+      "module": "places",
+      "selector": "markup: class sdk-toolbar",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 1
+    },
+    {
+      "module": "places",
+      "selector": "markup: class sdk-toolbar-text",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": ".meta .sdk-chip-tag",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": ".optlink .sdk-chip-tag",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": ".poll > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": ".sdk-chip-tag b",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 1
+    },
+    {
+      "module": "polls",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
+      "count": 2
+    },
+    {
+      "module": "research",
+      "selector": ".rcard > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "research",
+      "selector": ".rs-list .rcard > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "research",
+      "selector": ".rs-list .rcard > .sdk-card-head",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "research",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
+      "count": 2
+    },
+    {
+      "module": "research",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
+      "count": 1
+    },
+    {
+      "module": "research",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
+      "count": 2
+    },
+    {
+      "module": "research",
+      "selector": "markup: class sdk-toolbar",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
+      "count": 1
+    },
+    {
+      "module": "stream",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 9)",
+      "count": 1
+    },
+    {
+      "module": "todo",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
+      "count": 1
+    },
+    {
+      "module": "todo",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
+      "count": 1
+    },
+    {
+      "module": "todo",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
+      "count": 1
+    },
+    {
+      "module": "todo",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ":is(.stay.out, .meal) > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".admit > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".app",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".app.tiny :is(.meal, .stay.out) > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".app.tiny :is(.pass, .admit) > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".app.tiny .card > .sdk-card-body:not(:last-child) > .stub",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".card .sdk-chip-tag",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".card > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".card > .sdk-card-body:not(:last-child) > .stub",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".card > .sdk-card-body[hidden] + :is(.card-more, .card-roundtrip)",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".card > .sdk-card-head .kicker",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".card > .sdk-card-head .sdk-card-title",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".entry.done :is(.sdk-card-title, .sdk-row-title)",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 10)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".linkcard.gone .sdk-card-title",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".linkcard.hidden .sdk-card-title",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".pass > .sdk-card-body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".sdk-chip-tag.mono",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".sdk-day-labels > .sdk-chip-tag[data-tone=\"custom\"]",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": ".stay.mid .sdk-row-title",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 10)",
+      "count": 2
+    },
+    {
+      "module": "travel",
+      "selector": "body",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": "html",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": "markup: <header>",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 13
+    },
+    {
+      "module": "travel",
+      "selector": "markup: class sdk-tabs",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    },
+    {
+      "module": "travel",
+      "selector": "markup: class sdk-tabs-joined",
+      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
+      "count": 1
+    }
+  ]
+}

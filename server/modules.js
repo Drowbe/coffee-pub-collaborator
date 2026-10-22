@@ -18,6 +18,7 @@ const { StoreError, LOBBY } = require('./store');
 const { word, fill } = require('./words');
 const { DESTINATION_IDS, DESTINATION_PARTS } = require('./destinations');
 const objectFormat = require('./object-format');
+const { scanBuiltPage } = require('./module-layout');
 
 // The text a person reads from a manifest, which may name levels by {space}-style placeholders (server/words.js's fill):
 // its description, the dashboard widget's title, its permissions' labels, its settings' labels and help (and their
@@ -892,7 +893,24 @@ function cleanManifest(raw, files) {
   // target in every space while the module is on. Absent or anything else: false.
   const budget = raw.budget === true;
 
-  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, pictureMap, lookups, budget, install };
+  // How the module's content sits in the slot the host draws (plan-unified-layout.md): padded (the default) or flush,
+  // edge to edge, for a module whose content fills the slot (a map).
+  if (raw.content !== undefined && raw.content !== 'padded' && raw.content !== 'flush') throw new ModuleError('module.json: content must be "padded" or "flush"');
+  const content = raw.content === 'flush' ? 'flush' : 'padded';
+
+  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, pictureMap, lookups, budget, content, install };
+}
+
+// The sentence for a zip's pages that draw or restyle what the host draws (server/module-layout.js), or null when they do not.
+function layoutWarning(files) {
+  const found = [];
+  for (const [name, data] of files) {
+    if (/\.html?$/i.test(name)) found.push(...scanBuiltPage(name, data.toString('utf8')));
+  }
+  if (!found.length) return null;
+  const selectors = [...new Set(found.map((f) => f.selector))];
+  const shown = selectors.slice(0, 3).join(', ') + (selectors.length > 3 ? ` and ${selectors.length - 3} more` : '');
+  return `This ${word('module')} draws or restyles parts the host draws (${shown}), so it may look out of place; its author should use the host's title bar, toolbar and shared pieces.`;
 }
 
 // --- the registry ---------------------------------------------------------
@@ -1046,6 +1064,7 @@ class ModuleManager {
         manifest.actions = { provides: [], uses: [] };
       }
       manifest.color = TINTS.includes(manifest.color) ? manifest.color : null;
+      manifest.content = manifest.content === 'flush' ? 'flush' : 'padded';
       try {
         manifest.commands = cleanCommands(manifest.commands, manifest.actions);
       } catch {
@@ -1353,7 +1372,14 @@ class ModuleManager {
     this.filled.clear();
     this.prune(entry);
     this.save();
-    return this.view(manifest.id);
+    const view = this.view(manifest.id);
+    // An uploaded module that draws or restyles what the host draws is still installed, with a plain warning for the Modules
+    // page (plan-unified-layout.md, question 5). Not stored; it is only in this answer.
+    if (source !== 'bundled') {
+      const broken = layoutWarning(files);
+      if (broken) view.layoutWarning = broken;
+    }
+    return view;
   }
 
   // Keep only the newest few versions for rollback (never the active one).

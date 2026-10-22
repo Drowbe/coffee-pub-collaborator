@@ -22,6 +22,14 @@ if (!process.argv[2] || !fs.existsSync(path.join(dir, 'module.json'))) {
   process.exit(1);
 }
 
+// A module lays out its own content and draws none of the shared window (tools/check-module-layout.mjs).
+const { layoutProblems } = await import('./check-module-layout.mjs');
+const broken = layoutProblems(dir);
+if (broken.length) {
+  console.error(`${path.basename(dir)} breaks the layout rules (documentation/plans/plan-unified-layout.md):\n${broken.map((p) => `  ${p}`).join('\n')}`);
+  process.exit(1);
+}
+
 const { manifest, fileCount, zip } = buildModule(dir);
 const outDir = path.join(path.dirname(dir), 'dist');
 fs.mkdirSync(outDir, { recursive: true });

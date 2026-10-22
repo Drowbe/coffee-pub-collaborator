@@ -38,7 +38,7 @@
 .sdk-day { --day-step: var(--surface-panel); gap: 0; padding: 0; margin-bottom: 14px; }
 .sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--pad-card) var(--pad-card) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
 .sdk-day-labels > .sdk-chip-tag[data-tone="custom"] { --chip-tone: var(--ph); max-width: 100%; }
-.sdk-day .suggestions, .sdk-day .add-row { margin: 0; }
+.sdk-day .suggestions { margin: 0; }
 .sdk-day.drop-target { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .timeline > .day-empty, .timeline > .day-empty-slot { margin: 4px 0 8px 12px; }
 .day-empty-slot { list-style: none; }

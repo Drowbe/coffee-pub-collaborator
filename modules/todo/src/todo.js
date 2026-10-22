@@ -375,13 +375,8 @@
     if (part) return renderByDue();
     const own = [...tasks.values()].filter((x) => x.scope === 'own');
     const openCount = own.filter((x) => !x.t.done).length;
-    $('count').textContent = own.length ? `${openCount} open` : '';
+    syncToolbar();
     filterSwitch.set(show, FILTERS.map((f) => (f.id === 'open' && openCount ? { ...f, label: `Open (${openCount})` } : f)));
-
-    $('spaces').hidden = spaceInfo.size === 0;
-    if (spaceInfo.size) {
-      $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
-    }
 
     let html = groupHtml(spaceInfo.size ? esc(envName()) : '', own);
     for (const r of spaceInfo.values()) {
@@ -478,7 +473,6 @@
   const returnTo = () => {
     const row = lastKey ? root.querySelector(`[data-open="${CSS.escape(lastKey)}"]`) : null;
     if (row) return row;
-    for (const id of ['new-todo', 'add']) if (!$(id).hidden && $(id).getClientRects().length) return $(id);
     return null;
   };
   const editor = host.ui.editor($('editor'), {
@@ -725,10 +719,18 @@
 
   // --- wiring ---------------------------------------------------------------
 
-  $('spaces').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-space]');
-    if (!b) return;
-    if (hiddenSpaces.has(b.dataset.space)) hiddenSpaces.delete(b.dataset.space); else hiddenSpaces.add(b.dataset.space);
+  // The toolbar row: on the environment page, a chip for each of the viewer's spaces to show or hide its list (as the
+  // panel the page's filter has them); the view switch follows it in the same row.
+  const ICON_NAME = /^[a-z0-9-]{1,40}$/;
+  function syncToolbar() {
+    const chips = !part && spaceInfo.size
+      ? [{ type: 'chips', id: 'spaces', label: word('space', { many: true, cap: true }), icon: 'filter', options: [...spaceInfo.values()].map((r) => ({ id: r.id, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) })) }]
+      : [];
+    host.toolbar.set(chips).catch(() => {});
+  }
+  host.on('toolbar', (e) => {
+    if (e.id !== 'spaces' || typeof e.value !== 'string') return;
+    if (e.on) hiddenSpaces.delete(e.value); else hiddenSpaces.add(e.value);
     render();
   });
   // A link to another module's object opens it there; the host opens that module and hands it the pointer.
@@ -805,31 +807,14 @@
     if (!canAdd()) return;
     openEditor(null);
   }
-  $('add').addEventListener('click', startNew);
-  $('new-todo').addEventListener('click', startNew);
   // Typed text goes through Chat `/t` (addTask): parseWhen, then this same editor, nothing saved until Save.
-  // Add task is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
-  // page bar on the module's own page; or the composite's "+" as the panel in a Workspace's Calendar. Where the host draws
-  // none (its answer is false: the panel on the /calendar page, Add task at its top) the in-page buttons stay. Who may
-  // add is known once the spaces are in.
+  // Add task is the host's "+" (host.add.set, one action: it runs at once) wherever the To-do is drawn: a window's
+  // titlebar, popped out, its own page, or the destination's page as its panel. Who may add is known once the spaces are in.
   const ADD_TASK = { id: 'task', label: 'Add task', icon: 'square-plus' };
-  let addHosted = false;
   function showAdd() {
-    $('add').hidden = !canAdd();
-    $('new-form').hidden = Boolean(part) || !canAdd();
-    if (addHosted) host.add.set(canAdd() ? [ADD_TASK] : []).catch(() => {});
+    host.add.set(canAdd() ? [ADD_TASK] : []).catch(() => {});
   }
-  const unhost = () => {
-    $('add').classList.remove('hosted');
-    $('new-form').classList.remove('hosted');
-  };
-  // Until the host says where Add task is.
-  $('add').classList.add('hosted');
-  $('new-form').classList.add('hosted');
-  if (host.add) {
-    host.add.set(canAdd() ? [ADD_TASK] : []).then((drawn) => { if (drawn) addHosted = true; else unhost(); }, unhost);
-    host.on('add', (e) => { if (e.id === ADD_TASK.id && canAdd()) startNew(); });
-  } else unhost();
+  host.on('add', (e) => { if (e.id === ADD_TASK.id && canAdd()) startNew(); });
 
   // The status line at the foot of the window: what is open, due today and overdue among the tasks shown ("5 open · 2 due
   // today · 1 overdue"), and a chip when Done or All is shown. Hidden while there are no tasks. As the panel in a
@@ -867,11 +852,6 @@
     if (loaded) render();
   }
   if (part && host.destination) host.destination.onState(takeState);
-  if (part) {
-    $('count').hidden = true;
-    $('spaces').hidden = true;
-    $('app').classList.add('part');
-  }
 
   // As a part of the destination's page, say how tall the content is: a page too narrow for the panel beside the
   // list stacks the parts in its one scroll, each as tall as this, so nothing here scrolls on its own. Beside each
@@ -898,8 +878,6 @@
     new ResizeObserver(later).observe($('app'));
   }
 
-  $('add').hidden = true;
-  $('new-form').hidden = true;
   async function start() {
     try {
       await loadKinds();

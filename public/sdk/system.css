@@ -3732,6 +3732,24 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 }
 .sdk-window-content > * { flex: none; }
 
+/* A module's own document is the window's content slot (plan-unified-layout.md): the module puts .sdk-slot on its root
+   element and the host fills the frame with it and pads it (--pad-window), unless the manifest says "content": "flush"
+   (the SDK puts that on the root as data-content). A module gives the slot, html and body no padding, margin or height of
+   its own (tools/check-module-layout.mjs); its parts are 8px apart. */
+:root:has(> body > .sdk-slot),
+:root:has(> body > .sdk-slot) > body { height: 100%; margin: 0; }
+:root:has(> body > .sdk-slot) > body { display: flex; flex-direction: column; overflow: hidden; }
+.sdk-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--pad-window);
+}
+:root[data-content="flush"] .sdk-slot { padding: 0; }
+
 /* ---- the title bar ---- */
 :is(.sdk-titlebar, .mod-header, .chat-head) {
   display: flex;

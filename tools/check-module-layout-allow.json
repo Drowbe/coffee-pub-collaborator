@@ -242,30 +242,6 @@
       "count": 1
     },
     {
-      "module": "todo",
-      "selector": ".app",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": "markup: <header>",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
       "module": "travel",
       "selector": ":is(.stay.out, .meal) > .sdk-card-body",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",

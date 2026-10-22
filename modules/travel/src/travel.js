@@ -51,7 +51,6 @@
     editingFrom: null, // where focus goes when the form closes: { el, id, date }
     menuFor: null, // item id
     currentDay: null, // the day in view (where a quick add goes)
-    hosted: Boolean(host.add), // the host draws the titlebar's "+", so the days' own add rows step aside
     expanded: new Set(), // item ids whose card's "More" is open
     markerTypes: [],
     flightLookup: false, // the server offers the flight lookup here (host.lookup.available)
@@ -573,12 +572,6 @@
     });
     if (!entries.length) el.classList.add('is-empty');
     // The days the trip itself covers (from the first booked item to the last) are marked, for their badge.
-    const add = el.querySelector('.add-row');
-    add.dataset.day = day;
-    add.setAttribute('aria-label', `Add to ${dayShort(day)}`);
-    // With the host's "+" the days' add rows hide: the "+" is the quick way to add.
-    add.classList.toggle('hosted', state.hosted);
-    if (!canEdit) add.remove();
     // What other modules hold on this day that the plan could take in.
     const box = el.querySelector('.suggestions');
     const list2 = box.querySelector('.suggestions-list');
@@ -1237,16 +1230,9 @@
 
   // --- the page ----------------------------------------------------------------------------------------------
 
-  const facts = (trip) => {
-    const days = plan.days();
-    const tripCount = numberedDays(days).length;
-    const parts2 = [[tripCount, tripCount === 1 ? 'day' : 'days'], [state.people.length, state.people.length === 1 ? 'traveller' : 'travellers'], [openDecisions().length, 'open']];
-    return parts2.filter(([n]) => n).map(([n, label]) => [n, label]);
-  };
 
-  // The four views are the toolbar's view switch. Hide/Show empty days and Edit trip are not a view --
-  // they're the trip's own actions, and stay icons in the titlebar when the host has one (a pane, or a
-  // module's own window); on the server page there is none, and the buttons stay in the page.
+  // The four views are the toolbar's view switch. Hide/Show empty days and Edit dates are not a view --
+  // they're the trip's own actions, icons in the titlebar (host.header.set) wherever the host draws the module.
   const VIEWS = [
     { id: 'days', label: 'Days', icon: 'calendar-days' },
     { id: 'decisions', label: 'Decisions', icon: 'scale-balanced' },
@@ -1267,8 +1253,7 @@
     },
   });
   let headerSig = '';
-  async function syncHeader() {
-    if (!host.header) return;
+  function syncHeader() {
     const items = [];
     if (state.view === 'days') items.push({ id: 'toggle-empty', icon: 'eye-slash', title: state.hideEmpty ? 'Show empty days' : 'Hide empty days', on: state.hideEmpty });
     // With phases the dates are the bar's and the currency is the budget's (Set up): nothing left to edit here.
@@ -1276,24 +1261,16 @@
     const sig = JSON.stringify(items);
     if (sig === headerSig) return;
     headerSig = sig;
-    let hosted = false;
-    try {
-      hosted = await host.header.set(items);
-    } catch (err) {
-      hosted = false;
+    host.header.set(items).catch(() => {});
+  }
+  host.on('header', (e) => {
+    if (e.id === 'toggle-empty') {
+      state.hideEmpty = !state.hideEmpty;
+      try { localStorage.setItem('planner-hide-empty', state.hideEmpty ? '1' : '0'); } catch (err) { /* not remembered */ }
+      return redraw();
     }
-    $('app').classList.toggle('hosted-header', Boolean(hosted));
-  }
-  if (host.header) {
-    host.on('header', (e) => {
-      if (e.id === 'toggle-empty') {
-        state.hideEmpty = !state.hideEmpty;
-        try { localStorage.setItem('planner-hide-empty', state.hideEmpty ? '1' : '0'); } catch (err) { /* not remembered */ }
-        return redraw();
-      }
-      if (e.id === 'edit-trip') return openEditor('trip');
-    });
-  }
+    if (e.id === 'edit-trip') return openEditor('trip');
+  });
 
   const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []);
   const spaceOf = () => (typeof host.space === 'function' ? host.space() : null);
@@ -1337,53 +1314,32 @@
     return box;
   }
 
+  // The plan's dates, worded short ("Fri 9 – Sun 25 Oct 2026"); empty without a start.
+  function tripDates(trip) {
+    if (!trip || !trip.start) return '';
+    const a = parseYmd(trip.start);
+    const b = parseYmd(trip.end || trip.start);
+    const part = (d, o) => d.toLocaleDateString([], o);
+    const same = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+    return trip.end && trip.end !== trip.start
+      ? `${part(a, { weekday: 'short' })} ${a.getDate()}${same ? '' : ' ' + part(a, { month: 'short' })} – ${part(b, { weekday: 'short' })} ${b.getDate()} ${part(b, { month: 'short' })} ${b.getFullYear()}`
+      : `${part(a, { weekday: 'short' })} ${a.getDate()} ${part(a, { month: 'short' })} ${a.getFullYear()}`;
+  }
+
+  // The host draws the window's bands: the titlebar names the module (its display name) and holds the trip's own actions; the
+  // toolbar row is the view switch, then the plan's name and dates as the row's title; the status line says the rest.
+  let toolbarSig = '';
   function renderHeader() {
     const trip = plan.trip;
-    const head = $('trip');
-    const days = plan.days();
-    const tripName = planName(trip, spaceOf()) || 'Trip';
-    // The phase line is the chip's words (host.util.phaseWords, the one rule), empty without phases.
-    const bands = plan.bands();
-    fill(head, { title: tripName, phase: bands.length && host.util.phaseWords ? host.util.phaseWords(bands, ymd(new Date())) : '' });
-    // The titlebar names the module (its display name); the trip's name is the heading in the page.
-    if (host.setTitle) host.setTitle(info.module.name);
-    hide(slot(head, 'title'), false);
-    let dates = '';
-    if (trip && trip.start) {
-      const a = parseYmd(trip.start);
-      const b = parseYmd(trip.end || trip.start);
-      const part = (d, o) => d.toLocaleDateString([], o);
-      const same = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-      dates = trip.end && trip.end !== trip.start
-        ? `${part(a, { weekday: 'short' })} ${a.getDate()}${same ? '' : ' ' + part(a, { month: 'short' })} – ${part(b, { weekday: 'short' })} ${b.getDate()} ${part(b, { month: 'short' })} ${b.getFullYear()}`
-        : `${part(a, { weekday: 'short' })} ${a.getDate()} ${part(a, { month: 'short' })} ${a.getFullYear()}`;
-    }
-    fill(head, { dates });
-    const summary = slot(head, 'summary');
-    summary.replaceChildren();
-    for (const [n, label] of facts(trip)) {
-      const s = document.createElement('span');
-      const b2 = document.createElement('b');
-      b2.textContent = String(n);
-      s.append(b2, document.createTextNode(` ${label}`));
-      summary.append(s);
-    }
-    const sep = head.querySelector('.trip-sep');
-    const datesNode = slot(head, 'dates');
-    if (sep) sep.hidden = !summary.children.length || !datesNode || datesNode.hidden;
+    host.setTitle(info.module.name);
+    const name = planName(trip, spaceOf()) || 'Trip';
+    const dates = tripDates(trip);
+    const items = state.loaded ? [{ type: 'title', text: dates ? `${name} · ${dates}` : name }] : [];
+    const sig = JSON.stringify(items);
+    if (sig !== toolbarSig) { toolbarSig = sig; host.toolbar.set(items).catch(() => { toolbarSig = ''; }); }
     const openCount = openDecisions().length;
     if (state.budgetOn && state.view === 'money') state.view = 'days';
     viewSwitch.set(state.view, viewsNow().map((v) => (v.id === 'decisions' && openCount ? { ...v, label: `Decisions (${openCount} open)` } : v)));
-    hide(head.querySelector('[data-action="edit-trip"]'), !canEdit || plan.phased());
-    const toggle = head.querySelector('[data-action="toggle-empty"]');
-    if (toggle) {
-      toggle.setAttribute('aria-pressed', String(state.hideEmpty));
-      const label = state.hideEmpty ? 'Show empty days' : 'Hide empty days';
-      toggle.title = label;
-      toggle.setAttribute('aria-label', label);
-      hide(toggle, state.view !== 'days');
-    }
-    void days;
     syncHeader();
     syncStatus();
   }
@@ -1391,9 +1347,12 @@
   // The status line at the foot of the window: the day in view ("Day 6 of 26 · Wed 14 Oct · 3 stops") on Days, a count on the other
   // views. Short, read-only; none until the plan has loaded.
   function syncStatus() {
-    if (!host.status) return;
     const items = [];
     if (state.loaded) {
+      // The phase line is the chip's words (host.util.phaseWords, the one rule), first; none without phases.
+      const bands = plan.bands();
+      const phase = bands.length && host.util.phaseWords ? host.util.phaseWords(bands, ymd(new Date())) : '';
+      if (phase) items.push({ text: phase });
       if (state.view === 'days') {
         const days = plan.days();
         const day = days.includes(state.currentDay) ? state.currentDay : null;
@@ -1403,6 +1362,7 @@
           items.push({ text: dayNumber(day, days) ? `Day ${dayNumber(day, days)} of ${numberedDays(days).length} · ${dayShort(day)}` : dayShort(day) });
           items.push({ text: own.length ? words(own.length, 'stop', 'stops') : 'Nothing planned' });
           if (spent) items.push({ text: money(spent) });
+          if (state.people.length) items.push({ text: words(state.people.length, 'traveller', 'travellers') });
         }
       } else if (state.view === 'decisions') {
         const n = openDecisions().length;
@@ -1427,12 +1387,10 @@
     app.hidden = false;
     $('msg').hidden = true;
     if (!state.loaded) {
-      $('trip').hidden = true;
       $('stripbar').hidden = true;
       $('body').replaceChildren(clone('tpl-state-loading'));
       return;
     }
-    $('trip').hidden = false;
     const kept = keepInputs();
     const scroller = $('body');
     const top = scroller.scrollTop;
@@ -1443,7 +1401,7 @@
     } else if (!plan.days().length && !undatedItems().length) {
       $('stripbar').hidden = true;
       const s = clone('tpl-state-empty-trip');
-      if (!canEdit) { const form = s.querySelector('form'); if (form) form.remove(); }
+      if (!canEdit) s.querySelector('[data-action="add-first"]').remove();
       $('body').replaceChildren(s);
     } else {
       $('stripbar').hidden = !plan.days().length;
@@ -2909,10 +2867,6 @@
       if (dayEl) openDayMore(b, dayEl.dataset.day);
     } else if (action === 'gap-add') {
       openAddMenu(b, { after: jointOfButton(b) }, { gap: Boolean(b.closest('.gap')) });
-    } else if (action === 'toggle-empty') {
-      state.hideEmpty = !state.hideEmpty;
-      try { localStorage.setItem('planner-hide-empty', state.hideEmpty ? '1' : '0'); } catch (err) { /* not remembered */ }
-      redraw();
     } else if (action === 'edge-open') {
       const edge = b.closest('.dayedge');
       hide(b, true);
@@ -2922,8 +2876,8 @@
       const edge = b.closest('.dayedge');
       hide(edge.querySelector('.edge-form'), true);
       hide(edge.querySelector('[data-action="edge-open"]'), false);
-    } else if (action === 'edit-trip') {
-      openEditor('trip', null, null, b);
+    } else if (action === 'add-first') {
+      if (canEdit) openEditor('item', null, {}, b);
     } else if (action === 'use-theirs' && li) {
       state.conflicts.delete(li.dataset.id);
       redraw();
@@ -2947,15 +2901,6 @@
     addDays(form.closest('.dayedge').dataset.edge, Number(form.elements.count.value));
   });
 
-  // The add row (only when the host has no bar): opens the same form Chat `/p` opens.
-  root.addEventListener('submit', (e) => {
-    const form = e.target.closest('.add-row');
-    if (!form) return;
-    e.preventDefault();
-    if (!canEdit) return;
-    openEditor('item', null, { date: form.dataset.day }, form.querySelector('button'));
-  });
-
   // --- what other modules may ask, and the first load ---------------------------------------------------------
 
   // The titlebar's "+" adds to the selected day. Typing is `/p` in Chat.
@@ -2969,14 +2914,10 @@
     const day = defaultDay();
     openEditor('item', null, day ? { date: day, tile } : { tile });
   };
-  // The "+" in the titlebar: the day menu's kinds, adding to the selected day (addFromBar): a window's, popped out too, or the
-  // page bar on the module's own page. Where the host draws none (its answer is false) the days' own add rows come back.
+  // The host's "+": the day menu's kinds, adding to the selected day (addFromBar), wherever the Planner is drawn.
   const addTiles = new Set(addKinds().flatMap((k) => (k.items ? k.items.map((r) => r.id) : [k.id])));
-  const unhost = () => { if (!state.hosted) return; state.hosted = false; redraw(); };
-  if (host.add) {
-    host.add.set(canEdit ? addKinds().map(({ tip, ...k }) => (k.items ? { ...k, items: k.items.map(({ tip: t, ...r }) => r) } : k)) : []).then((drawn) => { if (!drawn) unhost(); }, unhost);
-    host.on('add', (e) => { if (canEdit && addTiles.has(e.id)) addFromBar(e.id); });
-  }
+  host.add.set(canEdit ? addKinds().map(({ tip, ...k }) => (k.items ? { ...k, items: k.items.map(({ tip: t, ...r }) => r) } : k)) : []).catch(() => {});
+  host.on('add', (e) => { if (canEdit && addTiles.has(e.id)) addFromBar(e.id); });
 
   // The pane's width, not the window's: a bundled module runs in the page, so a media query would follow the window. The
   // stylesheet keys its narrow layout on `.app.narrow`. A frame can report no width while it is laid out, so wait for one.

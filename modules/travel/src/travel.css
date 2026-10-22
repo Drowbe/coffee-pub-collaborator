@@ -5,35 +5,17 @@
  * Nothing has a fixed height: the module fills its pane and scrolls inside it.
  */
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body { display: flex; flex-direction: column; overflow: hidden; }
 [hidden] { display: none !important; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.app { display: flex; flex-direction: column; height: 100%; padding: 10px 12px 0; gap: 8px; position: relative; }
+/* #app is the content slot (.sdk-slot, system.css): the host fills the frame with it and pads it. */
 .msg { padding: 16px; color: var(--text-muted); }
 
-/* ---- the trip header ---- */
-.trip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 12px; }
-.trip > div:first-child { order: 0; flex: 1 1 auto; min-width: 0; }
-.tools { order: 1; display: flex; align-items: center; gap: 0; }
-/* The trip's own actions move into the titlebar once the host draws them there (see
-   syncHeader). The trip name is host.setTitle; dates, days and travellers stay in the page.
-   The four views live in the toolbar (host.ui.viewSwitch), always drawn there. */
-.hosted-header .tools { display: none; }
-.trip-title { margin: 0; font-size: var(--text-18); line-height: var(--leading-title); overflow-wrap: anywhere; }
-.phase-line { margin: 2px 0 0; color: var(--text-primary); font-weight: var(--weight-strong); }
 .phase-head { margin: 16px 0 2px; }
 .phase-head h2 { margin: 0; font-size: var(--text-13); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-muted); }
 .undated { margin: 0 0 8px; }
 .undated > h2 { margin: 0 0 8px; font-size: var(--text-16); }
 .undated-group h3 { margin: 10px 0 4px; font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }
-.trip-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; color: var(--text-muted); }
-.trip-when { color: inherit; }
-.trip-sep { color: var(--text-muted); }
-.trip-facts { display: flex; flex-wrap: wrap; gap: 4px 10px; color: inherit; font-size: inherit; }
-.trip-facts b { color: var(--text-primary); font-weight: var(--weight-strong); }
-.actions { display: flex; gap: 6px; }
 
 /* ---- the day strip (phones): jump to a day ---- */
 .stripbar { display: flex; align-items: center; gap: 4px; }
@@ -46,7 +28,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* A day in the strip is the Day cards block's day chip (.sdk-daychip, system.css); the chosen day is aria-current. */
 
 /* ---- the days ---- */
-.body { flex: 1; min-height: 0; overflow: auto; margin: 0 -12px; padding: 0 12px 16px; }
+.body { flex: 1; min-height: 0; overflow: auto; }
 /* The days run top to bottom at every width, so a long trip is just a longer list; on a wide pane the list stays a readable width. */
 .days { display: block; max-width: 900px; margin: 0 auto; }
 .day-empty { margin: 0; padding: 18px 10px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); text-align: center; font-size: var(--text-13); }
@@ -79,13 +61,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* the item was changed by someone else while it was open */
 .sdk-banner[data-bar] { grid-column: 1 / -1; margin: var(--space-2) var(--space-1) 0; }
 
-/* the add row at the foot of a day */
-.add-row { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--edge-hairline); background: color-mix(in srgb, var(--surface-panel) 92%, var(--text-primary)); }
-/* with the host's bottom bar in use, the days do not need their own */
-.add-row.hosted { display: none; }
-.add-row input { flex: 1; min-width: 0; }
-.add-row .btn { flex: none; }
-
 /* the open decisions list */
 .decisions { display: flex; flex-direction: column; gap: var(--space-2); max-width: 720px; margin: 0; padding: 0; list-style: none; }
 .decision .ic { color: var(--accent); font-size: var(--text-16); }
@@ -105,9 +80,3 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .sdk-empty { max-width: 420px; margin: 8vh auto; }
 .sdk-skel-block { --h: 54px; }
 
-/* ---- phones and narrow panes: the same list, with touch-sized items and the menu instead of the drag handle ---- */
-/* phones and narrow panes: the script sets .narrow on .app from the pane width (under 720 px), not the window's */
-.app.narrow .body { padding-bottom: 24px; }
-
-
-.app.narrow .trip-title { font-size: var(--text-18); }

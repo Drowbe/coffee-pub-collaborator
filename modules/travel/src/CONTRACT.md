@@ -17,25 +17,23 @@
 
 ```
 <div id="app" class="app">                         the whole page; the script un-hides it when loaded
-  <header id="trip" class="trip">                  the trip header
   <nav id="daystrip" class="daystrip">             shown at every width (a row of days to jump to)
   <div id="body" class="body">                     the one scroller
     <div id="days" class="days">                   Days view
     or the Decisions view (see below)
 ```
-Other states replace the header and body: see "States".
+`#app` is the content slot (`.sdk-slot`): the host draws the bands around it and pads it. Other states replace the body: see "States".
 
-## The trip header (`#trip`)
+## The window's bands (drawn by the host)
 
-| Element | Meaning |
+The Planner draws no header, toolbar or status of its own (plan-unified-layout.md, slice 8):
+
+| Band | What the Planner sends |
 |---|---|
-| `[data-slot=title]` | the plan's name (the stored plan title if one was ever set, else the space's name; no form edits it any more); the titlebar shows the module's own name (`host.setTitle(info.module.name)`), never this |
-| `[data-slot=phase]` | the phase line (`p.phase-line`): the bar's chip words from `host.util.phaseWords` (public/phases.js `chipWords`), "`<label>` · day 2 of 3" in a band with an end, "`<label>` · 12 days to go" before the next dated band, the label alone otherwise. Hidden when the template has no phases |
-| `[data-slot=dates]` | "Sat 3 – Fri 9 Oct 2026", already formatted; hidden when the plan has no first day |
-| `.trip-sep` | `|` between the dates and the facts; hidden when there are no facts |
-| `[data-slot=summary]` | `.trip-facts` spans on the same line as the dates: days, travellers, open decisions; a `<b>` is the number |
-
-The four views (Days/Decisions/Bookings/Money) are the toolbar's view switch (`host.ui.viewSwitch`), not markup in `#trip` -- see `architecture-module-window.md`. `state.view` still drives which of the four bodies below renders.
+| Title bar | the module's own name (`host.setTitle(info.module.name)`); the trip's own actions as `host.header.set` icons: Hide/Show empty days (on Days) and Edit dates (someone who can edit, without phases) |
+| Toolbar row | the view switch (`host.ui.viewSwitch`: Days, Decisions with its open count, Bookings, Money), then a `title` item: the plan's name (the stored plan title if one was ever set, else the space's name) and its dates, "Lisbon · Sat 3 – Fri 9 Oct 2026" |
+| "+" | `host.add.set`: see "The titlebar "+" and the status line" |
+| Status line | `host.status.set`: the phase words first (`host.util.phaseWords`, none without phases), then what the view says (below) |
 
 ## The day strip (`#daystrip`)
 
@@ -52,7 +50,6 @@ One `button.sdk-daychip[data-action=goto-day][data-day=YYYY-MM-DD]` per day (the
   </header>
   <ol class="items"> ...items, gaps... </ol>    or, when empty: <li class="day-empty-slot"><button class="sdk-day-empty" data-action="day-menu">text</button></li>
                                                 (a viewer who cannot edit: <li class="day-empty">text</li>)
-  <form class="add-row" data-day="2026-10-05"> ...the add row... </form>
 </section>
 ```
 State: `.today` on today's day; `.drop-target` while something is dragged over the day (see Drag).
@@ -90,10 +87,6 @@ State: `.today` on today's day; `.drop-target` while something is dragged over t
 
 `<li class="gap" data-slot="gap" aria-hidden="true">45 min walk</li>` between two `.item`s in an `ol.items`. Optional; the script computes the text.
 
-## The add row (`form.add-row[data-day]`)
-
-`<input name="title" type="text" maxlength="200" placeholder="Add a stop, a stay or a note" aria-label="Add to Mon 5 Oct">` and `<button class="btn btn-primary" type="submit" data-action="add-item" aria-label="Add">` with a plus icon. On a phone the input is 16 px so iOS does not zoom.
-
 ## Drag (desktop; phones use the item menu)
 
 The script toggles, the stylesheet draws; no coordinates, no inline styles.
@@ -103,11 +96,11 @@ The script toggles, the stylesheet draws; no coordinates, no inline styles.
 - Exactly one target has a `data-drop` at a time; the script removes it from the last one when the pointer moves or the drag ends.
 - An empty day is a target too: `.day.drop-target` and its `.day-empty`.
 
-## The add row, the titlebar "+" and the status line
+## The titlebar "+" and the status line
 
-The way to add is the titlebar's "+" (`host.add.set`): the same kinds as a day's add menu (Travel, Add a stay, Eat and drink, See and do, Add a note), each opening the editor for the **current day**: the day whose chip is `.current` (the one in view), else today if it is on the trip, else the first day. It is in a window's titlebar, popped out too, and in the page bar on the module's own page. While the host draws it, every day's `form.add-row` gets the class `hosted` (the stylesheet hides it); where the host draws none (`host.add.set` answers false), `hosted` is removed and each day keeps its own row. Travel no longer calls `host.bar.set` (a host folds an older module's bar into the "+"). Typing a stop is `/p` in Chat.
+The way to add is the titlebar's "+" (`host.add.set`): the same kinds as a day's add menu (Travel, Add a stay, Eat and drink, See and do, Add a note), each opening the editor for the **current day**: the day whose chip is `.current` (the one in view), else today if it is on the trip, else the first day. The host draws it wherever the Planner is drawn; a day has no add row of its own. Travel no longer calls `host.bar.set` (a host folds an older module's bar into the "+"). Typing a stop is `/p` in Chat.
 
-The status line at the window's foot (`host.status.set`) says the day in view on Days ("Day 6 of 26 · Wed 14 Oct", the stops, what they cost), and a count on the other views.
+The status line at the window's foot (`host.status.set`) says the phase words, then the day in view on Days ("Day 6 of 26 · Wed 14 Oct", the stops, what they cost, the travellers), and a count on the other views.
 
 ## The Decisions view
 
@@ -129,12 +122,12 @@ The Bookings and Money views reuse the same list markup: `.sdk-group-head` headi
 
 | State | What the script renders |
 |---|---|
-| Loading | `.app` with the header and `#body > .sdk-skel-list[aria-busy=true]` holding four `.sdk-skel.sdk-skel-block` |
-| Nothing on the plan | The header stays (the space's name, and the phase line when the template has phases). With no days and no objects, `#body > .sdk-empty#state-empty-trip` reads "Nothing on the plan yet. Add something below." and, for someone who can edit, a `form.add-row` whose button adds an object with no date. There is no create step |
-| Empty day | `ol.items` holds one `li.day-empty-slot` (`tpl-day-empty-add`) whose `button.sdk-day-empty[data-action=day-menu]` reads "Nothing planned yet. Click to add." ("Tap to add." when `matchMedia('(pointer: coarse)')` matches; the pointer decides, not the width). It is the same action as the header's "...", so it opens the same add menu for that day, anchored to the row. A viewer who cannot edit gets a plain `li.day-empty` (`tpl-day-empty`) reading "Nothing planned yet." and no button. A day that has things opens nothing from its blank space. The add row stays |
+| Loading | `.app` with `#body > .sdk-skel-list[aria-busy=true]` holding four `.sdk-skel.sdk-skel-block` |
+| Nothing on the plan | With no days and no objects, `#body > .sdk-empty#state-empty-trip` reads "Nothing on the plan yet." and, for someone who can edit, a `button[data-action=add-first]` "Add plan" that adds an object with no date. There is no create step |
+| Empty day | `ol.items` holds one `li.day-empty-slot` (`tpl-day-empty-add`) whose `button.sdk-day-empty[data-action=day-menu]` reads "Nothing planned yet. Click to add." ("Tap to add." when `matchMedia('(pointer: coarse)')` matches; the pointer decides, not the width). It is the same action as the header's "...", so it opens the same add menu for that day, anchored to the row. A viewer who cannot edit gets a plain `li.day-empty` (`tpl-day-empty`) reading "Nothing planned yet." and no button. A day that has things opens nothing from its blank space |
 | Conflict | the item gets `.conflict` and a last child `.sdk-banner[data-kind=warn][data-bar=conflict][role=alert]`: an icon, `.sdk-banner-text` ("Christy changed this while you were editing."), `button.btn.sdk-banner-action[data-action=use-theirs]`, `button.btn.sdk-banner-action[data-action=keep-mine]` |
 | Busy day (20+ items) | nothing special: `.items` scrolls inside a column on a wide pane, the page scrolls on a phone; the day header stays put (sticky) |
-| Error | a `p.sdk-form-error` under the header |
+| Error | a `p.sdk-form-error` at the top of the slot |
 
 ## Layout the stylesheet decides
 

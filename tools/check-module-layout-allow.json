@@ -141,12 +141,6 @@
     },
     {
       "module": "travel",
-      "selector": ".app",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
-      "count": 1
-    },
-    {
-      "module": "travel",
       "selector": ".app.tiny :is(.meal, .stay.out) > .sdk-card-body",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
       "count": 1
@@ -239,24 +233,6 @@
       "module": "travel",
       "selector": ".stay.mid .sdk-row-title",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 10)",
-      "count": 2
-    },
-    {
-      "module": "travel",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
-      "count": 1
-    },
-    {
-      "module": "travel",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
-      "count": 1
-    },
-    {
-      "module": "travel",
-      "selector": "markup: <header>",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
       "count": 2
     },
     {

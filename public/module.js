@@ -100,6 +100,9 @@ async function start() {
   const status = $('module-status');
   status.setAttribute('aria-label', `${mod.name} status`);
   const add = popout ? $('module-titlebar-add') : pageAddSlot(mod);
+  // The module's own titlebar icons (host.header.set): popped out in the window's titlebar, on its own page in the page
+  // bar's right zone before the "+", as the page bar is this page's titlebar.
+  const header = popout ? $('module-titlebar-custom') : pageHeaderSlot();
   // Showing an item in the module that owns it, from a module's own page: go to that module's page,
   // which is given the pointer in the address (#ref=...) and passes it to the module.
   const refHash = (ref) => `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
@@ -121,11 +124,11 @@ async function start() {
   };
   const mounted = mountModule({
     onOpenRef: openRef,
-    module: { id: mod.id, version: mod.version, scope: mod.scope, budget: mod.budget === true },
+    module: { id: mod.id, version: mod.version, scope: mod.scope, budget: mod.budget === true, content: mod.content },
     ...(inPage ? { container: frame } : { frame }),
     // A window of its own is the module: its frame fills the window, so an editor window needs no lift (editor.lift).
     lift: !popout,
-    header: popout ? $('module-titlebar-custom') : null,
+    header,
     toolbar: $('module-toolbar'),
     add,
     status,
@@ -192,6 +195,17 @@ function pageAddSlot(mod) {
   const tint = moduleTint(mod.id, mod.color || null);
   if (tint) slot.dataset.tint = tint;
   nav.register({ id: 'page-bar-add', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 990, fold: false, element: slot });
+  return slot;
+}
+
+// The module's titlebar icons on its own page: a slot in the page bar's right zone, before the "+" (pageAddSlot), never
+// folded into the bar's "..."; module-host.js draws the buttons in it (drawHeaderItems) and it shows once there are some.
+function pageHeaderSlot() {
+  const slot = document.createElement('span');
+  slot.className = 'titlebar-custom page-bar-custom';
+  slot.id = 'page-bar-custom';
+  slot.hidden = true;
+  nav.register({ id: 'page-bar-custom', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 989, fold: false, element: slot });
   return slot;
 }
 

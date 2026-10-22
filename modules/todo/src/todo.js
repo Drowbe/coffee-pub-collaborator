@@ -328,13 +328,12 @@
     { id: 'done', label: 'Done', icon: 'circle-check' },
     { id: 'all', label: 'All', icon: 'list-check' },
   ];
-  // As the panel there is no toolbar row: the same switch is drawn in the page (`element`), at the top beside Add task.
+  // As the destination's panel it is in the page's one toolbar row, while the panel shows.
   const filterSwitch = host.ui.viewSwitch({
     id: 'filter',
     options: FILTERS,
     value: show,
     onChange: (id) => { show = id; render(); },
-    ...(part ? { element: $('show') } : {}),
   });
 
   // As the panel: open tasks across the places the page's filter has on, by when they are due.
@@ -870,7 +869,6 @@
   if (part && host.destination) host.destination.onState(takeState);
   if (part) {
     $('count').hidden = true;
-    $('show').hidden = false;
     $('spaces').hidden = true;
     $('app').classList.add('part');
   }

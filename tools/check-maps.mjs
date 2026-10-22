@@ -196,9 +196,12 @@ test('adding follows Places: its permission decides, the phone is shown the list
   assert.match(page, /const CLICK_TO_ADD = 'Click the map to place it';/);
   assert.match(page, /return \[\{ id: 'place', label: ADD_PLACE, icon: 'location-dot' \}\];/);
   assert.doesNotMatch(page, /id: 'new'|Add a place on the map/, 'no second add entry, no second phrase');
-  // The + menu's one entry opens Places' dialog at once; the click-first mode is the on-map + control's and the dialog's target button's.
+  // The + menu's one entry opens Places' dialog at once; the click-first mode is the dialog's target button's. The "+" is the
+  // host's wherever the map is drawn (plan-unified-layout.md): no + of the map's own, and the search is the host's toolbar field.
   assert.match(page, /if \(e\.id === 'place' && state\.adder\) askNewPlace\(\{\}\);/);
-  assert.match(page, /else if \(a === 'add'\) \{ if \(state\.adder\) \{ if \(state\.map\) setAdding\(!state\.adding\); else askNewPlace\(\{\}\); \} \}/);
+  assert.doesNotMatch(page, /ctrl-add|addHosted|map-search|map-find/, 'no add button or search field of the map\'s own');
+  assert.match(page, /type: 'search', id: 'find', value: searchValue/, 'the search is the toolbar\'s field');
+  assert.match(page, /if \(e\.submit\) runFind\(searchValue\);/, 'Enter finds what was typed');
   // pickPoint: the map's click-the-map mode for the editor's target button; the spot (or none) is told back through positionPicked.
   assert.match(page, /pickPoint: async \(input\) => \{[\s\S]*?state\.pick = true;[\s\S]*?setAdding\(true\);[\s\S]*?say\(CLICK_TO_ADD\);/);
   assert.match(page, /if \(state\.adding && state\.pick\) \{[\s\S]*?tellPicked\(at\);/);
@@ -217,7 +220,7 @@ test('adding follows Places: its permission decides, the phone is shown the list
   assert.match(page, /function letGo\(\) \{ if \(!alive\.signal\.aborted\) alive\.abort\(\); \}/);
   for (const m of page.matchAll(/document\.addEventListener\('([a-z]+)'[^\n]*/g)) assert.match(m[0], /\{ signal: alive\.signal \}\);$/, `the document's ${m[1]} listener is taken off with the map`);
   assert.match(page, /function torn\(\) \{\n    if \(host\.rootElement\.isConnected && \$\('tpl-pin'\)\) return false;\n    letGo\(\);/);
-  assert.match(html, /data-tip="Add a place" aria-label="Add a place"/);
+  assert.doesNotMatch(html, /data-action="add"|id="map-search"|id="ctrl-add"/, 'the map draws no add button or search band of its own');
   assert.match(html, />Click the map to place it</);
   // A short note is a toast, never text drawn in the module.
   assert.match(page, /host\.ui\.toast\(String\(text\)\)/);
@@ -319,7 +322,7 @@ test('a space\'s map shows its places, the environment\'s places marked for it, 
   assert.match(css, /\.pin\.soft:not\(\.selected\) \.pin-body \{ background: color-mix\(in srgb, var\(--pin\) 45%, transparent\); box-shadow: none; \}/, 'a softer fill, no added border');
   assert.ok(!/\.pin\.soft[^{]*\{[^}]*border/.test(css), 'no border on a soft pin');
   const dest = fs.readFileSync(new URL('../public/destination.js', import.meta.url), 'utf8');
-  assert.ok(dest.includes("name: `All of ${environmentName}'s places`"), 'the map\'s filter in a space has the chip');
+  assert.ok(dest.includes("label: `All of ${environmentName}'s places`"), 'the map\'s filter in a space has the chip');
 });
 
 test('host.objects.search passes in to the server', () => {

@@ -20,13 +20,11 @@ body { margin: 0; overflow: hidden; }
 .map.adding { cursor: crosshair; }
 .map .maplibregl-canvas { outline: none; }
 
-/* what a search found: over the foot of the map, above the bar (the search itself is the host bar's field) */
+/* what a search found: over the foot of the map, or under the toolbar's search while the module's own field is there */
 .results.sdk-menu { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(380px, calc(100% - 20px)); max-width: none; max-height: 55%; }
 .results .note { padding: 8px 12px; color: var(--text-muted); font-size: var(--text-12); }
 
-/* the search field over the top of the map (the host bar's field when the titlebar + is not drawn); the zoom is across from it */
-.map-search { position: absolute; z-index: 5; top: var(--space-2); left: var(--space-2); width: min(340px, calc(100% - 66px)); }
-.results.under-search { top: 58px; bottom: auto; max-height: calc(100% - 70px); }
+.results.under-search { top: var(--space-2); bottom: auto; max-height: calc(100% - var(--space-4)); }
 
 /* the notice under the tools: adding a place, a warning */
 #banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); background: linear-gradient(var(--k-tint), var(--k-tint)), var(--surface-panel); box-shadow: var(--shadow-2); }
@@ -39,8 +37,6 @@ body { margin: 0; overflow: hidden; }
 .maplibregl-ctrl-group button:hover { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
 .maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right { position: absolute; z-index: 2; right: 10px; display: flex; flex-direction: column; gap: 8px; }
 .maplibregl-ctrl-top-right { top: 10px; }
-/* the + of the Map destination's main part, across from the zoom */
-.maplibregl-ctrl-top-left { position: absolute; z-index: 2; top: 10px; left: 10px; }
 .maplibregl-ctrl-bottom-right { bottom: 10px; align-items: flex-end; }
 
 /* the credit the licence requires on every map: always shown, never hidden by a setting */
@@ -91,9 +87,6 @@ body { margin: 0; overflow: hidden; }
 /* ---- states that replace the map ---- */
 #state { position: absolute; inset: 0; z-index: 4; justify-content: center; padding: var(--space-6); background: var(--surface-page); }
 #state > .sdk-skel { width: 100%; height: 100%; border-radius: 0; }
-/* a notice sits in the content area, below the search band, never behind the search field (the band: the field's height and the space above and below it) */
-.app:has(.map-search:not([hidden])) #state { top: calc(var(--field-h) + var(--space-2) * 2); }
-.app:has(.map-search:not([hidden])) #state:has(> .sdk-skel) { top: 0; }
 #state { overflow: auto; justify-content: safe center; padding: var(--space-3); }
 
 /* ---- phones and narrow panes ---- */
@@ -106,9 +99,6 @@ body { margin: 0; overflow: hidden; }
 .app.narrow .maplibregl-ctrl-group button { width: 40px; height: 40px; }
 
 .app.narrow .maplibregl-ctrl-top-right { top: 10px; }
-
-.app.narrow .map-search { width: min(420px, calc(100% - 70px)); }
-.app.narrow .results.under-search { top: 64px; max-height: calc(100% - 76px); }
 
 .app.narrow .maplibregl-ctrl-bottom-right { bottom: 4px; right: 8px; z-index: 6; }
 

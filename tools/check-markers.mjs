@@ -102,15 +102,15 @@ await test('pages: the Calendar draws markers as chips, by the filter, in every 
   assert.match(js, /typeof m\.module\.svg === 'string' && m\.module\.svg\.includes\('<svg'\)[^\n]*markerIcons\.set\(m\.module\.icon, m\.module\.svg\);\n\s+else wantIcon\(m\.module\.icon\);/);
   for (const t of ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink']) assert.ok(css.includes(`.tint-${t} { --tint: var(--tint-${t}); }`), t);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css.slice(css.indexOf('/* Markers'))), 'no colour that is not a token');
-  // The filter: the environment's page draws a switch per kind in its row, a space in the toolbar's menu, a part takes
-  // the page's (markersOff), and only the space's own markers in a space.
-  assert.match(js, /data-marker-kind="\$\{esc\(k\.id\)\}"/, 'the environment page\'s row');
-  assert.match(js, /host\.ui\.toolbarButton\(\{ id: 'markers', label: 'Show', icon: 'filter', on, onClick: openMarkerMenu \}\)/, 'a space\'s toolbar');
-  assert.match(js, /host\.menu\.show\(\{ id: 'markers', at: \{ x: e && Number\.isFinite\(e\.x\) \? e\.x : 100000, y: 4 \}, items \}\);/, 'its menu, under the Show button');
-  const sdk = read('public/sdk/host.js');
+  // The filter: a chip per kind in the host's toolbar row (on the environment's page beside the spaces, in a space alone; they
+  // fold into the row's filter menu when it is narrow; plan-unified-layout.md), a part takes the page's (markersOff), and only
+  // the space's own markers in a space.
+  assert.match(js, /kinds\.map\(\(k\) => \(\{ id: `marker:\$\{k\.id\}`, label: k\.label/, 'a chip per kind');
+  assert.match(js, /type: 'chips', id: 'show', label: 'Show', icon: 'filter', options/, 'in the toolbar\'s chips');
+  assert.match(js, /if \(what === 'marker'\) return toggleMarkerKind\(id, Boolean\(e\.on\)\);/, 'a chip turns its kind on or off');
   const hostPage = read('public/module-host.js');
-  assert.match(sdk, /if \(e\.id === id && typeof onClick === 'function'\) onClick\(e\);/, 'the toolbar button hands its click to onClick');
-  assert.match(hostPage, /send\('toolbar', \{ id: item\.id, x: Math\.max\(0, Math\.round\(b\.getBoundingClientRect\(\)\.left - box\.left\)\) \}\);/, 'with where the button is');
+  assert.match(hostPage, /c\.addEventListener\('click', \(\) => fire\(item, \{ id: item\.id, value: o\.id, on: !o\.on \}\)\);/, 'the host sends the chip and its new state');
+  assert.match(hostPage, /onPick: \(\) => \{ o\.on = !o\.on; fire\(now, \{ id: now\.id, value: o\.id, on: o\.on \}\); \}/, 'and so does its switch, folded');
   // A space's switches are remembered in this browser, per space, as /calendar remembers its filter.
   assert.match(js, /const MARKERS_OFF_KEY = inSpace && !part && info\.context\.spaceId \? `calendar-markers-off:\$\{info\.context\.spaceId\}` : '';/);
   assert.match(js, /JSON\.parse\(localStorage\.getItem\(MARKERS_OFF_KEY\) \|\| '\[\]'\)/, 'read when it opens');

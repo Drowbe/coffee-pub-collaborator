@@ -1084,13 +1084,9 @@ await test('pages: the SDK, the stream on the host page, the Calendar and the de
   assert.ok(!/id="view-frame"/.test(read('public/space.html')), 'the space page has no view frame any more');
   assert.match(read('public/canvas.js'), /<iframe class="\$\{cls\} composite-frame" data-composite /, 'and the composite\'s frame is marked data-composite');
   // The filter's label counts them apart from the spaces.
-  const paint = dest.slice(dest.indexOf('function paintFilter()'), dest.indexOf('\n}\n', dest.indexOf('function paintFilter()')) + 3);
-  const label = (spaceList, offSpaces, calendars, offCalendars, spaceId = '') => {
-    const el = { textContent: '', title: '', setAttribute() {} };
-    new Function('spaces', 'off', 'ownOn', 'kind', 'mineOn', 'externals', 'externalOff', 'word', '$', 'spaceId', `let filterLabel;\n${paint}\npaintFilter();\nreturn filterLabel;`)(
-      spaceList, new Set(offSpaces), true, {}, true, calendars, new Set(offCalendars), () => 'Trips', () => el, spaceId);
-    return el.textContent;
-  };
+  const paint = dest.slice(dest.indexOf('function filterWords()'), dest.indexOf('\n}\n', dest.indexOf('function filterWords()')) + 3);
+  const label = (spaceList, offSpaces, calendars, offCalendars, spaceId = '') => new Function('spaces', 'off', 'ownOn', 'kind', 'mineOn', 'externals', 'externalOff', 'word', 'spaceId', `${paint}\nreturn filterWords();`)(
+    spaceList, new Set(offSpaces), true, {}, true, calendars, new Set(offCalendars), () => 'Trips', spaceId);
   const two = [{ id: 'a' }, { id: 'b' }];
   assert.equal(label(two, [], two, []), 'Trips');
   assert.equal(label(two, ['a'], two, ['b']), 'Trips (2 of 3) · Other calendars (1 of 2)');

@@ -564,7 +564,7 @@
     if (!h) return;
     hits = [];
     state.searchMessage = '';
-    $('map-find').value = '';
+    clearSearch();
     drawResults();
     if (h.id) select(h.id); // a saved place (a picture map's search)
     else if (state.adder) draftAt(h.lat, h.lng, { title: h.title, address: h.sub, origin: h.key });
@@ -767,8 +767,7 @@
   function syncPicture() {
     hide(locateButton, Boolean(state.picture));
     credit(null, Boolean(state.picture)); // the file's own credit, if any, is added once it is read
-    $('map-find').placeholder = state.picture ? 'Search saved places' : 'Search, or paste coordinates or a link';
-    $('map-find').setAttribute('aria-label', state.picture ? 'Search saved places' : 'Search the map');
+    setBar(); // the search's words
   }
 
   // As the destination's part the map opens where it was last left in this browser (plan-map-destination, decision 22);
@@ -843,7 +842,6 @@
     if (a === 'close-callout') select(null);
     else if (a === 'show-in-list' && part && host.destination) host.destination.set({ reveal: 'panel' }).catch(() => {});
     else if (a === 'cancel') setAdding(false);
-    else if (a === 'add') { if (state.adder) { if (state.map) setAdding(!state.adding); else askNewPlace({}); } }
     else if (a === 'copy-coords' && c) {
       try { await navigator.clipboard.writeText(coordsText(c.place.lat, c.place.lng)); say('Coordinates copied.'); setTimeout(() => say(''), 2000); } catch (err) { say('Copy them from the place: ' + coordsText(c.place.lat, c.place.lng)); }
     } else if (a === 'open' && c) host.objects.open(c.ref).catch(() => say(`That ${word('object')} could not be opened.`));
@@ -854,7 +852,6 @@
   document.addEventListener('keydown', (e) => { if (!host.rootElement.isConnected) { letGo(); return; } if (e.key === 'Escape' && state.pick) setAdding(false); }, { signal: alive.signal });
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (e.target === $('map-find') && !hits.length && !state.searchMessage && $('map-find').value) { $('map-find').value = ''; return; }
     if (state.adding) setAdding(false); else if (hits.length || state.searchMessage) { hits = []; state.searchMessage = ''; state.candidates = []; drawPins(); drawResults(); } else if (state.selected) select(null);
   });
 
@@ -887,13 +884,13 @@
     });
   }
 
-  // Adding and searching. The "+" in the window's titlebar (host.add.set; popped out too, or the page bar on the module's own
-  // page) holds one entry, "Add a place" (a click on the map, then Places' dialog), and the map's search is a
-  // field over the top of the map. Where the host draws no "+" (its answer is false) the + on the map stays. As the
-  // destination's map in a Workspace's Map (a composite), the + on the map is the composite's "+" instead (host.add.set
-  // answers true there; on the /map page it answers false, and the + on the map stays) and the page owns the search.
-  let addHosted = false;
+  // Adding and searching: the host's bands (plan-unified-layout.md). The "+" in the titlebar (host.add.set: a window's,
+  // popped out too, the page bar on the module's own page and on the Map destination, the composite's "+" in a Workspace's
+  // Map) holds one entry, "Add a place" (a click on the map, then Places' dialog). The search is the toolbar's field
+  // (host.toolbar.set), the module's own where it can do something; as the destination's map the page's row has the search.
   let addAsked = '';
+  let barAsked = '';
+  let searchValue = ''; // the field's text, as the toolbar said it (sent back, so a redraw keeps it; '' clears it)
   // The words, the same as Places': one "Add a place" everywhere. With a map it asks for a click first ("Click the map to place
   // it"), then Places' dialog opens with that spot; with no map to click it opens the dialog at once.
   const ADD_PLACE = 'Add a place';
@@ -903,20 +900,34 @@
     return [{ id: 'place', label: ADD_PLACE, icon: 'location-dot' }];
   }
   function setBar() {
-    hide($('ctrl-add'), !(state.adder && !addHosted));
-    // The search field: the module's own (as a part the page's field searches), and only where it can do something.
     const field = !part && Boolean(state.searcher || state.adder || alone || state.picture);
-    hide($('map-search'), !field);
     $('results').classList.toggle('under-search', field);
-    if (host.add && (part || addHosted)) {
-      const list = addEntries();
-      const key = list.map((x) => x.id).join();
-      if (key !== addAsked) {
-        addAsked = key;
-        host.add.set(list).catch(() => {});
-      }
+    const words = state.picture ? 'Search saved places' : 'Search, or paste coordinates or a link';
+    const bar = field ? [{ type: 'search', id: 'find', value: searchValue, placeholder: words, label: state.picture ? 'Search saved places' : 'Search the map' }] : [];
+    const barKey = JSON.stringify(bar);
+    if (barKey !== barAsked) {
+      barAsked = barKey;
+      host.toolbar.set(bar).catch(() => {});
+    }
+    const list = addEntries();
+    const key = list.map((x) => x.id).join();
+    if (key !== addAsked) {
+      addAsked = key;
+      host.add.set(list).catch(() => {});
     }
   }
+  function clearSearch() {
+    searchValue = '';
+    setBar();
+  }
+  // The toolbar's field: typing is kept (sent back on the next draw); Enter finds it; Escape (the host clears the field) takes
+  // the results away too.
+  host.on('toolbar', (e) => {
+    if (e.id !== 'find') return;
+    searchValue = String(e.value ?? '');
+    if (e.submit) runFind(searchValue);
+    else if (!searchValue && (hits.length || state.searchMessage)) { hits = []; state.searchMessage = ''; state.candidates = []; drawPins(); drawResults(); }
+  });
   if (host.add) {
     host.on('add', (e) => {
       // One entry, "Add a place": Places' dialog at once, empty (a place need not be a pin; its Position field has a target that
@@ -945,7 +956,6 @@
     if (state.searcher) { search(text); return; }
     say(alone ? 'Paste coordinates or a map link to go there.' : `${noSearch()} Paste coordinates or a map link, or click the map.`);
   }
-  $('map-search').addEventListener('submit', (e) => { e.preventDefault(); runFind($('map-find').value); });
 
   // Show an object on the map for the person who asked (a view: only their own page does it). The request waits for the page to
   // have started, and the object must be one that has a place.
@@ -1065,8 +1075,6 @@
       for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link', 'bookmark', 'calendar-check', 'circle-check', 'star']))) if (name) wantIcon(name);
       applySettings((await host.settings.get()) || {});
       await Promise.all([loadFound(), findAdder()]);
-      // Whether a "+" in a titlebar holds the add (an empty list asks, and shows nothing yet).
-      if (host.add) addHosted = Boolean(await host.add.set([]).catch(() => false));
       setBar();
       $('msg').hidden = true;
       $('loading').hidden = true;

@@ -8,7 +8,8 @@
  * drawing and fit are hostSwitch in public/sdk/host.js (fill, fit, watch): while the words do not fit the switch's
  * container, the switch shows its icons only. This fails when:
  *   - the Tabs block is missing, an old copy of the rules is back in style.css or host.css, or the icons-only rule is gone;
- *   - host.ui.viewSwitch drops an option's icon on the way to the toolbar, or its `element` switch is not drawn the shared way;
+ *   - host.ui.viewSwitch drops an option's icon on the way to the toolbar, or draws anywhere but the toolbar (its `element`
+ *     option is gone: the host draws the toolbar wherever a module is drawn; plan-unified-layout.md);
  *   - a choice in icons only loses its word as its accessible name and tooltip, a choice without an icon loses its word,
  *     the fit changes what is selected, or the words do not come back once they fit again;
  *   - a bundled module, or a host stylesheet outside the shared rules, sizes the switch itself;
@@ -334,47 +335,28 @@ await test('watch fits again when its container changes size', () => {
   assert.equal(g.classList.contains('tb-tabs-compact'), true);
 });
 
-await test('host.ui.viewSwitch with `element` draws the shared switch in the page: SVG icons, pressed state, keeps its buttons', async () => {
-  const holder = fakeDoc.createElement('div');
-  holder.boxWidth = 1000;
+await test('host.ui.viewSwitch is always in the toolbar: an `element` is not drawn in', async () => {
   const el = fakeDoc.createElement('span');
-  holder.appendChild(el);
-  let picked = null;
   calls.length = 0;
-  const s = host.ui.viewSwitch({ id: 'filter', element: el, options: [{ id: 'open', label: 'Open', icon: 'circle', regular: true }, { id: 'done', label: 'Done', icon: 'circle-check' }, { id: 'all', label: 'All' }], value: 'open', onChange: (v) => { picked = v; } });
-  assert.equal(calls.filter(([m]) => m === 'toolbar.set').length, 0, 'an element switch is not drawn in the toolbar');
-  assert.ok(el.classList.contains('tb-tabs'));
-  const btns = el.querySelectorAll(':scope > .tb-tab');
-  assert.equal(btns.length, 3);
-  assert.equal(btns[0].getAttribute('aria-pressed'), 'true');
-  assert.equal(btns[1].getAttribute('aria-pressed'), 'false');
-  await tick();
-  assert.ok(/data-name="circle" data-style="regular"/.test(btns[0].querySelector(':scope > .tb-tab-glyph').innerHTML ?? btns[0].querySelector(':scope > .tb-tab-glyph').html), 'the icon is not the SDK icon');
-  btns[1].click();
-  assert.equal(picked, 'done');
-  assert.equal(btns[1].getAttribute('aria-pressed'), 'true');
-  assert.equal(btns[0].classList.contains('on'), false);
-  s.set('done', [{ id: 'open', label: 'Open (3)', icon: 'circle', regular: true }, { id: 'done', label: 'Done', icon: 'circle-check' }, { id: 'all', label: 'All' }]);
-  const again = el.querySelectorAll(':scope > .tb-tab');
-  assert.equal(again[0], btns[0], 'a new word rebuilt the buttons (the keyboard would lose its place)');
-  assert.equal(again[0].querySelector(':scope > .tb-tab-word').textContent, 'Open (3)');
-  assert.equal(again[0].getAttribute('aria-label'), 'Open (3)');
-  holder.boxWidth = 60;
-  sw.fit(holder);
-  assert.ok(el.classList.contains('tb-tabs-compact'));
-  assert.equal(again[0].dataset.tip, 'Open (3)');
+  const s = host.ui.viewSwitch({ id: 'filter-elementless', element: el, options: [{ id: 'open', label: 'Open', icon: 'circle', regular: true }, { id: 'all', label: 'All' }], value: 'open', onChange: () => {} });
+  const sets = calls.filter(([m]) => m === 'toolbar.set');
+  assert.equal(sets.length, 1, 'the switch went to the toolbar');
+  assert.ok(sets[0][1].items.some((i) => i.type === 'tabs' && i.id === 'filter-elementless'), 'as a tabs item');
+  assert.equal(el.querySelectorAll(':scope > .tb-tab').length, 0, 'nothing is drawn in the element');
   s.destroy();
 });
 
 // --- 3. Every switch draws and fits the shared way, and every bundled one has its icons ------------------------------
 const moduleHost = read('public/module-host.js');
-const tabsDraw = /if \(item\.type === 'tabs'\) \{[\s\S]*?toolbar\.appendChild\(seg\);/.exec(moduleHost);
+const tabsDraw = /if \(item\.type === 'tabs'\) \{[\s\S]*?parts\.push\(seg\);/.exec(moduleHost);
 if (!tabsDraw || !/hostSwitch\.fill\(/.test(tabsDraw[0])) fail('public/module-host.js: the toolbar\'s tabs must be drawn with hostSwitch.fill (the shared view switch)');
-if (!/hostSwitch\.watch\(toolbar\)/.test(moduleHost)) fail('public/module-host.js: the toolbar must be fitted with hostSwitch.watch(toolbar)');
-if (!/icon: \/\^\[a-z0-9-\]\{1,40\}\$\/\.test\(o\?\.icon/.test(moduleHost)) fail('public/module-host.js: toolbar.set must keep a tabs option\'s icon');
+// The row is fitted as one (createToolbar's fit: the chips fold first, then hostSwitch.fit puts the switches in icons only).
+if (!/win\.hostSwitch\.fit\(row\)/.test(moduleHost) || !/new win\.ResizeObserver\(later\)/.test(moduleHost)) fail('public/module-host.js: the toolbar must be fitted with hostSwitch.fit(row), again as the row changes size');
+if (!/label: s\(o\?\.label, TOOLBAR_LIMITS\.label\), icon: icon\(o\?\.icon\)/.test(read('public/module-chrome.js'))) fail('public/module-chrome.js: cleanToolbarItems must keep a tabs option\'s icon');
 const destination = read('public/destination.js');
-if ((destination.match(/hostSwitch\.fill\(/g) || []).length < 2) fail('public/destination.js: the view switch and the panel switch must be drawn with hostSwitch.fill');
-if ((destination.match(/hostSwitch\.watch\(/g) || []).length < 2) fail('public/destination.js: the view switch and the panel switch must be fitted with hostSwitch.watch');
+// The destination's view switch and panel switch are tabs items of its one toolbar row (createToolbar draws and fits them).
+if ((destination.match(/type: 'tabs'/g) || []).length < 2 || !/createToolbar\(\$\('dest-toolbar'\)/.test(destination)) fail('public/destination.js: the view switch and the panel switch must be tabs items of the page\'s toolbar row (createToolbar)');
+if (!/options: [a-z]+\.map\(\(p\) => \(\{ id: p\.key, label: p\.part\.label, icon:/.test(destination)) fail('public/destination.js: every panel in the panel switch needs an icon');
 const destViews = /calendar:\s*\{\s*views:\s*\[([^\]]*)\]/.exec(destination);
 if (!destViews || (destViews[1].match(/\{[^}]*\}/g) || []).some((o) => !/icon:/.test(o))) fail('public/destination.js: every view of the Calendar destination needs an icon');
 // Chat's two views, Discussion | Assistant (GitHub #203), in place of the All | Private | Public filter: the shared

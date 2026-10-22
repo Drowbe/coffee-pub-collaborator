@@ -17,7 +17,11 @@
 //   title bar 34 px (42 on a phone), its words 14 px, its first item 12 px in and its last 4 px from the end;
 //   toolbar 34 px, its first item 8 px in (12 on a phone), nothing closer than that to its end;
 //   status line 24 px, its first item 12 px in;
-//   a search field 30 px wherever it is in a window; a button in a band 30 px.
+//   a search field 30 px wherever it is in a window; a button in a band 30 px;
+//   a tab strip or view switch (the Tabs family: the Chat's Discussion | Assistant row, a module's view switch, a destination's
+//   views and its panel's tabs, and a row of tabs of a module's own, measured as a band of its own): in a 34 px band, its tabs
+//   30 px, 2 px from the band's top and 2 px from its bottom (the hairline counted), its first item 8 px in (12 on a phone);
+//   the band under a title bar starts where the title bar ends (no room between them).
 // Every value is the same for every module by construction, so one table of expectations holds for all of them; a module
 // may not differ. On a failure it prints, per module, every band and what it measured against what it should be.
 //
@@ -39,8 +43,8 @@ const started = Date.now();
 
 // The approved values (public/sdk/system.css: modulechrome, fields, buttons; style.css: --module-header-h, --toolbar-h).
 const WANT = {
-  wide: { title: 34, titleFont: 14, titleLeft: 12, titleRight: 4, toolbar: 34, toolbarLeft: 8, status: 24, statusLeft: 12, search: 30, button: 30 },
-  phone: { title: 42, titleFont: 14, titleLeft: 12, titleRight: 4, toolbar: 34, toolbarLeft: 12, status: 24, statusLeft: 12, search: 30, button: 30 },
+  wide: { title: 34, titleFont: 14, titleLeft: 12, titleRight: 4, toolbar: 34, toolbarLeft: 8, status: 24, statusLeft: 12, search: 30, button: 30, tab: 30 },
+  phone: { title: 42, titleFont: 14, titleLeft: 12, titleRight: 4, toolbar: 34, toolbarLeft: 12, status: 24, statusLeft: 12, search: 30, button: 30, tab: 30 },
 };
 
 // A whole small PMTiles v3 picture (as tools/check-picture-map.mjs makes one), so the Map destination is on in the space.
@@ -64,6 +68,8 @@ const COLLECT = String.raw`(() => {
   const shown = (e) => { if (!e || !e.getClientRects().length) return false; const r = R(e); if (r.width < 1 || r.height < 1) return false; const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none'; };
   const kids = (band) => [...band.children].filter((k) => shown(k) && !k.classList.contains('visually-hidden') && !['absolute', 'fixed'].includes(getComputedStyle(k).position));
   const px = (v) => Math.round(v * 2) / 2;
+  const STRIPS = '.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs';
+  const TABS = '.sdk-tab, .tb-tab, .subtab, .setup-tab';
   let ready = true;
   // Every root under a node: itself, the shadow roots below it and the documents of same-origin frames below it.
   const roots = (node) => {
@@ -80,10 +86,21 @@ const COLLECT = String.raw`(() => {
     const bl = r.left + parseFloat(s.borderLeftWidth); const br = r.right - parseFloat(s.borderRightWidth);
     const left = k.length ? px(Math.min(...k.map((x) => R(x).left)) - bl) : null;
     const right = k.length ? px(br - Math.max(...k.map((x) => R(x).right))) : null;
-    const out = { band: kind, h: px(r.height), left, right, buttons: [] };
+    const out = { band: kind, h: px(r.height), left, right, buttons: [], strips: [] };
     if (kind === 'title') { const t = el.querySelector('.mod-title span, :scope > span'); if (t) out.font = parseFloat(getComputedStyle(t).fontSize); }
     for (const b of el.querySelectorAll('.btn, .sdk-icon-btn, .tb-tab')) if (shown(b) && !b.closest('.sdk-search')) out.buttons.push({ h: px(R(b).height), add: Boolean(b.closest('.titlebar-add')), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
     out.at = { x: Math.round(r.left + offsetOf(el).x), y: Math.round(r.top + offsetOf(el).y) };
+    out.top = px(r.top + offsetOf(el).y); out.bottom = px(r.bottom + offsetOf(el).y); out.x0 = px(r.left + offsetOf(el).x); out.x1 = px(r.right + offsetOf(el).x);
+    // The tab strips and view switches in the band (the Tabs family): each tab's height and the space above and below it in the band,
+    // to the band's outer edges (its hairline counted: the band is 34 px with it, so 30 px tabs sit 2 px from each edge).
+    const it = r.top; const ib = r.bottom;
+    for (const st of el.querySelectorAll(STRIPS)) {
+      if (!shown(st) || st.closest('.sdk-search, .sdk-menu, .host-menu, [role=dialog]')) continue;
+      const tabs = [...st.children].filter((t) => shown(t) && t.matches(TABS));
+      if (!tabs.length) continue;
+      const rr = tabs.map(R);
+      out.strips.push({ what: (st.id || st.className || '').toString().trim().split(/\s+/).slice(0, 2).join('.'), h: px(Math.max(...rr.map((x) => x.height))), hMin: px(Math.min(...rr.map((x) => x.height))), above: px(Math.min(...rr.map((x) => x.top)) - it), below: px(ib - Math.max(...rr.map((x) => x.bottom))) });
+    }
     return out;
   };
   const windows = [];
@@ -93,8 +110,14 @@ const COLLECT = String.raw`(() => {
     const title = titleSel ? win.querySelector(titleSel) : null;
     if (title && shown(title)) { w.bands.push(band('title', title)); seen.add(title); }
     for (const r of roots(win)) {
-      for (const t of r.querySelectorAll('.mod-toolbar, .sdk-toolbar, #dest-bar, .dest-side-head')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('toolbar', t)); }
+      for (const t of r.querySelectorAll('.mod-toolbar, .sdk-toolbar')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('toolbar', t)); }
       for (const t of r.querySelectorAll('.mod-status')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('status', t)); }
+      // A tab strip or view switch outside those bands (a row of a module's own) is a band of its own: the row that holds it.
+      for (const st of r.querySelectorAll(STRIPS)) {
+        if (!shown(st) || st.closest('.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, .sdk-field, .sdk-menu, .host-menu, [role=dialog], .sdk-editor')) continue;
+        const row = st.parentElement && st.parentElement !== r && st.parentElement.children.length > 1 ? st.parentElement : st;
+        if (!seen.has(row)) { seen.add(row); w.bands.push(band('tabrow', row)); }
+      }
       for (const f of r.querySelectorAll('.sdk-search')) if (shown(f) && !seen.has(f)) { seen.add(f); w.searches.push({ h: px(R(f).height), what: (f.className || '').replace('sdk-search', '').trim() || 'search' }); }
       for (const m of r.querySelectorAll('.module-root')) { const sr = m.shadowRoot || m; if (!sr.querySelector('#app, .app, main, section, div')) ready = false; }
     }
@@ -163,7 +186,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
   { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase, .sdk-strip-attn' },
-  { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, #dest-bar, .dest-side-head', name: 'band', h: false },
+  { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status', name: 'band', h: false },
   { sel: '.sdk-search', name: 'search field', h: false },
   { sel: '.btn, .tb-tab', name: 'button', h: false },
   { sel: '.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list', name: 'menu', h: false },
@@ -379,10 +402,30 @@ function judge(context, phone, windows) {
   for (const w of windows) {
     const rows = [];
     const bad = (what, got, should) => { failures.push({ context, window: `${w.name} (${w.kind})`, what, got, should }); rows.push(`    !! ${what}: ${got}, should be ${should}`); };
+    // The band under the title bar (a toolbar, a view switch, a tab row) starts where the title bar ends: no room between them
+    // (a destination's frame once drew its page's header padding there, so its band read 4 px taller than the others).
+    const title = w.bands.find((b) => b.band === 'title');
     for (const b of w.bands) {
-      const exp = b.band === 'title' ? want.title : b.band === 'toolbar' ? want.toolbar : want.status;
+      if (!title || b === title || !['toolbar', 'tabrow'].includes(b.band)) continue;
+      const gap = b.top - title.bottom;
+      if (gap > 0.5 && gap <= 12 && b.x0 < title.x1 && b.x1 > title.x0) bad(`gap between the title bar and the ${b.band} under it`, `${gap}px`, '0px');
+    }
+    for (const b of w.bands) {
+      const exp = b.band === 'title' ? want.title : b.band === 'toolbar' || b.band === 'tabrow' ? want.toolbar : want.status;
       rows.push(`    ${b.band.padEnd(8)} h ${String(b.h).padStart(5)}  in ${b.left ?? '-'} / ${b.right ?? '-'}${b.font ? `  words ${b.font}px` : ''}  buttons ${b.buttons.map((x) => x.h).join(',') || '-'}  at ${b.at.x},${b.at.y}`);
+      for (const st of b.strips) rows.push(`      tabs ${st.what.padEnd(22)} h ${st.hMin === st.h ? st.h : `${st.hMin}-${st.h}`}  above ${st.above} / below ${st.below}`);
       if (Math.abs(b.h - exp) > 0.5) bad(`${b.band} height`, b.h, exp);
+      // The Tabs family in a band (system.css, tabs and modulechrome): a strip or view switch sits in the toolbar band, its tabs the
+      // small 30 px, centred: 2 px from the band's top and 2 px from its bottom edge, its hairline counted (to the half pixel); the
+      // band's first item 8 px in (12 on a phone).
+      if (b.band === 'tabrow') {
+        if (b.left !== null && Math.abs(b.left - want.toolbarLeft) > 0.5) bad('tab row inset, start', b.left, want.toolbarLeft);
+        if (b.right !== null && b.right < want.toolbarLeft - 0.5) bad('tab row inset, end', b.right, `at least ${want.toolbarLeft}`);
+      }
+      for (const st of b.strips) {
+        if (Math.abs(st.h - want.tab) > 0.5 || Math.abs(st.hMin - want.tab) > 0.5) bad(`tab height in the ${b.band} (${st.what})`, st.hMin === st.h ? st.h : `${st.hMin}-${st.h}`, want.tab);
+        if (Math.abs(st.above - st.below) > 0.5) bad(`tabs centred in the ${b.band} (${st.what})`, `above ${st.above} / below ${st.below}`, 'the same (2 / 2 in a 34 px band)');
+      }
       if (b.band === 'title') {
         if (b.font && b.font !== want.titleFont) bad('title words', `${b.font}px`, `${want.titleFont}px`);
         if (b.left !== null && Math.abs(b.left - want.titleLeft) > 0.5) bad('title bar inset, start', b.left, want.titleLeft);
@@ -550,7 +593,7 @@ async function main() {
       say(`FAIL: ${failures.length} deviations in ${new Set(failures.map((f) => f.context + f.window)).size} of ${windows} windows (${[...byWhat].map(([k, n]) => `${k} ${n}`).join(', ')}); ${Math.round((Date.now() - started) / 1000)} s`);
       return 1;
     }
-    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, status line, search and band button is the approved size and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
+    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, tab row, status line, search and band button is the approved size, every tab strip in a band is 30 px tabs 2 px from each edge, every band under a title bar meets it, and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
     return 0;
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }

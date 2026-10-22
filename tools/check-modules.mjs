@@ -763,4 +763,30 @@ test('a module\'s timer stops once the module is closed (in the page its element
   assert.deepEqual(found, [], 'a timer never cleared');
 });
 
+test('the manifest field content is padded or flush, and nothing else', () => {
+  assert.equal(cleanManifest(base(), files).content, 'padded', 'padded when it says nothing');
+  assert.equal(cleanManifest({ ...base(), content: 'padded' }, files).content, 'padded');
+  assert.equal(cleanManifest({ ...base(), content: 'flush' }, files).content, 'flush');
+  for (const bad of ['full', '', true, 1, null]) assert.throws(() => cleanManifest({ ...base(), content: bad }, files), /content must be "padded" or "flush"/);
+});
+
+// An uploaded module that draws what the host draws is installed with a plain warning in the answer; a bundled one, or a clean one, has none.
+{
+  const { zipFiles } = createRequire(import.meta.url)('../server/module-build.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'layout-warn-'));
+  try {
+    const mm = new ModuleManager(dir);
+    const page = (html, css = '') => Buffer.from(`<!doctype html><style>${css}</style><body>${html}</body>`);
+    const zip = (id, html, css) => zipFiles([['module.json', Buffer.from(JSON.stringify({ id, name: id, version: '1.0.0', scope: ['environment'], surfaces: { page: { entry: 'page.html' } } }))], ['page.html', page(html, css)]]);
+    const bad = await mm.install(zip('badlook', '<header class="bar"></header>', '.sdk-card { padding: 2px }'));
+    assert.match(bad.layoutWarning, /draws or restyles parts the host draws \(markup: <header>, \.sdk-card\)/, 'the warning names what it breaks');
+    assert.equal(bad.version, '1.0.0', 'it is still installed');
+    assert.equal((await mm.install(zip('goodlook', '<div class="sdk-card"></div>', '.pin { padding: 2px }'))).layoutWarning, undefined, 'a clean module has no warning');
+    assert.equal((await mm.install(zip('shipped', '<header></header>'), { source: 'bundled' })).layoutWarning, undefined, 'a bundled module is held by check-module-layout, not warned');
+    n += 1;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log(`check-modules: ${n} groups OK`);

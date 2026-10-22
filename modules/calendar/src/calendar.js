@@ -367,7 +367,7 @@
   }
 
   // Month / Week / Day / Agenda is the toolbar's view switch (the Agenda's key is `list`). As the destination's
-  // calendar the page's bar has Month, Week and Day, and this draws whichever it says.
+  // calendar the page's row has Month, Week and Day, and this draws whichever it says.
   const VIEWS = [
     { id: 'month', label: 'Month', icon: 'calendar-days' },
     { id: 'week', label: 'Week', icon: 'calendar-week' },
@@ -376,7 +376,7 @@
   ];
   const PART_VIEWS = ['month', 'week', 'day'];
   if (part && !PART_VIEWS.includes(view)) view = prefs.defaultView === 'week' ? 'week' : 'month';
-  const viewSwitch = part ? { set() {} } : host.ui.viewSwitch({
+  const viewSwitch = part ? null : host.ui.viewSwitch({
     id: 'view',
     options: VIEWS,
     value: view,
@@ -406,11 +406,7 @@
     // A calendar that was just closed (its elements gone) draws nothing: an icon or markers arriving late, say.
     if (!$('app')) return;
     if (part === 'panel') return renderAgenda();
-    const showNav = view !== 'list';
-    $('prev').hidden = $('next').hidden = !showNav;
-    viewSwitch.set(view);
-    renderFilters();
-    $('title').textContent = view === 'week' ? weekTitle() : view === 'day' ? dayHeading(anchor) : view === 'list' ? 'Next 90 days' : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    syncToolbar();
     if (part === 'main') tellPeriod();
     if (view !== 'day') scrolledFor = ''; // back to the day view later opens it at its first event again
     if (nothingPicked()) {
@@ -617,77 +613,68 @@
     host.objects.open(x.marker.ref, { newTab: Boolean(e && (e.ctrlKey || e.metaKey)) }).catch((err) => note(err.message, true));
   }
 
-  // The kinds of markers, for the filter: the environment's page draws them in its row, a space in the toolbar's
-  // menu, and as the destination's calendar the page's filter holds them (told here; the page tells every part).
+  // The kinds of markers, for the filter: the toolbar's chips here, and as the destination's calendar the page's filter
+  // holds them (told here; the page tells every part).
   function tellMarkerKinds() {
     if (part === 'main' && host.destination) {
       host.destination.set({ markerKinds: [...markerKinds.values()].slice(0, 20).map((k) => ({ id: k.id, label: k.label, icon: k.icon, tint: k.tint })) }).catch(() => {});
     }
-    showMarkerMenu();
+    syncToolbar();
   }
-  let markerButton = null;
-  function showMarkerMenu() {
-    if (part || !inSpace || !markerKinds.size || !host.ui.toolbarButton) return;
-    const on = hiddenMarkers.size > 0;
-    if (markerButton) { markerButton.set({ on }); return; }
-    markerButton = host.ui.toolbarButton({ id: 'markers', label: 'Show', icon: 'filter', on, onClick: openMarkerMenu });
-  }
-  function toggleMarkerKind(id) {
-    if (hiddenMarkers.has(id)) hiddenMarkers.delete(id); else hiddenMarkers.add(id);
+  function toggleMarkerKind(id, on) {
+    if (on) hiddenMarkers.delete(id); else hiddenMarkers.add(id);
     if (MARKERS_OFF_KEY) {
       try { localStorage.setItem(MARKERS_OFF_KEY, JSON.stringify([...hiddenMarkers])); } catch (err) { /* not remembered */ }
     }
-    if (markerButton) markerButton.set({ on: hiddenMarkers.size > 0 });
     render();
-  }
-  // Under the Show button: the toolbar's click says where the button starts across the module (`x`); at the right
-  // edge where the host does not say.
-  function openMarkerMenu(e) {
-    const items = [...markerKinds.values()].map((k) => {
-      const shown = !hiddenMarkers.has(k.id);
-      return {
-        id: `marker:${k.id}`,
-        label: k.label,
-        hint: shown ? 'Shown' : 'Hidden',
-        icon: shown ? 'square-check' : 'square',
-        regular: !shown,
-        ...(k.tint ? { iconColor: `var(--tint-${k.tint})` } : {}),
-        onClick: () => toggleMarkerKind(k.id),
-      };
-    });
-    host.menu.show({ id: 'markers', at: { x: e && Number.isFinite(e.x) ? e.x : 100000, y: 4 }, items });
   }
 
-  // On the environment page, a row of the viewer's spaces to show or hide, then the kinds of markers ("Tasks due"). As
-  // a part, the page's filter does this; in a space the kinds of markers are in the toolbar's menu (showMarkerMenu).
-  function renderFilters() {
-    const box = $('filters');
-    const kinds = inSpace ? [] : [...markerKinds.values()];
-    box.hidden = Boolean(part) || (spaceInfo.size === 0 && externalCalendars.size === 0 && kinds.length === 0);
-    if (box.hidden) return;
-    const keep = root.activeElement && root.activeElement.closest && root.activeElement.closest('#filters [data-space], #filters [data-external], #filters [data-marker-kind]');
-    const kept = !keep ? '' : keep.dataset.space ? `[data-space="${keep.dataset.space}"]` : keep.dataset.markerKind ? `[data-marker-kind="${keep.dataset.markerKind}"]` : `[data-external="${keep.dataset.external}"]`;
-    box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="sdk-chip ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('')
-      + kinds.map((k) => `<button type="button" class="sdk-chip marker${k.tint ? ` tint-${k.tint}` : ''} ${hiddenMarkers.has(k.id) ? '' : 'on'}" data-marker-kind="${esc(k.id)}" aria-pressed="${!hiddenMarkers.has(k.id)}" title="${hiddenMarkers.has(k.id) ? 'Show' : 'Hide'} ${esc(k.label)}">${markerIcons.get(k.icon) ? `<span class="mi" aria-hidden="true">${markerIcons.get(k.icon)}</span>` : ''}${esc(k.label)}</button>`).join('')
-      + [...externalCalendars.values()].map((c) => `<button type="button" class="sdk-chip ext ext-${c.tint} ${hiddenExternal.has(c.id) ? '' : 'on'}" data-external="${esc(c.id)}" aria-pressed="${!hiddenExternal.has(c.id)}" title="${hiddenExternal.has(c.id) ? 'Show' : 'Hide'} ${esc(c.name)}, only you see it"><span class="dot" aria-hidden="true"></span> ${esc(c.name)}</button>`).join('');
-    if (kept) { const again = box.querySelector(kept); if (again) again.focus(); }
+  // --- the toolbar row ---------------------------------------------------------------
+  // The host's one row: back, Today and forward (Today alone on the Agenda), the period's title, the filter's chips, then the
+  // view switch. The chips: on the environment page the viewer's spaces, the kinds of markers ("Tasks due") and the person's
+  // other calendars; in a space the kinds of markers alone. As the destination's calendar the page's row has the view switch
+  // and the filter, so this gives only the first four; the Agenda gives nothing (the page's panel switch is its heading).
+  const ICON_NAME = /^[a-z0-9-]{1,40}$/;
+  const EXTERNAL_TINT_NAMES = ['blue', 'teal', 'purple', 'green', 'orange']; // .ext-0 to .ext-4, in the destination's order
+  function periodTitle() {
+    return view === 'week' ? weekTitle() : view === 'day' ? dayHeading(anchor) : view === 'list' ? 'Next 90 days' : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
   }
-  $('filters').addEventListener('click', (e) => {
-    const mk = e.target.closest('[data-marker-kind]');
-    if (mk) {
-      toggleMarkerKind(mk.dataset.markerKind);
-      return;
-    }
-    const ext = e.target.closest('[data-external]');
-    if (ext) {
-      if (hiddenExternal.has(ext.dataset.external)) hiddenExternal.delete(ext.dataset.external); else hiddenExternal.add(ext.dataset.external);
+  function filterChips() {
+    if (part) return null;
+    const kinds = [...markerKinds.values()];
+    const options = [
+      ...(inSpace ? [] : [...spaceInfo.values()].map((r) => ({ id: `space:${r.id}`, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) }))),
+      ...kinds.map((k) => ({ id: `marker:${k.id}`, label: k.label, ...(ICON_NAME.test(k.icon || '') ? { icon: k.icon } : {}), ...(k.tint ? { tint: k.tint } : {}), on: !hiddenMarkers.has(k.id) })),
+      ...(inSpace ? [] : [...externalCalendars.values()].map((c) => ({ id: `ext:${c.id}`, label: c.name, icon: 'calendar', note: 'only you', tint: EXTERNAL_TINT_NAMES[c.tint] || 'blue', on: !hiddenExternal.has(c.id) }))),
+    ];
+    return options.length ? { type: 'chips', id: 'show', label: 'Show', icon: 'filter', options } : null;
+  }
+  function syncToolbar() {
+    if (part === 'panel') return;
+    const chips = filterChips();
+    host.toolbar.set([
+      ...(view !== 'list' ? [{ id: 'prev', icon: 'chevron-left', title: 'Previous' }] : []),
+      { id: 'today', label: 'Today' },
+      ...(view !== 'list' ? [{ id: 'next', icon: 'chevron-right', title: 'Next' }] : []),
+      { type: 'title', text: periodTitle() },
+      ...(chips ? [chips] : []),
+    ]).catch(() => {});
+    if (viewSwitch) viewSwitch.set(view);
+  }
+  host.on('toolbar', (e) => {
+    if (e.id === 'prev') step(-1);
+    else if (e.id === 'next') step(1);
+    else if (e.id === 'today') { anchor = part ? startOfDay(new Date()) : new Date(); cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1); render(); }
+    else if (e.id === 'show' && typeof e.value === 'string') {
+      const at = e.value.indexOf(':');
+      const what = e.value.slice(0, at);
+      const id = e.value.slice(at + 1);
+      if (what === 'marker') return toggleMarkerKind(id, Boolean(e.on));
+      const set = what === 'space' ? hiddenSpaces : what === 'ext' ? hiddenExternal : null;
+      if (!set) return;
+      if (e.on) set.delete(id); else set.add(id);
       render();
-      return;
     }
-    const b = e.target.closest('[data-space]');
-    if (!b) return;
-    if (hiddenSpaces.has(b.dataset.space)) hiddenSpaces.delete(b.dataset.space); else hiddenSpaces.add(b.dataset.space);
-    render();
   });
 
   // --- the editor -----------------------------------------------------------
@@ -785,7 +772,7 @@
   const returnTo = () => {
     const row = lastKey ? root.querySelector(`[data-open="${CSS.escape(lastKey)}"]`) : null;
     if (row) return row;
-    return !$('add').hidden && $('add').getClientRects().length ? $('add') : null;
+    return null; // the host's "+" that opened it
   };
   const editor = host.ui.editor($('editor'), {
     size: 'medium',
@@ -1078,33 +1065,19 @@
     cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     render();
   };
-  $('prev').addEventListener('click', () => step(-1));
-  $('next').addEventListener('click', () => step(1));
-  $('today').addEventListener('click', () => { anchor = part ? startOfDay(new Date()) : new Date(); cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1); render(); });
   function startNew() {
     if (!canAdd()) return;
     openEditor(null, part === 'main' ? ymd(anchor) : undefined);
   }
-  $('add').addEventListener('click', startNew);
   // Typed text goes through Chat `/e` (addEvent): parseWhen, then this same editor, nothing saved until Save.
-  // Add event is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
-  // page bar on the module's own page; or the composite's "+" as the destination's calendar in a Workspace's Calendar.
-  // Where the host draws none (its answer is false: a destination's part on the /calendar page) the header button stays.
-  // The Agenda adds nothing. Who may add is known once the spaces are in.
+  // Add event is the "+" in the titlebar (host.add.set, one action: it runs at once), which the host draws wherever the
+  // calendar is: a window's titlebar, popped out too, the page bar on its own page and on the Calendar destination, the
+  // composite's "+" in a Workspace's Calendar. The Agenda adds nothing. Who may add is known once the spaces are in.
   const ADD_EVENT = { id: 'event', label: 'Add event', icon: 'calendar-plus' };
-  let addHosted = false;
   function showAdd() {
-    $('add').hidden = part === 'panel' || !canAdd();
-    if (addHosted) host.add.set(canAdd() ? [ADD_EVENT] : []).catch(() => {});
+    if (part !== 'panel') host.add.set(canAdd() ? [ADD_EVENT] : []).catch(() => {});
   }
-  const unhost = () => { $('add').classList.remove('hosted'); };
-  if (part !== 'panel') {
-    $('add').classList.add('hosted'); // until the host says where Add event is
-    if (host.add) {
-      host.add.set(canAdd() ? [ADD_EVENT] : []).then((drawn) => { if (drawn) addHosted = true; else unhost(); }, unhost);
-      host.on('add', (e) => { if (e.id === ADD_EVENT.id && canAdd()) startNew(); });
-    } else unhost();
-  }
+  if (part !== 'panel') host.on('add', (e) => { if (e.id === ADD_EVENT.id && canAdd()) startNew(); });
 
   // The status line at the foot of the window: the period shown and how many events are in it ("Oct 2026 · 14 events"),
   // and a chip when kinds of markers are hidden. As the destination's calendar the composite's status bar shows it.
@@ -1357,10 +1330,6 @@
     new ResizeObserver(later).observe($('app'));
   }
 
-  $('add').hidden = true;
-  // The Agenda draws no header of its own: the page's panel switch is its heading.
-  if (part === 'panel') root.querySelector('.bar').hidden = true;
-  $('app').classList.toggle('part', Boolean(part));
   try {
     await load();
   } catch (err) {

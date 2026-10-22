@@ -652,10 +652,18 @@ test('host.facts (plan-space-story-strip.md step 5): set and clear in the SDK, a
   assert.ok(!/facts[^\n]*guest=/.test(src), 'no guest token on the facts route');
 });
 
+test('the module objects the pages read carry content: flush for Maps, padded for the rest', () => {
+  const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  assert.match(read('server/index.js'), /return \{ name: d\.name \|\| m\.name, icon: d\.icon \|\| m\.icon, content: m\.content === 'flush' \? 'flush' : 'padded' \};/, 'shownModule (spread into nav, for-space, the parts and the context) gives content');
+  const content = (id) => JSON.parse(read(`modules/${id}/module.json`)).content ?? 'padded';
+  assert.equal(content('maps'), 'flush', 'Maps is flush');
+  for (const id of fs.readdirSync(new URL('../modules/', import.meta.url)).filter((d) => d !== 'maps' && fs.existsSync(new URL(`../modules/${d}/module.json`, import.meta.url)))) assert.equal(content(id), 'padded', `${id} is padded`);
+});
+
 test('the budget target: a module is let in by its manifest flag, which the mounts hand the host; set() never clears by omission', () => {
   const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-  assert.match(read('public/canvas.js'), /module: \{ id: m\.id, version: m\.version, scope: m\.scope, budget: m\.budget === true \},/, 'the canvas passes the flag');
-  assert.match(read('public/module.js'), /module: \{ id: mod\.id, version: mod\.version, scope: mod\.scope, budget: mod\.budget === true \},/, 'a pop-out passes the flag');
+  assert.match(read('public/canvas.js'), /module: \{ id: m\.id, version: m\.version, scope: m\.scope, budget: m\.budget === true, content: m\.content \},/, 'the canvas passes the flag');
+  assert.match(read('public/module.js'), /module: \{ id: mod\.id, version: mod\.version, scope: mod\.scope, budget: mod\.budget === true, content: mod\.content \},/, 'a pop-out passes the flag');
   const host = read('public/module-host.js');
   assert.match(host, /if \(module\.budget !== true \|\| scope !== 'space'/, 'can() needs the flag');
   assert.match(host, /if \(module\.budget !== true\) throw[^\n]*\n\s*if \(budget === undefined\) throw/, 'set() needs the flag and a target');

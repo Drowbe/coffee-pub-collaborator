@@ -13,7 +13,7 @@
 // See documentation/architecture/architecture-canvas.md.
 
 import { api, markModuleRead, followTheme, word } from '/brand.js';
-import { mountModule, createFrameLift, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot } from '/module-host.js';
+import { mountModule, createFrameLift, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot, cleanHeaderItems, drawHeaderItems } from '/module-host.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import { nav } from '/nav-bar.js';
 import { whatOpens, readAliased, firstVisitLayout, SYSTEM_TABS } from '/opens-with.js';
@@ -806,9 +806,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // What stands in for a composite's mount: nothing runs through the SDK here (the parts inside the page have their own
   // host); a pointer to open (openRef) goes to the page as #ref=, which it already takes (destination.js, takeHash).
-  // The page (marked by the frame's data-composite) hands up its parts' adds and status lines ('app:compositechrome'):
-  // they are drawn in this titlebar's one "+" and this window's status bar, and a pick goes back to the page
-  // ('app:compositeadd'), which runs that part's own add. Each new page in the frame is asked for them ('app:compositehello').
+  // The page (marked by the frame's data-composite) hands up its parts' adds, titlebar icons and status lines
+  // ('app:compositechrome'): they are drawn in this titlebar's one "+" and icons and this window's status bar, and a pick
+  // goes back to the page ('app:compositeadd', 'app:compositeheader'), which hands it to that part. The toolbar row is the
+  // page's own, under this titlebar. Each new page in the frame is asked for them ('app:compositehello').
   function compositeMount(mod, frame) {
     // A drag from a module on the Workspace over the frame reaches the parts inside (module-host.js, registerDragRelay).
     const unrelay = registerDragRelay(frame);
@@ -816,6 +817,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const hostWin = frame.ownerDocument.defaultView || window;
     const post = (data) => { try { frame.contentWindow?.postMessage(data, hostWin.location.origin); } catch { /* the page is not there */ } };
     const addEl = mod.el.querySelector('[data-header-add]');
+    const headerEl = mod.el.querySelector('[data-header-custom]');
     const statusEl = mod.el.querySelector('[data-status]');
     const addSlot = addEl ? createAddSlot(addEl, (event, data) => { if (event === 'add' && data?.id) { opener = { el: frame.ownerDocument.activeElement, at: Date.now() }; post({ type: 'app:compositeadd', id: data.id }); } }) : null;
     const statusSlot = statusEl ? createStatusSlot(statusEl) : null;
@@ -836,12 +838,19 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       }
       if (!d || d.type !== 'app:compositechrome') return;
       if (addSlot && Array.isArray(d.add)) addSlot.set(d.add);
+      // The parts' titlebar icons (host.header.set), cleaned again here; a click goes back to the page, which hands it to its part.
+      if (headerEl && Array.isArray(d.header)) {
+        const icons = cleanHeaderItems(d.header);
+        if (icons.length) drawHeaderItems(headerEl, icons, (event, data) => { opener = { el: frame.ownerDocument.activeElement, at: Date.now() }; post({ type: 'app:compositeheader', id: data.id }); });
+        else headerEl.textContent = '';
+      }
       if (statusSlot && Array.isArray(d.status)) statusSlot.set(d.status);
     };
     hostWin.addEventListener('message', onChrome);
     frame.addEventListener('load', () => {
       if (addSlot) addSlot.set([]);
       if (statusSlot) statusSlot.set([]);
+      if (headerEl) headerEl.textContent = '';
       post({ type: 'app:compositehello' });
       if (typeof onCompositeLoad === 'function') { try { onCompositeLoad(frame); } catch { /* the page's links stay its own */ } }
     });
@@ -892,7 +901,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const m = mod.m;
     if (compositeOf(m)) return compositeMount(mod, frame);
     return mountModule({
-      module: { id: m.id, version: m.version, scope: m.scope, budget: m.budget === true },
+      module: { id: m.id, version: m.version, scope: m.scope, budget: m.budget === true, content: m.content },
       ...(frame.tagName === 'IFRAME' ? { frame } : { container: frame }),
       header: mod.el.querySelector('[data-header-custom]'),
       toolbar: mod.el.querySelector('[data-toolbar]'),

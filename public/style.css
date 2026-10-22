@@ -5628,6 +5628,10 @@ body.chat-window {
   gap: 2px;
 }
 
+.titlebar-custom[hidden] {
+  display: none;
+}
+
 .header-pipe {
   width: 1px;
   height: 16px;

@@ -221,10 +221,10 @@ try {
     assert.equal(fa.status, 200);
     assert.equal(fa.headers['access-control-allow-origin'], '*');
     // Other public files stay shut on the bare base domain and carry no wildcard header anywhere.
-    for (const p of ['/app.js', '/sdk/host.js', '/fonts-other/x', '/fontsx/figtree/latin.woff2', '/fonts/nope.woff2']) {
+    for (const p of ['/app.js', '/fonts-other/x', '/fontsx/figtree/latin.woff2', '/fonts/nope.woff2']) {
       assert.equal((await call('GET', '', p)).status, 404, `bare ${p}`);
     }
-    for (const [sub, p] of [['aaa', '/style.css'], ['aaa', '/sdk/host.js'], ['', '/style.css'], ['', '/fa/css/all.min.css']]) {
+    for (const [sub, p] of [['aaa', '/style.css'], ['aaa', '/sdk/host.js'], ['', '/sdk/host.js'], ['', '/style.css'], ['', '/fa/css/all.min.css']]) {
       const r = await call('GET', sub, p);
       assert.equal(r.status, 200, `${sub || 'bare'} ${p}`);
       assert.equal(r.headers['access-control-allow-origin'], undefined, `${p} must not carry the CORS header`);
@@ -344,6 +344,9 @@ try {
       assert.deepEqual([info.baseDomain, info.productDomain, info.signup], [BASE, PRODUCT, true]);
       assert.deepEqual((await at('GET', PRODUCT, '/api/product/address?slug=fresh')).json, { slug: 'fresh', free: true, reason: null });
       for (const p of ['/app.js', '/login', '/api/me', '/admin']) assert.equal((await at('GET', PRODUCT, p)).status, 404, p);
+      // The design system pages and what they import are open; the app is not.
+      for (const p of ['/design-system/', '/design-system/panel.html', '/design-system/panel.js', '/design-system/panel.css', '/module-frame.js', '/host-menu.js', '/tooltip.js', '/sdk/system.css', '/fa/css/all.min.css']) assert.equal((await at('GET', PRODUCT, p)).status, 200, p);
+      for (const p of ['/admin.html', '/api/modules', '/api/me', '/space.html', '/design-system/../server/index.js', '/design-system/nope.html']) assert.equal((await at('GET', PRODUCT, p)).status, 404, p);
       // A host under the product host is nothing.
       assert.equal((await at('GET', `aaa.${PRODUCT}`, '/')).status, 404);
     });

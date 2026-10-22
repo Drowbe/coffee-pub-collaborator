@@ -2740,6 +2740,9 @@ function redirectToHost(req, res, status, newHost) {
   return res.redirect(status, `${auth.isSecure(req) ? 'https' : 'http'}://${newHost}${newHost.includes(':') ? '' : requestPort(req)}${req.originalUrl}`);
 }
 // The paths the product host lets through beside / and the use pages: what those pages load and ask.
+// The design system pages (public/design-system/, no sign-in) and the app files they import, as static files only.
+const DESIGN_SYSTEM_FILES = ['/module-frame.js', '/module-host.js', '/host-menu.js', '/menu-flyout.js', '/tooltip.js', '/brand.js', '/confirm.js', '/nav-bar.js', '/module-chrome.js', '/environment-banner.js', '/page-tabs.js', '/words.js', '/theme-mode.js', '/primary-nav.js'];
+const designSystemStatic = express.static(publicDir, { index: false }); // static files only, a miss is a plain 404 here
 const PRODUCT_HOST_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/address', '/api/product/signup'];
 if (BASE_DOMAIN) {
   app.use((req, res, next) => {
@@ -2755,6 +2758,8 @@ if (BASE_DOMAIN) {
       if (req.path === '/') return res.sendFile(page('landing.html'), { dotfiles: 'allow' });
       const useSite = livePages().find((p) => p.path === req.path);
       if (useSite) return res.sendFile(page(useSite.file), { dotfiles: 'allow' });
+      if (req.path === '/design-system/') return res.sendFile(path.join(publicDir, 'design-system', 'index.html'), { dotfiles: 'allow' });
+      if (req.path.startsWith('/design-system/') || req.path.startsWith('/sdk/') || DESIGN_SYSTEM_FILES.includes(req.path)) return designSystemStatic(req, res, () => res.status(404).type('text').send('not found'));
       if (PRODUCT_HOST_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
       return res.status(404).type('text').send('not found');
     }

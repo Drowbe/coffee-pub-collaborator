@@ -104,10 +104,10 @@
 #proto-measure { position: fixed; inset: 0; z-index: 2147483646; pointer-events: none; font: 600 9px/1 ui-monospace, Menlo, monospace; }
 #proto-measure .pm-box { position: absolute; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--accent-fill) 70%, transparent); }
 #proto-measure .pm-box.pm-odd { border-color: var(--status-danger-text); border-style: dashed; }
-#proto-measure .pm-label { position: absolute; padding: 1px 2px; border-radius: 2px; white-space: nowrap; background: color-mix(in srgb, var(--surface-page) 85%, transparent); color: var(--text-primary); }
+#proto-measure .pm-label { position: absolute; padding: 1px 2px; border-radius: var(--radius-min); white-space: nowrap; background: color-mix(in srgb, var(--surface-page) 85%, transparent); color: var(--text-primary); }
 #proto-measure .pm-label.pm-odd { background: var(--status-danger-text); color: var(--surface-page); }
 #proto-measure .pm-label.pm-unequal { box-shadow: 0 0 0 1px var(--status-warn-text); }
-#proto-tip { position: fixed; z-index: 2147483647; pointer-events: none; max-width: 320px; padding: 6px 8px; border-radius: 4px; background: var(--surface-panel); color: var(--text-primary); border: 1px solid var(--edge-hairline); font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: pre; }
+#proto-tip { position: fixed; z-index: 2147483647; pointer-events: none; max-width: 320px; padding: 6px 8px; border-radius: var(--radius-min); background: var(--surface-panel); color: var(--text-primary); border: 1px solid var(--edge-hairline); font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: pre; }
 #proto-hl { position: fixed; z-index: 2147483646; pointer-events: none; box-sizing: border-box; outline: 2px solid var(--accent-fill); }`;
 
   // The element drawn at a point, through shadow roots.

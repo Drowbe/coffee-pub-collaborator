@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-mode="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Design system: workbench</title>
+  <!-- The workbench (Thomas, 2026-10-22): every part of a module window on one page, drawn by the product's own stylesheets
+       and, where one exists, the product's own code (createToolbar, createStatusSlot and openHostMenu from public/module-host.js
+       and public/host-menu.js; the view switch's fill and fit from public/sdk/host.js). Each part has three looks: Today (the
+       product as it is), Original (the look before the design system build, scoped in workbench.css) and Free (the controls on
+       the left write CSS custom properties onto that part only). Not a route: the app serves this folder as it is. Address:
+       /design-system/workbench.html?theme=<id>&mode=<dark|light>&w=<390|700|1280>&look=<today|original|free>. -->
+  <link rel="stylesheet" href="../fa/css/all.min.css">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../sdk/host.css">
+  <link rel="stylesheet" href="../sdk/system.css">
+  <link rel="stylesheet" href="prototype/themes/strong-coffee.css" id="wb-theme-css">
+  <link rel="stylesheet" href="workbench.css">
+  <style id="wb-free-rule"></style>
+  <script src="../sdk/host.js" data-host-sdk></script>
+</head>
+<body class="wb-page">
+  <a class="wb-skip" href="#wb-main">Skip to the parts</a>
+  <header class="wb-top" role="banner">
+    <h1 class="wb-title">Workbench <span class="wb-sub">every part of a module window</span></h1>
+    <div class="wb-tools" role="group" aria-label="Page tools">
+      <div class="tb-tabs" role="group" aria-label="Theme" id="wb-theme"></div>
+      <div class="tb-tabs" role="group" aria-label="Light or dark" id="wb-mode">
+        <button type="button" class="tb-tab" data-mode="dark" aria-pressed="true"><i class="tb-tab-glyph fa-solid fa-moon fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Dark</span></button>
+        <button type="button" class="tb-tab" data-mode="light" aria-pressed="false"><i class="tb-tab-glyph fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Light</span></button>
+      </div>
+      <div class="tb-tabs" role="group" aria-label="Window width" id="wb-width"></div>
+      <div class="tb-tabs" role="group" aria-label="Every part's look" id="wb-look-all"></div>
+      <a class="btn btn-small" href="proposed.html">Proposed system</a>
+      <a class="btn btn-small" href="prototype.html">Prototype</a>
+    </div>
+  </header>
+  <div class="wb-shell">
+    <aside class="wb-side" aria-labelledby="wb-side-title">
+      <div class="wb-side-head">
+        <h2 class="wb-side-title" id="wb-side-title">Free look</h2>
+        <p class="wb-note">These change every part set to Free, at once. Kept in this browser.</p>
+        <div class="wb-side-actions">
+          <button type="button" class="btn btn-small" id="wb-reset"><i class="fa-solid fa-rotate-left fa-fw" aria-hidden="true"></i> Reset</button>
+          <button type="button" class="btn btn-small btn-primary" id="wb-copy"><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i> Copy as tokens</button>
+        </div>
+        <p class="wb-note" id="wb-copy-note" role="status"></p>
+      </div>
+      <details class="wb-free" id="wb-free" open>
+        <summary class="wb-free-summary">The controls</summary>
+        <div class="wb-controls" id="wb-controls"></div>
+        <label class="wb-out-label" for="wb-out">Changed tokens</label>
+        <textarea class="wb-out" id="wb-out" rows="6" readonly spellcheck="false"></textarea>
+      </details>
+    </aside>
+    <main class="wb-main" id="wb-main" tabindex="-1">
+      <noscript>This page needs JavaScript: its parts are drawn by the product's own code.</noscript>
+      <div id="wb-parts"></div>
+    </main>
+  </div>
+  <script type="module" src="workbench.js"></script>
+</body>
+</html>

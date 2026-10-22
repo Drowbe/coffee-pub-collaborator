@@ -1,0 +1,214 @@
+/* The workbench (workbench.html, workbench.js). Three kinds of rules, in this order:
+   1. the page itself (its top bar, the controls on the left, the part frames), in the colour roles and spacing tokens;
+   2. the Free look: what the controls write and the few rules that read the workbench's own properties;
+   3. the Original look: the product's look before the design system build (public/style.css at 6ae562d, 2026-10-15), scoped to
+      the parts set to Original. Its old tokens are written as today's roles with the same job (--border is --edge-hairline,
+      --accent --accent-fill, --on-accent --text-on-accent, --bg-card and --shade --surface-field, --text-dim --text-muted,
+      --secondary the panel mixed 10% toward the accent, --selected-bg --fill-selected). Its shadows were black at a strength;
+      they are written as black mixed with transparent, as system.css writes its own. Nothing here is loaded by the product. */
+
+/* ================= 1. The page ================= */
+html { scroll-padding-top: 72px; }
+body.wb-page { margin: 0; min-height: 100vh; background: var(--surface-page); color: var(--text-primary); font-size: var(--text-14); line-height: var(--leading-body); }
+.wb-skip { position: absolute; left: var(--space-2); top: -60px; z-index: var(--z-debug); padding: var(--space-2) var(--space-3); border-radius: var(--radius-small); background: var(--accent-fill); color: var(--text-on-accent); }
+.wb-skip:focus { top: var(--space-2); }
+
+.wb-top { position: sticky; top: 0; z-index: var(--z-dialog); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--edge-hairline); background: var(--surface-panel); }
+.wb-title { flex: none; margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); white-space: nowrap; }
+.wb-sub { margin-left: var(--space-1); color: var(--text-muted); font-size: var(--text-13); font-weight: var(--weight-regular); }
+.wb-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-left: auto; }
+.wb-tools > * { flex: none; }
+
+.wb-shell { display: grid; grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+.wb-side { position: sticky; top: 52px; display: flex; flex-direction: column; gap: var(--space-3); max-height: calc(100vh - 52px); box-sizing: border-box; overflow: auto; padding: var(--space-4); border-right: 1px solid var(--edge-hairline); background: var(--surface-panel); }
+.wb-side-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.wb-side-title { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
+.wb-side-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wb-note { margin: 0; color: var(--text-muted); font-size: var(--text-12); line-height: var(--leading-body); }
+.wb-note:empty { display: none; }
+.wb-free { display: flex; flex-direction: column; gap: var(--space-3); }
+.wb-free[open] { gap: var(--space-3); }
+.wb-free-summary { color: var(--text-muted); font-size: var(--text-13); font-weight: var(--weight-medium); cursor: pointer; }
+.wb-free:not([open]) > :not(summary) { display: none; }
+.wb-free[open] > .wb-out-label { display: block; margin-top: var(--space-3); }
+.wb-free[open] > .wb-controls { margin-top: var(--space-2); }
+.wb-one-reset { margin-block: calc(-1 * var(--space-1)); }
+.wb-controls { display: flex; flex-direction: column; gap: var(--space-3); }
+.wb-group { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.wb-group-name { padding: 0; margin-bottom: var(--space-1); color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.wb-control { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--space-1); }
+.wb-control-name { font-size: var(--text-13); }
+.wb-control.is-changed .wb-control-name { color: var(--text-accent); font-weight: var(--weight-medium); }
+.wb-value { min-width: 44px; color: var(--text-muted); font-size: var(--text-12); font-variant-numeric: tabular-nums; text-align: right; }
+.wb-control input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent-fill); }
+.wb-control .wb-check { grid-column: 1 / -1; justify-self: start; margin: 0; accent-color: var(--accent-fill); }
+.wb-control:not(.is-changed) .wb-one-reset { visibility: hidden; }
+.wb-out-label { color: var(--text-muted); font-size: var(--text-12); }
+.wb-out { box-sizing: border-box; width: 100%; min-height: 96px; padding: var(--space-2); border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field); color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-12); resize: vertical; }
+
+.wb-main { min-width: 0; padding: var(--space-5) var(--space-6) var(--space-9); }
+#wb-parts { display: flex; flex-direction: column; gap: var(--space-8); }
+.wb-part { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; scroll-margin-top: 64px; }
+.wb-part-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-2) var(--space-4); }
+.wb-part-words { display: flex; flex-direction: column; gap: var(--space-1); flex: 1 1 320px; min-width: 0; }
+.wb-part-name { margin: 0; font-size: var(--text-16); font-weight: var(--weight-strong); }
+.wb-look { flex: none; }
+
+/* The frame the faux window sits in: the page colour around it, so the window's edge and shadow show; it scrolls when the window is wider. */
+.wb-frame { min-width: 0; padding: var(--space-5); overflow-x: auto; border-radius: var(--radius-large); background: var(--surface-canvas); outline: 1px dashed var(--edge-hairline); outline-offset: -1px; }
+.wb-window { position: relative; width: var(--wb-w, 700px); max-width: none; min-height: 0; }
+.wb-stack { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.wb-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+.wb-state { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: var(--space-3); min-width: 0; }
+.wb-state-label { color: var(--text-muted); font-size: var(--text-12); }
+.wb-state-body { min-width: 0; }
+.wb-narrow { width: 260px; max-width: 100%; }
+.wb-mini-row { width: 200px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); }
+.wb-band-box { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-panel); }
+.wb-scroll-x { min-width: 0; overflow-x: auto; }
+.wb-nowrap { flex-wrap: nowrap; }
+.wb-push-end { margin-left: auto; }
+
+.wb-grid { display: grid; grid-template-columns: 80px repeat(6, max-content); align-items: center; gap: var(--space-2) var(--space-3); }
+.wb-grid-head { color: var(--text-muted); font-size: var(--text-11); }
+.wb-grid-label { font-size: var(--text-13); font-weight: var(--weight-medium); }
+
+/* The comparison: the chat message and two module objects as the product draws them today. */
+.wb-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-3); align-items: start; padding-top: var(--space-2); border-top: 1px dashed var(--edge-hairline); }
+.wb-figure.wb-wide { grid-column: 1 / -1; }
+.wb-figure { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; margin: 0; }
+.wb-figure > figcaption { color: var(--text-muted); font-size: var(--text-12); }
+.wb-chat-column { display: flex; flex-direction: column; min-width: 0; }
+.wb-messages { display: flex; flex-direction: column; gap: var(--space-2); overflow: visible; height: auto; padding: 0; }
+.wb-shadow-host { display: block; min-width: 0; }
+.wb-chat-views > .chat { position: static; display: flex; width: 100%; height: auto; }
+.wb-chat-views .mod-content { display: flex; flex-direction: column; width: 100%; }
+
+/* The menu shown as a copy of what openHostMenu draws: where it sits, not floating. */
+.host-menu.wb-static-menu { position: static; width: max-content; max-height: none; }
+.wb-hidden-trigger { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* The padding relation in the Toolbar part: one line where each band's first thing starts, measured by workbench.js. */
+.wb-guides { position: absolute; inset: 0; pointer-events: none; }
+.wb-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--focus-ring); opacity: 0.7; }
+.wb-measure { margin: 0; color: var(--text-muted); font-size: var(--text-12); }
+
+/* The proposed Chat view row: the two views as one joined switch (the segmented look), Start call apart at the end. */
+.wb-chat-row { overflow: visible; }
+.tb-tabs.wb-segmented { gap: 0; }
+.tb-tabs.wb-segmented > .tb-tab { border: 1px solid var(--edge-hairline); border-radius: 0; }
+.tb-tabs.wb-segmented > .tb-tab:first-child { border-radius: var(--radius-small) 0 0 var(--radius-small); }
+.tb-tabs.wb-segmented > .tb-tab:last-child { border-radius: 0 var(--radius-small) var(--radius-small) 0; }
+.tb-tabs.wb-segmented > .tb-tab:not(:first-child) { margin-left: -1px; }
+.tb-tabs.wb-segmented > .tb-tab.on { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--text-on-accent); }
+
+@media (max-width: 900px) {
+  .wb-shell { grid-template-columns: minmax(0, 1fr); }
+  .wb-side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--edge-hairline); }
+  .wb-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
+}
+
+@media (max-width: 640px) {
+  .wb-top { position: static; padding: var(--space-2) var(--space-3); }
+  .wb-tools { margin-left: 0; }
+  .wb-main { padding: var(--space-4) var(--space-3) var(--space-8); }
+  .wb-frame { padding: var(--space-3); }
+  .wb-state { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+}
+
+/* ================= 2. The Free look ================= */
+.wb-part[data-look="free"] > .wb-frame .wb-window { box-shadow: var(--wb-shadow-window, var(--shadow-2)); }
+.wb-part[data-look="free"] > .wb-frame :is(.sdk-card-banded, .sdk-card, .sdk-row) { box-shadow: var(--wb-shadow-object, none); }
+.wb-part[data-look="free"] > .wb-frame .sdk-card-icon { display: var(--wb-icon-show, inline-flex); }
+.wb-part[data-look="free"] > .wb-frame .sdk-card-banded .sdk-card-icon { --card-icon: var(--wb-icon, 24px); }
+.wb-part[data-look="free"] > .wb-frame :is(.mod-toolbar, .sdk-window-content, .sdk-cluster, .sdk-chips) { gap: var(--wb-gap, var(--space-2)); }
+
+/* ================= 3. The Original look (before the design system build) ================= */
+/* The window: a panel on the page, a hairline edge and a small shadow; 10px inside, as a module's .app had. */
+.wb-part[data-look="original"] > .wb-frame { --pad-window: 10px; --pad-band-x: 10px; }
+.wb-part[data-look="original"] > .wb-frame .wb-window { border: 1px solid var(--edge-hairline); border-radius: var(--radius-large); background: var(--surface-panel); box-shadow: 0 1px 3px color-mix(in srgb, black 18%, transparent); }
+
+/* The title bar: the shade, a hairline under it, the tint as a 10% wash and the icon in the full tint at 15px. */
+.wb-part[data-look="original"] > .wb-frame :is(.mod-header, .chat-head) { height: 34px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--edge-hairline); background: var(--surface-field); font-weight: var(--weight-strong); }
+.wb-part[data-look="original"] > .wb-frame .mod-header[data-tint] { background-image: linear-gradient(color-mix(in srgb, var(--tint) 10%, transparent), color-mix(in srgb, var(--tint) 10%, transparent)); }
+.wb-part[data-look="original"] > .wb-frame .mod-title { gap: 4px; }
+.wb-part[data-look="original"] > .wb-frame .mod-header[data-tint] .mod-title > i { color: var(--tint); font-size: 15px; }
+.wb-part[data-look="original"] > .wb-frame :is(.mod-header-tools, .chat-tools) { gap: 2px; }
+
+/* The toolbar row: the shade, 10px each side, 8px between, a hairline under it. */
+.wb-part[data-look="original"] > .wb-frame .mod-toolbar { height: 34px; padding: 0 10px; gap: 8px; border-bottom: 1px solid var(--edge-hairline); background: var(--surface-field); }
+
+/* The view switch: joined segments with a hairline each, 12px words, the chosen one a solid accent. */
+.wb-part[data-look="original"] > .wb-frame .tb-tabs { gap: 0; }
+.wb-part[data-look="original"] > .wb-frame .tb-tabs > .tb-tab { height: auto; min-height: 0; padding: 3px 10px; gap: 5px; border: 1px solid var(--edge-hairline); border-radius: 0; background: none; color: var(--text-muted); font-size: 12px; font-weight: var(--weight-regular); }
+.wb-part[data-look="original"] > .wb-frame .tb-tabs > .tb-tab:first-child { border-radius: var(--radius-small) 0 0 var(--radius-small); }
+.wb-part[data-look="original"] > .wb-frame .tb-tabs > .tb-tab:last-child { border-radius: 0 var(--radius-small) var(--radius-small) 0; }
+.wb-part[data-look="original"] > .wb-frame .tb-tabs > .tb-tab:not(:first-child) { margin-left: -1px; }
+.wb-part[data-look="original"] > .wb-frame .tb-tabs > .tb-tab:is(.on, [aria-pressed="true"]) { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--text-on-accent); }
+.wb-part[data-look="original"] > .wb-frame .tb-tabs > .tb-tab .tb-tab-glyph { font-size: 12px; }
+
+/* The tab strip (Set up's tabs): no edge, 14px weight 600, the chosen one the selected fill. */
+.wb-part[data-look="original"] > .wb-frame .sdk-tabs { gap: 2px; }
+.wb-part[data-look="original"] > .wb-frame .sdk-tabs > .sdk-tab { height: auto; min-height: 0; padding: 8px 8px 7px; gap: 6px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-muted); font-size: 14px; font-weight: var(--weight-strong); }
+.wb-part[data-look="original"] > .wb-frame .sdk-tabs > .sdk-tab[aria-selected="true"] { background: var(--fill-selected); color: var(--text-primary); }
+
+/* Buttons: a shaded fill with a hairline, 7px by 12px (5px by 10px small), a primary that glows on hover, danger as a red outline. */
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn) {
+  --b-bg: color-mix(in srgb, var(--surface-panel) 90%, var(--accent-fill));
+  --b-bg-h: color-mix(in srgb, var(--surface-panel) 78%, var(--accent-fill));
+  --b-bg-a: var(--b-bg-h);
+  --b-fg: var(--text-primary);
+  --b-fg-h: var(--text-primary);
+  --b-bd: var(--edge-hairline);
+  height: auto; min-height: 0; padding: 7px 12px; font-size: var(--text-14); font-weight: var(--weight-medium); line-height: normal; gap: 4px;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn):hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn).btn-small { padding: 5px 10px; font-size: var(--text-13); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn).btn-primary { --b-bg: var(--accent-fill); --b-bg-h: var(--accent-fill-hover); --b-bd: var(--accent-fill); --b-fg: var(--text-on-accent); --b-fg-h: var(--text-on-accent); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn).btn-primary:hover { border-color: var(--accent-fill-hover); box-shadow: 0 2px 12px color-mix(in srgb, var(--accent-fill-hover) 45%, transparent); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn).btn-danger { --b-bg: transparent; --b-bg-h: var(--status-danger-tint); --b-bd: var(--status-danger-fill); --b-fg: var(--status-danger-text); --b-fg-h: var(--status-danger-text); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn).btn-quiet { --b-bg: transparent; --b-bg-h: color-mix(in srgb, var(--accent-fill) 14%, transparent); --b-bd: transparent; --b-fg: var(--text-muted); --b-fg-h: var(--accent-fill); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn):is(.on, [aria-pressed="true"]) { --b-bg: var(--fill-selected); --b-fg: var(--text-accent); }
+.wb-part[data-look="original"] > .wb-frame :is(.btn, .sdk-icon-btn):disabled { opacity: 0.5; }
+/* The icon button was the header's 30px icon link: no edge, no fill, the muted icon. */
+.wb-part[data-look="original"] > .wb-frame .sdk-icon-btn { width: 34px; height: 34px; padding: 0; }
+.wb-part[data-look="original"] > .wb-frame .sdk-icon-btn.btn-small { width: 30px; height: 30px; padding: 0; }
+.wb-part[data-look="original"] > .wb-frame :is(.mod-header, .chat-head, .mod-toolbar) .sdk-icon-btn { --b-bg: transparent; --b-bd: transparent; --b-fg: var(--text-muted); --b-fg-h: var(--accent-fill); --b-bg-h: transparent; width: 30px; height: 30px; }
+
+/* The search: a plain field, a hairline and the soft accent ring on focus. */
+.wb-part[data-look="original"] > .wb-frame .sdk-search > input { height: 30px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-field); font-size: var(--text-13); }
+.wb-part[data-look="original"] > .wb-frame .sdk-search > input:focus { outline: none; border-color: var(--accent-fill); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-fill) 30%, transparent); }
+
+/* Chips: pills with a hairline (Manage's filter chips), the chosen one a solid accent; tags and status labels pills with an edge. */
+.wb-part[data-look="original"] > .wb-frame .sdk-chip { height: 30px; padding: 0 12px; gap: 6px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: var(--surface-field); color: var(--text-muted); font-size: var(--text-13); }
+.wb-part[data-look="original"] > .wb-frame .sdk-chip:hover { border-color: color-mix(in srgb, var(--accent-fill) 55%, var(--edge-hairline)); color: var(--text-primary); }
+.wb-part[data-look="original"] > .wb-frame .sdk-chip:is(.on, [aria-pressed="true"]) { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--text-on-accent); font-weight: var(--weight-strong); }
+.wb-part[data-look="original"] > .wb-frame :is(.sdk-chip-tag, .sdk-status) { border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); }
+.wb-part[data-look="original"] > .wb-frame .mod-status .sdk-status { height: auto; padding: 2px 6px; background: none; color: inherit; }
+
+/* The status line: 10px in, a hairline over it, 6px between its words. */
+.wb-part[data-look="original"] > .wb-frame .mod-status { height: 24px; padding: 0 10px; border-top: 1px solid var(--edge-hairline); background: none; }
+.wb-part[data-look="original"] > .wb-frame .mod-status-items { gap: 6px; }
+.wb-part[data-look="original"] > .wb-frame .mod-status-sep { padding: 0; }
+
+/* Objects: the old .card, one shaded box with a hairline and 10px by 12px inside; no head band. */
+.wb-part[data-look="original"] > .wb-frame :is(.sdk-card, .sdk-card-banded) { gap: 6px; padding: 10px 12px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-field); }
+.wb-part[data-look="original"] > .wb-frame .sdk-card-banded > .sdk-card-head { min-height: 0; padding: 0; border: 0; background: none; }
+.wb-part[data-look="original"] > .wb-frame .sdk-card-banded > .sdk-card-body { padding: 0; }
+.wb-part[data-look="original"] > .wb-frame .sdk-card-banded .sdk-card-title { font-size: var(--text-14); }
+.wb-part[data-look="original"] > .wb-frame .sdk-card-banded.on { background: var(--fill-selected); }
+.wb-part[data-look="original"] > .wb-frame .sdk-row { padding: 7px 10px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-field); }
+.wb-part[data-look="original"] > .wb-frame .sdk-row.on { background: var(--fill-selected); }
+
+/* The menu: the shaded box, a hairline, the big soft shadow, 13px words and 7px by 10px rows. */
+.wb-part[data-look="original"] > .wb-frame .host-menu { padding: 4px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-medium); background: var(--surface-field); box-shadow: 0 8px 24px color-mix(in srgb, black 45%, transparent); font-size: var(--text-13); }
+.wb-part[data-look="original"] > .wb-frame .host-menu-item { min-height: 0; padding: 7px 10px; gap: 8px; border-radius: var(--radius-small); }
+.wb-part[data-look="original"] > .wb-frame .host-menu-item:hover { background: color-mix(in srgb, var(--accent-fill) 14%, transparent); }
+
+/* A narrow window (390) puts each state's name over it, as a module would at that width. */
+.wb-window > .sdk-window-content { container-type: inline-size; }
+@container (max-width: 480px) {
+  .wb-state { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+}

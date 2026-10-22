@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-mode-shown="dark" data-theme-mode="dark" style="--surface-page: #111a1b; --surface-panel: #182325; --edge-hairline: #2a3b3d; --text-primary: #e4eeee; --text-muted: #8ea3a4; --accent-fill: #0dc9ca; --text-on-accent: #062021; --surface-card: color-mix(in srgb, var(--surface-panel) 92%, var(--text-primary)); --bg-card: var(--bg-input); --surface-bar-top: var(--surface-page); --text-bar: var(--text-primary); --surface-bar-brand: color-mix(in srgb, var(--surface-bar-top) 97%, black); --text-bar-brand: var(--text-bar); --surface-bar-right: color-mix(in srgb, var(--surface-bar-top) 97%, black); --text-bar-right: var(--text-bar); --icon-default: var(--text-muted); --icon: initial; --icon-hover: var(--accent-fill); --accent-fill-hover: color-mix(in srgb, var(--accent-fill) 85%, white); --fill-secondary: var(--surface-card); --secondary: var(--surface); --text-on-secondary: var(--text-primary); --fill-secondary-hover: color-mix(in srgb, var(--surface-card) 94%, var(--text-primary)); --secondary-hover: var(--surface-hover); --status-danger-fill: #b8503f; --status-ok-fill: #6fae6b; --status-warn-fill: #d9a93c; --status-info-fill: #6aa6e8; --text-accent: #0dc9ca; --status-danger-on-fill: #ffffff; --status-danger-text: #c57f73; --status-ok-on-fill: #0a0a0a; --status-ok-text: #92c192; --status-ok-mark: #6fae6b; --status-warn-on-fill: #0a0a0a; --status-warn-text: #dcbe71; --status-info-on-fill: #0a0a0a; --status-info-text: #8fbcea; overflow: hidden;" data-proto-scroll="1111,0"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1410">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  
+  <title>Collaborator - Manage</title>
+  <link rel="stylesheet" href="/fa/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  
+  <link rel="stylesheet" href="/design-system/prototype/themes/strong-coffee.css" data-proto-theme="">
+  <link rel="stylesheet" href="/sdk/system.css">
+<script src="/design-system/prototype-frame.js"></script></head>
+<body>
+  <header class="topbar">
+    <div class="nav-left brand">
+      <a class="brand-home" id="brand-home-link" href="/" target="_top" title="Trips">
+        <span class="brand-logo"><img data-brand="icon" alt="" class="icon" hidden="" src="/design-system/prototype/assets/d0ca52a8339c.png"><i class="fa-solid fa-suitcase-rolling fa-fw" data-icon-id="suitcase-rolling" data-brand="home-icon" aria-hidden="true"></i></span>
+        <span class="brand-name" data-brand="environmentName">Collaborator</span>
+      </a>
+    <span class="nav-slot-pair" data-nav-tool="spaces-slot" hidden=""><a class="core-link nav-slot" id="spaces-link" href="/" target="_top">Trips</a><button type="button" class="core-link nav-slot-caret" id="spaces-switch" aria-haspopup="menu" aria-expanded="false" data-tip="Switch trip" aria-label="Switch trip"><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i></button></span><nav class="crumb" id="topbar-crumb" aria-label="Where you are" data-nav-tool="topbar-crumb"><span class="crumb-here" aria-current="page" title="Manage"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i><span class="crumb-label">Manage</span></span></nav><span class="status topbar-status" id="topbar-status" data-nav-tool="topbar-status"></span><span class="nav-divider" data-nav-divider=""></span><nav class="subtabs layout-tabs page-tabs" id="subtabs" data-top-bar="" aria-label="Manage" data-nav-tool="subtabs">
+      <button class="subtab core-link" data-tab="environment" type="button" data-icon="sliders" data-fill="">Environment</button>
+      <button class="subtab core-link" data-tab="template" type="button" id="template-tab" data-icon="shapes" title="The Travel template can turn on more.">Template<span class="badge update-badge" aria-hidden="true">1</span></button>
+      <button class="subtab active core-link" data-tab="theme" type="button" data-icon="palette" aria-current="page">Theme</button>
+      <button class="subtab core-link" data-tab="spaces" type="button" data-icon="door-open" data-fill="">Trips</button>
+      <button class="subtab core-link" data-tab="roles" type="button" data-icon="user-shield">Roles</button>
+      <button class="subtab core-link" data-tab="users" type="button" data-icon="users">Users</button>
+      <button class="subtab core-link" data-tab="modules" type="button" data-icon="puzzle-piece" data-fill="" title="">Modules</button>
+      <button class="subtab core-link" data-tab="about" type="button" data-icon="circle-info">About</button>
+    <button type="button" id="subtabs-more" class="core-link layout-tabs-more" data-tip="More tabs" aria-label="More tabs" aria-haspopup="menu" aria-expanded="false" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></nav></div>
+    <div class="nav-middle core-nav" id="core-nav"></div>
+    <nav class="nav-right links" aria-label="You"><button type="button" id="topbar-more" class="sdk-icon-btn btn-quiet btn-small nav-more" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="topbar-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-environment" data-nav-tool="subtabs-menu-environment" class="icon-link" aria-label="Environment" hidden="" data-tip="Environment"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-template" data-nav-tool="subtabs-menu-template" class="icon-link" aria-label="Template" hidden="" data-tip="Template"><i class="fa-solid fa-shapes fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true">1</span></button><button type="button" id="subtabs-menu-theme" data-nav-tool="subtabs-menu-theme" class="icon-link" aria-label="Theme" hidden="" aria-current="page" data-tip="Theme"><i class="fa-solid fa-palette fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-spaces" data-nav-tool="subtabs-menu-spaces" class="icon-link" aria-label="Trips" hidden="" data-tip="Trips"><i class="fa-solid fa-door-open fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-roles" data-nav-tool="subtabs-menu-roles" class="icon-link" aria-label="Roles" hidden="" data-tip="Roles"><i class="fa-solid fa-user-shield fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-users" data-nav-tool="subtabs-menu-users" class="icon-link" aria-label="Users" hidden="" data-tip="Users"><i class="fa-solid fa-users fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-modules" data-nav-tool="subtabs-menu-modules" class="icon-link" aria-label="Modules" hidden="" data-tip="Modules"><i class="fa-solid fa-puzzle-piece fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-about" data-nav-tool="subtabs-menu-about" class="icon-link" aria-label="About" hidden="" data-tip="About"><i class="fa-solid fa-circle-info fa-fw" aria-hidden="true"></i></button><span class="nav-menu-heading" data-brand="environmentName" data-nav-tool="menu-environment" hidden="">Collaborator</span><a id="menu-home" data-nav-tool="menu-home" class="icon-link" href="/" target="_top" aria-label="Trips" hidden="" data-tip="Trips"><i class="fa-solid fa-house fa-fw" aria-hidden="true"></i></a><a id="menu-dest-calendar" data-nav-tool="menu-dest-calendar" class="icon-link" href="/calendar" data-tip="Calendar" aria-label="Calendar" hidden="" data-destination="/calendar"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i></a><button type="button" id="menu-new-space" data-nav-tool="menu-new-space" class="icon-link" aria-label="New trip" hidden="" data-tip="New trip"><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i></button><button type="button" id="notifications-bell" class="icon-link nav-bell" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifications-list" data-nav-tool="notifications-bell" data-tip="Notifications, 0 unread, 0 module updates" aria-label="Notifications, 0 unread, 0 module updates"><i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true" hidden="">0</span></button><span class="nav-divider" data-nav-divider=""></span><button type="button" class="whoami nav-text" id="whoami-link" title="Account" aria-haspopup="menu" aria-expanded="false" aria-labelledby="whoami whoami-account" data-nav-tool="whoami-link"><img id="whoami-img" alt="" src="/design-system/prototype/assets/7fbd05124372.svg"><span id="whoami">admin</span><span id="whoami-account" hidden="">Account</span><i class="fa-solid fa-caret-down fa-fw whoami-caret" aria-hidden="true"></i></button><button type="button" id="account-profile" data-nav-tool="account-profile" class="icon-link" data-tip="View profile" aria-label="View profile" hidden=""><i class="fa-solid fa-user fa-fw" aria-hidden="true"></i></button><button type="button" class="theme-mode topbar-theme-mode" id="theme-mode-switch" role="switch" aria-label="Dark mode" aria-checked="true" data-tip="Switch to light mode" data-nav-tool="theme-mode-switch" hidden=""><i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i><span class="theme-mode-label" aria-hidden="true">Dark mode</span></button><a id="admin-link" data-nav-tool="admin-link" class="icon-link" href="/admin" data-tip="Manage" aria-label="Manage" hidden=""><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i></a><button type="button" id="account-host-console" data-nav-tool="account-host-console" class="icon-link" data-tip="Host console" aria-label="Host console" hidden=""><i class="fa-solid fa-server fa-fw" aria-hidden="true"></i></button><button type="button" id="account-install" data-nav-tool="account-install" class="icon-link" data-tip="Install as an app" aria-label="Install as an app" hidden=""><i class="fa-solid fa-download fa-fw" aria-hidden="true"></i></button><button type="button" id="account-sign-out" data-nav-tool="account-sign-out" class="icon-link" data-tip="Sign out" aria-label="Sign out" hidden=""><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i></button></nav>
+    <button class="icon-link nav-toggle" id="nav-toggle" type="button" data-tip="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
+  <div class="subnav page-bar page-bar-inside" id="page-bar" role="navigation" aria-label="This page"><div class="nav-left"><span class="page-bar-name nav-text" id="page-bar-name" data-nav-tool="page-bar-name" hidden="" title="Manage"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i><span class="page-bar-label">Manage</span></span><nav class="subtabs page-bar-control" id="env-subtabs" aria-label="Environment settings" data-nav-tool="env-subtabs" hidden="">
+        <button class="subtab active" type="button" data-env-part="general" aria-current="page">General</button>
+        <button class="subtab" type="button" data-env-part="localization">Localization</button>
+        <button class="subtab" type="button" data-env-part="stream">Stream</button>
+      </nav><nav class="subtabs page-bar-control" id="module-subtabs" aria-label="Modules" data-nav-tool="module-subtabs" hidden="">
+        <button class="subtab active" type="button" data-module-part="config" aria-current="page">Configuration</button>
+      <button type="button" class="subtab" data-module-part="conference">Conference</button><button type="button" class="subtab" data-module-part="ai">AI service</button><button type="button" class="subtab" data-module-part="assistant">Assistant</button><button type="button" class="subtab" data-module-part="budget">Budget</button><button type="button" class="subtab" data-module-part="calendar">Calendar</button><button type="button" class="subtab" data-module-part="travel">Itinerary</button><button type="button" class="subtab" data-module-part="maps">Maps</button><button type="button" class="subtab" data-module-part="places">Places</button><button type="button" class="subtab" data-module-part="polls">Polls</button><button type="button" class="subtab" data-module-part="research">Research</button><button type="button" class="subtab" data-module-part="stream">Stream</button><button type="button" class="subtab" data-module-part="todo">To-do</button></nav></div><span class="nav-right"><button type="button" id="subnav-more" class="sdk-icon-btn btn-quiet btn-small nav-more" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="subnav-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i><span class="sdk-tabbar-label" aria-hidden="true">More</span></button></span></div></header>
+
+  <main class="admin">
+    <!-- Manage's tabs: admin.js marks them data-top-bar, so renderPageBar() puts them in the top bar (page-tabs.js, #262).
+         data-icon is each tab's icon in the header's menu on a phone. -->
+    
+
+    
+
+    <section class="tab-stack" id="tab-theme">
+      <div class="panel">
+      <h2>Theme</h2>
+      <p class="hint">Recolor the app to match your own branding -- this is colors only, nothing about layout changes. Strong Coffee is how the app has always looked. Every theme has a light and a dark version. The switch here picks the default: what everyone sees until they pick their own with the light or dark switch at the top of any page. Apply puts the theme and the default live on every open page.</p>
+      <div class="row">
+        <select id="theme-select" aria-label="Theme"><option value="">Strong Coffee (Default)</option><option value="staying-blonde" selected="">Calming Teal</option><option value="willhavebeen">Burnt Orange</option></select>
+        <a class="btn" id="theme-export" href="/api/themes/staying-blonde/export" download="" title="Download the theme in the chooser as a file"><i class="fa-solid fa-file-export fa-fw" aria-hidden="true"></i> Export</a>
+        <button class="btn" id="theme-import" type="button" title="Add a theme from a file"><i class="fa-solid fa-file-import fa-fw" aria-hidden="true"></i> Import…</button>
+        <input id="theme-import-file" type="file" accept=".json,application/json" hidden="">
+        <button class="theme-mode" id="theme-mode" type="button" role="switch" aria-checked="true" aria-label="Dark by default" data-tip="The default: light or dark" title="The default is dark: switch to light"><i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></button>
+        <button class="btn btn-primary" id="theme-apply" type="button">Apply</button>
+        <span class="status" id="theme-status"></span>
+      </div>
+      <p class="hint theme-author" id="theme-author" hidden=""></p>
+      <p class="status theme-import-status" id="theme-import-status" role="status" hidden=""></p>
+      <div class="theme-preview" id="theme-preview">
+        <div class="theme-preview-header topbar-sample">
+          <span class="theme-preview-brand" data-fill=""><i class="fa-solid fa-couch fa-fw" aria-hidden="true"></i> Environment name</span>
+          <span><a class="icon-link" href="#" title="Sample icon"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i></a><a class="icon-link" href="#" title="Sample icon"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i></a></span>
+        </div>
+        <div class="theme-preview-main">
+        <p>Body text, a <a href="#">link</a>, and <span class="hint">dim text</span>.</p>
+        <div class="row">
+          <button class="btn btn-primary" type="button">Primary</button>
+          <button class="btn" type="button">Secondary</button>
+          <a class="icon-link" href="#" title="Sample icon"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i></a>
+          <a class="icon-link" href="#" title="Sample icon"><i class="fa-solid fa-comments fa-fw" aria-hidden="true"></i></a>
+        </div>
+        </div>
+        <div class="sdk-members">
+          <div class="sdk-member">
+            <img class="sdk-member-pic" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
+            <span class="sdk-member-dot"></span>
+            <span class="sdk-member-name">Online</span>
+          </div>
+          <div class="sdk-member">
+            <img class="sdk-member-pic" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23999'/%3E%3C/svg%3E" alt="">
+            <span class="sdk-member-name">Offline</span>
+          </div>
+        </div>
+      </div>
+      <p class="hint">Border reaches further than its name suggests: it's mixed into the toolbar and header shading and into recessed fields, not just outlines.</p>
+      <div class="fields">
+        <label>Page background<input id="theme-bg" type="color" value="#111a1b"></label>
+        <label>Section background<input id="theme-bg-section" type="color" value="#182325"></label>
+        <label>Border<input id="theme-border" type="color" value="#2a3b3d"></label>
+        <label>Text<input id="theme-text" type="color" value="#e4eeee"></label>
+        <label>Dim text<input id="theme-text-dim" type="color" value="#8ea3a4"></label>
+        <label>Primary accent<input id="theme-accent" type="color" value="#0dc9ca"></label>
+        <label>Text on accent<input id="theme-on-accent" type="color" value="#062021"></label>
+      </div>
+      <h3>Header, buttons and icons</h3>
+      <p class="hint">Each of these follows the colors above until you set it: leave <strong>Auto</strong> ticked to keep it derived, or untick it to choose the color yourself.</p>
+      <div class="fields theme-optional">
+        <div class="theme-opt"><label>Card background<input id="theme-card" type="color" disabled="" value="#151f20"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-card" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Header background<input id="theme-header-bg" type="color" disabled="" value="#111a1b"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-header-bg" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Header text<input id="theme-header-text" type="color" disabled="" value="#e4eeee"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-header-text" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Branding area background<input id="theme-nav-brand-bg" type="color" disabled="" value="#10191a"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-brand-bg" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Branding area text<input id="theme-nav-brand-text" type="color" disabled="" value="#e4eeee"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-brand-text" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Right side background<input id="theme-nav-right-bg" type="color" disabled="" value="#10191a"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-right-bg" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Right side text<input id="theme-nav-right-text" type="color" disabled="" value="#e4eeee"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-nav-right-text" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Icons<input id="theme-icon" type="color" disabled="" value="#e4eeee"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-icon" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Icon hover<input id="theme-icon-hover" type="color" disabled="" value="#0dc9ca"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-icon-hover" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Primary accent hover<input id="theme-primary-hover" type="color" disabled="" value="#31d1d2"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-primary-hover" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Secondary accent<input id="theme-secondary" type="color" disabled="" value="#173436"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Text on secondary<input id="theme-secondary-text" type="color" disabled="" value="#e4eeee"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary-text" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Secondary accent hover<input id="theme-secondary-hover" type="color" disabled="" value="#164849"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-secondary-hover" checked=""> Auto</label></div>
+      </div>
+      <h3>Status colors</h3>
+      <p class="hint">The colors of an error, a success, a warning and a notice. Leave <strong>Auto</strong> ticked for the standard ones. The text drawn on each, and each one used as text, are picked for you so they read.</p>
+      <div class="fields theme-optional">
+        <div class="theme-opt"><label>Danger<input id="theme-status-danger" type="color" disabled="" value="#b8503f"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-danger" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>OK<input id="theme-status-ok" type="color" disabled="" value="#6fae6b"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-ok" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Warning<input id="theme-status-warn" type="color" disabled="" value="#d9a93c"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-warn" checked=""> Auto</label></div>
+        <div class="theme-opt"><label>Info<input id="theme-status-info" type="color" disabled="" value="#6aa6e8"></label><label class="sdk-choice-row"><input type="checkbox" data-auto-for="theme-status-info" checked=""> Auto</label></div>
+      </div>
+      <h3>Contrast</h3>
+      <p class="hint">How the colors read together, for the theme and mode being edited, as they change. Text needs 4.5 : 1 to be easy to read; a mark (a bar, a ring, a dot) needs 3 : 1 to be seen.</p>
+      <div class="theme-contrast" id="theme-contrast" role="status" aria-live="polite"><p class="theme-contrast-ok">Every pair reads well.</p><table class="theme-contrast-pairs"><caption class="hint">Calming Teal, dark</caption><thead><tr><th>Pair</th><th>Looks like</th><th>Reads at</th><th>Needs</th><th></th></tr></thead><tbody><tr><td>Text on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #e4eeee; --sample-bg: #111a1b;">Aa</span></td><td>14.96 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Text on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #e4eeee; --sample-bg: #182325;">Aa</span></td><td>13.60 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Muted text on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #8ea3a4; --sample-bg: #111a1b;">Aa</span></td><td>6.67 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Muted text on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #8ea3a4; --sample-bg: #182325;">Aa</span></td><td>6.07 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Accent as text (links), on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #0dc9ca; --sample-bg: #111a1b;">Aa</span></td><td>8.61 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Accent as text (links), on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #0dc9ca; --sample-bg: #182325;">Aa</span></td><td>7.83 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Accent as a mark (bars, focus ring), on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #0dc9ca; --sample-bg: #111a1b;">■</span></td><td>8.61 : 1</td><td>3.00 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Text on the accent</td><td><span class="theme-contrast-sample" style="--sample-fg: #062021; --sample-bg: #0dc9ca;">Aa</span></td><td>8.27 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Text on the Danger fill</td><td><span class="theme-contrast-sample" style="--sample-fg: #ffffff; --sample-bg: #b8503f;">Aa</span></td><td>4.93 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Danger as text, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #c57f73; --sample-bg: #111a1b;">Aa</span></td><td>5.61 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Danger as text, on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #c57f73; --sample-bg: #182325;">Aa</span></td><td>5.10 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Danger as a mark, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #b8503f; --sample-bg: #111a1b;">■</span></td><td>3.59 : 1</td><td>3.00 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Text on the OK fill</td><td><span class="theme-contrast-sample" style="--sample-fg: #0a0a0a; --sample-bg: #6fae6b;">Aa</span></td><td>7.49 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>OK as text, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #92c192; --sample-bg: #111a1b;">Aa</span></td><td>8.65 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>OK as text, on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #92c192; --sample-bg: #182325;">Aa</span></td><td>7.86 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>OK as a mark (bars, dots), on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #6fae6b; --sample-bg: #111a1b;">■</span></td><td>6.69 : 1</td><td>3.00 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Text on the Warning fill</td><td><span class="theme-contrast-sample" style="--sample-fg: #0a0a0a; --sample-bg: #d9a93c;">Aa</span></td><td>9.14 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Warning as text, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #dcbe71; --sample-bg: #111a1b;">Aa</span></td><td>9.81 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Warning as text, on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #dcbe71; --sample-bg: #182325;">Aa</span></td><td>8.92 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Warning as a mark, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #d9a93c; --sample-bg: #111a1b;">■</span></td><td>8.16 : 1</td><td>3.00 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Text on the Info fill</td><td><span class="theme-contrast-sample" style="--sample-fg: #0a0a0a; --sample-bg: #6aa6e8;">Aa</span></td><td>7.76 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Info as text, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #8fbcea; --sample-bg: #111a1b;">Aa</span></td><td>8.88 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Info as text, on a panel</td><td><span class="theme-contrast-sample" style="--sample-fg: #8fbcea; --sample-bg: #182325;">Aa</span></td><td>8.08 : 1</td><td>4.50 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Info as a mark, on the page</td><td><span class="theme-contrast-sample" style="--sample-fg: #6aa6e8; --sample-bg: #111a1b;">■</span></td><td>6.93 : 1</td><td>3.00 : 1</td><td class="theme-contrast-state pass">Reads well</td></tr><tr><td>Border on the page (a quiet line by design)</td><td><span class="theme-contrast-sample" style="--sample-fg: #2a3b3d; --sample-bg: #111a1b;">Aa</span></td><td>1.51 : 1</td><td>-</td><td class="theme-contrast-state">No minimum</td></tr></tbody></table></div>
+      <p class="hint">Adjusting the colors above previews live but doesn't save anything until you pick one of the buttons below.</p>
+      <div class="row">
+        <button class="btn btn-primary" id="theme-save-new" type="button">Save as new theme</button>
+        <button class="btn" id="theme-update" type="button">Update "<span id="theme-update-name">Calming Teal, dark</span>"</button>
+        <button class="btn btn-danger" id="theme-delete" type="button">Delete this theme</button>
+      </div>
+      </div>
+
+
+      <div class="panel">
+      <h2>Default Images</h2>
+      <p class="hint" data-fill="">The Participant box a member shows once neither they nor the trip they're in has set their own picture for a slot -- the last fallback before the box just goes transparent. Aside shows while they're online but pulled into an aside elsewhere (on top of any Dim/Tint set under Settings); Private the same, for a Private Conversation specifically.</p>
+      <div class="slots" id="default-images" data-slot-group="Default">
+        <div class="slot" data-default-slot="playerOffline"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Default Offline picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Default Offline picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Offline</span></div>
+        <div class="slot" data-default-slot="player"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Default Online picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Default Online picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Online</span></div>
+        <div class="slot" data-default-slot="playerTalking"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Default Talking picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Default Talking picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Talking</span></div>
+        <div class="slot" data-default-slot="playerMuted"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Default Muted picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Default Muted picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Muted</span></div>
+        <div class="slot" data-default-slot="playerAside"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Default Aside picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Default Aside picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span data-fill="">Aside</span></div>
+        <div class="slot" data-default-slot="playerPrivate"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Default Private picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Default Private picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="default-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Private</span></div>
+      </div>
+      </div>
+
+
+      <div class="panel">
+      <h2 data-fill="">Guest images</h2>
+      <p class="hint" data-fill="">The Participant box a guest shows in place of a real member's own pictures -- anyone can hand out a trip's guest link from inside it (Settings, in the trip itself); no account behind them to hang per-guest images off of, so this one set stands in for all of them. Online falls back to a generic icon when unset; the others just stay off.</p>
+      <div class="slots" id="guest-images" data-slot-group="{Guest}">
+        <div class="slot" data-guest-slot="playerOffline"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Guest Offline picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Guest Offline picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Offline</span></div>
+        <div class="slot" data-guest-slot="player"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Guest Online picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Guest Online picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Online</span></div>
+        <div class="slot" data-guest-slot="playerTalking"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Guest Talking picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Guest Talking picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Talking</span></div>
+        <div class="slot" data-guest-slot="playerMuted"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Guest Muted picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Guest Muted picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Muted</span></div>
+        <div class="slot" data-guest-slot="playerAside"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Guest Aside picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Guest Aside picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span data-fill="">Aside</span></div>
+        <div class="slot" data-guest-slot="playerPrivate"><div class="slot-pick-wrap" data-paste=""><label class="slot-pick" aria-label="Guest Private picture: paste or choose a file" role="button" tabindex="0"><img alt="" hidden=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden=""></label><button type="button" class="slot-paste" data-tip="Paste" aria-label="Paste into Guest Private picture"><i class="fa-solid fa-paste" aria-hidden="true"></i></button><button class="slot-remove" data-action="guest-image-clear" type="button" data-tip="Remove" aria-label="Remove" hidden="">×</button><span class="slot-hint" role="status">Paste or click to choose</span></div><span>Private</span></div>
+      </div>
+      </div>
+    </section>
+
+    
+
+    
+
+    
+
+    
+
+    <!-- The Template tab (plan-environment-templates, addendum 2): what the environment was made from and switching to
+         another, the offer after a switch, what was left out, then the parts a template gives that stay live: the words,
+         the module names and icons, the home icon, the reactions and the icon list. Drawn by admin.js with /template-offer.js. -->
+    
+
+    
+  </main>
+
+  <template id="icon-row">
+    <div class="reaction-row icon-row">
+      <span class="icon-preview" aria-hidden="true"></span>
+      <input class="icon-html" type="text" placeholder="&lt;i class=&quot;fa-solid fa-dice&quot;&gt;&lt;/i&gt;" aria-label="Font Awesome HTML" spellcheck="false" autocomplete="off">
+      <input class="reaction-label icon-label" type="text" maxlength="40" placeholder="Label" aria-label="Label">
+      <button class="btn btn-small" data-action="icon-up" type="button" data-tip="Move earlier" aria-label="Move earlier">↑</button>
+      <button class="btn btn-small" data-action="icon-down" type="button" data-tip="Move later" aria-label="Move later">↓</button>
+      <button class="btn btn-small btn-danger" data-action="icon-remove" type="button">Remove</button>
+    </div>
+  </template>
+
+  <template id="reaction-row">
+    <div class="reaction-row">
+      <input class="reaction-glyph" type="text" maxlength="8" placeholder="🙂" aria-label="Emoji">
+      <input class="reaction-label" type="text" maxlength="40" placeholder="Label" aria-label="Label">
+      <button class="btn btn-small" data-action="reaction-up" type="button" data-tip="Move earlier" aria-label="Move earlier">↑</button>
+      <button class="btn btn-small" data-action="reaction-down" type="button" data-tip="Move later" aria-label="Move later">↓</button>
+      <button class="btn btn-small btn-danger" data-action="reaction-remove" type="button">Remove</button>
+    </div>
+  </template>
+
+  <template id="space-card">
+    <article class="user-card">
+      <span class="space-thumb"><img class="thumb" data-thumb="" alt="" hidden=""><i class="fa-solid fa-door-open" aria-hidden="true" data-thumb-fallback=""></i></span>
+      <div class="user-title">
+        <strong data-name=""></strong>
+        <span class="meta" data-meta=""></span>
+      </div>
+      <button class="btn btn-small" data-action="space-up" type="button" data-tip="Move earlier" aria-label="Move earlier">↑</button>
+      <button class="btn btn-small" data-action="space-down" type="button" data-tip="Move later" aria-label="Move later">↓</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button" data-fill="">Edit {space}</a>
+    </article>
+  </template>
+
+  <template id="user-card">
+    <article class="user-card">
+      <span class="dot" data-dot="" title="offline"></span>
+      <img class="thumb" data-thumb="" alt="">
+      <div class="user-title">
+        <strong data-name=""></strong>
+        <span class="meta"><span data-login=""></span> · <span data-role=""></span> · key <code data-key=""></code> <span class="sdk-status" data-mfa="" hidden="" title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed="" hidden="" title="Has a private address for a calendar app">calendar feed</span></span>
+      </div>
+      <span class="live" data-live=""></span>
+      <button class="btn btn-small" data-action="mute" type="button">Mute mic</button>
+      <button class="btn btn-small" data-action="kick" type="button">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden="">Turn off feed</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button">Edit profile</a>
+    </article>
+  </template>
+
+  <!-- the colours a theme does not set, picked from the ones it does (shared with the server) -->
+  
+  <!-- the SDK, for the currency list every picker shares (window.hostCurrency) -->
+  
+  
+
+
+<dialog class="sdk-dialog sdk-dialog-confirm" role="alertdialog" aria-modal="true" aria-labelledby="sdk-confirm-1-t" data-kind="final" aria-describedby="sdk-confirm-1-d" open="" data-proto-modal=""><div class="sdk-dialog-head"><h2 class="sdk-dialog-title" id="sdk-confirm-1-t">Delete the theme "Calming Teal"?</h2><button class="sdk-icon-btn btn-quiet btn-small sdk-dialog-close" type="button" aria-label="Close" data-close=""><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><div class="sdk-dialog-body" id="sdk-confirm-1-d"><p>This can't be undone.</p></div><div class="sdk-dialog-foot"><button class="btn" type="button" data-close="">Cancel</button><button class="btn btn-danger solid" type="button" data-ok="">Delete</button></div></dialog></body></html>

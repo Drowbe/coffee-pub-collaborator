@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-mode-shown="dark" style="--app-vh: 900px;" data-theme-mode="dark"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  
+  <meta name="theme-color" content="#1a1410">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  
+  
+  <title>Collaborator — v0.4.0 (dev)</title>
+  <link rel="stylesheet" href="/fa/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  
+  <link rel="stylesheet" href="/design-system/prototype/themes/strong-coffee.css" data-proto-theme="">
+  <link rel="stylesheet" href="/sdk/system.css">
+<script src="/design-system/prototype-frame.js"></script></head>
+<body>
+  <header class="topbar" id="topbar">
+    <div class="nav-left brand">
+      <a class="brand-home" id="brand-home-link" href="/" target="_top" title="Trips">
+        <span class="brand-logo"><img data-brand="icon" alt="" class="icon" hidden="" src="/design-system/prototype/assets/d0ca52a8339c.png"><i class="fa-solid fa-suitcase-rolling fa-fw" data-icon-id="suitcase-rolling" data-brand="home-icon" aria-hidden="true"></i><span class="home-unread" id="home-unread" hidden=""><span class="home-unread-count" aria-hidden="true">0</span><span class="visually-hidden"></span></span></span>
+        <span class="brand-name" data-brand="environmentName">Collaborator</span>
+      </a>
+    <span class="nav-slot-pair" data-nav-tool="spaces-slot" hidden=""><a class="core-link nav-slot" id="spaces-link" href="/" target="_top">Trips</a><button type="button" class="core-link nav-slot-caret" id="spaces-switch" aria-haspopup="menu" aria-expanded="false" data-tip="Switch trip" aria-label="Switch trip"><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i></button></span><span id="space-switcher" class="space-switcher" data-nav-tool="space-switcher" hidden=""><button type="button" class="core-link space-switcher-button" aria-haspopup="menu" aria-expanded="false" title=". Switch trip" aria-label=". Switch trip"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="crumb-label"></span><i class="fa-solid fa-caret-down fa-fw space-switcher-caret" aria-hidden="true"></i></button></span><nav class="crumb" id="topbar-crumb" aria-label="Where you are" data-nav-tool="topbar-crumb"></nav><span class="status topbar-status" id="topbar-status" data-nav-tool="topbar-status"></span><span id="layout-tabs" class="layout-tabs" role="group" aria-label="Layouts" data-nav-tool="layout-tabs" hidden=""><button type="button" id="layout-tabs-more" class="core-link layout-tabs-more" data-tip="More layouts" aria-label="More layouts" aria-haspopup="menu" aria-expanded="false" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button><p id="layout-favorites-note" class="layout-favorites-note" aria-hidden="true" hidden=""></p></span></div>
+    <div class="nav-middle core-nav" id="core-nav"><button type="button" id="notifications-bell" class="icon-link nav-bell" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifications-list" data-nav-tool="notifications-bell" data-tip="Notifications, 0 unread" aria-label="Notifications, 0 unread"><i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true" hidden="">0</span></button></div>
+    <nav class="nav-right links" aria-label="You"><span class="nav-menu-heading" data-brand="environmentName" data-nav-tool="menu-environment">Collaborator</span><a id="menu-home" data-nav-tool="menu-home" class="icon-link" href="/" target="_top" aria-label="Trips" data-tip="Trips"><i class="fa-solid fa-house fa-fw" aria-hidden="true"></i></a><a id="menu-dest-calendar" data-nav-tool="menu-dest-calendar" class="icon-link" href="/calendar" data-tip="Calendar" aria-label="Calendar" data-destination="/calendar"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i></a><button type="button" id="menu-new-space" data-nav-tool="menu-new-space" class="icon-link" aria-label="New trip" hidden="" data-tip="New trip"><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i></button><button type="button" id="call-settings" data-nav-tool="call-settings" class="icon-link call-settings-link" data-tip="Call settings" aria-label="Call settings" hidden=""><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i></button><button type="button" id="aside-rejoin" data-nav-tool="aside-rejoin" class="btn btn-small nav-text" aria-label="Rejoin call" hidden=""><i class="fa-solid fa-circle-left fa-fw" aria-hidden="true"></i> Rejoin call</button><button type="button" id="setup" data-nav-tool="setup" class="icon-link" data-tip="Set up" aria-label="Set up" aria-pressed="false" hidden=""><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i></button><button type="button" id="topbar-more" class="sdk-icon-btn btn-quiet btn-small nav-more" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="topbar-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button><span class="nav-divider" data-nav-divider=""></span><button type="button" class="whoami nav-text" id="whoami-link" tabindex="-1" aria-disabled="true" aria-labelledby="whoami" data-nav-tool="whoami-link"><img id="whoami-img" alt="" src="/design-system/prototype/assets/b7d13cf31bba.svg"><span id="whoami">Mia Alvarez</span><span id="whoami-account" hidden="">Account</span><i class="fa-solid fa-caret-down fa-fw whoami-caret" aria-hidden="true"></i></button><button type="button" id="account-profile" data-nav-tool="account-profile" class="icon-link" data-tip="View profile" aria-label="View profile"><i class="fa-solid fa-user fa-fw" aria-hidden="true"></i></button><button type="button" class="theme-mode topbar-theme-mode" id="theme-mode-switch" role="switch" aria-label="Dark mode" aria-checked="true" data-tip="Switch to light mode" data-nav-tool="theme-mode-switch"><i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i><span class="theme-mode-label" aria-hidden="true">Dark mode</span></button><a id="admin-link" data-nav-tool="admin-link" class="icon-link" href="/admin" data-tip="Manage" aria-label="Manage" hidden=""><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i></a><button type="button" id="account-host-console" data-nav-tool="account-host-console" class="icon-link" data-tip="Host console" aria-label="Host console" hidden=""><i class="fa-solid fa-server fa-fw" aria-hidden="true"></i></button><button type="button" id="account-install" data-nav-tool="account-install" class="icon-link" data-tip="Install as an app" aria-label="Install as an app" hidden=""><i class="fa-solid fa-download fa-fw" aria-hidden="true"></i></button><button type="button" id="account-sign-out" data-nav-tool="account-sign-out" class="icon-link" data-tip="Sign out" aria-label="Sign out"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i></button></nav>
+    <button class="icon-link nav-toggle" id="nav-toggle" type="button" data-tip="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
+  <div id="status-strip" class="sdk-strip" role="region" aria-label="Status" hidden=""><span class="sdk-strip-said" role="status"><button type="button" id="phase-chip" class="sdk-strip-chip sdk-strip-phase" aria-haspopup="dialog"><span class="sdk-strip-dot" aria-hidden="true"></span><span class="sdk-strip-sentence"></span></button></span><div class="sdk-journey" role="group" aria-label="Journey"></div><button type="button" class="sdk-strip-chip sdk-strip-count" aria-haspopup="dialog" hidden=""></button><span class="sdk-strip-facts" role="group" aria-label="Facts" hidden=""></span><span class="sdk-strip-attn-slot" role="status" hidden=""><button type="button" id="attention-count" class="sdk-strip-chip sdk-strip-attn" aria-haspopup="menu"></button></span></div></header>
+
+  <!-- The spaces page scrolls in here, under the header, so the scrollbar starts below it. -->
+  <div class="page-scroll" id="page-scroll">
+  <div class="join" id="join">
+    <!-- Home (plan-home-lobby.md, step 3): three columns using the page's width. Chat on the left, the full height under
+         the top bar (space.js moves the one #chat here while Home shows with no space entered, pointed at Home's chat,
+         the hidden `lobby` record's; resizable, its width remembered in this browser); the spaces in the middle (who is
+         around above the cards); the Modules on the right (the tiles modules provide, filled by public/dashboard.js,
+         hidden with #dashboard while it has none). Below 1200px the Modules go under the space cards. -->
+    <div class="home chat-wide chat-full" id="home" style="--home-chat-w: 360px;">
+      <aside class="home-chat" id="home-chat" aria-label="Chat">
+        <div class="home-chat-slot" id="home-chat-slot"><aside class="chat module module-chat" id="chat" data-view="discussion">
+      <div class="chat-resize" id="chat-resize" title="Drag to resize"></div>
+      <div class="mod-content" id="chat-content">
+      <header class="chat-head">
+        <span data-module-name="">Chat</span>
+        <span class="chat-tools">
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-more" type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-close" type="button" data-tip="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+        </span>
+      </header>
+      <!-- Chat's two views (GitHub #203), one store: Discussion, what everyone sees, and Assistant, your own commands, AI
+           answers and what you bring in. chat-input.js keeps it; the Discussion word follows the template. -->
+      <div class="mod-toolbar" id="chat-views" hidden="">
+        <span class="tb-tabs" role="tablist" aria-label="Chat views">
+          <button class="tb-tab on" id="chat-view-discussion" type="button" role="tab" aria-selected="true" aria-controls="messages" aria-describedby="chat-view-discussion-new" tabindex="0" aria-label="Discussion"><i class="tb-tab-glyph fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Discussion</span><span class="chat-view-count" id="chat-view-discussion-count" aria-hidden="true" hidden="">0</span></button>
+          <button class="tb-tab" id="chat-view-assistant" type="button" role="tab" aria-selected="false" aria-controls="messages" aria-describedby="chat-view-assistant-new" tabindex="-1" aria-label="Assistant"><i class="tb-tab-glyph fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Assistant</span><span class="chat-view-dot" id="chat-view-assistant-dot" aria-hidden="true" hidden=""></span></button>
+        </span>
+        <span id="chat-view-discussion-new" hidden=""></span>
+        <span id="chat-view-assistant-new" hidden=""></span>
+      </div>
+      <p class="visually-hidden" id="chat-view-news" role="status" aria-live="polite"></p>
+      <div class="messages" id="messages" data-view="discussion" data-proto-scroll="488,0"><div class="message own is-chat history" data-at="1792050000000" data-vis="public" data-in="discussion" data-chat-id="872181ae7073"><div class="message-head"><span class="message-head-side"><img class="message-portrait" alt="" src="/design-system/prototype/assets/b7d13cf31bba.svg"><span class="message-name">Mia Alvarez</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 7:40 AM</span></span><span class="message-head-side"><button type="button" class="message-vis" aria-label="Public">public</button><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text"><p>I found a hotel near the square. Want to see it?</p></div></div><div class="message is-chat history" data-at="1792050240000" data-vis="public" data-in="discussion" data-chat-id="8c3c46d904e5"><div class="message-head"><span class="message-head-side"><img class="message-portrait" alt="" src="/design-system/prototype/assets/50b0cc741b14.svg"><span class="message-name">Sam Okafor</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 7:44 AM</span></span><span class="message-head-side"><span class="message-vis" aria-label="Public">public</span><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text"><p>Yes please. Is breakfast included?</p></div></div><div class="message own is-chat history" data-at="1792050600000" data-vis="public" data-in="discussion" data-chat-id="93ba9b3698c0"><div class="message-head"><span class="message-head-side"><img class="message-portrait" alt="" src="/design-system/prototype/assets/b7d13cf31bba.svg"><span class="message-name">Mia Alvarez</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 7:50 AM</span></span><span class="message-head-side"><button type="button" class="message-vis" aria-label="Public">public</button><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text message-stack"><div><p>Here is the one I mean: <a href="https://example.com/avenida-palace" target="_blank" rel="noopener">https://example.com/avenida-palace</a></p></div><div class="chat-link" data-tint="pink"><div class="chat-link-text"><a class="chat-link-title" href="https://example.com/avenida-palace" target="_blank" rel="noopener noreferrer">Hotel Avenida Palace</a><p class="chat-link-desc">A grand old hotel by Restauradores Square, with a tiled lobby and a breakfast hall.</p><div class="chat-link-site"><i class="fa-solid fa-link fa-fw chat-link-icon" aria-hidden="true"></i><span class="chat-link-site-name">example.com</span></div></div></div></div></div><div class="message private-ai own is-chat history" data-tint="gold" data-at="1792051800000" data-vis="private" data-in="assistant" data-chat-id="bcde6ac916a8"><div class="message-head"><span class="message-head-side"><span class="message-portrait message-portrait-icon" aria-hidden="true"><i class="fa-solid fa-robot fa-fw"></i></span><span class="message-name">Mia Alvarez</span><span class="message-command">/ai</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 8:10 AM</span></span><span class="message-head-side"><button type="button" class="message-vis" aria-label="Private">private</button><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text"><p>What should we see on the second day?</p></div></div><div class="message private-ai msg-ai is-chat history" data-tint="gold" data-at="1792051860000" data-vis="public" data-in="both" data-chat-id="265f5a583efb"><div class="message-head"><span class="message-head-side"><span class="message-portrait message-portrait-icon" aria-hidden="true"><i class="fa-solid fa-robot fa-fw"></i></span><span class="message-name">Mia Alvarez</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 8:11 AM</span></span><span class="message-head-side"><button type="button" class="message-vis" aria-label="Shared">shared</button><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text message-stack"><div><p>The second day suits the old town. Start with this:</p></div><article class="chat-object" data-kind="museum"><h3>Tile Museum</h3><p class="chat-object-meta">Museu Nacional do Azulejo · 2026-10-26 · museum</p><div class="chat-object-keeprow" hidden=""><button type="button" class="btn btn-quiet btn-small chat-object-keep" disabled="">Keep</button><span class="chat-object-place">Nothing here can keep this</span></div></article><div><p>Then, for lunch, <strong>one good idea</strong>:</p></div><article class="chat-object" data-kind="restaurant"><h3>Lunch at Cervejaria Ramiro</h3><p class="chat-object-meta">Cervejaria Ramiro · 2026-10-26 · restaurant</p><div class="chat-object-keeprow" hidden=""><button type="button" class="btn btn-quiet btn-small chat-object-keep" disabled="">Keep</button><span class="chat-object-place">Nothing here can keep this</span></div></article><div><p>Book ahead if you can.</p></div></div></div><div class="message is-chat history" data-at="1792053000000" data-vis="public" data-in="discussion" data-chat-id="14dce882bfb1"><div class="message-head"><span class="message-head-side"><img class="message-portrait" alt="" src="/design-system/prototype/assets/50b0cc741b14.svg"><span class="message-name">Sam Okafor</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 8:30 AM</span></span><span class="message-head-side"><span class="message-vis" aria-label="Public">public</span><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text"><p>That sounds good. I will add it to the plan.</p></div></div><div class="message private-ai is-chat history" data-tint="green" data-at="1792053300000" data-vis="public" data-in="discussion" data-chat-id="a7431dd8a643"><div class="message-head"><span class="message-head-side"><span class="message-portrait message-portrait-icon" aria-hidden="true"><i class="fa-solid fa-terminal fa-fw"></i></span><span class="message-name">Sam Okafor</span><span class="message-command">/poll</span><span class="message-dash" aria-hidden="true">–</span><span class="message-when">Oct 15, 8:35 AM</span></span><span class="message-head-side"><span class="message-vis" aria-label="Public">public</span><button type="button" class="sdk-icon-btn btn-quiet btn-small" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></span></div><div class="message-body text"><p>/poll Where do we eat on the first night?</p></div></div><div class="chat-session-divider"><span>Thu 12:00 PM</span></div></div>
+      <div class="chat-format-bar" id="chat-format-bar">
+        <span class="chat-format-side">
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-format-more" type="button" data-more="" hidden="" data-tip="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-pic" type="button" data-collapse="1" data-for="discussion" data-tip="Send a picture" aria-label="Send a picture" hidden=""><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-bold" type="button" data-collapse="2" data-for="discussion" data-tip="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-italic" type="button" data-collapse="3" data-for="discussion" data-tip="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-code" type="button" data-collapse="4" data-for="discussion" data-tip="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-list" type="button" data-collapse="5" data-for="discussion" data-tip="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
+          <span class="chat-format-item" data-collapse="6" data-for="discussion">
+            <button class="sdk-icon-btn btn-quiet btn-small" id="chat-emoji" type="button" data-tip="Emoji" aria-label="Emoji"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></button>
+            
+          </span>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-import-copy" type="button" data-collapse="7" data-for="assistant" data-tip="Copy prompt" aria-label="Copy prompt" hidden=""><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
+          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-bring" type="button" data-collapse="8" data-for="assistant" data-tip="Bring in research" aria-label="Bring in research" hidden=""><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
+        </span>
+        <span class="chat-format-side">
+          <span class="chat-format-item chat-command-wrap" id="chat-command-wrap" data-collapse="9" hidden="">
+            <button class="sdk-icon-btn btn-quiet btn-small" id="chat-command" type="button" data-tip="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
+          </span>
+          <span class="chat-format-item" data-collapse="10" data-for="discussion">
+            <button class="sdk-icon-btn btn-quiet btn-small" id="chat-help" type="button" data-tip="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
+            <div class="chat-help-popup" id="chat-help-popup" hidden="">
+              <p><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, and lines starting with <code>- </code> for a bulleted list all work. Links become clickable automatically. Paste or drop a picture to send it. Shift+Enter starts a new line without sending.</p>
+            </div>
+          </span>
+        </span>
+      </div>
+      </div>
+      <div class="mod-bar chat-bar" id="chat-bar">
+      <form id="chat-form">
+        <textarea id="chat-input" maxlength="1000" placeholder="Send a message or type / for commands" rows="1" enterkeyhint="send"></textarea>
+        <input type="file" id="chat-file" accept="image/*" hidden="">
+      </form>
+      <!-- The Chat column's status line, the modules' own (.mod-status): the connection on the left, the latest notice on
+           the right. Always there, one line; each part is a polite live region so a change is read out once. -->
+      <div class="mod-status chat-status" id="chat-status" role="region" aria-label="Chat status">
+        <span class="mod-status-items">
+          <span class="mod-status-item" id="chat-conn" aria-live="polite" title=""><i class="fa-solid fa-fw" id="chat-conn-icon" aria-hidden="true"></i><span class="mod-status-text" id="chat-conn-text"></span><span class="mod-status-text" id="chat-conn-time" aria-hidden="true"></span></span>
+          <span class="mod-status-item end" id="chat-note-item"><span class="mod-status-text" id="chat-note" role="status" aria-live="polite"></span></span>
+        </span>
+      </div>
+      </div>
+    </aside></div>
+        <!-- The column's inner edge, as the space column's: dragged, Left and Right (Shift for more), Home and End,
+             double-click or Shift+Enter for the default. -->
+        <div class="side-column-splitter side-column-splitter-v home-chat-splitter" id="home-chat-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the chat column" tabindex="0" title="Drag to resize" aria-valuemin="220" aria-valuemax="390" aria-valuenow="360" aria-valuetext="360 pixels wide"></div>
+      </aside>
+      <div class="home-main">
+        <section class="whos-around" id="whos-around"><h2 class="whos-around-title"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i> Who's around <span class="sdk-badge"></span></h2><p class="sdk-empty-line">Nobody is around right now.</p></section>
+        <!-- The space cards' heading (the home word). Adding one (GitHub #233) is the dashed card last in the grid. -->
+        <div class="space-list-head" id="space-list-head">
+          <h2 class="space-list-title" id="space-list-title"><i class="fa-solid fa-suitcase-rolling fa-fw" aria-hidden="true"></i> Trips</h2>
+        </div>
+        <!-- The cards, then the ghost card last (space.js keeps it last): for owners and the admin, it makes the space and
+             takes them into it with Set up open. -->
+        <div class="space-list" id="spaces">
+          <article class="space-choice" data-space="m6ktddtu" role="button" tabindex="0" aria-label="Lisbon in autumn">
+      <img class="space-choice-image" alt="" hidden="">
+      <div class="space-choice-head">
+        <strong class="space-choice-name">Lisbon in autumn</strong>
+        <span class="hint space-choice-count">Nobody here</span>
+      </div>
+      <p class="hint space-choice-desc">Ten days of trams, tiles and custard tarts.</p>
+      <div class="sdk-members"><div class="sdk-member" data-key="ym5ctnkw" title="Mia Alvarez"><img alt="" class="sdk-member-pic" data-slot="playerOffline" src="/design-system/prototype/assets/b7d13cf31bba.svg"><span class="sdk-member-dot" hidden=""></span><span class="sdk-member-name">Mia Alvarez</span></div><div class="sdk-member" data-key="cunjw4gd" title="Sam Okafor"><img alt="" class="sdk-member-pic" data-slot="playerOffline" src="/design-system/prototype/assets/50b0cc741b14.svg"><span class="sdk-member-dot" hidden=""></span><span class="sdk-member-name">Sam Okafor</span></div><div class="sdk-member" data-key="t2p9zs34" title="admin"><img alt="" class="sdk-member-pic" data-slot="playerOffline" src="/design-system/prototype/assets/7fbd05124372.svg"><span class="sdk-member-dot" hidden=""></span><span class="sdk-member-name">admin</span></div></div>
+      <div class="space-choice-actions">
+        <button class="btn btn-primary" data-join="m6ktddtu" type="button" title="Enter"><i class="fa-solid fa-door-open fa-fw" data-join-icon="" aria-hidden="true"></i> <span class="join-label" data-join-label="">Enter</span></button>
+        <span class="space-choice-tools">
+          <a class="btn btn-small" data-link="" target="_blank" rel="noopener" href="#" data-tip="Open this trip's link" aria-label="Open this trip's link" data-fill="" hidden=""><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
+        </span>
+      </div>
+    </article><article class="space-choice" data-space="6kma78g2" role="button" tabindex="0" aria-label="Kyoto in spring">
+      <img class="space-choice-image" alt="" hidden="">
+      <div class="space-choice-head">
+        <strong class="space-choice-name">Kyoto in spring</strong>
+        <span class="hint space-choice-count">Nobody here</span>
+      </div>
+      <p class="hint space-choice-desc">Blossom season, if we are lucky.</p>
+      <div class="sdk-members"><div class="sdk-member" data-key="ym5ctnkw" title="Mia Alvarez"><img alt="" class="sdk-member-pic" data-slot="playerOffline" src="/design-system/prototype/assets/b7d13cf31bba.svg"><span class="sdk-member-dot" hidden=""></span><span class="sdk-member-name">Mia Alvarez</span></div><div class="sdk-member" data-key="t2p9zs34" title="admin"><img alt="" class="sdk-member-pic" data-slot="playerOffline" src="/design-system/prototype/assets/7fbd05124372.svg"><span class="sdk-member-dot" hidden=""></span><span class="sdk-member-name">admin</span></div></div>
+      <div class="space-choice-actions">
+        <button class="btn btn-primary" data-join="6kma78g2" type="button" title="Enter"><i class="fa-solid fa-door-open fa-fw" data-join-icon="" aria-hidden="true"></i> <span class="join-label" data-join-label="">Enter</span></button>
+        <span class="space-choice-tools">
+          <a class="btn btn-small" data-link="" target="_blank" rel="noopener" href="#" data-tip="Open this trip's link" aria-label="Open this trip's link" data-fill="" hidden=""><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
+        </span>
+      </div>
+    </article><button class="space-choice-add" id="home-add-space" type="button" hidden="" title="Add Trip" aria-label="Add Trip"><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> <span id="home-add-space-label">Add Trip</span></button>
+        </div>
+        <p class="status error" id="join-error" hidden=""></p>
+      </div>
+      <!-- The Modules (decisions 10 and 11): headed with the module word, the tiles stacked in the order the server lists them. -->
+      <aside class="home-modules" id="home-modules" aria-labelledby="home-modules-title">
+        <h2 class="space-list-title home-modules-title" id="home-modules-title"><i class="fa-solid fa-puzzle-piece fa-fw" aria-hidden="true"></i> Modules</h2>
+        <div class="dashboard" id="dashboard"><article class="dashboard-widget" data-widget="calendar" data-size="tall"><header><a class="dashboard-widget-title" href="/calendar" title="Open Calendar" data-page-link=""><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i> Coming up</a></header><div class="dashboard-widget-body"><div class="module-root dashboard-widget-root"><template shadowrootmode="open"><style data-proto-css="sdk 5f8b26c3b0fd"></style>
+<div id="w" class="w">
+  <div id="month" class="mini"><div class="mini-head"><button type="button" data-step="-1" aria-label="Previous month">‹</button><strong>October 2026</strong><button type="button" data-step="1" aria-label="Next month">›</button></div><div class="mini-grid"><span class="mini-dow">S</span><span class="mini-dow">M</span><span class="mini-dow">T</span><span class="mini-dow">W</span><span class="mini-dow">T</span><span class="mini-dow">F</span><span class="mini-dow">S</span><button type="button" class="mini-day other" data-day="2026-09-27" aria-label="Sunday, September 27">27</button><button type="button" class="mini-day other" data-day="2026-09-28" aria-label="Monday, September 28">28</button><button type="button" class="mini-day other" data-day="2026-09-29" aria-label="Tuesday, September 29">29</button><button type="button" class="mini-day other" data-day="2026-09-30" aria-label="Wednesday, September 30">30</button><button type="button" class="mini-day" data-day="2026-10-01" aria-label="Thursday, October 1">1</button><button type="button" class="mini-day" data-day="2026-10-02" aria-label="Friday, October 2">2</button><button type="button" class="mini-day" data-day="2026-10-03" aria-label="Saturday, October 3">3</button><button type="button" class="mini-day" data-day="2026-10-04" aria-label="Sunday, October 4">4</button><button type="button" class="mini-day" data-day="2026-10-05" aria-label="Monday, October 5">5</button><button type="button" class="mini-day" data-day="2026-10-06" aria-label="Tuesday, October 6">6</button><button type="button" class="mini-day" data-day="2026-10-07" aria-label="Wednesday, October 7">7</button><button type="button" class="mini-day" data-day="2026-10-08" aria-label="Thursday, October 8">8</button><button type="button" class="mini-day" data-day="2026-10-09" aria-label="Friday, October 9">9</button><button type="button" class="mini-day" data-day="2026-10-10" aria-label="Saturday, October 10">10</button><button type="button" class="mini-day" data-day="2026-10-11" aria-label="Sunday, October 11">11</button><button type="button" class="mini-day has" data-day="2026-10-12" aria-label="Monday, October 12">12</button><button type="button" class="mini-day" data-day="2026-10-13" aria-label="Tuesday, October 13">13</button><button type="button" class="mini-day" data-day="2026-10-14" aria-label="Wednesday, October 14">14</button><button type="button" class="mini-day today" data-day="2026-10-15" aria-label="Thursday, October 15">15</button><button type="button" class="mini-day has" data-day="2026-10-16" aria-label="Friday, October 16">16</button><button type="button" class="mini-day" data-day="2026-10-17" aria-label="Saturday, October 17">17</button><button type="button" class="mini-day" data-day="2026-10-18" aria-label="Sunday, October 18">18</button><button type="button" class="mini-day has" data-day="2026-10-19" aria-label="Monday, October 19">19</button><button type="button" class="mini-day" data-day="2026-10-20" aria-label="Tuesday, October 20">20</button><button type="button" class="mini-day" data-day="2026-10-21" aria-label="Wednesday, October 21">21</button><button type="button" class="mini-day" data-day="2026-10-22" aria-label="Thursday, October 22">22</button><button type="button" class="mini-day" data-day="2026-10-23" aria-label="Friday, October 23">23</button><button type="button" class="mini-day has" data-day="2026-10-24" aria-label="Saturday, October 24">24</button><button type="button" class="mini-day has" data-day="2026-10-25" aria-label="Sunday, October 25">25</button><button type="button" class="mini-day has" data-day="2026-10-26" aria-label="Monday, October 26">26</button><button type="button" class="mini-day has" data-day="2026-10-27" aria-label="Tuesday, October 27">27</button><button type="button" class="mini-day has" data-day="2026-10-28" aria-label="Wednesday, October 28">28</button><button type="button" class="mini-day has" data-day="2026-10-29" aria-label="Thursday, October 29">29</button><button type="button" class="mini-day" data-day="2026-10-30" aria-label="Friday, October 30">30</button><button type="button" class="mini-day" data-day="2026-10-31" aria-label="Saturday, October 31">31</button><button type="button" class="mini-day other" data-day="2026-11-01" aria-label="Sunday, November 1">1</button><button type="button" class="mini-day other has" data-day="2026-11-02" aria-label="Monday, November 2">2</button><button type="button" class="mini-day other has" data-day="2026-11-03" aria-label="Tuesday, November 3">3</button><button type="button" class="mini-day other" data-day="2026-11-04" aria-label="Wednesday, November 4">4</button><button type="button" class="mini-day other" data-day="2026-11-05" aria-label="Thursday, November 5">5</button><button type="button" class="mini-day other" data-day="2026-11-06" aria-label="Friday, November 6">6</button><button type="button" class="mini-day other" data-day="2026-11-07" aria-label="Saturday, November 7">7</button></div></div>
+  <p id="msg" class="hint" hidden="">Nothing in the next week.</p>
+  <div id="list" class="list">
+      <section class="day"><h4>Tomorrow</h4>
+      <button type="button" class="item" data-event="m6ktddtu|e1" title="Passport photos - Lisbon in autumn">
+          <span class="ri" title="Lisbon in autumn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 352L0 128C0 75 43 32 96 32l320 0c53 0 96 43 96 96l0 224c0 53-43 96-96 96l-120 0c-5.2 0-10.2 1.7-14.4 4.8L166.4 539.2c-4.2 3.1-9.2 4.8-14.4 4.8-13.3 0-24-10.7-24-24l0-72-32 0c-53 0-96-43-96-96z"></path></svg></span><span class="when">4 PM – 4:30 PM</span><span class="what">Passport photos</span><span class="go"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 256a256 256 0 1 0 512 0 256 256 0 1 0 -512 0zm387.3 11.3l-104 104c-4.6 4.6-11.5 5.9-17.4 3.5S256 366.5 256 360l0-56-96 0c-17.7 0-32-14.3-32-32l0-32c0-17.7 14.3-32 32-32l96 0 0-56c0-6.5 3.9-12.3 9.9-14.8s12.9-1.1 17.4 3.5l104 104c6.2 6.2 6.2 16.4 0 22.6z"></path></svg></span></button></section>
+      <section class="day"><h4>Monday, October 19</h4>
+      <button type="button" class="item" data-event="m6ktddtu|e4" title="Weekly planning call - Lisbon in autumn">
+          <span class="ri" title="Lisbon in autumn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 352L0 128C0 75 43 32 96 32l320 0c53 0 96 43 96 96l0 224c0 53-43 96-96 96l-120 0c-5.2 0-10.2 1.7-14.4 4.8L166.4 539.2c-4.2 3.1-9.2 4.8-14.4 4.8-13.3 0-24-10.7-24-24l0-72-32 0c-53 0-96-43-96-96z"></path></svg></span><span class="when">7 PM – 7:45 PM</span><span class="what">Weekly planning call</span><span class="go"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 256a256 256 0 1 0 512 0 256 256 0 1 0 -512 0zm387.3 11.3l-104 104c-4.6 4.6-11.5 5.9-17.4 3.5S256 366.5 256 360l0-56-96 0c-17.7 0-32-14.3-32-32l0-32c0-17.7 14.3-32 32-32l96 0 0-56c0-6.5 3.9-12.3 9.9-14.8s12.9-1.1 17.4 3.5l104 104c6.2 6.2 6.2 16.4 0 22.6z"></path></svg></span></button></section></div>
+</div>
+
+</template></div></div></article><article class="dashboard-widget" data-widget="todo" data-size="small"><header><a class="dashboard-widget-title" href="/calendar#panel=todo" title="Open To-do" data-page-link=""><i class="fa-solid fa-list-check fa-fw" aria-hidden="true"></i> Due soon</a></header><div class="dashboard-widget-body"><div class="module-root dashboard-widget-root"><template shadowrootmode="open"><style data-proto-css="sdk e82a93fe8a4f"></style>
+<div id="w" class="w">
+  <div id="loading" aria-busy="true" hidden=""><div class="sdk-skel-list"><div class="sdk-skel sdk-skel-line"></div><div class="sdk-skel sdk-skel-line"></div></div></div>
+  <p id="msg" class="sdk-empty-line" hidden=""></p>
+  <div id="list" class="list"><button type="button" class="item" data-task="m6ktddtu|t1" title="Book the Sintra train - Lisbon in autumn">
+        <span class="ri" title="Lisbon in autumn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 352L0 128C0 75 43 32 96 32l320 0c53 0 96 43 96 96l0 224c0 53-43 96-96 96l-120 0c-5.2 0-10.2 1.7-14.4 4.8L166.4 539.2c-4.2 3.1-9.2 4.8-14.4 4.8-13.3 0-24-10.7-24-24l0-72-32 0c-53 0-96-43-96-96z"></path></svg></span><span class="what">Book the Sintra train</span><span class="when ">Oct 17</span><span class="go"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 256a256 256 0 1 0 512 0 256 256 0 1 0 -512 0zm387.3 11.3l-104 104c-4.6 4.6-11.5 5.9-17.4 3.5S256 366.5 256 360l0-56-96 0c-17.7 0-32-14.3-32-32l0-32c0-17.7 14.3-32 32-32l96 0 0-56c0-6.5 3.9-12.3 9.9-14.8s12.9-1.1 17.4 3.5l104 104c6.2 6.2 6.2 16.4 0 22.6z"></path></svg></span></button><button type="button" class="item" data-task="m6ktddtu|t2" title="Exchange some euros - Lisbon in autumn">
+        <span class="ri" title="Lisbon in autumn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 352L0 128C0 75 43 32 96 32l320 0c53 0 96 43 96 96l0 224c0 53-43 96-96 96l-120 0c-5.2 0-10.2 1.7-14.4 4.8L166.4 539.2c-4.2 3.1-9.2 4.8-14.4 4.8-13.3 0-24-10.7-24-24l0-72-32 0c-53 0-96-43-96-96z"></path></svg></span><span class="what">Exchange some euros</span><span class="when ">Oct 20</span><span class="go"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M0 256a256 256 0 1 0 512 0 256 256 0 1 0 -512 0zm387.3 11.3l-104 104c-4.6 4.6-11.5 5.9-17.4 3.5S256 366.5 256 360l0-56-96 0c-17.7 0-32-14.3-32-32l0-32c0-17.7 14.3-32 32-32l96 0 0-56c0-6.5 3.9-12.3 9.9-14.8s12.9-1.1 17.4 3.5l104 104c6.2 6.2 6.2 16.4 0 22.6z"></path></svg></span></button></div>
+</div>
+
+</template></div></div></article><article class="dashboard-widget" data-widget="polls" data-size="small"><header><a class="dashboard-widget-title" href="/modules/polls" title="Open Polls" data-page-link=""><i class="fa-solid fa-square-poll-vertical fa-fw" aria-hidden="true"></i> Need your vote</a></header><div class="dashboard-widget-body"><div class="module-root dashboard-widget-root"><template shadowrootmode="open"><style data-proto-css="sdk e82a93fe8a4f"></style>
+<div id="w" class="w">
+  <div id="loading" aria-busy="true" hidden=""><div class="sdk-skel-list"><div class="sdk-skel sdk-skel-line"></div><div class="sdk-skel sdk-skel-line"></div></div></div>
+  <p id="msg" class="sdk-empty-line">No polls waiting for your vote.</p>
+  <div id="list" class="list" hidden=""></div>
+</div>
+
+</template></div></div></article></div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- A guest link (/guest/<token>) shows this instead: a name, nothing else. -->
+  <form class="join guest-join" id="guest-join" hidden="">
+    <h1 id="guest-space-name" data-fill="">Enter as a guest</h1>
+    <label>Your name<input id="guest-name" type="text" maxlength="40" required="" autocomplete="name" value=""></label>
+    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-door-open fa-fw" aria-hidden="true"></i> <span data-verb="enter">Enter</span></button>
+    <p class="status error" id="guest-join-error" hidden=""></p>
+    <p class="hint join-note">Nothing about you is kept once you leave.</p>
+  </form>
+  </div>
+
+  <template id="space-choice">
+    <article class="space-choice">
+      <img class="space-choice-image" alt="" hidden="">
+      <div class="space-choice-head">
+        <strong class="space-choice-name"></strong>
+        <span class="hint space-choice-count"></span>
+      </div>
+      <p class="hint space-choice-desc"></p>
+      <div class="sdk-members"></div>
+      <div class="space-choice-actions">
+        <button class="btn btn-primary" data-join="" type="button"><i class="fa-solid fa-door-open fa-fw" data-join-icon="" aria-hidden="true"></i> <span class="join-label" data-join-label=""></span></button>
+        <span class="space-choice-tools">
+          <a class="btn btn-small" data-link="" target="_blank" rel="noopener" href="#" data-tip="Open this {space}'s link" aria-label="Open this {space}'s link" data-fill="" hidden=""><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
+        </span>
+      </div>
+    </article>
+  </template>
+
+  <!-- Shown on the page while the whole app (header and canvas) is popped out into its own window. -->
+  <div class="away" id="away" hidden="">
+    <p>The app is in its own window.</p>
+    <button class="btn btn-primary" id="bring-back" type="button">Bring the app back</button>
+  </div>
+
+  <!-- Your profile or Manage, opened from inside a call: loads for real in
+       an iframe so the call underneath keeps running untouched. The page's
+       own header gets a "Back to [space]" link added to it (see brand.js'
+       wireOverlayBack, called from profile.js/admin.js) rather than
+       stacking a second bar of ours on top of it. -->
+  <iframe class="page-overlay" id="page-overlay-frame" title="Page" hidden=""></iframe>
+
+  <!-- The work area: the always-on column (the call and the chat, plan-one-bar.md step 6) beside the canvas. The whole
+       of it pops out as one. At 640px and below the column is not drawn: the phone keeps its tabs. -->
+  <div class="work" id="work">
+  <aside class="side-column" id="side-column" aria-label="Call and chat" style="--side-column-w: 320px; --side-column-call-w: 240px; --side-column-strip-h: 168px;">
+    <!-- The handle: collapses the column to a rail and back. space.js remembers it per space. -->
+    <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" data-tip="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
+    <!-- The call's titlebar, as the chat's: its name (the environment's name for the conference, else Call) and a "..."
+         with Pop out, Call position, Settings and Leave the call (space.js, the call's place). -->
+    <header class="side-column-call-head" id="call-head" hidden="">
+      <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span> <span class="call-time nav-text" data-call-time="" hidden=""><span aria-hidden="true">·</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
+      <span class="chat-tools">
+        <button class="sdk-icon-btn btn-quiet btn-small" id="call-head-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call" hidden=""><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
+        <button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+      </span>
+    </header>
+    <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
+    <div class="side-column-strip" id="side-column-strip"></div>
+    <!-- The split between the call's strip and the chat: dragged, or Up and Down with the keyboard. Shown on the call. -->
+    <div class="side-column-splitter side-column-splitter-h" id="side-column-strip-splitter" role="separator" aria-orientation="horizontal" aria-label="Resize the call" tabindex="0" title="Drag to resize" aria-valuemin="100" aria-valuemax="495" aria-valuenow="168" aria-valuetext="168 pixels tall"></div>
+    <!-- The call out of the column (its own window, or floating): a slim strip with its controls and Bring the call back.
+         Each control clicks the call's own, so it does just what it does there. -->
+    <div class="side-column-call-out" id="call-out" hidden="">
+      <span class="call-out-note" id="call-out-note">The call is in its own window</span>
+      <span class="call-out-tools">
+        <button class="fbtn" id="call-out-mic" type="button" data-for="mic" data-tip="Microphone" data-tip-keys="M" aria-label="Microphone"><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
+        <button class="fbtn on" id="call-out-deafen" type="button" data-for="deafen" data-tip="Mute what you hear" data-tip-keys="D" aria-label="Mute what you hear"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
+        <button class="fbtn" id="call-out-cam" type="button" data-for="cam" data-tip="Camera" data-tip-keys="V" aria-label="Camera"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
+        <button class="fbtn danger" id="call-out-hangup" type="button" data-for="hangup" data-tip="Leave the call (you stay in the trip)" aria-label="Leave the call"><span class="glyph"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i></span></button>
+        <button class="btn btn-small call-out-back" id="call-back" type="button"><i class="fa-solid fa-arrow-left fa-fw" aria-hidden="true"></i> Bring the call back</button>
+      </span>
+    </div>
+    <!-- The chat (canvas.js puts #chat here). -->
+    <div class="side-column-chat" id="side-column-chat"></div>
+    <!-- Collapsed: the faces on the call and the chat's unread count. -->
+    <div class="side-column-rail" id="side-column-rail">
+      <button class="side-column-rail-chat" id="side-column-rail-chat" type="button" data-tip="Chat" aria-label="Chat"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" id="side-column-rail-unread" hidden=""></span></button>
+      <div class="side-column-rail-faces" id="side-column-rail-faces"></div>
+    </div>
+    <!-- The column's inner edge: dragged to make the column wider or narrower, or Left and Right with the keyboard
+         (Shift for more, Home and End for the least and the most, double-click or Shift+Enter for the default).
+         space.js remembers the width per person (the chat's width preference). -->
+    <div class="side-column-splitter side-column-splitter-v" id="side-column-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the chat column" tabindex="0" title="Drag to resize" aria-valuemin="220" aria-valuemax="390" aria-valuenow="320" aria-valuetext="320 pixels wide"></div>
+    <!-- Call position Left: the line between the call (on the left) and the chat, the same keys as the edge. Shown only
+         then; space.js remembers the call's width per person (prefs.callSideWidth). -->
+    <div class="side-column-splitter side-column-splitter-side" id="side-column-call-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the call beside the chat" tabindex="0" title="Drag to resize" hidden="" aria-valuemin="240" aria-valuemax="240" aria-valuenow="240" aria-valuetext="The call 240 pixels wide"></div>
+  </aside>
+  <!-- Everything in the call lives inside the canvas so it can pop out as one. -->
+  
+  </div>
+
+  <!-- @livekit/track-processors (background blur) imports these two by bare
+       package name; there's no bundler here to resolve that, so this maps
+       them to the same self-hosted files everything else already uses. Its
+       exact text is pinned by a CSP hash above -- change one, change both. -->
+  
+  
+  
+  
+  
+
+
+<div class="subnav sdk-tabbar" id="subnav">
+  <div class="nav-left subnav-left"><span class="module-chooser" data-nav-tool="module-chooser"><div class="sdk-tabbar-tabs" id="modules-menu" aria-label="Modules"></div></span><button type="button" id="subnav-more" class="sdk-icon-btn btn-quiet btn-small nav-more sdk-tabbar-tab" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="subnav-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i><span class="sdk-tabbar-label" aria-hidden="true">More</span></button><button type="button" id="join-call" class="btn btn-small btn-primary join-call nav-text sdk-tabbar-tab" aria-label="Start call" title="Start a call from this chat" data-role="join" data-nav-tool="join-call" hidden=""><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span></button><span class="who-here count-only" data-nav-tool="who-here" hidden="">
+    <button class="who-here-toggle nav-text sdk-tabbar-tab" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list" data-mic="off" title="Just you in this trip">
+      <span class="who-here-faces sdk-avatar-stack" aria-hidden="true" hidden=""></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true">Just you</span><span class="who-here-word sdk-tabbar-label" aria-hidden="true">Online</span><span class="sdk-badge-micro who-here-n" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said">Just you in this trip</span>
+    </button>
+    <section class="who-here-list" id="who-here-list" tabindex="-1" aria-labelledby="who-here-title" hidden="">
+      <h3 class="who-here-title" id="who-here-title"></h3>
+      <ul class="who-here-people"></ul>
+    </section></span></div>
+  <span class="nav-right subnav-tools"><button type="button" id="fullscreen-toggle" data-nav-tool="fullscreen-toggle" class="icon-link sdk-tabbar-tab" data-tip="Full screen (F)" aria-label="Full screen" aria-pressed="false"><i class="fa-solid fa-expand fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-compress fa-fw icon-off" aria-hidden="true"></i></button><button type="button" id="popout" data-nav-tool="popout" class="icon-link sdk-tabbar-tab" data-tip="Pop out into its own window" aria-label="Pop out into its own window" aria-pressed="false"><i class="fa-solid fa-up-right-from-square fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-window-restore fa-fw icon-off" aria-hidden="true"></i></button><button type="button" id="recall-button" data-nav-tool="recall-button" class="btn btn-small nav-text sdk-tabbar-tab" aria-label="Pull participants back" hidden="" title="Give everyone in a Private Conversation from this trip a 10 second warning, then pull them back"><i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i> Pull participants back</button><button type="button" id="rejoin-call" data-nav-tool="rejoin-call" class="icon-link sdk-tabbar-tab" data-tip="Rejoin call" aria-label="Rejoin call" hidden="" data-role="join"><i class="fa-solid fa-circle-left fa-fw" aria-hidden="true"></i><span class="sdk-tabbar-label" aria-hidden="true">Rejoin</span></button><button type="button" id="modules-toggle" data-nav-tool="modules-toggle" class="icon-link sdk-tabbar-tab" aria-label="Layout" hidden="" aria-haspopup="menu" aria-expanded="false" data-tip="Layout"><i class="fa-solid fa-object-group fa-fw" aria-hidden="true"></i></button><span class="nav-divider nav-folded" data-nav-divider=""></span><button type="button" id="leave-space" data-nav-tool="leave-space" class="icon-link sdk-tabbar-tab" aria-label="Leave trip" data-role="leave" data-tip="Leave trip"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i><span class="sdk-tabbar-label" aria-hidden="true">Leave</span></button></span></div><p id="space-setup-said" class="setup-said" role="status" aria-live="polite" hidden=""></p></body></html>

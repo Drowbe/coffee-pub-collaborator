@@ -1,0 +1,140 @@
+
+
+/*
+ * The Research module's look. The markup it styles is fixed in CONTRACT.md; the script builds that markup and toggles state classes and data
+ * attributes, it never sets a style (a tag's colour, --chip-tone, is the one exception). Colours come only from the theme tokens, so a light theme
+ * works. Nothing has a fixed pixel height: the module fills its pane and scrolls inside it. The narrow layout keys on `.rs.narrow`, which the
+ * script sets from the pane's width (under 720 px), not the window's.
+ */
+* { box-sizing: border-box; }
+:host, :host { height: 100%; }
+:host { margin: 0; overflow: hidden; }
+[hidden] { display: none !important; }
+.ic { display: inline-flex; align-items: center; flex: none; }
+.ic svg { width: 1em; height: 1em; fill: currentColor; }
+.msg { padding: 16px; color: var(--text-muted); }
+.rs { position: relative; }
+.rcard .ic svg { width: 1em; height: 1em; }
+/* the card the model writes inside its answer: drawn inline, kept only when the person keeps or drags it */
+/* Ask: what the answer may use, and the note under a card about where it came from */
+.pick-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-kind { color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+
+/* ================= the Research pane: header, filters, cards ================= */
+.rs { display: flex; flex-direction: column; height: 100%; background: var(--surface-page); color: var(--text-primary); font-size: var(--text-14); }
+.rs-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); }
+.rs-head h1 { margin: 0; font-size: var(--text-18); }
+/* .rs-tools is a toolbar band (.sdk-toolbar, system.css modulechrome): its height, inset and search are the window's, not ours. */
+/* Filters: the kind row is always there; the tag row shows only the tags chosen in the toolbar's Tags chooser, each with an x to drop it. */
+.rs-chips { padding: var(--space-2) var(--space-3) 0; }
+.rs-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-3) var(--space-4); }
+/* cards pack like masonry: the grid's rows are a fine unit and the script gives each card the span its own height needs
+   (see masonry() in research.js), so nothing leaves a hole under a short card; the columns come from auto-fill */
+.rs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-auto-rows: 8px; gap: var(--space-2); align-items: start; }
+.rs-grid > .rcard { align-self: start; }
+/* the list: one row per item, the kind icon, the title, one line of the excerpt, the tags and the meta */
+.rs-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.rs-list .rcard { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 74px 8px 12px; }
+.rs-list .rcard .thumb { order: -1; width: 48px; height: 36px; margin: 0; aspect-ratio: auto; border-radius: var(--radius-medium); }
+.rs-list .rcard .top { flex: 1 1 180px; min-width: 0; gap: 6px; }
+.rs-list .rcard .top .kicker { display: none; }
+.rs-list .rcard .top .menu { order: 9; }
+.rs-list .rcard .head-main { min-width: 0; }
+.rs-list .rcard .excerpt { flex: 3 1 240px; min-width: 0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--text-12); }
+.rs-list .rcard .site { flex: 0 1 auto; }
+.rs-list .rcard .tags { flex: none; }
+.rs-list .rcard .meta { flex: none; margin-left: auto; }
+.rs-list .rcard .menu { position: absolute; top: 6px; right: 6px; }
+.rs-list .rcard .edit { position: absolute; top: 6px; right: 38px; margin: 0; }
+.rs.narrow .rs-list .rcard .excerpt { flex-basis: 100%; }
+
+/* a research card: a note, a link (snippet), a photo or a kept answer. The card is the Cards family of system.css; the kind's hue (turned from the accent) is on its icon chip and its kicker words only. */
+.rcard { --turn: 0; --tone: color-mix(in srgb, var(--accent-fill) 65%, var(--text-primary)); --tint: var(--tone); cursor: pointer; }
+@supports (color: oklch(from red l c h)) { .rcard { --tone: oklch(from var(--accent-fill) l calc(c * 0.95) calc(h + var(--turn))); } }
+.rcard[data-kind="note"] { --turn: 25; } .rcard[data-kind="link"] { --turn: 195; } .rcard[data-kind="photo"] { --turn: 305; } .rcard[data-kind="answer"] { --turn: 255; }
+.rs-grid .rcard:not(.open) .excerpt { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.rs-list .rcard.open .excerpt { display: block; -webkit-line-clamp: unset; flex-basis: 100%; }
+.rcard .top { display: flex; align-items: center; gap: 10px; }
+.rcard .head-main { min-width: 0; flex: 1; }
+.rcard .kicker { display: block; color: color-mix(in srgb, var(--tone) 62%, var(--text-primary)); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.rcard .ai-mark { margin-left: 4px; padding: 0 6px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 24%, transparent); font-size: var(--text-11); letter-spacing: var(--tracking-caps); }
+.rcard .menu { margin-left: auto; }
+.rcard .edit { margin-left: auto; }
+.rcard .edit + .menu { margin-left: 0; }
+.rcard h3 { margin: 0; font-size: var(--text-14); line-height: var(--leading-section); overflow-wrap: anywhere; }
+.rcard .excerpt { margin: 0; color: var(--text-primary); opacity: 0.88; line-height: var(--leading-body); overflow-wrap: anywhere; }
+.rcard .excerpt :is(p, ul, ol, blockquote, h1, h2, h3, pre) { margin: 0; }
+.rcard .excerpt :is(h1, h2, h3) { font-size: inherit; }
+.rcard .excerpt p + p, .rcard .excerpt ul, .rcard .excerpt ol, .rcard .excerpt blockquote { margin-top: 4px; }
+.rcard .excerpt ul, .rcard .excerpt ol { padding-left: 1.1em; }
+.rcard .excerpt a { color: var(--accent); }
+.rcard .excerpt code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+.rcard .excerpt pre { white-space: pre-wrap; }
+.rcard .site { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--text-12); }
+.rcard .thumb { display: block; width: calc(100% + 24px); margin: -12px -12px 4px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-large) var(--radius-large) 0 0; background: color-mix(in srgb, var(--tone) 25%, var(--surface-card)); }
+.rcard .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-muted); font-size: var(--text-11); }
+.rcard .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.rcard .by { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+.rcard .by span { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent-fill) 30%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
+/* the empty state, and the photo upload */
+.sdk-empty { max-width: 420px; margin: 8vh auto; }
+.upload { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 10px; border: 1px dashed var(--accent-fill); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent-fill) 8%, var(--bg-card)); }
+.upload .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload .step { color: var(--text-muted); font-size: var(--text-12); }
+.pos-ask { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--edge-hairline)); border-radius: var(--radius-large); font-size: var(--text-13); }
+.pos-ask .grow { flex: 1; }
+.rs.narrow .rs-grid { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- the item menu trigger, the dialog, sources, states ---- */
+/* .menu is the card's own "..." trigger button (the menu itself is host.menu.show, drawn by the SDK). */
+.rcard .menu { position: relative; }
+.rs-body { position: relative; }
+/* #editor is a <dialog> the SDK draws as the editor window (host.ui.editor): the box, its padding, the backdrop and the
+   sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. */
+#f-delete { margin-left: auto; }
+.icon-choices { display: flex; flex-wrap: wrap; gap: 4px; }
+.icon-choice { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 4px 2px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font: inherit; font-size: var(--text-11); line-height: var(--leading-title); cursor: pointer; }
+.icon-choice .ic { color: var(--text-primary); font-size: var(--text-16); }
+.icon-choice.on { background: color-mix(in srgb, var(--accent-fill) 16%, var(--surface-page)); color: var(--text-primary); }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.format-bar { display: inline-flex; align-items: center; gap: 2px; }
+.format-bar button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-primary); cursor: pointer; }
+.format-bar button:hover { background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
+.format-bar button:disabled { opacity: 0.4; cursor: default; }
+/* A link's address and title sit beside the page's picture. Notes and answers keep a plain title, so the row is only a row for a link. */
+.link-identity { display: contents; }
+#form[data-kind="link"] .link-identity { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: var(--field-gap); align-items: stretch; }
+.link-identity-fields { margin: 0; }
+.link-shot { position: relative; display: flex; align-items: center; justify-content: center; min-height: 104px; border-radius: var(--radius-large); overflow: hidden; background: color-mix(in srgb, var(--text-primary) 8%, var(--surface-page)); }
+.link-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.link-shot-empty { font-size: var(--text-40); color: var(--text-muted); }
+/* one form for the four kinds: a row shows only for the kinds listed in its data-kinds */
+#form[data-kind="note"] [data-kinds]:not([data-kinds~="note"]),
+#form[data-kind="link"] [data-kinds]:not([data-kinds~="link"]),
+#form[data-kind="photo"] [data-kinds]:not([data-kinds~="photo"]),
+#form[data-kind="answer"] [data-kinds]:not([data-kinds~="answer"]) { display: none; }
+/* a photo whose file is gone: the picture 404s, so the crop shows a quiet placeholder */
+.rcard .thumb.missing { object-fit: none; display: flex; }
+.rcard .thumb.missing { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 10%, transparent) 0 8px, transparent 8px 16px), color-mix(in srgb, var(--tone) 12%, var(--surface-card)); }
+/* dragging something from another module over the pane */
+.rs.drop-target::after { content: ""; position: absolute; inset: 6px; z-index: 40; border: 2px dashed var(--accent-fill); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent-fill) 6%, transparent); pointer-events: none; }
+.drop-hint { position: absolute; left: 50%; bottom: 72px; z-index: 41; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--radius-round); background: var(--accent-fill); color: var(--text-on-accent); font-weight: var(--weight-strong); box-shadow: 0 8px 22px color-mix(in srgb, black 35%, transparent); pointer-events: none; }
+/* where a card is used: small pills along the foot of the card, above a dashed rule */
+.rcard .backlinks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--edge-hairline); }
+.backlink { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 22px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent-fill) 40%, var(--edge-hairline)); border-radius: var(--radius-small); background: color-mix(in srgb, var(--accent-fill) 10%, var(--bg-card)); color: var(--text-primary); font: inherit; font-size: var(--text-11); cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.backlink .ic { color: var(--accent); font-size: var(--text-11); }
+.backlink:hover, .backlink:focus-visible { border-color: var(--accent-fill); color: var(--accent); outline: none; }
+.backlink.more { cursor: default; color: var(--text-muted); background: none; border-style: dashed; }
+.asked p { margin: 2px 0 8px; overflow-wrap: anywhere; }
+.links { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.link { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-page); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.link.gone { opacity: 0.6; font-style: italic; }
+.rs-body .sdk-skel-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.upload progress { flex: 1; height: 6px; appearance: none; border: 0; border-radius: var(--radius-round); background: var(--bg-card); overflow: hidden; }
+.upload progress::-webkit-progress-bar { background: var(--bg-card); }
+.upload progress::-webkit-progress-value { background: var(--accent-fill); }
+.upload progress::-moz-progress-bar { background: var(--accent-fill); }
+.upload .step[data-error] { color: var(--danger); }
+/* Ask is a panel over the pane (the whole pane on a phone) */
+
+

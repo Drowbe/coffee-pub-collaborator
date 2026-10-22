@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" data-mode-shown="dark" data-theme-mode="dark" style=""><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1410">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  
+  <title>Collaborator - Manage</title>
+  <link rel="stylesheet" href="/fa/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  
+  <link rel="stylesheet" href="/design-system/prototype/themes/strong-coffee.css" data-proto-theme="">
+  <link rel="stylesheet" href="/sdk/system.css">
+<script src="/design-system/prototype-frame.js"></script></head>
+<body>
+  <header class="topbar">
+    <div class="nav-left brand">
+      <a class="brand-home" id="brand-home-link" href="/" target="_top" title="Trips">
+        <span class="brand-logo"><img data-brand="icon" alt="" class="icon" hidden="" src="/design-system/prototype/assets/d0ca52a8339c.png"><i class="fa-solid fa-suitcase-rolling fa-fw" data-icon-id="suitcase-rolling" data-brand="home-icon" aria-hidden="true"></i></span>
+        <span class="brand-name" data-brand="environmentName">Collaborator</span>
+      </a>
+    <span class="nav-slot-pair" data-nav-tool="spaces-slot" hidden=""><a class="core-link nav-slot" id="spaces-link" href="/" target="_top">Trips</a><button type="button" class="core-link nav-slot-caret" id="spaces-switch" aria-haspopup="menu" aria-expanded="false" data-tip="Switch trip" aria-label="Switch trip"><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i></button></span><nav class="crumb" id="topbar-crumb" aria-label="Where you are" data-nav-tool="topbar-crumb"><span class="crumb-here" aria-current="page" title="Manage"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i><span class="crumb-label">Manage</span></span></nav><span class="status topbar-status" id="topbar-status" data-nav-tool="topbar-status"></span><nav class="subtabs layout-tabs page-tabs" id="subtabs" data-top-bar="" aria-label="Manage" data-nav-tool="subtabs" hidden="">
+      <button class="subtab core-link" data-tab="environment" type="button" data-icon="sliders" data-fill="">Environment</button>
+      <button class="subtab core-link" data-tab="template" type="button" id="template-tab" data-icon="shapes" title="The Travel template can turn on more.">Template<span class="badge update-badge" aria-hidden="true">1</span></button>
+      <button class="subtab core-link" data-tab="theme" type="button" data-icon="palette">Theme</button>
+      <button class="subtab core-link" data-tab="spaces" type="button" data-icon="door-open" data-fill="">Trips</button>
+      <button class="subtab core-link" data-tab="roles" type="button" data-icon="user-shield">Roles</button>
+      <button class="subtab active core-link" data-tab="users" type="button" data-icon="users" aria-current="page">Users</button>
+      <button class="subtab core-link" data-tab="modules" type="button" data-icon="puzzle-piece" data-fill="" title="">Modules</button>
+      <button class="subtab core-link" data-tab="about" type="button" data-icon="circle-info">About</button>
+    <button type="button" id="subtabs-more" class="core-link layout-tabs-more" data-tip="More tabs" aria-label="More tabs" aria-haspopup="menu" aria-expanded="false" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button></nav></div>
+    <div class="nav-middle core-nav" id="core-nav"><button type="button" id="notifications-bell" class="icon-link nav-bell" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifications-list" data-nav-tool="notifications-bell" data-tip="Notifications, 0 unread, 0 module updates" aria-label="Notifications, 0 unread, 0 module updates"><i class="fa-solid fa-bell fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true" hidden="">0</span></button></div>
+    <nav class="nav-right links" aria-label="You"><button type="button" id="subtabs-menu-environment" data-nav-tool="subtabs-menu-environment" class="icon-link" aria-label="Environment" data-tip="Environment"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-template" data-nav-tool="subtabs-menu-template" class="icon-link" aria-label="Template" data-tip="Template"><i class="fa-solid fa-shapes fa-fw" aria-hidden="true"></i><span class="sdk-badge-micro" aria-hidden="true">1</span></button><button type="button" id="subtabs-menu-theme" data-nav-tool="subtabs-menu-theme" class="icon-link" aria-label="Theme" data-tip="Theme"><i class="fa-solid fa-palette fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-spaces" data-nav-tool="subtabs-menu-spaces" class="icon-link" aria-label="Trips" data-tip="Trips"><i class="fa-solid fa-door-open fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-roles" data-nav-tool="subtabs-menu-roles" class="icon-link" aria-label="Roles" data-tip="Roles"><i class="fa-solid fa-user-shield fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-users" data-nav-tool="subtabs-menu-users" class="icon-link" aria-label="Users" aria-current="page" data-tip="Users"><i class="fa-solid fa-users fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-modules" data-nav-tool="subtabs-menu-modules" class="icon-link" aria-label="Modules" data-tip="Modules"><i class="fa-solid fa-puzzle-piece fa-fw" aria-hidden="true"></i></button><button type="button" id="subtabs-menu-about" data-nav-tool="subtabs-menu-about" class="icon-link" aria-label="About" data-tip="About"><i class="fa-solid fa-circle-info fa-fw" aria-hidden="true"></i></button><span class="nav-divider" data-nav-divider=""></span><span class="nav-menu-heading" data-brand="environmentName" data-nav-tool="menu-environment">Collaborator</span><a id="menu-home" data-nav-tool="menu-home" class="icon-link" href="/" target="_top" aria-label="Trips" data-tip="Trips"><i class="fa-solid fa-house fa-fw" aria-hidden="true"></i></a><a id="menu-dest-calendar" data-nav-tool="menu-dest-calendar" class="icon-link" href="/calendar" data-tip="Calendar" aria-label="Calendar" data-destination="/calendar"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i></a><span class="nav-divider" data-nav-divider=""></span><button type="button" id="menu-new-space" data-nav-tool="menu-new-space" class="icon-link" aria-label="New trip" data-tip="New trip"><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i></button><button type="button" id="topbar-more" class="sdk-icon-btn btn-quiet btn-small nav-more" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="topbar-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button><span class="nav-divider" data-nav-divider=""></span><button type="button" class="whoami nav-text" id="whoami-link" tabindex="-1" aria-disabled="true" aria-labelledby="whoami" data-nav-tool="whoami-link"><img id="whoami-img" alt="" src="/design-system/prototype/assets/7fbd05124372.svg"><span id="whoami">admin</span><span id="whoami-account" hidden="">Account</span><i class="fa-solid fa-caret-down fa-fw whoami-caret" aria-hidden="true"></i></button><button type="button" id="account-profile" data-nav-tool="account-profile" class="icon-link" data-tip="View profile" aria-label="View profile"><i class="fa-solid fa-user fa-fw" aria-hidden="true"></i></button><button type="button" class="theme-mode topbar-theme-mode" id="theme-mode-switch" role="switch" aria-label="Dark mode" aria-checked="true" data-tip="Switch to light mode" data-nav-tool="theme-mode-switch"><i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i><span class="theme-mode-label" aria-hidden="true">Dark mode</span></button><a id="admin-link" data-nav-tool="admin-link" class="icon-link" href="/admin" data-tip="Manage" aria-label="Manage"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i></a><button type="button" id="account-host-console" data-nav-tool="account-host-console" class="icon-link" data-tip="Host console" aria-label="Host console" hidden=""><i class="fa-solid fa-server fa-fw" aria-hidden="true"></i></button><button type="button" id="account-install" data-nav-tool="account-install" class="icon-link" data-tip="Install as an app" aria-label="Install as an app" hidden=""><i class="fa-solid fa-download fa-fw" aria-hidden="true"></i></button><button type="button" id="account-sign-out" data-nav-tool="account-sign-out" class="icon-link" data-tip="Sign out" aria-label="Sign out"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i></button></nav>
+    <button class="icon-link nav-toggle" id="nav-toggle" type="button" data-tip="Menu" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i></button>
+  <div class="subnav page-bar page-bar-inside" id="page-bar" role="navigation" aria-label="This page"><div class="nav-left"><button type="button" id="subnav-more" class="sdk-icon-btn btn-quiet btn-small nav-more sdk-tabbar-tab" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="subnav-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i><span class="sdk-tabbar-label" aria-hidden="true">More</span></button><span class="page-bar-name nav-text" id="page-bar-name" data-nav-tool="page-bar-name" hidden="" title="Manage"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i><span class="page-bar-label">Manage</span></span><nav class="subtabs page-bar-control" id="env-subtabs" aria-label="Environment settings" data-nav-tool="env-subtabs" hidden="">
+        <button class="subtab active sdk-tabbar-tab" type="button" data-env-part="general" aria-current="page">General</button>
+        <button class="subtab" type="button" data-env-part="localization">Localization</button>
+        <button class="subtab" type="button" data-env-part="stream">Stream</button>
+      </nav><nav class="subtabs page-bar-control" id="module-subtabs" aria-label="Modules" data-nav-tool="module-subtabs" hidden="">
+        <button class="subtab active sdk-tabbar-tab" type="button" data-module-part="config" aria-current="page">Configuration</button>
+      <button type="button" class="subtab" data-module-part="conference">Conference</button><button type="button" class="subtab" data-module-part="ai">AI service</button><button type="button" class="subtab" data-module-part="assistant">Assistant</button><button type="button" class="subtab" data-module-part="budget">Budget</button><button type="button" class="subtab" data-module-part="calendar">Calendar</button><button type="button" class="subtab" data-module-part="travel">Itinerary</button><button type="button" class="subtab" data-module-part="maps">Maps</button><button type="button" class="subtab" data-module-part="places">Places</button><button type="button" class="subtab" data-module-part="polls">Polls</button><button type="button" class="subtab" data-module-part="research">Research</button><button type="button" class="subtab" data-module-part="stream">Stream</button><button type="button" class="subtab" data-module-part="todo">To-do</button></nav></div><span class="nav-right"></span></div></header>
+
+  <main class="admin">
+    <!-- Manage's tabs: admin.js marks them data-top-bar, so renderPageBar() puts them in the top bar (page-tabs.js, #262).
+         data-icon is each tab's icon in the header's menu on a phone. -->
+    
+
+    <section class="tab-stack" id="tab-users">
+      <div class="panel">
+        <div class="section-head">
+          <h1>Users</h1>
+          <span class="status" id="party-status">0 of 4 in a call</span>
+          <button class="btn btn-primary btn-small" id="add-toggle" type="button">Add user</button>
+        </div>
+      </div>
+
+      <form class="panel add-user" id="add-user" hidden="">
+        <h2>New user</h2>
+        <div class="fields">
+          <label>Username<input id="new-login" type="text" maxlength="40" required="" autocapitalize="off" autocomplete="off" value=""></label>
+          <label>Display name <span class="sdk-optional">(optional)</span><input id="new-name" type="text" maxlength="40" autocomplete="off" value=""></label>
+          <label>Role<select id="new-role" data-fill=""><option value="member" selected="">Member</option><option value="owner">Owner</option></select></label>
+          <label>Password <span class="sdk-optional">(optional)</span><span class="row reveal-row"><input id="new-password" aria-label="Password" type="password" maxlength="200" autocomplete="new-password" placeholder="leave empty for link only"><button class="btn btn-small" type="button" data-reveal="new-password" aria-pressed="false">Show</button></span></label>
+          <label class="sdk-choice-row"><input id="new-link" type="checkbox" checked=""> Personal link (no password needed)</label>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" type="submit">Add</button>
+          <button class="btn btn-quiet" id="add-cancel" type="button">Cancel</button>
+          <span class="status error" id="add-error" hidden=""></span>
+        </div>
+      </form>
+
+      <div id="users" class="users"><article class="user-card" data-key="t2p9zs34">
+      <span class="dot" data-dot="" title="offline"></span>
+      <img class="thumb" data-thumb="" alt="" src="/design-system/prototype/assets/7fbd05124372.svg">
+      <div class="user-title">
+        <strong data-name="">admin</strong>
+        <span class="meta"><span data-login="">admin</span> · <span data-role="">Admin</span> · key <code data-key="">t2p9zs34</code> <span class="sdk-status" data-mfa="" hidden="" title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed="" hidden="" title="Has a private address for a calendar app">calendar feed</span></span>
+      </div>
+      <span class="live" data-live=""></span>
+      <button class="btn btn-small" data-action="mute" type="button" hidden="">Mute mic</button>
+      <button class="btn btn-small" data-action="kick" type="button" hidden="">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden="">Turn off feed</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button" href="/profile/t2p9zs34">Edit profile</a>
+    </article><article class="user-card" data-key="ym5ctnkw">
+      <span class="dot" data-dot="" title="offline"></span>
+      <img class="thumb" data-thumb="" alt="" src="/design-system/prototype/assets/b7d13cf31bba.svg">
+      <div class="user-title">
+        <strong data-name="">Mia Alvarez</strong>
+        <span class="meta"><span data-login="">mia</span> · <span data-role="">Member</span> · key <code data-key="">ym5ctnkw</code> <span class="sdk-status" data-mfa="" hidden="" title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed="" hidden="" title="Has a private address for a calendar app">calendar feed</span></span>
+      </div>
+      <span class="live" data-live=""></span>
+      <button class="btn btn-small" data-action="mute" type="button" hidden="">Mute mic</button>
+      <button class="btn btn-small" data-action="kick" type="button" hidden="">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden="">Turn off feed</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button" href="/profile/ym5ctnkw">Edit profile</a>
+    </article><article class="user-card" data-key="cunjw4gd">
+      <span class="dot" data-dot="" title="offline"></span>
+      <img class="thumb" data-thumb="" alt="" src="/design-system/prototype/assets/50b0cc741b14.svg">
+      <div class="user-title">
+        <strong data-name="">Sam Okafor</strong>
+        <span class="meta"><span data-login="">sam</span> · <span data-role="">Member</span> · key <code data-key="">cunjw4gd</code> <span class="sdk-status" data-mfa="" hidden="" title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed="" hidden="" title="Has a private address for a calendar app">calendar feed</span></span>
+      </div>
+      <span class="live" data-live=""></span>
+      <button class="btn btn-small" data-action="mute" type="button" hidden="">Mute mic</button>
+      <button class="btn btn-small" data-action="kick" type="button" hidden="">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden="">Turn off feed</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button" href="/profile/cunjw4gd">Edit profile</a>
+    </article><article class="user-card" data-key="23nn3s6m">
+      <span class="dot" data-dot="" title="offline"></span>
+      <img class="thumb" data-thumb="" alt="" src="/design-system/prototype/assets/15581cc8b4e7.svg">
+      <div class="user-title">
+        <strong data-name="">Lee Chen</strong>
+        <span class="meta"><span data-login="">lee</span> · <span data-role="">Member</span> · key <code data-key="">23nn3s6m</code> <span class="sdk-status" data-mfa="" hidden="" title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed="" hidden="" title="Has a private address for a calendar app">calendar feed</span></span>
+      </div>
+      <span class="live" data-live=""></span>
+      <button class="btn btn-small" data-action="mute" type="button" hidden="">Mute mic</button>
+      <button class="btn btn-small" data-action="kick" type="button" hidden="">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden="">Turn off feed</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button" href="/profile/23nn3s6m">Edit profile</a>
+    </article></div>
+
+      <!-- Sign-up and invites (moved from the Environment tab, #261). -->
+      <div class="panel" id="signup-section">
+      <h2>Sign-up</h2>
+      <div class="row">
+        <label class="sdk-choice-row"><input type="checkbox" id="set-allow-registration"> Let anyone at /register sign themselves up (they land in the Lobby, same as everyone)</label>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="save-registration" type="button">Save</button>
+        <span class="status" id="registration-status"></span>
+      </div>
+      <p class="hint" data-fill="">Or invite someone straight into specific trips without opening sign-up to everyone:</p>
+      <div class="row">
+        <span class="field-label" data-fill="">Trips</span>
+        <div class="member-checks" id="invite-spaces"><label class="sdk-member sdk-member-toggle" data-space="m6ktddtu"><input type="checkbox"><span class="sdk-member-name">Lisbon in autumn</span></label><label class="sdk-member sdk-member-toggle" data-space="6kma78g2"><input type="checkbox"><span class="sdk-member-name">Kyoto in spring</span></label><label class="sdk-member sdk-member-toggle" data-space="y6ts2khc"><input type="checkbox"><span class="sdk-member-name">Weekend in the Algarve</span></label></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="make-invite" type="button">Generate invite link</button>
+        <span class="status" id="invite-status"></span>
+      </div>
+      <div class="row" id="invite-link-row" hidden="">
+        <code class="key link" id="invite-link"></code>
+        <button class="btn btn-small" id="invite-copy" type="button">Copy</button>
+        <span class="hint">Expires in 7 days, works once.</span>
+      </div>
+      </div>
+    </section>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    <!-- The Template tab (plan-environment-templates, addendum 2): what the environment was made from and switching to
+         another, the offer after a switch, what was left out, then the parts a template gives that stay live: the words,
+         the module names and icons, the home icon, the reactions and the icon list. Drawn by admin.js with /template-offer.js. -->
+    
+
+    
+  </main>
+
+  <template id="icon-row">
+    <div class="reaction-row icon-row">
+      <span class="icon-preview" aria-hidden="true"></span>
+      <input class="icon-html" type="text" placeholder="&lt;i class=&quot;fa-solid fa-dice&quot;&gt;&lt;/i&gt;" aria-label="Font Awesome HTML" spellcheck="false" autocomplete="off">
+      <input class="reaction-label icon-label" type="text" maxlength="40" placeholder="Label" aria-label="Label">
+      <button class="btn btn-small" data-action="icon-up" type="button" data-tip="Move earlier" aria-label="Move earlier">↑</button>
+      <button class="btn btn-small" data-action="icon-down" type="button" data-tip="Move later" aria-label="Move later">↓</button>
+      <button class="btn btn-small btn-danger" data-action="icon-remove" type="button">Remove</button>
+    </div>
+  </template>
+
+  <template id="reaction-row">
+    <div class="reaction-row">
+      <input class="reaction-glyph" type="text" maxlength="8" placeholder="🙂" aria-label="Emoji">
+      <input class="reaction-label" type="text" maxlength="40" placeholder="Label" aria-label="Label">
+      <button class="btn btn-small" data-action="reaction-up" type="button" data-tip="Move earlier" aria-label="Move earlier">↑</button>
+      <button class="btn btn-small" data-action="reaction-down" type="button" data-tip="Move later" aria-label="Move later">↓</button>
+      <button class="btn btn-small btn-danger" data-action="reaction-remove" type="button">Remove</button>
+    </div>
+  </template>
+
+  <template id="space-card">
+    <article class="user-card">
+      <span class="space-thumb"><img class="thumb" data-thumb="" alt="" hidden=""><i class="fa-solid fa-door-open" aria-hidden="true" data-thumb-fallback=""></i></span>
+      <div class="user-title">
+        <strong data-name=""></strong>
+        <span class="meta" data-meta=""></span>
+      </div>
+      <button class="btn btn-small" data-action="space-up" type="button" data-tip="Move earlier" aria-label="Move earlier">↑</button>
+      <button class="btn btn-small" data-action="space-down" type="button" data-tip="Move later" aria-label="Move later">↓</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button" data-fill="">Edit {space}</a>
+    </article>
+  </template>
+
+  <template id="user-card">
+    <article class="user-card">
+      <span class="dot" data-dot="" title="offline"></span>
+      <img class="thumb" data-thumb="" alt="">
+      <div class="user-title">
+        <strong data-name=""></strong>
+        <span class="meta"><span data-login=""></span> · <span data-role=""></span> · key <code data-key=""></code> <span class="sdk-status" data-mfa="" hidden="" title="Signs in in two steps">two-step</span> <span class="sdk-status" data-feed="" hidden="" title="Has a private address for a calendar app">calendar feed</span></span>
+      </div>
+      <span class="live" data-live=""></span>
+      <button class="btn btn-small" data-action="mute" type="button">Mute mic</button>
+      <button class="btn btn-small" data-action="kick" type="button">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden="">Turn off feed</button>
+      <a class="btn btn-primary btn-small" data-action="edit" type="button">Edit profile</a>
+    </article>
+  </template>
+
+  <!-- the colours a theme does not set, picked from the ones it does (shared with the server) -->
+  
+  <!-- the SDK, for the currency list every picker shares (window.hostCurrency) -->
+  
+  
+
+
+</body></html>

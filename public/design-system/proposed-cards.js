@@ -263,7 +263,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <div data-slot="anatomy"></div>
 ${dim([
     ['1 Surface', 'A 1px <code>--border</code> hairline, no shadow, no gradient. Panel and card <code>--radius-large</code>; a row on a panel <code>--radius-medium</code>; a row inside a card <code>--radius-small</code>.'],
-    ['2 Padding', 'Row 8px by 10px (the 10 is 8 + 2 on the spacing scale). Card 12px. Panel 16px at every width (decided 2026-10-21; it was 14px on a phone). Home\'s space card 20px, its own larger variant.'],
+    ['2 Padding', 'Row 8px by 8px. Card 12px. Panel 16px at every width (decided 2026-10-21; it was 14px on a phone). Home\'s space card 20px, its own larger variant.'],
     ['3 Spacing', 'One rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups. Rows in a list are separated by 8px and never touch (a list is <code>.sdk-list</code>, or a window\'s content, which is a column with an 8px gap). Rows inside a card are 4px apart: each is a quiet fill, so the step does the separating and 8px would be loose (Thomas, 2026-10-21; this is the one proposal, he may take a hairline instead).'],
     ['3b Nesting', 'A panel or a window holds a card or a row, and a card holds a row: two surfaces, no more. A row inside a row, or a box inside that, has no fill and no edge of its own. A child\'s corner is never larger than its parent\'s, and its padding is at most the space to the parent\'s edge (Foundations, "Nesting and corners").'],
     ['4 Icon chip', 'Optional. 32px in a card, 28px in a row; <code>--radius-small</code>. The category tint is a quiet fill behind the icon and the icon itself; nothing else is coloured.'],
@@ -367,7 +367,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--selected-bg</code>', 'the theme\'s', 'A selected card or row.'],
     ['<code>--radius-large</code> <code>--radius-medium</code> <code>--radius-small</code>', '11px, 7px, 5px', 'Card and panel; a row on a panel; a row in a card and the icon chip.'],
     ['<code>--card-pad</code> <code>--panel-pad</code> <code>--home-pad</code>', '12px, 16px, 20px', 'Padding. Proposed tokens.'],
-    ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 10px', 'A row\'s padding. Proposed tokens.'],
+    ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 8px', 'A row\'s padding. Proposed tokens.'],
     ['<code>--gap-in</code> <code>--gap-group</code>', '8px, 16px', 'The one spacing rule. Proposed tokens.'],
     ['<code>--ls-label</code>', '0.04em', 'Group header letter spacing. Proposed token.'],
     ['<code>--shadow-1</code>', '0 1px 4px, black at 35% (dark), the text colour at 8% (light)', 'A card while it is dragged. Smaller than the menu\'s <code>--shadow-2</code> (<code>0 2px 8px</code>). The Foundations token.'],
@@ -413,7 +413,7 @@ ${dim([
 <p class="ds-desc">Thomas approved these on 2026-10-19 and said "we can start with this" about the radii and the paddings, so those two may be tuned later without reopening the family.</p>
 ${tbl(['Decided 2026-10-19', 'Why', 'Other way, if tuned later'], [
     ['Radii: card and panel large, a row on a panel medium, a row in a card small', 'Each box inside another has a smaller corner, so the corners stay concentric.', 'Make the card medium and the row small everywhere.'],
-    ['Padding: card 12, panel 16, row 8 by 10 (8 + 2), Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
+    ['Padding: card 12, panel 16, row 8 by 8, Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
     ['Group header: 12px, weight 600, muted, upper case, 0.04em, with a hairline under it', 'The most common of the three today, and the divider is part of the decision.', 'Sentence case with no letter spacing; no hairline.'],
     ['The ghost add slot is a dashed neutral hairline with no fill', 'The add variant keeps its dashed edge, quiet like the rest.', 'A solid hairline.'],
   ])}

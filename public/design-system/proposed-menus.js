@@ -223,7 +223,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     </div><input type="text" value="/ro" aria-label="Message"></div></div></div></div>`;
 
   // ---- a call popover ----
-  const callBody = () => `<div class="ds-proposed"><div class="pm-grid">${CELL('A call popover: heading, controls, footer; 14px padding', `<div class="sdk-popover" role="dialog" aria-label="Audio settings">
+  const callBody = () => `<div class="ds-proposed"><div class="pm-grid">${CELL('A call popover: heading, controls, footer; 12px padding', `<div class="sdk-popover" role="dialog" aria-label="Audio settings">
     <div class="sdk-popover-block"><h3 class="sdk-popover-heading">Microphone</h3><select aria-label="Microphone"><option>Built-in microphone</option><option>Headset</option></select></div>
     <div class="sdk-popover-block"><h3 class="sdk-popover-heading">Speakers</h3><select aria-label="Speakers"><option>Built-in speakers</option><option>Headset</option></select></div>
     <div class="sdk-popover-block"><h3 class="sdk-popover-heading">Sound</h3><label class="sdk-check"><input type="checkbox" class="sdk-switch" role="switch" checked><span>Reduce background noise</span></label></div>
@@ -359,8 +359,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <h4 class="ds-h4" id="menus-anatomy">Anatomy</h4>
 <div data-slot="zoom"></div>
 ${dim([
-    ['1 Surface', '<code>--bg-card</code>, a 1px <code>--border</code> hairline, <code>--radius-medium</code>, <code>--shadow-2</code>, 4px padding, 180 to 320px wide (a popover: its own width, 14px or 8px padding), one layer: <code>--z-menu</code>.'],
-    ['2 Row', '32px high, 44px on a phone and when the menu has <code>.narrow</code>. A 1px transparent edge, then 6px by 9px of padding, so 7 by 10 in all. <code>--radius-small</code>. 14px text, a line of 18px. A row never grows: the label is cut with an ellipsis and carries a <code>title</code>.'],
+    ['1 Surface', '<code>--bg-card</code>, a 1px <code>--border</code> hairline, <code>--radius-medium</code>, <code>--shadow-2</code>, 4px padding, 180 to 320px wide (a popover: its own width, 12px or 8px padding), one layer: <code>--z-menu</code>.'],
+    ['2 Row', '32px high, 44px on a phone and when the menu has <code>.narrow</code>. A 1px transparent edge, then 6px by 8px of padding, so 7 by 9 in all. <code>--radius-small</code>. 14px text, a line of 18px. A row never grows: the label is cut with an ellipsis and carries a <code>title</code>.'],
     ['3 Icon', 'Optional, <code>1em</code>, 8px before the label. If one row has an icon, every row has one (or an empty slot), so the labels line up.'],
     ['4 Label', 'One line. Sentence case. A label that ends in "..." opens a dialog or a flyout.'],
     ['5 Hint', 'Optional, at the row\'s end: 12px, <code>--text-dim</code> (a shortcut, a small fact). It takes a darker dim on a hovered, focused or current row so it stays readable (see Contrast).'],
@@ -439,7 +439,7 @@ ${tbl(['Part', 'Class', 'Aliases kept', 'Notes'], [
 <div data-slot="chat"></div>
 
 <h4 class="ds-h4" id="menus-pop">Popovers</h4>
-<p class="ds-desc">A popover is the menu surface (same fill, hairline, corner and shadow) around content that is not a list of rows: the call popovers, filter popovers, the emoji picker, the bell panel's container, the date picker. <b>The padding rule (decided; 14px stays, 2026-10-21).</b> 14px around controls and forms (call and filter popovers, the bell panel), 8px around a grid or a list (the date picker, the emoji picker); 12px between blocks; nothing else. The heading is the standard section heading, neutral and dim (the accent-coloured 12px uppercase <code>h3</code> of the call popovers goes). The corner is <code>--radius-medium</code>.</p>
+<p class="ds-desc">A popover is the menu surface (same fill, hairline, corner and shadow) around content that is not a list of rows: the call popovers, filter popovers, the emoji picker, the bell panel's container, the date picker. <b>The padding rule (12px, snapped to the 4px scale).</b> 12px around controls and forms (call and filter popovers, the bell panel), 8px around a grid or a list (the date picker, the emoji picker); 12px between blocks; nothing else. The heading is the standard section heading, neutral and dim (the accent-coloured 12px uppercase <code>h3</code> of the call popovers goes). The corner is <code>--radius-medium</code>.</p>
 <div data-slot="pop"></div>
 
 <h4 class="ds-h4" id="menus-ctx">In context</h4>
@@ -480,7 +480,7 @@ ${tbl(['Today', 'Proposed', 'What changes visually'], [
     ['Date picker <code>.sdk-dp</code>: section colour, 252px, 30px cells, accent 14% hover, 18% range, 10px weekday names (host.css:746)', 'A dense popover', 'Card colour. Neutral hover and range. Today is a quieter fill. 44px cells on a phone. Weekday names 11px. The chosen day stays solid accent.'],
     ['Kind list <code>.sdk-kind-list</code>: large corner, 28px rows, 10px group titles, a bottom sheet on a phone (host.css:1090)', 'A dropdown list; the long list on a phone is the sheet', 'Corner large to medium. Rows 28 to 32px. Titles 10 to 11px. The sheet keeps the large top corners and gets a scrim and a handle.'],
     ['Call popovers <code>.popover</code> (defined twice): 97% blend, shadow 0 8px 30px, z 7, accent uppercase 12px heading (style.css:5383, 5544)', '<code>.sdk-popover</code>', 'Opaque card colour. The heading is neutral and 11px. One definition.'],
-    ['Chat help and emoji popups', 'A popover (14px, or 8px for a grid)', 'The shared surface.'],
+    ['Chat help and emoji popups', 'A popover (12px, or 8px for a grid)', 'The shared surface.'],
   ])}
 <p class="ds-desc"><b>What the one component settles.</b></p>
 ${tbl(['Today has', 'Now'], [
@@ -507,7 +507,7 @@ ${tbl(['Token', 'Use here', ''], [
     ['<code>--menu-hover</code>, <code>--menu-press</code>', 'The quiet fills: <code>--text</code> at 10% and 16%, mixed with transparent.', 'new'],
     ['<code>--menu-current-fg</code>, <code>--menu-current-hover</code>', 'The current row\'s text (accent 55% into text, the Tabs\' mix) and its hovered fill (accent at 33%).', 'new'],
     ['<code>--menu-danger-fg</code>', 'Danger 70% into text, the Danger button\'s text.', 'new'],
-    ['<code>--pop-pad</code>, <code>--dp-day</code>', 'A popover\'s padding (14px, or 8px when dense); the date picker\'s cell (30px, 44px on a phone).', 'new'],
+    ['<code>--pop-pad</code>, <code>--dp-day</code>', 'A popover\'s padding (12px, or 8px when dense); the date picker\'s cell (30px, 44px on a phone).', 'new'],
     ['<code>--bg-card</code>, <code>--border</code>', 'The surface and its hairline.', 'exists'],
     ['<code>--selected-bg</code>', 'The current row, and (at half strength) today in the date picker.', 'exists'],
     ['<code>--accent</code>, <code>--on-accent</code>, <code>--danger</code>', 'The focus ring, the chosen day, the tick box and switch on; danger text (mixed).', 'exists'],
@@ -545,7 +545,7 @@ ${code(`<!-- the "..." menu: placed by its host; rows are direct children; the s
   <div class="sdk-menu-list" role="listbox">...options...</div>
 </div>
 
-<!-- a popover: controls at 14px, a grid or a list at 8px (add sdk-popover-dense) -->
+<!-- a popover: controls at 12px, a grid or a list at 8px (add sdk-popover-dense) -->
 <div class="sdk-popover" role="dialog" aria-label="Audio settings">
   <div class="sdk-popover-block"><h3 class="sdk-popover-heading">Microphone</h3><select>...</select></div>
   <div class="sdk-popover-foot"><button type="button" class="btn btn-small">Done</button></div>

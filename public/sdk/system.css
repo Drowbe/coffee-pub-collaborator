@@ -47,17 +47,17 @@
   --pad-home: var(--space-5); /* 20: Home's space card and its add slot */
   --pad-window: var(--space-3); /* 12: a module window's content, the chat's list of messages */
   --pad-row-y: var(--space-2); /* 8 */
-  --pad-row-x: calc(var(--space-2) + var(--space-0)); /* 10, OFF THE 4px SCALE (approved, Cards): a row, a table cell */
+  --pad-row-x: var(--space-2); /* 8: a row, a table cell */
   --pad-band-x: var(--space-3); /* 12: where a band's or a banded head's first thing starts; a banded body's sides */
   --pad-band-body-top: var(--space-2); /* 8: a banded body under its head band */
   --pad-toolbar-x: var(--space-2); /* 8 from the start of a toolbar (12 on a phone, below) */
-  --pad-chip-x: calc(var(--space-2) + var(--space-0)); /* 10, OFF THE 4px SCALE (approved, Chips) */
+  --pad-chip-x: var(--space-2); /* 8 */
   --pad-tag-x: var(--space-2); /* 8: a tag chip */
   --pad-field-x: var(--space-2); /* 8: words in a field */
   --pad-menu: var(--space-1); /* 4: around a menu's items */
   --pad-menu-item-y: var(--space-1); /* 4 */
-  --pad-menu-item-x: calc(var(--space-2) + 1px); /* 9, OFF THE 4px SCALE: with the item's 1px clear edge its words start 10px in (approved, Menus) */
-  --pad-popover: calc(var(--space-3) + var(--space-0)); /* 14, OFF THE 4px SCALE (approved, Menus): around a popover's controls */
+  --pad-menu-item-x: var(--space-2); /* 8: with the item's 1px clear edge its words start 9px in */
+  --pad-popover: var(--space-3); /* 12: around a popover's controls */
   --pad-popover-dense: var(--space-2); /* 8: around a popover's grid or list */
   --pad-dialog-x: var(--space-6); /* 24: a dialog's sides */
   --pad-dialog-x-narrow: var(--space-4); /* 16: a dialog's sides on a phone (full screen) */
@@ -1224,7 +1224,7 @@
 }
 
 @media (max-width: 640px) {
-  :root { --tick-hit: 44px; --tick-edge: -10px; }
+  :root { --tick-hit: 44px; --tick-edge: -8px; }
 }
 
 /* ---- the panel: the surface a module or a page part sits on ---- */
@@ -3284,7 +3284,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   /* On the quiet fill the same red is 4.3 to 1 in dark mode, so a hovered or focused danger row, and a hint on a filled row, take one step more. */
   --menu-danger-fg-strong: color-mix(in srgb, var(--status-danger-fill) 55%, var(--text-primary));
   --menu-hint-strong: color-mix(in srgb, var(--text-muted) 50%, var(--text-primary));
-  --pop-pad: var(--pad-popover); /* 14px around controls */
+  --pop-pad: var(--pad-popover); /* 12px around controls */
 }
 
 @media (max-width: 640px) {

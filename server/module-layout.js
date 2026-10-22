@@ -75,7 +75,7 @@ function scanCss(file) {
         add('restyles a shared piece (the host draws the shared pieces and the bands)');
         continue;
       }
-      if (/(?:^|[\s>+~(])header(?![\w-])/.test(selector)) {
+      if (/(?:^|[\s>+~(])header(?![\w-])/.test(selector) && !/header\.sdk-card-head(?![\w-])/.test(selector)) {
         add('styles a header bar of its own (the host draws the title row)');
         continue;
       }
@@ -95,7 +95,7 @@ function scanMarkup(file) {
   const found = [];
   const text = file.kind === 'js' ? file.text.replace(/\/\*[\s\S]*?\*\//g, blank).replace(/(^|[^:\\'"`])\/\/[^\n]*/g, (m, lead) => lead + blank(m.slice(lead.length))) : file.text.replace(/<!--[\s\S]*?-->/g, blank);
   const add = (selector, index, why) => found.push({ selector, file: file.name, line: lineOf(text, index), why });
-  for (const m of text.matchAll(/<header\b/gi)) add('markup: <header>', m.index, 'draws a header bar of its own (the host draws the title row)');
+  for (const m of text.matchAll(/<header\b(?![^>]*\bclass\s*=\s*["'][^"']*\bsdk-card-head\b)/gi)) add('markup: <header>', m.index, 'draws a header bar of its own (the host draws the title row)');
   const tokens = [];
   for (const m of text.matchAll(/\bclass(?:Name)?\s*[=:]\s*(["'`])([^"'`]*)\1/g)) tokens.push([m[2], m.index]);
   for (const m of text.matchAll(/\bclassList\.(?:add|toggle|replace)\(\s*(["'`])([^"'`]*)\1(?:\s*,\s*(["'`])([^"'`]*)\3)?/g)) {

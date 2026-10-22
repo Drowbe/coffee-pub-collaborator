@@ -412,10 +412,10 @@ try {
 
   await test('live: on, a member and the admin see Calendar under its main module\'s display name; a guest and nobody see none', async () => {
     const r = await call('GET', '/api/destinations', { token: aliceT });
-    assert.deepEqual(r.json.destinations, [{ id: 'calendar', name: 'dest-dates', icon: 'circle', href: '/calendar' }]);
+    assert.deepEqual(r.json.destinations, [{ id: 'calendar', name: 'dest-dates', icon: 'circle', href: '/calendar', content: 'padded' }]);
     assert.deepEqual(await shown(admin), ['calendar']);
     assert.equal((await call('PATCH', '/api/modules/dest-dates', { token: admin, body: { displayName: 'Dates' } })).status, 200);
-    assert.deepEqual((await call('GET', '/api/destinations', { token: aliceT })).json.destinations[0], { id: 'calendar', name: 'Dates', icon: 'circle', href: '/calendar' });
+    assert.deepEqual((await call('GET', '/api/destinations', { token: aliceT })).json.destinations[0], { id: 'calendar', name: 'Dates', icon: 'circle', href: '/calendar', content: 'padded' });
     assert.deepEqual((await call('GET', `/api/destinations?guest=${encodeURIComponent(guest)}`)).json.destinations, []);
     assert.deepEqual((await call('GET', '/api/destinations')).json.destinations, []);
     assert.equal((await call('GET', `/api/destinations/calendar?guest=${encodeURIComponent(guest)}`)).status, 404);
@@ -424,7 +424,7 @@ try {
   await test('live: the destination\'s parts and spaces', async () => {
     const r = await call('GET', '/api/destinations/calendar', { token: aliceT });
     assert.equal(r.status, 200, r.text);
-    const part = (id, label, entry) => ({ module: { id, version: '1.0.0', scope: ['environment', 'space'], name: id === 'dest-dates' ? 'Dates' : id, icon: 'circle' }, entry, runMode: 'sandbox', label });
+    const part = (id, label, entry) => ({ module: { id, version: '1.0.0', scope: ['environment', 'space'], name: id === 'dest-dates' ? 'Dates' : id, icon: 'circle', content: 'padded' }, entry, runMode: 'sandbox', label });
     assert.deepEqual([r.json.id, r.json.name, r.json.icon], ['calendar', 'Dates', 'circle']);
     assert.deepEqual(r.json.main, { part: 'main', ...part('dest-dates', 'Dates', 'dest-dates.html') });
     assert.deepEqual(r.json.panels, [{ part: 'panel', ...part('dest-dates', 'Agenda', 'dest-dates.html') }, { part: 'panel', ...part('dest-tasks', 'To-do', 'dest-tasks.html') }]);
@@ -676,7 +676,7 @@ try {
   });
 
   await test('map: with a file ticked it shows, under its main module\'s name, with its panel', async () => {
-    assert.deepEqual((await call('GET', '/api/destinations', { token: aliceT })).json.destinations, [{ id: 'map', name: 'dest-globe', icon: 'circle', href: '/map' }]);
+    assert.deepEqual((await call('GET', '/api/destinations', { token: aliceT })).json.destinations, [{ id: 'map', name: 'dest-globe', icon: 'circle', href: '/map', content: 'padded' }]);
     assert.deepEqual(await shown(admin), ['map']);
     const r = await call('GET', '/api/destinations/map', { token: aliceT });
     assert.equal(r.status, 200, r.text);

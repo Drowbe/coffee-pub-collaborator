@@ -128,6 +128,8 @@ function selfTest() {
   assert.equal(css('.grid .cell { padding: 4px } .pin { height: 8px } body { color: red } @keyframes k { from { height: 1px } }').size, 0, 'domain content and non-box slot properties pass');
   assert.equal(css('/* .sdk-card { padding: 1px } */ .sdk-card {}').size, 0, 'comments and empty rules are not read');
   assert.equal(html('<header class="bar"></header>').get('markup: <header>'), 1, 'a header element fails');
+  assert.equal(html('<header class="sdk-card-head"></header>').size, 0, "the shared banded card's own head is not a header bar");
+  assert.equal(html('<header class="sdk-card-headx"></header>').get('markup: <header>'), 1, 'a look-alike class still fails');
   assert.equal(html('<div class="sdk-toolbar"></div>').get('markup: class sdk-toolbar'), 1, 'a toolbar of its own fails');
   assert.equal(html('<div class="a page-bar"></div>').get('markup: class page-bar'), 1, 'a page-bar fails');
   assert.equal(html('<div class="tabs"></div>').get('markup: class tabs'), 1, 'a tabs strip fails');

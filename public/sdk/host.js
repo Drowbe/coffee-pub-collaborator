@@ -1111,15 +1111,16 @@
   let info = null;
   const call = env.call;
   ensureTooltips();
-  // The one toolbar row: the module's own items (host.toolbar.set), then its view switches and toolbar buttons
-  // (host.ui.viewSwitch, host.ui.toolbarButton) in the order they were made, a separator between. Any of them changing
+  // The one toolbar row: its view switches and toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) in the order
+  // they were made lead it, then a separator, then the module's own items (host.toolbar.set), so a switch never moves
+  // when the module's tools change. Any of them changing
   // draws the row again; the same row twice is not sent.
   const switches = [];
   let ownToolbar = [];
   let toolbarSig = '';
   function drawToolbar() {
     const tools = switches.flatMap((s, i) => (i ? [{ type: 'separator' }, s.item()] : [s.item()]));
-    const items = [...ownToolbar, ...(ownToolbar.length && tools.length ? [{ type: 'separator' }] : []), ...tools];
+    const items = [...tools, ...(ownToolbar.length && tools.length ? [{ type: 'separator' }] : []), ...ownToolbar];
     const sig = JSON.stringify(items);
     if (sig === toolbarSig) return Promise.resolve(true);
     toolbarSig = sig;
@@ -2966,7 +2967,7 @@
     //       is an icon button, `title` its tooltip and name
     //   { separator: true }                                                -- a vertical divider
     // Only 'button' items count toward the 5-item cap and collapse into a host-drawn "...". Your view switches and
-    // toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) follow your items in the same row; call set on every
+    // toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) lead the same row, then a separator, then your items; call set on every
     // render (the same row is not drawn twice). Resolves true wherever the module is drawn; only a dashboard widget
     // answers false.
     toolbar: {

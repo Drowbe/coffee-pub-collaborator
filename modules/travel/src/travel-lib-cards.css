@@ -1,10 +1,10 @@
 /*
- * The itinerary card family: one timeline per day (a time gutter, a rail with a dot, a card) and a card for every kind of thing
- * that goes in a trip, each made to be told apart at a glance by four things together: a silhouette (a boarding pass, a ticket, a
- * hotel key band, a reservation, a note), a big icon badge, a kicker that names it ("Flight", "Museum") and a colour. The colours
- * are the theme's: each family is the accent turned around the colour wheel (relative colour syntax), so a theme with another
- * accent gets a matching set, and a browser without it falls back to mixes of the accent and the text colour. No fixed colours.
- * The markup is CONTRACT.md's "The card family"; design/cards.html is the reference. Narrow means `.app.narrow`.
+ * The itinerary card family: one timeline per day (a time gutter, a rail with a dot, a card), and a card for every kind of thing
+ * that goes in a trip. Every card is the shared banded card (Cards, system.css): the band names it (the icon chip, the title, the
+ * kicker, "Flight" or "Museum", and the "..."), and the body below it is laid out by kind (a boarding pass and a show ticket with a
+ * stub, a train's two stations, a stay's check in and check out, a meal's time). The colours are the theme's: each family is the
+ * accent turned around the colour wheel (relative colour syntax), on the icon chip, the kicker and a few lines and numbers only.
+ * The markup is CONTRACT.md's "The card family". Narrow means `.app.narrow`.
  */
 .entry { --turn: 0; --tone: color-mix(in srgb, var(--accent-fill) 65%, var(--text-primary)); --tone-ink: var(--surface-page); }
 @supports (color: oklch(from red l c h)) {
@@ -37,7 +37,6 @@
    padding, so the in-day rails stay on the plan's line (--spine-x). The head sticks to the top while the day scrolls, on the card's own fill. */
 .sdk-day { --day-step: var(--surface-panel); gap: 0; padding: 0; margin-bottom: 14px; }
 .sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--pad-card) var(--pad-card) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
-.sdk-day-actions .menu-btn { position: relative; }
 .sdk-day-labels > .sdk-chip-tag[data-tone="custom"] { --chip-tone: var(--ph); max-width: 100%; }
 .sdk-day .suggestions, .sdk-day .add-row { margin: 0; }
 .sdk-day.drop-target { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
@@ -95,21 +94,21 @@
 .leg .dist { opacity: 0.8; }
 
 /* ---- the card, shared ---- */
-/* The surface (a flat hairline card, no gradient, no lift, no coloured edge), the icon chip (.sdk-card-icon on the .badge) and the menu slot
-   are the Cards family of system.css; a kind below lays its own parts out. The kind's hue is on its icon chip and its words only. Each part
-   has its own padding, so the card has none, and the parts sit flush (no gap) unless the kind says so. */
-.card { --tint: var(--tone); display: block; gap: 0; padding: 0; overflow: hidden; }
-.kicker { display: block; color: color-mix(in srgb, var(--tone) 62%, var(--text-primary)); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.card h3 { margin: 0; font-size: var(--text-14); line-height: var(--leading-section); overflow-wrap: break-word; }
+/* Every card is the banded card of system.css (Cards: .sdk-card-banded, its band .sdk-card-head with the icon chip, the title, the
+   kicker as its meta and the "...", then .sdk-card-body). A kind below lays out its body only; the band is the same for all. The kind's
+   hue is on its icon chip and the kicker's words only (--tint). The body is a stack, its parts one gap apart. */
+.card { --tint: var(--tone); }
 .card p { margin: 0; color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }
-.chips2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; }
+.card > .sdk-card-body { display: flex; flex-direction: column; gap: var(--space-2); }
+.chips2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 6px; }
 .card .sdk-chip-tag { --chip-tone: var(--tone); }
 .sdk-chip-tag.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: var(--tracking-caps); }
-/* what the face has no place for, folded under the card: a "More" line, then label/value pairs. Spans the card whatever its own layout. */
-.card > .card-more { grid-column: 1 / -1; flex-basis: 100%; width: 100%; margin: 0; padding: 0 12px 8px; border-top: 1px solid var(--edge-hairline); font-size: var(--text-12); }
-.card.transit, .card.meal, .card.act { flex-wrap: wrap; }
+/* what the face has no place for, folded under the body: a "More" line, then label/value pairs; a round trip's line above it */
+.card > .card-more { margin: 0; padding: 0 var(--space-3) var(--space-2); border-top: 1px solid var(--edge-hairline); font-size: var(--text-12); }
 /* a leg of a round trip: a quiet line under the face with the other leg's day, and a warning when the return is before the outbound */
-.card > .card-roundtrip { grid-column: 1 / -1; flex-basis: 100%; width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; padding: 6px 12px; border-top: 1px solid var(--edge-hairline); color: var(--text-muted); font-size: var(--text-12); }
+.card > .card-roundtrip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); margin: 0; padding: 6px var(--space-3); border-top: 1px solid var(--edge-hairline); color: var(--text-muted); font-size: var(--text-12); }
+/* with no body, the band's own hairline is the line above them */
+.card > .sdk-card-body[hidden] + :is(.card-more, .card-roundtrip) { border-top: 0; }
 .card-roundtrip .ic { color: var(--tone); }
 .card-roundtrip .roundtrip-warn { color: var(--danger); font-weight: var(--weight-strong); }
 .card-more summary { display: flex; align-items: center; gap: 6px; padding: 5px 0; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; list-style: none; }
@@ -132,16 +131,15 @@
 .note .note-body ul, .note .note-body ol { padding-left: 1.1em; }
 .card-more dd.note-text a, .note .note-body a { color: var(--accent); }
 .card-more dd.note-text code, .note .note-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
-.menu-btn { position: absolute; top: var(--space-2); right: var(--space-2); }
 .owners { display: inline-flex; margin-left: auto; }
 .owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--surface-card); border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 40%, var(--surface-card)); color: var(--text-primary); font-size: var(--text-11); font-weight: var(--weight-strong); }
 .owner:first-child { margin-left: 0; }
 
-/* ---- a boarding pass: a flight ---- */
-.pass { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.pass-main { padding: 12px 14px; }
-.pass-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-right: 26px; }
-.pass-top .who { min-width: 0; }
+/* ---- a boarding pass: a flight. The body is the route and the stub beside it, flush to the box: each owns its padding. ---- */
+/* the stub's notches are cut by the box's edge */
+:is(.pass, .admit) { overflow: clip; }
+.pass > .sdk-card-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0; padding: 0; }
+.pass-main { padding: var(--space-2) var(--space-3) var(--space-3); }
 .pass .pass-route { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: center; gap: 10px; }
 .pass .end { display: flex; flex-direction: column; }
 .pass .end.to { text-align: right; }
@@ -154,113 +152,86 @@
 .pass .path .line { display: block; width: 100%; border-top: 2px dashed color-mix(in srgb, var(--tone) 55%, transparent); }
 .pass .path .ic { position: absolute; top: -7px; left: 50%; margin-left: -8px; padding: 0 2px; background: var(--surface-card); font-size: var(--text-16); }
 .pass .path .dur { margin-top: 6px; color: var(--text-muted); font-size: var(--text-11); }
-.pass .stub { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 96px; padding: 12px 14px; border-left: 2px dashed var(--edge-hairline); background: var(--surface-field); }
-.pass .stub::before, .pass .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); border: 1px solid var(--edge-hairline); }
-.pass .stub::before { top: -9px; }
-.pass .stub::after { bottom: -9px; }
+/* the stub: its own step, a perforation (dashed) where it tears off, and a notch at each end of the tear */
+:is(.pass, .admit) .stub { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: var(--space-2) var(--space-3) var(--space-3); border-left: 2px dashed var(--edge-hairline); border-bottom-right-radius: var(--radius-medium); background: var(--surface-field); }
+:is(.pass, .admit) .stub::before, :is(.pass, .admit) .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); border: 1px solid var(--edge-hairline); }
+:is(.pass, .admit) .stub::before { top: -9px; clip-path: inset(50% 0 0 0); } /* the half under the band */
+:is(.pass, .admit) .stub::after { bottom: -9px; }
+.pass .stub { min-width: 96px; }
 .pass .stub div small { display: block; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .pass .stub div b { font-size: var(--text-16); }
 .pass .bars { height: 22px; margin-top: 2px; opacity: 0.55; background: repeating-linear-gradient(90deg, var(--text-primary) 0 2px, transparent 2px 4px, var(--text-primary) 4px 5px, transparent 5px 8px, var(--text-primary) 8px 11px, transparent 11px 13px); }
+/* with a line under the body (More, a round trip), the stub's corner is square and its foot notch sits on that line */
+.card > .sdk-card-body:not(:last-child) > .stub { border-bottom-right-radius: 0; }
 
 /* ---- a train ticket ---- */
-.ticket .strip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface-field); border-bottom: 1px solid var(--edge-hairline); padding-right: 40px; }
-.ticket .strip { flex-wrap: wrap; row-gap: var(--space-2); }
-.ticket .strip .who { min-width: 0; flex: 1 1 9ch; }
-.ticket .stations { display: grid; grid-template-columns: minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px 14px 4px; }
+.ticket .stations { display: grid; grid-template-columns: minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr); align-items: center; gap: var(--space-2); }
 .ticket .st b { display: block; font-size: var(--text-14); overflow-wrap: anywhere; }
 .ticket .st .t { white-space: nowrap; font-size: var(--text-18); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; line-height: var(--leading-display); }
 .ticket .st.to { text-align: right; }
 .ticket .track { position: relative; height: 18px; color: var(--tone); }
 .ticket .track::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; border-top: 3px dotted color-mix(in srgb, var(--tone) 55%, transparent); }
 .ticket .track .ic { position: absolute; left: 50%; top: 0; margin-left: -8px; padding: 0 2px; background: var(--surface-card); font-size: var(--text-16); }
-.ticket .foot { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 6px 14px 12px; }
 
-/* ---- a bus, a ferry, a car: a compact transit card ---- */
-.transit { display: flex; align-items: center; gap: 12px; padding: 10px 40px 10px 12px; }
-.transit .main { min-width: 0; flex: 1; }
-.transit .go { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: var(--text-13); }
+/* ---- a bus, a ferry, a car: the time and where to ---- */
+.transit .go { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--text-13); }
 .transit .go .ic { color: var(--tone); }
 .transit .tm { font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 
-/* ---- a stay: a hotel key band ---- */
-.stay .band { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 40px 12px 14px; background: var(--surface-field); overflow: hidden; }
-.stay .band .main { min-width: 0; flex: 1; position: relative; z-index: 1; }
-.stay .nights { position: relative; z-index: 1; padding: 2px 10px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-11); font-weight: var(--weight-strong); white-space: nowrap; }
-.stay .ins { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 10px 14px 4px; }
+/* ---- a stay: its nights in the band, then the address, check in and check out, the chips ---- */
+.stay .nights { flex: none; padding: 2px 10px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-11); font-weight: var(--weight-strong); white-space: nowrap; }
+.stay .ins { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
 .stay .ins small { display: block; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .stay .ins b { font-size: var(--text-14); font-variant-numeric: tabular-nums; }
 .stay .ins .sep { width: 34px; border-top: 2px dotted color-mix(in srgb, var(--tone) 55%, transparent); }
 .stay .ins > div:last-child { text-align: right; }
-.stay .foot { margin-top: 0; padding: 8px 14px 12px; } /* the card has no padding: each part owns its own, so the chips' 8px is padding here, not a margin */
-.stay.mid { display: flex; align-items: center; gap: 10px; padding: 7px 40px 7px 10px; border-style: dashed; background: transparent; }
-.stay.mid .badge { width: 28px; height: 28px; font-size: var(--text-12); }
-.stay.mid h3 { font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }
+/* the nights between check in and check out: a plain row (Cards: .sdk-row), dashed, the hotel's name only */
+.stay.mid { border-style: dashed; background: transparent; }
+.stay.mid .sdk-row-title { margin: 0; font-size: var(--text-13); color: var(--text-muted); }
 
-/* ---- the last morning of a stay: a check-out card with the time big on the right ---- */
-.stay.out { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 40px 10px 12px; }
-.stay.out .side { text-align: right; padding-right: 4px; }
-.stay.out .side b { display: block; font-size: var(--text-18); font-variant-numeric: tabular-nums; line-height: var(--leading-ui); }
-.stay.out .side small { color: var(--text-muted); font-size: var(--text-11); }
+/* ---- the last morning of a stay, a meal, a coffee, a drink: the time big on the right ---- */
+:is(.stay.out, .meal) > .sdk-card-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+:is(.stay.out, .meal) .main { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+:is(.stay.out, .meal) .side { text-align: right; }
+:is(.stay.out, .meal) .side b { display: block; font-size: var(--text-18); font-variant-numeric: tabular-nums; line-height: var(--leading-ui); }
+:is(.stay.out, .meal) .side small { color: var(--text-muted); font-size: var(--text-11); }
 
-/* ---- a reservation: a meal, a coffee, a drink ---- */
-.meal { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; }
-.meal .side { padding-right: 24px; text-align: right; }
-.meal .side b { display: block; font-size: var(--text-18); font-variant-numeric: tabular-nums; line-height: var(--leading-ui); }
-.meal .side small { color: var(--text-muted); font-size: var(--text-11); }
-
-/* ---- a thing to do: a pass with a stamp ---- */
-.act { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 12px 40px 12px 12px; }
-
-/* ---- a ticket for a show or an event ---- */
-.admit { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.admit .admit-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 12px 14px; padding-right: 28px; }
-.admit .stub { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 10px; border-left: 2px dashed var(--edge-hairline); background: var(--surface-field); text-align: center; }
-.admit .stub::before, .admit .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--surface-panel); border: 1px solid var(--edge-hairline); }
-.admit .stub::before { top: -9px; }
-.admit .stub::after { bottom: -9px; }
+/* ---- a ticket for a show or an event: the body and the stub with the count ---- */
+.admit > .sdk-card-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0; padding: 0; }
+.admit .admit-body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-2) var(--space-3) var(--space-3); }
+.admit .stub { align-items: center; gap: 0; min-width: 74px; text-align: center; }
 .admit .stub small { font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); color: var(--text-muted); }
 .admit .stub b { font-size: var(--text-28); line-height: var(--leading-ui); color: var(--tone); }
 
 /* ---- a note ---- */
-.note { padding: 12px 40px 12px 14px; }
 .note .note-body { color: var(--text-primary); font-size: var(--text-13); overflow-wrap: anywhere; }
 
-/* ---- a saved place ---- */
-.placecard { display: flex; align-items: center; gap: 12px; padding: 10px 40px 10px 12px; }
-
-/* ---- another module's item ---- */
-.linkcard { border-style: dashed; background: transparent; padding: 10px 40px 10px 12px; }
-.linkcard .src { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.linkcard h3 { font-size: var(--text-14); }
-/* opening a linked item in the module that owns it: the "open in a new window" icon, quiet until pointed at */
-.open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-muted); font-size: var(--text-12); text-transform: none; letter-spacing: var(--tracking-normal); cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+/* ---- another module's object: a dashed edge says it lives elsewhere ---- */
+.linkcard { border-style: dashed; }
+/* opening a linked object in the module that owns it: the "open in a new window" icon in the band */
 .open-link .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.open-link:hover, .open-link:focus-visible { background: color-mix(in srgb, var(--accent-fill) 18%, transparent); color: var(--accent); outline: none; }
-.open-link:active { background: color-mix(in srgb, var(--accent-fill) 30%, transparent); }
-.linkcard .src .open-link { margin-left: auto; }
-/* the item it pointed at is gone (deleted), or this person may not see it: a muted placeholder that says so and offers to remove it, never an editor */
+/* the object it pointed at is gone (deleted), or this person may not see it: a muted placeholder that says so and offers to remove it, never an editor */
 .linkcard.gone, .linkcard.hidden { opacity: 0.7; cursor: default; }
-.linkcard.gone h3 { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent); }
-.linkcard.hidden h3 { color: var(--text-muted); font-style: italic; }
-.linkcard .linkstate { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; color: var(--text-muted); font-size: var(--text-12); }
-.linkcard [data-action="remove-link"] { margin-top: 8px; padding: 2px 10px; font-size: var(--text-12); }
+.linkcard.gone .sdk-card-title { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent); }
+.linkcard.hidden .sdk-card-title { color: var(--text-muted); font-style: italic; }
+.linkcard .linkstate { display: flex; align-items: center; gap: 6px; }
+.linkcard [data-action="remove-link"] { align-self: flex-start; }
 .linkcard [data-action="remove-link"] .ic { margin-right: 4px; }
 
-/* ---- tiny: the pass and the ticket stack. The boarding pass keeps its stub beside the route down to a tiny pane
+/* ---- tiny: the pass and the ticket stack. The boarding pass keeps its stub beside the route down to a tiny window
    (`.app.tiny`, under 480px, set by the script beside `.narrow`): the stub with its perforation and barcode is the
-   card, and a narrow pane still has room for it. Only where it truly does not fit does the stub fold under the
+   card, and a narrow window still has room for it. Only where it truly does not fit does the stub fold under the
    route, and it keeps its barcode there, across the strip. ---- */
-.app.tiny .pass, .app.tiny .admit { grid-template-columns: 1fr; }
-.app.tiny .pass .stub, .app.tiny .admit .stub { flex-direction: row; flex-wrap: wrap; justify-content: space-between; border-left: 0; border-top: 2px dashed var(--edge-hairline); }
-.app.tiny .pass .stub::before, .app.tiny .admit .stub::before { left: -9px; top: -9px; }
-.app.tiny .pass .stub::after, .app.tiny .admit .stub::after { left: auto; right: -9px; top: -9px; bottom: auto; }
+.app.tiny :is(.pass, .admit) > .sdk-card-body { grid-template-columns: minmax(0, 1fr); }
+.app.tiny :is(.pass, .admit) .stub { flex-direction: row; flex-wrap: wrap; justify-content: space-between; border-left: 0; border-top: 2px dashed var(--edge-hairline); border-bottom-left-radius: var(--radius-medium); }
+.app.tiny .card > .sdk-card-body:not(:last-child) > .stub { border-bottom-left-radius: 0; }
+.app.tiny :is(.pass, .admit) .stub::before { left: -9px; top: -9px; clip-path: none; }
+.app.tiny :is(.pass, .admit) .stub::after { left: auto; right: -9px; top: -9px; bottom: auto; }
 .app.tiny .pass .bars { flex-basis: 100%; }
-/* A meal or a check-out in a tiny pane: the time goes under the name (beside it, the name had no width left and stood one letter a line). */
-.app.tiny :is(.meal, .stay.out) { grid-template-columns: auto minmax(0, 1fr); }
-.app.tiny :is(.meal, .stay.out) .side { grid-column: 2; padding-right: 0; text-align: left; }
-/* A stay in a tiny pane: the name takes a line of its own words (never a letter a line), the nights tag drops under it, and check-in over check-out. */
-.app.tiny .stay .band { flex-wrap: wrap; row-gap: var(--space-2); }
-.app.tiny .stay .band .main { flex: 1 1 9ch; }
+/* A meal or a check-out in a tiny window: the time goes under the address. */
+.app.tiny :is(.meal, .stay.out) > .sdk-card-body { grid-template-columns: minmax(0, 1fr); }
+.app.tiny :is(.meal, .stay.out) .side { text-align: left; }
+/* A stay in a tiny window: check in over check out. */
 .app.tiny .stay .ins { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
 .app.tiny .stay .ins .sep { display: none; }
 .app.tiny .stay .ins > div:last-child { text-align: left; }
@@ -276,10 +247,9 @@
 .app.narrow .row.leg-row .when { display: none; }
 .app.narrow .rail .dot { top: 12px; }
 .app.narrow .timeline { padding: 6px 10px 6px 6px; }
-.app.narrow .card h3 { overflow-wrap: break-word; }
 
 /* ---- states of a row (the same the old items had) ---- */
-.entry.done h3 { color: var(--text-muted); text-decoration: line-through; }
+.entry.done :is(.sdk-card-title, .sdk-row-title) { color: var(--text-muted); text-decoration: line-through; }
 .entry.dragging .card { opacity: 0.5; }
 .slot { position: relative; }
 .entry[data-drop="before"] .slot::before, .entry[data-drop="after"] .slot::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: var(--radius-min); background: var(--accent-fill); z-index: 3; }
@@ -306,11 +276,10 @@
 .row.marker .slot { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) 0; }
 .row.marker .sdk-mk-line { margin-left: -32px; }
 .app.narrow .row.marker .sdk-mk-line { margin-left: -28px; } /* the narrow rail is 14px, 8px from the slot: 15px */
-.row.marker .slot > .menu-btn { position: static; flex: none; }
+.row.marker .slot > .menu-btn { flex: none; }
 /* A time block in a day is a day row (the Markers block): it sits in the slot as a card does, and its dot on the rail is neutral. */
 .row[data-kind="block"] .rail .dot { background: var(--text-muted); }
 .sdk-mk-row { --tint: var(--marker); }
-.sdk-mk-row > .menu-btn { position: static; }
 /* A plan-wide marker is one banner-like pill with nothing beside its date: stacking the date in its own
    full-width row above it (the way every other row does on a phone) leaves it stranded with empty space
    beside it. mk-date carries the same date inside the chip for a phone to show instead (see buildMarker); the

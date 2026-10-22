@@ -191,8 +191,8 @@
       const el = root.querySelector(`[data-poll="${CSS.escape(key)}"]`);
       if (el) {
         el.scrollIntoView({ block: 'center' });
-        el.classList.add('flash');
-        setTimeout(() => el.classList.remove('flash'), 2000);
+        el.classList.add('on');
+        setTimeout(() => el.classList.remove('on'), 2000);
       }
     });
     host.on('links', (e) => {

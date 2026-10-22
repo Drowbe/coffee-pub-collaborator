@@ -48,7 +48,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .opt-row input { flex: 1; min-width: 0; }
 
 .sdk-chip-tag b { font-weight: var(--weight-strong); }
-.poll.flash { --s: color-mix(in srgb, var(--accent-fill) 28%, var(--surface-card)); } /* the band, a step of the box, follows */
 
 .opt.drop { outline: 2px solid var(--accent-fill); outline-offset: -2px; }
 .optlink { display: flex; align-items: center; gap: 4px; margin: 2px 0 6px 4px; }

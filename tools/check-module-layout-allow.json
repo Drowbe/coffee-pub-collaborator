@@ -9,26 +9,8 @@
     },
     {
       "module": "budget",
-      "selector": ".app",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
-      "count": 1
-    },
-    {
-      "module": "budget",
       "selector": "#view-overview .sdk-card-banded > .sdk-card-body",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
-      "count": 1
-    },
-    {
-      "module": "budget",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
-      "count": 2
-    },
-    {
-      "module": "budget",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
       "count": 1
     },
     {

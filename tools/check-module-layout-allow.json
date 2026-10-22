@@ -147,12 +147,6 @@
     },
     {
       "module": "polls",
-      "selector": ".app",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 1
-    },
-    {
-      "module": "polls",
       "selector": ".meta .sdk-chip-tag",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
       "count": 1
@@ -177,21 +171,9 @@
     },
     {
       "module": "polls",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 1
-    },
-    {
-      "module": "polls",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 1
-    },
-    {
-      "module": "polls",
       "selector": "markup: <header>",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 2
+      "count": 1
     },
     {
       "module": "research",

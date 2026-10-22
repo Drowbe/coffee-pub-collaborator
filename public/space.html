@@ -262,9 +262,9 @@
           <label>Mic level <span class="hint" id="gain-value">100%</span><input type="range" id="gain" min="0" max="300" step="5" value="100"></label>
           <label>Noise gate <span class="hint" id="gate-value">off</span><input type="range" id="gate" min="0" max="60" step="1" value="0"></label>
           <div class="checks">
-            <label class="sdk-choice-row"><input type="checkbox" id="noise" checked> Noise suppression</label>
-            <label class="sdk-choice-row"><input type="checkbox" id="echo" checked> Echo cancellation</label>
-            <label class="sdk-choice-row"><input type="checkbox" id="agc" checked> Auto gain</label>
+            <label class="sdk-choice-row"><input type="checkbox" id="noise" checked><span class="sdk-choice-text">Noise suppression</span></label>
+            <label class="sdk-choice-row"><input type="checkbox" id="echo" checked><span class="sdk-choice-text">Echo cancellation</span></label>
+            <label class="sdk-choice-row"><input type="checkbox" id="agc" checked><span class="sdk-choice-text">Auto gain</span></label>
           </div>
           <label>Talking<select id="talk-mode"><option value="open">Open mic</option><option value="ptt">Push to talk</option></select></label>
         </div>
@@ -282,7 +282,7 @@
           <h3>Video</h3>
           <label>Camera<select id="cam-select"></select></label>
           <label>Quality<select id="quality"><option value="360">360p (weak connection)</option><option value="540">540p</option><option value="720" selected>720p</option></select></label>
-          <label class="sdk-choice-row"><input type="checkbox" id="mirror" checked> Mirror my own preview</label>
+          <label class="sdk-choice-row"><input type="checkbox" id="mirror" checked><span class="sdk-choice-text">Mirror my own preview</span></label>
           <label>Background<select id="background-mode">
             <option value="none">Off (your real background)</option>
             <option value="blur">Blur</option>

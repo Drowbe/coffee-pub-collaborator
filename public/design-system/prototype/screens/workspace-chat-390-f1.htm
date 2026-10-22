@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-mode="dark" data-mode-shown="dark"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1410">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- A destination's parts may run in the page (a map needs a worker and reads its tiles from an address). -->
+  
+  
+  <title>Collaborator - Calendar - Lisbon in autumn</title>
+  <link rel="stylesheet" href="../../../fa/css/all.min.css">
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="../../../destination.css">
+  
+  <link rel="stylesheet" href="../themes/strong-coffee.css" data-proto-theme="">
+  <link rel="stylesheet" href="../../../sdk/system.css">
+<script src="../../prototype-frame.js"></script></head>
+<body class="destination-page dest-in-space dest-no-topbar dest-phone">
+  <header class="topbar"><div class="subnav page-bar dest-bar" id="dest-bar" role="navigation" aria-label="This page"><div class="nav-left"><button type="button" id="subnav-more" class="sdk-icon-btn btn-quiet btn-small nav-more sdk-tabbar-tab" data-tip="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" data-nav-tool="subnav-more" hidden=""><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i><span class="sdk-tabbar-label" aria-hidden="true">More</span></button><span class="tb-tabs dest-views" id="dest-views" role="group" aria-label="View" data-nav-tool="dest-views"><button type="button" data-view="month" class="tb-tab on sdk-tabbar-tab" aria-label="Month" aria-pressed="true"><i class="tb-tab-glyph fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Month</span></button><button type="button" data-view="week" class="tb-tab" aria-label="Week" aria-pressed="false"><i class="tb-tab-glyph fa-solid fa-calendar-week fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Week</span></button><button type="button" data-view="day" class="tb-tab" aria-label="Day" aria-pressed="false"><i class="tb-tab-glyph fa-solid fa-calendar-day fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Day</span></button></span><span class="nav-divider" data-nav-divider=""></span><span class="dest-filter" data-nav-tool="dest-filter">
+    <button type="button" class="btn btn-small dest-filter-toggle sdk-tabbar-tab" id="dest-filter-toggle" aria-expanded="false" aria-controls="dest-filter-list" title="Markers" aria-label="Markers"><i class="fa-solid fa-filter fa-fw" aria-hidden="true"></i><span class="dest-filter-label" id="dest-filter-label">Markers</span><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i></button>
+    <div class="module-chooser-list dest-filter-list" id="dest-filter-list" role="group" hidden="" aria-label="Markers"></div></span></div><span class="nav-right"></span></div></header>
+
+  <!-- A destination (Calendar, Map): a host page made of modules' parts (plan-calendar-destination.md). The page bar
+       is the header's second row (destination.js); the main part fills the page, the panel sits on its right. On a
+       phone the main part and each panel are tabs along the bottom. -->
+  <main class="dest" id="dest">
+    <section class="dest-main sized" id="dest-main" aria-label="Calendar"><div class="module-root dest-part-root" style="--part-h: 2px;"><template shadowrootmode="open"><style data-proto-css="sdk 88a8de3572d3"></style>
+<div id="app" class="app part sdk-cal-compact">
+  <header class="bar">
+    <div class="nav">
+      <button class="btn btn-small" id="prev" type="button" aria-label="Previous">‹</button>
+      <button class="btn btn-small" id="today" type="button">Today</button>
+      <button class="btn btn-small" id="next" type="button" aria-label="Next">›</button>
+      <h2 id="title">October 2026</h2>
+    </div>
+    <div class="nav">
+      <button class="btn btn-primary hosted" id="add" type="button">Add event</button>
+    </div>
+  </header>
+  <div id="filters" class="sdk-chips" hidden=""></div>
+  <main id="body" class="body"><div class="sdk-cal-grid"><div class="sdk-cal-dow">Sun</div><div class="sdk-cal-dow">Mon</div><div class="sdk-cal-dow">Tue</div><div class="sdk-cal-dow">Wed</div><div class="sdk-cal-dow">Thu</div><div class="sdk-cal-dow">Fri</div><div class="sdk-cal-dow">Sat</div><div class="sdk-cal-cell ph ph-green is-other" data-day="2026-09-27" tabindex="0" title="Sunday, September 27">
+        <span class="sdk-cal-n">27</span><small class="ph-name" title="Booking">Booking</small><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-green is-other" data-day="2026-09-28" tabindex="0" title="Monday, September 28">
+        <span class="sdk-cal-n">28</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-green is-other" data-day="2026-09-29" tabindex="0" title="Tuesday, September 29">
+        <span class="sdk-cal-n">29</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-green is-other" data-day="2026-09-30" tabindex="0" title="Wednesday, September 30">
+        <span class="sdk-cal-n">30</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-green" data-day="2026-10-01" tabindex="0" title="Thursday, October 1">
+        <span class="sdk-cal-n">1</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-green" data-day="2026-10-02" tabindex="0" title="Friday, October 2">
+        <span class="sdk-cal-n">2</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-green" data-day="2026-10-03" tabindex="0" title="Saturday, October 3">
+        <span class="sdk-cal-n">3</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-04" tabindex="0" title="Sunday, October 4">
+        <span class="sdk-cal-n">4</span><small class="ph-name" title="Buffer">Buffer</small><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-05" tabindex="0" title="Monday, October 5">
+        <span class="sdk-cal-n">5</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-06" tabindex="0" title="Tuesday, October 6">
+        <span class="sdk-cal-n">6</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-07" tabindex="0" title="Wednesday, October 7">
+        <span class="sdk-cal-n">7</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-08" tabindex="0" title="Thursday, October 8">
+        <span class="sdk-cal-n">8</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-09" tabindex="0" title="Friday, October 9">
+        <span class="sdk-cal-n">9</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-10" tabindex="0" title="Saturday, October 10">
+        <span class="sdk-cal-n">10</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-11" tabindex="0" title="Sunday, October 11">
+        <span class="sdk-cal-n">11</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-teal" data-day="2026-10-12" tabindex="0" title="Monday, October 12">
+        <span class="sdk-cal-n">12</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e4" title="Weekly planning call"><span class="rep">↻</span>7:00 PM Weekly planning call</button></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-13" tabindex="0" title="Tuesday, October 13">
+        <span class="sdk-cal-n">13</span><small class="ph-name" title="Pre-trip">Pre-trip</small><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-14" tabindex="0" title="Wednesday, October 14">
+        <span class="sdk-cal-n">14</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple is-today is-selected" data-day="2026-10-15" aria-current="date" tabindex="0" title="Thursday, October 15">
+        <span class="sdk-cal-n">15</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-16" tabindex="0" title="Friday, October 16">
+        <span class="sdk-cal-n">16</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e1" title="Passport photos">4:00 PM Passport photos</button></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-17" tabindex="0" title="Saturday, October 17">
+        <span class="sdk-cal-n">17</span><div class="sdk-cal-chips"><button type="button" class="sdk-cal-event sdk-bar-kept is-marker tint-green" data-marker="marker:todo:task:space:m6ktddtu:t1" title="Book the Sintra train - open in To-do"><span class="mi" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span>Book the Sintra train</button></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-18" tabindex="0" title="Sunday, October 18">
+        <span class="sdk-cal-n">18</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-19" tabindex="0" title="Monday, October 19">
+        <span class="sdk-cal-n">19</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e4" title="Weekly planning call"><span class="rep">↻</span>7:00 PM Weekly planning call</button></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-20" tabindex="0" title="Tuesday, October 20">
+        <span class="sdk-cal-n">20</span><div class="sdk-cal-chips"><button type="button" class="sdk-cal-event sdk-bar-kept is-marker tint-green" data-marker="marker:todo:task:space:m6ktddtu:t2" title="Exchange some euros - open in To-do"><span class="mi" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span>Exchange some euros</button></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-21" tabindex="0" title="Wednesday, October 21">
+        <span class="sdk-cal-n">21</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-22" tabindex="0" title="Thursday, October 22">
+        <span class="sdk-cal-n">22</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-23" tabindex="0" title="Friday, October 23">
+        <span class="sdk-cal-n">23</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-purple" data-day="2026-10-24" tabindex="0" title="Saturday, October 24">
+        <span class="sdk-cal-n">24</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e2" title="Pack the suitcases">Pack the suitcases</button><button type="button" class="sdk-cal-event sdk-bar-kept is-marker tint-green" data-marker="marker:todo:task:space:m6ktddtu:t5" title="Pack adapters - open in To-do"><span class="mi" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span>Pack adapters</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-25" tabindex="0" title="Sunday, October 25">
+        <span class="sdk-cal-n">25</span><small class="ph-name" title="Trip">Trip</small><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">Trip</button><button class="sdk-cal-event" data-open="here:7360b8d52456aa9e" title="Flight to Lisbon">7:40 AM Flight to Lisbon</button><button class="sdk-cal-event" data-open="here:0b94901e22ddf4d2" title="Hotel Avenida Palace">3:00 PM Hotel Avenida Palace</button><button class="sdk-cal-event" data-open="here:76d088fa94e5267d" title="Dinner at Taberna da Rua">8:00 PM Dinner at Taberna da Rua</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-26" tabindex="0" title="Monday, October 26">
+        <span class="sdk-cal-n">26</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button><button class="sdk-cal-event" data-open="here:ff9caa08d4739a01" title="Bring a rain jacket">Bring a rain jacket</button><button class="sdk-cal-event" data-open="here:6396f661794c4ed5" title="Tile Museum">10:30 AM Tile Museum</button><button class="sdk-cal-event" data-open="here:0c6ef42e9dfd63a1" title="Pastries in Belem">3:00 PM Pastries in Belem</button><button class="sdk-cal-event" data-open="here:e4" title="Weekly planning call"><span class="rep">↻</span>7:00 PM Weekly planning call</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-27" tabindex="0" title="Tuesday, October 27">
+        <span class="sdk-cal-n">27</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button><button class="sdk-cal-event" data-open="here:cfef150cd1a61f79" title="Train to Sintra">9:15 AM Train to Sintra</button><button class="sdk-cal-event" data-open="here:55e82d37b94288b4" title="Free time">2:00 PM Free time</button><button class="sdk-cal-event" data-open="here:20bca38bccfcf1e0" title="Castelo de Sao Jorge">5:00 PM Castelo de Sao Jorge</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-28" tabindex="0" title="Wednesday, October 28">
+        <span class="sdk-cal-n">28</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button><button class="sdk-cal-event" data-open="here:bc658acc5e9cbe2d" title="Lunch near the market">1:00 PM Lunch near the market</button><button class="sdk-cal-event" data-open="here:d0b51b4401d63bab" title="Tuk-tuk tour">1:30 PM Tuk-tuk tour</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-29" tabindex="0" title="Thursday, October 29">
+        <span class="sdk-cal-n">29</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button><button class="sdk-cal-event" data-open="here:65ab4d6b2c6d7187" title="Fado night">9:00 PM Fado night</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-30" tabindex="0" title="Friday, October 30">
+        <span class="sdk-cal-n">30</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange" data-day="2026-10-31" tabindex="0" title="Saturday, October 31">
+        <span class="sdk-cal-n">31</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange is-other" data-day="2026-11-01" tabindex="0" title="Sunday, November 1">
+        <span class="sdk-cal-n">1</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange is-other" data-day="2026-11-02" tabindex="0" title="Monday, November 2">
+        <span class="sdk-cal-n">2</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button><button class="sdk-cal-event" data-open="here:e4" title="Weekly planning call"><span class="rep">↻</span>7:00 PM Weekly planning call</button><button class="sdk-cal-event" data-open="here:e5" title="Farewell dinner">8:00 PM Farewell dinner</button></div>
+        </div><div class="sdk-cal-cell ph ph-orange is-other" data-day="2026-11-03" tabindex="0" title="Tuesday, November 3">
+        <span class="sdk-cal-n">3</span><div class="sdk-cal-chips"><button class="sdk-cal-event" data-open="here:e3" title="Trip">→ Trip</button><button class="sdk-cal-event" data-open="here:273bd3687fa2acdf" title="Airport shuttle bus">10:00 AM Airport shuttle bus</button></div>
+        </div><div class="sdk-cal-cell ph ph-pink is-other" data-day="2026-11-04" tabindex="0" title="Wednesday, November 4">
+        <span class="sdk-cal-n">4</span><small class="ph-name" title="Post-trip">Post-trip</small><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-pink is-other" data-day="2026-11-05" tabindex="0" title="Thursday, November 5">
+        <span class="sdk-cal-n">5</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-pink is-other" data-day="2026-11-06" tabindex="0" title="Friday, November 6">
+        <span class="sdk-cal-n">6</span><div class="sdk-cal-chips"></div>
+        </div><div class="sdk-cal-cell ph ph-pink is-other" data-day="2026-11-07" tabindex="0" title="Saturday, November 7">
+        <span class="sdk-cal-n">7</span><div class="sdk-cal-chips"></div>
+        </div></div></main>
+
+  <dialog id="editor" class="sdk-editor sdk-editor-medium" tabindex="-1">
+    <form id="form" class="sdk-form">
+      <h3 id="editor-title">New event</h3>
+      <label class="sdk-field" id="f-where-wrap" hidden=""><span class="sdk-label">Where</span><select id="f-where"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-hint" id="f-readonly" hidden=""></div>
+      <label class="sdk-field"><span class="sdk-label">Title</span><input id="f-title" type="text" maxlength="100" required="" value=""><span class="sdk-hint"></span></label>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Starts</span><span class="sdk-datefield sdk-group"><input id="f-date" type="date" required="" aria-labelledby="f-date-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s" id="f-time-wrap"><span class="sdk-label">at</span><input id="f-time" type="time" value=""><span class="sdk-hint"></span></label>
+      </div>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-end-date-label"><span class="sdk-label" id="f-end-date-label">Ends <span class="sdk-optional">(optional)</span></span><span class="sdk-datefield sdk-group"><input id="f-end-date" type="date" aria-labelledby="f-end-date-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s" id="f-end-wrap"><span class="sdk-label">at</span><input id="f-end" type="time" value=""><span class="sdk-hint"></span></label>
+      </div>
+      <div class="sdk-choice-list"><label class="sdk-choice-row"><input id="f-allday" type="checkbox"><span>All day</span></label></div>
+      <div class="sdk-form-row" id="f-repeat-row">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Repeats</span><select id="f-repeat">
+          <option value="" selected="">Does not repeat</option>
+          <option value="day">Every day</option>
+          <option value="week">Every week</option>
+          <option value="2weeks">Every 2 weeks</option>
+          <option value="month">Every month</option>
+          <option value="year">Every year</option>
+        </select><span class="sdk-hint"></span></label>
+        <div class="sdk-field sdk-m" id="f-until-wrap" role="group" aria-labelledby="f-until-label"><span class="sdk-label" id="f-until-label">Until <span class="sdk-optional">(optional)</span></span><span class="sdk-datefield sdk-group"><input id="f-until" type="date" aria-labelledby="f-until-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+      </div>
+      <label class="sdk-field"><span class="sdk-label">Details</span><textarea id="f-desc" rows="3" maxlength="600"></textarea><span class="sdk-hint"></span></label>
+      <label class="sdk-field"><span class="sdk-label">Remind people</span><select id="f-remind">
+        <option value="" selected="">No reminder</option>
+        <option value="0">When it starts</option>
+        <option value="15">15 minutes before</option>
+        <option value="60">1 hour before</option>
+        <option value="1440">1 day before</option>
+      </select><span class="sdk-hint" id="f-remind-hint"></span></label>
+      <div class="sdk-field" id="f-links-wrap" role="group" aria-labelledby="f-links-label" hidden=""><span class="sdk-label" id="f-links-label">Linked from</span><div class="links" id="f-links"></div></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden=""></div>
+      <div class="sdk-editor-actions">
+        <button class="btn btn-danger" type="button" id="f-delete" hidden="">Delete</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="f-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+<p id="note" class="hint note" hidden=""></p>
+<p id="msg" class="hint msg" hidden="">Loading...</p>
+
+</template></div></section>
+    <aside class="dest-side sized" id="dest-side">
+      <div class="dest-side-head" id="dest-side-head">
+        <span class="tb-tabs" id="dest-side-tabs" role="group" aria-label="Show"><button type="button" data-panel="panel:calendar" class="tb-tab on" aria-label="Agenda" aria-pressed="true"><i class="tb-tab-glyph fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Agenda</span></button><button type="button" data-panel="panel:todo" class="tb-tab" aria-label="To-do" aria-pressed="false"><i class="tb-tab-glyph fa-solid fa-list-check fa-fw" aria-hidden="true"></i><span class="tb-tab-word">To-do</span></button></span>
+      </div>
+      <div class="dest-side-body" id="dest-side-body"><div class="dest-side-part sized" id="dest-panel-calendar" role="region" aria-label="Agenda"><div class="module-root dest-part-root" style="--part-h: 16px;"><template shadowrootmode="open"><style data-proto-css="sdk 88a8de3572d3"></style>
+<div id="app" class="app part sdk-cal-compact">
+  <header class="bar" hidden="">
+    <div class="nav">
+      <button class="btn btn-small" id="prev" type="button" aria-label="Previous">‹</button>
+      <button class="btn btn-small" id="today" type="button">Today</button>
+      <button class="btn btn-small" id="next" type="button" aria-label="Next">›</button>
+      <h2 id="title"></h2>
+    </div>
+    <div class="nav">
+      <button class="btn btn-primary" id="add" type="button" hidden="">Add event</button>
+    </div>
+  </header>
+  <div id="filters" class="sdk-chips" hidden=""></div>
+  <main id="body" class="body"><div class="list"><div class="group"><h4>Friday, October 16</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:e1" title="4:00 PM – 4:30 PM  Passport photos"><span class="sdk-row-meta">4 PM – 4:30 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Passport photos</span></span></button></div></div><div class="group"><h4>Saturday, October 17</h4><div class="sdk-cal-agenda"><button type="button" class="sdk-row sdk-bar-kept is-marker tint-green" data-marker="marker:todo:task:space:m6ktddtu:t1" title="Book the Sintra train - open in To-do"><span class="sdk-row-meta">Due</span>
+      <span class="sdk-row-main"><span class="sdk-row-title"><span class="mi" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span>Book the Sintra train<span class="sdk-chip-tag">To-do</span></span></span></button></div></div><div class="group"><h4>Monday, October 19</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:e4" title="7:00 PM – 7:45 PM  Weekly planning call"><span class="sdk-row-meta">7 PM – 7:45 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Weekly planning call<span class="sdk-chip-tag">weekly</span></span></span></button></div></div><div class="group"><h4>Tuesday, October 20</h4><div class="sdk-cal-agenda"><button type="button" class="sdk-row sdk-bar-kept is-marker tint-green" data-marker="marker:todo:task:space:m6ktddtu:t2" title="Exchange some euros - open in To-do"><span class="sdk-row-meta">Due</span>
+      <span class="sdk-row-main"><span class="sdk-row-title"><span class="mi" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span>Exchange some euros<span class="sdk-chip-tag">To-do</span></span></span></button></div></div><div class="group"><h4>Saturday, October 24</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:e2" title="All day  Pack the suitcases"><span class="sdk-row-meta">All day</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Pack the suitcases</span></span></button><button type="button" class="sdk-row sdk-bar-kept is-marker tint-green" data-marker="marker:todo:task:space:m6ktddtu:t5" title="Pack adapters - open in To-do"><span class="sdk-row-meta">Due</span>
+      <span class="sdk-row-main"><span class="sdk-row-title"><span class="mi" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span>Pack adapters<span class="sdk-chip-tag">To-do</span></span></span></button></div></div><div class="group"><h4>Sunday, October 25</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:e3" title="Oct 25 – Nov 3  Trip - Lisbon and Sintra."><span class="sdk-row-meta">Oct 25 – Nov 3</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Trip</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:7360b8d52456aa9e" title="7:40 AM  Flight to Lisbon"><span class="sdk-row-meta">7:40 AM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Flight to Lisbon</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:0b94901e22ddf4d2" title="3:00 PM  Hotel Avenida Palace"><span class="sdk-row-meta">3 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Hotel Avenida Palace</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:76d088fa94e5267d" title="8:00 PM  Dinner at Taberna da Rua"><span class="sdk-row-meta">8 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Dinner at Taberna da Rua</span></span></button></div></div><div class="group"><h4>Monday, October 26</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:ff9caa08d4739a01" title="All day  Bring a rain jacket"><span class="sdk-row-meta">All day</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Bring a rain jacket</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:6396f661794c4ed5" title="10:30 AM  Tile Museum"><span class="sdk-row-meta">10:30 AM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Tile Museum</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:0c6ef42e9dfd63a1" title="3:00 PM  Pastries in Belem"><span class="sdk-row-meta">3 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Pastries in Belem</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:e4" title="7:00 PM – 7:45 PM  Weekly planning call"><span class="sdk-row-meta">7 PM – 7:45 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Weekly planning call<span class="sdk-chip-tag">weekly</span></span></span></button></div></div><div class="group"><h4>Tuesday, October 27</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:cfef150cd1a61f79" title="9:15 AM  Train to Sintra"><span class="sdk-row-meta">9:15 AM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Train to Sintra</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:55e82d37b94288b4" title="2:00 PM  Free time"><span class="sdk-row-meta">2 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Free time</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:20bca38bccfcf1e0" title="5:00 PM  Castelo de Sao Jorge"><span class="sdk-row-meta">5 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Castelo de Sao Jorge</span></span></button></div></div><div class="group"><h4>Wednesday, October 28</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:bc658acc5e9cbe2d" title="1:00 PM  Lunch near the market"><span class="sdk-row-meta">1 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Lunch near the market</span></span></button>
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:d0b51b4401d63bab" title="1:30 PM  Tuk-tuk tour"><span class="sdk-row-meta">1:30 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Tuk-tuk tour</span></span></button></div></div><div class="group"><h4>Thursday, October 29</h4><div class="sdk-cal-agenda">
+      <button type="button" class="sdk-row sdk-bar-kept" data-open="here:65ab4d6b2c6d7187" title="9:00 PM  Fado night"><span class="sdk-row-meta">9 PM</span>
+        <span class="sdk-row-main"><span class="sdk-row-title">Fado night</span></span></button></div></div><p class="empty end">Nothing else this month.</p></div></main>
+
+  <dialog id="editor" class="sdk-editor sdk-editor-medium" tabindex="-1">
+    <form id="form" class="sdk-form">
+      <h3 id="editor-title">New event</h3>
+      <label class="sdk-field" id="f-where-wrap" hidden=""><span class="sdk-label">Where</span><select id="f-where"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-hint" id="f-readonly" hidden=""></div>
+      <label class="sdk-field"><span class="sdk-label">Title</span><input id="f-title" type="text" maxlength="100" required="" value=""><span class="sdk-hint"></span></label>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">Starts</span><span class="sdk-datefield sdk-group"><input id="f-date" type="date" required="" aria-labelledby="f-date-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s" id="f-time-wrap"><span class="sdk-label">at</span><input id="f-time" type="time" value=""><span class="sdk-hint"></span></label>
+      </div>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-end-date-label"><span class="sdk-label" id="f-end-date-label">Ends <span class="sdk-optional">(optional)</span></span><span class="sdk-datefield sdk-group"><input id="f-end-date" type="date" aria-labelledby="f-end-date-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+        <label class="sdk-field sdk-s" id="f-end-wrap"><span class="sdk-label">at</span><input id="f-end" type="time" value=""><span class="sdk-hint"></span></label>
+      </div>
+      <div class="sdk-choice-list"><label class="sdk-choice-row"><input id="f-allday" type="checkbox"><span>All day</span></label></div>
+      <div class="sdk-form-row" id="f-repeat-row">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Repeats</span><select id="f-repeat">
+          <option value="" selected="">Does not repeat</option>
+          <option value="day">Every day</option>
+          <option value="week">Every week</option>
+          <option value="2weeks">Every 2 weeks</option>
+          <option value="month">Every month</option>
+          <option value="year">Every year</option>
+        </select><span class="sdk-hint"></span></label>
+        <div class="sdk-field sdk-m" id="f-until-wrap" role="group" aria-labelledby="f-until-label"><span class="sdk-label" id="f-until-label">Until <span class="sdk-optional">(optional)</span></span><span class="sdk-datefield sdk-group"><input id="f-until" type="date" aria-labelledby="f-until-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+      </div>
+      <label class="sdk-field"><span class="sdk-label">Details</span><textarea id="f-desc" rows="3" maxlength="600"></textarea><span class="sdk-hint"></span></label>
+      <label class="sdk-field"><span class="sdk-label">Remind people</span><select id="f-remind">
+        <option value="" selected="">No reminder</option>
+        <option value="0">When it starts</option>
+        <option value="15">15 minutes before</option>
+        <option value="60">1 hour before</option>
+        <option value="1440">1 day before</option>
+      </select><span class="sdk-hint" id="f-remind-hint"></span></label>
+      <div class="sdk-field" id="f-links-wrap" role="group" aria-labelledby="f-links-label" hidden=""><span class="sdk-label" id="f-links-label">Linked from</span><div class="links" id="f-links"></div></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden=""></div>
+      <div class="sdk-editor-actions">
+        <button class="btn btn-danger" type="button" id="f-delete" hidden="">Delete</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="f-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+<p id="note" class="hint note" hidden=""></p>
+<p id="msg" class="hint msg" hidden="">Loading...</p>
+
+</template></div></div><div class="dest-side-part sized" id="dest-panel-todo" role="region" aria-label="To-do" hidden=""><div class="module-root dest-part-root" style="--part-h: 2px;"><template shadowrootmode="open"><style data-proto-css="sdk f9ca1ff19d32"></style>
+<div id="app" class="app part">
+  <header class="bar">
+    <div class="nav">
+      <span class="hint" id="count" hidden=""></span>
+      <span class="show tb-tabs" id="show" role="group" aria-label="Show"><button type="button" data-choice="open" class="tb-tab on" aria-label="Open (4)" aria-pressed="true"><span class="tb-tab-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M464 256a208 208 0 1 0 -416 0 208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0 256 256 0 1 1 -512 0z"></path></svg></span><span class="tb-tab-word">Open (4)</span></button><button type="button" data-choice="done" class="tb-tab" aria-label="Done" aria-pressed="false"><span class="tb-tab-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M256 512a256 256 0 1 1 0-512 256 256 0 1 1 0 512zM374 145.7c-10.7-7.8-25.7-5.4-33.5 5.3L221.1 315.2 169 263.1c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l72 72c5 5 11.8 7.5 18.8 7s13.4-4.1 17.5-9.8L379.3 179.2c7.8-10.7 5.4-25.7-5.3-33.5z"></path></svg></span><span class="tb-tab-word">Done</span></button><button type="button" data-choice="all" class="tb-tab" aria-label="All" aria-pressed="false"><span class="tb-tab-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M133.8 36.3c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 158 47 153L7 113C-2.3 103.6-2.3 88.4 7 79S31.6 69.7 41 79l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zm0 160c10.9 7.6 13.5 22.6 5.9 33.4l-56 80c-4.1 5.8-10.5 9.5-17.6 10.1S52 318 47 313L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l19.8 19.8 39.6-56.6c7.6-10.9 22.6-13.5 33.4-5.9zM224 96c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32l224 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-224 0c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32zM64 376a40 40 0 1 1 0 80 40 40 0 1 1 0-80z"></path></svg></span><span class="tb-tab-word">All</span></button></span>
+    </div>
+    <div class="nav">
+      <button class="btn btn-primary hosted" id="add" type="button">Add task</button>
+    </div>
+  </header>
+  <div id="new-form" class="quick hosted" hidden="">
+    <button class="btn btn-primary" id="new-todo" type="button">New todo</button>
+  </div>
+  <div id="spaces" class="spaces" hidden=""></div>
+  <p class="sdk-form-error" id="note" hidden=""></p>
+  <main id="body" class="body"><section class="sdk-list-group"><h4 class="sdk-group-head">This week</h4><div class="sdk-list"><div class="sdk-row task " data-task="own:t1">
+      <label class="sdk-row-tick"><input class="tick" type="checkbox" data-tick="own:t1" aria-label="Done"></label>
+      <button class="sdk-open text" type="button" data-open="own:t1">Book the Sintra train<small>Tickets are cheaper online.</small></button>
+      <span class="due ">Oct 17</span>
+    </div></div></section><section class="sdk-list-group"><h4 class="sdk-group-head">Later</h4><div class="sdk-list"><div class="sdk-row task " data-task="own:t2">
+      <label class="sdk-row-tick"><input class="tick" type="checkbox" data-tick="own:t2" aria-label="Done"></label>
+      <button class="sdk-open text" type="button" data-open="own:t2">Exchange some euros</button>
+      <span class="due ">Oct 20</span>
+    </div><div class="sdk-row task " data-task="own:t5">
+      <label class="sdk-row-tick"><input class="tick" type="checkbox" data-tick="own:t5" aria-label="Done"></label>
+      <button class="sdk-open text" type="button" data-open="own:t5">Pack adapters</button>
+      <span class="due ">Oct 24</span>
+    </div></div></section><section class="sdk-list-group"><h4 class="sdk-group-head">No date</h4><div class="sdk-list"><div class="sdk-row task " data-task="own:t3">
+      <label class="sdk-row-tick"><input class="tick" type="checkbox" data-tick="own:t3" aria-label="Done"></label>
+      <button class="sdk-open text" type="button" data-open="own:t3">Download offline maps</button>
+      
+    </div></div></section></main>
+
+  <dialog id="editor" class="sdk-editor sdk-editor-medium" tabindex="-1">
+    <form id="form" class="sdk-form">
+      <h3 id="editor-title">New task</h3>
+      <label class="sdk-field" id="f-where-wrap" hidden=""><span class="sdk-label">Where</span><select id="f-where"></select><span class="sdk-hint"></span></label>
+      <div class="sdk-hint" id="f-readonly" hidden=""></div>
+      <label class="sdk-field"><span class="sdk-label">Task</span><input id="f-title" type="text" maxlength="200" required="" value=""><span class="sdk-hint"></span></label>
+      <label class="sdk-field"><span class="sdk-label">Notes</span><textarea id="f-notes" rows="3" maxlength="1000"></textarea><span class="sdk-hint"></span></label>
+      <div class="sdk-form-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-due-label"><span class="sdk-label" id="f-due-label">Due</span><span class="sdk-datefield sdk-group"><input id="f-due" type="date" aria-labelledby="f-due-label" value=""><button type="button" class="sdk-icon-btn btn-small btn-quiet" data-tip="Pick a date" aria-label="Pick a date"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"></path></svg></button></span><span class="sdk-hint"></span></div>
+      </div>
+      <div class="sdk-choice-list" id="f-remind-wrap"><label class="sdk-choice-row"><input id="f-remind" type="checkbox"><span>Remind people at 9:00 that day</span></label></div>
+      <div class="sdk-field" id="f-links-wrap" role="group" aria-labelledby="f-links-label">
+        <span class="sdk-label" id="f-links-label">Linked</span>
+        <div id="f-links" class="links"></div>
+        <input id="f-link-search" type="text" maxlength="100" placeholder="Link an event or poll: type to search" aria-label="Search events and polls to link" value="">
+        <div id="f-link-results" class="results"></div>
+      </div>
+      <div id="f-rules"></div>
+      <div class="sdk-choice-list"><label class="sdk-choice-row"><input id="f-done" type="checkbox"><span>Done</span></label></div>
+      <div class="sdk-hint" id="f-by"></div>
+      <div class="sdk-form-error" id="f-error" role="alert" hidden=""></div>
+      <div class="sdk-editor-actions">
+        <button class="btn btn-danger" type="button" id="f-delete" hidden="">Delete</button>
+        <button class="btn btn-quiet" type="button" id="f-cancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="f-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+<div id="loading" class="msg" aria-busy="true" hidden=""><div class="sdk-skel-list"><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div><div class="sdk-skel sdk-skel-block"></div></div></div>
+<div id="msg" class="sdk-empty" hidden=""></div>
+
+</template></div></div></div>
+    </aside>
+    <p class="hint dest-missing" id="dest-missing" hidden=""></p>
+  </main>
+  <nav class="dest-tabs" id="dest-tabs" aria-label="Parts" hidden=""><button type="button" class="dest-tab" data-tab="main" aria-current="page"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i><span>Calendar</span></button><button type="button" class="dest-tab" data-tab="panel:calendar"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i><span>Agenda</span></button><button type="button" class="dest-tab" data-tab="panel:todo"><i class="fa-solid fa-list-check fa-fw" aria-hidden="true"></i><span>To-do</span></button></nav>
+
+  
+  
+
+
+</body></html>

@@ -34,11 +34,11 @@
         <h3>Calendar sharing</h3>
         <p class="hint" id="sharing-off" hidden></p>
         <div class="checks switch-list">
-          <label class="sdk-choice-row"><input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses</label>
+          <label class="sdk-choice-row"><input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"><span class="sdk-choice-text">Private addresses</span></label>
           <p class="hint" id="calendar-feeds-hint" data-fill>Lets each person add this {environment}'s events, or one {space}'s, to their own calendar app with a private address.</p>
-          <label class="sdk-choice-row"><input id="set-other-calendars" type="checkbox" class="sdk-switch" role="switch" aria-describedby="other-calendars-hint"> Other calendars and busy times</label>
+          <label class="sdk-choice-row"><input id="set-other-calendars" type="checkbox" class="sdk-switch" role="switch" aria-describedby="other-calendars-hint"><span class="sdk-choice-text">Other calendars and busy times</span></label>
           <p class="hint" id="other-calendars-hint" data-fill>Lets each person see their own calendars beside these events, only to them, and share when they are busy with {a space}'s {members}, never what they are doing.</p>
-          <label class="sdk-choice-row"><input id="set-published-calendar" type="checkbox" class="sdk-switch" role="switch" aria-describedby="published-calendar-hint"> Published calendar</label>
+          <label class="sdk-choice-row"><input id="set-published-calendar" type="checkbox" class="sdk-switch" role="switch" aria-describedby="published-calendar-hint"><span class="sdk-choice-text">Published calendar</span></label>
           <p class="hint" id="published-calendar-hint" data-fill>One address with every {space}'s events, for anyone you give it to.</p>
         </div>
         <span class="status" id="calendar-feeds-status" role="status"></span>
@@ -87,7 +87,7 @@
             <label>Minimum zoom <input type="number" id="region-min-zoom" min="0" max="15" value="0" step="1"></label>
             <label>Maximum zoom <input type="number" id="region-zoom" min="0" max="15" value="14" step="1"></label>
             <label>File name <input type="text" id="region-filename" maxlength="100"></label>
-            <label class="sdk-choice-row"><input type="checkbox" id="region-replace"> Replace a file already there with that name</label>
+            <label class="sdk-choice-row"><input type="checkbox" id="region-replace"><span class="sdk-choice-text">Replace a file already there with that name</span></label>
           </div>
           <p class="hint">Maximum zoom is how much detail the cut keeps, not how far it covers. 10 or below shows towns and the roads between them, not individual streets; 14, the default, shows streets and buildings; 15 is the most detail this can offer. Higher means a far bigger file for the same area. Minimum zoom trims the shallow end: leave it at 0 for a file meant to stand alone, or raise it when a wider, lower-zoom file (like "cover the whole world", above) already covers those zooms, so the two do not both carry the same low-zoom tiles. Check size shows the real cost for the box and zoom range you've chosen before anything downloads.</p>
           <div class="row">

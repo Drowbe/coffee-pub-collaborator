@@ -3223,7 +3223,9 @@
     // The same searchable list a module's currencySelect draws, for a page that has no module: select(select, { value, currencies, onChange }).
     select: (select, o) => {
       const page = createHost({
-        call: (method, params) => (method === 'icons.svg'
+        // `hello` is asked once as the host is made; a page has nothing to tell it (its locale is the page's own: `currencies` below), so the answer is empty.
+        call: (method, params) => (method === 'hello' ? Promise.resolve({})
+          : method === 'icons.svg'
           ? fetch(`/api/icons/${params.style === 'regular' || params.style === 'brands' ? params.style : 'solid'}/${encodeURIComponent(params.name)}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error('no such icon'))))
           : Promise.reject(new Error('not available on a page'))),
         root: document,

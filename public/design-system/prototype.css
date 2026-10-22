@@ -1,0 +1,17 @@
+/* The Prototype page's own chrome (prototype.html): the screen's heading, the frame and its size. The rest is ds.css and the
+   product's tokens; nothing here restyles a screen. */
+.pt-head { margin: 0 0 12px; }
+.pt-head h2 { margin: 0 0 4px; font-size: 24px; }
+.pt-head .ds-desc { margin-bottom: 4px; }
+.pt-head .ds-status { margin: 0; }
+.pt-measure { display: inline-flex; align-items: center; border-radius: var(--radius-small); }
+/* The screen at its own width and height; scaled down to the column when Fit is chosen (prototype.js sets the scale). */
+.pt-view { overflow: auto; border-radius: var(--radius-medium); background: var(--surface-page); }
+.pt-view.pt-fit { overflow: hidden; }
+.pt-box { position: relative; transform-origin: 0 0; }
+.pt-frame { display: block; border: 1px solid var(--edge-hairline); background: var(--surface-page); }
+.pt-empty { padding: 24px; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .ds-tools #ds-proposed { order: 1; }
+  .ds-tools .pt-measure { order: 6; min-height: 44px; }
+}

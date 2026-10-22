@@ -153,9 +153,9 @@
             <label class="wide">Mic level <span class="hint" id="cp-gain-value">100%</span><input type="range" id="cp-gain" min="0" max="300" step="5"></label>
             <label class="wide">Noise gate <span class="hint" id="cp-gate-value">off</span><input type="range" id="cp-gate" min="0" max="60" step="1"></label>
             <div class="check-group wide">
-              <label class="sdk-choice-row"><input type="checkbox" id="cp-noise"> Noise suppression</label>
-              <label class="sdk-choice-row"><input type="checkbox" id="cp-echo"> Echo cancellation</label>
-              <label class="sdk-choice-row"><input type="checkbox" id="cp-agc"> Auto gain</label>
+              <label class="sdk-choice-row"><input type="checkbox" id="cp-noise"><span class="sdk-choice-text">Noise suppression</span></label>
+              <label class="sdk-choice-row"><input type="checkbox" id="cp-echo"><span class="sdk-choice-text">Echo cancellation</span></label>
+              <label class="sdk-choice-row"><input type="checkbox" id="cp-agc"><span class="sdk-choice-text">Auto gain</span></label>
             </div>
           </div>
 
@@ -164,7 +164,7 @@
             <label>Toggle video key<button type="button" class="hotkey-input" id="cp-cam-key" title="Click, then press a key"></button></label>
             <label>Quality<select id="cp-quality"><option value="360">360p (weak connection)</option><option value="540">540p</option><option value="720">720p</option></select></label>
             <div class="check-group wide">
-              <label class="sdk-choice-row"><input type="checkbox" id="cp-mirror"> Mirror my own preview</label>
+              <label class="sdk-choice-row"><input type="checkbox" id="cp-mirror"><span class="sdk-choice-text">Mirror my own preview</span></label>
             </div>
           </div>
 
@@ -305,7 +305,8 @@
   </template>
 
   <template id="space-section-template">
-    <section class="panel space-section" data-slot-group>
+    <section class="panel space-section sdk-groups" data-slot-group>
+      <div class="sdk-stack">
       <div class="section-head">
         <div class="space-section-heading">
           <img class="space-token" alt="" hidden>
@@ -314,14 +315,18 @@
         <button class="btn btn-small btn-danger" data-action="space-remove" type="button" data-fill hidden>Remove from {space}</button>
       </div>
       <p class="hint space-section-hint"></p>
+      </div>
 
+      <div class="sdk-stack">
       <h3>Permissions</h3>
       <div class="checks">
-        <label class="sdk-choice-row" data-fill><input type="checkbox" data-permission="moderator"> {Moderator}</label>
+        <label class="sdk-choice-row" data-fill><input type="checkbox" data-permission="moderator"><span class="sdk-choice-text">{Moderator}</span></label>
       </div>
       <p class="hint" data-permissions-hint></p>
+      </div>
 
-      <label class="sdk-choice-row"><input type="checkbox" data-use-default> Use Default Profile Images</label>
+      <div class="sdk-stack">
+      <label class="sdk-choice-row"><input type="checkbox" data-use-default><span class="sdk-choice-text">Use Default Profile Images</span></label>
       <div data-space-images hidden>
       <div class="group" data-group="participant" data-slot-group hidden>
         <h3>Participant</h3>
@@ -344,6 +349,7 @@
           <div class="slot" data-slot="characterAside"><div class="slot-pick-wrap"><label class="slot-pick still" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="slot-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span data-fill>{Aside}</span></div>
           <div class="slot" data-slot="characterPrivate"><div class="slot-pick-wrap"><label class="slot-pick still" title="Click to change"><img alt=""><span class="unset">not set</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" data-action="slot-clear" type="button" data-tip="Remove" aria-label="Remove" hidden>&times;</button></div><span>Private</span></div>
         </div>
+      </div>
       </div>
       </div>
     </section>

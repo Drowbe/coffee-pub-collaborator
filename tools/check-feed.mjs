@@ -304,7 +304,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   // The switch moved to Calendar's Configure page, with its id (plan-space-calendars.md, section 4); Manage keeps a pointer.
   const configHtml = read('public/module-config.html');
   const configJs = read('public/module-config.js');
-  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
+  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="sdk-switch" role="switch" aria-describedby="calendar-feeds-hint"><span class="sdk-choice-text">Private addresses<\/span><\/label>/, 'the Configure page has the Private addresses switch');
   assert.ok(ids(configHtml).has('calendar-feeds-hint') && ids(configHtml).has('calendar-feeds-status'));
   assert.ok(!ids(adminHtml).has('set-calendar-feeds') && !ids(adminHtml).has('calendar-feeds-settings'), 'Manage no longer has the switch or its panel');
   assert.ok(!ids(adminHtml).has('calendar-sharing-pointer') && !adminJs.includes('renderSharingPointer'), 'Manage\'s one-release pointer to where it went is gone');

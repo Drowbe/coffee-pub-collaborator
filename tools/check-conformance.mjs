@@ -30,9 +30,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { findBrowser, launch, freePort, stopServer, bootSeeded, Tab, sleep, fill } from './shots.mjs';
+import { findBrowser, launch, freePort, stopServer, bootSeeded, Tab, sleep, fill, driveScreen } from './shots.mjs';
 
-const TABLE = process.argv.includes('--table');
+const HEIGHTS = process.argv.includes('--table');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7); // only the views whose name holds this text (for working on one)
 const say = (...a) => console.log('check-conformance:', ...a);
 const started = Date.now();
@@ -118,6 +118,7 @@ const COLLECT = String.raw`(() => {
 async function openTab(browser, S, size, mode, url, { call = false, before = null } = {}) {
   const tab = new Tab(browser.cdp, S.ctx);
   await tab.open(size, mode, call);
+  await cssOn(tab); // before the page loads: on a loaded space page CSS.enable can take longer than the protocol's wait
   for (const c of S.cookies.mia) await browser.cdp.send('Network.setCookie', { name: c.name, value: c.value, url: S.base, httpOnly: true }, tab.sid);
   if (before) await browser.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: before }, tab.sid);
   await browser.cdp.send('Page.navigate', { url: S.base + fill(url, S.ctx) }, tab.sid);
@@ -155,14 +156,24 @@ const failures = [];
 const SYMMETRY_FAMILIES = [
   { sel: '.message .chat-object, .message .chat-link', name: 'chat card', h: true, stack: '.chat-object' },
   { sel: '.message .message-body', name: 'message body', h: false, stack: '*', box: false },
-  { sel: '.sdk-card:not(.sdk-card-banded)', name: 'card', h: true },
+  { sel: '.sdk-card:not(.sdk-card-banded)', name: 'card', h: true, stack: '*', stackExcept: '.sdk-card-foot' },
+  { sel: '.user-card, .space-choice, .sdk-card-add, .space-choice-add', name: 'card (page)', h: false },
+  { sel: '.sdk-panel, .panel', name: 'content box', h: false, stack: '*' },
   { sel: '.sdk-row', name: 'row', h: false },
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
-  { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase' },
+  { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase, .sdk-strip-attn' },
   { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, #dest-bar, .dest-side-head', name: 'band', h: false },
   { sel: '.sdk-search', name: 'search field', h: false },
   { sel: '.btn, .tb-tab', name: 'button', h: false },
+  { sel: '.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list', name: 'menu', h: false },
+  { sel: '.sdk-menu-item, .host-menu-item, .chat-command-item, .sdk-kind-option', name: 'menu item', h: false },
+  { sel: '.sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp', name: 'popover', h: false },
+  { sel: '.sdk-editor-head, .phase-sheet-head, .bgpick-head, .sdk-dialog-head, .sdk-editor-actions, .sdk-editor-discard, .bgpick-foot, .sdk-dialog-foot, .action-bar', name: 'dialog band', h: false },
+  { sel: '.sdk-editor > form, .layout-form-body, .sdk-dialog-body, .phase-sheet-body', name: 'dialog body', h: false, box: false, stack: '*', stackExcept: '.sdk-editor-actions, .sdk-editor-discard, .sdk-section' },
+  { sel: '.sdk-toast, .sdk-banner', name: 'toast', h: false },
+  { sel: '.sdk-empty', name: 'empty state', h: true },
+  { sel: '.sdk-choice-row, .sdk-choice-boxed', name: 'choice row', h: false },
 ];
 // EXCEPTIONS, each with its reason:
 // - a banded box's body (.message-body, .sdk-card-body: 8px under the head band, 12px at the foot) is approved as 8/12/12 (Cards,
@@ -171,7 +182,16 @@ const SYMMETRY_FAMILIES = [
 //   correction (public/design-system/proposed-journey.css, the Journey bar family), so it is held to top = bottom only;
 // - a card with its "..." laid in its corner (an absolutely placed small button) keeps room for it at its end (the card's padding
 //   plus the button), so it is held to top = bottom only;
-// - a box that scrolls (its content taller than it) or whose content overflows it is not measured.
+// - a box that scrolls (its content taller than it) or whose content overflows it is not measured;
+// - a card's foot (.sdk-card-foot) sits one step further from what is above it (8px gap and 4px: the approved Cards value), so the
+//   gap before it is not held to the card's other gaps;
+// - a box stretched by its row (cards in a grid or flex line as tall as the tallest) is judged at its own height: the room under
+//   its content is the row's, not its padding;
+// - the strip's attention pill (.sdk-strip-attn) starts with its icon: 6px before it and 8px after the count (4 and 6 on a phone),
+//   the approved Journey bar value (public/design-system/proposed-journey.css), so it is not held to left = right;
+// - a dialog's button row (.sdk-editor-actions, or the discard row in its place) is a band of its own over a hairline, --pad-dialog-y
+//   under the last field, so the gap before it is not held to the fields' gap; nor is the gap before a form's section (.sdk-section,
+//   its title over a hairline --section-gap, 20px, under the field before: the form standard, public/sdk/host.css).
 const SYMMETRY = String.raw`((families) => {
   const R = (e) => e.getBoundingClientRect();
   const shown = (e) => e && e.getClientRects().length && R(e).width >= 1 && R(e).height >= 1 && getComputedStyle(e).visibility !== 'hidden';
@@ -185,15 +205,32 @@ const SYMMETRY = String.raw`((families) => {
       el.dataset.symmetryChecked = '1';
       const cs = getComputedStyle(el);
       if (el.scrollHeight > el.clientHeight + 1 && /auto|scroll|hidden/.test(cs.overflowY) && f.name !== 'band') continue;
-      const b = R(el);
-      const inner = { top: b.top + parseFloat(cs.borderTopWidth), bottom: b.bottom - parseFloat(cs.borderBottomWidth), left: b.left + parseFloat(cs.borderLeftWidth), right: b.right - parseFloat(cs.borderRightWidth) };
-      const parts = [];
       const kids = [...el.children].filter((k) => shown(k) && !['absolute', 'fixed'].includes(getComputedStyle(k).position) && !k.classList.contains('visually-hidden'));
-      for (const k of kids) parts.push(R(k));
-      for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); for (const x of rg.getClientRects()) parts.push(x); }
-      if (!parts.length) continue;
-      const c = { top: Math.min(...parts.map((x) => x.top)), bottom: Math.max(...parts.map((x) => x.bottom)), left: Math.min(...parts.map((x) => x.left)), right: Math.max(...parts.map((x) => x.right)) };
-      const t = Math.round(c.top - inner.top); const bo = Math.round(inner.bottom - c.bottom); const l = Math.round(c.left - inner.left); const ri = Math.round(inner.right - c.right);
+      const inset = () => {
+        const b = R(el);
+        const inner = { top: b.top + parseFloat(cs.borderTopWidth), bottom: b.bottom - parseFloat(cs.borderBottomWidth), left: b.left + parseFloat(cs.borderLeftWidth), right: b.right - parseFloat(cs.borderRightWidth) };
+        const parts = [];
+        for (const k of kids) parts.push(R(k));
+        // A bare text's range is its glyphs' box; its line box is that plus half the leading above and below (CSS puts it so).
+        const lh = parseFloat(cs.lineHeight);
+        for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); for (const x of rg.getClientRects()) { const half = lh > x.height ? (lh - x.height) / 2 : 0; parts.push({ top: x.top - half, bottom: x.bottom + half, left: x.left, right: x.right }); } }
+        if (!parts.length) return null;
+        const c = { top: Math.min(...parts.map((x) => x.top)), bottom: Math.max(...parts.map((x) => x.bottom)), left: Math.min(...parts.map((x) => x.left)), right: Math.max(...parts.map((x) => x.right)) };
+        return { t: Math.round(c.top - inner.top), bo: Math.round(inner.bottom - c.bottom), l: Math.round(c.left - inner.left), ri: Math.round(inner.right - c.right) };
+      };
+      let got = inset();
+      if (!got) continue;
+      // A box stretched by its row (a grid or flex line of cards as tall as the tallest) is taller than its content by layout,
+      // not by padding: measured again at its own height (for the moment of the reading) and judged on that.
+      const parent = el.parentElement || (el.getRootNode() && el.getRootNode().host);
+      if (f.box !== false && Math.abs(got.t - got.bo) > 1 && got.bo > got.t && parent && /flex|grid/.test(getComputedStyle(parent).display)) {
+        const keep = el.getAttribute('style');
+        el.style.setProperty('height', 'auto', 'important'); el.style.setProperty('align-self', 'start', 'important'); el.style.setProperty('flex-grow', '0', 'important');
+        const own = inset();
+        if (keep === null) el.removeAttribute('style'); else el.setAttribute('style', keep);
+        if (own && Math.abs(own.t - own.bo) <= 1) got = own;
+      }
+      const { t, bo, l, ri } = got;
       if (t < 0 || bo < 0 || l < 0 || ri < 0) continue; // content past the edge: overflow, not padding
       const why = [];
       if (f.box !== false && Math.abs(t - bo) > 1) why.push('top ' + t + ' / bottom ' + bo);
@@ -203,26 +240,140 @@ const SYMMETRY = String.raw`((families) => {
       const cornerBtn = [...el.children].some((k) => getComputedStyle(k).position === 'absolute' && k.matches('.sdk-icon-btn, .sdk-more, .sdk-card-menu, [data-action=menu]'));
       if (f.box !== false && f.h && !cornerBtn && !(f.hExcept && el.matches(f.hExcept)) && Math.abs(l - ri) > 1 && reach(l, parseFloat(cs.paddingLeft)) && reach(ri, parseFloat(cs.paddingRight))) why.push('left ' + l + ' / right ' + ri);
       if (f.stack && (f.stack === '*' || el.matches(f.stack)) && kids.length > 2) {
-        const gaps = []; for (let i = 1; i < kids.length; i++) gaps.push(Math.round(R(kids[i]).top - R(kids[i - 1]).bottom));
-        if (Math.max(...gaps) - Math.min(...gaps) > 1) why.push('gaps ' + gaps.join(', '));
+        // Only a column: each part below the one before (a row of parts, a grid or a wrapped cluster is not a stack). A part's
+        // negative bottom margin takes back space inside it by design (a form row's last 12px, the form standard), so its end is drawn back by it.
+        const gaps = []; for (let i = 1; i < kids.length; i++) if (!(f.stackExcept && kids[i].matches(f.stackExcept))) gaps.push(Math.round(R(kids[i]).top - (R(kids[i - 1]).bottom + Math.min(0, parseFloat(getComputedStyle(kids[i - 1]).marginBottom) || 0))));
+        if (gaps.length > 1 && gaps.every((g) => g >= -1) && Math.max(...gaps) - Math.min(...gaps) > 1) why.push('gaps ' + gaps.join(', '));
       }
-      if (why.length) out.push({ family: f.name, el: label(el), why: why.join('; '), padding: cs.padding, margins: kids.map((k) => { const m = getComputedStyle(k); return m.marginTop + ' ' + m.marginBottom; }).filter((m) => m !== '0px 0px').slice(0, 3).join(' | ') });
+      if (why.length) {
+        const n = (window.__symN = (window.__symN || 0) + 1);
+        el.dataset.symmetryOffender = String(n);
+        // The children whose top or bottom margin adds to the padding or the gap: tagged, so the check can name the rule that sets it.
+        const marginKids = kids.filter((k) => { const m = getComputedStyle(k); return parseFloat(m.marginTop) || parseFloat(m.marginBottom); }).slice(0, 4);
+        marginKids.forEach((k, i) => { k.dataset.symmetryKid = n + '-' + i; });
+        out.push({ n, kids: marginKids.length, sides: why.map((w) => w.split(' ')[0]), family: f.name, el: label(el), says: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40), why: why.join('; '), padding: cs.padding, margins: marginKids.map((k) => { const m = getComputedStyle(k); return label(k) + ' ' + m.marginTop + ' ' + m.marginBottom; }).join(' | ') });
+      }
     }
   }
   for (const r of roots) for (const e of r.querySelectorAll('[data-symmetry-checked]')) delete e.dataset.symmetryChecked;
   return out;
 })(${JSON.stringify(SYMMETRY_FAMILIES)})`;
 const symmetryRows = [];
+const screensMeasured = new Set();
+// The app's screens measured for padding symmetry (ids in tools/shots-screens.json), each at 1280 px light and/or 390 px dark.
+// The host console (a hosted server's /host pages) is not here: the seeded server is a single environment, which has none.
+const BOTH = [1280, 390];
+const SCREENS = [
+  ['home-member', BOTH], ['home-admin', [1280]], ['home-empty', BOTH], ['home-user-menu', [1280]], ['home-notifications', [1280]],
+  ['home-chat-message-menu', [390]], ['home-chat-slash', [1280]],
+  ['manage-environment', BOTH], ['manage-users', BOTH], ['manage-modules', BOTH], ['manage-spaces', [1280]], ['manage-roles', [1280]],
+  ['manage-template', [1280]], ['manage-theme', [1280]], ['manage-about', [390]], ['manage-module-config', [1280]],
+  ['profile-profile', BOTH], ['profile-spaces', [1280]], ['profile-background-picker', [1280]],
+  ['space-setup-space', [1280]], ['space-setup-members', [1280]], ['space-setup-phases', [1280]], ['space-setup-opens-with', [1280]], ['space-setup-modules', [1280]],
+  ['space-setup-space-phone', [390]], ['space-setup-members-phone', [390]], ['space-setup-phases-phone', [390]], ['space-setup-modules-phone', [390]],
+  ['space-phase-sheet', BOTH], ['space-layout-save-sheet', [1280]],
+  ['planner-form-note', BOTH], ['places-form-add', [1280]], ['budget-form-target', [390]], ['polls-form-new', [1280]],
+  ['space-menu-layout', [1280]], ['space-menu-user', [390]], ['space-menu-who-here', [1280]], ['planner-day-menu', [1280]], ['places-item-menu', [1280]],
+  ['places-toast', [1280]],
+  ['planner-empty', [1280]], ['places-empty', [390]], ['budget-empty', [1280]], ['polls-empty', [1280]], ['research-empty', [390]], ['space-empty', [1280]],
+  ['login', BOTH],
+];
+
+// ---- the rule that wins: for each offender, the file and selector that set the padding or the margin that broke it ----
+// Over the DevTools protocol (DOM and CSS): the element's matched rules, the last one (or the inline style, or an !important one)
+// that sets the property or its shorthand. A rule in a stylesheet with an address names the file and line; one in an inline
+// <style> (a module in the page: its host.css, system.css and own CSS in one sheet in its shadow root) is found by its selector
+// in the stylesheets of the repository.
+const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+let cssSources = null;
+function sourceFiles() {
+  if (cssSources) return cssSources;
+  const out = [];
+  const add = (f) => { try { out.push({ rel: path.relative(ROOT, f), lines: fs.readFileSync(f, 'utf8').split('\n') }); } catch { /* none */ } };
+  for (const f of fs.readdirSync(path.join(ROOT, 'public'))) if (f.endsWith('.css')) add(path.join(ROOT, 'public', f));
+  for (const f of fs.readdirSync(path.join(ROOT, 'public', 'sdk'))) if (f.endsWith('.css')) add(path.join(ROOT, 'public', 'sdk', f));
+  for (const m of fs.readdirSync(path.join(ROOT, 'modules'))) { const d = path.join(ROOT, 'modules', m, 'src'); if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith('.css')) add(path.join(d, f)); }
+  cssSources = out;
+  return out;
+}
+function findSelector(selector, inModule) {
+  const first = selector.trim().replace(/\s+/g, ' ');
+  const forms = [first, first.replace(/:host/g, 'body'), first.replace(/:host/g, 'html')];
+  const files = sourceFiles();
+  const order = inModule ? [...files.filter((f) => f.rel.startsWith('modules')), ...files.filter((f) => f.rel.startsWith('public/sdk')), ...files.filter((f) => !f.rel.startsWith('modules') && !f.rel.startsWith('public/sdk'))] : files;
+  for (const exact of [true, false]) {
+    for (const f of order) {
+      const i = f.lines.findIndex((l) => forms.some((x) => exact ? (l.trim().startsWith(x + ' {') || l.trim().startsWith(x + ',') || l.trim() === x + ' {') : l.includes(x)));
+      if (i >= 0) return `${f.rel}:${i + 1}`;
+    }
+  }
+  return 'an inline <style>';
+}
+const SHORT = { 'padding-top': ['padding-top', 'padding-block', 'padding-block-start', 'padding'], 'padding-bottom': ['padding-bottom', 'padding-block', 'padding-block-end', 'padding'], 'padding-left': ['padding-left', 'padding-inline', 'padding-inline-start', 'padding'], 'padding-right': ['padding-right', 'padding-inline', 'padding-inline-end', 'padding'], 'margin-top': ['margin-top', 'margin-block', 'margin-block-start', 'margin'], 'margin-bottom': ['margin-bottom', 'margin-block', 'margin-block-end', 'margin'], gap: ['gap', 'row-gap'] };
+async function cssOn(tab) {
+  if (tab.css) return;
+  tab.css = { sheets: new Map() };
+  const hook = (m) => { if (m.sessionId === tab.sid && m.method === 'CSS.styleSheetAdded') tab.css.sheets.set(m.params.header.styleSheetId, m.params.header); };
+  tab.cdp.listeners.push(hook);
+  tab.css.hook = hook;
+  await tab.cdp.send('DOM.enable', {}, tab.sid);
+  await tab.cdp.send('CSS.enable', {}, tab.sid);
+}
+async function winningRules(tab, find, props) {
+  const s = (m, p) => tab.cdp.send(m, p, tab.sid);
+  try {
+    await cssOn(tab);
+    await s('DOM.getDocument', { depth: -1, pierce: true });
+    const r = await s('Runtime.evaluate', { expression: `(() => { ${find} })()`, returnByValue: false });
+    if (!r.result || !r.result.objectId) return [];
+    const { nodeId } = await s('DOM.requestNode', { objectId: r.result.objectId });
+    if (!nodeId) return [];
+    const m = await s('CSS.getMatchedStylesForNode', { nodeId });
+    const out = [];
+    for (const prop of props) {
+      const names = SHORT[prop] || [prop];
+      const sets = (style) => (style && style.cssProperties || []).filter((p) => names.includes(p.name) && p.value && !p.disabled && p.parsedOk !== false).pop();
+      let win = null;
+      const inline = sets(m.inlineStyle);
+      const rules = (m.matchedCSSRules || []).filter((x) => x.rule.origin !== 'user-agent');
+      for (let i = rules.length - 1; i >= 0 && !win; i--) { const d = sets(rules[i].rule.style); if (d && d.important) win = { rule: rules[i].rule, d }; }
+      if (!win && inline) win = { inline: true, d: inline };
+      for (let i = rules.length - 1; i >= 0 && !win; i--) { const d = sets(rules[i].rule.style); if (d) win = { rule: rules[i].rule, d }; }
+      if (!win) continue;
+      if (win.inline) { out.push(`${prop}: the element's own style (${win.d.name}: ${win.d.value})`); continue; }
+      const sel = win.rule.selectorList.text.replace(/\s+/g, ' ');
+      const head = tab.css.sheets.get(win.rule.styleSheetId);
+      let where;
+      if (head && head.sourceURL && !head.isInline) { where = `${head.sourceURL.replace(/^https?:\/\/[^/]+\//, 'public/').replace(/\?.*$/, '')}:${(win.rule.style.range ? win.rule.style.range.startLine : 0) + 1}`; }
+      else where = findSelector(win.rule.selectorList.text, true);
+      out.push(`${prop} from ${where} ${sel.slice(0, 110)} { ${win.d.name}: ${win.d.value} }`);
+    }
+    return [...new Set(out)];
+  } catch (e) { return [`(the rule could not be read: ${e.message})`]; }
+}
+async function closeTab(tab) { if (tab.css) tab.cdp.listeners = tab.cdp.listeners.filter((f) => f !== tab.css.hook); await tab.close(); }
+const deepFind = (attr, value) => `const walk = (r) => { const e = r.querySelector('[${attr}="${value}"]'); if (e) return e; for (const x of r.querySelectorAll('*')) { if (x.shadowRoot) { const f = walk(x.shadowRoot); if (f) return f; } } return null; }; return walk(document);`;
+
 async function symmetry(tab, context) {
   const list = await tab.eval(SYMMETRY).catch((e) => [{ family: 'load', el: '-', why: e.message, padding: '', margins: '' }]);
   for (const o of list) {
     const key = `${o.family} ${o.el}: ${o.why}`;
     if (symmetryRows.some((x) => x.key === key)) continue; // the same box in another view says nothing new
-    symmetryRows.push({ key, context, ...o });
+    const rules = [];
+    if (o.n) {
+      const props = [];
+      if (o.sides.includes('top')) props.push('padding-top', 'padding-bottom');
+      if (o.sides.includes('left')) props.push('padding-left', 'padding-right');
+      if (o.sides.includes('gaps')) props.push('gap');
+      rules.push(...await winningRules(tab, deepFind('data-symmetry-offender', o.n), props));
+      for (let i = 0; i < o.kids; i++) rules.push(...(await winningRules(tab, deepFind('data-symmetry-kid', `${o.n}-${i}`), ['margin-top', 'margin-bottom'])).map((r) => `child ${i + 1}: ${r}`));
+    }
+    symmetryRows.push({ key, context, ...o, rules });
     failures.push({ context, window: o.el, what: `padding symmetry (${o.family})`, got: o.why, should: 'symmetrical' });
   }
+  await tab.eval(`(() => { const all = [document]; const walk = (r) => { for (const e of r.querySelectorAll('*')) if (e.shadowRoot) { all.push(e.shadowRoot); walk(e.shadowRoot); } }; walk(document); for (const r of all) for (const e of r.querySelectorAll('[data-symmetry-offender], [data-symmetry-kid]')) { delete e.dataset.symmetryOffender; delete e.dataset.symmetryKid; } })()`).catch(() => {});
 }
-const tables = [];
+const results = [];
 function judge(context, phone, windows) {
   const want = phone ? WANT.phone : WANT.wide;
   for (const w of windows) {
@@ -256,7 +407,7 @@ function judge(context, phone, windows) {
       rows.push(`    search   h ${String(s.h).padStart(5)}  ${s.what}`);
       if (Math.abs(s.h - want.search) > 0.5) bad(`search field (${s.what})`, s.h, want.search);
     }
-    tables.push({ context, head: `  ${w.name} (${w.kind})`, rows, failed: rows.some((r) => r.includes('!!')) });
+    results.push({ context, head: `  ${w.name} (${w.kind})`, rows, failed: rows.some((r) => r.includes('!!')) });
   }
 }
 
@@ -300,8 +451,8 @@ async function main() {
         for (let n = 0; n < 30; n++) { strip = await tab.eval(stripExpr); const key = JSON.stringify(strip); if (key === prev) break; prev = key; await sleep(300); }
         const rows = [`    strip    in ${strip ? `${strip.left} / ${strip.right}` : 'none'}`];
         if (!strip || strip.left !== 12 || strip.right < 12) { failures.push({ context: 'Workspace, 1280 px, light', window: 'status strip', what: 'status strip inset', got: strip ? `${strip.left} / ${strip.right}` : 'none', should: '12 / at least 12' }); rows.push(`    !! status strip inset: ${strip ? `${strip.left} / ${strip.right}` : 'none'}, should be 12 / at least 12`); }
-        tables.push({ context: 'Workspace, 1280 px, light', head: '  Status strip', rows, failed: rows.length > 1 });
-      } finally { await tab.close(); }
+        results.push({ context: 'Workspace, 1280 px, light', head: '  Status strip', rows, failed: rows.length > 1 });
+      } finally { await closeTab(tab); }
     }]);
     // 2. The Workspace on a phone, dark: each module through the tab bar.
     jobs.push(['Workspace, 390', async () => {
@@ -317,7 +468,7 @@ async function main() {
           judge(`Workspace, 390 px, dark: ${id}`, true, wins);
           await symmetry(tab, `Workspace, 390 px, dark: ${id}`);
         }
-      } finally { await tab.close(); }
+      } finally { await closeTab(tab); }
     }]);
     // 3. Each module's own page and each destination's page.
     const urls = [...pages.map((id) => `/modules/${id}?space={trip}`), '/calendar', '/map'];
@@ -330,20 +481,55 @@ async function main() {
             const view = `${url.replace('?space={trip}', '')}, ${size} px, ${mode}`;
             judge(view, size <= 640, await settled(tab, 1));
             await symmetry(tab, view);
-          } finally { await tab.close(); }
+          } finally { await closeTab(tab); }
+        }]);
+      }
+    }
+    // 4. The app's own pages and states, from the screenshot table (tools/shots-screens.json): Home, Manage, Profile, Set up,
+    // the phase sheet, dialogs, menus, a toast, empty states. Padding symmetry only (the bands above are the modules' windows).
+    // They run after the windows above (a space page's strip shows the Budget's fact once the Workspace has opened it), with the
+    // Map off and its picture map removed (with a map file, Places is part of the Map and /modules/places goes to /map).
+    const screenJobs = [];
+    const screenList = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'shots-screens.json'), 'utf8')).screens;
+    for (const [id, sizes] of SCREENS) {
+      const screen = screenList.find((x) => x.id === id);
+      if (!screen) { failures.push({ context: 'screens', window: id, what: 'no such screen in tools/shots-screens.json', got: '', should: '' }); continue; }
+      for (const size of sizes) {
+        const mode = size <= 640 ? 'dark' : 'light';
+        screenJobs.push([`${id} ${size}`, async () => {
+          const tab = new Tab(browser.cdp, S.ctx);
+          await tab.open(size, mode, screen.call === true);
+          await cssOn(tab);
+          // The screenshot's settle waits up to 15 s for no request in flight; a space page with no call server keeps one open, so
+          // every step would wait it out. Measuring needs the fonts in and the page drawn: the same probe, 3 s at most.
+          const settle = tab.settle.bind(tab);
+          tab.settle = () => Promise.race([settle(), sleep(3000)]);
+          try {
+            await driveScreen(tab, screen, S.base, S.cookies, S.ctx);
+            await sleep(300);
+            const view = `${id}, ${size} px, ${mode}`;
+            screensMeasured.add(view);
+            await symmetry(tab, view);
+          } finally { await closeTab(tab); }
         }]);
       }
     }
     const keep = (name) => !ONLY || ONLY.split(',').some((x) => name.includes(x));
     const width = Math.min(4, Math.max(2, os.cpus().length));
-    let i = 0;
-    const todo = jobs.filter(([name]) => keep(name));
-    await Promise.all(Array.from({ length: width }, async () => { while (i < todo.length) { const job = todo[i++][1]; try { await job(); } catch (e) { failures.push({ context: 'load', window: '-', what: e.message, got: '', should: '' }); } } }));
+    const times = [];
+    const pool = async (todo) => { let i = 0; await Promise.all(Array.from({ length: width }, async () => { while (i < todo.length) { const [jobName, job] = todo[i++]; const t0 = Date.now(); try { await job(); } catch (e) { failures.push({ context: 'load', window: jobName, what: e.message, got: '', should: '' }); } times.push([jobName, Date.now() - t0]); } })); };
+    await pool(jobs.filter(([name]) => keep(name)));
+    const off = await api('PATCH', '/api/settings', { showMap: false });
+    if (!off.ok) throw new Error(`the Map could not be turned off: ${off.status}`);
+    const gone = await api('DELETE', '/api/modules/maps/files/world.pmtiles?folder=image-map');
+    if (!gone.ok) throw new Error(`the picture map could not be removed: ${gone.status} ${await gone.text()}`);
+    await pool(screenJobs.filter(([name]) => keep(name)));
+    if (process.env.CONFORMANCE_TIMES) for (const [n, ms] of times.sort((a, b) => b[1] - a[1]).slice(0, 15)) say(`${String(Math.round(ms / 100) / 10).padStart(5)} s  ${n}`);
 
-    const contexts = [...new Set(tables.map((t) => t.context))];
-    if (TABLE || failures.length) {
+    const contexts = [...new Set(results.map((t) => t.context))];
+    if (HEIGHTS || failures.length) {
       for (const c of contexts) {
-        const ts = tables.filter((t) => t.context === c && (TABLE || t.failed));
+        const ts = results.filter((t) => t.context === c && (HEIGHTS || t.failed));
         if (!ts.length) continue;
         console.log(c);
         for (const t of ts) { console.log(t.head); for (const r of t.rows) console.log(r); }
@@ -351,16 +537,20 @@ async function main() {
     }
     if (symmetryRows.length) {
       console.log('Padding symmetry: each box (family, element), what differs, its padding and its children\'s margins (top bottom):');
-      for (const o of symmetryRows) console.log(`  ${o.family.padEnd(24)} ${o.el.padEnd(44)} ${o.why}  padding ${o.padding}${o.margins ? `  child margins ${o.margins}` : ''}  (${o.context})`);
+      for (const o of symmetryRows) {
+        console.log(`  ${o.family.padEnd(24)} ${o.el.padEnd(44)}${o.says ? ` "${o.says}"` : ''} ${o.why}  padding ${o.padding}${o.margins ? `  child margins ${o.margins}` : ''}  (${o.context})`);
+        for (const r of o.rules || []) console.log(`      ${r}`);
+      }
     }
-    const windows = tables.length;
+    for (const f of failures.filter((x) => x.context === 'load')) console.log(`  could not measure ${f.window}: ${f.what}`);
+    const windows = results.length;
     if (failures.length) {
       const byWhat = new Map();
       for (const f of failures) byWhat.set(f.what.replace(/ \(.*\)$/, ''), (byWhat.get(f.what.replace(/ \(.*\)$/, '')) || 0) + 1);
       say(`FAIL: ${failures.length} deviations in ${new Set(failures.map((f) => f.context + f.window)).size} of ${windows} windows (${[...byWhat].map(([k, n]) => `${k} ${n}`).join(', ')}); ${Math.round((Date.now() - started) / 1000)} s`);
       return 1;
     }
-    say(`${windows} windows in ${contexts.length} views measured; every title bar, toolbar, status line, search and band button is the approved size; ${Math.round((Date.now() - started) / 1000)} s`);
+    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, status line, search and band button is the approved size and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
     return 0;
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }

@@ -36,7 +36,7 @@
    It stays on the panel step, so the item cards inside it (the card step) still stand out from it. Its head and its timeline have their own
    padding, so the in-day rails stay on the plan's line (--spine-x). The head sticks to the top while the day scrolls, on the card's own fill. */
 .sdk-day { --day-step: var(--surface-panel); gap: 0; padding: 0; margin-bottom: 14px; }
-.sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--card-pad) var(--card-pad) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
+.sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--pad-card) var(--pad-card) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
 .sdk-day-actions .menu-btn { position: relative; }
 .sdk-day-labels > .sdk-chip-tag[data-tone="custom"] { --chip-tone: var(--ph); max-width: 100%; }
 .sdk-day .suggestions, .sdk-day .add-row { margin: 0; }
@@ -190,7 +190,7 @@
 .stay .ins b { font-size: var(--text-14); font-variant-numeric: tabular-nums; }
 .stay .ins .sep { width: 34px; border-top: 2px dotted color-mix(in srgb, var(--tone) 55%, transparent); }
 .stay .ins > div:last-child { text-align: right; }
-.stay .foot { padding: 0 14px 12px; }
+.stay .foot { margin-top: 0; padding: 8px 14px 12px; } /* the card has no padding: each part owns its own, so the chips' 8px is padding here, not a margin */
 .stay.mid { display: flex; align-items: center; gap: 10px; padding: 7px 40px 7px 10px; border-style: dashed; background: transparent; }
 .stay.mid .badge { width: 28px; height: 28px; font-size: var(--text-12); }
 .stay.mid h3 { font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }
@@ -254,6 +254,9 @@
 .app.tiny .pass .stub::before, .app.tiny .admit .stub::before { left: -9px; top: -9px; }
 .app.tiny .pass .stub::after, .app.tiny .admit .stub::after { left: auto; right: -9px; top: -9px; bottom: auto; }
 .app.tiny .pass .bars { flex-basis: 100%; }
+/* A meal or a check-out in a tiny pane: the time goes under the name (beside it, the name had no width left and stood one letter a line). */
+.app.tiny :is(.meal, .stay.out) { grid-template-columns: auto minmax(0, 1fr); }
+.app.tiny :is(.meal, .stay.out) .side { grid-column: 2; padding-right: 0; text-align: left; }
 /* on a phone the time moves above its card so the card gets the whole width */
 .app.narrow .row { grid-template-columns: 14px minmax(0, 1fr); column-gap: 8px; grid-template-areas: "rail when" "rail slot"; }
 .app.narrow .rail { grid-area: rail; }

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-mode="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Design system: prototype</title>
+  <!-- The Prototype page (documentation/plans/plan-design-system.md, step 39): whole screens of the product as it draws them, so a
+       component is judged where it is used, not alone. Each screen is the product's real markup, captured from the running app with the
+       screenshot tool's seed by tools/prototype-build.mjs into prototype/ (README.md in this folder); this page lists them and switches
+       the width, Dark or Light, the theme, and the measure overlay. prototype.js draws it; prototype-frame.js runs inside each screen.
+       Its links are relative, so the review copy (tools/design-system-snapshot.mjs PAGE=prototype) works from any folder. -->
+  <link rel="stylesheet" href="../fa/css/all.min.css">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="../sdk/system.css">
+  <link rel="stylesheet" href="ds.css">
+  <link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+  <a class="ds-skip" href="#ds-main">Skip to the screen</a>
+  <header class="ds-top" role="banner">
+    <button type="button" class="btn ds-menu-btn" id="ds-menu-btn" aria-controls="ds-nav" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i><span class="ds-menu-word"> Screens</span></button>
+    <h1 class="ds-title">Design system <span class="ds-sub">prototype</span></h1>
+    <div class="ds-tools" role="group" aria-label="Page tools">
+      <a class="btn btn-small" href="proposed.html" id="ds-proposed">Proposed system</a>
+      <a class="btn btn-small" href="index.html" id="ds-other">Legacy inventory</a>
+      <div class="tb-tabs" role="group" aria-label="Width" id="pt-width"></div>
+      <div class="tb-tabs" role="group" aria-label="Light or dark" id="pt-mode">
+        <button type="button" class="tb-tab on" data-mode="dark" aria-pressed="true"><span class="tb-tab-glyph"><i class="fa-solid fa-moon" aria-hidden="true"></i></span><span class="tb-tab-word">Dark</span></button>
+        <button type="button" class="tb-tab" data-mode="light" aria-pressed="false"><span class="tb-tab-glyph"><i class="fa-solid fa-sun" aria-hidden="true"></i></span><span class="tb-tab-word">Light</span></button>
+      </div>
+      <div class="tb-tabs" role="group" aria-label="Theme" id="pt-theme"></div>
+      <div class="tb-tabs" role="group" aria-label="Size on this page" id="pt-scale">
+        <button type="button" class="tb-tab on" data-scale="fit" aria-pressed="true"><span class="tb-tab-word">Fit</span></button>
+        <button type="button" class="tb-tab" data-scale="1" aria-pressed="false"><span class="tb-tab-word">100%</span></button>
+      </div>
+      <button type="button" class="tb-tab pt-measure" id="pt-measure" aria-pressed="false"><span class="tb-tab-glyph"><i class="fa-solid fa-ruler-combined" aria-hidden="true"></i></span><span class="tb-tab-word">Measure</span></button>
+    </div>
+  </header>
+  <div class="ds-shell">
+    <nav class="ds-nav" id="ds-nav" aria-label="Screens"></nav>
+    <main class="ds-main" id="ds-main" tabindex="-1">
+      <noscript>This page needs JavaScript: it shows each screen in a frame.</noscript>
+      <div class="pt-head">
+        <h2 id="pt-title">Prototype</h2>
+        <p class="ds-desc" id="pt-note"></p>
+        <p class="ds-status" id="pt-status" role="status"></p>
+      </div>
+      <div class="pt-view" id="pt-view"></div>
+    </main>
+  </div>
+  <script src="prototype/screens.js"></script>
+  <script src="prototype.js"></script>
+</body>
+</html>

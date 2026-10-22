@@ -5692,3 +5692,232 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   .sdk-tabbar .sdk-tabbar-tab { transition: none; }
 }
 /* tabbar:end */
+
+/* moduleframe:start */
+/* The module panel (public/module-frame.js, createModuleFrame; shown on public/design-system/panel.html). Four levels, top
+   down: the title bar, the toolbar (one row), the content area and the status bar, each its own surface step with a hairline
+   between. Every size and step is one of the tokens just below: change one there and every panel follows. The toolbar's side
+   padding and the content's padding are the same token (--mf-inset); the toolbar's controls sit in the middle of its band
+   (--mf-band-h, the band's height over its hairline). Controls look different by kind: a view switch is a joined, sunk track
+   with the chosen part filled; a tab is a folder tab joined to the content; a filter chip is a pill; a button is a square-cornered
+   block (primary filled, secondary outlined); an icon button is bare. */
+:root {
+  --mf-inset: var(--space-3); /* the toolbar's sides, the content's padding, the title and status bars' start */
+  --mf-gap: var(--space-2); /* between the toolbar's controls */
+  --mf-title-h: 36px; /* the title bar's band */
+  --mf-band-h: 40px; /* the toolbar's band (its hairline under it is extra) */
+  --mf-status-h: 24px; /* the status bar's band */
+  --mf-ctl-h: 28px; /* a control in the toolbar or the title bar: a button, the switch, the search, a tab's face */
+  --mf-chip-h: 24px; /* a filter chip */
+  --mf-ctl-pad: var(--space-3); /* a button's or a tab's sides */
+  --mf-search-w: 220px; /* the search field's width when there is room */
+  --mf-search-min: 120px; /* the least it gives way to before it folds to a magnifier */
+  --mf-title-min: 64px; /* the least a title is cut to before what is beside it folds */
+  --mf-shadow: var(--shadow-2); /* the panel's own shadow */
+  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 86%, var(--text-primary)); /* level 1, the strongest step */
+  --mf-surface-toolbar: color-mix(in srgb, var(--surface-panel) 93%, var(--text-primary)); /* level 2 */
+  --mf-surface-content: var(--surface-panel); /* level 3 */
+  --mf-surface-status: color-mix(in srgb, var(--surface-panel) 82%, var(--surface-page)); /* level 4, toward the page */
+  --mf-edge: var(--edge-hairline); /* the panel's edge and the hairlines between the levels */
+}
+
+.mf {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--mf-edge);
+  border-radius: var(--radius-large);
+  background: var(--mf-surface-content);
+  box-shadow: var(--mf-shadow);
+  color: var(--text-primary);
+  font-size: var(--text-13);
+  line-height: var(--leading-body);
+}
+.mf :where(button, input) { font: inherit; color: inherit; }
+.mf :is(button, [tabindex="0"]):focus-visible,
+.mf .mf-search:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.mf .mf-search-input:focus-visible { outline: none; }
+.mf :where(button) { margin: 0; cursor: pointer; }
+.mf :where(button):disabled { cursor: default; opacity: 0.5; }
+.mf .mf-word { white-space: nowrap; }
+.mf .mf-count { display: inline-flex; align-items: center; justify-content: center; min-width: var(--icon-16); height: var(--icon-16); padding: 0 var(--space-1); box-sizing: border-box; border-radius: var(--radius-round); background: var(--surface-track); color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-medium); line-height: var(--leading-ui); }
+
+/* ---- 1. the title bar ---- */
+.mf-titlebar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--mf-title-h);
+  padding: 0 var(--space-1) 0 var(--mf-inset);
+  border-bottom: 1px solid var(--mf-edge);
+  background: var(--mf-surface-title);
+}
+.mf-titlebar-icon { display: inline-flex; flex: none; color: var(--text-accent); font-size: var(--icon-16); }
+.mf-titlebar-icon[hidden] { display: none; }
+.mf-titlebar-title { flex: 1 1 auto; min-width: var(--mf-title-min); margin: 0; overflow: hidden; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-title); white-space: nowrap; text-overflow: ellipsis; }
+.mf-titlebar-tools { display: flex; flex: none; align-items: center; gap: var(--space-0); }
+.mf-titlebar-tools > [hidden] { display: none; }
+/* The "+": outlined, its plus in the accent, so it reads as "make something" beside the bare icon buttons. */
+.mf-add-btn {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  width: var(--mf-ctl-h); height: var(--mf-ctl-h); margin-right: var(--space-1); padding: 0;
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field); color: var(--text-accent);
+  font-size: var(--icon-14);
+}
+.mf-add-btn:hover { background: var(--fill-hover); }
+
+/* ---- the kinds of control ---- */
+/* An icon button: bare, square, the icon colour; a fill only on hover or while it is on. */
+.mf-icon-btn {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box;
+  width: var(--mf-ctl-h); height: var(--mf-ctl-h); padding: 0;
+  border: 0; border-radius: var(--radius-small); background: transparent; color: var(--icon-default); font-size: var(--icon-14);
+}
+.mf-icon-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
+.mf-icon-btn.is-on { background: var(--fill-selected); color: var(--text-selected); }
+
+/* A button: square-cornered, words (and an icon before them). Primary filled with the accent; secondary outlined on the card step. */
+.mf-btn {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: var(--space-1); box-sizing: border-box;
+  height: var(--mf-ctl-h); padding: 0 var(--mf-ctl-pad);
+  border: 1px solid transparent; border-radius: var(--radius-small); font-weight: var(--weight-medium); white-space: nowrap;
+}
+.mf-btn > i { font-size: var(--icon-14); }
+.mf-btn-primary { background: var(--accent-fill); color: var(--text-on-accent); }
+.mf-btn-primary:hover { background: var(--accent-fill-hover); }
+.mf-btn-secondary { border-color: var(--edge-field); background: var(--fill-secondary); color: var(--text-primary); }
+.mf-btn-secondary:hover { background: var(--fill-secondary-hover); }
+
+/* The view switch: one joined, sunk track; the chosen part filled with the accent. Compact: icon and word, no gaps. */
+.mf-switch {
+  display: inline-flex; flex: none; align-items: stretch; box-sizing: border-box;
+  height: var(--mf-ctl-h); padding: var(--space-0);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field);
+}
+.mf-switch-btn {
+  display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2);
+  border: 0; border-radius: var(--radius-min); background: transparent; color: var(--text-muted); font-size: var(--text-12); font-weight: var(--weight-medium);
+}
+.mf-switch-btn > i { font-size: var(--icon-12); }
+.mf-switch-btn:hover { color: var(--text-primary); }
+.mf-switch-btn[aria-pressed="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
+
+/* The tab strip: folder tabs that reach down to the content; the chosen one is the content's own surface, joined to it
+   through the toolbar's hairline. No fill, no outline on the others: words only. */
+.mf-tabs { display: flex; flex: none; align-self: stretch; align-items: flex-end; gap: var(--space-0); }
+.mf-tab {
+  position: relative; display: inline-flex; align-items: center; gap: var(--space-1); box-sizing: border-box;
+  height: calc(var(--mf-ctl-h) + (var(--mf-band-h) - var(--mf-ctl-h)) / 2 + 1px);
+  margin-bottom: -1px; padding: 0 var(--mf-ctl-pad) calc((var(--mf-band-h) - var(--mf-ctl-h)) / 2);
+  border: 1px solid transparent; border-bottom: 0; border-radius: var(--radius-medium) var(--radius-medium) 0 0;
+  background: transparent; color: var(--text-muted); font-weight: var(--weight-medium); white-space: nowrap;
+}
+.mf-tab:hover { color: var(--text-primary); }
+.mf-tab[aria-selected="true"] { z-index: 1; border-color: var(--mf-edge); background: var(--mf-surface-content); color: var(--text-primary); font-weight: var(--weight-strong); }
+.mf-tab:focus-visible { outline-offset: -3px; }
+/* Folded: one folder tab that says the chosen tab, its caret opening the rest. */
+.mf-tabs-menu {
+  align-self: flex-end; align-items: center; gap: var(--space-1); box-sizing: border-box;
+  height: calc(var(--mf-ctl-h) + (var(--mf-band-h) - var(--mf-ctl-h)) / 2 + 1px);
+  margin-bottom: -1px; padding: 0 var(--space-2) calc((var(--mf-band-h) - var(--mf-ctl-h)) / 2) var(--mf-ctl-pad);
+  border: 1px solid var(--mf-edge); border-bottom: 0; border-radius: var(--radius-medium) var(--radius-medium) 0 0;
+  background: var(--mf-surface-content); font-weight: var(--weight-strong); white-space: nowrap;
+}
+.mf-tabs-menu .mf-caret { color: var(--text-muted); font-size: var(--icon-12); }
+
+/* The search field: the field step, its magnifier inside. */
+.mf-search {
+  display: flex; flex: 0 1 var(--mf-search-w); align-items: center; gap: var(--space-1); box-sizing: border-box;
+  min-width: var(--mf-search-min); height: var(--mf-ctl-h); margin: 0; padding: 0 var(--space-0) 0 var(--space-2);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field);
+}
+.mf-search-glyph { flex: none; color: var(--text-muted); font-size: var(--icon-12); }
+.mf-search-input { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; }
+.mf-search-input::placeholder { color: var(--text-muted); }
+.mf-search-input::-webkit-search-cancel-button { appearance: none; }
+.mf-search .mf-search-close { width: calc(var(--mf-ctl-h) - 6px); height: calc(var(--mf-ctl-h) - 6px); }
+
+/* Filter chips: pills, smaller than the buttons; off is an outline with a plus, on is the selected fill with a tick. */
+.mf-chips { display: flex; flex: none; align-items: center; gap: var(--space-1); }
+.mf-chip, .mf-chips-menu {
+  display: inline-flex; flex: none; align-items: center; gap: var(--space-1); box-sizing: border-box;
+  height: var(--mf-chip-h); padding: 0 var(--space-2);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-round); background: transparent; color: var(--text-muted);
+  font-size: var(--text-12); white-space: nowrap;
+}
+.mf-chip:hover, .mf-chips-menu:hover { color: var(--text-primary); background: var(--fill-hover); }
+.mf-chip .mf-chip-mark, .mf-chips-menu > i { font-size: var(--icon-12); }
+.mf-chip.is-on { border-color: transparent; background: var(--fill-selected); color: var(--text-selected); font-weight: var(--weight-medium); }
+
+/* Words in the row: a title, never cut; it moves into "More" whole. */
+.mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }
+.mf-spacer { flex: 1 1 0; min-width: 0; }
+
+/* ---- 2. the toolbar: one row, nothing cut (module-frame.js folds and moves; these rules show what it chose) ---- */
+.mf-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--mf-gap);
+  height: var(--mf-band-h);
+  min-width: 0;
+  padding: 0 var(--mf-inset);
+  border-bottom: 1px solid var(--mf-edge);
+  background: var(--mf-surface-toolbar);
+}
+.mf-toolbar[hidden] { display: none; }
+.mf-toolbar > :is(.mf-chips-menu, .mf-tabs-menu, .mf-search-open, .mf-more),
+.mf-search .mf-search-close { display: none; }
+.mf-fold-chips > .mf-chips { display: none; }
+.mf-fold-chips > .mf-chips-menu { display: inline-flex; }
+.mf-fold-switch .mf-switch-btn:has(> i) > .mf-word { display: none; }
+.mf-fold-secondary .mf-btn-secondary:has(> i) > .mf-word { display: none; }
+.mf-fold-secondary .mf-btn-secondary:has(> i) { width: var(--mf-ctl-h); padding: 0; }
+.mf-fold-tabs > .mf-tabs { display: none; }
+.mf-fold-tabs > .mf-tabs-menu { display: inline-flex; }
+.mf-fold-search > .mf-search { display: none; }
+.mf-fold-search > .mf-search-open { display: inline-flex; }
+.mf-fold-primary .mf-btn-primary:has(> i) > .mf-word { display: none; }
+.mf-fold-primary .mf-btn-primary:has(> i) { width: var(--mf-ctl-h); padding: 0; }
+.mf-toolbar > .mf-more.is-shown { display: inline-flex; }
+.mf-toolbar > .is-moved.is-moved { display: none; }
+/* Searching (the folded magnifier opened): the field takes the whole row, with its close button. */
+.mf-toolbar.is-searching > :not(.mf-search) { display: none; }
+.mf-toolbar.is-searching > .mf-search.mf-search { display: flex; flex: 1 1 auto; }
+.mf-toolbar.is-searching .mf-search-close { display: inline-flex; }
+
+/* ---- 3. the content ---- */
+.mf-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--mf-inset); background: var(--mf-surface-content); }
+.mf-content.mf-content-flush { padding: 0; }
+.mf-content:focus { outline: none; }
+.mf-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); min-height: 100%; box-sizing: border-box; padding: var(--space-6) var(--space-4); text-align: center; }
+.mf-empty-icon { display: inline-flex; align-items: center; justify-content: center; width: var(--space-8); height: var(--space-8); border-radius: var(--radius-round); background: var(--surface-card); color: var(--text-muted); font-size: var(--icon-16); }
+.mf-empty-title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); }
+.mf-empty-text { max-width: 32ch; margin: 0; color: var(--text-muted); }
+
+/* ---- 4. the status bar ---- */
+.mf-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--mf-status-h);
+  padding: 0 var(--mf-inset);
+  border-top: 1px solid var(--mf-edge);
+  background: var(--mf-surface-status);
+  color: var(--text-muted);
+  font-size: var(--text-12);
+}
+.mf-status[hidden] { display: none; }
+.mf-status-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mf-status-items { display: flex; flex: none; align-items: center; gap: var(--space-3); white-space: nowrap; }
+.mf-status-item { display: inline-flex; align-items: center; gap: var(--space-1); }
+.mf-status-item > i { font-size: var(--icon-12); }
+.mf-tone-ok { color: var(--status-ok-text); }
+.mf-tone-warn { color: var(--status-warn-text); }
+.mf-tone-danger { color: var(--status-danger-text); }
+/* moduleframe:end */

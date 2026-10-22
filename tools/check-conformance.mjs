@@ -170,7 +170,7 @@ const SYMMETRY_FAMILIES = [
   { sel: '.sdk-menu-item, .host-menu-item, .chat-command-item, .sdk-kind-option', name: 'menu item', h: false },
   { sel: '.sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp', name: 'popover', h: false },
   { sel: '.sdk-editor-head, .phase-sheet-head, .bgpick-head, .sdk-dialog-head, .sdk-editor-actions, .sdk-editor-discard, .bgpick-foot, .sdk-dialog-foot, .action-bar', name: 'dialog band', h: false },
-  { sel: '.sdk-editor > form, .layout-form-body, .sdk-dialog-body, .phase-sheet-body', name: 'dialog body', h: false, box: false, stack: '*', stackExcept: '.sdk-editor-actions, .sdk-editor-discard' },
+  { sel: '.sdk-editor > form, .layout-form-body, .sdk-dialog-body, .phase-sheet-body', name: 'dialog body', h: false, box: false, stack: '*', stackExcept: '.sdk-editor-actions, .sdk-editor-discard, .sdk-section' },
   { sel: '.sdk-toast, .sdk-banner', name: 'toast', h: false },
   { sel: '.sdk-empty', name: 'empty state', h: true },
   { sel: '.sdk-choice-row, .sdk-choice-boxed', name: 'choice row', h: false },
@@ -190,7 +190,8 @@ const SYMMETRY_FAMILIES = [
 // - the strip's attention pill (.sdk-strip-attn) starts with its icon: 6px before it and 8px after the count (4 and 6 on a phone),
 //   the approved Journey bar value (public/design-system/proposed-journey.css), so it is not held to left = right;
 // - a dialog's button row (.sdk-editor-actions, or the discard row in its place) is a band of its own over a hairline, --pad-dialog-y
-//   under the last field, so the gap before it is not held to the fields' gap.
+//   under the last field, so the gap before it is not held to the fields' gap; nor is the gap before a form's section (.sdk-section,
+//   its title over a hairline --section-gap, 20px, under the field before: the form standard, public/sdk/host.css).
 const SYMMETRY = String.raw`((families) => {
   const R = (e) => e.getBoundingClientRect();
   const shown = (e) => e && e.getClientRects().length && R(e).width >= 1 && R(e).height >= 1 && getComputedStyle(e).visibility !== 'hidden';
@@ -486,16 +487,23 @@ async function main() {
     }
     // 4. The app's own pages and states, from the screenshot table (tools/shots-screens.json): Home, Manage, Profile, Set up,
     // the phase sheet, dialogs, menus, a toast, empty states. Padding symmetry only (the bands above are the modules' windows).
+    // They run after the windows above (a space page's strip shows the Budget's fact once the Workspace has opened it), with the
+    // Map off and its picture map removed (with a map file, Places is part of the Map and /modules/places goes to /map).
+    const screenJobs = [];
     const table = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'shots-screens.json'), 'utf8')).screens;
     for (const [id, sizes] of SCREENS) {
       const screen = table.find((x) => x.id === id);
       if (!screen) { failures.push({ context: 'screens', window: id, what: 'no such screen in tools/shots-screens.json', got: '', should: '' }); continue; }
       for (const size of sizes) {
         const mode = size <= 640 ? 'dark' : 'light';
-        jobs.push([`${id} ${size}`, async () => {
+        screenJobs.push([`${id} ${size}`, async () => {
           const tab = new Tab(browser.cdp, S.ctx);
           await tab.open(size, mode, screen.call === true);
           await cssOn(tab);
+          // The screenshot's settle waits up to 15 s for no request in flight; a space page with no call server keeps one open, so
+          // every step would wait it out. Measuring needs the fonts in and the page drawn: the same probe, 3 s at most.
+          const settle = tab.settle.bind(tab);
+          tab.settle = () => Promise.race([settle(), sleep(3000)]);
           try {
             await driveScreen(tab, screen, S.base, S.cookies, S.ctx);
             await sleep(300);
@@ -508,10 +516,14 @@ async function main() {
     }
     const keep = (name) => !ONLY || ONLY.split(',').some((x) => name.includes(x));
     const width = Math.min(4, Math.max(2, os.cpus().length));
-    let i = 0;
     const times = [];
-    const todo = jobs.filter(([name]) => keep(name));
-    await Promise.all(Array.from({ length: width }, async () => { while (i < todo.length) { const [jobName, job] = todo[i++]; const t0 = Date.now(); try { await job(); } catch (e) { failures.push({ context: 'load', window: jobName, what: e.message, got: '', should: '' }); } times.push([jobName, Date.now() - t0]); } }));
+    const pool = async (todo) => { let i = 0; await Promise.all(Array.from({ length: width }, async () => { while (i < todo.length) { const [jobName, job] = todo[i++]; const t0 = Date.now(); try { await job(); } catch (e) { failures.push({ context: 'load', window: jobName, what: e.message, got: '', should: '' }); } times.push([jobName, Date.now() - t0]); } })); };
+    await pool(jobs.filter(([name]) => keep(name)));
+    const off = await api('PATCH', '/api/settings', { showMap: false });
+    if (!off.ok) throw new Error(`the Map could not be turned off: ${off.status}`);
+    const gone = await api('DELETE', '/api/modules/maps/files/world.pmtiles?folder=image-map');
+    if (!gone.ok) throw new Error(`the picture map could not be removed: ${gone.status} ${await gone.text()}`);
+    await pool(screenJobs.filter(([name]) => keep(name)));
     if (process.env.CONFORMANCE_TIMES) for (const [n, ms] of times.sort((a, b) => b[1] - a[1]).slice(0, 15)) say(`${String(Math.round(ms / 100) / 10).padStart(5)} s  ${n}`);
 
     const contexts = [...new Set(tables.map((t) => t.context))];
@@ -530,6 +542,7 @@ async function main() {
         for (const r of o.rules || []) console.log(`      ${r}`);
       }
     }
+    for (const f of failures.filter((x) => x.context === 'load')) console.log(`  could not measure ${f.window}: ${f.what}`);
     const windows = tables.length;
     if (failures.length) {
       const byWhat = new Map();

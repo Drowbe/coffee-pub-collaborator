@@ -58,8 +58,9 @@
   /*__LIB__*/
 
   const canEdit = host.can('edit');
-  // Its heading reads its name as this environment shows it (host.info's: the display name, else its own).
-  for (const el of root.querySelectorAll('[data-slot="own-name"]')) el.textContent = info.module.name;
+  // The titlebar reads its name as this environment shows it (host.info's: the display name, else its own), with no
+  // count beside it (#191).
+  host.setTitle(info.module.name);
   const personal = Boolean(info.user && info.user.key !== 'guest'); // a guest has no profile, so nothing of their own
   const removeAnyPhoto = host.can('remove_photos'); // a space's photos other people added (owners always can)
   const me = (info.user && info.user.key) || '';
@@ -261,14 +262,30 @@
     hydrate(body);
   }
 
-  // The name alone: no count beside it (#191), in the titlebar or the harness header.
-  function syncTitle() {
-    const head = $('app').querySelector('.rs-head');
-    if (host.setTitle) {
-      host.setTitle(info.module.name);
-      if (head) head.hidden = true;
-    } else if (head) head.hidden = false;
+  // The toolbar row: the search and the kind chips (one kind or none: none shows every kind), then the view switches and
+  // the Tags chooser, which follow in the same row. None of it while there is nothing to look through.
+  const KIND_CHIPS = [
+    { id: 'note', label: 'Notes', icon: 'note-sticky' },
+    { id: 'link', label: 'Links', icon: 'link' },
+    { id: 'photo', label: 'Photos', icon: 'camera' },
+    { id: 'answer', label: 'Answers', icon: 'wand-magic-sparkles' },
+  ];
+  function syncToolbar(empty) {
+    host.toolbar.set(empty ? [] : [
+      { type: 'search', id: 'search', value: state.filter, placeholder: 'Search research', label: 'Search research' },
+      { type: 'chips', id: 'kind', label: 'Kind', icon: 'filter', options: KIND_CHIPS.map((k) => ({ ...k, on: state.kind === k.id })) },
+    ]).catch(() => {});
   }
+  host.on('toolbar', (e) => {
+    if (e.id === 'search' && typeof e.value === 'string') {
+      if (e.value === state.filter) return;
+      state.filter = e.value;
+      render();
+    } else if (e.id === 'kind' && typeof e.value === 'string') {
+      state.kind = e.on ? e.value : state.kind === e.value ? '' : state.kind;
+      render();
+    }
+  });
 
   // The status line at the foot of the window: how many are shown, and what narrows them. Quiet words, none while empty.
   const KIND_WORDS = { note: 'Notes', link: 'Links', photo: 'Photos', answer: 'Answers' };
@@ -293,8 +310,7 @@
   function renderPage() {
     const all = research.list();
     const empty = state.loaded && !all.length && !state.uploads.length;
-    syncTitle();
-    for (const n of [$('kinds'), $('tag-chips'), $('app').querySelector('.rs-tools')]) hide(n, empty || !state.loaded);
+    syncToolbar(empty || !state.loaded);
     const body = $('body');
     if (!state.loaded) { body.replaceChildren(clone('tpl-state-loading')); return; }
     if (empty) {
@@ -303,12 +319,9 @@
       hydrate(root);
       return;
     }
-    for (const b of $('kinds').querySelectorAll('.sdk-chip')) { b.classList.toggle('on', b.dataset.kind === state.kind); b.setAttribute('aria-pressed', String(b.dataset.kind === state.kind)); }
     const counts = tagCounts(all);
-    // Only the tags chosen as filters show here, each with an x; every tag in use is in the toolbar's Tags chooser.
+    // The tags chosen as filters: the toolbar's Tags chooser ticks them and counts them; the status line names them.
     state.tags = state.tags.filter((t) => counts.some((c) => c.tag === t)); // a tag no object carries any more drops out
-    $('tag-chips').replaceChildren(...state.tags.map((tag) => { const c = tagNode(tag, 'tpl-chip-tag'); c.dataset.tag = tag; c.querySelector('.sdk-chip-x').setAttribute('aria-label', `Stop filtering by ${tag}`); return c; }));
-    hide($('tag-chips'), !state.tags.length);
     if (tagsButton) tagsButton.set({ label: state.tags.length ? `Tags ${state.tags.length}` : 'Tags', on: state.tags.length > 0 });
     const dl = $('tag-list');
     dl.replaceChildren(...counts.map(({ tag }) => { const o = document.createElement('option'); o.value = tag; return o; }));
@@ -414,17 +427,8 @@
     });
   }
 
-  $('filter').addEventListener('input', () => { state.filter = $('filter').value; render(); });
-  $('kinds').addEventListener('click', (ev) => { const b = ev.target.closest('.sdk-chip'); if (b) { state.kind = b.dataset.kind; render(); } });
-  // A chosen tag's chip drops that tag from the filter; choosing one is the toolbar's Tags menu (openTagMenu).
-  $('tag-chips').addEventListener('click', (ev) => {
-    const b = ev.target.closest('.sdk-chip-x') && ev.target.closest('[data-tag]');
-    if (!b) return;
-    state.tags = state.tags.filter((t) => t !== b.dataset.tag);
-    render();
-  });
   // The tag chooser: every tag in use with its count, the chosen ones ticked; a pick adds or drops one and closes, and the
-  // chip row under the kinds shows what is chosen. Opens at the top right of the pane, under the toolbar's button.
+  // Tags button counts what is chosen. Opens at the top right of the pane, under the toolbar's button.
   function openTagMenu() {
     const counts = tagCounts(research.list());
     const items = counts.map(({ tag, count }) => {
@@ -896,7 +900,7 @@
     if (t && t.dataset.action === 'new-note') return openEditor(null, { kind: 'note' });
     if (t && t.dataset.action === 'new-link') return openEditor(null, { kind: 'link' });
     if (t && t.dataset.action === 'add-photo') return choosePhotos();
-    if (t && t.dataset.action === 'clear-filter') { state.filter = ''; state.kind = ''; state.tags = []; $('filter').value = ''; return render(); }
+    if (t && t.dataset.action === 'clear-filter') { state.filter = ''; state.kind = ''; state.tags = []; return render(); }
     if (t && t.dataset.action === 'edit' && cardEl) { ev.stopPropagation(); return openEditor(cardEl.dataset.id); }
     // A plain click only opens or closes the card to read it in place (the editor is the pen button, a double click, or
     // Shift+Enter); a link, a button or the menu inside it does its own thing.
@@ -931,23 +935,21 @@
 
   // --- adding: the titlebar's "+", and what other modules and pointers ask ------------------------------------------
 
-  // The "+" in the titlebar holds the three adds: a window's, popped out too, or the page bar on the module's own page.
+  // The host's "+" holds the three adds wherever Research is drawn: a window's titlebar, popped out, or its own page.
   // The empty state's own buttons stay: they add to an empty page.
   const addNote = () => openEditor(null, { kind: 'note' });
   const addLink = () => openEditor(null, { kind: 'link' });
-  if (host.add) {
-    host.add.set(canEdit ? [
-      { id: 'note', label: 'Note', icon: 'note-sticky' },
-      { id: 'link', label: 'Link', icon: 'link' },
-      { id: 'photo', label: 'Photo', icon: 'camera' },
-    ] : []).catch(() => {});
-    host.on('add', (e) => {
-      if (!canEdit) return;
-      if (e.id === 'photo') return choosePhotos();
-      if (e.id === 'link') return addLink();
-      if (e.id === 'note') return addNote();
-    });
-  }
+  host.add.set(canEdit ? [
+    { id: 'note', label: 'Note', icon: 'note-sticky' },
+    { id: 'link', label: 'Link', icon: 'link' },
+    { id: 'photo', label: 'Photo', icon: 'camera' },
+  ] : []).catch(() => {});
+  host.on('add', (e) => {
+    if (!canEdit) return;
+    if (e.id === 'photo') return choosePhotos();
+    if (e.id === 'link') return addLink();
+    if (e.id === 'note') return addNote();
+  });
   // Something from another module dropped on the pane: what can be done with it is the shared decision
   // (host.objects.dropMenu). Starting a note about it, with its title, linked to it, is this module's own offer (a
   // personal note is not linked: private objects are not linked to or from); a summary carried by the drag (an answer)
@@ -1042,7 +1044,6 @@
     try { localStorage.setItem('research-view', view); } catch (err) { /* not remembered */ }
     viewSwitch?.set(view);
     state.filter = ''; state.kind = ''; state.tags = [];
-    $('filter').value = '';
     host.menu.close();
     closeEditor();
     state.uploads = [];

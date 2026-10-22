@@ -16,22 +16,9 @@
   and toggles the state classes and data attributes listed in CONTRACT.md. It builds no markup from strings and sets no style (exceptions:
   a tag's colour, --chip-tone; the object menu placed under its button). The reference renderings are design/pane.html and design/ask.html.
 -->
-<div id="app" class="rs" hidden>
-  <header class="rs-head">
-    <h1 data-slot="own-name">Research</h1>
-  </header>
-  <!-- whose research (Mine/This space): host.ui.viewSwitch draws it in the toolbar, not here. Mine needs a signed-in person, so a guest has only This space (the script skips the switch entirely then). -->
-  <div class="sdk-toolbar rs-tools">
-    <div class="sdk-search rs-search"><i class="ic" data-icon="magnifying-glass" aria-hidden="true"></i><input id="filter" type="search" maxlength="100" placeholder="Search research" aria-label="Search research" autocomplete="off"></div>
-  </div>
-  <div class="sdk-chips rs-chips" id="kinds" role="group" aria-label="Kind">
-    <button class="sdk-chip on" type="button" aria-pressed="true" data-kind="">All</button>
-    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="note"><span class="ic" data-icon="note-sticky"></span>Notes</button>
-    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="link"><span class="ic" data-icon="link"></span>Links</button>
-    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="photo"><span class="ic" data-icon="camera"></span>Photos</button>
-    <button class="sdk-chip" type="button" aria-pressed="false" data-kind="answer"><span class="ic" data-icon="wand-magic-sparkles"></span>Answers</button>
-  </div>
-  <div class="sdk-chips rs-chips" id="tag-chips" role="group" aria-label="Tag"></div>
+<!-- The host draws the title, the toolbar row (the search, the kind chips, whose research, the layout and the Tags chooser),
+     the "+" and the status line; this is the content slot. -->
+<div id="app" class="rs sdk-slot" hidden>
   <p class="sdk-form-error" id="note" hidden></p>
   <!-- shown while something from another module is dragged over the pane: dropping it starts a note linked to it -->
   <div class="drop-hint" id="drop-hint" hidden><span class="ic" data-icon="note-sticky"></span> Drop to start a note about it</div>
@@ -76,7 +63,6 @@
 
 <!-- ============================ templates ============================ -->
 
-<template id="tpl-chip-tag"><span class="sdk-chip-removable" data-tone="custom"><span class="sdk-chip-dot"></span><span class="sdk-chip-label" data-slot="label"></span><button class="sdk-chip-x" type="button" data-tip="Stop filtering by this tag" aria-label="Stop filtering by this tag"><span aria-hidden="true">&times;</span></button></span></template>
 <!-- someone changed the object while it is open (as in Places) -->
 <template id="tpl-conflict"><div class="sdk-banner" data-kind="warn" data-bar="conflict" role="alert"><span class="sdk-banner-icon" data-icon="triangle-exclamation" aria-hidden="true"></span><span class="sdk-banner-text" data-slot="text"></span><button class="btn btn-small sdk-banner-action" type="button" data-action="use-theirs">Use theirs</button><button class="btn btn-small sdk-banner-action" type="button" data-action="keep-mine">Keep mine</button></div></template>
 <!-- a source of an answer, and anything else that points at another object: a small pill; .gone when the object is no longer there -->

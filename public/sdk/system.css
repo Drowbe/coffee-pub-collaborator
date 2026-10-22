@@ -3887,6 +3887,14 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 .mod-toolbar .tb-chips-word { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mod-toolbar.tb-measure .tb-title { flex: none; }
 .mod-toolbar.tb-chips-iconic .tb-chips-word { display: none; }
+/* Narrower still, a button with an icon is its icon alone (.tb-buttons-iconic; its words stay its name and become its tooltip). */
+.mod-toolbar.tb-buttons-iconic .tb-btn-word { display: none; }
+/* Narrowest of all, an empty search is its magnifier alone, a button's width (.tb-search-iconic), until it is used: focused or
+   holding words it takes its width again, and the row scrolls meanwhile. */
+.mod-toolbar.tb-search-iconic .tb-search:not(:focus-within):has(> input:placeholder-shown) { flex: 0 0 var(--btn-h-small); min-width: 0; cursor: pointer; }
+.mod-toolbar.tb-search-iconic .tb-search:not(:focus-within):has(> input:placeholder-shown) > :is(i, svg) { left: calc((var(--btn-h-small) - var(--icon-14)) / 2); }
+.mod-toolbar.tb-search-iconic .tb-search:not(:focus-within) > input:placeholder-shown { padding: 0; cursor: pointer; }
+.mod-toolbar.tb-search-iconic .tb-search:not(:focus-within) > input:placeholder-shown::placeholder { color: transparent; }
 .mod-toolbar.tb-measure .sdk-search { flex: 0 0 160px; }
 
 :is(.sdk-sep, .tb-sep) {

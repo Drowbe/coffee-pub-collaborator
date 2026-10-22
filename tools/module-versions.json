@@ -4,16 +4,16 @@
     "hash": "fb5daf4b460aed5d"
   },
   "budget": {
-    "version": "0.1.13",
-    "hash": "03983091bf69d479"
+    "version": "0.1.14",
+    "hash": "9d24e638b8558d10"
   },
   "calendar": {
     "version": "1.24.27",
     "hash": "f5a390ad46a91557"
   },
   "maps": {
-    "version": "0.9.10",
-    "hash": "c2c6a2e93dd4ab90"
+    "version": "0.9.11",
+    "hash": "b1a69378325873b0"
   },
   "places": {
     "version": "0.12.13",
@@ -36,7 +36,7 @@
     "hash": "a4a36980a56fd140"
   },
   "travel": {
-    "version": "0.15.42",
-    "hash": "8e2b2ab7d6671599"
+    "version": "0.15.43",
+    "hash": "e9a866a2eb9882b4"
   }
 }

@@ -164,10 +164,11 @@
 
 /* ---- a train ticket ---- */
 .ticket .strip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface-field); border-bottom: 1px solid var(--edge-hairline); padding-right: 40px; }
-.ticket .strip .who { min-width: 0; flex: 1; }
+.ticket .strip { flex-wrap: wrap; row-gap: var(--space-2); }
+.ticket .strip .who { min-width: 0; flex: 1 1 9ch; }
 .ticket .stations { display: grid; grid-template-columns: minmax(0, 1fr) minmax(36px, 0.6fr) minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px 14px 4px; }
 .ticket .st b { display: block; font-size: var(--text-14); overflow-wrap: anywhere; }
-.ticket .st .t { font-size: var(--text-18); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; line-height: var(--leading-display); }
+.ticket .st .t { white-space: nowrap; font-size: var(--text-18); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; line-height: var(--leading-display); }
 .ticket .st.to { text-align: right; }
 .ticket .track { position: relative; height: 18px; color: var(--tone); }
 .ticket .track::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; border-top: 3px dotted color-mix(in srgb, var(--tone) 55%, transparent); }
@@ -257,6 +258,12 @@
 /* A meal or a check-out in a tiny pane: the time goes under the name (beside it, the name had no width left and stood one letter a line). */
 .app.tiny :is(.meal, .stay.out) { grid-template-columns: auto minmax(0, 1fr); }
 .app.tiny :is(.meal, .stay.out) .side { grid-column: 2; padding-right: 0; text-align: left; }
+/* A stay in a tiny pane: the name takes a line of its own words (never a letter a line), the nights tag drops under it, and check-in over check-out. */
+.app.tiny .stay .band { flex-wrap: wrap; row-gap: var(--space-2); }
+.app.tiny .stay .band .main { flex: 1 1 9ch; }
+.app.tiny .stay .ins { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+.app.tiny .stay .ins .sep { display: none; }
+.app.tiny .stay .ins > div:last-child { text-align: left; }
 /* on a phone the time moves above its card so the card gets the whole width */
 .app.narrow .row { grid-template-columns: 14px minmax(0, 1fr); column-gap: 8px; grid-template-areas: "rail when" "rail slot"; }
 .app.narrow .rail { grid-area: rail; }

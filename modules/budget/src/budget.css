@@ -42,6 +42,8 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- the burndown: plain SVG, drawn by the script at the width of its place so the words stay readable ---- */
 .chart { width: 100%; overflow: hidden; }
+/* nothing to draw (no target yet): no empty band between the title and the words */
+.chart:empty, .legend:empty { display: none; }
 .chart svg { display: block; width: 100%; height: auto; }
 .chart .axis { stroke: color-mix(in srgb, var(--text-primary) 25%, transparent); stroke-width: 1; fill: none; }
 .chart .grid { stroke: color-mix(in srgb, var(--text-primary) 10%, transparent); stroke-width: 1; fill: none; }

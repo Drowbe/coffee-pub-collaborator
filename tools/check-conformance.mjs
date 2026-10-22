@@ -91,7 +91,7 @@ const COLLECT = String.raw`(() => {
     for (const b of el.querySelectorAll('.btn, .sdk-icon-btn, .tb-tab')) if (shown(b) && !b.closest('.sdk-search')) out.buttons.push({ h: px(R(b).height), add: Boolean(b.closest('.titlebar-add')), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
     out.at = { x: Math.round(r.left + offsetOf(el).x), y: Math.round(r.top + offsetOf(el).y) };
     out.top = px(r.top + offsetOf(el).y); out.bottom = px(r.bottom + offsetOf(el).y); out.x0 = px(r.left + offsetOf(el).x); out.x1 = px(r.right + offsetOf(el).x);
-    // The tab strips and view switches in the band (the Tabs family): each tab's height and its room above and below in the band,
+    // The tab strips and view switches in the band (the Tabs family): each tab's height and the space above and below it in the band,
     // to the band's outer edges (its hairline counted: the band is 34 px with it, so 30 px tabs sit 2 px from each edge).
     const it = r.top; const ib = r.bottom;
     for (const st of el.querySelectorAll(STRIPS)) {
@@ -408,7 +408,7 @@ function judge(context, phone, windows) {
     for (const b of w.bands) {
       if (!title || b === title || !['toolbar', 'tabrow'].includes(b.band)) continue;
       const gap = b.top - title.bottom;
-      if (gap > 0.5 && gap <= 12 && b.x0 < title.x1 && b.x1 > title.x0) bad(`room between the title bar and the ${b.band} under it`, `${gap}px`, '0px');
+      if (gap > 0.5 && gap <= 12 && b.x0 < title.x1 && b.x1 > title.x0) bad(`gap between the title bar and the ${b.band} under it`, `${gap}px`, '0px');
     }
     for (const b of w.bands) {
       const exp = b.band === 'title' ? want.title : b.band === 'toolbar' || b.band === 'tabrow' ? want.toolbar : want.status;

@@ -3933,7 +3933,7 @@ app.post('/api/users/:key/mute', requireUser, async (req, res) => {
 // installed manifest, a bundled one or a built-in module alike ({ id, name, icon }).
 function shownModule(m) {
   const d = store.moduleDisplay(m.id);
-  return { name: d.name || m.name, icon: d.icon || m.icon };
+  return { name: d.name || m.name, icon: d.icon || m.icon, content: m.content === 'flush' ? 'flush' : 'padded' };
 }
 // What a kind of object is called: its manifest `name`, where `{name}` stands for the module's shown name (this
 // environment's display name for it, else the manifest's own), so the Planner's "{name}" reads "Itinerary" where it

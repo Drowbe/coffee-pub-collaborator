@@ -346,13 +346,8 @@
   function render() {
     const own = [...polls.values()].filter((x) => x.scope === 'own');
     const open = own.filter((x) => !isClosed(x.p)).length;
-    $('count').textContent = open ? `${open} open` : '';
+    syncToolbar();
     filterSwitch.set(show, FILTERS.map((f) => (f.id === 'open' && open ? { ...f, label: `Open (${open})` } : f)));
-
-    $('spaces').hidden = spaceInfo.size === 0;
-    if (spaceInfo.size) {
-      $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="sdk-chip ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
-    }
 
     let html = groupHtml(spaceInfo.size ? word('environment', { cap: true }) : '', own);
     for (const r of spaceInfo.values()) {
@@ -652,8 +647,8 @@
     closesPicker.refresh();
     $('f-notify').checked = false;
     opened = formSnapshot();
-    // Focus goes back to the header's New poll when it is shown; from the action bar or Chat, to whatever had it.
-    editor.open({ focus: $('f-question'), returnTo: () => (!$('add').hidden && !$('add').classList.contains('hosted') ? $('add') : null) });
+    // Focus goes back to whatever had it (the host's "+", the action bar, Chat).
+    editor.open({ focus: $('f-question') });
   }
   // After Start poll: closes at once, nothing asked.
   function closeEditor() {
@@ -730,10 +725,18 @@
 
   // --- wiring ---------------------------------------------------------------
 
-  $('spaces').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-space]');
-    if (!b) return;
-    if (hiddenSpaces.has(b.dataset.space)) hiddenSpaces.delete(b.dataset.space); else hiddenSpaces.add(b.dataset.space);
+  // The toolbar row: on the environment page, a chip for each of the viewer's spaces to show or hide its polls; the view
+  // switch follows it in the same row.
+  const ICON_NAME = /^[a-z0-9-]{1,40}$/;
+  function syncToolbar() {
+    const chips = spaceInfo.size
+      ? [{ type: 'chips', id: 'spaces', label: word('space', { many: true, cap: true }), icon: 'filter', options: [...spaceInfo.values()].map((r) => ({ id: r.id, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) })) }]
+      : [];
+    host.toolbar.set(chips).catch(() => {});
+  }
+  host.on('toolbar', (e) => {
+    if (e.id !== 'spaces' || typeof e.value !== 'string') return;
+    if (e.on) hiddenSpaces.delete(e.value); else hiddenSpaces.add(e.value);
     render();
   });
   // A poll's question can be dragged onto another module that links to polls (a to-do, say).
@@ -829,16 +832,10 @@
       },
     });
   }
-  $('add').addEventListener('click', () => openEditor());
-  // New poll is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
-  // page bar on the module's own page. The header button stays only where the host draws none. Typing is `/p` in Chat,
-  // which opens the same form.
-  const unhost = () => $('add').classList.remove('hosted');
-  $('add').classList.add('hosted'); // until the host says where New poll is
-  if (host.add) {
-    host.add.set(canCreate ? [{ id: 'poll', label: 'New poll', icon: 'square-poll-horizontal' }] : []).then((drawn) => { if (!drawn) unhost(); }, unhost);
-    host.on('add', (e) => { if (e.id === 'poll' && canCreate) openEditor(); });
-  } else unhost();
+  // New poll is the host's "+" (host.add.set, one action: it runs at once) wherever Polls is drawn: a window's titlebar,
+  // popped out, or its own page. Typing is `/p` in Chat, which opens the same form.
+  host.add.set(canCreate ? [{ id: 'poll', label: 'New poll', icon: 'square-poll-horizontal' }] : []).catch(() => {});
+  host.on('add', (e) => { if (e.id === 'poll' && canCreate) openEditor(); });
   if (host.actions && host.actions.provide) {
     host.actions.provide({
       // A poll or a message's words from Chat's Send to... (plan-object-handoff.md): the form, filled in; nothing is saved
@@ -860,7 +857,6 @@
   // Stopped once this module is closed (in the page, its elements go and the timer would draw into nothing).
   const redraw = setInterval(() => { if (!$('app')) return void clearInterval(redraw); render(); announceIfDue(); }, 30000);
 
-  $('add').hidden = !canCreate;
   async function start() {
     try {
       await load();

@@ -1,18 +1,9 @@
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body { display: flex; flex-direction: column; overflow: hidden; }
 [hidden] { display: none !important; }
-.app { display: flex; flex-direction: column; height: 100%; padding: 10px; gap: 8px; position: relative; }
 .msg { padding: 16px; }
 .ic { display: inline-flex; align-items: center; flex: none; }
 .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-.nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.nav h2 { margin: 0 6px 0 0; font-size: var(--text-18); }
 .body { flex: 1; min-height: 0; overflow: auto; }
-
-.quick { display: flex; }
-.quick .btn { width: 100%; }
 
 /* the tasks */
 /* the row, its tick, the open button and the group headers are the Cards family of system.css */
@@ -40,9 +31,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* other spaces' tasks on the environment page */
 .ri { display: inline-flex; align-items: center; margin-right: 2px; }
 .ri svg { width: 1em; height: 1em; fill: currentColor; }
-.spaces { display: flex; flex-wrap: wrap; gap: 6px; }
-.filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); background: none; color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; opacity: 0.6; }
-.filter.on { color: var(--text-primary); background: var(--fill-selected); opacity: 1; }
 
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
    the window, its padding, its close button and its backdrop. The form is .sdk-form: the SDK draws every field, label, hint,
@@ -51,13 +39,9 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 #f-links-wrap { gap: 6px; }
 #f-links:empty { display: none; }
 #f-rules { display: contents; }
-.hosted { display: none !important; }
 
 .link .open { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
 .link .open:hover { color: var(--text-primary); }
 
-
-/* As the Calendar destination's panel: Open / Done / All in the page (it has no toolbar row; host.ui.viewSwitch draws
-   it with `element`, in the SDK's view-switch look), and each task's place. */
-.app.part { padding: 8px; }
+/* As the Calendar destination's panel: each task's place. */
 .task .text .ri { margin-right: 5px; }

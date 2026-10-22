@@ -1096,8 +1096,9 @@ export function drawHeaderItems(header, clean, send) {
 // gets each control's event ({ id, value?, on?, submit?, x? }); an item that carries its own `send(data, button)` (the host
 // page's own items, and a destination's parts' items, mixed into the page's one row) gets it instead. `box()` is the module's area, for a button's `x`.
 // The row stays one line: while it is too narrow, first the chips fold into one menu button (their switches in the host's
-// menu), then a view switch shows only its icons (hostSwitch), then that menu button shows only its icon, then the title is
-// cut; the search field gives way to its least width. A search field and a folded chips button are kept between draws, so typing and an open menu survive a
+// menu), then a view switch shows only its icons (hostSwitch), then that menu button shows only its icon, then a button
+// with an icon shows only its icon (its words its name and tooltip), then an empty search shows only its magnifier until it
+// is used, then the title is cut; the search field gives way to its least width first. A search field and a folded chips button are kept between draws, so typing and an open menu survive a
 // redraw. Returns { set(items) -> the cleaned items, destroy() }.
 export function createToolbar(row, { send, box = null }) {
   const doc = row.ownerDocument;
@@ -1117,14 +1118,22 @@ export function createToolbar(row, { send, box = null }) {
   function fit() {
     frame = 0;
     if (!row.isConnected || row.hidden) return;
-    row.classList.remove('tb-chips-folded', 'tb-chips-iconic');
+    row.classList.remove('tb-chips-folded', 'tb-chips-iconic', 'tb-buttons-iconic', 'tb-search-iconic');
     row.classList.add('tb-measure');
     const over = () => row.scrollWidth > row.clientWidth + 1;
     if (row.querySelector('.tb-chips') && over()) row.classList.add('tb-chips-folded');
     if (win.hostSwitch) win.hostSwitch.fit(row);
     row.classList.remove('tb-chips-iconic');
     if (row.classList.contains('tb-chips-folded') && over()) row.classList.add('tb-chips-iconic');
+    if (row.querySelector('.tb-btn-word') && over()) row.classList.add('tb-buttons-iconic');
+    const iconic = row.classList.contains('tb-buttons-iconic');
+    for (const b of row.querySelectorAll('[data-tb-word-tip]')) {
+      if (iconic) b.dataset.tip = b.getAttribute('aria-label'); else delete b.dataset.tip;
+    }
     row.classList.remove('tb-measure');
+    // The search is measured at its least width (not the room it is given while measuring): a magnifier alone only when even
+    // that does not fit.
+    if (row.querySelector('.tb-search') && over()) row.classList.add('tb-search-iconic');
   }
   const later = () => { if (!frame) frame = win.requestAnimationFrame(fit); };
   function chipsMenu(item) {
@@ -1335,14 +1344,18 @@ export function createToolbar(row, { send, box = null }) {
       b.disabled = item.disabled;
       b.dataset.tbKey = toolbarKey('btn', item.id);
       if (item.on !== null) b.setAttribute('aria-pressed', String(item.on));
-      if (item.icon) {
-        b.appendChild(icon(item.icon));
-        if (item.label) b.append(' ');
-      }
-      if (item.label) b.append(item.label);
+      if (item.icon) b.appendChild(icon(item.icon));
+      if (item.label && item.icon) {
+        // Its words, which fold away while the row is too narrow (.tb-buttons-iconic): the icon alone, its words the tooltip.
+        const w = doc.createElement('span');
+        w.className = 'tb-btn-word';
+        w.textContent = item.label;
+        b.append(' ', w);
+      } else if (item.label) b.append(item.label);
       const name = item.title || item.label || item.icon || item.id;
       b.setAttribute('aria-label', name);
       if (iconOnly || (item.title && item.title !== item.label)) b.dataset.tip = name;
+      else if (item.icon && item.label) b.dataset.tbWordTip = ''; // its words become its tooltip while they are folded away
       // `x`: where the button starts across the module's own area, so a menu it opens can sit under it
       // (host.ui.toolbarButton hands the event to its onClick).
       b.addEventListener('click', () => {

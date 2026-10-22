@@ -32,12 +32,6 @@
       "count": 1
     },
     {
-      "module": "budget",
-      "selector": "markup: <header>",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 7)",
-      "count": 3
-    },
-    {
       "module": "calendar",
       "selector": ".app",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 2)",
@@ -131,7 +125,7 @@
       "module": "places",
       "selector": "markup: <header>",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
-      "count": 3
+      "count": 1
     },
     {
       "module": "places",
@@ -143,12 +137,6 @@
       "module": "places",
       "selector": "markup: class sdk-toolbar-text",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 6)",
-      "count": 1
-    },
-    {
-      "module": "polls",
-      "selector": ".app",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
       "count": 1
     },
     {
@@ -176,24 +164,6 @@
       "count": 1
     },
     {
-      "module": "polls",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 1
-    },
-    {
-      "module": "polls",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 1
-    },
-    {
-      "module": "polls",
-      "selector": "markup: <header>",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 4)",
-      "count": 2
-    },
-    {
       "module": "research",
       "selector": ".rcard > .sdk-card-body",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
@@ -212,57 +182,9 @@
       "count": 1
     },
     {
-      "module": "research",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
-      "count": 2
-    },
-    {
-      "module": "research",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
-      "count": 1
-    },
-    {
-      "module": "research",
-      "selector": "markup: <header>",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
-      "count": 2
-    },
-    {
-      "module": "research",
-      "selector": "markup: class sdk-toolbar",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 5)",
-      "count": 1
-    },
-    {
       "module": "stream",
       "selector": ".app",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 9)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": ".app",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": "body",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": "html",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
-      "count": 1
-    },
-    {
-      "module": "todo",
-      "selector": "markup: <header>",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 3)",
       "count": 1
     },
     {
@@ -395,7 +317,7 @@
       "module": "travel",
       "selector": "markup: <header>",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 8)",
-      "count": 13
+      "count": 2
     },
     {
       "module": "travel",

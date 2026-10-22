@@ -7,13 +7,9 @@
 ## The pane
 
 ```
-<div class="rs [narrow]">                     narrow under 720 px (the script sets it from the pane's width)
-  <header class="rs-head">                    hidden when the host titlebar is there: the name goes in host.setTitle ("Research", no count, #191). Kept for a harness with no titlebar: h1[data-slot=own-name] (the Mine/This space switch is in the toolbar, not here)
-  <div class="rs-tools">                      .sdk-search.rs-search (input[type=search])
-  <div class="rs-chips">                      kind chips: All, Notes, Links, Photos, Answers (.sdk-chip, .on and aria-pressed)
-  <div class="rs-chips">                      the tags chosen as filters, only those (.sdk-chip-removable[style=--chip-tone], each with a .sdk-chip-x button to drop it); the chooser itself is the toolbar's Tags button (host.ui.toolbarButton), a menu of every tag in use with a count
+<div class="rs sdk-slot [narrow]">           the content slot (.sdk-slot: the host fills the window with it and pads it); narrow under 720 px (the script sets it from the pane's width)
   <main class="rs-body">                      .upload and .pos-ask when needed, then .rs-grid (cards, packed like masonry) or .rs-list (one row each) of .rcard, or .sdk-empty
-  (no bar of its own)                         adding is the titlebar "+" (host.add.set); a status line at the foot (host.status.set) says how many show (see below)
+  (no band of its own)                        the host draws them: the title (host.setTitle, "Research", no count, #191); the toolbar row (host.toolbar.set: the search and the kind chips, Notes, Links, Photos, Answers, one or none; then the Mine/This space and Cards/List switches and the Tags chooser); adding is the "+" (host.add.set); a status line at the foot (host.status.set) says how many show and what narrows them (see below)
 ```
 
 Views are as in Places: **Mine** (the person scope, private across spaces) and **This space**, drawn by `host.ui.viewSwitch` in the toolbar; the choice is remembered and a guest has only This space (the script skips the switch entirely then). Filtering combines: search text, a kind, and one or more tags. A second switch beside it, **Cards** / **List** (icons only, `grip` and `list`), picks the layout: `.rs-grid` packs the cards like masonry (the grid's rows are an 8px unit and `masonry()` in the script gives each card the row span its measured height needs, re-measured through a ResizeObserver as photos load or the pane resizes; columns come from the grid's auto-fill), `.rs-list` is one banded card per object, its body one line (the picture, one line of the excerpt, the tags, the meta). Remembered per person (`research-layout`).
@@ -44,7 +40,7 @@ A note: title, body, tags (a field that suggests the tags already used), an opti
 
 ## Tags
 
-Plain words, typed freely, one word each. A list of well-known tags with a colour is kept in Module Configuration (the list control); a tag that is on the list wears its colour (\`--chip-tone\`), any other is grey. The tag chips under the kind chips list the tags in use.
+Plain words, typed freely, one word each. A list of well-known tags with a colour is kept in Module Configuration (the list control); a tag that is on the list wears its colour (\`--chip-tone\`), any other is grey. The toolbar's Tags chooser lists the tags in use.
 
 ## States
 
@@ -65,7 +61,7 @@ The script clones these and fills them by hook only: `[data-slot=x]` (its text, 
 
 - `tpl-card` (`article.sdk-card-banded.rcard`, the script sets `data-kind`, `data-id`): slots `thumb` (an `img`, its `src`), `kind`, `ai` (shown for an answer), `title`, `site`, `excerpt`, `tags` (holds `tpl-tag` clones, each with `--chip-tone`), `when`, `place`, `by`; `button[data-action=menu]`.
 - `tpl-conflict` (as in Places: `text`, `use-theirs`, `keep-mine`), `tpl-source` (a pill for an answer's source; `.gone` when it is no longer there).
-- `tpl-chip-tag` (a chosen tag in `#tag-chips`, `--chip-tone`, with its `.sdk-chip-x`), `tpl-tag`. Chips are the SDK's: `.sdk-chip` (a kind), `.sdk-chip-removable` and `.sdk-chip-tag`, small rounded rectangles, never pills.
+- `tpl-tag`. Chips are the SDK's: `.sdk-chip-tag`, small rounded rectangles, never pills. The tags chosen as filters are ticked in the toolbar's Tags chooser (its button counts them) and named in the status line.
 - `tpl-upload` (`.upload`: `name`, `progress`, `step`, `[data-action=retry-upload]`), `tpl-pos-ask` (`text`, `[data-action=keep-position]`, `[data-action=drop-position]`).
 - The dialog is one form, `#form.sdk-form[data-kind=note|link|photo|answer]`; each row lists the kinds that show it in `data-kinds`, and the stylesheet hides the rest. Fields: `f-title`, `f-caption` (a photo), `f-url`, `f-body`, `f-excerpt`, `f-tags` (with `#tag-list`), `f-point` and `f-date`, `#f-asked` (an answer kept from Assistant: `asked`, `sources`), `f-by`, `f-error`, `f-save`, `f-cancel`, `f-delete`.
 - `#item-menu`: `edit`, `copy-to` (its label reads "Copy to This space" or "Copy to Mine"), `ask-about` ("Research this", hidden unless a module offers `askAssistant`), `delete`.

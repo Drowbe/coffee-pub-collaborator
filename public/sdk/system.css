@@ -33,6 +33,47 @@
   --space-8: 40px;
   --space-9: 48px;
 
+  /* ---- Padding, by role. A component takes its padding from one of these names, never a number and never a bare --space-*
+     step, so the same kind of box has the same inside everywhere. The values are the approved ones (each family's block below
+     says where it was approved); three are off the 4px scale and are marked so.
+     THE STACKING RULE. A container owns its padding, on every side. Its children are spaced by the container's one `gap`
+     (a flex or grid column or row) and carry NO top or bottom margin: a child's margin adds to the container's padding (the
+     lopsided box: more room at the foot than at the head) or to the gap (uneven steps between parts). Prose (a message's
+     words, a note) is the one place margins space paragraphs; its first and last child still carry none. .sdk-stack (a column)
+     and .sdk-cluster (a wrapping row) are the plain containers for it (Cards block). tools/check-conformance.mjs measures
+     the result in the running product: a box's content as far from its top as from its bottom, its parts one gap apart. */
+  --pad-panel: var(--space-4); /* 16: a panel, a page section */
+  --pad-card: var(--space-3); /* 12: a card, a toast, a chat card, a dense popover's grid */
+  --pad-home: var(--space-5); /* 20: Home's space card and its add slot */
+  --pad-window: var(--space-3); /* 12: a module window's content, the chat's list of messages */
+  --pad-row-y: var(--space-2); /* 8 */
+  --pad-row-x: calc(var(--space-2) + var(--space-0)); /* 10, OFF THE 4px SCALE (approved, Cards): a row, a table cell */
+  --pad-band-x: var(--space-3); /* 12: where a band's or a banded head's first thing starts; a banded body's sides */
+  --pad-band-body-top: var(--space-2); /* 8: a banded body under its head band */
+  --pad-toolbar-x: var(--space-2); /* 8 from the start of a toolbar (12 on a phone, below) */
+  --pad-chip-x: calc(var(--space-2) + var(--space-0)); /* 10, OFF THE 4px SCALE (approved, Chips) */
+  --pad-tag-x: var(--space-2); /* 8: a tag chip */
+  --pad-field-x: var(--space-2); /* 8: words in a field */
+  --pad-menu: var(--space-1); /* 4: around a menu's items */
+  --pad-menu-item-y: var(--space-1); /* 4 */
+  --pad-menu-item-x: calc(var(--space-2) + 1px); /* 9, OFF THE 4px SCALE: with the item's 1px clear edge its words start 10px in (approved, Menus) */
+  --pad-popover: calc(var(--space-3) + var(--space-0)); /* 14, OFF THE 4px SCALE (approved, Menus): around a popover's controls */
+  --pad-popover-dense: var(--space-2); /* 8: around a popover's grid or list */
+  --pad-dialog-x: var(--space-6); /* 24: a dialog's sides */
+  --pad-dialog-x-narrow: var(--space-4); /* 16: a dialog's sides on a phone (full screen) */
+  --pad-dialog-y: var(--space-4); /* 16: a dialog section's top and bottom (its head, its body's foot, its button row) */
+  --pad-toast: var(--space-3); /* 12 */
+  --pad-banner-y: var(--space-2); /* 8 */
+  --pad-banner-x: var(--space-3); /* 12 */
+  --pad-empty-y: var(--space-6); /* 24: an empty state */
+  --pad-empty-x: var(--space-4); /* 16 */
+  /* the one gap that spaces a container's children (the stacking rule) */
+  --gap-in: var(--space-2); /* 8: between things in a card, a row, a panel, a list */
+  --gap-card-rows: var(--space-1); /* 4: rows INSIDE a card (the fill step separates them) */
+  --gap-group: var(--space-4); /* 16: between groups */
+  --stack-gap: var(--gap-in); /* .sdk-stack's one gap; set it on the stack */
+  --cluster-gap: var(--gap-in); /* .sdk-cluster's */
+
   /* ---- Type: nine sizes, three weights, leading and tracking ---- */
   --text-9: 9px; /* the one exception to "nothing under 11px": a number in a 14px corner badge */
   --text-11: 11px;
@@ -205,7 +246,7 @@
 }
 
 @media (max-width: 640px) {
-  :root { --page-pad: 12px; --module-head-h: 42px; --btn-h: 44px; }
+  :root { --page-pad: 12px; --module-head-h: 42px; --btn-h: 44px; --pad-toolbar-x: var(--space-3); }
 }
 
 /* ================= Buttons (family block; design system step 12) =================
@@ -741,8 +782,8 @@
   --chip-h-tag: 24px;
   --chip-font: var(--text-13);
   --chip-font-tag: var(--text-12);
-  --chip-pad-x: calc(var(--space-2) + var(--space-0));
-  --chip-pad-x-tag: var(--space-2);
+  --chip-pad-x: var(--pad-chip-x);
+  --chip-pad-x-tag: var(--pad-tag-x);
   --chip-gap: calc(var(--space-1) + var(--space-0));
   --chip-icon: var(--icon-14);
   --chip-x: var(--icon-20);
@@ -1172,14 +1213,7 @@
    day cards come with their own steps (32 to 34). tools/check-design-system-cards.mjs holds the drawing. */
 /* cards:start */
 :root {
-  --card-pad: var(--space-3);
-  --panel-pad: var(--space-4);
-  --home-pad: var(--space-5);
-  --row-pad-y: var(--space-2);
-  --row-pad-x: calc(var(--space-2) + var(--space-0)); /* 10px: 8 + 2 */
-  --gap-in: var(--space-2);
-  --gap-card-rows: var(--space-1); /* rows INSIDE a card: the fill step separates them; rows in a list on a panel or a window are --gap-in apart */
-  --gap-group: var(--space-4);
+  /* padding and gaps: --pad-panel, --pad-card, --pad-home, --pad-row-y/-x, --gap-in, --gap-card-rows, --gap-group (Foundations, Padding) */
   --card-icon: 32px;
   --card-head-h: var(--btn-h-small); /* the banded card's head band: 30px */
   --card-head-tint: var(--text-primary); /* what the band is shaded with */
@@ -1201,7 +1235,7 @@
   gap: var(--gap-in);
   box-sizing: border-box;
   min-width: 0;
-  padding: var(--panel-pad);
+  padding: var(--pad-panel);
   border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-large);
   background: var(--s);
@@ -1218,7 +1252,7 @@
   gap: var(--gap-in);
   box-sizing: border-box;
   min-width: 0;
-  padding: var(--card-pad);
+  padding: var(--pad-card);
   border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-large);
   background: var(--s);
@@ -1230,7 +1264,7 @@
 }
 
 /* Home's space card: the same card, 20px of padding. */
-:where(.sdk-card-home, .space-choice) { padding: var(--home-pad); gap: var(--space-3); }
+:where(.sdk-card-home, .space-choice) { padding: var(--pad-home); gap: var(--space-3); }
 :where(.sdk-card-home, .space-choice) .sdk-card-title { font-family: var(--font-display); font-size: var(--text-18); font-weight: var(--weight-strong); }
 
 /* The add slot beside the space cards: the same size, a dashed neutral hairline, no fill. */
@@ -1245,7 +1279,7 @@
   width: 100%;
   min-height: 120px;
   margin: 0;
-  padding: var(--home-pad);
+  padding: var(--pad-home);
   border: 1px dashed var(--edge-hairline);
   border-radius: var(--radius-large);
   background: transparent;
@@ -1318,7 +1352,7 @@
   min-width: 0;
   min-height: var(--btn-h);
   margin: 0;
-  padding: var(--row-pad-y) var(--row-pad-x);
+  padding: var(--pad-row-y) var(--pad-row-x);
   border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-medium);
   background: var(--s);
@@ -1426,7 +1460,7 @@
 /* The menu slot: fixed, top right, 8px in; the head and the title leave room for it. */
 .sdk-card-menu { position: absolute; top: var(--space-2); right: var(--space-2); z-index: 1; width: var(--btn-h-small); height: var(--btn-h-small); display: flex; }
 .sdk-card:has(> .sdk-card-menu) > :is(.sdk-card-head, .sdk-card-title, .sdk-card-sub) { padding-right: var(--btn-h-small); }
-.sdk-card-home:has(> .sdk-card-menu) { padding-right: var(--home-pad); }
+.sdk-card-home:has(> .sdk-card-menu) { padding-right: var(--pad-home); }
 
 /* The icon chip: category colour on the icon, a quiet tint behind it. No tint, no colour: neutral. */
 .sdk-card-icon {
@@ -1465,6 +1499,15 @@
 .sdk-list-group > .sdk-group-head { margin-bottom: var(--gap-in); }
 :where(.sdk-list) { display: flex; flex-direction: column; gap: var(--gap-in); min-width: 0; } /* :where, so a module can lay the list out as a grid */
 
+/* ---- the stacking rule's two containers (Foundations, Padding): parts one gap apart, no part with a margin of its own ----
+   .sdk-stack: a column, --stack-gap apart (8px; --gap-group for groups, --gap-card-rows for rows in a card).
+   .sdk-cluster: a row that wraps, --cluster-gap apart both ways (8px), its parts centred on the line.
+   Neither has padding: the box it sits in owns that. Their parts' top and bottom margins are 0, so no rule of a part's own adds
+   to the gap. */
+:where(.sdk-stack) { display: flex; flex-direction: column; gap: var(--stack-gap); min-width: 0; }
+:where(.sdk-cluster) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cluster-gap); min-width: 0; }
+.sdk-stack > *, .sdk-cluster > * { margin-block: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   :is(.sdk-card, .sdk-row, .space-choice, .sdk-card-add, .space-choice-add) { transition: none; }
 }
@@ -1491,8 +1534,8 @@
 :root {
   --tbl-surface: var(--surface-panel);
   --tbl-hover: 8%;
-  --tbl-cell-y: var(--space-2);
-  --tbl-cell-x: calc(var(--space-2) + var(--space-0)); /* 10px: 8 + 2 */
+  --tbl-cell-y: var(--pad-row-y);
+  --tbl-cell-x: var(--pad-row-x);
   /* Muted text on a hovered or grouped row: a little stronger, because the plain muted colour is under 4.5 to 1 there in the light mode. */
   --tbl-dim: color-mix(in srgb, var(--text-muted) 55%, var(--text-primary));
 }
@@ -1844,7 +1887,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 
 /* The exception, kept: the 3px bar on the left of a Calendar agenda row and of the chips of other calendars and markers (Thomas, 2026-10-18).
    A straight, square-ended block the full height of the box (it covers the box's own 1px edge, --bar-bleed); the box is square on that side. */
-.sdk-bar-kept { --bar-bleed: 1px; padding-left: calc(var(--row-pad-x) + var(--cal-bar)); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.sdk-bar-kept { --bar-bleed: 1px; padding-left: calc(var(--pad-row-x) + var(--cal-bar)); border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .sdk-bar-kept::before { content: ""; position: absolute; left: calc(-1 * var(--bar-bleed)); top: calc(-1 * var(--bar-bleed)); bottom: calc(-1 * var(--bar-bleed)); width: var(--cal-bar); border-radius: 0; background: var(--tint, var(--accent-fill)); pointer-events: none; }
 /* The chip with the bar: a quiet neutral fill; markers in their tint (the compact month's dots). */
 .sdk-cal-event.sdk-bar-kept { --bar-bleed: 0px; --ev-tone: var(--tint, var(--text-muted)); border-width: 0; padding-left: calc(var(--space-2) + var(--space-0) / 2); background: color-mix(in srgb, var(--text-muted) 12%, var(--cal-surface, var(--surface-field))); color: var(--cal-dim); }
@@ -2265,7 +2308,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 /* fields:start */
 :root {
   --field-h: 38px; /* 44px on a phone */
-  --field-pad-x: var(--space-2);
+  --field-pad-x: var(--pad-field-x);
   --field-font: var(--text-14); /* 16px on a phone, so iOS does not zoom */
   --label-size: var(--text-12);
   --label-gap: var(--space-1);
@@ -2852,10 +2895,10 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   box-sizing: border-box;
   margin: 0;
-  padding: 0 var(--dlg-pad-x) 16px;
+  padding: 0 var(--dlg-pad-x) var(--pad-dialog-y);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2864,7 +2907,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 .sdk-dialog-confirm .sdk-dialog-body > p { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
 .sdk-dialog-confirm .sdk-dialog-foot {
   margin: 0;
-  padding: 16px var(--dlg-pad-x) calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: var(--pad-dialog-y) var(--dlg-pad-x) calc(var(--pad-dialog-y) + env(safe-area-inset-bottom, 0px));
 }
 @media (max-width: 640px) {
   .sdk-dialog-confirm .sdk-dialog-close::after { content: ""; position: absolute; inset: var(--btn-hit); }
@@ -3163,7 +3206,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 
 /* ---- a phone: the slim 28px line; the journey a 2px line along its foot with a 7px dot at today; no ticks, dates or names ---- */
 @media (max-width: 640px) {
-  .sdk-strip { height: var(--status-strip-slim-h); padding: 0 var(--space-3) var(--jr-line); column-gap: var(--space-2); }
+  .sdk-strip { height: var(--status-strip-slim-h); padding: 0 var(--pad-band-x) var(--jr-line); column-gap: var(--space-2); }
   .sdk-strip :is(.sdk-strip-count, .sdk-strip-facts) { display: none; }
   .sdk-strip .sdk-strip-chip { z-index: 1; height: var(--jr-chip-h-slim); font-size: var(--text-12); }
   .sdk-strip .sdk-strip-said { flex: 1 1 auto; min-width: 0; }
@@ -3208,7 +3251,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    Colours are roles; radii are --radius-* tokens. No state draws a coloured edge, a bar or an underline. tools/check-host-menu.mjs holds it. */
 /* menus:start */
 :root {
-  --menu-pad: var(--space-1);
+  --menu-pad: var(--pad-menu);
   --menu-w-min: 180px;
   --menu-w-max: 320px;
   --menu-item-h: 32px; /* 44px on a phone */
@@ -3221,7 +3264,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   /* On the quiet fill the same red is 4.3 to 1 in dark mode, so a hovered or focused danger row, and a hint on a filled row, take one step more. */
   --menu-danger-fg-strong: color-mix(in srgb, var(--status-danger-fill) 55%, var(--text-primary));
   --menu-hint-strong: color-mix(in srgb, var(--text-muted) 50%, var(--text-primary));
-  --pop-pad: calc(var(--space-3) + var(--space-0)); /* 14px around controls */
+  --pop-pad: var(--pad-popover); /* 14px around controls */
 }
 
 @media (max-width: 640px) {
@@ -3280,7 +3323,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   max-width: calc(100vw - 16px);
 }
 
-:is(.sdk-popover-dense, .bell-list, .who-here-list, .chat-emoji-popup, .sdk-dp) { --pop-pad: var(--space-2); }
+:is(.sdk-popover-dense, .bell-list, .who-here-list, .chat-emoji-popup, .sdk-dp) { --pop-pad: var(--pad-popover-dense); }
 :is(.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list, .sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp)[hidden] { display: none; }
 :is(.sdk-popover, .popover) .sdk-popover-foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
 :is(.sdk-popover, .popover) > :is(.sdk-popover-heading, h3) { padding: 0; }
@@ -3296,7 +3339,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   width: 100%;
   min-height: var(--menu-item-h);
   margin: 0;
-  padding: var(--space-1) calc(var(--space-2) + 1px);
+  padding: var(--pad-menu-item-y) var(--pad-menu-item-x);
   border: 1px solid transparent;
   border-radius: var(--radius-small);
   background: transparent;
@@ -3647,7 +3690,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   gap: var(--space-2); /* rows and cards in the content are 8px apart, never touching */
   flex: 1 1 auto;
   min-height: 0;
-  padding: var(--space-3);
+  padding: var(--pad-window);
   overflow: auto;
   background: var(--surface-panel);
   font-size: var(--text-14);
@@ -3665,7 +3708,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   height: var(--module-header-h);
   min-width: 0;
   margin: 0;
-  padding: 0 var(--space-1) 0 var(--space-3);
+  padding: 0 var(--space-1) 0 var(--pad-band-x);
   border-bottom: 1px solid var(--edge-hairline);
   background: var(--surface-panel);
   color: var(--text-primary);
@@ -3740,7 +3783,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   height: var(--toolbar-h);
   min-width: 0;
   margin: 0;
-  padding: 0 var(--space-2);
+  padding: 0 var(--pad-toolbar-x);
   border-bottom: 1px solid var(--edge-hairline);
   background: var(--surface-toolbar);
   overflow-x: auto;
@@ -3787,7 +3830,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   height: calc(var(--status-bar-h) + var(--safe-b));
   min-width: 0;
   margin: 0;
-  padding: 0 var(--space-3) var(--safe-b);
+  padding: 0 var(--pad-band-x) var(--safe-b);
   border-top: 1px solid var(--edge-hairline);
   background: var(--surface-panel);
   color: var(--text-muted);
@@ -3816,7 +3859,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   min-width: 0;
   overflow: hidden;
 }
-:is(.sdk-status-item, .mod-status-item).end { margin-left: auto; padding-left: var(--space-3); flex: 0 1 auto; }
+:is(.sdk-status-item, .mod-status-item).end { margin-left: auto; padding-left: var(--pad-band-x); flex: 0 1 auto; }
 
 :is(.sdk-status-text, .mod-status-text) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 :is(.sdk-status-sep, .mod-status-sep) { flex: none; padding: 0 calc(var(--space-1) + var(--space-0)); color: var(--text-muted); }
@@ -3833,7 +3876,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 
 /* A phone: more room each side of a toolbar, which scrolls by touch; a search in it at 16px. */
 @media (max-width: 640px) {
-  :is(.sdk-toolbar, .mod-toolbar) { padding: 0 var(--space-3); }
+  /* the toolbar's 12px on a phone is --pad-toolbar-x's own phone value (Foundations) */
   :is(.sdk-toolbar, .mod-toolbar) .sdk-search, .sdk-search.sdk-search-small { --field-font: var(--text-16); }
 }
 /* modulechrome:end */
@@ -3877,7 +3920,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   gap: var(--space-2);
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-3);
+  padding: var(--pad-window);
   font-size: var(--text-14);
   line-height: 20px;
 }
@@ -4142,16 +4185,16 @@ span.message-vis {
   --dlg-w-confirm: 360px;
   --dlg-w-form: 560px;
   --dlg-w-browse: 880px;
-  --dlg-pad-x: var(--space-6);
+  --dlg-pad-x: var(--pad-dialog-x);
   --dlg-max-h: calc(100dvh - 48px);
 }
 
 @media (max-width: 640px) {
-  :root { --dlg-pad-x: var(--space-4); }
+  :root { --dlg-pad-x: var(--pad-dialog-x-narrow); }
 }
 
 /* A lifted editor on a phone takes the phone padding at any page width. */
-.sdk-editor[data-lift="phone"] { --dlg-pad-x: var(--space-4); }
+.sdk-editor[data-lift="phone"] { --dlg-pad-x: var(--pad-dialog-x-narrow); }
 
 /* ---- The shell ---- */
 :is(.sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card, .aside-overlay-card, .sdk-dialog-confirm) {
@@ -4197,7 +4240,7 @@ span.message-vis {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  padding: var(--space-4);
+  padding: var(--page-pad);
   background: var(--scrim);
 }
 
@@ -4222,7 +4265,7 @@ span.message-vis {
   gap: var(--space-3);
   box-sizing: border-box;
   margin: 0;
-  padding: var(--space-4) var(--dlg-pad-x);
+  padding: var(--pad-dialog-y) var(--dlg-pad-x);
 }
 
 :is(.sdk-editor-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2, .sdk-dialog-title) {
@@ -4258,7 +4301,7 @@ span.message-vis {
   flex-direction: column;
   gap: var(--space-3);
   box-sizing: border-box;
-  padding: var(--space-4) var(--dlg-pad-x);
+  padding: var(--pad-dialog-y) var(--dlg-pad-x);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -4267,15 +4310,15 @@ span.message-vis {
   flex: 1 1 auto;
   min-height: 0;
   box-sizing: border-box;
-  padding: 0 var(--dlg-pad-x) var(--space-4);
+  padding: 0 var(--dlg-pad-x) var(--pad-dialog-y);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-.bgpick-body { flex: 1 1 auto; min-height: 0; box-sizing: border-box; padding: 0 var(--dlg-pad-x) var(--space-4); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.bgpick-body { flex: 1 1 auto; min-height: 0; box-sizing: border-box; padding: 0 var(--dlg-pad-x) var(--pad-dialog-y); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .bgpick-filters { padding: 0 var(--dlg-pad-x) var(--space-2); }
 
-.aside-overlay-card { width: auto; padding: var(--space-6); max-width: min(var(--dlg-w-confirm), calc(100% - 32px)); }
+.aside-overlay-card { width: auto; padding: var(--pad-dialog-x); max-width: min(var(--dlg-w-confirm), calc(100% - 32px)); }
 
 /* ---- Foot: the buttons, right-aligned, Primary last, a hairline above ---- */
 :is(.sdk-editor-actions, .sdk-editor-discard, .bgpick-foot, .sdk-dialog-foot) {
@@ -4300,7 +4343,7 @@ html[data-dialog-open] { overflow: hidden; }
   bottom: 0;
   z-index: 1;
   margin: var(--space-4) calc(-1 * var(--dlg-pad-x)) 0;
-  padding: var(--space-4) var(--dlg-pad-x);
+  padding: var(--pad-dialog-y) var(--dlg-pad-x);
 }
 
 /* The discard row replaces the button row: a question and two choices, over it. */
@@ -4309,12 +4352,12 @@ html[data-dialog-open] { overflow: hidden; }
   bottom: 0;
   z-index: 2;
   margin: 0;
-  padding: var(--space-4) var(--dlg-pad-x);
+  padding: var(--pad-dialog-y) var(--dlg-pad-x);
 }
 
 .sdk-editor-discard-text { flex: 1 1 auto; margin: 0; color: var(--text-primary); font-weight: var(--weight-strong); text-align: left; }
 
-.bgpick-foot { padding: var(--space-4) var(--dlg-pad-x); }
+.bgpick-foot { padding: var(--pad-dialog-y) var(--dlg-pad-x); }
 .bgpick-foot .grow { flex: 1 1 0; }
 
 /* ---- A lifted editor: the host lifts the frame of a sandboxed module, exactly the editor's size, and the dialog fills it. ---- */
@@ -4353,7 +4396,7 @@ html[data-dialog-open] { overflow: hidden; }
   }
 
   /* The top inset is the head's own (a sticky head sits at the dialog's edge), the bottom one the foot's. */
-  .sdk-editor:not(.sdk-editor-lifted) > .sdk-editor-head { padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px)); }
+  .sdk-editor:not(.sdk-editor-lifted) > .sdk-editor-head { padding-top: calc(var(--pad-dialog-y) + env(safe-area-inset-top, 0px)); }
   :is(.layout-sheet, .phase-sheet) { padding-top: env(safe-area-inset-top, 0px); }
 
   :is(.sdk-editor:not(.sdk-editor-lifted), .layout-sheet, .phase-sheet)::backdrop { background: var(--surface-page); }
@@ -4372,7 +4415,7 @@ html[data-dialog-open] { overflow: hidden; }
     box-shadow: none;
   }
 
-  .sdk-editor-actions, .sdk-editor-discard { padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); }
+  .sdk-editor-actions, .sdk-editor-discard { padding-bottom: calc(var(--pad-dialog-y) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---- Enter: a fade and an 8px rise ---- */
@@ -4689,7 +4732,7 @@ html[data-dialog-open] { overflow: hidden; }
   width: min(var(--toast-w), 100%);
   max-width: 100%;
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--pad-toast);
   border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-medium);
   background: var(--surface-toast);
@@ -4745,7 +4788,7 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   min-width: 0;
   min-height: 46px;
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--pad-banner-y) var(--pad-banner-x);
   border: 0;
   border-radius: var(--radius-medium);
   background: var(--k-tint);
@@ -4932,7 +4975,7 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   gap: var(--space-1);
   box-sizing: border-box;
   margin: 0;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--pad-empty-y) var(--pad-empty-x);
   border: 0;
   background: none;
   color: var(--text-muted);
@@ -4999,7 +5042,7 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   gap: var(--space-3);
   box-sizing: border-box;
   min-height: 56px;
-  padding: var(--space-3);
+  padding: var(--pad-card);
   border-radius: var(--radius-medium);
   background: var(--surface-card);
 }
@@ -5009,7 +5052,7 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
   flex-direction: column;
   gap: var(--space-2);
   box-sizing: border-box;
-  padding: var(--space-3);
+  padding: var(--pad-card);
   border-radius: var(--radius-medium);
   background: var(--surface-card);
 }
@@ -5385,7 +5428,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   align-items: flex-start;
   gap: var(--space-3);
   min-height: 44px;
-  padding: var(--space-3);
+  padding: var(--pad-card);
   border: 1px solid var(--edge-hairline);
   border-radius: var(--radius-medium);
 }

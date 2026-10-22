@@ -406,52 +406,57 @@ async function dumpControls(tab, screen) {
   const top = await tab.eval(expr);
   console.log(`--- ${screen.id}: ${top.length} controls\n${top.join('\n')}`);
 }
+// Opens a screen of the table in `tab` (already a fresh context: the caller opened it) and drives it to the state the table names:
+// signed in, loaded, settled, its steps done, the pointer away. tools/check-conformance.mjs measures the same screens with it.
+async function driveScreen(tab, screen, base, cookies, ctx, lap = () => {}) {
+  const jar = cookies[screen.as || 'admin'];
+  for (const c of jar || []) await tab.cdp.send('Network.setCookie', { name: c.name, value: c.value, url: base, httpOnly: true }, tab.sid);
+  await tab.cdp.send('Page.navigate', { url: base + fill(screen.url, ctx) }, tab.sid);
+  lap('navigated');
+  if (screen.wait) await tab.waitFor(fill(screen.wait, ctx));
+  lap('waited');
+  await tab.settle();
+  lap('settled');
+  // The space page keeps drawing for a while after it is connected (its modules, the phase track, the chat's scroll to its end).
+  if (screen.call) await sleep(CALL_SETTLE_MS);
+  await tab.forceMode();
+  await tab.settle();
+  // A chat that scrolls itself to its newest message is sometimes still on its way when the picture is taken: always at the end.
+  await tab.eval(`(() => { const m = document.getElementById('messages'); if (m) m.scrollTop = m.scrollHeight; })()`).catch(() => {});
+  lap('forced');
+  for (const st of screen.steps || []) {
+    if (st.click) {
+      await tab.click(fill(st.click, ctx), st.text);
+      // A control may not be wired the moment it is drawn: when the effect named by "until" is not there, click again.
+      for (let again = 0; st.until && again < 5; again++) {
+        const want = fill(st.until, ctx);
+        const end = Date.now() + 1500;
+        let seen = false;
+        while (!seen && Date.now() < end) { seen = await tab.eval(`!!__q(${JSON.stringify(want)}, ${JSON.stringify(st.untilText === undefined ? (st.text || '') : st.untilText)})`).catch(() => false); if (!seen) await sleep(100); }
+        if (seen) break;
+        await tab.click(fill(st.click, ctx), st.text);
+      }
+    }
+    else if (st.hover) await tab.hover(fill(st.hover, ctx), st.text);
+    else if (st.wait) await tab.waitFor(fill(st.wait, ctx), st.text);
+    else if (st.waitGone) { const end = Date.now() + 10000; while (Date.now() < end && await tab.eval(`!!__q(${JSON.stringify(st.waitGone)})`)) await sleep(100); }
+    else if (st.scroll) await tab.rect(fill(st.scroll, ctx), st.text);
+    else if (st.key) await tab.key(st.key);
+    else if (st.type) await tab.typeInto(fill(st.type[0], ctx), st.type[1], st.text);
+    else if (st.eval) await tab.eval(fill(st.eval, ctx));
+    else if (st.sleep) await sleep(st.sleep);
+    await tab.settle();
+  }
+  // The pointer out of the way, so no hover is left on anything the screen did not ask for.
+  await tab.mouse('mouseMoved', 0, 0, { button: 'none', clickCount: 0 });
+  for (const sel of screen.hide || []) await tab.eval(`__all(${JSON.stringify(sel)}).forEach((e) => e.setAttribute('data-shots-hide', ''))`).catch(() => {});
+  lap('steps done');
+}
 async function runScreen(tab, screen, base, cookies, size, modes, ctx) {
   const t0 = Date.now(); const lap = (what) => { if (DEBUG) say(`  ${screen.id} ${what} +${Date.now() - t0} ms`); };
   await tab.open(size, modes[0], screen.call === true); lap('opened');
   try {
-    const jar = cookies[screen.as || 'admin'];
-    for (const c of jar || []) await tab.cdp.send('Network.setCookie', { name: c.name, value: c.value, url: base, httpOnly: true }, tab.sid);
-    await tab.cdp.send('Page.navigate', { url: base + fill(screen.url, ctx) }, tab.sid);
-    lap('navigated');
-    if (screen.wait) await tab.waitFor(fill(screen.wait, ctx));
-    lap('waited');
-    await tab.settle();
-    lap('settled');
-    // The space page keeps drawing for a while after it is connected (its modules, the phase track, the chat's scroll to its end).
-    if (screen.call) await sleep(CALL_SETTLE_MS);
-    await tab.forceMode();
-    await tab.settle();
-    // A chat that scrolls itself to its newest message is sometimes still on its way when the picture is taken: always at the end.
-    await tab.eval(`(() => { const m = document.getElementById('messages'); if (m) m.scrollTop = m.scrollHeight; })()`).catch(() => {});
-    lap('forced');
-    for (const st of screen.steps || []) {
-      if (st.click) {
-        await tab.click(fill(st.click, ctx), st.text);
-        // A control may not be wired the moment it is drawn: when the effect named by "until" is not there, click again.
-        for (let again = 0; st.until && again < 5; again++) {
-          const want = fill(st.until, ctx);
-          const end = Date.now() + 1500;
-          let seen = false;
-          while (!seen && Date.now() < end) { seen = await tab.eval(`!!__q(${JSON.stringify(want)}, ${JSON.stringify(st.untilText === undefined ? (st.text || '') : st.untilText)})`).catch(() => false); if (!seen) await sleep(100); }
-          if (seen) break;
-          await tab.click(fill(st.click, ctx), st.text);
-        }
-      }
-      else if (st.hover) await tab.hover(fill(st.hover, ctx), st.text);
-      else if (st.wait) await tab.waitFor(fill(st.wait, ctx), st.text);
-      else if (st.waitGone) { const end = Date.now() + 10000; while (Date.now() < end && await tab.eval(`!!__q(${JSON.stringify(st.waitGone)})`)) await sleep(100); }
-      else if (st.scroll) await tab.rect(fill(st.scroll, ctx), st.text);
-      else if (st.key) await tab.key(st.key);
-      else if (st.type) await tab.typeInto(fill(st.type[0], ctx), st.type[1], st.text);
-      else if (st.eval) await tab.eval(fill(st.eval, ctx));
-      else if (st.sleep) await sleep(st.sleep);
-      await tab.settle();
-    }
-    // The pointer out of the way, so no hover is left on anything the screen did not ask for.
-    await tab.mouse('mouseMoved', 0, 0, { button: 'none', clickCount: 0 });
-    for (const sel of screen.hide || []) await tab.eval(`__all(${JSON.stringify(sel)}).forEach((e) => e.setAttribute('data-shots-hide', ''))`).catch(() => {});
-    lap('steps done');
+    await driveScreen(tab, screen, base, cookies, ctx, lap);
     if (DUMP) await dumpControls(tab, screen);
     if (HTML) { await sleep(1500); console.log(`--- ${screen.id}: ${HTML}\n` + (await tab.eval(`__all(${JSON.stringify(HTML)}).slice(0, ${Number(process.env.SHOTS_HTML_COUNT || 3)}).map((e) => { for (let i = 0; i < ${Number(process.env.SHOTS_HTML_UP || 0)}; i++) e = e.parentElement || e; return e; }).map((e) => e.outerHTML.replace(/<svg[\\s\\S]*?<\\/svg>/g, '<svg/>').slice(0, ${Number(process.env.SHOTS_HTML_LEN || 1800)})).join('\\n-----\\n')`))); }
     const out = new Map();
@@ -642,5 +647,5 @@ function compareRuns(baseManifest, entries, failures, started, { baseDir = path.
   return failed ? 1 : 0;
 }
 
-export { decodePng, encodePng, diffImages, findBrowser, launch, freePort, startServer, stopServer, bootSeeded, Tab, sleep, fill };
+export { decodePng, encodePng, diffImages, findBrowser, launch, freePort, startServer, stopServer, bootSeeded, Tab, sleep, fill, driveScreen };
 if (process.argv[1] === fileURLToPath(import.meta.url)) main().then((c) => process.exit(c), (e) => { console.error('shots: ERROR ' + (e.stack || e)); process.exit(1); });

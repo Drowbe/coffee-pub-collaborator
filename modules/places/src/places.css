@@ -27,7 +27,7 @@ body { margin: 0; overflow: hidden; }
 
 /* a place: a card (the script sets --tone: a theme tint, or the colour the owner chose for the category). The colour is on its icon chip and the category words only. */
 .place-row { --tone: var(--accent-fill); --tone-ink: var(--surface-page); }
-.place-row { --tint: var(--tone); display: grid; grid-template-columns: var(--card-icon) minmax(0, 1fr); column-gap: var(--space-3); align-items: start; padding-right: calc(var(--card-pad) + var(--btn-h-small)); cursor: pointer; }
+.place-row { --tint: var(--tone); display: grid; grid-template-columns: var(--card-icon) minmax(0, 1fr); column-gap: var(--space-3); align-items: start; padding-right: calc(var(--pad-card) + var(--btn-h-small)); cursor: pointer; }
 .place-row .main { min-width: 0; }
 .place-row .title { margin: 0; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-section); overflow-wrap: anywhere; }
 .place-row .sub { margin: 1px 0 0; color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }

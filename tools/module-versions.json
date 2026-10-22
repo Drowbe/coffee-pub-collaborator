@@ -16,8 +16,8 @@
     "hash": "c2c6a2e93dd4ab90"
   },
   "places": {
-    "version": "0.12.12",
-    "hash": "26561ff0e519adad"
+    "version": "0.12.13",
+    "hash": "91c3928c0c266fb5"
   },
   "polls": {
     "version": "1.15.18",
@@ -36,7 +36,7 @@
     "hash": "a4a36980a56fd140"
   },
   "travel": {
-    "version": "0.15.39",
-    "hash": "5772325278affba8"
+    "version": "0.15.40",
+    "hash": "730f0d8def887bba"
   }
 }

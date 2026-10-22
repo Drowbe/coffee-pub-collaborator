@@ -276,7 +276,7 @@ test('popped out and on the module\'s own page: the "+" and the status bar (step
   assert.ok(/\n    add,\n    status,\n/.test(moduleJs), 'the mount gets both');
   const sys = read('public/sdk/system.css');
   assert.match(sys, /:is\(\.sdk-window-popout, body\.module-page\) \{ --safe-b: var\(--safe-bottom\); \}/, 'clear of the home indicator: the inset on a module\'s own page');
-  assert.match(sys, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*padding: 0 var\(--space-3\) var\(--safe-b\);/, 'the status line grows by the inset');
+  assert.match(sys, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*padding: 0 var\(--pad-band-x\) var\(--safe-b\);/, 'the status line grows by the inset');
   assert.match(css, /body\.module-popout \.module-titlebar \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, popped out');
   assert.match(css, /\.page-bar-add > \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, in the page bar');
 });
@@ -324,7 +324,7 @@ test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding a
   const head = rule(':is(.sdk-titlebar, .mod-header, .chat-head)');
   assert.ok(head, 'the title bar (.mod-header, and the chat\'s .chat-head with it) is in the Module window block');
   assert.match(head, /height: var\(--module-header-h\);/);
-  assert.match(head, /padding: 0 var\(--space-1\) 0 var\(--space-3\);/, 'no padding above or below: the height is the token\'s alone');
+  assert.match(head, /padding: 0 var\(--space-1\) 0 var\(--pad-band-x\);/, 'no padding above or below: the height is the token\'s alone');
   assert.match(read('public/space.html'), /<header class="chat-head">/, 'the chat\'s header is the title bar');
   // Nothing in a titlebar may be taller than the small buttons (the "...", the "+", Close): 2px above and below.
   assert.match(read('public/sdk/system.css'), /--btn-h-small: 30px;/);

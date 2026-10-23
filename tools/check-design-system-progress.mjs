@@ -1,5 +1,5 @@
 /*
- * check-design-system-progress.mjs -- the Progress bars and meters family of the proposed design system page (public/design-system/proposed-progress.js and .css).
+ * check-design-system-progress.mjs -- the Progress bars and meters family of the proposed design system page (public/design-system/legacy/system-v1/proposed-progress.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a track that is not 8px high (6px for the small one, a toolbar's and an upload's), not fully round (--radius-round), or not --border; a fill that is not

@@ -159,8 +159,7 @@ test('the layout sheet: Save is the submit button, Enter saves, Save and Rename 
 // model and has its own discard row; a confirmation is a menu row, not a <dialog>). Anything new must use the bar.
 // The Dialogs family of the design system page opens real <dialog>s only to show how the proposed ones behave (Escape, Tab, the backdrop): a spec demo on a review page, not a surface of the product.
 // The styled confirm (public/confirm.js) is a question, not an edit surface: nothing in it is saved, and a click outside it is the answer No.
-// The Prototype page's frame script (public/design-system/prototype-frame.js) re-opens a dialog captured from the live app, to show it on a review page: design-system tooling, not a surface of the product.
-const EXCEPTIONS = new Set(['public/sdk/host.js', 'public/action-bar.js', 'public/confirm.js', 'public/design-system/proposed-dialogs.js', 'public/design-system/prototype-frame.js']);
+const EXCEPTIONS = new Set(['public/sdk/host.js', 'public/action-bar.js', 'public/confirm.js', 'public/design-system/legacy/system-v1/proposed-dialogs.js']);
 const files = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === 'vendor' || e.name === 'node_modules' ? [] : files(`${dir}/${e.name}`)) : [`${dir}/${e.name}`]));
 test('the sweep: every script in public/ that opens a modal dialog or closes one on its backdrop uses the action bar', () => {
   const offenders = [];

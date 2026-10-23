@@ -1,5 +1,5 @@
 /*
- * check-design-system-tooltips.mjs -- the Tooltips family of the proposed design system page (public/design-system/proposed-tooltips.js and .css).
+ * check-design-system-tooltips.mjs -- the Tooltips family of the proposed design system page (public/design-system/legacy/system-v1/proposed-tooltips.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a tooltip that is not the inverse of the page (--text fill, --bg text), not 12px, not --radius-small, not padded 4px by 8px, wider than 240px, or without

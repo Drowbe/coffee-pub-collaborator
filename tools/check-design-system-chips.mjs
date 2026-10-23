@@ -1,5 +1,5 @@
 /*
- * check-design-system-chips.mjs -- the Chips, badges and counts family of the proposed design system page (public/design-system/proposed-chips.js and .css).
+ * check-design-system-chips.mjs -- the Chips, badges and counts family of the proposed design system page (public/design-system/legacy/system-v1/proposed-chips.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a choice chip or a person not 30px, a tag, a removable chip or a status label not 24px, a count not 18px, a micro count not a 14px badge with 9px numbers (the same box, text, fill and inset as the Tabs family draws on an icon-only tab), a dot not 7px,

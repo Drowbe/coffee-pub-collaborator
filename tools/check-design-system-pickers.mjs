@@ -1,5 +1,5 @@
 /*
- * check-design-system-pickers.mjs -- the Pickers family of the proposed design system page (public/design-system/proposed-pickers.js and .css).
+ * check-design-system-pickers.mjs -- the Pickers family of the proposed design system page (public/design-system/legacy/system-v1/proposed-pickers.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a picker trigger that is not --field-h high (38px, 44px in a frame of 640px or less and in the 44px frame), that has a corner that is not

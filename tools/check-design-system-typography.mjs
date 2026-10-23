@@ -1,5 +1,5 @@
 /*
- * check-design-system-typography.mjs -- the Typography family of the proposed design system page (public/design-system/proposed-typography.js and .css):
+ * check-design-system-typography.mjs -- the Typography family of the proposed design system page (public/design-system/legacy/system-v1/proposed-typography.js and .css):
  * Figtree for the interface, Fraunces for headlines, the nine-step size scale and the weights (decided 2026-10-19), and the one
  * "Today's fonts / Proposed fonts" switch in the page header.
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (files) and browserChecks (in the browser, at each width and mode).
@@ -21,10 +21,10 @@ export const id = 'typography';
 export const todayOnly = ['space-list-head', 'space-list-title', 'space-list', 'space-choice', 'space-choice-head', 'space-choice-name', 'space-choice-count', 'space-choice-desc', 'space-choice-actions', 'members', 'hint', 'panel', 'module-config', 'module-head', 'module-icon', 'grow', 'pill', 'mod-header', 'mod-title', 'topbar', 'nav-left', 'brand-home', 'brand-logo', 'brand-name', 'space-switcher', 'space-switcher-button', 'crumb-label', 'visually-hidden'];
 
 // The bundled fonts: with their licence, self-hosted (the url() list of every stylesheet is checked by the runner; this is what is specific to the fonts).
-export function staticChecks({ DS, fail, snap, css }) {
+export function staticChecks({ DS, TODAY, fail, snap, css }) {
   if (!/url\(/.test(css)) fail('proposed-typography.css has no @font-face url()');
   if (snap.files.some((f) => /^fonts\//.test(f.file))) fail("Today's snapshot holds a fonts/ folder");
-  for (const f of ['index.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js']) if (/fonts\/[a-z0-9-]+\/|@font-face/.test(fs.readFileSync(path.join(DS, f), 'utf8'))) fail(`${f} (Today's page) refers to the bundled fonts`);
+  for (const f of ['index.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js']) if (/fonts\/[a-z0-9-]+\/|@font-face/.test(fs.readFileSync(path.join(TODAY, f), 'utf8'))) fail(`${f} (Today's page) refers to the bundled fonts`);
   // Only the chosen fonts are bundled.
   const dirs = fs.readdirSync(path.join(DS, 'fonts'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
   if (dirs.join() !== 'figtree,fraunces') fail(`fonts/ holds ${dirs.join(', ')}; only figtree and fraunces are bundled`);

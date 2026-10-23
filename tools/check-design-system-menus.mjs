@@ -1,5 +1,5 @@
 /*
- * check-design-system-menus.mjs -- the Menus and popovers family of the proposed design system page (public/design-system/proposed-menus.js and .css).
+ * check-design-system-menus.mjs -- the Menus and popovers family of the proposed design system page (public/design-system/legacy/system-v1/proposed-menus.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: an item not 32px high (44px in a frame of 640px or less, with .narrow, and in the sheet); a surface that is not --bg-card with a 1px

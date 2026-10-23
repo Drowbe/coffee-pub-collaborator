@@ -1,5 +1,5 @@
 /*
- * check-design-system-colour.mjs -- the Colour foundation of the proposed design system page (public/design-system/proposed-colour.js and .css).
+ * check-design-system-colour.mjs -- the Colour foundation of the proposed design system page (public/design-system/legacy/system-v1/proposed-colour.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (files) and browserChecks (colourProbe, run in the browser, at each width and mode).
  *
  * Fails on: a status banner's round icon whose glyph is more than 0.5px off the middle of its badge on either axis (measured at 4x, with each of the triangle, circle-exclamation, circle-check, circle-info and xmark glyphs), a rule in proposed-colour.css not under .ds-colour; a literal colour, a coloured border or an unknown variable in the rules of the

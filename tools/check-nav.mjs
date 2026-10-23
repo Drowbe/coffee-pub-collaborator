@@ -2179,7 +2179,7 @@ test('the status strip: the chip and its journey bar, a tool of the space bar\'s
 test('the journey bar\'s day grid: one journeyLayout, word for word the Proposed page\'s, a band as wide as its days, the pin at today', () => {
   const region = (text) => { const a = text.indexOf('// journey-layout:start'); const b = text.indexOf('// journey-layout:end'); assert.ok(a >= 0 && b > a, 'the markers'); return text.slice(text.indexOf('\n', a) + 1, b).trimEnd(); };
   const product = fs.readFileSync(path.join(ROOT, 'public/journey-layout.js'), 'utf8');
-  const proposed = fs.readFileSync(path.join(ROOT, 'public/design-system/proposed-journey.js'), 'utf8');
+  const proposed = fs.readFileSync(path.join(ROOT, 'public/design-system/legacy/system-v1/proposed-journey.js'), 'utf8');
   assert.equal(region(product), region(proposed), 'public/journey-layout.js and proposed-journey.js hold the same journeyLayout');
   const { journeyLayout: L } = createRequire(import.meta.url)('../public/journey-layout.js');
   const ph = (n, s, e) => ({ n, s, e, i: 'x' });

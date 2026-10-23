@@ -4,28 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Design system: what exists today</title>
-  <!-- The first look at the design system (documentation/plans/plan-design-system.md, step 3 to 6b): today's components,
-       exactly as the product draws them, from the product's own stylesheets. Nothing here restyles a component; the
+  <title>Design system: what is in production</title>
+  <!-- Design system: what is in production. Today's components, exactly as the product draws them, from the product's own
+       stylesheets (documentation/plans/plan-design-system.md). Nothing here restyles a component; the
        page's own chrome is in ds.css and uses the product's tokens. Not a route: the app serves this folder as a static
        folder (open /design-system/index.html); tools/design-system-snapshot.mjs turns it into a self-contained copy. -->
   <link rel="stylesheet" href="/fa/css/all.min.css" data-ds="fa">
   <link rel="stylesheet" href="/style.css" data-ds="app">
   <link rel="stylesheet" href="/theme.css" data-ds="theme">
   <link rel="stylesheet" href="ds.css">
+  <link rel="stylesheet" href="pages.css">
 </head>
 <body>
   <a class="ds-skip" href="#ds-main">Skip to the content</a>
+  <nav class="ds-pages" aria-label="Design system pages"><a href="index.html" aria-current="page">Design System</a><a href="proposed.html">Proposed</a><a href="prototype.html">Prototype</a><a href="legacy/index.html">Legacy</a></nav>
   <header class="ds-top" role="banner">
     <button type="button" class="btn ds-menu-btn" id="ds-menu-btn" aria-controls="ds-nav" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i><span class="ds-menu-word"> Sections</span></button>
-    <h1 class="ds-title">Design system <span class="ds-sub">what exists today</span></h1>
+    <h1 class="ds-title">Design system <span class="ds-sub">what is in production</span></h1>
     <label class="ds-search"><span class="visually-hidden">Search component names</span>
       <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
       <input type="search" id="ds-search" placeholder="Search components, tokens, icons" autocomplete="off">
     </label>
     <div class="ds-tools" role="group" aria-label="Page tools">
-      <a class="btn btn-small" href="proposed.html" id="ds-other">Proposed system</a>
-      <a class="btn btn-small" href="prototype.html" id="ds-prototype">Prototype</a>
       <div class="tb-tabs" role="group" aria-label="Light or dark" id="ds-mode">
         <button type="button" class="tb-tab on" data-mode="dark" aria-pressed="true"><span class="tb-tab-glyph"><i class="fa-solid fa-moon" aria-hidden="true"></i></span><span class="tb-tab-word">Dark</span></button>
         <button type="button" class="tb-tab" data-mode="light" aria-pressed="false"><span class="tb-tab-glyph"><i class="fa-solid fa-sun" aria-hidden="true"></i></span><span class="tb-tab-word">Light</span></button>

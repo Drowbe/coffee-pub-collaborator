@@ -1,5 +1,5 @@
 /*
- * check-design-system-fields.mjs -- the Fields and forms family of the proposed design system page (public/design-system/proposed-fields.js and .css).
+ * check-design-system-fields.mjs -- the Fields and forms family of the proposed design system page (public/design-system/legacy/system-v1/proposed-fields.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls browserChecks (listed in tools/check-design-system-families.json) at each width and mode.
  *
  * Fails on: every field one-line 38px (44px at 390, and in the 44px grid), the focus a 2px accent edge and a 2px ring (all four sides the same at 1.25x and 1.5x

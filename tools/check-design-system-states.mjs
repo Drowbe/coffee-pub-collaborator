@@ -1,5 +1,5 @@
 /*
- * check-design-system-states.mjs -- the Empty, loading and error states family of the proposed design system page (public/design-system/proposed-states.js and .css).
+ * check-design-system-states.mjs -- the Empty, loading and error states family of the proposed design system page (public/design-system/legacy/system-v1/proposed-states.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  * The family writes its own keyframes (the shimmer, the spinner), which the shared rule check cannot read, so it takes its own rules over (ownRules): every rule is
  * under .ds-proposed, no hex colour, no coloured border, radii are tokens, no font under 11px, and the shimmer is defined once.

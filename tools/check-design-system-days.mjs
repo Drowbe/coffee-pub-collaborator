@@ -1,5 +1,5 @@
 /*
- * check-design-system-days.mjs -- the Day cards and day chips family of the proposed design system page (public/design-system/proposed-days.js and .css).
+ * check-design-system-days.mjs -- the Day cards and day chips family of the proposed design system page (public/design-system/legacy/system-v1/proposed-days.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a day card that is not the Cards card (--bg-card, a 1px neutral --border on all four edges, --radius-large, 12px padding, no shadow); a gradient, a glow

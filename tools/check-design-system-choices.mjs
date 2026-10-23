@@ -1,5 +1,5 @@
 /*
- * check-design-system-choices.mjs -- the Choice rows family of the proposed design system page (public/design-system/proposed-choices.js and .css).
+ * check-design-system-choices.mjs -- the Choice rows family of the proposed design system page (public/design-system/legacy/system-v1/proposed-choices.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a one-line row that is not --check-h high (32px, 44px in a frame of 640px or less and in the 44px frame; a row with a description is at least that); a tick box

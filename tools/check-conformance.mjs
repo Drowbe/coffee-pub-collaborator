@@ -202,7 +202,7 @@ const SYMMETRY_FAMILIES = [
 // - a banded box's body (.message-body, .sdk-card-body: 8px under the head band, 12px at the foot) is approved as 8/12/12 (Cards,
 //   the banded card): its top sits against the band, not an edge, so it is not held to top = bottom;
 // - the phase chip (.sdk-strip-phase) starts with its round dot 8px in and ends 10px after its words: the approved optical
-//   correction (public/design-system/proposed-journey.css, the Journey bar family), so it is held to top = bottom only;
+//   correction (public/design-system/legacy/system-v1/proposed-journey.css, the Journey bar family), so it is held to top = bottom only;
 // - a card with its "..." laid in its corner (an absolutely placed small button) keeps room for it at its end (the card's padding
 //   plus the button), so it is held to top = bottom only;
 // - a box that scrolls (its content taller than it) or whose content overflows it is not measured;
@@ -211,7 +211,7 @@ const SYMMETRY_FAMILIES = [
 // - a box stretched by its row (cards in a grid or flex line as tall as the tallest) is judged at its own height: the room under
 //   its content is the row's, not its padding;
 // - the strip's attention pill (.sdk-strip-attn) starts with its icon: 6px before it and 8px after the count (4 and 6 on a phone),
-//   the approved Journey bar value (public/design-system/proposed-journey.css), so it is not held to left = right;
+//   the approved Journey bar value (public/design-system/legacy/system-v1/proposed-journey.css), so it is not held to left = right;
 // - a dialog's button row (.sdk-editor-actions, or the discard row in its place) is a band of its own over a hairline, --pad-dialog-y
 //   under the last field, so the gap before it is not held to the fields' gap; nor is the gap before a form's section (.sdk-section,
 //   its title over a hairline --section-gap, 20px, under the field before: the form standard, public/sdk/host.css).

@@ -5813,11 +5813,11 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   position: relative; display: inline-flex; align-items: center; gap: var(--space-1); box-sizing: border-box;
   height: calc(var(--mf-ctl-h) + (var(--mf-band-h) - var(--mf-ctl-h)) / 2 + 1px);
   margin-bottom: -1px; padding: 0 var(--mf-ctl-pad) calc((var(--mf-band-h) - var(--mf-ctl-h)) / 2);
-  border: 1px solid transparent; border-bottom: 0; border-radius: var(--radius-medium) var(--radius-medium) 0 0;
+  border: 1px solid var(--mf-tab-edge, transparent); border-bottom: 0; border-radius: var(--radius-medium) var(--radius-medium) 0 0;
   background: transparent; color: var(--text-muted); font-weight: var(--weight-medium); white-space: nowrap;
 }
 .mf-tab:hover { color: var(--text-primary); }
-.mf-tab[aria-selected="true"] { z-index: 1; border-color: var(--mf-edge); background: var(--mf-surface-content); color: var(--text-primary); font-weight: var(--weight-strong); }
+.mf-tab[aria-selected="true"] { z-index: 1; --mf-tab-edge: var(--mf-edge); background: var(--mf-surface-content); color: var(--text-primary); font-weight: var(--weight-strong); }
 .mf-tab:focus-visible { outline-offset: -3px; }
 /* Folded: one folder tab that says the chosen tab, its caret opening the rest. */
 .mf-tabs-menu {

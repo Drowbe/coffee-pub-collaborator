@@ -324,6 +324,14 @@ async function browse(cdp, label, url, scenarios, shots) {
     const png = Buffer.from(shot.data, 'base64');
     if (png.length < 8000) problems.push(`${where}: the screenshot is nearly empty (${png.length} bytes)`);
     if (shots) { fs.mkdirSync(shots, { recursive: true }); fs.writeFileSync(path.join(shots, `${label}-${sc.width}-${sc.mode}.png`), png); }
+    // The product's fonts load on the page (/sdk/system.css defines --font-ui), and the Light and Dark switches change the page's data-theme-mode (after the screenshot: it clicks).
+    const bodyFont = await ev('getComputedStyle(document.body).fontFamily');
+    if (!/^"?Figtree/.test(bodyFont)) problems.push(`${where}: the body font is ${bodyFont}, not Figtree (is /sdk/system.css linked?)`);
+    if (await ev("!!document.querySelector('#ds-mode')")) {
+      const modeAfter = async (m) => { await ev(`document.querySelector('#ds-mode button[data-mode="${m}"]').click()`); await new Promise((r) => setTimeout(r, 200)); return ev('document.documentElement.dataset.themeMode'); };
+      const lightMode = await modeAfter('light'); const darkMode = await modeAfter('dark');
+      if (lightMode !== 'light' || darkMode !== 'dark') problems.push(`${where}: clicking Light then Dark left data-theme-mode at ${lightMode} then ${darkMode}`);
+    }
   }
   await cdp.send('Target.closeTarget', { targetId });
   return { problems, last: last && JSON.parse(last) };

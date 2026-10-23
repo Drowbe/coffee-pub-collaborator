@@ -2741,7 +2741,7 @@ function redirectToHost(req, res, status, newHost) {
 }
 // The paths the product host lets through beside / and the use pages: what those pages load and ask.
 // The design system pages (public/design-system/, no sign-in) and the app files they import, as static files only.
-const DESIGN_SYSTEM_FILES = ['/module-frame.js', '/module-host.js', '/host-menu.js', '/menu-flyout.js', '/tooltip.js', '/brand.js', '/confirm.js', '/nav-bar.js', '/module-chrome.js', '/environment-banner.js', '/page-tabs.js', '/words.js', '/theme-mode.js', '/primary-nav.js'];
+const DESIGN_SYSTEM_FILES = ['/module-frame.js', '/module-host.js', '/host-menu.js', '/menu-flyout.js', '/tooltip.js', '/brand.js', '/confirm.js', '/nav-bar.js', '/module-chrome.js', '/environment-banner.js', '/page-tabs.js', '/words.js', '/theme-mode.js', '/primary-nav.js', '/destination.css', '/diag.css'];
 const designSystemStatic = express.static(publicDir, { index: false }); // static files only, a miss is a plain 404 here
 const PRODUCT_HOST_PATHS = ['/landing.css', '/landing.js', '/style.css', '/theme.css', '/img/site/icon', '/favicon.ico', '/api/product', '/api/product/environment', '/api/product/environments', '/api/product/address', '/api/product/signup'];
 if (BASE_DOMAIN) {

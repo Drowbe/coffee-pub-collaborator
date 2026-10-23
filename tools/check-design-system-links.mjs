@@ -1,5 +1,5 @@
 /*
- * check-design-system-links.mjs -- the Links family of the proposed design system page (public/design-system/proposed-links.js and .css).
+ * check-design-system-links.mjs -- the Links family of the proposed design system page (public/design-system/legacy/system-v1/proposed-links.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: link text under 4.5 to 1 on the page, a panel, a card or a field fill (live, in the mode on show), or the picked link colour under 4.5 to 1 on the

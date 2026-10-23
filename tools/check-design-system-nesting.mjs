@@ -7,7 +7,7 @@
  *     node tools/check-design-system-nesting.mjs --all           every family frame; lists the violations by frame, never fails (a report)
  *     node tools/check-design-system-nesting.mjs --only=Chat,Rows --width=390 --mode=dark
  *
- * The rules (public/design-system/proposed-foundations.js, "Nesting and corners"):
+ * The rules (public/design-system/legacy/system-v1/proposed-foundations.js, "Nesting and corners"):
  *   (a) At most TWO filled or bordered surfaces nested inside a window or a panel: surface > item > nothing more. A third level loses its own fill
  *       and edge and is plain content. The window or panel itself is level 0.
  *   (b) A child's corner is never larger than its parent's (concentric: the token one step smaller: large > medium > small > min). A parent with square
@@ -165,7 +165,7 @@ if (isMain) {
   const lines = [];
   for (const wd of widths) for (const mode of modes) {
     await send('Emulation.setDeviceMetricsOverride', { width: wd, height: 900, deviceScaleFactor: 1, mobile: wd < 500 }, sessionId);
-    await send('Page.navigate', { url: `${base}/design-system/proposed.html?mode=${mode}` }, sessionId);
+    await send('Page.navigate', { url: `${base}/design-system/legacy/system-v1/proposed.html?mode=${mode}` }, sessionId);
     for (let i = 0; i < 400; i += 1) { await new Promise((r) => setTimeout(r, 150)); if (await ev('!!(window.__dsStats && window.__dsStats.ready)')) break; }
     await ev('window.DS_PROPOSED.renderAll().then(() => true)'); await new Promise((r) => setTimeout(r, 700));
     const src = all ? '' : `^(${only.map((o) => o.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`;

@@ -1,5 +1,5 @@
 /*
- * check-design-system-avatars.mjs -- the Avatars and portraits family of the proposed design system page (public/design-system/proposed-avatars.js and .css).
+ * check-design-system-avatars.mjs -- the Avatars and portraits family of the proposed design system page (public/design-system/legacy/system-v1/proposed-avatars.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: an avatar that is not 20, 24, 32, 40, 64 or 96px square, or not a circle (--radius-round); initials under 11px, off the size's step (11, 11, 13, 16, 28, 40px)

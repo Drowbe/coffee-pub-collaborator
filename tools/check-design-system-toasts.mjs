@@ -1,5 +1,5 @@
 /*
- * check-design-system-toasts.mjs -- the Toasts and banners family of the proposed design system page (public/design-system/proposed-toasts.js and .css).
+ * check-design-system-toasts.mjs -- the Toasts and banners family of the proposed design system page (public/design-system/legacy/system-v1/proposed-toasts.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: the glyph in a banner's round icon, a toast's icon tile or a toast's close more than 0.5px off the middle of its badge on either axis (measured at 4x; the banner and tile with each of the triangle, circle-exclamation, circle-check, circle-info and xmark glyphs), a toast not 340px wide (at a wide frame), not the card surface (--bg-card) with the same 1px --border hairline on all four sides (no coloured left bar, no outline),

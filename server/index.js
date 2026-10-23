@@ -2758,7 +2758,8 @@ if (BASE_DOMAIN) {
       if (req.path === '/') return res.sendFile(page('landing.html'), { dotfiles: 'allow' });
       const useSite = livePages().find((p) => p.path === req.path);
       if (useSite) return res.sendFile(page(useSite.file), { dotfiles: 'allow' });
-      if (req.path === '/design-system/') return res.sendFile(path.join(publicDir, 'design-system', 'index.html'), { dotfiles: 'allow' });
+      // A folder of the design system pages (/design-system/, /design-system/legacy/inventory/) is its index.html; a folder without one is a 404.
+      if (/^\/design-system\/(?:[a-z0-9-]+\/)*$/.test(req.path)) return res.sendFile(path.join(publicDir, req.path, 'index.html'), { dotfiles: 'allow' }, (err) => { if (err) res.status(404).type('text').send('not found'); });
       if (req.path.startsWith('/design-system/') || req.path.startsWith('/sdk/') || DESIGN_SYSTEM_FILES.includes(req.path)) return designSystemStatic(req, res, () => res.status(404).type('text').send('not found'));
       if (PRODUCT_HOST_PATHS.includes(req.path) || req.path.startsWith('/fa/') || req.path.startsWith('/fonts/') || req.path.startsWith('/assets/images/brand/')) return next();
       return res.status(404).type('text').send('not found');

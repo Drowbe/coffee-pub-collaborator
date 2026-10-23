@@ -1,5 +1,5 @@
 /*
- * check-design-system-markers.mjs -- the Markers family of the proposed design system page (public/design-system/proposed-markers.js and .css).
+ * check-design-system-markers.mjs -- the Markers family of the proposed design system page (public/design-system/legacy/system-v1/proposed-markers.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a marker form (line chip, day row, day tag) with no text label; a line chip or day tag that is not 24px high with --radius-small; a marker form with a

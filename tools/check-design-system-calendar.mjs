@@ -1,5 +1,5 @@
 /*
- * check-design-system-calendar.mjs -- the Calendar cells family of the proposed design system page (public/design-system/proposed-calendar.js and .css).
+ * check-design-system-calendar.mjs -- the Calendar cells family of the proposed design system page (public/design-system/legacy/system-v1/proposed-calendar.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a picker cell that is not 30px (44px at 390) or whose corner is not --radius-small; a month cell with a corner other than --radius-medium or under 74px

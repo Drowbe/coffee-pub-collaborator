@@ -1,5 +1,5 @@
 /*
- * check-design-system-cards.mjs -- the Cards, panels and rows family of the proposed design system page (public/design-system/proposed-cards.js and .css).
+ * check-design-system-cards.mjs -- the Cards, panels and rows family of the proposed design system page (public/design-system/legacy/system-v1/proposed-cards.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a surface step that is not its token (panel --bg-section, card --bg-card, a row on a panel --bg-card, a row inside a card --bg-input), a corner that is not

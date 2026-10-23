@@ -1,5 +1,5 @@
 /*
- * check-design-system-tables.mjs -- the Tables and Manage lists family of the proposed design system page (public/design-system/proposed-tables.js and .css).
+ * check-design-system-tables.mjs -- the Tables and Manage lists family of the proposed design system page (public/design-system/legacy/system-v1/proposed-tables.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a table header that is not 12px, weight 600, capitals, --text-dim with a 1px --border line under it (no accent colour anywhere in a header); a cell that is

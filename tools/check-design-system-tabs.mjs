@@ -1,5 +1,5 @@
 /*
- * check-design-system-tabs.mjs -- the Tabs and view switches family of the proposed design system page (public/design-system/proposed-tabs.js and .css).
+ * check-design-system-tabs.mjs -- the Tabs and view switches family of the proposed design system page (public/design-system/legacy/system-v1/proposed-tabs.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: tabs not 38px (44px at 390), small not 30px, an icon-only tab not square, any edge not 1px transparent in any state (no coloured border, no underline,

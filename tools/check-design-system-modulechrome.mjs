@@ -1,6 +1,6 @@
 /*
  * check-design-system-modulechrome.mjs -- the Module window family (title bar, toolbar, status line) of the proposed design system page
- * (public/design-system/proposed-modulechrome.js and .css).
+ * (public/design-system/legacy/system-v1/proposed-modulechrome.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a band height that is not its token (title bar 34px, 42px on a phone, toolbar 34px, status line 24px, plus the inset on a popped-out phone window),

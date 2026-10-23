@@ -1,6 +1,6 @@
 /*
  * check-design-system-tabbar.mjs -- the Phone bottom bar family (one tab bar for the space bar and the destination bar) of the proposed design system page
- * (public/design-system/proposed-tabbar.js and .css).
+ * (public/design-system/legacy/system-v1/proposed-tabbar.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a bar that is not 54px plus its inset on the bar surface (--header-bg) with one 1px --border hairline on top, a tab narrower than 56px or lower than 44px, a tab

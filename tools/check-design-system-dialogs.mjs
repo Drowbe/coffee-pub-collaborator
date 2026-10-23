@@ -1,5 +1,5 @@
 /*
- * check-design-system-dialogs.mjs -- the Dialogs and sheets family of the proposed design system page (public/design-system/proposed-dialogs.js and .css).
+ * check-design-system-dialogs.mjs -- the Dialogs and sheets family of the proposed design system page (public/design-system/legacy/system-v1/proposed-dialogs.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a dialog not 360 (a confirm), 560 (a form) or 880 (a browse) wide; the same sizes through the aliases (.sdk-editor 560, .sdk-editor-large 880, .layout-sheet 560,

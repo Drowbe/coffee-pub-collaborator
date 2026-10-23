@@ -2,14 +2,15 @@
 /*
  * check-design-system.mjs -- the design system page (public/design-system/, documentation/plans/plan-design-system.md, first look).
  * The shared runner. Each family of the Proposed page is checked by its own file, tools/check-design-system-<id>.mjs, named in
- * tools/check-design-system-families.json (in the order they run in the browser); a family in public/design-system/proposed-families.json with
+ * tools/check-design-system-families.json (in the order they run in the browser); a family in public/design-system/legacy/system-v1/proposed-families.json with
  * no check file, or the reverse, fails. A family file exports id, todayOnly (classes of Today's markup it draws as they are), and any of
  * staticChecks(ctx) (files and rules) and browserChecks(b) (in the page, at each width and mode; b has ev, cdp, sessionId, sc, where, problems,
  * inkCentre and edgeColours, the measuring helpers kept here) and ownRules (its stylesheet is not under .ds-proposed and checks itself).
  * Adding a family: README.md in public/design-system/.
  *
- * Two pages are checked, each served by the app and as a snapshot folder opened from disk: Today (index.html, the inventory) and Proposed
- * (proposed.html, only what is decided; it must not load sources.js, the components or ds.js, and Today must not load any proposed-* file).
+ * Two pages are checked, each served by the app and as a snapshot folder opened from disk: the Design System (index.html, what is in
+ * production) and System v1 (legacy/system-v1/proposed.html, the drawings the production system was built from, kept on Legacy; it must
+ * not load sources.js, the components or ds.js, and index.html must not load any proposed-* file).
  *
  * Fails on: a missing file; the snapshot script not producing an index.html in a temp folder for either page, an external script in it, or a size over
  * 12 MB, or a proposed snapshot without proposed.css, proposed.js, proposed-families.json or a file that manifest names; a stylesheet of the proposal
@@ -33,12 +34,13 @@ import { buildSnapshot, buildSources, proposedManifest } from './design-system-s
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DS = path.join(root, 'public', 'design-system');
+const V1 = path.join(DS, 'legacy', 'system-v1'); // System v1, the drawings (the old Proposed page), kept on Legacy
 const failures = [];
 const warnings = [];
 const fail = (m) => failures.push(m);
 
 // ---- the families: the page's manifest, and the check file of each (tools/check-design-system-families.json) ----
-const manifestText = fs.readFileSync(path.join(DS, 'proposed-families.json'), 'utf8');
+const manifestText = fs.readFileSync(path.join(V1, 'proposed-families.json'), 'utf8');
 const manifest = proposedManifest();
 const checkIds = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'check-design-system-families.json'), 'utf8')).families;
 for (const f of manifest.families) if (!checkIds.includes(f.id)) fail(`the family ${f.id} (proposed-families.json) has no check: add it to tools/check-design-system-families.json and write tools/check-design-system-${f.id}.mjs`);
@@ -53,8 +55,11 @@ for (const id of checkIds) {
 }
 
 // ---- files ----
-for (const f of ['index.html', 'proposed.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js', 'proposed.js', 'proposed.css', 'proposed-families.json', 'sources.js', ...manifest.families.flatMap((f) => [f.js, f.css].filter(Boolean))]) {
+for (const f of ['index.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js', 'sources.js']) {
   if (!fs.existsSync(path.join(DS, f))) fail(`public/design-system/${f} is missing`);
+}
+for (const f of ['proposed.html', 'ds.css', 'proposed.js', 'proposed.css', 'proposed-families.json', ...manifest.families.flatMap((f) => [f.js, f.css].filter(Boolean))]) {
+  if (!fs.existsSync(path.join(V1, f))) fail(`public/design-system/legacy/system-v1/${f} is missing`);
 }
 if (!fs.existsSync(path.join(root, 'tools', 'design-system-snapshot.mjs'))) fail('tools/design-system-snapshot.mjs is missing');
 if (failures.length) { for (const f of failures) console.error('check-design-system: ' + f); process.exit(1); }
@@ -87,9 +92,9 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   for (const need of ['index.html', 'style.css', 'theme.css', 'ds.css', 'proposed.css', 'proposed.js', 'proposed-families.json', 'fa/css/all.min.css', ...manifest.families.flatMap((f) => [f.js, f.css].filter(Boolean))]) if (!names.has(need)) fail(`the proposed snapshot has no ${need}`);
   const sh = fs.readFileSync(path.join(outP, 'index.html'), 'utf8');
   if (!sh.includes('DS_PROPOSED_MANIFEST')) fail('the proposed snapshot does not carry the manifest in index.html (a file on disk cannot read proposed-families.json)');
-  const ph = fs.readFileSync(path.join(DS, 'proposed.html'), 'utf8');
+  const ph = fs.readFileSync(path.join(V1, 'proposed.html'), 'utf8');
   if (/sources\.js|components|ds\.js/.test(ph.replace(/<!--[\s\S]*?-->/g, ''))) fail('proposed.html loads something of Today (sources.js, components, ds.js)');
-  if (!/href="index\.html"/.test(ph)) fail('proposed.html has no link to index.html');
+  if (!/href="\.\.\/\.\.\/index\.html"/.test(ph)) fail('legacy/system-v1/proposed.html has no link to the Design System page (../../index.html)');
   const th = fs.readFileSync(path.join(DS, 'index.html'), 'utf8');
   if (/proposed(-[a-z0-9-]+)?\.(js|css|json)\b/.test(th)) fail('index.html loads the proposal (a proposed.* or proposed-* file)');
   if (!/href="proposed\.html"/.test(th)) fail('index.html has no link to proposed.html');
@@ -105,16 +110,16 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
   const mods = new Map(checks.map((m) => [m.id, m]));
   // Every stylesheet and script of the proposal: the shared pair, then each family's (a family that checks its own rules, as Colour does, is left out of the shared rules).
-  const sheets = [{ file: 'proposed.css', text: fs.readFileSync(path.join(DS, 'proposed.css'), 'utf8'), id: null }];
-  const scripts = [{ file: 'proposed.js', text: fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8') }];
+  const sheets = [{ file: 'proposed.css', text: fs.readFileSync(path.join(V1, 'proposed.css'), 'utf8'), id: null }];
+  const scripts = [{ file: 'proposed.js', text: fs.readFileSync(path.join(V1, 'proposed.js'), 'utf8') }];
   for (const f of manifest.families) {
     if (mods.get(f.id)?.ownRules) continue;
-    if (f.css) sheets.push({ file: f.css, text: fs.readFileSync(path.join(DS, f.css), 'utf8'), id: f.id });
-    if (f.js) scripts.push({ file: f.js, text: fs.readFileSync(path.join(DS, f.js), 'utf8') });
+    if (f.css) sheets.push({ file: f.css, text: fs.readFileSync(path.join(V1, f.css), 'utf8'), id: f.id });
+    if (f.js) scripts.push({ file: f.js, text: fs.readFileSync(path.join(V1, f.js), 'utf8') });
   }
   // Classes defined by any family's stylesheet, including the ones that check their own rules (States, Colour): every frame carries all of them, so a family may use another's (the Tables loading bars use the States skeleton).
   const defined = new Set();
-  const allSheets = sheets.concat(manifest.families.filter((f) => f.css && mods.get(f.id)?.ownRules).map((f) => ({ text: fs.readFileSync(path.join(DS, f.css), 'utf8') })));
+  const allSheets = sheets.concat(manifest.families.filter((f) => f.css && mods.get(f.id)?.ownRules).map((f) => ({ text: fs.readFileSync(path.join(V1, f.css), 'utf8') })));
   for (const s of allSheets) for (const x of strip(s.text).matchAll(/\.([A-Za-z][\w-]*)/g)) defined.add(x[1]);
   for (const s of sheets) {
     const css = strip(s.text);
@@ -164,7 +169,7 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
       if (todayHtml.includes(f[k])) fail(`index.html (Today) loads ${f[k]}`);
     }
     if (!m || !m.staticChecks) continue;
-    m.staticChecks({ DS, root, fail, snap, snapP, snapNames: names, todayHtml, manifestText, entry: f, css: f.css ? strip(fs.readFileSync(path.join(DS, f.css), 'utf8')) : '', js: f.js ? fs.readFileSync(path.join(DS, f.js), 'utf8') : '', defined });
+    m.staticChecks({ DS: V1, TODAY: DS, root, fail, snap, snapP, snapNames: names, todayHtml, manifestText, entry: f, css: f.css ? strip(fs.readFileSync(path.join(V1, f.css), 'utf8')) : '', js: f.js ? fs.readFileSync(path.join(V1, f.js), 'utf8') : '', defined });
   }
 }
 
@@ -384,7 +389,7 @@ if (!bin) {
     const none = { problems: [], last: null };
     const a = ONLY ? none : await browse(br.cdp, 'served', `${server.base}/design-system/index.html`, scenarios, shots);
     const b = ONLY ? none : await browse(br.cdp, 'snapshot', pathToFileURL(path.join(out, 'index.html')).href, [{ width: 1280, mode: 'light' }, { width: 390, mode: 'dark' }], shots);
-    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/proposed.html`, sel, shots);
+    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/legacy/system-v1/proposed.html`, sel, shots);
     const d = ONLY ? none : await browse(br.cdp, 'snapshot-proposed', pathToFileURL(path.join(outP, 'index.html')).href, [P(1280, 'dark'), P(390, 'light')], shots);
     if (ONLY) fail('DS_ONLY is a development switch: this was a partial run, not the check');
     for (const p of [...a.problems, ...b.problems, ...c.problems, ...d.problems]) fail(p);

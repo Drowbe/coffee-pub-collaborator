@@ -1,6 +1,6 @@
 /*
  * check-design-system-journey.mjs -- the Journey bar family (the status strip, the phases and the countdown) of the proposed design system page
- * (public/design-system/proposed-journey.js and .css).
+ * (public/design-system/legacy/system-v1/proposed-journey.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a journey bar that is not a proportional day grid (a band not days x day width - 2px wide within 1px, a band not at its day, a pin not at the centre of today's day within 1px or touching a label, a label wider than

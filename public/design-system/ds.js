@@ -668,11 +668,9 @@ window.__dsLog = [];
     for (const f of frames) setWidth(f);
   }
 
-  // #today/<id> and a bare #<id> scroll to that block. An old #proposed link, or ?view=proposed, goes to the proposed page.
+  // #today/<id> and a bare #<id> scroll to that block.
   function route(first) {
     const hsh = decodeURIComponent(location.hash.slice(1));
-    const pm = /^proposed(?:\/(.*))?$/.exec(hsh);
-    if (pm || (new URLSearchParams(location.search).get('view') === 'proposed' && !hsh)) { location.replace('proposed.html' + (pm && pm[1] ? '#' + pm[1] : '')); return; }
     const id = hsh.replace(/^today\//, '');
     if (id) { const t = D.getElementById(id); if (t) { t.scrollIntoView(); return; } }
     if (!first) window.scrollTo(0, 0);

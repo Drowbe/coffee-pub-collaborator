@@ -1,5 +1,5 @@
 /*
- * check-design-system-buttons.mjs -- the Buttons family of the proposed design system page (public/design-system/proposed-buttons.js and .css).
+ * check-design-system-buttons.mjs -- the Buttons family of the proposed design system page (public/design-system/legacy/system-v1/proposed-buttons.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls browserChecks (listed in tools/check-design-system-families.json) at each width and mode.
  *
  * Fails on (in headless Chromium, on the page opened from the app and from its snapshot): a forced hover that does not change the Primary fill, a forced

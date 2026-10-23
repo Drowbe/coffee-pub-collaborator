@@ -1,5 +1,5 @@
 /*
- * check-design-system-chat.mjs -- the Chat family (the message and the composer) of the proposed design system page (public/design-system/proposed-chat.js and .css).
+ * check-design-system-chat.mjs -- the Chat family (the message and the composer) of the proposed design system page (public/design-system/legacy/system-v1/proposed-chat.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
  * Fails on: a message that is not a banded card (Cards: one 1px --border hairline box, --radius-medium, 5% --text over the window, your own 10% accent; a 30px head band (31 with its hairline) of --card-head-fill, a step off the box, with a hairline under it; the body 8px 12px 12px in), an object card or link box with a corner that is not small in a message, a message that is not 8px from the next, more than two surfaces nested in a window (the nesting check), a child corner larger than its parent's, a space to the parent's edge under the child's padding, a tint anywhere but the portrait (the 3px left bar is gone), a name

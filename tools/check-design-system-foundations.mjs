@@ -1,5 +1,5 @@
 /*
- * check-design-system-foundations.mjs -- the Foundations family of the proposed design system page (public/design-system/proposed-foundations.js and .css):
+ * check-design-system-foundations.mjs -- the Foundations family of the proposed design system page (public/design-system/legacy/system-v1/proposed-foundations.js and .css):
  * spacing, elevation (shadows, the scrim, the layers), radius, motion, icons and layout.
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *

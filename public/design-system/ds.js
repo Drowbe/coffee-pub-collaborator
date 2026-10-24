@@ -83,10 +83,10 @@
   // ---- contexts: which stylesheets a page or module really has ----
   const MODULE_ORDER = ['assistant', 'budget', 'calendar', 'maps', 'places', 'polls', 'research', 'stream', 'todo', 'travel'];
   function ctxLabel(ctx) {
-    if (ctx === 'app') return 'An app page (public/style.css)';
-    if (ctx === 'host') return 'A module page with only the SDK base (public/sdk/host.css)';
-    if (ctx.startsWith('widget:')) return `The ${ctx.slice(7)} dashboard widget (host.css and its widget stylesheet)`;
-    return `The ${ctx.slice(4)} module (host.css and its own stylesheet)`;
+    if (ctx === 'app') return 'An app page (public/style.css, the theme and public/sdk/system.css)';
+    if (ctx === 'host') return 'A module page (public/sdk/system.css and public/sdk/host.css)';
+    if (ctx.startsWith('widget:')) return `The ${ctx.slice(7)} dashboard widget (system.css, host.css and its widget stylesheet)`;
+    return `The ${ctx.slice(4)} module (system.css, host.css and its own stylesheet)`;
   }
   // The menu's and the more button's CSS is a string inside host.js (UI_CSS), added to a module's page when the SDK starts.
   const uiCss = () => { const m = /const UI_CSS = `([\s\S]*?)`;/.exec(text['host.js'] || ''); return m ? m[1] : ''; };
@@ -281,8 +281,9 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
             if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done); else done();
           }
           // The examples are pictures of the product: a link or a form in one goes nowhere.
+          // A link to another design system page (target="_top") does go there.
           const a = e.target.closest && e.target.closest('a[href]');
-          if (a) e.preventDefault();
+          if (a && a.target !== '_top') e.preventDefault();
         });
         doc.addEventListener('submit', (e) => e.preventDefault());
         if (!f.fixed) {

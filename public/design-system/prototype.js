@@ -75,16 +75,18 @@ const titlebar = () => ({
   close: true,
 });
 const viewSwitch = () => ({ type: 'switch', id: 'view', label: 'View', value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'board', label: 'Board', icon: 'table-columns' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }] });
-const manyTools = () => [
-  viewSwitch(),
-  { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' },
-  { type: 'filters', id: 'filters', label: 'Filters', groups: [
+const filtersCtl = () => (
+{ type: 'filters', id: 'filters', label: 'Filters', groups: [
     { id: 'whose', heading: 'Show', single: true, value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done', count: 3 }] },
     { id: 'when', heading: 'When', options: [{ id: 'today', label: 'Today', on: true }, { id: 'week', label: 'This week' }, { id: 'flagged', label: 'Flagged' }] },
     { id: 'status', heading: 'Status', options: [{ id: 'late', label: 'Late' }, { id: 'unassigned', label: 'Not assigned' }] },
-  ] },
+  ] }
+);
+const manyTools = () => [
+  viewSwitch(),
+  { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' },
+  filtersCtl(),
   { type: 'title', text: 'Week of 3 May' },
-  { type: 'spacer' },
   { type: 'button', id: 'export', label: 'Export', icon: 'file-export', kind: 'secondary' },
   { type: 'button', id: 'share', label: 'Share', icon: 'share-nodes', kind: 'secondary' },
   { type: 'button', id: 'print', label: 'Print', icon: 'print', kind: 'icon' },
@@ -104,7 +106,7 @@ const STATES = [
     name: 'Idle', note: 'A typical panel: a view switch, a search and one primary button.',
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(),
-      toolbar: [viewSwitch(), { type: 'spacer' }, { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' }],
+      toolbar: [viewSwitch(), { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' }, { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, filtersCtl()],
       content: rows(12, WORDS),
       status: { text: '12 things, 3 packed', items: [{ text: 'Saved', icon: 'check', tone: 'ok' }] },
     }),

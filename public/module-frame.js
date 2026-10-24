@@ -38,7 +38,7 @@
 //   { type: 'filters', id, label, groups: [{ id, heading, single?, value?, options: [{ id, label, count?, on? }] }] }  one Filters button with a count; its menu has Clear filters and the groups
 //   { type: 'button', id, label, icon?, kind: 'primary' | 'secondary' | 'icon' }
 //   { type: 'title', text }                                               words in the row
-//   { type: 'spacer' }                                                     what follows sits at the end
+//   (a 'spacer' is no longer needed: the row's end group is always search, then Filters, at the same place from the right edge)
 //
 // The overflow rule, one row, nothing ever cut. While the row is wider than its room, these steps are taken in this
 // order, each only if the row still does not fit: the chips fold into one Filters button; the view switch shows only its
@@ -61,7 +61,7 @@ const STANDARD = [
 const STANDARD_ON = Object.fromEntries(STANDARD.map((s) => [s.id, true]));
 const FOLDS = ['chips', 'switch', 'secondary', 'tabs', 'search', 'primary'];
 // Which control goes into "More" first: the lowest number first, then the one furthest along the row.
-const MOVE = { filters: 3, icon: 1, secondary: 2, chips: 3, quickset: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
+const MOVE = { icon: 1, secondary: 2, chips: 3, quickset: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
 
 let seq = 0;
 
@@ -430,6 +430,11 @@ export function createModuleFrame(opts = {}) {
   function drawToolbar() {
     if (hostMenuOpen() && toolbar.contains(doc.activeElement)) closeHostMenu();
     toolbar.textContent = '';
+    // The row has two regions. The start group: everything but search and filters, left-aligned in the order given. The end
+    // group: search, then the Filters button, always last, in those slots, at the same distance from the right edge. A
+    // 'spacer' entry is not needed (the gap between the groups is drawn here) and is ignored.
+    const start = [];
+    const end = [];
     for (const it of entries) {
       let els = [];
       if (it.type === 'switch') els = drawSwitch(it);
@@ -440,11 +445,13 @@ export function createModuleFrame(opts = {}) {
       else if (it.type === 'quickset') els = drawQuickset(it);
       else if (it.type === 'button') els = drawButton(it);
       else if (it.type === 'title') els = [el('span', 'mf-tb-title', { text: it.text, 'data-tip': it.text, 'data-tip-if-truncated': '', tabindex: '0' })];
-      else if (it.type === 'spacer') els = [el('span', 'mf-spacer', { 'aria-hidden': 'true' })];
       it._els = els;
-      toolbar.append(...els);
+      (it.type === 'search' ? end : it.type === 'filters' ? end : start).push({ it, els });
     }
-    toolbar.append(moreBtn);
+    end.sort((x, y) => (x.it.type === 'search' ? 0 : 1) - (y.it.type === 'search' ? 0 : 1));
+    for (const g of start) toolbar.append(...g.els);
+    toolbar.append(moreBtn, el('span', 'mf-spacer', { 'aria-hidden': 'true' }));
+    for (const g of end) toolbar.append(...g.els);
     toolbar.hidden = entries.length === 0;
     if (searching) toolbar.classList.add('is-searching');
   }

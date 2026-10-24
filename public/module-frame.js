@@ -6,7 +6,13 @@
 //
 //   const frame = createModuleFrame({
 //     title, icon,                                   // the title bar's words and Font Awesome icon name
-//     titlebar: { add, icons: [{ id, icon, label, on? }], close },  // add: true or { label, entries }; close: true
+//     titlebar: {                                    // the title bar's actions (below)
+//       add,                                         // true or { label, entries: [{ id, label, icon }] }: the "+"
+//       actions: [{ id, label, icon, placement: 'bar' | 'menu', danger?, on?, regular? }],  // the module's own
+//       standard: { window, popout, settings, share, print },  // each true unless switched off
+//       close,                                       // true: a close button at the end
+//       onAction(event),                             // the title bar's events; else the frame's onAction
+//     },
 //     toolbar: [ ...entries ],                        // see below
 //     content, flush, empty: { icon, title, text },   // a Node, or nothing (empty is drawn); flush: no padding
 //     status: { text, items: [{ text, icon?, tone? }] },
@@ -14,6 +20,14 @@
 //   });
 //   frame.el                                         // the <section>, ready to append
 //   frame.setToolbar(list), frame.setStatus(s), frame.setContent(node), frame.setTitle(t), frame.fit(), frame.destroy()
+//   frame.titlebarMenu()                             // the title bar menu's entries as they are now (host-menu.js items)
+//
+// The title bar, start to end: the icon, the title, the module's 'bar' actions (icon buttons), the "+", the menu button
+// (More, whenever the menu has anything in it) and the close button. The menu: the module's own actions, a line, the
+// standard actions (Open as a window, Open in its own window, Settings, Share, Print), then a destructive action last, red,
+// after a line of its own. A title bar event is { area: 'titlebar', id, standard?: true, on?, value? }; the standard ids
+// are window, popout, settings, share, print. Narrow, the bar icons fold into the menu (the last first) before the title is
+// cut, so nothing is clipped.
 //
 // A toolbar entry is one of:
 //   { type: 'switch', id, label, value, options: [{ id, label, icon }] }   a segmented view switch
@@ -33,6 +47,16 @@
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
 import '/tooltip.js';
 
+// The standard title bar actions, drawn by the host the same in every module, in this order; each is on unless the module
+// switches it off (titlebar.standard: { print: false }). The words and icons are the canvas's own (public/canvas.js).
+const STANDARD = [
+  { id: 'window', label: 'Open as a window', icon: 'window-restore', regular: true, tip: 'Float over the call' },
+  { id: 'popout', label: 'Open in its own window', icon: 'up-right-from-square', tip: 'Pop out of this page' },
+  { id: 'settings', label: 'Settings', icon: 'gear' },
+  { id: 'share', label: 'Share', icon: 'share-nodes' },
+  { id: 'print', label: 'Print', icon: 'print' },
+];
+const STANDARD_ON = Object.fromEntries(STANDARD.map((s) => [s.id, true]));
 const FOLDS = ['chips', 'switch', 'secondary', 'tabs', 'search', 'primary'];
 // Which control goes into "More" first: the lowest number first, then the one furthest along the row.
 const MOVE = { icon: 1, secondary: 2, chips: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
@@ -107,57 +131,96 @@ export function createModuleFrame(opts = {}) {
     if (iconName) headIcon.append(icon(iconName));
     headIcon.hidden = !iconName;
   }
+  // The title bar's actions (Thomas, 2026-10-24). Three kinds, one menu: the module's own actions (each 'bar', an icon
+  // button beside the menu, or 'menu'), the "+" (the host's, always shown beside the menu), and the standard actions the
+  // host draws the same in every module (STANDARD below; a module may switch any of them off). The menu (the host's own,
+  // host-menu.js): the module's actions first (any bar icons folded away, then its menu actions), a line, the standard
+  // actions, then a destructive action last, in red, after a line of its own. The menu button is there whenever the menu
+  // has anything in it.
+  const tbFire = (data) => {
+    const tb = opts.titlebar || {};
+    (typeof tb.onAction === 'function' ? tb.onAction : onAction)({ area: 'titlebar', ...data });
+  };
+  let tbFold = null;
+  function titlebarMenu() {
+    const tb = opts.titlebar || {};
+    const actions = Array.isArray(tb.actions) ? tb.actions : [];
+    const std = { ...STANDARD_ON, ...(tb.standard || {}) };
+    const entry = (a) => ({
+      label: a.label, icon: a.icon, ...(a.regular ? { regular: true } : {}), ...(a.danger ? { danger: true } : {}),
+      ...(typeof a.on === 'boolean' ? { checked: a.on } : {}),
+      onPick: () => pickAction(a),
+    });
+    const own = [];
+    if (tbFold) for (const { a, b } of tbFold.bar) if (b.hidden) own.push(entry(a));
+    for (const a of actions) if (!a.danger && a.placement !== 'bar') own.push(entry(a));
+    const standard = STANDARD.filter((s) => std[s.id]).map((s) => ({
+      label: s.label, icon: s.icon, ...(s.regular ? { regular: true } : {}), tip: s.tip,
+      onPick: () => tbFire({ id: s.id, standard: true }),
+    }));
+    const danger = actions.filter((a) => a.danger).map(entry);
+    const runs = [own, standard, danger].filter((r) => r.length);
+    return runs.flatMap((r, at) => (at ? [{ divider: true }, ...r] : r));
+  }
+  function pickAction(a) {
+    if (typeof a.on === 'boolean') {
+      a.on = !a.on;
+      const bar = tbFold && tbFold.bar.find((x) => x.a === a);
+      if (bar) { bar.b.setAttribute('aria-pressed', String(a.on)); bar.b.classList.toggle('is-on', a.on); }
+    }
+    tbFire({ id: a.id, ...(typeof a.on === 'boolean' ? { on: a.on } : {}) });
+  }
   function drawTitlebar() {
+    if (hostMenuOpen() && head.contains(doc.activeElement)) closeHostMenu();
     headTools.textContent = '';
     const tb = opts.titlebar || {};
-    const icons = Array.isArray(tb.icons) ? tb.icons : [];
-    const iconEls = [];
-    for (const it of icons) {
-      const b = button('mf-icon-btn mf-titlebar-btn', { label: it.label, iconName: it.icon, words: false });
-      if (typeof it.on === 'boolean') { b.setAttribute('aria-pressed', String(it.on)); b.classList.toggle('is-on', it.on); }
-      b.addEventListener('click', () => {
-        if (typeof it.on === 'boolean') { it.on = !it.on; b.setAttribute('aria-pressed', String(it.on)); b.classList.toggle('is-on', it.on); }
-        onAction({ area: 'titlebar', id: it.id, ...(typeof it.on === 'boolean' ? { on: it.on } : {}) });
-      });
-      iconEls.push(b);
+    const actions = Array.isArray(tb.actions) ? tb.actions : [];
+    // The bar icons: a destructive action is never one (it is always last in the menu).
+    const bar = [];
+    for (const a of actions) {
+      if (a.placement !== 'bar' || a.danger) continue;
+      const b = button('mf-icon-btn mf-titlebar-btn', { label: a.label, iconName: a.icon || 'circle', words: false });
+      if (typeof a.on === 'boolean') { b.setAttribute('aria-pressed', String(a.on)); b.classList.toggle('is-on', a.on); }
+      b.addEventListener('click', () => pickAction(a));
+      bar.push({ a, b });
       headTools.append(b);
     }
-    // The icons that do not fit fold into one "More" button (the title is cut first, to its least width).
-    const more = button('mf-icon-btn mf-titlebar-btn mf-titlebar-more', { label: 'More', iconName: 'ellipsis-vertical', words: false });
-    more.setAttribute('aria-haspopup', 'menu');
-    more.hidden = true;
-    more.addEventListener('click', () => openHostMenu(more, () => icons.map((it, at) => (iconEls[at].hidden ? {
-      label: it.label, icon: it.icon,
-      ...(typeof it.on === 'boolean' ? { checked: it.on } : {}),
-      onPick: () => iconEls[at].click(),
-    } : null)).filter(Boolean)));
-    headTools.append(more);
-    head._fold = { iconEls, more };
     if (tb.add) {
       const add = typeof tb.add === 'object' ? tb.add : {};
       const b = button('mf-add-btn', { label: add.label || 'Add', iconName: 'plus', words: false });
       if (Array.isArray(add.entries) && add.entries.length) {
         b.setAttribute('aria-haspopup', 'menu');
-        b.addEventListener('click', () => openHostMenu(b, add.entries.map((e) => ({ label: e.label, icon: e.icon, onPick: () => onAction({ area: 'titlebar', id: 'add', value: e.id }) }))));
-      } else b.addEventListener('click', () => onAction({ area: 'titlebar', id: 'add' }));
-      headTools.prepend(b);
-    }
-    if (tb.close) {
-      const b = button('mf-icon-btn mf-titlebar-btn mf-close-btn', { label: 'Close', iconName: 'xmark', words: false });
-      b.addEventListener('click', () => onAction({ area: 'titlebar', id: 'close' }));
+        b.addEventListener('click', () => openHostMenu(b, add.entries.map((e) => ({ label: e.label, icon: e.icon, onPick: () => tbFire({ id: 'add', value: e.id }) }))));
+      } else b.addEventListener('click', () => tbFire({ id: 'add' }));
       headTools.append(b);
     }
+    const menu = button('mf-icon-btn mf-titlebar-btn mf-titlebar-menu', { label: 'More', iconName: 'ellipsis-vertical', words: false });
+    menu.setAttribute('aria-haspopup', 'menu');
+    menu.setAttribute('aria-expanded', 'false');
+    menu.addEventListener('click', () => openHostMenu(menu, titlebarMenu));
+    headTools.append(menu);
+    tbFold = { bar, menu };
+    if (tb.close) {
+      const b = button('mf-icon-btn mf-titlebar-btn mf-close-btn', { label: 'Close', iconName: 'xmark', words: false });
+      b.addEventListener('click', () => tbFire({ id: 'close' }));
+      headTools.append(b);
+    }
+    showMenuButton();
   }
+  function showMenuButton() {
+    if (tbFold) tbFold.menu.hidden = titlebarMenu().length === 0;
+  }
+  // Narrow: the bar icons fold into the menu, the last first, before the title is cut or anything is clipped.
   function fitTitlebar() {
-    const f = head._fold;
-    if (!f) return;
-    for (const b of f.iconEls) b.hidden = false;
-    f.more.hidden = true;
-    const over = () => overflows(head);
-    if (!over()) return;
-    f.more.hidden = false;
-    for (let at = f.iconEls.length - 1; at >= 0 && over(); at -= 1) f.iconEls[at].hidden = true;
-    if (f.iconEls.every((b) => !b.hidden)) f.more.hidden = true;
+    if (!tbFold) return;
+    for (const { b } of tbFold.bar) b.hidden = false;
+    const cut = () => headTitle.scrollWidth > headTitle.clientWidth + 1;
+    for (let at = tbFold.bar.length - 1; at >= 0; at -= 1) {
+      showMenuButton();
+      if (!overflows(head) && !cut()) break;
+      tbFold.bar[at].b.hidden = true;
+    }
+    showMenuButton();
   }
 
   // ---- 2. the toolbar ----
@@ -415,6 +478,7 @@ export function createModuleFrame(opts = {}) {
     el: root,
     content,
     setTitle,
+    titlebarMenu,
     setToolbar(list) { entries = Array.isArray(list) ? list : []; redraw(); },
     setContent,
     setStatus,

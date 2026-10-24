@@ -23,7 +23,7 @@
 //   frame.titlebarMenu()                             // the title bar menu's entries as they are now (host-menu.js items)
 //
 // The title bar, start to end: the icon, the title, the module's 'bar' actions (icon buttons), the "+", the menu button
-// (its "⋮", whenever the menu has anything in it) and the close button. The menu: the module's own actions, a line, the
+// (More, whenever the menu has anything in it) and the close button. The menu: the module's own actions, a line, the
 // standard actions (Open as a window, Open in its own window, Settings, Share, Print), then a destructive action last, red,
 // after a line of its own. A title bar event is { area: 'titlebar', id, standard?: true, on?, value? }; the standard ids
 // are window, popout, settings, share, print. Narrow, the bar icons fold into the menu (the last first) before the title is

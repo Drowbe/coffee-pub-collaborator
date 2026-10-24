@@ -208,7 +208,7 @@ const TITLEBAR_STATES = [
     }),
   },
   {
-    name: 'The menu, open', note: 'The Budget-like menu drawn open, so it can be seen without a click (a picture: the real one opens from the "⋮").', open: true,
+    name: 'The menu, open', note: 'The Budget-like menu drawn open, so it can be seen without a click (a picture: the real one opens from More).', open: true,
     frame: budgetLike,
   },
 ];
@@ -270,7 +270,7 @@ for (const s of TITLEBAR_STATES) {
   box.append(menu);
   const trigger = frame.el.querySelector('.mf-titlebar-menu');
   trigger.classList.add('pp-held');
-  // Under the "⋮", its end in line with the button's, as the host's menu sits when it meets the window's edge.
+  // Under More, its end in line with the button's, as the host's menu sits when it meets the window's edge.
   const place = () => {
     const b = box.getBoundingClientRect();
     const t = trigger.getBoundingClientRect();

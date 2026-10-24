@@ -77,9 +77,12 @@ const titlebar = () => ({
 const viewSwitch = () => ({ type: 'switch', id: 'view', label: 'View', value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'board', label: 'Board', icon: 'table-columns' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }] });
 const manyTools = () => [
   viewSwitch(),
-  { type: 'quickset', id: 'whose', label: 'Whose', value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done' }] },
   { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' },
-  { type: 'chips', id: 'when', label: 'Filters', options: [{ id: 'today', label: 'Today', on: true }, { id: 'week', label: 'This week' }, { id: 'flagged', label: 'Flagged' }] },
+  { type: 'filters', id: 'filters', label: 'Filters', groups: [
+    { id: 'whose', heading: 'Show', single: true, value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done', count: 3 }] },
+    { id: 'when', heading: 'When', options: [{ id: 'today', label: 'Today', on: true }, { id: 'week', label: 'This week' }, { id: 'flagged', label: 'Flagged' }] },
+    { id: 'status', heading: 'Status', options: [{ id: 'late', label: 'Late' }, { id: 'unassigned', label: 'Not assigned' }] },
+  ] },
   { type: 'title', text: 'Week of 3 May' },
   { type: 'spacer' },
   { type: 'button', id: 'export', label: 'Export', icon: 'file-export', kind: 'secondary' },

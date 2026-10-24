@@ -35,6 +35,7 @@
 //   { type: 'quickset', id, label, value, options: [{ id, label, count? }] }  quick sets: one filter chip chosen at a time, with counts
 //   { type: 'search', id, label, placeholder, value? }
 //   { type: 'chips', id, label, options: [{ id, label, on }] }            filter chips
+//   { type: 'filters', id, label, groups: [{ id, heading, single?, value?, options: [{ id, label, count?, on? }] }] }  one Filters button with a count; its menu has Clear filters and the groups
 //   { type: 'button', id, label, icon?, kind: 'primary' | 'secondary' | 'icon' }
 //   { type: 'title', text }                                               words in the row
 //   { type: 'spacer' }                                                     what follows sits at the end
@@ -60,7 +61,7 @@ const STANDARD = [
 const STANDARD_ON = Object.fromEntries(STANDARD.map((s) => [s.id, true]));
 const FOLDS = ['chips', 'switch', 'secondary', 'tabs', 'search', 'primary'];
 // Which control goes into "More" first: the lowest number first, then the one furthest along the row.
-const MOVE = { icon: 1, secondary: 2, chips: 3, quickset: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
+const MOVE = { filters: 3, icon: 1, secondary: 2, chips: 3, quickset: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
 
 let seq = 0;
 
@@ -337,6 +338,44 @@ export function createModuleFrame(opts = {}) {
     menu.addEventListener('click', () => chipsMenu(it, menu));
     return [group, menu];
   }
+  // Filters: ONE button with a count of what is applied; its menu holds Clear filters, then the groups, each under a heading.
+  // A group is single (one choice; the first option is "nothing applied") or switches (any number). The menu stays open.
+  const filterCount = (it) => it.groups.reduce((n, g) => n + (g.single ? (g.value !== g.options[0].id ? 1 : 0) : g.options.filter((o) => o.on).length), 0);
+  function filterItems(it) {
+    const list = [{ label: 'Clear filters', icon: 'xmark', disabled: filterCount(it) === 0, keepOpen: true, onPick: () => {
+      for (const g of it.groups) {
+        if (g.single) { g.value = g.options[0].id; fire({ id: g.id, value: g.value }); continue; }
+        for (const o of g.options) if (o.on) { o.on = false; fire({ id: g.id, value: o.id, on: false }); }
+      }
+      refreshCount(it);
+    } }];
+    for (const g of it.groups) {
+      list.push({ heading: g.heading });
+      for (const o of g.options) {
+        list.push(g.single
+          ? { label: o.label, radio: true, checked: o.id === g.value, badge: o.count, keepOpen: true, onPick: () => { g.value = o.id; fire({ id: g.id, value: o.id }); refreshCount(it); } }
+          : { label: o.label, checked: Boolean(o.on), toggle: true, onPick: () => { o.on = !o.on; fire({ id: g.id, value: o.id, on: o.on }); refreshCount(it); } });
+      }
+    }
+    return list;
+  }
+  function refreshCount(it) {
+    const b = it._els && it._els[0];
+    if (!b) return;
+    const n = filterCount(it);
+    const c = b.querySelector('.mf-count');
+    if (c) c.remove();
+    if (n) b.append(el('span', 'mf-count mf-count-box', { text: String(n) }));
+    b.setAttribute('aria-label', `${it.label || 'Filters'}${n ? `, ${n} applied` : ''}`);
+  }
+  function drawFilters(it) {
+    const b = el('button', 'mf-chips-menu mf-filters', { type: 'button', 'aria-haspopup': 'menu' });
+    b.append(icon('filter'), word(it.label || 'Filters'));
+    it._els = [b];
+    refreshCount(it);
+    b.addEventListener('click', () => openHostMenu(b, () => filterItems(it)));
+    return [b];
+  }
   function drawButton(it) {
     const kind = it.kind === 'primary' || it.kind === 'icon' ? it.kind : 'secondary';
     const cls = kind === 'icon' ? 'mf-icon-btn' : `mf-btn mf-btn-${kind}`;
@@ -356,6 +395,7 @@ export function createModuleFrame(opts = {}) {
         onPick: () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(); },
       }))];
     }
+    if (it.type === 'filters') return filterItems(it);
     if (it.type === 'chips') {
       return [{ heading: it.label || 'Filters' }, ...it.options.map((o) => ({
         label: o.label, checked: Boolean(o.on), toggle: true,
@@ -396,6 +436,7 @@ export function createModuleFrame(opts = {}) {
       else if (it.type === 'tabs') els = drawTabs(it);
       else if (it.type === 'search') { els = drawSearch(it); it._input = els[0].querySelector('input'); }
       else if (it.type === 'chips') els = drawChips(it);
+      else if (it.type === 'filters') els = drawFilters(it);
       else if (it.type === 'quickset') els = drawQuickset(it);
       else if (it.type === 'button') els = drawButton(it);
       else if (it.type === 'title') els = [el('span', 'mf-tb-title', { text: it.text, 'data-tip': it.text, 'data-tip-if-truncated': '', tabindex: '0' })];

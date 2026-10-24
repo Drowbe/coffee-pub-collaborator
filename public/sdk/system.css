@@ -5861,6 +5861,10 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-quickset .mf-chip.is-on .mf-count { background: transparent; color: inherit; }
 .mf-quickset .mf-chip:not(.is-on) { background: transparent; }
 
+/* The Filters button: a small-corner box for the count of what is applied (never a pill); always shown, only ever moved into More. */
+.mf-toolbar > .mf-filters { display: inline-flex; border-radius: var(--radius-small); }
+.mf .mf-count.mf-count-box { border-radius: var(--radius-small); background: var(--accent-fill); color: var(--text-on-accent); }
+
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }
 .mf-spacer { flex: 1 1 0; min-width: 0; }

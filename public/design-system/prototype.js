@@ -77,7 +77,7 @@ const titlebar = () => ({
 const viewSwitch = () => ({ type: 'switch', id: 'view', label: 'View', value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'board', label: 'Board', icon: 'table-columns' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }] });
 const manyTools = () => [
   viewSwitch(),
-  { type: 'tabs', id: 'whose', label: 'Whose', value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done' }] },
+  { type: 'quickset', id: 'whose', label: 'Whose', value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done' }] },
   { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' },
   { type: 'chips', id: 'when', label: 'Filters', options: [{ id: 'today', label: 'Today', on: true }, { id: 'week', label: 'This week' }, { id: 'flagged', label: 'Flagged' }] },
   { type: 'title', text: 'Week of 3 May' },
@@ -89,6 +89,13 @@ const manyTools = () => [
   { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' },
 ];
 
+const tabsPanel = { name: 'Tabs', note: 'A tab strip, for switching between different pages: a plain fill on the chosen tab, no shape that joins the content.',
+  frame: () => ({
+    title: 'Trip', icon: 'suitcase', titlebar: titlebar(),
+    toolbar: [{ type: 'tabs', id: 'page', label: 'Page', value: 'plan', options: [{ id: 'plan', label: 'Plan' }, { id: 'people', label: 'People', count: 4 }, { id: 'money', label: 'Money' }] }],
+    content: rows(12, WORDS),
+    status: { text: 'Plan' },
+  }) };
 const STATES = [
   {
     name: 'Idle', note: 'A typical panel: a view switch, a search and one primary button.',
@@ -151,7 +158,7 @@ function panel(s, into, level = 'h2') {
   into.append(sec);
   return { frame, box };
 }
-for (const s of STATES) panel(s, main);
+for (const s of [...STATES, tabsPanel]) panel(s, main);
 
 // ---- the title bar's actions (Thomas, 2026-10-24) ----
 const EXPENSES = ['Hotel, two nights', 'Train tickets', 'Dinner on Friday', 'Museum passes', 'Taxi from the station', 'Coffee and snacks'];

@@ -31,7 +31,8 @@
 //
 // A toolbar entry is one of:
 //   { type: 'switch', id, label, value, options: [{ id, label, icon }] }   a segmented view switch
-//   { type: 'tabs', id, label, value, options: [{ id, label, count? }] }  a tab strip
+//   { type: 'tabs', id, label, value, options: [{ id, label, count? }] }  a tab strip, for switching between different pages
+//   { type: 'quickset', id, label, value, options: [{ id, label, count? }] }  quick sets: one filter chip chosen at a time, with counts
 //   { type: 'search', id, label, placeholder, value? }
 //   { type: 'chips', id, label, options: [{ id, label, on }] }            filter chips
 //   { type: 'button', id, label, icon?, kind: 'primary' | 'secondary' | 'icon' }
@@ -59,7 +60,7 @@ const STANDARD = [
 const STANDARD_ON = Object.fromEntries(STANDARD.map((s) => [s.id, true]));
 const FOLDS = ['chips', 'switch', 'secondary', 'tabs', 'search', 'primary'];
 // Which control goes into "More" first: the lowest number first, then the one furthest along the row.
-const MOVE = { icon: 1, secondary: 2, chips: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
+const MOVE = { icon: 1, secondary: 2, chips: 3, quickset: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
 
 let seq = 0;
 
@@ -269,6 +270,31 @@ export function createModuleFrame(opts = {}) {
     menu.addEventListener('click', () => tabsMenu(it, menu));
     return [strip, menu];
   }
+  // Quick sets: a single-choice group of chips with counts. The chosen one is filled, the others outlined; narrow, the whole group goes into More.
+  function drawQuickset(it) {
+    const group = el('div', 'mf-quickset', { role: 'radiogroup', 'aria-label': it.label || 'Show' });
+    const chips = it.options.map((o) => {
+      const on = o.id === it.value;
+      const c = el('button', `mf-chip${on ? ' is-on' : ''}`, { type: 'button', role: 'radio', 'aria-checked': String(on), tabindex: on ? '0' : '-1' });
+      c.append(word(o.label));
+      if (o.count !== undefined && o.count !== null) c.append(el('span', 'mf-count', { text: String(o.count) }));
+      c.dataset.key = `chip:${it.id}:${o.id}`;
+      c.addEventListener('click', () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(`chip:${it.id}:${o.id}`); });
+      group.append(c);
+      return c;
+    });
+    group.addEventListener('keydown', (e) => {
+      const at = chips.indexOf(doc.activeElement);
+      if (at < 0) return;
+      let to = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') to = (at + 1) % chips.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') to = (at - 1 + chips.length) % chips.length;
+      if (to === null) return;
+      e.preventDefault();
+      chips[to].click();
+    });
+    return [group];
+  }
   function drawSearch(it) {
     const form = el('form', 'mf-search', { role: 'search' });
     const input = el('input', 'mf-search-input', { type: 'search', placeholder: it.placeholder || 'Search', 'aria-label': it.label || 'Search', autocomplete: 'off', enterkeyhint: 'search' });
@@ -324,8 +350,8 @@ export function createModuleFrame(opts = {}) {
     if (it.type === 'button') return [{ label: it.label, icon: it.icon, onPick: () => fire({ id: it.id }) }];
     if (it.type === 'title') return [{ heading: it.text }];
     if (it.type === 'search') return [{ label: it.label || 'Search', icon: 'magnifying-glass', onPick: () => win.setTimeout(() => startSearching(it._input), 0) }];
-    if (it.type === 'switch' || it.type === 'tabs') {
-      return [{ heading: it.label || (it.type === 'switch' ? 'View' : 'Tabs') }, ...it.options.map((o) => ({
+    if (it.type === 'switch' || it.type === 'tabs' || it.type === 'quickset') {
+      return [{ heading: it.label || (it.type === 'switch' ? 'View' : it.type === 'quickset' ? 'Show' : 'Tabs') }, ...it.options.map((o) => ({
         label: o.label, ...(o.icon ? { icon: o.icon } : {}), radio: true, checked: o.id === it.value, badge: o.count,
         onPick: () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(); },
       }))];
@@ -370,6 +396,7 @@ export function createModuleFrame(opts = {}) {
       else if (it.type === 'tabs') els = drawTabs(it);
       else if (it.type === 'search') { els = drawSearch(it); it._input = els[0].querySelector('input'); }
       else if (it.type === 'chips') els = drawChips(it);
+      else if (it.type === 'quickset') els = drawQuickset(it);
       else if (it.type === 'button') els = drawButton(it);
       else if (it.type === 'title') els = [el('span', 'mf-tb-title', { text: it.text, 'data-tip': it.text, 'data-tip-if-truncated': '', tabindex: '0' })];
       else if (it.type === 'spacer') els = [el('span', 'mf-spacer', { 'aria-hidden': 'true' })];

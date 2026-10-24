@@ -17,6 +17,17 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 .pp-frame { min-width: 0; padding: var(--space-5); overflow-x: auto; border-radius: var(--radius-large); background: var(--surface-canvas); outline: 1px dashed var(--edge-hairline); outline-offset: -1px; }
 .pp-frame > .mf { width: var(--pp-w, 700px); height: 360px; }
 .pp-frame.pp-narrow > .mf { width: 300px; }
+.pp-frame.pp-phone > .mf { width: 390px; max-width: 100%; }
+
+/* Title bar actions: a group of panels under one heading. */
+.pp-group { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; padding-top: var(--space-5); border-top: 1px solid var(--edge-hairline); }
+.pp-group-name { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
+.pp-group > .pp-state-note { margin-top: calc(-1 * var(--space-4)); }
+/* The menu held open: the host's menu (its own look, from the Menus block), placed under its button in the frame. */
+.pp-frame.pp-open { position: relative; }
+.pp-frame.pp-open > .mf { height: 440px; }
+.pp-frame.pp-open > .host-menu.pp-menu-open { position: absolute; z-index: 1; }
+.pp-frame .mf-titlebar-tools > .pp-held { background: var(--fill-hover); color: var(--text-primary); }
 
 /* Sample content: plain rows, so the content area's padding and scrolling show. */
 .pp-rows { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
@@ -28,6 +39,6 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 /* A phone: the frame gives up its padding, so a 390 pixel panel fits a 390 pixel screen. */
 @media (max-width: 640px) {
   .pp-main { padding-inline: 0; }
-  .pp-state-name, .pp-state-note, .pp-log { padding-inline: var(--space-4); }
+  .pp-state-name, .pp-state-note, .pp-log, .pp-group-name { padding-inline: var(--space-4); }
   .pp-frame { padding: 0; border-radius: 0; outline: 0; }
 }

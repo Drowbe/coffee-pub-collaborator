@@ -71,7 +71,7 @@ const rows = (n, words) => {
 const WORDS = ['Passports and visas', 'Chargers and adaptors', 'Rain jackets', 'First aid kit', 'Snacks for the drive', 'Maps printed', 'Camera and spare batteries', 'Sunscreen'];
 const titlebar = () => ({
   add: { label: 'Add', entries: [{ id: 'list', label: 'A list', icon: 'list' }, { id: 'note', label: 'A note', icon: 'note-sticky' }] },
-  icons: [{ id: 'pin', icon: 'thumbtack', label: 'Pin', on: false }, { id: 'alerts', icon: 'bell', label: 'Alerts' }, { id: 'pop', icon: 'up-right-from-square', label: 'Pop out' }],
+  actions: [{ id: 'pin', icon: 'thumbtack', label: 'Pin', placement: 'bar', on: false }, { id: 'alerts', icon: 'bell', label: 'Alerts', placement: 'bar' }],
   close: true,
 });
 const viewSwitch = () => ({ type: 'switch', id: 'view', label: 'View', value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'board', label: 'Board', icon: 'table-columns' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }] });
@@ -127,27 +127,158 @@ const STATES = [
 ];
 
 const main = D.getElementById('pp-main');
-for (const s of STATES) {
+const lastAction = (log) => (e) => {
+  log.textContent = `Last: ${e.area} ${e.id}${e.standard ? ' (standard)' : ''}${e.value !== undefined ? ` = ${e.value}` : ''}${e.on !== undefined ? (e.on ? ' (on)' : ' (off)') : ''}`;
+};
+// One panel: its name, a note, the panel on the canvas colour, and a line that says what was last pressed.
+function panel(s, into, level = 'h2') {
   const sec = D.createElement('section');
   sec.className = 'pp-state';
-  const h = D.createElement('h2');
+  const h = D.createElement(level);
   h.className = 'pp-state-name';
   h.textContent = s.name;
   const p = D.createElement('p');
   p.className = 'pp-state-note';
   p.textContent = s.note;
   const box = D.createElement('div');
-  box.className = `pp-frame${s.narrow ? ' pp-narrow' : ''}`;
+  box.className = `pp-frame${s.narrow ? ' pp-narrow' : ''}${s.phone ? ' pp-phone' : ''}${s.open ? ' pp-open' : ''}`;
   const log = D.createElement('p');
   log.className = 'pp-log';
   log.setAttribute('aria-live', 'polite');
-  const frame = createModuleFrame({
-    ...s.frame(),
-    onAction: (e) => { log.textContent = `Last: ${e.area} ${e.id}${e.value !== undefined ? ` = ${e.value}` : ''}${e.on !== undefined ? (e.on ? ' (on)' : ' (off)') : ''}`; },
-  });
+  const frame = createModuleFrame({ ...s.frame(), onAction: lastAction(log) });
   box.append(frame.el);
   sec.append(h, p, box, log);
-  main.append(sec);
+  into.append(sec);
+  return { frame, box };
+}
+for (const s of STATES) panel(s, main);
+
+// ---- the title bar's actions (Thomas, 2026-10-24) ----
+const EXPENSES = ['Hotel, two nights', 'Train tickets', 'Dinner on Friday', 'Museum passes', 'Taxi from the station', 'Coffee and snacks'];
+const EVENTS = ['Breakfast at the hotel', 'Walking tour', 'Lunch by the river', 'Train to the coast', 'Dinner booking'];
+const MESSAGES = ['Ana: The train is at nine', 'Ben: I will bring the snacks', 'Mia: Rooms are booked', 'Ana: Who has the passes?'];
+const budgetLike = () => ({
+  title: 'Budget', icon: 'wallet',
+  titlebar: { add: { label: 'Add an expense' }, actions: [{ id: 'clear', label: 'Clear', icon: 'trash', placement: 'menu', danger: true }], close: true },
+  toolbar: [viewSwitch(), { type: 'spacer' }, { type: 'search', id: 'find', label: 'Search the budget', placeholder: 'Search' }],
+  content: rows(6, EXPENSES),
+  status: { text: '6 expenses' },
+});
+const TITLEBAR_STATES = [
+  {
+    name: 'Budget-like', note: 'The "+", Clear in the menu (last, in red, after its own line) and every standard action.',
+    frame: budgetLike,
+  },
+  {
+    name: 'Calendar-like', note: 'The "+", Today and Filter as icons beside the menu, and every standard action in the menu.',
+    frame: () => ({
+      title: 'Calendar', icon: 'calendar',
+      titlebar: {
+        add: { label: 'Add an event' },
+        actions: [{ id: 'today', label: 'Today', icon: 'calendar-day', placement: 'bar' }, { id: 'filter', label: 'Filter', icon: 'filter', placement: 'bar', on: false }],
+        close: true,
+      },
+      toolbar: [{ type: 'switch', id: 'view', label: 'View', value: 'week', options: [{ id: 'day', label: 'Day', icon: 'calendar-day' }, { id: 'week', label: 'Week', icon: 'calendar-week' }, { id: 'month', label: 'Month', icon: 'calendar' }] }],
+      content: rows(5, EVENTS),
+      status: { text: 'Week of 3 May' },
+    }),
+  },
+  {
+    name: 'Chat-like', note: 'No "+", Print switched off, Share on.',
+    frame: () => ({
+      title: 'Chat', icon: 'comments',
+      titlebar: { standard: { print: false, share: true }, close: true },
+      toolbar: [],
+      content: rows(4, MESSAGES),
+      status: { text: '4 messages' },
+    }),
+  },
+  {
+    name: 'Narrow, 390', note: 'Always 390 pixels wide, with three icons: the last ones fold into the menu, at its top, before the title is cut.', phone: true,
+    frame: () => ({
+      title: 'Calendar for the long weekend away', icon: 'calendar',
+      titlebar: {
+        add: { label: 'Add an event' },
+        actions: [{ id: 'today', label: 'Today', icon: 'calendar-day', placement: 'bar' }, { id: 'filter', label: 'Filter', icon: 'filter', placement: 'bar', on: false }, { id: 'sync', label: 'Sync now', icon: 'arrows-rotate', placement: 'bar' }, { id: 'clear', label: 'Clear', icon: 'trash', placement: 'menu', danger: true }],
+        close: true,
+      },
+      toolbar: [],
+      content: rows(5, EVENTS),
+      status: { text: 'Week of 3 May' },
+    }),
+  },
+  {
+    name: 'The menu, open', note: 'The Budget-like menu drawn open, so it can be seen without a click (a picture: the real one opens from the "⋮").', open: true,
+    frame: budgetLike,
+  },
+];
+
+// The menu as the host draws it (host-menu.js: the same classes and rows), held open in place.
+function staticMenu(items) {
+  const menu = D.createElement('div');
+  menu.className = 'host-menu pp-menu-open';
+  menu.setAttribute('aria-hidden', 'true');
+  menu.inert = true;
+  for (const it of items) {
+    if (it.divider) {
+      const line = D.createElement('div');
+      line.className = 'host-menu-divider';
+      menu.append(line);
+      continue;
+    }
+    const b = D.createElement('button');
+    b.type = 'button';
+    b.className = `host-menu-item${it.danger ? ' danger' : ''}`;
+    b.tabIndex = -1;
+    if (typeof it.checked === 'boolean') {
+      b.setAttribute('role', 'menuitemcheckbox');
+      b.setAttribute('aria-checked', String(it.checked));
+      const box = D.createElement('span');
+      box.className = 'host-menu-check';
+      b.append(box);
+    }
+    if (it.icon) {
+      const i = D.createElement('i');
+      i.className = `fa-${it.regular ? 'regular' : 'solid'} fa-${it.icon} fa-fw`;
+      b.append(i);
+    }
+    const label = D.createElement('span');
+    label.className = 'host-menu-label';
+    label.textContent = it.label;
+    b.append(label);
+    menu.append(b);
+  }
+  return menu;
+}
+
+const group = D.createElement('section');
+group.className = 'pp-group';
+group.setAttribute('aria-labelledby', 'pp-titlebar-actions');
+const groupName = D.createElement('h2');
+groupName.className = 'pp-group-name';
+groupName.id = 'pp-titlebar-actions';
+groupName.textContent = 'Title bar actions';
+const groupNote = D.createElement('p');
+groupNote.className = 'pp-state-note';
+groupNote.textContent = 'Standard actions are the host\'s, the same in every module; a module adds its own, as icons beside the menu or in it. The "+" is always beside the menu.';
+group.append(groupName, groupNote);
+main.append(group);
+for (const s of TITLEBAR_STATES) {
+  const { frame, box } = panel(s, group, 'h3');
+  if (!s.open) continue;
+  const menu = staticMenu(frame.titlebarMenu());
+  box.append(menu);
+  const trigger = frame.el.querySelector('.mf-titlebar-menu');
+  trigger.classList.add('pp-held');
+  // Under the "⋮", its end in line with the button's, as the host's menu sits when it meets the window's edge.
+  const place = () => {
+    const b = box.getBoundingClientRect();
+    const t = trigger.getBoundingClientRect();
+    menu.style.top = `${t.bottom - b.top + box.scrollTop + 4}px`;
+    menu.style.left = `${Math.max(0, t.right - b.left + box.scrollLeft - menu.offsetWidth)}px`;
+  };
+  new ResizeObserver(place).observe(frame.el);
+  place();
 }
 
 pageSwitch('pp-theme', 'theme', THEMES);

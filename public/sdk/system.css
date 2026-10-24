@@ -5761,10 +5761,13 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-titlebar-title { flex: 1 1 auto; min-width: var(--mf-title-min); margin: 0; overflow: hidden; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-title); white-space: nowrap; text-overflow: ellipsis; }
 .mf-titlebar-tools { display: flex; flex: none; align-items: center; gap: var(--space-0); }
 .mf-titlebar-tools > [hidden] { display: none; }
+/* The title bar's buttons, start to end: the module's bar actions, the "+", the menu ("⋮", the host's menu: module-frame.js)
+   and the close button. A button whose menu is open keeps the hover fill while it is open. */
+.mf-titlebar-tools > [aria-expanded="true"] { background: var(--fill-hover); color: var(--text-primary); }
 /* The "+": outlined, its plus in the accent, so it reads as "make something" beside the bare icon buttons. */
 .mf-add-btn {
   display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-  width: var(--mf-ctl-h); height: var(--mf-ctl-h); margin-right: var(--space-1); padding: 0;
+  width: var(--mf-ctl-h); height: var(--mf-ctl-h); margin-inline: var(--space-1); padding: 0;
   border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field); color: var(--text-accent);
   font-size: var(--icon-14);
 }

@@ -5858,6 +5858,8 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 
 /* The Filters button: a small-corner box for the count of what is applied (never a pill); always shown, only ever moved into More. */
 .mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; border-radius: var(--radius-small); }
+.mf-filters > i { transform: translateY(-1.5px); } /* the label's ink sits above its line box's middle: the funnel and the count follow the ink (measured in pixels at 3x) */
+.mf-filters .mf-count-box { transform: translateY(-1px); }
 .mf .mf-count.mf-count-box { border-radius: var(--radius-round); padding: 0 var(--space-1); line-height: 1; align-self: center; background: var(--accent-fill); color: var(--text-on-accent); }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */

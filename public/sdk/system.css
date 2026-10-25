@@ -5919,6 +5919,12 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   font-size: var(--text-12);
 }
 .mf-status[hidden] { display: none; }
+/* Light mode: the title and status bars are a deeper tint of the theme's own warm tone (panel toward the accent), never black. */
+:root[data-theme-mode="light"], :root[data-mode-shown="light"]:not([data-theme-mode="dark"]) {
+  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 76%, color-mix(in srgb, var(--accent-fill) 60%, var(--text-primary)));
+  --mf-surface-status: var(--mf-surface-title);
+}
+:root[data-theme-mode="light"] .mf-status, :root[data-mode-shown="light"]:not([data-theme-mode="dark"]) .mf-status { color: var(--text-secondary); }
 .mf-status-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mf-status-items { display: flex; flex: none; align-items: center; gap: var(--space-3); white-space: nowrap; }
 .mf-status-item { display: inline-flex; align-items: center; gap: var(--space-1); }

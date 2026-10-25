@@ -148,13 +148,38 @@ Sizes and type that are not colours; no theme sets them, and they live in `:root
 |---|---|
 | `--status-strip-h` | the space's status strip, the header's second row wider than a phone: 44px. The strip is one fixed line, so its words arriving never change the header's height |
 | `--status-strip-slim-h` | the same strip on a phone, a slim line of the header under the top row: 28px |
-| `--status-bar-h` | the status line at the foot of a module's window (`host.status.set`): 24px. `/sdk/host.css` has the same token. It is not the status strip |
+| `--mf-status-h` | the status bar at the foot of a module's window (`host.status.set`): 24px. It is not the status strip. The module frame's other sizes are below |
 | `--nav-font-size` | the size of the nav text: 13px |
 | `--nav-font-weight` | the weight of the nav text: 600 |
 | `--nav-letter-spacing` | the nav text's letter spacing: `normal` |
 | `--nav-line-height` | the nav text's line height: `normal` |
 
 **The nav text.** One type for every word in the top bar and the status strip (Thomas, 2026-10-14: "the correct one is the Workspace, Calendar, etc."). The layout tabs and links (`.core-link`) are the reference, and every other element in the bars that carries words wears the class `.nav-text` (the space switcher, Who is here, your name, **Join the call**, the phase chip, a band's name, a page bar's name and tabs, a labelled button the registry draws). `.nav-text` and `.core-link` read the four tokens above, with the page's own font family, and take the bar's link colour at rest (`--icon`, else the header text softened); what is current, such as the tab shown, the phase chip, today's band and the page's name, says `--header-text` in its own rule. `.btn.nav-text` outweighs the button's own type and keeps the button's colours. No element restates a size or weight of its own. The exceptions are the environment's name (the wordmark, larger), the "days to <phase>" caption under the countdown (a small caption) and the phone's menu rows and tab bar. The class is for the app's own bars, not for a module.
+
+## The module frame
+
+Every module window is one frame, `createModuleFrame` (`public/module-frame.js`), in four levels top down: the title bar, the toolbar (one row), the content and the status bar. Its styles are the moduleframe block of `public/sdk/system.css` (classes `mf-*`); no module draws or styles them. Every size and surface is a token at the top of the block, so changing one changes every window. The pieces live on the **Prototype** page of the design system pages ([architecture-module-window](../architecture/architecture-module-window.md) says how the host draws them).
+
+| Token | Use |
+|---|---|
+| `--mf-title-h` | the title bar: 36px |
+| `--mf-band-h` | the toolbar: 40px |
+| `--mf-status-h` | the status bar: 24px |
+| `--mf-ctl-h` | a control in the toolbar or title bar (a button, the switch, the search, a tab): 28px |
+| `--mf-chip-h` | the Filters button and a chip: 24px |
+| `--mf-inset` | the toolbar's sides and the content's padding: 12px |
+| `--mf-search-w`, `--mf-search-min` | the search field's width, 220px, and the least it gives way to before it folds to a magnifier, 120px |
+
+The title bar and the status bar are the same, darker surface (`--mf-surface-title`, the panel colour mixed 70% with black); the toolbar is a step lighter than the panel and the content is the panel colour. An object's row in the content is a gentle tint of the theme's accent (`--mf-surface-row`, a little more on hover): a hint, not a card. A count anywhere in the frame (the Filters button, a tab, a menu entry) is the one shared `.sdk-badge`, and it shows the real number. The status bar is words with a dot between, never pills. A filter is not shown as a row of chips: the toolbar has one Filters button, and its menu holds the groups and **Clear filters**.
+
+## The design system pages
+
+`/design-system/` serves four pages with the same links at the top (the pages and how they fit are described in `public/design-system/README.md`):
+
+- **Design System**: what is in production, each family drawn from the product's own stylesheets. `tools/check-design-system-catalog.mjs` (in `npm run check`) fails when an example uses a class no stylesheet defines, when a block of `system.css` has no family, and when the moduleframe family does not link to the Prototype page.
+- **Proposed**: changes staged for the design system, each with what, why and its status. Nothing is staged now.
+- **Prototype**: the module frame drawn by the real `createModuleFrame` in four states, in each shipped theme, Light or Dark, at a width chosen at the top. A tweak made here is staged on Proposed, then built into production.
+- **Legacy**: frozen records (the app's inventory before the design system, and System v1).
 
 ## The action button
 

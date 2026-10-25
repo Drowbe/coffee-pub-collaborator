@@ -986,7 +986,8 @@ test('the space bar in two zones: Layout (the module chooser), then Online, on t
   assert.match(css, /body\.in-space \.subnav \{\s*display: grid;\s*grid-column: 1 \/ -1;[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the left zone takes what the right does not');
   assert.ok(!/data-middle|subnav-middle/.test(css + dest), 'no data-middle and no #subnav-middle rules');
   assert.ok(!/\.subnav[^{,]*\.nav-middle/.test(css + dest), 'no rule for a middle in the space bar or a page bar');
-  assert.match(dest, /body\.destination-page \.subnav \{\s*display: grid;\s*grid-column: 1 \/ -1;\s*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the destination page\'s bar too');
+  assert.ok(!/body\.destination-page \.subnav/.test(dest), 'the destination page has no bar of its own under the top bar: its module frame\'s title bar is its bar');
+  assert.match(dest, /body\.destination-page > \.mf \{\s*flex: 1 1 auto;/, 'the frame fills the page under the top bar');
   // One colour: the bar's own, and no rule gives either zone a background.
   const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const [, sel, body] of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -1951,10 +1952,15 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   assert.ok(!/renderPageBar|id="subtabs"/.test(read('space-setup.js')), 'the Set up panel draws no page bar');
   assert.ok(!fs.existsSync(path.join(ROOT, 'public', 'ai-config.js')), 'the AI service is set up on its tab on Manage > Modules, not a page of its own');
   assert.match(read('module-config.js'), /renderPageBar\(\{ manage: '\/admin#modules' \}\)/);
-  assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: mod\.name, icon: mod\.icon \}\)/);
-  assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: title \|\| mod\.name, icon: mod\.icon \}\)/);
+  // A module's own page and a destination's page are one module frame (public/module-frame.js) under the top bar: the frame's
+  // title bar names the page and holds its "+" and icons, so neither draws a page bar.
+  const modJs = read('module.js');
+  assert.ok(!/renderPageBar/.test(modJs), 'a module\'s own page draws no page bar');
+  assert.match(modJs, /createModuleFrame\(\{\s*\n\s*title: mod\.name,\s*\n\s*icon: mod\.icon,/, 'its frame\'s title bar names it');
+  assert.match(modJs, /chrome\.setTitle\(title \|\| mod\.name\);/, 'and follows the module\'s own title');
   const dest = read('destination.js');
-  assert.match(dest, /renderPageBar\(\{ name: d\.name, icon: d\.icon, showName: false, id: 'dest-bar', className: 'dest-bar' \}\)/, 'Calendar and Map: the shared bar, no name (their entry is current)');
+  assert.ok(!/renderPageBar/.test(dest), 'Calendar and Map draw no page bar');
+  assert.match(dest, /page = createModuleFrame\(\{\s*\n\s*title: d\.name,\s*\n\s*icon: d\.icon,\s*\n\s*variant: 'page',/, 'Calendar and Map: the frame names the page');
   assert.ok(!/bar\.className = 'subnav dest-bar'/.test(dest), 'no copy of the bar in destination.js');
   assert.ok(!/renderPageBar/.test(read('host.js')), 'the host console has no page bar');
   // The tabs keep their ids; the page bar's look.

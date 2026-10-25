@@ -102,15 +102,17 @@ await test('pages: the Calendar draws markers as chips, by the filter, in every 
   assert.match(js, /typeof m\.module\.svg === 'string' && m\.module\.svg\.includes\('<svg'\)[^\n]*markerIcons\.set\(m\.module\.icon, m\.module\.svg\);\n\s+else wantIcon\(m\.module\.icon\);/);
   for (const t of ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink']) assert.ok(css.includes(`.tint-${t} { --tint: var(--tint-${t}); }`), t);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css.slice(css.indexOf('/* Markers'))), 'no colour that is not a token');
-  // The filter: a chip per kind in the host's toolbar row (on the environment's page beside the spaces, in a space alone; they
-  // fold into the row's filter menu when it is narrow; plan-unified-layout.md), a part takes the page's (markersOff), and only
-  // the space's own markers in a space.
-  assert.match(js, /kinds\.map\(\(k\) => \(\{ id: `marker:\$\{k\.id\}`, label: k\.label/, 'a chip per kind');
-  assert.match(js, /type: 'chips', id: 'show', label: 'Show', icon: 'filter', options/, 'in the toolbar\'s chips');
-  assert.match(js, /if \(what === 'marker'\) return toggleMarkerKind\(id, Boolean\(e\.on\)\);/, 'a chip turns its kind on or off');
+  // The filter: a switch per kind in the row's Filters menu (its group "Markers": on the environment's page beside the spaces'
+  // group, in a space alone; plan-unified-layout.md), a part takes the page's (markersOff), and only the space's own markers
+  // in a space.
+  assert.match(js, /options: kinds\.map\(\(k\) => \(\{ id: `marker:\$\{k\.id\}`, label: k\.label/, 'a switch per kind');
+  assert.match(js, /\{ id: 'show-markers', label: 'Markers', options: kinds\.map/, 'in the Filters menu\'s Markers group');
+  assert.match(js, /return groups\.filter\(\(g\) => g\.options\.length\)\.map\(\(g\) => \(\{ type: 'chips', \.\.\.g \}\)\);/, 'each group a chips item of the toolbar');
+  assert.match(js, /if \(what === 'marker'\) return toggleMarkerKind\(id, Boolean\(e\.on\)\);/, 'a switch turns its kind on or off');
+  const frameJs = read('public/module-frame.js');
+  assert.match(frameJs, /on\.on = !isOn\(on\);\s*\n\s*pick\(`\$\{n\.id\}\\n\$\{on\.id\}`, on\.on\);\s*\n\s*fire\(\{ id: n\.id, value: on\.id, on: on\.on \}\);/, 'the frame sends the switch and its new state (on the entry shown now)');
   const hostPage = read('public/module-host.js');
-  assert.match(hostPage, /c\.addEventListener\('click', \(\) => fire\(item, \{ id: item\.id, value: o\.id, on: !o\.on \}\)\);/, 'the host sends the chip and its new state');
-  assert.match(hostPage, /onPick: \(\) => \{ o\.on = !o\.on; fire\(now, \{ id: now\.id, value: o\.id, on: o\.on \}\); \}/, 'and so does its switch, folded');
+  assert.match(hostPage, /for \(const k of \['value', 'on', 'submit'\]\) if \(e\[k\] !== undefined\) data\[k\] = e\[k\];/, 'and the host hands it to the module as it is');
   // A space's switches are remembered in this browser, per space, as /calendar remembers its filter.
   assert.match(js, /const MARKERS_OFF_KEY = inSpace && !part && info\.context\.spaceId \? `calendar-markers-off:\$\{info\.context\.spaceId\}` : '';/);
   assert.match(js, /JSON\.parse\(localStorage\.getItem\(MARKERS_OFF_KEY\) \|\| '\[\]'\)/, 'read when it opens');
@@ -124,7 +126,8 @@ await test('pages: the Calendar draws markers as chips, by the filter, in every 
   assert.match(js, /const markerKindLabel = [^\n]*\$\{m\.due === true \? 'due' : 'closing'\}`;/, '"Tasks due", "Polls closing", by the kind');
   const dest = read('public/destination.js');
   assert.match(dest, /markers: true,/, '/calendar lists the kinds of markers');
-  assert.match(dest, /\.\.\.\(kind\.markers \? markerKinds\.map\(\(k\) => \(\{ id: `\$\{MARKER\}\$\{k\.id\}`/, 'a switch per kind');
+  assert.match(dest, /const markers = kind\.markers \? markerKinds\.map\(\(k\) => \(\{ id: `\$\{MARKER\}\$\{k\.id\}`/, 'a switch per kind');
+  assert.match(dest, /\{ id: 'dest-markers', label: 'Markers', options: markers \}/, 'in its own group of the Filters menu');
   assert.match(dest, /remember\(\{ off: \[\.\.\.off\][^\n]*markersOff: \[\.\.\.markersOff\]/, 'remembered as the filter is');
   assert.match(dest, /remember\(\{ markerKinds \}\);/, 'and the kinds, so the switches stay after a reload');
   assert.match(dest, /\.\.\.\(kind\.markers \? \{ markersOff: \[\.\.\.markersOff\] \} : \{\}\)/, 'and handed to the parts');

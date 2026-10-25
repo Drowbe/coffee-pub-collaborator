@@ -1,6 +1,6 @@
-/* A destination's page (public/destination.html, destination.js): the header with its second row (the page bar), the
-   main part filling the page and the panel on its right; on a phone, the parts as tabs along the bottom. Colours are
-   the theme's tokens only (design-theme.md). */
+/* A destination's page (public/destination.html, destination.js): the header, then the module frame (its page variant:
+   public/module-frame.js) filling the page, the main part in its content and the panel on its right; on a phone, the parts
+   as tabs along the bottom. Colours are the theme's tokens only (design-theme.md). */
 
 body.destination-page {
   display: flex;
@@ -9,50 +9,35 @@ body.destination-page {
   height: 100dvh;
 }
 
-/* The page bar is the header's second row, as the space bar is in a space (style.css, .subnav). */
-body.destination-page .topbar {
-  flex-wrap: wrap;
-  row-gap: 0;
-}
-
-/* A view of one space in the space page's frame (destination.js, `withoutTopbar`): no top bar of its own, so the
-   header is the page bar's row alone, no taller than that. */
-body.dest-no-topbar .topbar {
-  min-height: 0;
-  padding: 0; /* not the header's own (style.css; a phone's 4px above and below matches a narrow frame): the bar is the row */
-}
-
-/* The bar is the last row of the header: nothing of the header under it (a phone's 4px, style.css), so the content starts at its
-   hairline, as under every module's toolbar. */
-body.destination-page .topbar {
-  padding-bottom: 0;
-}
-
-/* Two zones (plan-two-zone-nav.md): the left takes what the right does not. Each zone in its own column. */
-body.destination-page .subnav {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-body.destination-page .subnav > .nav-left { grid-column: 1; }
-body.destination-page .subnav > .nav-right { grid-column: 2; }
-
-/* In a composite's frame on a space's canvas the composite's titlebar is the titlebar: no header here at all. */
+/* A view of one space in the space page's frame (destination.js, `withoutTopbar`), or a composite's page on the Workspace:
+   no header at all; the frame's title bar, or the composite's window, is the bar. */
+body.dest-no-topbar .topbar,
 body.dest-in-composite .topbar {
   display: none;
 }
 
-/* The toolbar rows' inset follows the screen the window is on (destination.js bandsFollowScreen), not the frame's own width (a
-   docked column is narrower than a phone, and the phone value of --pad-toolbar-x would hold in it): 8px, and on a phone 12px,
-   as a module window's. */
-body.destination-page :is(.dest-toolbar, .dest-side-toolbar) {
-  padding-inline: var(--space-2);
+/* The frame fills the page under the header; the parts fill its content. */
+body.destination-page > .mf {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-body.destination-page.dest-phone :is(.dest-toolbar, .dest-side-toolbar) {
-  padding-inline: var(--space-3);
+.mf-content:has(> .dest) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The panel's own frame (only its row, while the panel is stacked under the main part) fills the panel. */
+.dest-side > .dest-side-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.dest-side-frame > .mf-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .dest-tab:focus-visible {
@@ -98,6 +83,11 @@ body.destination-page.dest-phone :is(.dest-toolbar, .dest-side-toolbar) {
   display: flex;
 }
 
+/* The panel's parts are one above the other (only one shows), each the panel's whole width, sized or not. */
+.dest-side-body {
+  flex-direction: column;
+}
+
 .dest-part-root,
 .dest-part-frame {
   flex: 1;
@@ -105,7 +95,7 @@ body.destination-page.dest-phone :is(.dest-toolbar, .dest-side-toolbar) {
   height: 100%;
   min-width: 0;
   border: 0;
-  background: var(--bg);
+  background: var(--mf-surface-content); /* the frame's content level */
 }
 
 .dest-missing {

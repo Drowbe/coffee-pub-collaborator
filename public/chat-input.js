@@ -973,7 +973,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     return s && !s.isAside ? s.id : null;
   }
 
-  // Chat's one line of news, in its status area (#chat-note inside #chat-status, the modules' own status line): always
+  // Chat's one line of news, in its status area (#chat-note inside #chat-status, the module frame's status bar): always
   // there, a polite live region, so a change is read out once. A failure shows in the error text colour.
   function setNote(text, error = false) {
     const el = note();

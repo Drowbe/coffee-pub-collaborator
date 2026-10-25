@@ -29,7 +29,7 @@
     <div id="state" class="sdk-empty">                 replaces the map (see States)
 ```
 
-There is no list or panel over the map. Where the host draws the titlebar "+" (`host.add.set` answers true) the map's toolbar is that **+** (one entry, "Add a place", which opens Places' dialog at once, empty; a place need not be a pin) and `form#map-search` (`role=search`, `input#map-find`: Enter searches, a pasted position or map link goes there; `.results.under-search` lists what it found just under it), a field over the top left of the map; the status line says how many places show, how many a search found, or "Click the map to add a place". The "+" is in the window's titlebar wherever the module has a window (docked, floating, popped out) and in the page bar on its own page. Where the host answers false the square **+** on the map (`#ctrl-add`, tooltip "Add a place") turns on adding instead. The list of places is the Places module.
+There is no list or panel over the map. The host draws the bands (title bar, toolbar row, status bar): the title bar's **+** has one entry, "Add a place", which opens Places' dialog at once, empty (a place need not be a pin), and the toolbar row has the module's search (`host.toolbar.set`, one `search` item with the id `find`: Enter searches, a pasted position or map link goes there; `.results.under-search` lists what it found just under the toolbar). As the destination's map the page's row has the search instead, and the module sends none. The status bar says how many places show, how many a search found, or "Click the map to place it" while a spot is being picked. The list of places is the Places module.
 
 ## Wide and narrow
 
@@ -53,7 +53,7 @@ The field (Enter) searches through Places. `ul.results#results` holds `li > butt
 ## Adding a place
 
 Ways to add, all ending at Places' own dialog (the titlebar "+" opens it empty; the others fill the position in):
-1. **The + on the map** (`#ctrl-add`, "Add a place") turns on adding: `.map.adding` (a crosshair cursor) and `#banner`. A click on the map puts the `.draft` pin there. `data-action=cancel` in the banner (or Escape) leaves adding.
+1. **Picking a spot.** When Places' dialog asks for a position (its Position field's target, the `pickPoint` action), the map turns on adding: `.map.adding` (a crosshair cursor) and `#banner`. A click on the map puts the `.draft` pin there. `data-action=cancel` in the banner (or Escape) leaves adding. The title bar's **+** does not turn it on; it opens the dialog.
 2. **The field**: a coordinate pair ("38.7075, -9.1364") or a map link puts a draft pin there.
 3. **A search result** (above).
 
@@ -101,7 +101,7 @@ No sprite or icon font is needed. Labels use one Latin glyph set at first (see t
 ## Once search and saving move to Places (see plan-places-views.md)
 
 Maps becomes a view of places and a gesture to choose a point. What stays: the pins, clusters, the map file, the credit, `add-place` (click the map to choose a point), `open-in-maps` and `copy-coords` on a selected place. What changes in the design (the scripts follow when Server Development builds the actions):
-- **`#search`** keeps its place on the map, but its results come from Places (an action that returns a few results), so they are the same as the ones Places shows when its quick-add searches. A result is drawn as a **candidate pin** (`.pin.candidate`: dashed outline, surface fill, no count); picking one (`data-action=save-found` in its callout) asks Places to save it.
+- **The search** is the toolbar's field (`find`), not an element of the map. Its results come from Places (an action that returns a few results), so they are the same as the ones Places shows when its quick-add searches. A result is drawn as a **candidate pin** (`.pin.candidate`: dashed outline, surface fill, no count); picking one (`data-action=save-found` in its callout) asks Places to save it.
 - **Saving** is Places' dialog: after a click on the map the map asks Places to add a place at that point (the `newPlace` action with the position) and Places opens its own dialog. The map's `#editor` goes away, with `f-title`, `f-notes` and `#f-where`; the draft pin stays until Places has saved or the person cancels.
 - **No list panel.** Maps requires Places, so Places is the list (decided by the author). `#panel`, its rows, groups and the phone sheet go away; the map shows pins, and an object from another module opens in its own module. Selecting a pin shows its callout on the map.
 - **A pin from mine** (the person scope) has `data-scope="person"`, which draws the small person mark on it.
@@ -115,7 +115,7 @@ Maps has the `environment` scope and declares `surfaces.destination` `{ id: 'map
 - **Enter** (`find` raised): a name asks the place search (`searchPlaces`, near the map's centre) and draws `.pin.candidate` pins; the results are listed by the panel beside, so `#results` stays hidden. A pasted position puts the `.draft` pin there and asks `newPlace`.
 - **On a phone** (the page's `phone`, its parts are tabs): the callout has **Show in list** (`data-action=show-in-list`), which sets the page's `reveal: 'panel'`, and the page shows the list's tab with the place selected.
 - **The selection** (`selected`): either part may set it. A pin clicked here sets it; one set by the panel is selected here (the map flies to it), read again first when it is new.
-- There is no host bar: `#ctrl-add` (top left, `.maplibregl-ctrl-top-left`) holds the **+** "Add a place", shown when something offers `newPlace`. The map's last view is kept in this browser (`maps-destination-view`).
+- There is no host bar and no **+** on the map itself: the **+** is the title bar's (`host.add.set`), shown when something offers `newPlace`. The map's last view is kept in this browser (`maps-destination-view`).
 
 **The environment page on its own** (`/modules/maps`, when the Map destination is not shown) draws the same pins with no filter, no panel and no adding (the actions it would ask are carried out by a Places page that is not open there); its search field takes pasted coordinates or a map link to go there.
 
@@ -125,7 +125,7 @@ While the environment has a picture map (`host.environment.pictureMap`, `{ file,
 - **The style** is `buildPictureStyle()`: a `background` layer (`--bg-section`) and one `raster` layer from a `raster` source `pmtiles://<address>` (`tileSize` 256, the file's own zooms and bounds). The file is read by range from `host.files.url(file)` with `?folder=image-map`.
 - **Zoom and panning** (`pictureLimits()`): the map's `maxZoom` is the file's own maximum (no zoom past it: it only blurs; this replaces the earlier "plus two"), `landZoom` (where a selected place, a new pin and a fit land) is one level above it and never above the file's minimum, `minZoom` the file's minimum, and `maxBounds` the file's bounds (the whole web map square when the header has none). It opens on the whole picture, or where it was last left (the world map's key with `.picture` added, so the world map's own view is kept). Every fixed zoom (a pin, a new place, a pasted position, a cluster, a remembered view) goes through `capZoom()`. A pin's label shows from three levels under the file's maximum.
 - **Left out:** "Show where I am", `a[data-action=open-in-maps]` (removed from the callout), the callout's `[data-slot=coords]` ("Copy coordinates" stays), the OpenStreetMap credit, and the no-WebGL state's `[data-slot=maps-app]` words.
-- **Search** looks only at the places drawn: the field (placeholder "Search saved places") selects the first match by title or where it is and lists several in `#results` (picking one selects it), or says "No saved places match."; as the destination's part, Enter selects the first match. The outside search is never asked. A pasted position still goes there.
+- **Search** looks only at the places drawn: the toolbar's field (placeholder
 - Positions stay `{ lat, lng }`; pins, clusters, the callout, the draft pin, the drop and the selection are unchanged.
 
 ## Not decided yet

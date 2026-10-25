@@ -1112,15 +1112,13 @@
   const call = env.call;
   ensureTooltips();
   // The one toolbar row: its view switches and toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) in the order
-  // they were made lead it, then a separator, then the module's own items (host.toolbar.set), so a switch never moves
-  // when the module's tools change. Any of them changing
-  // draws the row again; the same row twice is not sent.
+  // they were made lead it, then the module's own items (host.toolbar.set), so a switch never moves when the module's
+  // tools change. Any of them changing draws the row again; the same row twice is not sent.
   const switches = [];
   let ownToolbar = [];
   let toolbarSig = '';
   function drawToolbar() {
-    const tools = switches.flatMap((s, i) => (i ? [{ type: 'separator' }, s.item()] : [s.item()]));
-    const items = [...tools, ...(ownToolbar.length && tools.length ? [{ type: 'separator' }] : []), ...ownToolbar];
+    const items = [...switches.map((s) => s.item()), ...ownToolbar];
     const sig = JSON.stringify(items);
     if (sig === toolbarSig) return Promise.resolve(true);
     toolbarSig = sig;
@@ -2024,7 +2022,7 @@
       // only redraws when the value or the options actually change (call set() every render; it no-ops
       // when nothing did). Returns { set(value, options?), destroy() }.
       // A module may have more than one (whose items, and how they are laid out): every live switch shares the
-      // toolbar, drawn in the order they were made with a separator between, and any one changing redraws the row.
+      // toolbar, drawn in the order they were made, and any one changing redraws the row.
       // Each choice shows its icon and its word, and only its icon while the switch's row is too narrow for the words
       // (the word stays its tooltip and accessible name); a choice with no icon always shows its word.
       // The switch is always in the toolbar: the host draws that row wherever the module is drawn.
@@ -2889,12 +2887,13 @@
     },
 
     // The status bar: one slim read-only line at the bottom of the module's window, for counts and what is selected.
-    // set(items), up to 4 of { text, icon?, chip?, title?, quiet?, end? }: `text` up to 60 characters; `chip` draws it
-    // as a small pill (a filter); `title` its tooltip (else its text); `quiet` keeps it out of what a screen reader
-    // hears (a ticking time); `end` puts it at the right end (one). Nothing in it is a button. The host reads the
-    // non-quiet text out politely once it has been still a moment, and draws nothing for the same items again, so call
-    // it on every render. set([]) hides it. Resolves true wherever the module is drawn (a window, popped out too, its own
-    // page, a destination's page, a composite's window); only a dashboard widget answers false. Detect it with `if (host.status)`.
+    // set(items), up to 4 of { text, icon?, title?, quiet?, end? }: `text` up to 60 characters; `title` its tooltip (else its
+    // text); `quiet` keeps it out of what a screen reader hears (a ticking time); `end` puts it at the right end (one).
+    // The others are the words at the start, a dot between, cut with an ellipsis when the bar is too narrow. Nothing in it
+    // is a button. The host reads the non-quiet text out politely once it has been still a moment, and draws nothing for
+    // the same items again, so call it on every render. set([]) hides it. Resolves true wherever the module is drawn (a
+    // window, popped out too, its own page, a destination's page, a composite's window); only a dashboard widget answers
+    // false. Detect it with `if (host.status)`.
     status: {
       set: (items) => call('status.set', { items }),
     },
@@ -2932,44 +2931,48 @@
       clear: () => call('facts.clear'),
     },
 
-    // Icon buttons in the module's titlebar, ahead of the host's own buttons and set off by a pipe:
-    // set([{ id, icon, title, on, regular, disabled, overflow }]), where `icon` is a Font Awesome name (solid, or
-    // regular with `regular: true`) and `on` marks the current choice. A click arrives as the 'header'
-    // event with the button's id. Resolves true wherever the module is drawn (on its own page and a destination's page
-    // they are in the page bar); only a dashboard widget answers false. More than 5 items
-    // (or any item marked `overflow: true`, e.g. a destructive one you always want tucked away) collapse
-    // into a host-drawn "..." at the end -- the same idea as host.menu.show, but for the host's own chrome.
+    // The module's own actions in its title bar, beside the "+" and the host's menu:
+    // set([{ id, icon, title, on, regular, disabled, overflow, danger }]), where `icon` is a Font Awesome name (solid, or
+    // regular with `regular: true`), `title` its words (its tooltip and name) and `on` marks the current choice. Each is an
+    // icon beside the menu; `overflow: true` puts it in the title bar's menu instead (the module's own actions come first
+    // there, before a line and the host's standard actions), as do the icons past five and any the title bar has no room
+    // for; `danger: true` (a destructive action) is always last in that menu, in red. A click arrives as the 'header' event
+    // with its id. Resolves true wherever the module is drawn (a window, its own page, a destination's page, a composite's
+    // window); only a dashboard widget answers false.
     header: {
       set: (items) => call('header.set', { items }),
     },
 
-    // The one row under the titlebar, above the content: the tools about the module's current state -- a view
-    // switch, the period's title, a search, filter chips, a progress bar, a slider -- not window-level actions (those are
-    // the titlebar) and not the module's add actions (the titlebar's "+"). The host draws it wherever the module is drawn
-    // (a window, popped out, its own page, a destination's page) and keeps it one line: while it is too narrow the chips
-    // fold into one menu button, then a view switch shows only its icons, then the title is cut. Use 'button' sparingly,
-    // for the one action that goes with the toolbar's own state (Calendar's back, Today and forward). set([item, ...]):
-    //   { type: 'title', text }                                            -- the row's title ("October 2026"); takes the
-    //       room left over, cut with an ellipsis
-    //   { type: 'text', text }                                             -- a plain dim label
+    // The one row under the title bar, above the content: the tools about the module's current state -- a view switch,
+    // the period's title, the way through it (back, Today, forward), a search, the filters -- not window-level actions
+    // (those are the title bar's) and not the module's add actions (the title bar's "+"). The host draws it wherever the
+    // module is drawn (a window, popped out, its own page, a destination's page) in one fixed order: on the left the view
+    // switches, then the title and notes, then the buttons; on the right, always in the same place from the edge, the
+    // search and then one Filters button, which holds every `chips` item as a group in its menu (with Clear filters at
+    // the top) and shows how many filters are applied. It keeps the row one line, nothing ever cut: while it is too narrow
+    // the switches show only their icons, then the buttons, then the search becomes a magnifier in its place, then the
+    // left side's controls go into a "More" menu one at a time; the search and Filters stay. set([item, ...]):
+    //   { type: 'title', text }                                            -- the row's title ("October 2026")
+    //   { type: 'text', text }                                             -- a quieter note
     //   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] } -- a segmented switch (prefer
     //       host.ui.viewSwitch); a click arrives as the 'toolbar' event { id, value: optionId }
-    //   { type: 'search', id, value?, placeholder?, label? }               -- the band's small search field; typing arrives
-    //       as { id, value }, Enter as { id, value, submit: true }, Escape clears it ({ id, value: '' }). `value` is put
-    //       in the field only when it differs from the last `value` you sent, never under the person's typing
-    //   { type: 'chips', id, label?, icon?, options: [{ id, label, icon?, tint?, on, note? }] } -- filter chips that each
-    //       turn on and off; a click arrives as { id, value: optionId, on }. Folded, they are one button (`label`, else
-    //       "Filter", with "· 2 off" when some are) opening a menu of switches. Draw them again with the new `on`
-    //   { type: 'progress', value, label? }                                -- a read-only bar, value 0-100
-    //   { type: 'slider', id, value, min?, max?, step?, label?, disabled? } -- a range input; { id, value } as it moves
-    //   { type: 'button', id, label?, title?, icon?, on?, primary?, disabled?, overflow? } (the default type) -- a
-    //       click arrives as { id, x } (x: its left edge across the module, for a menu under it); an icon with no label
-    //       is an icon button, `title` its tooltip and name
-    //   { separator: true }                                                -- a vertical divider
-    // Only 'button' items count toward the 5-item cap and collapse into a host-drawn "...". Your view switches and
-    // toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) lead the same row, then a separator, then your items; call set on every
-    // render (the same row is not drawn twice). Resolves true wherever the module is drawn; only a dashboard widget
-    // answers false.
+    //   { type: 'search', id, value?, placeholder?, label? }               -- the row's search; typing arrives as { id, value },
+    //       Enter as { id, value, submit: true }, Escape clears it ({ id, value: '' }). `value` is put in the field only when
+    //       it differs from the last `value` you sent, never under the person's typing
+    //   { type: 'chips', id, label?, single?, value?, options: [{ id, label, icon?, tint?, note?, count?, on?, default? }] }
+    //       -- a group of filters in the Filters menu, under `label`. Switches, each turned on and off: a click arrives as
+    //       { id, value: optionId, on }; an option is applied while `on` is not its `default` (on unless you say
+    //       `default: false`), and that is what the Filters count counts. `single: true` makes it one choice, `value` the
+    //       chosen option's id, the first option meaning "nothing applied" ("All"); a pick arrives as { id, value }.
+    //       `count` is a number after the option; `note` a short word after it. Draw them again with the new state
+    //   { type: 'button', id, label?, title?, icon?, regular?, on?, primary?, disabled?, overflow?, placement? } (the default
+    //       type) -- a click arrives as { id, x } (x: its left edge across the module, for a menu under it); an icon with no
+    //       label is an icon button, `title` its tooltip and name; `on` a pressed state. `placement: 'titlebar'` draws it as
+    //       an icon in the title bar instead, `placement: 'menu'` puts it in the title bar's menu; `overflow: true` keeps it
+    //       in the row's "More" menu
+    // Your view switches and toolbar buttons (host.ui.viewSwitch, host.ui.toolbarButton) come first, then your items;
+    // call set on every render (the same row is not drawn twice). Resolves true wherever the module is drawn; only a
+    // dashboard widget answers false.
     toolbar: {
       set: (items) => { ownToolbar = Array.isArray(items) ? items : []; return drawToolbar(); },
     },

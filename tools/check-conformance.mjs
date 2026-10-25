@@ -1,5 +1,5 @@
-// check-conformance.mjs: the module window is one component, measured in the running product (plan-design-system.md, the
-// Module window block, step 28). The design system's own checks read the CSS; this one loads the pages the way a person sees
+// check-conformance.mjs: the module window is one component, the module frame (public/module-frame.js and the moduleframe
+// block of public/sdk/system.css, approved on the Prototype page), measured in the running product. The design system's own checks read the CSS; this one loads the pages the way a person sees
 // them and measures what the browser drew, so a module's own rule, a page that does not load the block, a container query or
 // a selector that loses to another cannot make one module's band differ from another's without this failing.
 //
@@ -10,17 +10,20 @@
 //     docked as many as fit and the rest floating;
 //   - the Workspace at 390 px in the dark mode, each module in turn through the phone's tab bar;
 //   - each module's own page and each destination's page, at 1280 light and 390 dark.
-// In each window it measures the bands (the title bar .mod-header / .chat-head, the toolbars: the host's .mod-toolbar, a
-// module's own .sdk-toolbar, a destination's bar and its panel's head; the status line .mod-status), every search field
-// (.sdk-search) and every button in a band, and holds them to the approved values in public/sdk/system.css (modulechrome,
-// fields and buttons blocks):
-//   title bar 34 px (42 on a phone), its words 14 px, its first item 12 px in and its last 4 px from the end;
-//   toolbar 34 px, its first item 8 px in (12 on a phone), nothing closer than that to its end;
-//   status line 24 px, its first item 12 px in;
-//   a search field 30 px wherever it is in a window; a button in a band 30 px;
-//   a tab strip or view switch (the Tabs family: the Chat's Discussion | Assistant row, a module's view switch, a destination's
-//   views and its panel's tabs, and a row of tabs of a module's own, measured as a band of its own): in a 34 px band, its tabs
-//   30 px, 2 px from the band's top and 2 px from its bottom (the hairline counted), its first item 8 px in (12 on a phone);
+// In each window it measures the bands (the title bar .mf-titlebar, the Chat's and the call's too; the toolbar .mf-toolbar, a
+// destination's row and its panel's; any .sdk-toolbar a module drew, which has no look and so fails; the status bar
+// .mf-status), every search field (the frame's .mf-search, any .sdk-search) and every control in a band, and holds them to
+// the approved values in the moduleframe block (read from its tokens, so a value is changed in one place):
+//   title bar --mf-title-h (36 px, on every width), its words 14 px, its first item --mf-inset (12 px) in and its last
+//   --space-1 (4 px) from the end;
+//   toolbar --mf-band-h (40 px, its hairline counted), its first item --mf-inset in; its end group (the search, then the
+//   Filters button) exactly --mf-inset from the end, the same place in every window; with no end group, nothing closer;
+//   status bar --mf-status-h (24 px), its first item --mf-inset in;
+//   a search field and a control in a band (a button, the view switch, a tab, the "+", the menu, Close) --mf-ctl-h (28 px);
+//   the Filters button --mf-ctl-h too, a filter chip --mf-chip-h (24 px); nothing in a band is cut (its controls inside its padding);
+//   a tab strip or view switch (the Tabs family in a band: the Chat's Discussion | Assistant row; the frame's switch and
+//   tabs; and a row of tabs of a module's own, measured as a band of its own): centred in its band, as far from its top as
+//   from its bottom;
 //   the band under a title bar starts where the title bar ends (no room between them).
 // Every value is the same for every module by construction, so one table of expectations holds for all of them; a module
 // may not differ. On a failure it prints, per module, every band and what it measured against what it should be.
@@ -41,10 +44,25 @@ const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
 const say = (...a) => console.log('check-conformance:', ...a);
 const started = Date.now();
 
-// The approved values (public/sdk/system.css: modulechrome, fields, buttons; style.css: --module-header-h, --toolbar-h).
+// The approved values: the moduleframe block's tokens (public/sdk/system.css), read from the file so the check follows the one
+// place a value is changed. The same on every width (the Prototype: one frame at 1280 and at 390).
+const FRAME = (() => {
+  const sys = fs.readFileSync(path.join(path.resolve(path.dirname(new URL(import.meta.url).pathname), '..'), 'public', 'sdk', 'system.css'), 'utf8');
+  const block = sys.slice(sys.indexOf('/* moduleframe:start */'), sys.indexOf('/* moduleframe:end */'));
+  const space = (n) => Number((sys.match(new RegExp(`--space-${n}: (\\d+)px;`)) || [])[1]);
+  const tok = (name) => {
+    const v = (block.match(new RegExp(`--${name}: ([^;]+);`)) || [])[1] || '';
+    const px = /^(\d+)px$/.exec(v.trim());
+    if (px) return Number(px[1]);
+    const sp = /^var\(--space-(\d)\)$/.exec(v.trim());
+    if (sp) return space(sp[1]);
+    throw new Error(`the moduleframe block has no --${name} in pixels (got "${v}")`);
+  };
+  return { title: tok('mf-title-h'), toolbar: tok('mf-band-h'), status: tok('mf-status-h'), ctl: tok('mf-ctl-h'), chip: tok('mf-chip-h'), inset: tok('mf-inset'), end: space(1) };
+})();
 const WANT = {
-  wide: { title: 34, titleFont: 14, titleLeft: 12, titleRight: 4, toolbar: 34, toolbarLeft: 8, status: 24, statusLeft: 12, search: 30, button: 30, tab: 30 },
-  phone: { title: 42, titleFont: 14, titleLeft: 12, titleRight: 4, toolbar: 34, toolbarLeft: 12, status: 24, statusLeft: 12, search: 30, button: 30, tab: 30 },
+  title: FRAME.title, titleFont: 14, titleLeft: FRAME.inset, titleRight: FRAME.end, toolbar: FRAME.toolbar, toolbarLeft: FRAME.inset, toolbarEnd: FRAME.inset,
+  status: FRAME.status, statusLeft: FRAME.inset, search: FRAME.ctl, button: FRAME.ctl, chip: FRAME.chip,
 };
 
 // A whole small PMTiles v3 picture (as tools/check-picture-map.mjs makes one), so the Map destination is on in the space.
@@ -68,8 +86,11 @@ const COLLECT = String.raw`(() => {
   const shown = (e) => { if (!e || !e.getClientRects().length) return false; const r = R(e); if (r.width < 1 || r.height < 1) return false; const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none'; };
   const kids = (band) => [...band.children].filter((k) => shown(k) && !k.classList.contains('visually-hidden') && !['absolute', 'fixed'].includes(getComputedStyle(k).position));
   const px = (v) => Math.round(v * 2) / 2;
-  const STRIPS = '.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs';
-  const TABS = '.sdk-tab, .tb-tab, .subtab, .setup-tab';
+  const STRIPS = '.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .mf-switch, .mf-tabs';
+  const TABS = '.sdk-tab, .tb-tab, .subtab, .setup-tab, .mf-switch-btn, .mf-tab';
+  // The controls of a band: the frame's (its buttons, its switch whole, its tabs, its search's magnifier, its Filters) and any
+  // shared button a band holds (the Chat's and the call's). A chip-sized control is the Filters button or a filter chip.
+  const CONTROLS = '.mf-btn, .mf-icon-btn, .mf-switch, .mf-tab, .mf-tabs-menu, .mf-chip, .mf-chips-menu, .btn, .sdk-icon-btn, .tb-tab';
   let ready = true;
   // Every root under a node: itself, the shadow roots below it and the documents of same-origin frames below it.
   const roots = (node) => {
@@ -84,19 +105,34 @@ const COLLECT = String.raw`(() => {
     const r = R(el); const s = getComputedStyle(el);
     const k = kids(el);
     const bl = r.left + parseFloat(s.borderLeftWidth); const br = r.right - parseFloat(s.borderRightWidth);
-    const left = k.length ? px(Math.min(...k.map((x) => R(x).left)) - bl) : null;
+    // The start inset is the start group's (a toolbar's end group, the search and Filters, has its own fixed place below).
+    const startKids = k.filter((x) => !x.matches('.mf-spacer, .mf-search, .mf-search-open, .mf-filters'));
+    const left = startKids.length ? px(Math.min(...startKids.map((x) => R(x).left)) - bl) : null;
     const right = k.length ? px(br - Math.max(...k.map((x) => R(x).right))) : null;
     const out = { band: kind, h: px(r.height), left, right, buttons: [], strips: [] };
-    if (kind === 'title') { const t = el.querySelector('.mod-title span, :scope > span'); if (t) out.font = parseFloat(getComputedStyle(t).fontSize); }
-    for (const b of el.querySelectorAll('.btn, .sdk-icon-btn, .tb-tab')) if (shown(b) && !b.closest('.sdk-search')) out.buttons.push({ h: px(R(b).height), add: Boolean(b.closest('.titlebar-add')), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
+    if (kind === 'title') { const t = el.querySelector('.mf-titlebar-title'); if (t) out.font = parseFloat(getComputedStyle(t).fontSize); }
+    // Its end group (the frame's search, then its Filters button): where it ends, from the band's end (its padding counted).
+    if (kind === 'toolbar') {
+      const ends = [...el.children].filter((k) => shown(k) && k.matches('.mf-search, .mf-search-open, .mf-filters'));
+      if (ends.length) out.endAt = px(br - Math.max(...ends.map((x) => R(x).right)));
+      // Nothing cut: every control inside the band's padding (its scroll width its width).
+      out.cut = el.scrollWidth > el.clientWidth + 1;
+    }
+    for (const b of el.querySelectorAll(CONTROLS)) {
+      if (!shown(b) || b.closest('.sdk-search, .mf-search') || (b.matches('.mf-switch-btn, .tb-tab') && b.closest('.mf-switch'))) continue;
+      if (b.matches('.mf-chip') && b.closest('.mf-quickset, .mf-chips')) { out.buttons.push({ h: px(R(b).height), chip: true, what: (b.textContent || '').trim().slice(0, 24) }); continue; }
+      if (b.matches('.tb-tab, .mf-tab')) continue; // a tab is measured with its strip
+      out.buttons.push({ h: px(R(b).height), chip: b.matches('.mf-chip, .mf-chips-menu:not(.mf-filters)'), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
+    }
     out.at = { x: Math.round(r.left + offsetOf(el).x), y: Math.round(r.top + offsetOf(el).y) };
     out.top = px(r.top + offsetOf(el).y); out.bottom = px(r.bottom + offsetOf(el).y); out.x0 = px(r.left + offsetOf(el).x); out.x1 = px(r.right + offsetOf(el).x);
     // The tab strips and view switches in the band (the Tabs family): each tab's height and the space above and below it in the band,
-    // to the band's outer edges (its hairline counted: the band is 34 px with it, so 30 px tabs sit 2 px from each edge).
-    const it = r.top; const ib = r.bottom;
+    // to the band's inner edges (its hairline is the edge between two levels, not extra space: the frame centres its controls in the band
+    // above it).
+    const it = r.top + parseFloat(s.borderTopWidth); const ib = r.bottom - parseFloat(s.borderBottomWidth);
     for (const st of el.querySelectorAll(STRIPS)) {
       if (!shown(st) || st.closest('.sdk-search, .sdk-menu, .host-menu, [role=dialog]')) continue;
-      const tabs = [...st.children].filter((t) => shown(t) && t.matches(TABS));
+      const tabs = st.matches('.mf-switch') ? [st] : [...st.children].filter((t) => shown(t) && t.matches(TABS));
       if (!tabs.length) continue;
       const rr = tabs.map(R);
       out.strips.push({ what: (st.id || st.className || '').toString().trim().split(/\s+/).slice(0, 2).join('.'), h: px(Math.max(...rr.map((x) => x.height))), hMin: px(Math.min(...rr.map((x) => x.height))), above: px(Math.min(...rr.map((x) => x.top)) - it), below: px(ib - Math.max(...rr.map((x) => x.bottom))) });
@@ -110,29 +146,27 @@ const COLLECT = String.raw`(() => {
     const title = titleSel ? win.querySelector(titleSel) : null;
     if (title && shown(title)) { w.bands.push(band('title', title)); seen.add(title); }
     for (const r of roots(win)) {
-      for (const t of r.querySelectorAll('.mod-toolbar, .sdk-toolbar')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('toolbar', t)); }
-      for (const t of r.querySelectorAll('.mod-status')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('status', t)); }
+      for (const t of r.querySelectorAll('.mf-titlebar')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('title', t)); }
+      for (const t of r.querySelectorAll('.mf-toolbar, .sdk-toolbar')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('toolbar', t)); }
+      for (const t of r.querySelectorAll('.mf-status')) if (shown(t) && !seen.has(t)) { seen.add(t); w.bands.push(band('status', t)); }
       // A tab strip or view switch outside those bands (a row of a module's own) is a band of its own: the row that holds it.
       for (const st of r.querySelectorAll(STRIPS)) {
-        if (!shown(st) || st.closest('.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status, .sdk-field, .sdk-menu, .host-menu, [role=dialog], .sdk-editor')) continue;
+        if (!shown(st) || st.closest('.mf-titlebar, .mf-toolbar, .sdk-toolbar, .mf-status, .sdk-field, .sdk-menu, .host-menu, [role=dialog], .sdk-editor, .pp-tools')) continue;
         const row = st.parentElement && st.parentElement !== r && st.parentElement.children.length > 1 ? st.parentElement : st;
         if (!seen.has(row)) { seen.add(row); w.bands.push(band('tabrow', row)); }
       }
-      for (const f of r.querySelectorAll('.sdk-search')) if (shown(f) && !seen.has(f)) { seen.add(f); w.searches.push({ h: px(R(f).height), what: (f.className || '').replace('sdk-search', '').trim() || 'search' }); }
+      for (const f of r.querySelectorAll('.sdk-search, .mf-search')) if (shown(f) && !seen.has(f)) { seen.add(f); w.searches.push({ h: px(R(f).height), what: (f.className || '').replace(/sdk-search|mf-search/, '').trim() || 'search' }); }
       for (const m of r.querySelectorAll('.module-root')) { const sr = m.shadowRoot || m; if (!sr.querySelector('#app, .app, main, section, div')) ready = false; }
     }
     windows.push(w);
   };
-  const nameOf = (win) => { const t = win.querySelector('.mod-header .mod-title span, .chat-head > span'); return t ? t.textContent.trim() : '?'; };
-  for (const win of document.querySelectorAll('.module-docked > .mod-content, .module-floating, #chat-content')) {
+  const nameOf = (win) => { const t = win.querySelector('.mf-titlebar-title'); return t ? t.textContent.trim() : '?'; };
+  // Every module window is a frame: docked, floating, a composite (its page's own frame inside it), a module's own page and a
+  // destination's page; the Chat draws the frame's bands in its own column.
+  for (const win of document.querySelectorAll('.module-docked > .mod-content > .mf, .module-floating, #chat-content, body > .mf, .module-canvas > .mf')) {
     if (!shown(win)) continue;
-    const kind = win.matches('.module-floating') ? 'floating' : win.id === 'chat-content' ? 'chat' : 'docked';
-    measure(nameOf(win), kind, win, ':scope > .mod-header, :scope > .chat-head');
-  }
-  // A module's own page, or a destination's: the page is the window (no title bar; the page bar names it).
-  if (document.body.matches('.module-page, .destination-page')) {
-    const name = (document.querySelector('#page-bar-name .page-bar-label, .page-bar-label') || {}).textContent || document.title;
-    measure(String(name).trim(), document.body.matches('.destination-page') ? 'destination page' : 'own page', document.body, null);
+    const kind = win.matches('.module-floating') ? 'floating' : win.id === 'chat-content' ? 'chat' : win.matches('.mf-docked') ? 'docked' : document.body.matches('.destination-page') ? 'destination page' : 'own page';
+    measure(nameOf(win), kind, win, ':scope > .mf-titlebar, :scope > .mf > .mf-titlebar, :scope > .chat-head');
   }
   return { ready, windows };
 })()`;
@@ -186,9 +220,9 @@ const SYMMETRY_FAMILIES = [
   { sel: '.sdk-card-head, .message-head', name: 'band head', h: false },
   { sel: '.sdk-card-banded, .message', name: 'banded box', h: false, box: false, stack: '*' },
   { sel: '.sdk-chip, .sdk-strip-chip', name: 'chip', h: true, hExcept: '.sdk-strip-phase, .sdk-strip-attn' },
-  { sel: '.mod-header, .chat-head, .mod-toolbar, .sdk-toolbar, .mod-status', name: 'band', h: false },
-  { sel: '.sdk-search', name: 'search field', h: false },
-  { sel: '.btn, .tb-tab', name: 'button', h: false },
+  { sel: '.mf-titlebar, .mf-toolbar, .sdk-toolbar, .mf-status', name: 'band', h: false },
+  { sel: '.sdk-search, .mf-search', name: 'search field', h: false },
+  { sel: '.btn, .tb-tab, .mf-btn, .mf-tab, .mf-switch-btn, .mf-chips-menu, .mf-tabs-menu', name: 'button', h: false },
   { sel: '.sdk-menu, .host-menu, .chat-command-menu, .sdk-kind-list', name: 'menu', h: false },
   { sel: '.sdk-menu-item, .host-menu-item, .chat-command-item, .sdk-kind-option', name: 'menu item', h: false },
   { sel: '.sdk-popover, .popover, .bell-list, .who-here-list, .chat-help-popup, .chat-emoji-popup, .sdk-dp', name: 'popover', h: false },
@@ -398,7 +432,7 @@ async function symmetry(tab, context) {
 }
 const results = [];
 function judge(context, phone, windows) {
-  const want = phone ? WANT.phone : WANT.wide;
+  const want = WANT;
   for (const w of windows) {
     const rows = [];
     const bad = (what, got, should) => { failures.push({ context, window: `${w.name} (${w.kind})`, what, got, should }); rows.push(`    !! ${what}: ${got}, should be ${should}`); };
@@ -412,19 +446,23 @@ function judge(context, phone, windows) {
     }
     for (const b of w.bands) {
       const exp = b.band === 'title' ? want.title : b.band === 'toolbar' || b.band === 'tabrow' ? want.toolbar : want.status;
-      rows.push(`    ${b.band.padEnd(8)} h ${String(b.h).padStart(5)}  in ${b.left ?? '-'} / ${b.right ?? '-'}${b.font ? `  words ${b.font}px` : ''}  buttons ${b.buttons.map((x) => x.h).join(',') || '-'}  at ${b.at.x},${b.at.y}`);
+      if (b.band === 'tabrow') { /* a module's own row of tabs: its height is its own; its tabs are held below */ }
+      rows.push(`    ${b.band.padEnd(8)} h ${String(b.h).padStart(5)}  in ${b.left ?? '-'} / ${b.right ?? '-'}${b.endAt !== undefined ? `  end group ${b.endAt}` : ''}${b.font ? `  words ${b.font}px` : ''}  controls ${b.buttons.map((x) => x.h).join(',') || '-'}  at ${b.at.x},${b.at.y}`);
       for (const st of b.strips) rows.push(`      tabs ${st.what.padEnd(22)} h ${st.hMin === st.h ? st.h : `${st.hMin}-${st.h}`}  above ${st.above} / below ${st.below}`);
-      if (Math.abs(b.h - exp) > 0.5) bad(`${b.band} height`, b.h, exp);
-      // The Tabs family in a band (system.css, tabs and modulechrome): a strip or view switch sits in the toolbar band, its tabs the
-      // small 30 px, centred: 2 px from the band's top and 2 px from its bottom edge, its hairline counted (to the half pixel); the
-      // band's first item 8 px in (12 on a phone).
+      // The status bar of a page that ends the screen grows by the home-indicator inset (0 here: no phone's safe area).
+      if (b.band !== 'tabrow' && Math.abs(b.h - exp) > 0.5) bad(`${b.band} height`, b.h, exp);
+      // The Tabs family in a band (system.css, tabs and moduleframe): a strip or view switch sits in its band centred, as far from
+      // the band's top as from its bottom (its hairline counted, to the half pixel); the band's first item --mf-inset in.
       if (b.band === 'tabrow') {
         if (b.left !== null && Math.abs(b.left - want.toolbarLeft) > 0.5) bad('tab row inset, start', b.left, want.toolbarLeft);
         if (b.right !== null && b.right < want.toolbarLeft - 0.5) bad('tab row inset, end', b.right, `at least ${want.toolbarLeft}`);
       }
       for (const st of b.strips) {
-        if (Math.abs(st.h - want.tab) > 0.5 || Math.abs(st.hMin - want.tab) > 0.5) bad(`tab height in the ${b.band} (${st.what})`, st.hMin === st.h ? st.h : `${st.hMin}-${st.h}`, want.tab);
-        if (Math.abs(st.above - st.below) > 0.5) bad(`tabs centred in the ${b.band} (${st.what})`, `above ${st.above} / below ${st.below}`, 'the same (2 / 2 in a 34 px band)');
+        // A strip in a band (the frame's switch and tabs, the Chat's tab strip) is the frame's control height; a module's own row of
+        // tabs (a tab row) its small tabs, 30 px.
+        const tabWant = b.band === 'tabrow' && !/mf-(switch|tabs)/.test(st.what) ? 30 : want.button;
+        if (Math.abs(st.h - tabWant) > 0.5 || Math.abs(st.hMin - tabWant) > 0.5) bad(`tab height in the ${b.band} (${st.what})`, st.hMin === st.h ? st.h : `${st.hMin}-${st.h}`, tabWant);
+        if (b.band !== 'tabrow' && Math.abs(st.above - st.below) > 0.5) bad(`tabs centred in the ${b.band} (${st.what})`, `above ${st.above} / below ${st.below}`, 'the same above and below');
       }
       if (b.band === 'title') {
         if (b.font && b.font !== want.titleFont) bad('title words', `${b.font}px`, `${want.titleFont}px`);
@@ -436,14 +474,17 @@ function judge(context, phone, windows) {
       }
       if (b.band === 'toolbar') {
         if (b.left !== null && Math.abs(b.left - want.toolbarLeft) > 0.5) bad('toolbar inset, start', b.left, want.toolbarLeft);
-        if (b.right !== null && b.right < want.toolbarLeft - 0.5) bad('toolbar inset, end', b.right, `at least ${want.toolbarLeft}`);
+        if (b.right !== null && b.right < want.toolbarEnd - 0.5) bad('toolbar inset, end', b.right, `at least ${want.toolbarEnd}`);
+        // The end group (the search, then Filters) in its fixed place: exactly --mf-inset from the end in every window.
+        if (b.endAt !== undefined && Math.abs(b.endAt - want.toolbarEnd) > 0.5) bad('toolbar end group (search, Filters) inset', b.endAt, want.toolbarEnd);
+        if (b.cut) bad('toolbar: a control cut', 'scrolls', 'nothing cut (it folds into More)');
       }
-      if (b.band === 'status' && b.left !== null && Math.abs(b.left - want.statusLeft) > 0.5) bad('status line inset, start', b.left, want.statusLeft);
+      if (b.band === 'status' && b.left !== null && Math.abs(b.left - want.statusLeft) > 0.5) bad('status bar inset, start', b.left, want.statusLeft);
       for (const x of b.buttons) {
-        // EXCEPTION (plan-module-titlebar-add.md, the touch sizes): on a phone the title bar's "+" is 44 px wide and as tall as
-        // the bar's inside (42 less its 1px edge), in every module alike; every other button in a band is the small one.
-        const should = phone && b.band === 'title' && x.add ? want.title - 1 : want.button;
-        if (Math.abs(x.h - should) > 0.5) bad(`button in the ${b.band} (${x.what})`, x.h, should);
+        // Every control in a band is the frame's --mf-ctl-h, on every width (the Prototype at 390 too), the Filters button too; a
+        // filter chip is the chip's --mf-chip-h.
+        const should = x.chip ? want.chip : want.button;
+        if (Math.abs(x.h - should) > 0.5) bad(`control in the ${b.band} (${x.what})`, x.h, should);
       }
     }
     for (const s of w.searches) {
@@ -482,7 +523,7 @@ async function main() {
       const before = `try { localStorage.setItem('app.canvas.${S.ctx.trip}', ${JSON.stringify(JSON.stringify({ __open: open }))}); } catch (e) {}`;
       const tab = await openTab(browser, S, 1280, 'light', '/#join={trip}', { call: true, before });
       try {
-        await tab.waitFor('.mod-header .mod-title', '', 45000);
+        await tab.waitFor('.mf-titlebar .mf-titlebar-title', '', 45000);
         await sleep(2500);
         judge('Workspace, 1280 px, light', false, await settled(tab, 4));
         await symmetry(tab, 'Workspace, 1280 px, light');
@@ -511,6 +552,37 @@ async function main() {
           judge(`Workspace, 390 px, dark: ${id}`, true, wins);
           await symmetry(tab, `Workspace, 390 px, dark: ${id}`);
         }
+      } finally { await closeTab(tab); }
+    }]);
+    // 2b. The Filters menu follows the picks made in it while it is open (QA e6a659d): three single choices in a row each show as
+    // the one chosen (the module draws its row again between them), and Clear filters unmarks them.
+    jobs.push(['Filters menu', async () => {
+      const tab = await openTab(browser, S, 1280, 'light', '/modules/budget?space={trip}');
+      const ctx = 'Budget, 1280 px, light: the Filters menu';
+      const bad = (what, got, should) => failures.push({ context: ctx, window: 'Budget (own page)', what, got, should });
+      const checkedIn = `(() => { const m = document.querySelector('.host-menu'); if (!m) return null; const rows = [...m.querySelectorAll('[role=menuitemradio]')]; return rows.filter((r) => r.getAttribute('aria-checked') === 'true').map((r) => r.textContent.trim().replace(/\\s*\\d+$/, '')); })()`;
+      const click = (expr) => tab.eval(`(() => { const b = ${expr}; if (b) b.click(); return Boolean(b); })()`);
+      try {
+        await tab.waitFor('.mf-switch-btn', '', 45000);
+        await sleep(1000);
+        await click(`[...document.querySelectorAll('.mf-switch-btn')].find((b) => b.textContent.trim() === 'Costs')`);
+        await sleep(800);
+        if (!(await click(`document.querySelector('button.mf-filters')`))) { bad('Filters button', 'none', 'one'); return; }
+        await sleep(400);
+        let last = null;
+        for (const name of ['Travel', 'Lodging', 'Food']) {
+          const found = await click(`[...document.querySelectorAll('.host-menu [role=menuitemradio]')].find((r) => r.textContent.trim().startsWith('${name}'))`);
+          if (!found) { bad(`the option ${name}`, 'missing', 'in the menu'); continue; }
+          await sleep(700);
+          last = await tab.eval(checkedIn);
+          const cat = (last || []).filter((x) => !/^(Date|Amount|Title|Anyone|Nobody|Paid)/.test(x));
+          if (cat.length !== 1 || cat[0] !== name) bad(`after picking ${name}, the menu marks`, JSON.stringify(cat), `["${name}"]`);
+        }
+        if (!(await click(`[...document.querySelectorAll('.host-menu .host-menu-item')].find((r) => r.textContent.trim() === 'Clear filters')`))) bad('Clear filters', 'missing', 'in the menu');
+        await sleep(700);
+        const after = (await tab.eval(checkedIn)) || [];
+        if (!after.includes('All categories') || after.some((x) => ['Travel', 'Lodging', 'Food'].includes(x))) bad('after Clear filters, the menu marks', JSON.stringify(after), 'All categories, nothing picked');
+        results.push({ context: ctx, head: '  Filters menu', rows: [`    marked after the last pick: ${JSON.stringify(last)}; after Clear filters: ${JSON.stringify(after)}`], failed: false });
       } finally { await closeTab(tab); }
     }]);
     // 3. Each module's own page and each destination's page.
@@ -593,7 +665,7 @@ async function main() {
       say(`FAIL: ${failures.length} deviations in ${new Set(failures.map((f) => f.context + f.window)).size} of ${windows} windows (${[...byWhat].map(([k, n]) => `${k} ${n}`).join(', ')}); ${Math.round((Date.now() - started) / 1000)} s`);
       return 1;
     }
-    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, tab row, status line, search and band button is the approved size, every tab strip in a band is 30 px tabs 2 px from each edge, every band under a title bar meets it, and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
+    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, tab row, status bar, search and band control is the frame's size, every toolbar's search and Filters in their fixed place and nothing cut, every tab strip in a band centred, every band under a title bar meets it, and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
     return 0;
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }

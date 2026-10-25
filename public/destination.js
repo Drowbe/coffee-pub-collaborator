@@ -1,8 +1,9 @@
 // A destination's page (/calendar, /map; plan-calendar-destination.md and plan-map-destination.md): a host page made of
-// modules' parts. GET /api/destinations/<id> names the parts (a `main`, and panels in their order); this page draws the
-// bands every module window has (plan-unified-layout.md, "Bands everywhere"): the page bar as the titlebar (the parts'
-// "+" and icons), one toolbar row (the main part's items, the page's view switch, its filter chips and its search, the
-// panel's switch and the shown panel's items) and one status line (the main part's, then the shown panel's). It mounts each
+// modules' parts. GET /api/destinations/<id> names the parts (a `main`, and panels in their order); this page is one module
+// frame (public/module-frame.js; plan-unified-layout.md, "Bands everywhere"): its title bar (the page's name, the parts'
+// "+" and icons), one toolbar row (the main part's items, the page's view switch, its filters and its search, the panel's
+// switch and the shown panel's items), the parts in its content and one status bar (the main part's, then the shown
+// panel's). It mounts each
 // part with mountModule() at environment scope, and keeps the one shared state every part draws from
 // (createDestination() in module-host.js; the parts read it with host.destination.onState). The page names
 // destinations, never modules: a module takes part by declaring a part (surfaces.destination).
@@ -17,11 +18,12 @@
 // app.destination.<id>.<space id>. The map in a space (plan-map-places.md, step 2) keeps a filter of whose places show:
 // This <space> (on), Mine (on) and the environment's own (off at first), under the same key. Shown in a frame (a
 // composite's on the space's canvas, which the Calendar and Map layout tabs show; `window.self !== window.top`) it draws
-// no top bar and no page bar of its own: the composite's titlebar on the Workspace holds the parts' "+" and icons and its
-// window the status line; the toolbar row is this page's.
-import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
-import { nav } from '/nav-bar.js';
-import { mountModule, createDestination, askCanvasToOpen, sameSiteOpener, createToolbar, createAddSlot, createStatusSlot, drawHeaderItems } from '/module-host.js';
+// no top bar of its own; in a composite's frame its own frame has no title bar and no status bar either: the composite's
+// window on the Workspace holds the parts' "+" and icons and the status bar; the toolbar row is this page's, the first
+// thing in it.
+import { loadBranding, api, wireOverlayBack, renderTopbar, word, withinSpacePage } from '/brand.js';
+import { mountModule, createDestination, askCanvasToOpen, sameSiteOpener, createFrameBands } from '/module-host.js';
+import { createModuleFrame } from '/module-frame.js';
 import { hashPanel } from '/primary-nav.js';
 import { dropRepeatedAdds } from '/module-chrome.js';
 
@@ -133,8 +135,10 @@ let find = 0;
 let searchText = ''; // what is typed in the row's search (the map)
 let searchWords = ''; // its placeholder: the filter's words, or the place search's once that is set up
 let filterShown = false; // the filter is in the row (a destination with one; in a space only once there is a kind to switch)
-let row = null; // the toolbar row (createToolbar)
-let sideRow = null; // the panel's row, while the panel is stacked under the main part
+let page = null; // the page's frame (createModuleFrame): its title bar, its one row, the parts, its status bar
+let bands = null; // the parts' "+", title bar icons, row and status drawn in it (createFrameBands)
+let side = null; // the panel's own frame: only its row, while the panel is stacked under the main part
+let sideBands = null;
 const stackedQuery = window.matchMedia('(max-width: 900px)'); // destination.css stacks the panel under the main part
 let d = null; // the destination, as the server answered
 
@@ -144,25 +148,11 @@ function missing(text) {
   note.hidden = false;
 }
 
-// In the space's frame the page is as narrow as its column (a docked column is narrower than a phone), so a phone's media query
-// would hold there on a wide screen. The module window's bands (the bar, the panel's head) follow the screen the window is on, as
-// every other module's do: `dest-phone` while the page around the frame is a phone's (destination.css). On its own page, the
-// page's own width.
-function bandsFollowScreen() {
-  let top = window;
-  try { if (window.parent !== window && window.parent.matchMedia) top = window.parent; } catch { top = window; }
-  const phone = top.matchMedia('(max-width: 640px)');
-  const put = () => document.body.classList.toggle('dest-phone', phone.matches);
-  put();
-  phone.addEventListener('change', put);
-}
-
 async function start() {
   if (spaceId) document.body.classList.add('dest-in-space');
   if (withoutTopbar) document.body.classList.add('dest-no-topbar');
   if (inComposite) document.body.classList.add('dest-in-composite');
   else renderTopbar({ location: '' });
-  bandsFollowScreen();
   await loadBranding();
   if (!withoutTopbar) wireOverlayBack();
   if (!guestToken) {
@@ -239,10 +229,8 @@ async function start() {
   });
   // Without WebGL a map part shows only its notice: the panel takes the page's width (plan-map-destination, "States").
   if (kind.needsWebgl && !webglWorks()) document.body.classList.add('dest-no-webgl');
-  drawPageBar(d); // also names the page in the anchor on a phone (no segment wider: the top bar's entry is current)
+  drawFrame(d);
   drawTabs(d);
-  row = createToolbar($('dest-toolbar'), { send: () => {} }); // every item carries its own send (drawRow)
-  sideRow = createToolbar($('dest-side-toolbar'), { send: () => {} });
   stackedQuery.addEventListener('change', drawRow);
   if (kind.search) loadSearchWords(d);
 
@@ -381,32 +369,33 @@ function mountPart(part, container, key) {
   return m;
 }
 
-// --- the page bar: the header's second row, this page's titlebar ---------------------------------
-// The shared page bar (renderPageBar() in brand.js, plan-two-zone-nav.md decision 10), without the page's name: the
-// top bar's entry is marked current; on a phone the anchor names the page. Its right zone holds the parts' titlebar icons
-// and the one "+" (as on a module's own page), registered as the secondary bar's tools. In a composite's frame there is no
-// page bar: the composite's titlebar on the Workspace holds them (sendChrome).
-let pageAdd = null;
-let pageHeader = null;
-let pageStatus = null;
-function drawPageBar(d) {
-  renderPageBar({ name: d.name, icon: d.icon, showName: false, id: 'dest-bar', className: 'dest-bar' });
-  if (!inComposite) {
-    const header = document.createElement('span');
-    header.className = 'titlebar-custom page-bar-custom';
-    header.id = 'page-bar-custom';
-    header.hidden = true;
-    nav.register({ id: 'page-bar-custom', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 989, fold: false, element: header });
-    pageHeader = header;
-    const add = document.createElement('span');
-    add.className = 'titlebar-add page-bar-add';
-    add.id = 'page-bar-add';
-    add.hidden = true;
-    nav.register({ id: 'page-bar-add', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 990, fold: false, element: add });
-    pageAdd = createAddSlot(add, (event, data) => { if (event === 'add' && data?.id) pickAdd(data.id); });
-    $('dest-status').setAttribute('aria-label', `${d.name} status`);
-    pageStatus = createStatusSlot($('dest-status'));
-  }
+// --- the page's frame ----------------------------------------------------------------------------
+// The module frame fills the page under the header: its title bar names the page and holds the parts' "+" and icons; its
+// row; the parts; its status bar. In a composite's frame it has neither title bar nor status bar: the composite's window
+// on the Workspace holds them (sendChrome). The panel is in a frame of its own with only a row, which shows while the
+// panel is stacked under the main part (drawRow).
+function drawFrame(d) {
+  page = createModuleFrame({
+    title: d.name,
+    icon: d.icon,
+    variant: 'page',
+    bands: { titlebar: !inComposite, status: !inComposite },
+    titlebar: { standard: { dock: false, window: false, popout: false, settings: false, share: false, print: false, clear: false } },
+    flush: true,
+    content: $('dest'),
+    onAction: (e) => bands.event(e),
+  });
+  page.el.id = 'dest-frame';
+  // Every row item carries its own send (drawRow); the "+" and the icons go to their part.
+  bands = createFrameBands(page, { send: (event, data) => {
+    if (event === 'add' && data?.id) pickAdd(data.id);
+    else if (event === 'header' && data?.id) pickHeader(data.id);
+  } });
+  $('dest-tabs').before(page.el);
+  side = createModuleFrame({ title: 'Panel', variant: 'page', bands: { titlebar: false, status: false }, flush: true, content: $('dest-side-body'), onAction: (e) => sideBands.event(e) });
+  side.el.classList.add('dest-side-frame');
+  sideBands = createFrameBands(side, { send: () => {} });
+  $('dest-side').append(side.el);
   // The filter's environment entry: the environment's own name, as modules and the "Saved in ..." note have it
   // (/api/branding); the word only until that answers.
   environmentName = document.querySelector('[data-brand="environmentName"]')?.textContent?.trim() || word('environment', { cap: true });
@@ -421,19 +410,28 @@ function drawPageBar(d) {
 }
 let environmentName = '';
 
-// The filter's choices, as chips: each on or off.
-function filterOptions() {
-  return [
+// The filter's groups, each a group of switches in the row's Filters menu (on: shown; one turned off is a filter applied):
+// whose (the spaces, Mine and the environment's own; This <space> in a space), the kinds of markers, the person's other
+// calendars.
+function filterGroups() {
+  const whose = [
     ...(spaceFilter() ? [{ id: HERE, icon: d.space?.icon || 'users', label: `This ${word('space')}`, on: hereOn }] : []),
     ...(spaceFilterHasMine() ? [{ id: MINE, icon: 'user', label: 'Mine', on: mineOn }] : []),
-    // In a space the places marked for it are already in This <space>; this one adds the rest, drawn softer, to be found and added.
-    ...(spaceFilter() ? [{ id: OWN, icon: 'globe', label: `All of ${environmentName}'s places`, on: ownOn }] : []),
+    // In a space the places marked for it are already in This <space>; this one adds the rest, drawn softer, to be found and
+    // added. Off at first there: its resting state is off.
+    ...(spaceFilter() ? [{ id: OWN, icon: 'globe', label: `All of ${environmentName}'s places`, on: ownOn, default: false }] : []),
     ...(kind.mine && !spaceId ? [{ id: MINE, icon: 'user', label: 'Mine', on: mineOn }] : []),
     ...(spaceId ? [] : [{ id: OWN, icon: 'globe', label: environmentName, on: ownOn }]),
     ...spaces.map((r) => ({ id: r.id, icon: r.icon, label: r.name, on: !off.has(r.id) })),
-    ...(kind.markers ? markerKinds.map((k) => ({ id: `${MARKER}${k.id}`, icon: k.icon, label: k.label, tint: k.tint, on: !markersOff.has(k.id) })) : []),
-    ...externals.map((c, i) => ({ id: `${EXTERNAL}${c.id}`, icon: 'calendar', label: c.name, note: 'only you', tint: EXTERNAL_TINTS[i % EXTERNAL_TINTS.length], on: !externalOff.has(c.id) })),
   ];
+  const markers = kind.markers ? markerKinds.map((k) => ({ id: `${MARKER}${k.id}`, icon: k.icon, label: k.label, tint: k.tint, on: !markersOff.has(k.id) })) : [];
+  const calendars = externals.map((c, i) => ({ id: `${EXTERNAL}${c.id}`, icon: 'calendar', label: c.name, note: 'only you', tint: EXTERNAL_TINTS[i % EXTERNAL_TINTS.length], on: !externalOff.has(c.id) }));
+  const flip = ({ value, on }) => flipFilter(String(value), Boolean(on));
+  return [
+    { id: 'dest-whose', label: spaceFilter() ? 'Show' : word('space', { many: true, cap: true }), options: whose },
+    { id: 'dest-markers', label: 'Markers', options: markers },
+    { id: 'dest-calendars', label: 'Other calendars', options: calendars },
+  ].filter((g) => g.options.length).map((g) => ({ type: 'chips', ...g, send: flip }));
 }
 
 // A chip turned on or off.
@@ -454,52 +452,36 @@ function flipFilter(id, on) {
   drawRow();
 }
 
-// The filter's name, folded: "Trips", or "Trips (3 of 5)" while some are off. In a space, "Markers", or "Markers · Tasks
-// due off"; the map's filter there, "Show", or "Show (2 of 3)".
-function filterWords() {
-  const inSpaceFilter = Boolean(spaceId && kind.spaceFilter); // the map's filter in a space: This <space>, Mine, the environment's own
-  const withMine = inSpaceFilter && spaceFilterHasMine();
-  const total = inSpaceFilter ? 2 + (withMine ? 1 : 0) : spaces.length + 1 + (kind.mine ? 1 : 0);
-  const shown = inSpaceFilter
-    ? (hereOn ? 1 : 0) + (ownOn ? 1 : 0) + (withMine && mineOn ? 1 : 0)
-    : spaces.filter((r) => !off.has(r.id)).length + (ownOn ? 1 : 0) + (kind.mine && mineOn ? 1 : 0);
-  const plural = inSpaceFilter ? 'Show' : word('space', { many: true, cap: true });
-  let words = spaceId && !inSpaceFilter ? 'Markers' : shown === total ? plural : `${plural} (${shown} of ${total})`;
-  // The person's other calendars are counted apart, never as spaces: "Trips (2 of 3) · Other calendars (1 of 2)".
-  const calendarsOn = externals.filter((c) => !externalOff.has(c.id)).length;
-  if (calendarsOn < externals.length) words += ` · Other calendars (${calendarsOn} of ${externals.length})`;
-  // Markers turned off are named: "Trips · Tasks due off".
-  const markersHidden = kind.markers ? markerKinds.filter((k) => markersOff.has(k.id)).map((k) => k.label) : [];
-  if (markersHidden.length) words += ` · ${markersHidden.join(', ')} off`;
-  return words;
-}
-
 // --- the toolbar row: one band over every part ---------------------------------------------------
-// The main part's items, then the page's own (the view switch, the filter's chips, the search), then the panel's switch
-// and the shown panel's items. While the panel is stacked under the main part (a narrow window or column, not a phone), the
-// panel's switch and items are the panel's own row, at its top, where they act. On a phone, the tab showing: the main part's tab has the main part's items, the view switch
-// and the filter; a panel's tab that panel's items; the search shows on every tab. A part's control answers that part
-// (its `x` measured from the part's own edge, for a menu under it); the page's answer the page.
+// The main part's items, then the page's own (the view switch, the filters, the search), then the panel's switch and the
+// shown panel's items: the frame draws them in Thomas's order (the switches, the words, the buttons; the search and the
+// one Filters button at the end, every part's filters and the page's in it). While the panel is stacked under the main
+// part (a narrow window or column, not a phone), the panel's switch and items are the panel's own row, at its top, where
+// they act. On a phone, the tab showing: the main part's tab has the main part's items, the view switch and the filter; a
+// panel's tab that panel's items; the search shows on every tab. A part's control answers that part (its ids kept apart
+// from the other parts' as "<part's key>~<id>"; its `x` measured from the part's own edge, for a menu under it); the
+// page's answer the page.
 function partItems(m) {
-  return m.toolbar.map((item) => (item.separator ? item : {
+  return m.toolbar.map((item) => ({
     ...item,
+    ...(item.id ? { id: `${m.key}~${item.id}` } : {}),
     send: (data, el) => {
-      const out = { ...data };
+      const out = { ...data, id: item.id };
       if (el && 'x' in out) out.x = Math.max(0, Math.round(el.getBoundingClientRect().left - m.holder.getBoundingClientRect().left));
       m.mounted.send('toolbar', out);
     },
   }));
 }
 function drawRow() {
-  if (!row || !hub) return;
+  if (!bands || !hub) return;
   const phone = onPhone();
   const main = parts.find((p) => p.key === 'main');
   const panels = parts.filter((p) => p.key !== 'main');
   const shownPanel = panels.find((p) => p.key === (phone ? tab : panel));
   const onMain = !phone || tab === 'main';
-  const page = [];
+  const own = [];
   if (onMain && kind.views.length) {
-    page.push({ type: 'tabs', id: 'dest-view', value: view, options: kind.views, send: ({ value }) => {
+    own.push({ type: 'tabs', id: 'dest-view', value: view, options: kind.views, send: ({ value }) => {
       if (!value || value === view) return;
       view = value;
       remember({ view });
@@ -507,11 +489,9 @@ function drawRow() {
       drawRow();
     } });
   }
-  if (onMain && filterShown && (!spaceId || spaceFilter() || markerKinds.length > 0)) {
-    page.push({ type: 'chips', id: 'dest-filter', label: filterWords(), icon: 'filter', options: filterOptions(), send: ({ value, on }) => flipFilter(String(value), Boolean(on)) });
-  }
+  if (onMain && filterShown && (!spaceId || spaceFilter() || markerKinds.length > 0)) own.push(...filterGroups());
   if (kind.search) {
-    page.push({ type: 'search', id: 'dest-search', value: searchText, placeholder: searchWords || kind.search.filterOnly, label: kind.search.label, send: ({ value, submit }) => {
+    own.push({ type: 'search', id: 'dest-search', value: searchText, placeholder: searchWords || kind.search.filterOnly, label: kind.search.label, send: ({ value, submit }) => {
       searchText = String(value ?? '');
       if (submit) { find += 1; hub.update({ q: searchText, find }); } else hub.update({ q: searchText });
     } });
@@ -529,11 +509,10 @@ function drawRow() {
       layout();
     },
   }] : [];
-  const side = [...panelSwitch, ...(shownPanel ? partItems(shownPanel) : [])];
+  const panelItems = [...panelSwitch, ...(shownPanel ? partItems(shownPanel) : [])];
   const stacked = !phone && panels.length > 0 && (stackedQuery.matches || document.body.classList.contains('dest-no-webgl'));
-  const groups = [onMain && main ? partItems(main) : [], page, stacked ? [] : side].filter((g) => g.length);
-  row.set(groups.flatMap((g, i) => (i ? [{ separator: true }, ...g] : g)));
-  sideRow.set(stacked ? side : []);
+  bands.toolbar([...(onMain && main ? partItems(main) : []), ...own, ...(stacked ? [] : panelItems)]);
+  sideBands.toolbar(stacked ? panelItems : []);
 }
 
 function drawTabs(d) {
@@ -578,8 +557,8 @@ function layout() {
 // The "+": each part's entries in the parts' order (the main, then the panels), their ids as "<part's place>.<id>" so a
 // pick finds its part; a part with more than one entry, beside another with some, is a category named by the part (its
 // flyout). One leaf in all: the "+" runs it at once. The icons likewise, "<part's place>.<id>". The status: the main part's
-// items, then the panel's shown (the status line keeps the first four). On the page they are drawn in the page bar and the
-// status line; in a composite's frame they are handed up to the composite's titlebar and window on the Workspace.
+// items, then the panel's shown (the status bar keeps the first four). On the page they are drawn in its frame's title bar
+// and status bar; in a composite's frame they are handed up to the composite's window on the Workspace.
 // The same add offered by two parts (the Map's "Add a place" and its Places panel's) is one entry, the first part's.
 function chromeAdds() {
   const lists = dropRepeatedAdds(parts.map((p) => p.adds));
@@ -628,13 +607,10 @@ function sendChrome() {
   queueMicrotask(() => {
     chromeQueued = false;
     if (!inComposite) {
-      if (pageAdd) pageAdd.set(chromeAdds());
-      if (pageStatus) pageStatus.set(chromeStatus());
-      if (pageHeader) {
-        const icons = chromeHeader();
-        if (icons.length) drawHeaderItems(pageHeader, icons, (event, data) => pickHeader(data.id));
-        else { pageHeader.textContent = ''; pageHeader.hidden = true; }
-      }
+      if (!bands) return;
+      bands.add(chromeAdds());
+      bands.header(chromeHeader());
+      bands.status(chromeStatus());
       return;
     }
     try {

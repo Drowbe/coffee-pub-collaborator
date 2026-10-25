@@ -20,20 +20,17 @@
 <body class="destination-page">
   <header class="topbar"></header>
 
-  <!-- A destination (Calendar, Map): a host page made of modules' parts (plan-calendar-destination.md), with the bands
-       of a module window (plan-unified-layout.md): the page bar is the header's second row and its titlebar (destination.js),
-       then one toolbar row over every part, the parts (the main part fills the page, the panel sits on its right), and one
-       status line. On a phone the main part and each panel are tabs along the bottom. -->
-  <div class="mod-toolbar dest-toolbar" id="dest-toolbar" hidden></div>
+  <!-- A destination (Calendar, Map): a host page made of modules' parts (plan-calendar-destination.md), drawn as one module
+       frame (public/module-frame.js; plan-unified-layout.md): its title bar, one toolbar row over every part, the parts (the
+       main part fills the page, the panel sits on its right) and one status bar; destination.js draws it around #dest. On a
+       phone the main part and each panel are tabs along the bottom. -->
   <main class="dest" id="dest">
     <section class="dest-main" id="dest-main" aria-label="" hidden></section>
     <aside class="dest-side" id="dest-side" hidden>
-      <div class="mod-toolbar dest-side-toolbar" id="dest-side-toolbar" hidden></div>
       <div class="dest-side-body" id="dest-side-body"></div>
     </aside>
     <p class="hint dest-missing" id="dest-missing" hidden></p>
   </main>
-  <div class="mod-status dest-status" id="dest-status" role="region" aria-label="Status" hidden></div>
   <nav class="dest-tabs" id="dest-tabs" aria-label="Parts" hidden></nav>
 
   <script src="/sdk/host.js" data-host-sdk></script>

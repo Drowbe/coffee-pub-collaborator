@@ -1343,7 +1343,7 @@ function moduleCard(m, shape = 'full') {
         <div class="hint">${escapeHtml(scopes)}</div></div>
       ${modeTag} ${control}
     </div>`;
-  const about = `${m.description ? `<p>${escapeHtml(m.description)}</p>` : ''}`;
+  const about = `${m.description ? `<p>${escapeHtml(m.description)}</p>` : ''}${m.hooks?.ai === 'optional' ? '<p class="hint">Can use the <a href="#modules/ai">AI service</a>.</p>' : ''}`;
   const approvals = `
     <p class="hint">${asks.length ? (m.needsApproval ? 'Asks for these -- enabling approves them:' : 'Approved to:') : 'Asks for nothing beyond showing itself.'}</p>
     ${asks.length ? `<ul class="module-asks">${asks.join('')}</ul>` : ''}

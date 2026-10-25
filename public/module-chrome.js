@@ -1,6 +1,7 @@
-// The pure rules of a module window's "+" (host.add.set) and its status bar (host.status.set): cleaning what a module
-// sends, whether the "+" runs its one action or opens a menu, the menu's entries in the shared menu's shape
-// (public/host-menu.js, with categories as flyouts), and the status bar's text and its polite, debounced read-out.
+// The pure rules of a module window's bands: cleaning what a module sends (host.add.set, host.status.set, host.header.set,
+// host.toolbar.set), whether the "+" runs its one action or opens a menu, the menu's entries in the shared menu's shape
+// (public/host-menu.js, with categories as flyouts), the status bar's polite, debounced read-out, and how each of them
+// maps onto the module frame (public/module-frame.js: frameAdd, statusFrame, titlebarActions, frameToolbar).
 // No DOM and no imports: public/module-host.js draws with these, and tools/check-module-chrome.mjs tests them.
 // See documentation/plans/plan-module-titlebar-add.md, "The contract".
 
@@ -122,7 +123,16 @@ export function addMenuItems(clean, onPick) {
   });
 }
 
-// What host.status.set sent, cleaned: up to 4 items { text, icon?, chip, title, quiet, end }, text up to 60 characters,
+// The "+" as the frame's title bar draws it (module-frame.js, titlebar.add): none, one action (its event carries the
+// leaf's id as `value`) or a menu of them (`onPick(id)` for a leaf).
+export function frameAdd(clean, onPick) {
+  const plan = addPlan(clean);
+  if (plan.kind === 'none') return null;
+  if (plan.kind === 'direct') return { label: plan.leaf.label, disabled: plan.leaf.disabled, value: plan.leaf.id };
+  return { label: plan.label, items: () => addMenuItems(clean, onPick) };
+}
+
+// What host.status.set sent, cleaned: up to 4 items { text, icon?, title, quiet, end }, text up to 60 characters,
 // `title` (the tooltip) the text unless given. At most one `end` item (the first marked), and it goes last.
 export function cleanStatusItems(items) {
   const out = [];
@@ -132,7 +142,7 @@ export function cleanStatusItems(items) {
     if (!i || typeof i !== 'object') continue;
     const text = str(i.text, STATUS_LIMITS.text);
     if (!text) continue;
-    const item = { text, chip: Boolean(i.chip), title: str(i.title, STATUS_LIMITS.title) || text, quiet: Boolean(i.quiet), end: false };
+    const item = { text, title: str(i.title, STATUS_LIMITS.title) || text, quiet: Boolean(i.quiet), end: false };
     if (ICON.test(i.icon || '')) item.icon = i.icon;
     if (i.end && !end) { item.end = true; end = item; } else out.push(item);
   }
@@ -144,21 +154,15 @@ export const statusKey = (clean) => JSON.stringify(clean || []);
 // The bar's own tooltip: every item's text. What a screen reader hears: the items that are not quiet.
 export const statusTitle = (clean) => (clean || []).map((i) => i.text).join(' · ');
 export const statusSpoken = (clean) => (clean || []).filter((i) => !i.quiet).map((i) => i.text).join(' · ');
-
-// How the items give way when the bar is `over` pixels too narrow: the last before the `end` item first, down to
-// nothing, then the one before it, and so on; the `end` item never. `items` are [{ w, end }] (each item's own width);
-// the answer is each item's widest (whole pixels, cut with an ellipsis), or null where it keeps its own width.
-export function statusFit(items, over) {
-  const out = (items || []).map(() => null);
-  let left = Math.max(0, Number(over) || 0);
-  for (let k = out.length - 1; k >= 0 && left > 0; k -= 1) {
-    if (items[k].end) continue;
-    const w = Math.max(0, Number(items[k].w) || 0);
-    const keep = Math.max(0, Math.floor(w - left));
-    out[k] = keep;
-    left -= w - keep;
-  }
-  return out;
+// The cleaned items as the frame's status bar draws them (module-frame.js, setStatus): the words at the start, a dot
+// between, cut with an ellipsis when the bar is too narrow; the `end` item at the end, never cut.
+export function statusFrame(clean) {
+  const part = (i) => ({ text: i.text, ...(i.icon ? { icon: i.icon } : {}), title: i.title });
+  return {
+    lead: (clean || []).filter((i) => !i.end).map(part),
+    items: (clean || []).filter((i) => i.end).map(part),
+    title: statusTitle(clean),
+  };
 }
 
 // The polite read-out: `write(text)` gets the spoken text only after `delay` without a change, never for the first
@@ -203,18 +207,19 @@ export function topmostAt(candidates, x, y) {
 }
 
 // What host.toolbar.set sent, cleaned (plan-unified-layout.md, "The contract"): at most 16 items, each one of
-//   { separator: true }
-//   { type: 'text', text }                                  a dim label
-//   { type: 'title', text }                                 the row's title (Calendar's "October 2026"); it takes the room
-//                                                           left over and is cut with an ellipsis, never folded
-//   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] }
-//   { type: 'progress', value, label? }
-//   { type: 'slider', id, value, min?, max?, step?, label?, disabled? }
-//   { type: 'search', id, value?, placeholder?, label? }    the band's small search field
-//   { type: 'chips', id, label?, icon?, options: [{ id, label, icon?, tint?, on, note? }] }
-//                                                           filter chips; folded into one menu button (`label`, else
-//                                                           "Filter") while the row is too narrow for them
-//   { type: 'button', id, label?, title?, icon?, on?, primary?, disabled?, overflow? }   (the default type)
+//   { type: 'title', text }                                 the row's title (Calendar's "October 2026")
+//   { type: 'text', text }                                  a quieter note in the row
+//   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] }   a segmented view switch
+//   { type: 'search', id, value?, placeholder?, label? }    the row's search, in its fixed place at the end
+//   { type: 'chips', id, label?, single?, value?, options: [{ id, label, icon?, tint?, note?, count?, on?, default? }] }
+//                                                           a group of filters in the row's one Filters menu, under
+//                                                           `label`: switches (each `on`; applied while it is not its
+//                                                           `default`, which is on unless given), or with `single` one
+//                                                           choice (`value`; the first option is "nothing applied")
+//   { type: 'button', id, label?, title?, icon?, regular?, on?, primary?, disabled?, overflow?, placement? }  (the default type)
+//                                                           `placement`: 'titlebar' (an icon beside the title bar's menu)
+//                                                           or 'menu' (in the title bar's menu); else in the row, and
+//                                                           `overflow` always in the row's "More"
 // Anything else is dropped. A function `send` on an item (the host page's own items, never a module's: a module's go through
 // postMessage or this cleaning first) is kept, so the page can mix its own items into a part's row.
 export const TOOLBAR_LIMITS = { items: 16, tabs: 8, chips: 24, text: 80, title: 80, label: 30, placeholder: 80, value: 200 };
@@ -226,19 +231,9 @@ export function cleanToolbarItems(items) {
   for (const i of (Array.isArray(items) ? items : []).slice(0, TOOLBAR_LIMITS.items)) {
     if (!i || typeof i !== 'object') continue;
     const own = typeof i.send === 'function' ? { send: i.send } : {};
-    if (i.separator || i.type === 'separator') { out.push({ separator: true }); continue; }
-    const type = ['tabs', 'text', 'title', 'progress', 'slider', 'search', 'chips'].includes(i.type) ? i.type : 'button';
-    if (type === 'text' || type === 'title') { const text = s(i.text, TOOLBAR_LIMITS[type]); out.push({ type, text, ...own }); continue; }
-    if (type === 'progress') { out.push({ type, value: Math.max(0, Math.min(100, Number(i.value) || 0)), label: s(i.label, 40) }); continue; }
-    if (type === 'slider') {
-      if (!id(i.id)) continue;
-      const min = Number.isFinite(Number(i.min)) ? Number(i.min) : 0;
-      const max = Number.isFinite(Number(i.max)) ? Number(i.max) : 100;
-      const step = Number.isFinite(Number(i.step)) && Number(i.step) > 0 ? Number(i.step) : 1;
-      const top = max > min ? max : min + 1;
-      out.push({ type, id: id(i.id), min, max: top, step, value: Math.max(min, Math.min(top, Number.isFinite(Number(i.value)) ? Number(i.value) : min)), label: s(i.label, 40), disabled: Boolean(i.disabled), ...own });
-      continue;
-    }
+    const type = ['tabs', 'text', 'title', 'search', 'chips', 'button', undefined].includes(i.type) ? i.type || 'button' : null;
+    if (!type) continue;
+    if (type === 'text' || type === 'title') { const text = s(i.text, TOOLBAR_LIMITS[type]); if (text) out.push({ type, text, ...own }); continue; }
     if (type === 'tabs') {
       const options = (Array.isArray(i.options) ? i.options : []).slice(0, TOOLBAR_LIMITS.tabs).map((o) => ({
         id: id(o?.id), label: s(o?.label, TOOLBAR_LIMITS.label), icon: icon(o?.icon), regular: Boolean(o?.regular), iconOnly: Boolean(o?.iconOnly),
@@ -253,13 +248,21 @@ export function cleanToolbarItems(items) {
       continue;
     }
     if (type === 'chips') {
+      const single = Boolean(i.single);
       const options = (Array.isArray(i.options) ? i.options : []).slice(0, TOOLBAR_LIMITS.chips).map((o) => {
-        const opt = { id: id(o?.id), label: s(o?.label, 40), on: o?.on !== false, note: s(o?.note, 20) };
+        const opt = { id: id(o?.id), label: s(o?.label, 40) };
+        if (!single) { opt.default = o?.default !== false; opt.on = o?.on === undefined ? opt.default : Boolean(o.on); }
+        const note = s(o?.note, 20);
+        if (note) opt.note = note;
+        if (Number.isInteger(o?.count) && o.count >= 0) opt.count = o.count;
         if (icon(o?.icon)) opt.icon = o.icon;
         if (TINT.test(o?.tint || '')) opt.tint = o.tint;
         return opt;
       }).filter((o) => o.id && o.label);
-      if (id(i.id) && options.length) out.push({ type, id: id(i.id), label: s(i.label, 60) || 'Filter', icon: icon(i.icon) || 'filter', options, ...own });
+      if (!id(i.id) || !options.length) continue;
+      const chips = { type, id: id(i.id), label: s(i.label, 60) || 'Filter', single, options, ...own };
+      if (single) chips.value = options.some((o) => o.id === id(i.value)) ? id(i.value) : options[0].id;
+      out.push(chips);
       continue;
     }
     const b = {
@@ -268,10 +271,12 @@ export function cleanToolbarItems(items) {
       label: s(i.label, TOOLBAR_LIMITS.label),
       title: s(i.title, 40),
       icon: icon(i.icon),
+      regular: Boolean(i.regular),
       on: typeof i.on === 'boolean' ? i.on : null, // null: not a toggle, so no pressed state
       primary: Boolean(i.primary),
       disabled: Boolean(i.disabled),
       overflow: Boolean(i.overflow),
+      placement: i.placement === 'titlebar' || i.placement === 'menu' ? i.placement : 'row',
       ...own,
     };
     if (b.id && (b.label || b.icon)) out.push(b);
@@ -279,26 +284,65 @@ export function cleanToolbarItems(items) {
   return out;
 }
 
-// The words on the folded chips' menu button: its label, and how many are on when some are off ("Trips (3 of 5)" is the
-// module's own label; "Filter · 2 off" when it gave none that says so). Pure, for the check.
-export function chipsSummary(item) {
-  const off = (item?.options || []).filter((o) => !o.on).length;
-  return off ? `${item.label} · ${off} off` : item.label;
+// The titlebar's own icons (host.header.set), cleaned: at most 10 of { id, title, icon, regular, on, disabled, overflow,
+// danger }. `overflow` puts one in the title bar's menu; `danger` (a destructive action) is always last in that menu, red.
+export function cleanHeaderItems(items) {
+  return (Array.isArray(items) ? items : []).slice(0, 10).map((i) => ({
+    id: String(i?.id ?? '').slice(0, 40),
+    title: String(i?.title ?? '').slice(0, 40),
+    icon: ICON.test(i?.icon || '') ? i.icon : '',
+    regular: Boolean(i?.regular),
+    on: Boolean(i?.on),
+    disabled: Boolean(i?.disabled),
+    overflow: Boolean(i?.overflow),
+    danger: Boolean(i?.danger),
+  })).filter((i) => i.id && i.icon);
 }
 
-// A toolbar row drawn again keeps the keyboard where it was (issue #155): each drawn control carries a key (its
-// item id, and the choice's id inside a switch), read before the row is cleared and found again after it is built.
-export const toolbarKey = (kind, id, choice = '') => `${kind}:${id}${choice === '' ? '' : `:${choice}`}`;
-export function focusedToolbarKey(row) {
-  const active = row?.ownerDocument?.activeElement;
-  return active && active !== row && row.contains(active) ? active.dataset?.tbKey || null : null;
-}
-export function restoreToolbarFocus(row, key) {
-  if (!key) return false;
-  for (const el of row.querySelectorAll('[data-tb-key]')) {
-    if (el.dataset.tbKey !== key || el.disabled) continue;
-    el.focus({ preventScroll: true });
-    return true;
+// What the frame's title bar shows for a module (module-frame.js, titlebar.actions): its header icons (host.header.set),
+// then the toolbar buttons placed in the title bar or its menu. Each keeps where it came from (`from`: 'header' or
+// 'toolbar'), so its click goes back as that event. More than five icons beside the menu: the rest go into the menu.
+export function titlebarActions(header, toolbar) {
+  const out = [];
+  for (const h of header || []) {
+    out.push({ id: h.id, from: 'header', label: h.title || h.id, icon: h.icon, ...(h.regular ? { regular: true } : {}),
+      placement: h.overflow ? 'menu' : 'bar', ...(h.on ? { on: true } : {}), ...(h.disabled ? { disabled: true } : {}), ...(h.danger ? { danger: true } : {}),
+      ...(h.send ? { send: h.send } : {}) });
   }
-  return false;
+  for (const b of toolbar || []) {
+    if (b.type !== 'button' || b.placement === 'row') continue;
+    out.push({ id: b.id, from: 'toolbar', label: b.title || b.label || b.id, icon: b.icon || 'circle', ...(b.regular ? { regular: true } : {}),
+      placement: b.placement === 'titlebar' ? 'bar' : 'menu', ...(typeof b.on === 'boolean' ? { on: b.on } : {}), ...(b.disabled ? { disabled: true } : {}),
+      ...(b.send ? { send: b.send } : {}) });
+  }
+  let bar = 0;
+  for (const a of out) if (a.placement === 'bar' && !a.danger && (bar += 1) > 5) a.placement = 'menu';
+  return out;
+}
+
+// The cleaned toolbar items as the frame's one row draws them (module-frame.js): the start group in Thomas's order (the
+// view switches, then the title and notes, then the buttons, each kind in the order given), then the search and one
+// Filters button that holds every chips item as a group. Title bar buttons are not here (titlebarActions).
+const ROW_ORDER = { tabs: 0, title: 1, text: 1, button: 2 };
+export function frameToolbar(clean) {
+  const start = [];
+  const end = [];
+  const groups = [];
+  for (const i of clean || []) {
+    if (i.type === 'tabs') start.push({ type: 'switch', id: i.id, label: 'View', value: i.value, options: i.options.map((o) => ({ ...o })), ...(i.send ? { send: i.send } : {}) });
+    else if (i.type === 'title' || i.type === 'text') start.push({ type: i.type, text: i.text });
+    else if (i.type === 'search') end.push({ type: 'search', id: i.id, label: i.label, placeholder: i.placeholder, value: i.value, ...(i.send ? { send: i.send } : {}) });
+    else if (i.type === 'chips') groups.push({ id: i.id, heading: i.label, single: i.single, ...(i.single ? { value: i.value } : {}), options: i.options.map((o) => ({ ...o })), ...(i.send ? { send: i.send } : {}) });
+    else if (i.type === 'button' && i.placement === 'row') {
+      start.push({
+        type: 'button', id: i.id, label: i.label || i.title, icon: i.icon || undefined, ...(i.regular ? { regular: true } : {}),
+        kind: i.primary ? 'primary' : i.icon && !i.label ? 'icon' : 'secondary',
+        ...(i.title && i.title !== i.label ? { tip: i.title } : {}), ...(typeof i.on === 'boolean' ? { on: i.on } : {}),
+        ...(i.disabled ? { disabled: true } : {}), ...(i.overflow ? { more: true } : {}), ...(i.send ? { send: i.send } : {}),
+      });
+    }
+  }
+  const ordered = start.map((e, at) => ({ e, at })).sort((a, b) => (ROW_ORDER[a.e.type === 'switch' ? 'tabs' : a.e.type] - ROW_ORDER[b.e.type === 'switch' ? 'tabs' : b.e.type]) || a.at - b.at).map((x) => x.e);
+  if (groups.length) end.push({ type: 'filters', id: 'filters', label: 'Filters', groups });
+  return [...ordered, ...end];
 }

@@ -10,11 +10,11 @@
 'use strict';
 
 // The shared things. Any rule whose selector names one of these classes, with any property at all, is a finding.
-const SHARED_CLASS = /\.(?:sdk-(?:card|row|list|table|form|field|tab|chip|toolbar|titlebar|status)[\w-]*|tb-[\w-]+|mod-(?:header|toolbar|status|title|content)[\w-]*)/;
+const SHARED_CLASS = /\.(?:sdk-(?:card|row|list|table|form|field|tab|chip|toolbar|titlebar|status)[\w-]*|tb-[\w-]+|mf-[\w-]+|mod-(?:header|toolbar|status|title|content)[\w-]*)/;
 // A class a module might give a bar of its own.
 const BAND_NAME = /(?:^|-)(?:titlebar|toolbar|tabs|tabstrip|page-bar|pagebar|statusbar|status-line)$/;
 // A class in markup that draws a band: the shared band classes and any class named for one.
-const BAND_MARKUP = /^(?:sdk-(?:toolbar|titlebar|status|tabs|tabbar)[\w-]*|tb-tabs[\w-]*|mod-(?:header|toolbar|status)[\w-]*)$/;
+const BAND_MARKUP = /^(?:sdk-(?:toolbar|titlebar|status|tabs|tabbar)[\w-]*|tb-tabs[\w-]*|mf-(?:titlebar|toolbar|status)[\w-]*|mod-(?:header|toolbar|status)[\w-]*)$/;
 const BOX_PROP = /^(?:padding|margin)(?:-[a-z-]+)?$|^(?:min-)?height$/;
 const SLOT_SELECTOR = /^(?:html|body|:root|\.app|#app|\.mod-content)$/;
 const AT_WITH_RULES = /^@(?:media|supports|container|layer|scope)\b/;

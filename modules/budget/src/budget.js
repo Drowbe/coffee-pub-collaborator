@@ -220,7 +220,7 @@
     if (state.view === 'overview') renderOverview();
     else if (state.view === 'costs') renderCosts();
     else renderSettle();
-    if (state.view !== 'costs') syncToolbar(false, '');
+    if (state.view !== 'costs') syncToolbar([], []);
     for (const n of root.querySelectorAll('[data-slot="withheld-note"]')) fill(n, { 'withheld-note': withheldNote(state.withheld) });
     hydrate(root);
     chrome();
@@ -398,7 +398,7 @@
     const people = [{ key: '', label: 'Anyone paid' }, { key: '-', label: 'Nobody paid yet' }, ...state.people.map((p) => ({ key: p.key, label: `Paid by ${p.name}` }))];
     if (state.payer && !people.some((p) => p.key === state.payer)) state.payer = '';
     if (state.category && !state.cats.some((c) => c.id === state.category)) state.category = '';
-    syncToolbar(all.length > 0, (people.find((p) => p.key === state.payer) || people[0]).label);
+    syncToolbar(all, people);
     const host_ = $('groups');
     if (!all.length) {
       const el = clone('tpl-state');
@@ -456,16 +456,22 @@
     }
     host.menu.show({ id: `cost-${id}`, anchor: button, items });
   }
-  // The toolbar row while Costs shows and has costs: find a cost, then how they are grouped and sorted and which show, each a
-  // button whose choices open under it (its `x`); the view switch follows in the same row. Nothing of it in the other views.
-  function syncToolbar(any, payerLabel) {
-    host.toolbar.set(state.view === 'costs' && any ? [
-      { type: 'search', id: 'find', value: state.text, placeholder: 'Find a cost', label: 'Find a cost' },
+  // The toolbar row while Costs shows and has costs: how they are grouped (a button whose choices open under it, its
+  // `x`), find a cost, and the filters: the sort, the category and who paid, each one choice, with how many costs each
+  // would show (of what the search leaves). The view switch leads the row. Nothing of it in the other views.
+  function syncToolbar(all, people) {
+    if (state.view !== 'costs' || !all.length) { host.toolbar.set([]).catch(() => {}); return; }
+    const count = (f) => filterCosts(all, state.cats, { category: '', payer: '', text: state.text, ...f }).length;
+    host.toolbar.set([
       { type: 'button', id: 'group', label: state.groupBy === 'day' ? 'By day' : 'By category', icon: 'layer-group' },
-      { type: 'button', id: 'sort', label: SORT_WORDS[state.sort], icon: 'arrow-down-wide-short', on: state.sort !== 'date-asc' },
-      { type: 'button', id: 'category', label: state.category ? catRow(state.cats, state.category).label : 'All categories', icon: 'tag', on: Boolean(state.category) },
-      { type: 'button', id: 'payer', label: payerLabel, icon: 'user', on: Boolean(state.payer) },
-    ] : []).catch(() => {});
+      { type: 'search', id: 'find', value: state.text, placeholder: 'Find a cost', label: 'Find a cost' },
+      { type: 'chips', id: 'sort', label: 'Sort', single: true, value: state.sort, options: SORTS.map((id) => ({ id, label: SORT_WORDS[id] })) },
+      { type: 'chips', id: 'category', label: 'Category', single: true, value: state.category || 'all', options: [
+        { id: 'all', label: 'All categories', count: count({}) },
+        ...state.cats.map((c) => ({ id: c.id, label: c.label, ...(c.icon ? { icon: c.icon } : {}), count: count({ category: c.id }) })),
+      ] },
+      { type: 'chips', id: 'payer', label: 'Paid by', single: true, value: state.payer || 'all', options: people.map((p) => ({ id: p.key || 'all', label: p.label, count: count({ payer: p.key }) })) },
+    ]).catch(() => {});
   }
   function chooser(e, entries, current, pick) {
     host.menu.show({ id: e.id, at: { x: Number(e.x) || 0, y: 4 }, items: entries.map((en) => ({ id: String(en.id), label: en.label, icon: en.id === current ? 'check' : en.icon, onClick: () => { pick(en.id); render(); } })) });
@@ -477,9 +483,9 @@
       renderCosts();
       hydrate(root);
     } else if (e.id === 'group') chooser(e, [{ id: 'day', label: 'By day' }, { id: 'category', label: 'By category' }], state.groupBy, (v) => { state.groupBy = v; });
-    else if (e.id === 'sort') chooser(e, SORTS.map((id) => ({ id, label: SORT_WORDS[id] })), state.sort, (v) => { state.sort = v; });
-    else if (e.id === 'category') chooser(e, [{ id: '', label: 'All categories' }, ...state.cats.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))], state.category, (v) => { state.category = v; });
-    else if (e.id === 'payer') chooser(e, [{ id: '', label: 'Anyone paid' }, { id: '-', label: 'Nobody paid yet' }, ...state.people.map((p) => ({ id: p.key, label: `Paid by ${p.name}`, icon: 'user' }))], state.payer, (v) => { state.payer = v; });
+    else if (e.id === 'sort' && SORTS.includes(e.value)) { state.sort = e.value; render(); }
+    else if (e.id === 'category' && typeof e.value === 'string') { state.category = e.value === 'all' ? '' : e.value; render(); }
+    else if (e.id === 'payer' && typeof e.value === 'string') { state.payer = e.value === 'all' ? '' : e.value; render(); }
   });
 
   // --- Settle up ----------------------------------------------------------------------------------------------------------

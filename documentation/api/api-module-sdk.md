@@ -49,7 +49,7 @@ A zip holds a `module.json` and the HTML pages it names. Everything a page needs
 - `canvas` is the module's place on a space's canvas: `{ entry, width, height, mode, menu? }` (it was `surfaces.panel`, with `panel.html`; a manifest still using `panel` is refused, see [api-modules](api-modules.md)). `canvas.mode` lists how it may be shown: `dock` (a column of the space's canvas beside the video and chat), `float` (floating over the call), or both. Leave it out and both are allowed. A space opens a module docked when it can, and people can switch between them. A docked module keeps the width you drag it to. `width` and `height` are the starting size. `menu: false` keeps the module out of the space bar and the canvas never opens it, for a module that is on in a space only for its permissions or hooks (the Assistant); absent or `true`, it is listed.
 - `permissions` are the module's own permissions. Each appears on the Roles tab as `Module: <name>`, with the `default` you give per role: `member`, `moderator` and `guest` (a missing `moderator` takes `member`'s value; the old key `user` is refused). A permission can say `"replaces": "<old key>"` when it was renamed: each role's choice for the old key is carried over once, when the server starts and after any install. It is refused if it names a key the module still uses, or an old key another permission already replaces. A key matches `^[a-z][a-z0-9_]{0,23}$`: a lower-case letter, then up to 23 lower-case letters, digits or underscores. Owners, and the host admin on a hosted server, always have every permission, so a module never needs a role check of its own: ask `host.can()`.
 - `access` names which of those permissions guards reading and writing the module's data. Leave it out and any signed-in person who can see the module can read and write.
-- `hooks` names what the module may ask Collaborator to do: `schedule` and `notify`. An owner approves them when enabling the module.
+- `hooks` names what the module may ask Collaborator to do: `schedule` and `notify`. An owner approves them when enabling the module. `ai` is `true` (the module cannot work without the AI service, so it cannot be turned on while that is off) or `"optional"` (it uses the service when it is on and works without it; Research is optional).
 - `refs` lets modules point at each other's objects without reaching into each other's data; see [Objects](#objects-pointing-at-another-modules-objects). `refs.produces` lists the kinds of object this module lets others point at, and `refs.consumes` the other modules' kinds it wants to point at, which the owner approves when enabling the module.
 
 ## Pages and the SDK
@@ -393,7 +393,7 @@ A module can take typed text from Chat. List it in `module.json` as a top-level 
 
 ### AI
 
-A module that declares the `ai` hook can ask the AI the owner set up:
+A module that declares the `ai` hook (`true`, or `"optional"` for a module that works without the AI service) can ask the AI the owner set up. An optional module must check `available` first and draw its AI controls only when it is true:
 
 ```js
 const { available, why } = await host.ai.available();
@@ -425,7 +425,7 @@ Anything more than one module needs belongs in the SDK, not copied into each mod
 - `host.locale()` is `{ language, clock, currency, currencies, words }`: how the server shows these, and `currencies`, the sorted codes the server accepts for a currency (the same list as `GET /api/currencies`) (Manage > Settings > Language, time and money; the defaults `en`, `12`, `USD` until the handshake answers). Apply them with `host.util.time("22:30")` ("10:30 PM" on the 12-hour clock, "22:30" on the 24-hour one; a stored time is always HH:MM), `host.util.hour12()` (for `toLocaleString`'s `hour12` where you show a Date) and `host.util.money(amount, currency?)` (the server's currency unless one is given). Never format a time or an amount your own way: the person chose these once, for everything.
 - **Words.** An environment's owner can rename its levels and roles (Manage > Environment > Words), so never type "space", "member" or the like into text people read. `host.locale().words` holds all thirteen, keyed `host`, `environment`, `space`, `home`, `aside`, `canvas`, `module`, `object`, `admin`, `owner`, `moderator`, `member` and `guest`, each `{ one, many, a }` (`a`: the singular with its article). `home` is what the home page, the list of spaces, is called; unless the owner or the template set it, both its forms are the space word's plural with a capital ("Spaces", "Trips"), and the SDK's own defaults, before the handshake answers, give "Spaces". `host.util.word(key, { many, cap, a })` answers one ("trip", `many` "trips", `a` "a trip", `cap` with a capital) and throws for an unknown key. For markup, write `<span data-word="owner" data-word-form="a cap"></span>` (forms: `many`, `cap`, `a`) in a template and call `host.util.fillWords(root)` after putting it on the page. In `module.json`, the text people read (the description, the widget's title, permission labels, setting labels, help and options, event and action labels, and kind names) takes the same placeholders the pages use: `{space}`, `{spaces}`, `{Space}`, `{a space}` and so on for each key except `home`, which has none (its default is the space word's, so `{Spaces}` already reads it).
 - `host.ui.currencySelect(select, { value, empty, onChange })` fills a `<select>` you already have with the currencies the server accepts: a **Common** group, then **All currencies**, each by its name in the viewer's language (the bare code where there is no name). `value` is matched in capitals; a value not on the list (an old or odd code) gets its own selected option, so nothing stored disappears. `empty: true` adds a first choice, "Default (<the environment's currency>)", whose value is `""`; give a string instead to label it yourself. `onChange(code)` runs on each change (`""` for the default). It returns `{ set(value), value, destroy() }`. Call it after `host.ready()`, since the list comes with the handshake; with no list there it falls back to the browser's own list, then to the common codes.
-- `host.ui.viewSwitch({ id, options, value, onChange })` draws a labelled view or filter switch in the toolbar (see "The toolbar" below) and owns the boilerplate every module drawing one otherwise repeats: it only calls `host.toolbar.set` when the value or an option's label actually changed, and wires the `toolbar` event for you. Call `.set(value, options?)` on every render (it no-ops when nothing changed) rather than diffing and calling `toolbar.set` yourself. A module may make more than one (Research: whose items, then Cards/List): every live switch shares the toolbar row, drawn in the order they were made with a separator between, and any one changing redraws the row; `destroy()` takes one out again. Do not call `toolbar.set` yourself while a switch is live, since the next switch change would draw over it. Each option is `{ id, label, icon?, regular? }`: give every option an `icon` (a Font Awesome name; `regular` for the outlined set) and the switch shows the icon beside the word, and only the icon when the row is too narrow for the words, the word staying as the tooltip and what a screen reader reads; an option without an icon always shows its word. With `element` (an element of your own page), the switch is drawn there instead of in the toolbar, in the same look and fitted to that element's parent, for a page with no toolbar row (a destination's panel). The look is the base stylesheet's (`.tb-tabs`, `.tb-tab`, `.tb-tab-glyph`, `.tb-tab-word`, `.tb-tabs-compact` in `/sdk/host.css`); a module must not size them (`tools/check-switches.mjs` fails a bundled module that does).
+- `host.ui.viewSwitch({ id, options, value, onChange })` draws a labelled view or filter switch in the toolbar (see "The toolbar" below) and owns the boilerplate every module drawing one otherwise repeats: it only calls `host.toolbar.set` when the value or an option's label actually changed, and wires the `toolbar` event for you. Call `.set(value, options?)` on every render (it no-ops when nothing changed) rather than diffing and calling `toolbar.set` yourself. A module may make more than one (Research: whose items, then Cards/List): every live switch shares the toolbar row, drawn in the order they were made with a separator between, and any one changing redraws the row; `destroy()` takes one out again. Do not call `toolbar.set` yourself while a switch is live, since the next switch change would draw over it. Each option is `{ id, label, icon?, regular? }`: give every option an `icon` (a Font Awesome name; `regular` for the outlined set) and the switch shows the icon beside the word, and only the icon when the row is too narrow for the words, the word staying as the tooltip and what a screen reader reads; an option without an icon always shows its word. With `element` (an element of your own page), the switch is drawn there instead of in the toolbar, in the same look and fitted to that element's parent, for a page with no toolbar row (a destination's panel). The look is the base stylesheet's (`.tb-tabs`, `.tb-tab`, `.tb-tab-glyph`, `.tb-tab-word`, `.tb-tabs-compact` in `/sdk/system.css`); a module must not size them (`tools/check-switches.mjs` fails a bundled module that does).
 - `host.ui.toolbarButton({ id, label, icon, iconOnly, on, onClick })` puts one button in the same toolbar row as the view switches (after the switches made before it), for a chooser that opens a menu, such as Research's Tags: `onClick` runs on a click and receives the `toolbar` event (`{ id, x? }`), and the returned `{ set({ label, icon, on }), destroy() }` changes what it shows (`set` redraws only when something changed). Open the menu it belongs to under the button with `host.menu.show({ at: { x: e.x, y: 4 }, ... })`; where the host gives no `x`, `{ x: 100000, y: 4 }` lands at the top right of the module, under the toolbar.
 - `host.people()` returns the people of the space the module is open in, `[{ key, name }]` (empty outside a space), for choosing a person ("whose is it"): store their `key`, not the name.
 - `host.ui.moreButton(el?, { label })` makes the shared "..." button (`ellipsis-vertical`, centered, class `sdk-more`) for a card's, a row's or a day's menu. Pass a `<button>` you already have (its `data-action` and listeners stay) or nothing to get a new one; `label` is the accessible name (default: the button's `aria-label`, else "More"). It sets `aria-haspopup="menu"` and returns the button; open your menu from it with `host.menu.show`. A `<button>` in your markup that shows `ellipsis-vertical` must carry `sdk-more` (`tools/check-module-window.mjs`).
@@ -438,22 +438,36 @@ Anything more than one module needs belongs in the SDK, not copied into each mod
 
 When you find yourself writing something a second module might also need, ask for it here instead. The Calendar, To-do, Polls, Research, Places and the Planner use these.
 
+### The module frame
+
+Every module window is drawn by one function, `createModuleFrame` (`public/module-frame.js`), with the styles in the moduleframe block of `public/sdk/system.css`: a window on a space's canvas (docked or floating), a module's own page and its popped-out window, a destination's page, the composite that holds a destination's parts, and the built-in Chat and call bands. A module never draws these bands or styles the frame's `mf-` classes (`tools/check-module-layout.mjs` fails a module that does). It asks for what it wants through four calls, and the host draws them in four levels, top down:
+
+1. **The title bar** (36px). The module's icon and name, then `host.header.set` actions, the **+** (`host.add.set`), the menu button, and **Close** where the window closes.
+2. **The toolbar** (40px), one row (`host.toolbar.set`).
+3. **The content**, the module's own area.
+4. **The status bar** (24px, `host.status.set`).
+
+The calls answer `true` wherever a module is drawn; only a dashboard widget has no frame, and there they answer `false`, so keep your own controls there. A destination's part shown inside the composite on a space's canvas has no title bar or status bar of its own: the composite's window draws its adds, actions and status.
+
 ### The titlebar
 
-A module on the canvas (docked or floating), or in a window of its own, has a titlebar the host draws with the module's name and the host's own buttons. `host.header.set([...])` adds icon buttons of the module's own to it, ahead of the host's buttons and set off by a pipe: for a window-level action (pin the module open, say), not a filter or a view switch -- those belong in the toolbar (below), as `tabs`, not more icons here.
+`host.header.set([...])` adds actions of the module's own to the title bar, for a window-level action (pin the module open, say), not a filter or a view switch -- those belong in the toolbar (below).
 
 ```js
-const drawn = await host.header.set([
+await host.header.set([
   { id: 'pin', icon: 'thumbtack', title: 'Keep this open', on: pinned },
+  { id: 'wipe', icon: 'trash', title: 'Delete all', overflow: true, danger: true },
 ]);
-host.on('header', (e) => { /* e.id is the button clicked */ });
+host.on('header', (e) => { /* e.id is the action used */ });
 ```
 
-`icon` is a Font Awesome name, `on` marks the current choice, `title` is the tooltip. It resolves `true` when the host drew them and `false` when there is no titlebar (a module's environment page), so keep your own controls in the page in that case, and hide them when it is true. More than five collapse into a host-drawn "..." at the end (see Overflow, below); mark one `overflow: true` to always keep it there (a destructive one, say) regardless of how many you set.
+`icon` is a Font Awesome name (`regular` for the outlined set), `on` marks the current choice, `title` is the tooltip and the label in the menu, `disabled` greys it. `placement` is set by `overflow`: an action is an icon beside the menu button, or with `overflow: true` an entry in the title bar's menu. `danger: true` is a destructive entry: always last in the menu, red, after a line of its own. At most 10 actions; more than five icons beside the menu, and the icons that do not fit on a narrow window, fold into the menu (the last first), so nothing is clipped. A toolbar button given `placement: 'titlebar'` or `'menu'` (below) lands here too, and its click arrives as the `toolbar` event.
+
+The menu also holds the standard actions, drawn the same in every module and not set by the module: **Dock as a panel**, **Open as a window**, **Open in its own window** (pop out), and **Settings**, **Share** and **Print** where the module has them; the host adds **Clear** (red, last) only where a module offers it. A standard action is never sent to the module as a `header` event.
 
 ### The add button (`host.add.set`)
 
-A module's add actions go in a **+** in its titlebar, after the module's own icons and before the host's **...**. It replaces the old action bar along the bottom (below). Detect it with `if (host.add)`.
+A module's add actions go in a **+** in its title bar, after the module's own icons and before the menu button. It replaces the old action bar along the bottom (below). In the frame the **+** is a plain icon button. Detect it with `if (host.add)`.
 
 ```js
 await host.add.set([
@@ -476,7 +490,7 @@ An entry is one of three things:
 
 Limits: a label is up to 40 characters; at most 8 top-level entries, 12 leaves in a category and 40 leaves in all. The host drops the rest without refusing the call. With exactly one leaf and no category, the **+** runs it at once and its label is the tooltip ("Add event"). With more, the **+** (tooltip "Add") opens the host's menu, where a category's leaves fly out beside its row (and drill in on a phone, with a **Back** entry). A pick arrives as the `add` event `{ id }`, and a category itself sends nothing. An empty list takes the **+** away: send one for a person who may not add, since what "may add" means is the module's own permission. Call it again whenever what can be added changes.
 
-It resolves `true` when the host drew it (a window's titlebar, popped out too, and the page bar on a module's own page) and `false` where there is no titlebar (a destination's part on the destination's own page, a dashboard widget); keep your own add button there. A destination's part shown as a layout on a space's canvas (Calendar, Map) has the composite's titlebar: the call resolves `true`, the entries are drawn there, and the part hides its own add buttons.
+It resolves `true` when the host drew it (a window's title bar, popped out too, a module's own page, a destination's page, or the composite's title bar for a part shown as a layout on a space's canvas, where the part hides its own add buttons) and `false` only for a dashboard widget, which has no title bar; keep your own add button there.
 
 ### The status line (`host.status.set`)
 
@@ -485,12 +499,12 @@ One slim read-only line at the bottom of a module's window or column, for counts
 ```js
 await host.status.set([
   { text: '12 of 40', icon: 'list' },
-  { text: 'Mine', chip: true, title: 'Showing only your tasks' },
+  { text: 'Mine', title: 'Showing only your tasks' },
   { text: '09:41', quiet: true, end: true },
 ]);
 ```
 
-Up to 4 items `{ text, icon?, chip?, title?, quiet?, end? }`. `text` is up to 60 characters; `chip` draws it as a small pill (a filter); `title` is its tooltip (else its text; up to 200 characters); `quiet` keeps it out of what a screen reader hears (a ticking time); `end` puts one item at the right end, and only the first marked is kept. When the line is too narrow the items give way from the last before the `end` item, whole, and the `end` item never does. The host reads the items that are not quiet out politely, once the line has been still for a moment and never for the first draw, and draws nothing for the same items again, so call it on every render. `set([])` hides the line. It resolves `true` when drawn (a window, popped out too, and a module's own page) and `false` where there is no line (a destination's part on the destination's own page, a dashboard widget; in a composite on a space's canvas its items are drawn in the composite's line). Its height is `--status-bar-h` (24px), and it is not the space's status strip ([architecture-canvas](../architecture/architecture-canvas.md), "The status strip").
+Up to 4 items `{ text, icon?, title?, quiet?, end? }`. `text` is up to 60 characters; `title` is its tooltip (else its text; up to 200 characters); `quiet` keeps it out of what a screen reader hears (a ticking time); `end` puts one item at the right end, and only the first marked is kept. The words sit at the start with a dot between; when the bar is too narrow they are cut with an ellipsis, and the `end` item never is. There are no pills in the status bar: a filter is shown in words, and the filter itself is in the toolbar's Filters menu. The host reads the items that are not quiet out politely, once the line has been still for a moment and never for the first draw, and draws nothing for the same items again, so call it on every render. `set([])` hides the line. It resolves `true` when drawn (a window, popped out too, a module's own page, a destination's page; in a composite on a space's canvas its items are drawn in the composite's bar) and `false` only for a dashboard widget. Its height is the frame's status bar token (24px), and it is not the space's status strip ([architecture-canvas](../architecture/architecture-canvas.md), "The status strip").
 
 ### What needs action (`host.attention`)
 
@@ -513,28 +527,33 @@ await host.attention.clear();
 
 ### The toolbar
 
-An optional row the host draws under the titlebar, above the content: a small kit of reusable tools about the module's current state -- not window-level actions (the titlebar) and not the module's add actions (the titlebar's **+**), and not a second row of titlebar icons. For the common case, a view or filter switch, reach for `host.ui.viewSwitch` (see "Shared tools") rather than building the `tabs` item yourself. `host.toolbar.set([...])` takes a list of items, each one of:
+One row the host draws under the title bar, above the content (the module frame, above): a small kit of tools about the module's current state -- not window-level actions (the title bar) and not the module's add actions (the **+**). For the common case, a view or filter switch, reach for `host.ui.viewSwitch` (see "Shared tools") rather than building the `tabs` item yourself. `host.toolbar.set([...])` takes up to 16 items, each one of:
 
 ```js
 host.toolbar.set([
-  { type: 'text', text: '12 of 40' },
-  { separator: true },
   { type: 'tabs', id: 'view', value: 'mine', options: [{ id: 'mine', label: 'Mine' }, { id: 'all', label: 'All' }] },
-  { type: 'progress', value: 62, label: 'Importing' },
-  { type: 'slider', id: 'zoom', value: 5, min: 1, max: 10, label: 'Zoom' },
+  { type: 'title', text: 'October 2026' },
+  { type: 'text', text: 'Synced' },
   { id: 'sync', type: 'button', label: 'Sync now', icon: 'rotate' },
+  { id: 'wipe', type: 'button', icon: 'trash', title: 'Delete all', placement: 'menu' },
+  { type: 'search', id: 'q', value: query, placeholder: 'Search tasks' },
+  { type: 'chips', id: 'who', label: 'Who', single: true, value: 'all',
+    options: [{ id: 'all', label: 'Everyone', count: 12 }, { id: 'me', label: 'Mine', count: 4 }] },
+  { type: 'chips', id: 'show', label: 'Show',
+    options: [{ id: 'done', label: 'Done', on: false, default: false, count: 3 }] },
 ]);
-host.on('toolbar', ({ id, value, x }) => { /* a tabs or slider item's click/move also carries `value`; a button's click carries `x`, its left edge across the module, for a menu under it */ });
+host.on('toolbar', ({ id, value, on, submit, x }) => { /* see below */ });
 ```
 
-- `{ type: 'text', text }` -- a plain, dim label.
-- `{ type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] }` -- a segmented switch; each option needs a `label`, an `icon`, or both -- `iconOnly` keeps the icon and drops the visible label (kept as the tooltip and `aria-label`), for a tight space where the icon alone already reads clearly (Places' Mine/This space/Everyone, an icon and a label together, is the more common shape). A click sends `{ id, value: optionId }`.
-- `{ type: 'progress', value, label? }` -- a read-only bar, `value` 0-100.
-- `{ type: 'slider', id, value, min?, max?, step?, label?, disabled? }` -- a range input (min 0, max 100, step 1 unless given); moving it sends `{ id, value }`.
-- `{ type: 'button', id, label?, icon?, on?, primary?, disabled?, overflow? }` (the default type when `type` is left out) -- a click sends `{ id }`. Use this sparingly, for the one action that goes with the toolbar's own state (a Sync button beside an import's progress) -- not a place to relocate the titlebar's row of icons. Unlike a `tabs` option, a lone `button` item repeating the titlebar's icon style is exactly the thing to avoid.
-- `{ separator: true }` -- a vertical divider, ignoring every other field.
+- `{ type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] }` -- a segmented view switch, at the left. Each option needs a `label`, an `icon` or both; `iconOnly` keeps the icon and drops the word (kept as the tooltip and the name). A click sends `{ id, value: optionId }`.
+- `{ type: 'title', text }` -- the row's title ("October 2026"), and `{ type: 'text', text }` -- a quieter short note. Both at the left, after the switches.
+- `{ type: 'button', id, label?, title?, icon?, regular?, on?, primary?, disabled?, overflow?, placement? }` (the default type when `type` is left out) -- a click sends `{ id, x }`, `x` the button's left edge across the module, for a menu under it. A button is at the left, after the title and notes. `overflow: true` keeps it in the row's **More** menu. `placement: 'titlebar'` moves it to an icon in the title bar and `'menu'` into the title bar's menu (see "The titlebar"). Use buttons sparingly, for the one action that goes with the row's own state.
+- `{ type: 'search', id, value?, placeholder?, label? }` -- the search field, always in the fixed slot at the right end of the row. Typing sends `{ id, value }` and Enter sends `{ id, value, submit: true }`. The host keeps the field between draws, so typing and focus survive your drawing the row again.
+- `{ type: 'chips', id, label?, single?, value?, options: [{ id, label, icon?, tint?, note?, count?, on?, default? }] }` -- a group of filters. A chips item is not drawn as chips: every chips item in the row becomes a group, under its `label` as the heading, in the row's one **Filters** button (after the search, at the right end). The button shows how many filters are applied, and its menu starts with **Clear filters**, which puts every group back. With `single`, the group is one choice (`value`; the first option means nothing applied); otherwise each option is a switch (`on`), applied while it differs from its `default` (on unless given). `count` is the number shown beside an option, the real number with no cap. A pick sends `{ id: <the chips id>, value: optionId }` for a single group and `{ id, value: optionId, on }` for a switch; **Clear filters** sends one such event for each group it puts back.
 
-Only `button` items count toward the five-item cap and collapse into the "..." (text, tabs, progress and slider items always show, since they say something, or are themselves the control, rather than being one more action). Resolves `true`/`false` the same way `header.set` does.
+The host puts the controls in this order whatever the order given: the switches, then the title and notes, then the buttons, then the search and Filters at the end, which sit 12px from the right edge in every window. When the row is too narrow the host folds it, in this order, and nothing is ever cut: the Filters button first, then the switch to its icons, secondary buttons to icons, the search to a magnifier that opens over the row, then whole controls into **More**. A word folded away stays as the tooltip and the name. The call resolves `true`/`false` the way `header.set` does.
+
+**Removed.** The toolbar no longer takes `progress`, `slider` or a `separator` item, and a status item no longer takes `chip`; they are dropped when sent. Show progress in the status bar's words, and put a range input in the content. A module that answered `false` from the toolbar and drew its own row has nothing to draw now: the host draws the row wherever the module is shown.
 
 ### Registering into the nav bars
 
@@ -728,7 +747,7 @@ A module with the `environment` scope can offer a widget for the dashboard on th
 
 A destination is a page of its own in the top bar, such as Calendar or Map, made of parts that modules offer ([api-modules](api-modules.md), "Destinations"). Offer one with `surfaces.destination` in `module.json`: `[{ "id": "calendar", "part": "main", "entry": "page.html" }, { "id": "calendar", "part": "panel", "entry": "page.html", "label": "Agenda", "order": 10 }]`. The module needs the `environment` scope; the entry may be the module's own page. A destination has one `main` (the large area) and any number of panels (beside it, one shown at a time, switched by their `label`; on a phone each is a tab). The host draws the page's header, its bar and its filter; a part draws only itself.
 
-A part runs as the module's environment page does (`info.context.scope` is `"environment"`, with the same storage, `{ scope: 'spaces' }` and `{ space }`), and knows it is a part from `info.context.destination`, `{ id, part }`. Leave out your own header, view switch and filter row there. On the destination's own page a part has no titlebar, so `host.add.set` and `host.status.set` resolve `false`; keep your own add button in the part. As a layout on a space's canvas they resolve `true` and the composite's titlebar and status line draw them. `host.destination` is the page's shared state, and is `null` anywhere else:
+A part runs as the module's environment page does (`info.context.scope` is `"environment"`, with the same storage, `{ scope: 'spaces' }` and `{ space }`), and knows it is a part from `info.context.destination`, `{ id, part }`. Leave out your own header, view switch and filter row there. The destination's page is one module frame: its title bar, its one toolbar row and its status bar draw what the parts ask for through `host.add.set`, `host.header.set`, `host.toolbar.set` and `host.status.set`, and these resolve `true`. As a layout on a space's canvas the composite's window draws them. `host.destination` is the page's shared state, and is `null` anywhere else:
 
 ```js
 const t = await host.ready();
@@ -760,7 +779,7 @@ The host folds the buttons into the **+** as plain leaves: the primary items fir
 
 **The action button.** The square icon button of the bottom row is one shared piece, `.action-btn` (add `.primary` for the accent look), in the base stylesheet Collaborator adds to every module page (`/sdk/host.css`): the call's controls and the chat's Send use it, its icon 20px in a 38px button. Use it for a button of your own that belongs with such a row, rather than sizing one yourself. Its size comes from `--action-btn-h` and its icon's share from `--action-icon-ratio`; those are the host's, and a module must not set them or restyle the button's size (`tools/check-buttons.mjs` fails a bundled module that does).
 
-**Overflow.** `header.set` and `toolbar.set` each show at most five items before folding the rest into a "..." the host draws on the left and opens (an item marked `overflow: true` goes there regardless of how many you set, for something you always want tucked away, like Delete); It is drawn by the host, not `host.menu.show` -- that one draws inside your own module, and a titlebar or toolbar button is the host's own chrome. You never build it yourself; it is just what setting more items than fit does. See [architecture-module-window](../architecture/architecture-module-window.md) for the shape all four zones follow.
+**Overflow.** `header.set` shows at most five icons before folding the rest into the title bar's menu (an action marked `overflow: true` goes there regardless of how many you set, for something you always want tucked away, like Delete), and the toolbar folds by the rule in "The toolbar"; It is drawn by the host, not `host.menu.show` -- that one draws inside your own module, and a titlebar or toolbar button is the host's own chrome. You never build it yourself; it is just what setting more items than fit does. See [architecture-module-window](../architecture/architecture-module-window.md) for the shape all four zones follow.
 
 ### Text, times and places
 

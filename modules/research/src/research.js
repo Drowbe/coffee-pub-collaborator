@@ -74,7 +74,6 @@
   const scopeOf = () => (view === 'my' ? 'person' : 'space');
   const allowed = { my: personal, space: inSpace };
 
-  let tagsButton = null; // the toolbar's Tags chooser, made at start (render sets its label)
   const state = {
     open: new Set(), // the cards opened to read in place (by id)
     people: [],
@@ -262,8 +261,9 @@
     hydrate(body);
   }
 
-  // The toolbar row: the search and the kind chips (one kind or none: none shows every kind), then the view switches and
-  // the Tags chooser, which follow in the same row. None of it while there is nothing to look through.
+  // The toolbar row: the view switches lead it; then the search and the filters (in the row's Filters menu): the kind (one
+  // kind, or every kind) and the tags (any number; each in use, with how many it is on). None of it while there is
+  // nothing to look through.
   const KIND_CHIPS = [
     { id: 'note', label: 'Notes', icon: 'note-sticky' },
     { id: 'link', label: 'Links', icon: 'link' },
@@ -273,7 +273,8 @@
   function syncToolbar(empty) {
     host.toolbar.set(empty ? [] : [
       { type: 'search', id: 'search', value: state.filter, placeholder: 'Search research', label: 'Search research' },
-      { type: 'chips', id: 'kind', label: 'Kind', icon: 'filter', options: KIND_CHIPS.map((k) => ({ ...k, on: state.kind === k.id })) },
+      { type: 'chips', id: 'kind', label: 'Kind', single: true, value: state.kind || 'all', options: [{ id: 'all', label: 'Every kind' }, ...KIND_CHIPS] },
+      ...(tagCounts(research.list()).length ? [{ type: 'chips', id: 'tags', label: 'Tags', options: tagCounts(research.list()).map(({ tag, count }) => ({ id: tag, label: tag, count, default: false, on: state.tags.includes(tag) })) }] : []),
     ]).catch(() => {});
   }
   host.on('toolbar', (e) => {
@@ -282,7 +283,10 @@
       state.filter = e.value;
       render();
     } else if (e.id === 'kind' && typeof e.value === 'string') {
-      state.kind = e.on ? e.value : state.kind === e.value ? '' : state.kind;
+      state.kind = e.value === 'all' ? '' : e.value;
+      render();
+    } else if (e.id === 'tags' && typeof e.value === 'string') {
+      state.tags = e.on ? [...new Set([...state.tags, e.value])] : state.tags.filter((t) => t !== e.value);
       render();
     }
   });
@@ -296,9 +300,9 @@
     if (all.length) {
       const n = visible().length;
       items.push({ text: n === all.length ? `${n} ${word('object', { many: n !== 1 })}` : `${n} of ${all.length}` });
-      if (state.kind) items.push({ text: KIND_WORDS[state.kind] || state.kind, chip: true });
-      if (state.tags.length) items.push({ text: `Tag: ${state.tags.join(', ')}`.slice(0, 60), chip: true });
-      if (state.filter.trim()) items.push({ text: `"${state.filter.trim()}"`.slice(0, 60), chip: true });
+      if (state.kind) items.push({ text: KIND_WORDS[state.kind] || state.kind });
+      if (state.tags.length) items.push({ text: `Tag: ${state.tags.join(', ')}`.slice(0, 60) });
+      if (state.filter.trim()) items.push({ text: `"${state.filter.trim()}"`.slice(0, 60) });
     }
     if (state.uploads.length) items.splice(1, 0, { text: `Adding ${state.uploads.length} ${state.uploads.length === 1 ? 'photo' : 'photos'}`, quiet: true });
     host.status.set(items.slice(0, 4)).catch(() => {});
@@ -320,9 +324,8 @@
       return;
     }
     const counts = tagCounts(all);
-    // The tags chosen as filters: the toolbar's Tags chooser ticks them and counts them; the status line names them.
+    // The tags chosen as filters: the toolbar's Filters menu has them; the status line names them.
     state.tags = state.tags.filter((t) => counts.some((c) => c.tag === t)); // a tag no object carries any more drops out
-    if (tagsButton) tagsButton.set({ label: state.tags.length ? `Tags ${state.tags.length}` : 'Tags', on: state.tags.length > 0 });
     const dl = $('tag-list');
     dl.replaceChildren(...counts.map(({ tag }) => { const o = document.createElement('option'); o.value = tag; return o; }));
     const shown = visible();
@@ -425,28 +428,6 @@
       if (state.loaded) render();
       checkConflict();
     });
-  }
-
-  // The tag chooser: every tag in use with its count, the chosen ones ticked; a pick adds or drops one and closes, and the
-  // Tags button counts what is chosen. Opens at the top right of the pane, under the toolbar's button.
-  function openTagMenu() {
-    const counts = tagCounts(research.list());
-    const items = counts.map(({ tag, count }) => {
-      const on = state.tags.includes(tag);
-      const color = colorOf(tag);
-      return {
-        id: `tag:${tag}`,
-        label: tag,
-        hint: `${count} ${word('object', { many: count !== 1 })}${on ? ' · filtering' : ''}`,
-        icon: on ? 'square-check' : 'square',
-        regular: !on,
-        ...(color ? { iconColor: color } : {}),
-        onClick: () => { state.tags = on ? state.tags.filter((t) => t !== tag) : [...state.tags, tag]; render(); },
-      };
-    });
-    if (!items.length) items.push({ id: 'none', label: 'No tags yet', hint: `Tags are added when you edit ${word('object', { a: true })}`, disabled: true });
-    if (state.tags.length) items.unshift({ id: 'clear', label: 'Clear tags', icon: 'xmark', onClick: () => { state.tags = []; render(); } }, { separator: true });
-    host.menu.show({ id: 'tags', at: { x: 100000, y: 4 }, items });
   }
 
   // --- an object's menu ------------------------------------------------------------------------------------------------
@@ -1037,7 +1018,6 @@
       render();
     },
   });
-  tagsButton = host.ui.toolbarButton({ id: 'tags', label: 'Tags', icon: 'tag', onClick: openTagMenu });
   async function showView(next) {
     if (!allowed[next]) next = inSpace ? 'space' : 'my';
     view = next;

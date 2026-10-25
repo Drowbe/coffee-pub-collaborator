@@ -1083,16 +1083,25 @@ await test('pages: the SDK, the stream on the host page, the Calendar and the de
   assert.match(read('public/space.html'), /<iframe[^>]* id="page-overlay-frame"/, 'and that is the space page\'s overlay frame');
   assert.ok(!/id="view-frame"/.test(read('public/space.html')), 'the space page has no view frame any more');
   assert.match(read('public/canvas.js'), /<iframe class="\$\{cls\} composite-frame" data-composite /, 'and the composite\'s frame is marked data-composite');
-  // The filter's label counts them apart from the spaces.
-  const paint = dest.slice(dest.indexOf('function filterWords()'), dest.indexOf('\n}\n', dest.indexOf('function filterWords()')) + 3);
-  const label = (spaceList, offSpaces, calendars, offCalendars, spaceId = '') => new Function('spaces', 'off', 'ownOn', 'kind', 'mineOn', 'externals', 'externalOff', 'word', 'spaceId', `${paint}\nreturn filterWords();`)(
-    spaceList, new Set(offSpaces), true, {}, true, calendars, new Set(offCalendars), () => 'Trips', spaceId);
-  const two = [{ id: 'a' }, { id: 'b' }];
-  assert.equal(label(two, [], two, []), 'Trips');
-  assert.equal(label(two, ['a'], two, ['b']), 'Trips (2 of 3) · Other calendars (1 of 2)');
-  assert.equal(label(two, [], two, ['a', 'b']), 'Trips · Other calendars (0 of 2)');
-  assert.equal(label(two, ['a'], [], []), 'Trips (2 of 3)', 'other calendars never count as spaces');
-  assert.equal(label([], [], [], [], 'keep01'), 'Markers', 'as a view of one space the filter holds the marker kinds alone (plan-calendar-todo.md, step 1)');
+  // The filter counts them apart from the spaces: the person's other calendars are a group of their own in the Filters
+  // menu ("Other calendars", each "only you"), never among the spaces; in a space there are none, and the filter holds the
+  // marker kinds alone. Applied filters are the switches turned off (each on unless off: cleanToolbarItems's default).
+  const groupsCode = dest.slice(dest.indexOf('function filterGroups()'), dest.indexOf('\n}\n', dest.indexOf('function filterGroups()')) + 3);
+  const groups = ({ spaceList, offSpaces = [], calendars = [], offCalendars = [], spaceId = '', kinds = [] }) => new Function(
+    'spaces', 'off', 'ownOn', 'kind', 'mineOn', 'hereOn', 'externals', 'externalOff', 'word', 'spaceId', 'd', 'environmentName', 'markerKinds', 'markersOff',
+    'HERE', 'MINE', 'OWN', 'MARKER', 'EXTERNAL', 'EXTERNAL_TINTS', 'spaceFilter', 'spaceFilterHasMine', 'flipFilter',
+    `${groupsCode}\nreturn filterGroups();`,
+  )(spaceList, new Set(offSpaces), true, { markers: true }, true, true, calendars, new Set(offCalendars), () => 'Trips', spaceId, {}, 'Paris club', kinds, new Set(),
+    ':here', ':mine', ':own', ':marker:', ':external:', ['blue', 'teal'], () => false, () => false, () => {});
+  const applied = (list) => list.reduce((n, g) => n + g.options.filter((o) => (o.on !== false) !== (o.default !== false)).length, 0);
+  const two = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
+  const all = groups({ spaceList: two, calendars: two });
+  assert.deepEqual(all.map((g) => [g.id, g.label]), [['dest-whose', 'Trips'], ['dest-calendars', 'Other calendars']], 'the spaces, then the other calendars, each its own group');
+  assert.ok(all[1].options.every((o) => o.note === 'only you' && o.id.startsWith(':external:')), 'each calendar says it is only you, and never counts as a space');
+  assert.equal(applied(all), 0, 'nothing off: nothing applied');
+  assert.equal(applied(groups({ spaceList: two, offSpaces: ['a'], calendars: two, offCalendars: ['b'] })), 2, 'one space and one calendar off: two filters applied');
+  assert.deepEqual(groups({ spaceList: two, offSpaces: ['a'] }).map((g) => g.id), ['dest-whose'], 'no other calendars: no group for them');
+  assert.deepEqual(groups({ spaceList: [], spaceId: 'keep01', kinds: [{ id: 'todo:task', label: 'Tasks due', icon: 'list-check', tint: 'green' }] }).map((g) => [g.id, g.label]), [['dest-markers', 'Markers']], 'as a view of one space the filter holds the marker kinds alone (plan-calendar-todo.md, step 1)');
 });
 
 await test('fetch: the whole read is given up after 15 seconds, even while bytes keep arriving', async () => {

@@ -37,8 +37,6 @@
   --tint-red: #e07a6e;
   --tint-orange: #e8964a;
   --tint-pink: #e58ab8;
-  /* The host's status bar under the module (host.status.set), the same as the page's own (public/style.css). */
-  --status-bar-h: 24px;
   /* Figtree in the page (public/sdk/system.css); a sandboxed frame has no system.css, so the system stack there. */
   font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif);
   font-size: var(--text-14);

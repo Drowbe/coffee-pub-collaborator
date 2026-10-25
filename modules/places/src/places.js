@@ -420,9 +420,9 @@
     const shown = visible().filter((x) => !state.cat || catOf(x.p).id === state.cat).length;
     const typed = state.filter.trim();
     const items = [{ text: shown === total ? `${total} ${total === 1 ? 'place' : 'places'}` : `${shown} of ${total} places`, quiet: Boolean(typed) }];
-    if (Object.values(allowed).filter(Boolean).length > 1) items.push({ text: whereName(view), chip: true });
-    if (state.cat) items.push({ text: catRow(state.cat).label, chip: true });
-    if (typed) items.push({ text: `\u201c${typed.slice(0, 24)}\u201d`, chip: true, quiet: true });
+    if (Object.values(allowed).filter(Boolean).length > 1) items.push({ text: whereName(view) });
+    if (state.cat) items.push({ text: catRow(state.cat).label });
+    if (typed) items.push({ text: `\u201c${typed.slice(0, 24)}\u201d`, quiet: true });
     host.status.set(items).catch(() => {});
   }
   // Add a place is the "+" in the titlebar: it opens the dialog (its Position field takes pasted coordinates or a map link).
@@ -453,13 +453,13 @@
       hydrate(root);
       return;
     }
-    // The toolbar's chips: one per category with places, its count of what the search leaves in its tooltip (one on or none).
+    // The category filter: one per category with places, with how many the search leaves in it (one category, or all).
     const searched = visible().map((x) => x.p);
     const counts = Object.fromEntries(cats.map((c) => [c.id, searched.filter((p) => catOf(p).id === c.id).length]));
     syncToolbar(empty, cats.filter((c) => counts[c.id] || state.cat === c.id).map((c) => {
       const look = categoryColor(cats, c);
-      return { id: c.id, label: c.label, ...(ICON_NAME.test(c.icon || '') ? { icon: c.icon } : {}), ...(look.tint ? { tint: look.tint } : {}), note: String(counts[c.id] || 0), on: state.cat === c.id };
-    }));
+      return { id: c.id, label: c.label, ...(ICON_NAME.test(c.icon || '') ? { icon: c.icon } : {}), ...(look.tint ? { tint: look.tint } : {}), count: counts[c.id] || 0 };
+    }), searched.length);
     // The groups.
     const shown = visible().filter((x) => !state.cat || catOf(x.p).id === state.cat);
     if (!shown.length) {
@@ -506,12 +506,13 @@
     return stores[key];
   }
 
-  // The toolbar row: the filter (on its own; beside the map the page's search filters instead) and the category chips, then
-  // the view switch (whose places), which follows in the same row. No filter while there is nothing to filter.
-  function syncToolbar(empty, chips) {
+  // The toolbar row: the view switch (whose places) leads it; then the search (on its own; beside the map the page's
+  // search filters instead) and the category, one or all, in the row's Filters menu. No filter while there is nothing to
+  // filter.
+  function syncToolbar(empty, chips, all = 0) {
     const items = [];
     if (!asPart && !empty) items.push({ type: 'search', id: 'search', value: state.filter, placeholder: 'Filter places', label: 'Filter places' });
-    if (chips.length) items.push({ type: 'chips', id: 'category', label: 'Category', icon: 'filter', options: chips });
+    if (chips.length) items.push({ type: 'chips', id: 'category', label: 'Category', single: true, value: state.cat || 'all', options: [{ id: 'all', label: 'Every category', count: all }, ...chips] });
     host.toolbar.set(items).catch(() => {});
   }
   host.on('toolbar', (e) => {
@@ -520,7 +521,7 @@
       state.filter = e.value;
       render();
     } else if (e.id === 'category' && typeof e.value === 'string') {
-      state.cat = e.on ? e.value : state.cat === e.value ? '' : state.cat;
+      state.cat = e.value === 'all' ? '' : e.value;
       render();
     }
   });

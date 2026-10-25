@@ -34,25 +34,29 @@ for (const rel of files) {
   for (const [re, what] of BANNED) if (re.test(text)) fail(rel, `uses ${what}`);
 }
 
-// One token sets the module header height, and only module headers read it.
+// One token sets the module title bar's height (--mf-title-h, the moduleframe block), and only title bars read it.
 const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-const defs = css.match(/--module-header-h\s*:/g) || [];
-if (defs.length !== 1) fail('public/style.css', `--module-header-h must be defined exactly once (found ${defs.length})`);
-
-// The Module window block of system.css (design system step 28): the title bar, the toolbar, the status line and the window's look.
 const sysCss = fs.readFileSync(path.join(ROOT, 'public/sdk/system.css'), 'utf8');
-const chromeBlock = sysCss.slice(sysCss.indexOf('/* modulechrome:start */'), sysCss.indexOf('/* modulechrome:end */'));
-if (chromeBlock.length < 100) fail('public/sdk/system.css', 'the Module window block (modulechrome:start to modulechrome:end) is missing');
+const defs = (css + sysCss).match(/--mf-title-h\s*:/g) || [];
+if (defs.length !== 1) fail('public/sdk/system.css', `--mf-title-h must be defined exactly once (found ${defs.length})`);
+if (/--module-header-h\s*:/.test(css + sysCss)) fail('public/style.css', 'the old --module-header-h is gone: the frame\'s --mf-title-h is the one title bar height');
 
-// A rule for a module header (anything named like .mod-header, or the chat's .chat-head) must take its height from the token.
+// The moduleframe block of system.css (the module frame, public/module-frame.js): the title bar, the toolbar, the content,
+// the status bar and the window's look.
+const chromeBlock = sysCss.slice(sysCss.indexOf('/* moduleframe:start */'), sysCss.indexOf('/* moduleframe:end */'));
+if (chromeBlock.length < 100) fail('public/sdk/system.css', 'the moduleframe block (moduleframe:start to moduleframe:end) is missing');
+if (sysCss.includes('/* modulechrome:start */')) fail('public/sdk/system.css', 'the old Module window block is gone');
+
+// A rule for a title bar (the frame's .mf-titlebar, the chat's and the call's, which draw the same band) must take its
+// height from the token.
 for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const selector = m[1].trim();
-  if (!/(\.mod-header|\.chat-head|\.chat\s+header)\b/.test(selector)) continue;
+  if (!/(\.mf-titlebar|\.chat-head|\.conference-head|\.side-column-call-head|\.chat\s+header)(?![-\w])/.test(selector)) continue;
   const body = m[2];
   for (const decl of body.split(';')) {
     const hm = decl.match(/^\s*(min-|max-)?height\s*:\s*(.+)$/);
-    if (hm && !/var\(--module-header-h\)/.test(hm[2])) {
-      fail('public/style.css', `${selector} sets a header height of ${hm[2].trim()}; use var(--module-header-h)`);
+    if (hm && !/var\(--mf-title-h\)/.test(hm[2])) {
+      fail('public/style.css', `${selector} sets a title bar height of ${hm[2].trim()}; use var(--mf-title-h)`);
     }
   }
 }
@@ -521,10 +525,14 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/win\.innerWidth - SNAP_GAP\)/.test(canvasJs) || !/win\.innerHeight - SNAP_GAP\)/.test(canvasJs)) fail('public/canvas.js', 'clampBox keeps SNAP_GAP clear of the window\'s edges');
   if (!/const half = SNAP_GAP \/ 2;\n\s*return gridFor\(\{ left: s\.left \+ half, top: s\.top \+ half, width: Math\.max\(1, s\.width - SNAP_GAP\), height: Math\.max\(1, s\.height - SNAP_GAP\) \}, snapPitch\(\)\);/.test(canvasJs)) fail('public/canvas.js', 'snapGrid() lays the grid half a gutter in from the canvas\'s edges');
   if ((canvasJs.match(/\{ x: g\.x \+ TIDY_GAP \/ 2, y: g\.y \+ TIDY_GAP \/ 2, w: g\.w - TIDY_GAP, h: g\.h - TIDY_GAP \}/g) || []).length !== 2) fail('public/canvas.js', 'floatAll() and placeWaiting() tidy within half a gutter of the grid (a gutter from the edge)');
-  // A floating module is a window: the one shadow of what floats, --shadow-2 (the Module window family, approved 2026-10-21).
-  if (!/:is\(\.sdk-window-floating, \.module-floating\) \{ box-shadow: var\(--shadow-2\); \}/.test(chromeBlock)) fail('public/sdk/system.css', 'a floating window\'s shadow is --shadow-2');
+  // A floating module is a window: the one shadow of what floats, --shadow-2 (the frame's --mf-shadow, approved on the Prototype).
+  if (!/--mf-shadow: var\(--shadow-2\);/.test(chromeBlock) || !/\n\.mf \{[^}]*box-shadow: var\(--mf-shadow\);/.test(chromeBlock)) fail('public/sdk/system.css', 'a floating window\'s shadow is --shadow-2 (the frame\'s --mf-shadow)');
   const floating = /\n\.module-floating \{([^}]*)\}/.exec(css);
-  if (!floating || /box-shadow|background|border/.test(floating[1])) fail('public/style.css', 'the floating window\'s look is the Module window block\'s alone (.module-floating in style.css is where it sits)');
+  if (!floating || /box-shadow|background|border/.test(floating[1])) fail('public/style.css', 'the floating window\'s look is the frame\'s alone (.module-floating in style.css is where it sits)');
+  const installed = /\n\.module-floating\.module-window \{([^}]*)\}/.exec(css);
+  if (!installed || !/border: 0;/.test(installed[1]) || !/box-shadow: none;/.test(installed[1]) || !/background: transparent;/.test(installed[1])) fail('public/style.css', 'an installed module\'s floating box draws nothing: its frame is the window');
+  const builtin = /\n\.module-floating\.builtin-floating \{([^}]*)\}/.exec(css);
+  if (!builtin || !/box-shadow: var\(--mf-shadow\);/.test(builtin[1]) || !/border: 1px solid var\(--mf-edge\);/.test(builtin[1]) || !/border-radius: var\(--radius-large\);/.test(builtin[1])) fail('public/style.css', 'a built-in floating window (the Chat, the call) has the frame\'s window look, from the frame\'s tokens');
   if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px var\(--shadow-color\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, the shadow colour)');
   if (/inset 0 3px 0 var\(--tint\)/.test(css)) fail('public/style.css', 'no 3px tint edge anywhere');
 }
@@ -935,8 +943,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // The note sits below the module's header (never over its title and x), and a short module scrolls it from its top.
   const noCall = rules.filter((r) => r.selector === '.no-call');
   if (!noCall.some((r) => /justify-content:\s*safe center/.test(r.body))) fail('public/style.css', '.no-call must centre with justify-content: safe center, so a short module does not cut off its top');
-  if (noCall.some((r) => /(^|;)\s*inset:\s*0/.test(r.body))) fail('public/style.css', '.no-call must not cover the module\'s header (inset: 0); start it below var(--module-header-h)');
-  if (!noCall.some((r) => /top:\s*var\(--module-header-h\)/.test(r.body))) fail('public/style.css', '.no-call must start below the module\'s header (top: var(--module-header-h))');
+  if (noCall.some((r) => /(^|;)\s*inset:\s*0/.test(r.body))) fail('public/style.css', '.no-call must not cover the module\'s title bar (inset: 0); start it below var(--mf-title-h)');
+  if (!noCall.some((r) => /top:\s*var\(--mf-title-h\)/.test(r.body))) fail('public/style.css', '.no-call must start below the module\'s title bar (top: var(--mf-title-h))');
   if (!noCall.some((r) => /overflow-y:\s*auto/.test(r.body)) || noCall.some((r) => /pointer-events:\s*none/.test(r.body))) fail('public/style.css', '.no-call must scroll (overflow-y: auto, and take the wheel: no pointer-events: none)');
   // The chooser's button hides only while its list is the tab bar, and phone or wide is the header's own window (a
   // narrow pop-out is a phone there), not the main window's.
@@ -1586,18 +1594,21 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // The call's titlebar (Thomas, 2026-10-14: "why does the conf not have a titlebar like Discussion?"): a header above
   // the call in the column, named by callTitle(), with a "..." on the shared menu holding Pop out or Bring the call back,
   // Call position, Settings and Leave the call.
-  const head = html.slice(html.indexOf('<header class="side-column-call-head" id="call-head">'), html.indexOf('</header>', html.indexOf('id="call-head"')));
-  if (!head) fail('public/space.html', 'the column needs the call\'s titlebar (<header class="side-column-call-head" id="call-head">)');
+  const headAt = html.indexOf('<header class="mf-titlebar side-column-call-head" id="call-head">');
+  const head = headAt < 0 ? '' : html.slice(headAt, html.indexOf('</header>', headAt));
+  if (!head) fail('public/space.html', 'the column needs the call\'s title bar, the frame\'s band (<header class="mf-titlebar side-column-call-head" id="call-head">)');
   else {
     if (!/id="call-head-name">Call</.test(head)) fail('public/space.html', 'the call\'s titlebar reads Call (#call-head-name) until the environment names it');
-    if (!/<button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
+    if (!/<button class="mf-icon-btn mf-titlebar-btn" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
   }
   if (html.indexOf('id="call-head"') > html.indexOf('id="side-column-strip"')) fail('public/space.html', 'the call\'s titlebar sits above the call (before #side-column-strip)');
   if (!/openHostMenu\(event\.currentTarget, callMenuItems\)/.test(spaceJs)) fail(F, 'the call\'s "..." opens on the shared menu (openHostMenu, callMenuItems)');
   const callMenu = spaceJs.slice(spaceJs.indexOf('function callMenuItems() {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function callMenuItems() {')));
   for (const [re, what] of [[/label: 'Bring the call back', onPick: bringCallBack/, 'Bring the call back'], [/label: 'Pop out the call', onPick: popOutCall/, 'Pop out the call'], [/\.\.\.callPlaceItems\(\)/, 'Call position'], [/label: 'Settings', onPick: \(\) => setTimeout\(\(\) => openSettings\('more'\), 0\)/, 'Settings (the toolbar\'s gear)'], [/label: 'Leave the call', danger: true, onPick: \(\) => \$\('hangup'\)\.click\(\)/, 'Leave the call (Hang up)']]) if (!re.test(callMenu)) fail(F, `the call's "..." offers ${what}`);
   if (!/onShown: \(def\) => \{ showBuiltinName\(def\); setCallHead\(def\); \}/.test(spaceJs) || !/name\.textContent = callTitle\(def\.name\);/.test(spaceJs)) fail(F, 'the call\'s titlebar follows the environment\'s name for the conference (setCallHead, callTitle)');
-  if (!/\.side-column-call-head \{[^}]*height: var\(--module-header-h\);[^}]*border-bottom: 1px solid var\(--border\);/.test(css)) fail('public/style.css', 'the call\'s titlebar is drawn as the chat\'s (the module header\'s height, the border token)');
+  if (!/<header class="mf-titlebar chat-head">/.test(html)) fail('public/space.html', 'the chat\'s title bar is the frame\'s band too');
+  const callHeadCss = /\n\.side-column-call-head \{([^}]*)\}/.exec(css);
+  if (!callHeadCss || /height|border|background/.test(callHeadCss[1])) fail('public/style.css', 'the call\'s title bar is drawn as the chat\'s (the frame\'s band: its height, edge and surface are the moduleframe block\'s alone)');
   if (!/heading: 'Call position'/.test(spaceJs)) fail(F, 'Call position is the menu\'s heading');
   if (!/\.\.\.callPlaceItems\(\)/.test(spaceJs)) fail(F, 'Call position is in the titlebar\'s "..." (callPlaceItems)');
   if (!/label: 'Call position', items: \(\) => callPlaceItems\(\)/.test(spaceJs)) fail(F, 'Chat\'s "..." has Call position too');
@@ -1618,9 +1629,9 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/const flipped = \(\) => which === 'strip' && columnEl\.classList\.contains\('call-bottom'\);/.test(spaceJs)) fail(F, 'with the call at the bottom the strip\'s splitter turns round');
 }
 
-// Each module's titlebar told apart (GitHub #229, public/module-tint.js): the manifest's colour when it names a tint,
-// else a stable pick from the id, never gold (the AI's), the same every time; and the stylesheet draws it on the
-// header (docked, floating and the popped-out page's, all .mod-header) from the tint tokens, never a raw colour.
+// Each module's title bar told apart (GitHub #229, public/module-tint.js): the manifest's colour when it names a tint,
+// else a stable pick from the id, never gold (the AI's), the same every time; and the stylesheet draws it on the title
+// bar's icon (docked, floating and the popped-out page's, all the frame's) from the tint tokens, never a raw colour.
 {
   const F = 'public/module-tint.js';
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
@@ -1643,19 +1654,20 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   // A composite (dest:calendar) carries its main module's colour (composites.js), so the one Calendar keeps the Calendar's tint.
   if (!/const colorOf = \(id\) => \{ const c = compositeById\(id\); const base = c \? c\.main : id; return moduleTint\(base, colors\.get\(base\) \|\| null\); \};/.test(canvasJs)) fail('public/canvas.js', 'a module\'s colour is moduleTint(id, the manifest\'s); a composite\'s is its main module\'s');
-  if (!/<header class="mod-header module-floating-head"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs) || !/<header class="mod-header"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked header carry data-tint');
+  if (!/      tint: colorOf\(m\.id\),\n/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked window\'s frame carry the module\'s tint');
   const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
-  if (!/\$\('module-titlebar'\)\.dataset\.tint = tint;/.test(moduleJs)) fail('public/module.js', 'the popped-out page\'s titlebar carries data-tint');
+  if (!/    tint: moduleTint\(mod\.id, mod\.color \|\| null\),\n/.test(moduleJs)) fail('public/module.js', 'the module\'s own page and its popped-out window carry its tint');
+  const frameJs = fs.readFileSync(path.join(ROOT, 'public/module-frame.js'), 'utf8');
+  if (!/if \(TINT\.test\(opts\.tint \|\| ''\)\) headIcon\.dataset\.tint = opts\.tint;/.test(frameJs)) fail('public/module-frame.js', 'the frame puts a tint (one of the eight names only) on its title bar\'s icon');
   const S = 'public/sdk/system.css';
-  const rule = /:is\(\.sdk-titlebar, \.mod-header, \.chat-head\)\[data-tint\] \{([^}]*)\}/.exec(chromeBlock);
-  if (!rule) fail(S, 'a rule for the tinted title bar (.mod-header[data-tint])');
+  const rule = /\.mf-titlebar-icon\[data-tint\] \{([^}]*)\}/.exec(chromeBlock);
+  if (!rule) fail(S, 'a rule for the tinted title bar icon (.mf-titlebar-icon[data-tint])');
   else {
-    if (/box-shadow/.test(rule[1])) fail(S, 'no coloured top edge on the titlebar (Thomas, 2026-10-13): the tint is the wash and the icon only');
-    if (!/background: color-mix\(in srgb, var\(--tint\) var\(--mc-wash\), var\(--surface-panel\)\)/.test(rule[1]) || !/--mc-wash: 10%;/.test(chromeBlock)) fail(S, 'the wash is a 10% mix of the tint over the window\'s step');
-    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail(S, 'the titlebar\'s accent uses the tint token, never a raw colour');
+    if (!/color: color-mix\(in srgb, var\(--tint\) 62%, var\(--text-primary\)\);/.test(rule[1])) fail(S, 'the title\'s icon takes the tint (the readable mix)');
+    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail(S, 'the title bar\'s accent uses the tint token, never a raw colour');
   }
-  if (!/\)\[data-tint\] :is\(\.sdk-titlebar-title, \.mod-title\) > i \{[^}]*color: color-mix\(in srgb, var\(--tint\) 62%, var\(--text-primary\)\);/.test(chromeBlock)) fail(S, 'the title\'s icon takes the tint (the readable mix)');
-  if (/\.mod-header\[data-tint\]/.test(css)) fail('public/style.css', 'the tinted title bar is the Module window block\'s alone');
+  if (/\[data-tint\][^{]*\{[^}]*box-shadow/.test(chromeBlock)) fail(S, 'no coloured top edge on the title bar (Thomas, 2026-10-13)');
+  if (/\.mf-titlebar\[data-tint\]/.test(css + chromeBlock)) fail(S, 'the title bar has no wash (the Prototype: the title bar\'s deeper surface, the tint on its icon alone)');
 }
 
 // The call's toolbar in the always-on column (plan-one-bar.md, step 6; Thomas, 2026-10-13: "Where did all of the other

@@ -347,15 +347,21 @@ await test('host.ui.viewSwitch is always in the toolbar: an `element` is not dra
 });
 
 // --- 3. Every switch draws and fits the shared way, and every bundled one has its icons ------------------------------
-const moduleHost = read('public/module-host.js');
-const tabsDraw = /if \(item\.type === 'tabs'\) \{[\s\S]*?parts\.push\(seg\);/.exec(moduleHost);
-if (!tabsDraw || !/hostSwitch\.fill\(/.test(tabsDraw[0])) fail('public/module-host.js: the toolbar\'s tabs must be drawn with hostSwitch.fill (the shared view switch)');
-// The row is fitted as one (createToolbar's fit: the chips fold first, then hostSwitch.fit puts the switches in icons only).
-if (!/win\.hostSwitch\.fit\(row\)/.test(moduleHost) || !/new win\.ResizeObserver\(later\)/.test(moduleHost)) fail('public/module-host.js: the toolbar must be fitted with hostSwitch.fit(row), again as the row changes size');
+// A module's switch is drawn by the module frame (public/module-frame.js, drawSwitch): each choice its icon and its word,
+// and the row is fitted as one (fit: the switches show only their icons while the row is too narrow, the words their
+// tooltips), again as the row changes size.
+const frameJs = read('public/module-frame.js');
+const switchDraw = frameJs.slice(frameJs.indexOf('  function drawSwitch(it) {'), frameJs.indexOf('  function tabsMenu('));
+if (!/if \(o\.icon\) b\.append\(icon\(o\.icon, '', o\.regular\)\);/.test(switchDraw) || !/b\.append\(word\(o\.label\)\)/.test(switchDraw)) fail('public/module-frame.js: a switch\'s choice is its icon and its word');
+if (!/'aria-pressed': String\(o\.id === it\.value\)/.test(switchDraw)) fail('public/module-frame.js: a switch\'s choice says whether it is pressed');
+if (!/const FOLDS = \['chips', 'switch',/.test(frameJs) || !/\.mf-fold-switch \.mf-switch-btn:has\(> i\) > \.mf-word \{ display: none; \}/.test(read('public/sdk/system.css'))) fail('public/module-frame.js: the switch shows only its icons while the row is too narrow');
+if (!/if \(iconic\(b\)\) b\.dataset\.tip = name;/.test(frameJs)) fail('public/module-frame.js: a folded choice\'s word is its tooltip');
+if (!/observer = new win\.ResizeObserver\(later\);/.test(frameJs)) fail('public/module-frame.js: the row is fitted again as it changes size');
 if (!/label: s\(o\?\.label, TOOLBAR_LIMITS\.label\), icon: icon\(o\?\.icon\)/.test(read('public/module-chrome.js'))) fail('public/module-chrome.js: cleanToolbarItems must keep a tabs option\'s icon');
+if (!/if \(i\.type === 'tabs'\) start\.push\(\{ type: 'switch', id: i\.id, label: 'View', value: i\.value, options: i\.options\.map/.test(read('public/module-chrome.js'))) fail('public/module-chrome.js: a tabs item is the frame\'s switch, its options (and icons) kept');
 const destination = read('public/destination.js');
-// The destination's view switch and panel switch are tabs items of its one toolbar row (createToolbar draws and fits them).
-if ((destination.match(/type: 'tabs'/g) || []).length < 2 || !/createToolbar\(\$\('dest-toolbar'\)/.test(destination)) fail('public/destination.js: the view switch and the panel switch must be tabs items of the page\'s toolbar row (createToolbar)');
+// The destination's view switch and panel switch are tabs items of its one toolbar row (the frame draws and fits them).
+if ((destination.match(/type: 'tabs'/g) || []).length < 2 || !/bands\.toolbar\(\[/.test(destination)) fail('public/destination.js: the view switch and the panel switch must be tabs items of the page\'s toolbar row (its frame)');
 if (!/options: [a-z]+\.map\(\(p\) => \(\{ id: p\.key, label: p\.part\.label, icon:/.test(destination)) fail('public/destination.js: every panel in the panel switch needs an icon');
 const destViews = /calendar:\s*\{\s*views:\s*\[([^\]]*)\]/.exec(destination);
 if (!destViews || (destViews[1].match(/\{[^}]*\}/g) || []).some((o) => !/icon:/.test(o))) fail('public/destination.js: every view of the Calendar destination needs an icon');
@@ -366,7 +372,7 @@ const chatInputJs = read('public/chat-input.js');
 if (!/hostSwitch\.watch\(g\)/.test(chatInputJs)) fail('public/chat-input.js: Chat\'s Discussion | Assistant must be fitted with hostSwitch.watch');
 const spaceHtml = read('public/space.html');
 if (/chat-ai-share|chat-ai-private|chat-ai-shared|chat-filter/.test(spaceHtml + chatInputJs)) fail('public/space.html: the old switches (#chat-ai-share, the #chat-filter filter) are gone');
-if (!/<div class="mod-toolbar" id="chat-views" hidden>\s*<span class="tb-tabs" role="tablist" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views is one .tb-tabs tablist in the chat\'s toolbar, hidden until a space');
+if (!/<div class="mf-toolbar chat-views" id="chat-views" hidden>\s*<span class="tb-tabs" role="tablist" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views is one .tb-tabs tablist in the chat\'s toolbar (the frame\'s band), hidden until a space');
 for (const [id, icon, word, on] of [['chat-view-discussion', 'comments', 'Discussion', true], ['chat-view-assistant', 'wand-magic-sparkles', 'Assistant', false]]) {
   const m = new RegExp(`<button[^>]*id="${id}"[^>]*>([\\s\\S]*?)</button>`).exec(spaceHtml);
   if (!m) { fail(`public/space.html: #${id} is missing`); continue; }

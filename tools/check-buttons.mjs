@@ -149,7 +149,11 @@ else if (/type="submit"|<button\b/.test(chatForm[0])) fail('public/space.html: t
 const host = read('public/module-host.js');
 if (/drawModuleBar|quick-add-go|className = 'quick-add'/.test(host)) fail('public/module-host.js: the host draws a module action bar again; host.bar.set folds into the titlebar\'s "+"');
 if (!/async 'bar\.set'\(\{ items \}\) \{[\s\S]{0,1400}drawAddSlot\(\);/.test(host)) fail('public/module-host.js: host.bar.set must fold its buttons into the "+" (drawAddSlot)');
-if (!/addButton\.className = 'sdk-icon-btn btn-quiet btn-small';/.test(host)) fail('public/module-host.js: the titlebar\'s "+" is a Quiet small icon button');
+// The "+" is the frame's title bar icon button, the same as its menu and Close (the moduleframe block: bare, square, a fill
+// on hover), its plus the accent (public/module-frame.js).
+const frameJs = read('public/module-frame.js');
+if (!/button\('mf-icon-btn mf-titlebar-btn mf-add-btn', \{ label: add\.label \|\| 'Add', iconName: 'plus', words: false \}\)/.test(frameJs)) fail('public/module-frame.js: the title bar\'s "+" is the frame\'s icon button');
+if (!/\.mf-icon-btn\.mf-add-btn, \.mf-add-btn:hover \{ color: var\(--text-accent\); \}/.test(read('public/sdk/system.css'))) fail('public/sdk/system.css: the "+" is the frame\'s icon button with its plus in the accent');
 for (const r of rules(style)) if (/\.(dock-bar|module-floating-bar|module-bar)\b/.test(r.selector)) fail(`public/style.css: "${r.selector}" styles the old module action bar, which is gone`);
 
 if (problems.length) {

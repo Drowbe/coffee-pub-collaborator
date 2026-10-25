@@ -5718,7 +5718,8 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   --mf-surface-toolbar: color-mix(in srgb, var(--surface-panel) 93%, var(--text-primary)); /* level 2 */
   --mf-surface-content: var(--surface-panel); /* level 3 */
   --mf-surface-status: var(--mf-surface-title); /* level 4: the title bar's tone, so the panel is framed top and bottom */
-  --mf-surface-row: color-mix(in srgb, var(--surface-card) 90%, var(--text-primary)); /* an object's row on the content */
+  --mf-surface-row: color-mix(in srgb, var(--surface-panel) 94%, var(--accent-fill)); /* an object's row on the content: a gentle tint of the theme's own tone, only a hint */
+  --mf-surface-row-hover: color-mix(in srgb, var(--surface-panel) 88%, var(--accent-fill));
   --mf-edge: var(--edge-hairline); /* the panel's edge and the hairlines between the levels */
 }
 

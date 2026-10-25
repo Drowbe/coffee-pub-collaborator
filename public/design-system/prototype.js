@@ -69,40 +69,47 @@ const rows = (n, words) => {
   return ul;
 };
 const WORDS = ['Passports and visas', 'Chargers and adaptors', 'Rain jackets', 'First aid kit', 'Snacks for the drive', 'Maps printed', 'Camera and spare batteries', 'Sunscreen'];
-const titlebar = () => ({
+const titlebar = (extra = []) => ({
   add: { label: 'Add', entries: [{ id: 'list', label: 'A list', icon: 'list' }, { id: 'note', label: 'A note', icon: 'note-sticky' }] },
-  actions: [{ id: 'pin', icon: 'thumbtack', label: 'Pin', placement: 'bar', on: false }, { id: 'alerts', icon: 'bell', label: 'Alerts', placement: 'bar' }],
+  actions: [...extra, { id: 'pin', icon: 'thumbtack', label: 'Pin', placement: 'bar', on: false }, { id: 'alerts', icon: 'bell', label: 'Alerts', placement: 'bar' }],
   close: true,
 });
 const viewSwitch = () => ({ type: 'switch', id: 'view', label: 'View', value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'board', label: 'Board', icon: 'table-columns' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }] });
+const filtersCtl = () => (
+{ type: 'filters', id: 'filters', label: 'Filters', groups: [
+    { id: 'whose', heading: 'Show', single: true, value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done', count: 3 }] },
+    { id: 'when', heading: 'When', options: [{ id: 'today', label: 'Today', on: true }, { id: 'week', label: 'This week' }, { id: 'flagged', label: 'Flagged' }] },
+    { id: 'status', heading: 'Status', options: [{ id: 'late', label: 'Late' }, { id: 'unassigned', label: 'Not assigned' }] },
+  ] }
+);
 const manyTools = () => [
   viewSwitch(),
-  { type: 'tabs', id: 'whose', label: 'Whose', value: 'all', options: [{ id: 'all', label: 'All', count: 24 }, { id: 'mine', label: 'Mine', count: 8 }, { id: 'shared', label: 'Shared', count: 5 }, { id: 'done', label: 'Done' }] },
   { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' },
-  { type: 'chips', id: 'when', label: 'Filters', options: [{ id: 'today', label: 'Today', on: true }, { id: 'week', label: 'This week' }, { id: 'flagged', label: 'Flagged' }] },
+  filtersCtl(),
   { type: 'title', text: 'Week of 3 May' },
-  { type: 'spacer' },
-  { type: 'button', id: 'export', label: 'Export', icon: 'file-export', kind: 'secondary' },
-  { type: 'button', id: 'share', label: 'Share', icon: 'share-nodes', kind: 'secondary' },
-  { type: 'button', id: 'print', label: 'Print', icon: 'print', kind: 'icon' },
-  { type: 'button', id: 'settings', label: 'Settings', icon: 'gear', kind: 'icon' },
-  { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' },
 ];
 
+const tabsGroup = { name: 'Tabs', note: 'A tab strip, for switching between different pages: a plain fill on the chosen tab, no shape that joins the content.',
+  frame: () => ({
+    title: 'Trip', icon: 'suitcase', titlebar: titlebar(),
+    toolbar: [{ type: 'tabs', id: 'page', label: 'Page', value: 'plan', options: [{ id: 'plan', label: 'Plan' }, { id: 'people', label: 'People', count: 4 }, { id: 'money', label: 'Money' }] }],
+    content: rows(12, WORDS),
+    status: { text: 'Plan' },
+  }) };
 const STATES = [
   {
-    name: 'Idle', note: 'A typical panel: a view switch, a search and one primary button.',
+    name: 'Idle', note: 'A typical panel: a view switch, then the search and Filters at the end. The "+" adds; Share, Print and Settings are in the menu.',
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(),
-      toolbar: [viewSwitch(), { type: 'spacer' }, { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' }],
+      toolbar: [viewSwitch(), { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, filtersCtl()],
       content: rows(12, WORDS),
       status: { text: '12 things, 3 packed', items: [{ text: 'Saved', icon: 'check', tone: 'ok' }] },
     }),
   },
   {
-    name: 'Many controls', note: 'Every kind of control at once. Narrow the width: they fold in order, then go into More; nothing is cut.',
+    name: 'Many controls', note: 'The view switch, an info line, and the search and Filters at the end. Export is an icon in the title bar. Narrow the width: the left side folds first; the end group stays put.',
     frame: () => ({
-      title: 'Packing list for the long weekend in the mountains', icon: 'suitcase', titlebar: titlebar(), toolbar: manyTools(),
+      title: 'Packing list for the long weekend in the mountains', icon: 'suitcase', titlebar: titlebar([{ id: 'export', icon: 'file-export', label: 'Export', placement: 'bar' }]), toolbar: manyTools(),
       content: rows(6, WORDS),
       status: { text: 'Showing 24 of 31, filtered by Today, sorted by date', items: [{ text: '2 late', icon: 'triangle-exclamation', tone: 'warn' }, { text: 'Saved', icon: 'check', tone: 'ok' }] },
     }),
@@ -111,13 +118,13 @@ const STATES = [
     name: 'Empty', note: 'No content yet: the empty state in the content area.',
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(),
-      toolbar: [viewSwitch(), { type: 'spacer' }, { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' }],
+      toolbar: [viewSwitch()],
       empty: { icon: 'inbox', title: 'Nothing here yet', text: 'Add the first one with New.' },
       status: { text: 'Nothing yet' },
     }),
   },
   {
-    name: 'Narrow', note: 'Always 300 pixels wide, every kind of control: most of them in More.', narrow: true,
+    name: 'Narrow', note: 'Always 300 pixels wide: the left side goes into More; the search and Filters stay at the end.', narrow: true,
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(), toolbar: manyTools(),
       content: rows(6, WORDS),
@@ -131,7 +138,7 @@ const lastAction = (log) => (e) => {
   log.textContent = `Last: ${e.area} ${e.id}${e.standard ? ' (standard)' : ''}${e.value !== undefined ? ` = ${e.value}` : ''}${e.on !== undefined ? (e.on ? ' (on)' : ' (off)') : ''}`;
 };
 // One panel: its name, a note, the panel on the canvas colour, and a line that says what was last pressed.
-function panel(s, into, level = 'h2') {
+function drawState(s, into, level = 'h2') {
   const sec = D.createElement('section');
   sec.className = 'pp-state';
   const h = D.createElement(level);
@@ -151,12 +158,12 @@ function panel(s, into, level = 'h2') {
   into.append(sec);
   return { frame, box };
 }
-for (const s of STATES) panel(s, main);
+for (const s of [...STATES, tabsGroup]) drawState(s, main);
 
 // ---- the title bar's actions (Thomas, 2026-10-24) ----
 const EXPENSES = ['Hotel, two nights', 'Train tickets', 'Dinner on Friday', 'Museum passes', 'Taxi from the station', 'Coffee and snacks'];
 const EVENTS = ['Breakfast at the hotel', 'Walking tour', 'Lunch by the river', 'Train to the coast', 'Dinner booking'];
-const MESSAGES = ['Ana: The train is at nine', 'Ben: I will bring the snacks', 'Mia: Rooms are booked', 'Ana: Who has the passes?'];
+const MESSAGES = ['Ana: The train is at nine', 'Ben: I will bring the snacks', 'Mia: Hotel is booked', 'Ana: Who has the passes?'];
 const budgetLike = () => ({
   title: 'Budget', icon: 'wallet',
   titlebar: { add: { label: 'Add an expense' }, actions: [{ id: 'clear', label: 'Clear', icon: 'trash', placement: 'menu', danger: true }], close: true },
@@ -260,11 +267,11 @@ groupName.id = 'pp-titlebar-actions';
 groupName.textContent = 'Title bar actions';
 const groupNote = D.createElement('p');
 groupNote.className = 'pp-state-note';
-groupNote.textContent = 'Standard actions are the host\'s, the same in every module; a module adds its own, as icons beside the menu or in it. The "+" is always beside the menu.';
+groupNote.textContent = 'Standard actions are the host\'s, the same in every tool; a tool adds its own, as icons beside the menu or in it. The "+" is always beside the menu.';
 group.append(groupName, groupNote);
 main.append(group);
 for (const s of TITLEBAR_STATES) {
-  const { frame, box } = panel(s, group, 'h3');
+  const { frame, box } = drawState(s, group, 'h3');
   if (!s.open) continue;
   const menu = staticMenu(frame.titlebarMenu());
   box.append(menu);

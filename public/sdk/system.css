@@ -5699,7 +5699,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
    between. Every size and step is one of the tokens just below: change one there and every panel follows. The toolbar's side
    padding and the content's padding are the same token (--mf-inset); the toolbar's controls sit in the middle of its band
    (--mf-band-h, the band's height over its hairline). Controls look different by kind: a view switch is a joined, sunk track
-   with the chosen part filled; a tab is a folder tab joined to the content; a filter chip is a pill; a button is a square-cornered
+   with the chosen part filled; a tab is a plain fill when chosen; a filter chip is a pill; a button is a square-cornered
    block (primary filled, secondary outlined); an icon button is bare. */
 :root {
   --mf-inset: var(--space-3); /* the toolbar's sides, the content's padding, the title and status bars' start */
@@ -5714,10 +5714,12 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   --mf-search-min: 120px; /* the least it gives way to before it folds to a magnifier */
   --mf-title-min: 64px; /* the least a title is cut to before what is beside it folds */
   --mf-shadow: var(--shadow-2); /* the panel's own shadow */
-  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 86%, var(--text-primary)); /* level 1, the strongest step */
+  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 70%, black); /* level 1: deeper than the toolbar and the content, the same hue, in light and dark */
   --mf-surface-toolbar: color-mix(in srgb, var(--surface-panel) 93%, var(--text-primary)); /* level 2 */
   --mf-surface-content: var(--surface-panel); /* level 3 */
-  --mf-surface-status: color-mix(in srgb, var(--surface-panel) 82%, var(--surface-page)); /* level 4, toward the page */
+  --mf-surface-status: var(--mf-surface-title); /* level 4: the title bar's tone, so the panel is framed top and bottom */
+  --mf-surface-row: color-mix(in srgb, var(--surface-panel) 94%, var(--accent-fill)); /* an object's row on the content: a gentle tint of the theme's own tone, only a hint */
+  --mf-surface-row-hover: color-mix(in srgb, var(--surface-panel) 88%, var(--accent-fill));
   --mf-edge: var(--edge-hairline); /* the panel's edge and the hairlines between the levels */
 }
 
@@ -5743,7 +5745,6 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf :where(button) { margin: 0; cursor: pointer; }
 .mf :where(button):disabled { cursor: default; opacity: 0.5; }
 .mf .mf-word { white-space: nowrap; }
-.mf .mf-count { display: inline-flex; align-items: center; justify-content: center; min-width: var(--icon-16); height: var(--icon-16); padding: 0 var(--space-1); box-sizing: border-box; border-radius: var(--radius-round); background: var(--surface-track); color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-medium); line-height: var(--leading-ui); }
 
 /* ---- 1. the title bar ---- */
 .mf-titlebar {
@@ -5764,23 +5765,17 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 /* The title bar's buttons, start to end: the module's bar actions, the "+", the menu (More, the host's menu: module-frame.js)
    and the close button. A button whose menu is open keeps the hover fill while it is open. */
 .mf-titlebar-tools > [aria-expanded="true"] { background: var(--fill-hover); color: var(--text-primary); }
-/* The "+": outlined, its plus in the accent, so it reads as "make something" beside the bare icon buttons. */
-.mf-add-btn {
-  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-  width: var(--mf-ctl-h); height: var(--mf-ctl-h); margin-inline: var(--space-1); padding: 0;
-  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field); color: var(--text-accent);
-  font-size: var(--icon-14);
-}
-.mf-add-btn:hover { background: var(--fill-hover); }
+/* The "+": the same icon button as the rest of the row (.mf-icon-btn); only its plus is the accent. */
+.mf-icon-btn.mf-add-btn, .mf-add-btn:hover { color: var(--text-accent); }
 
 /* ---- the kinds of control ---- */
 /* An icon button: bare, square, the icon colour; a fill only on hover or while it is on. */
-.mf-icon-btn {
+.mf-icon-btn, .mf-add-btn {
   display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box;
   width: var(--mf-ctl-h); height: var(--mf-ctl-h); padding: 0;
   border: 0; border-radius: var(--radius-small); background: transparent; color: var(--icon-default); font-size: var(--icon-14);
 }
-.mf-icon-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
+.mf-icon-btn:hover, .mf-add-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
 .mf-icon-btn.is-on { background: var(--fill-selected); color: var(--text-selected); }
 
 /* A button: square-cornered, words (and an icon before them). Primary filled with the accent; secondary outlined on the card step. */
@@ -5809,28 +5804,26 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-switch-btn:hover { color: var(--text-primary); }
 .mf-switch-btn[aria-pressed="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
 
-/* The tab strip: folder tabs that reach down to the content; the chosen one is the content's own surface, joined to it
-   through the toolbar's hairline. No fill, no outline on the others: words only. */
-.mf-tabs { display: flex; flex: none; align-self: stretch; align-items: flex-end; gap: var(--space-0); }
+/* The tab strip: for switching between different pages. A plain fill on the chosen tab, no shape that joins the content;
+   the others are words only. */
+.mf-tabs { display: flex; flex: none; align-items: center; gap: var(--space-0); }
 .mf-tab {
   position: relative; display: inline-flex; align-items: center; gap: var(--space-1); box-sizing: border-box;
-  height: calc(var(--mf-ctl-h) + (var(--mf-band-h) - var(--mf-ctl-h)) / 2 + 1px);
-  margin-bottom: -1px; padding: 0 var(--mf-ctl-pad) calc((var(--mf-band-h) - var(--mf-ctl-h)) / 2);
-  border: 1px solid var(--mf-tab-edge, transparent); border-bottom: 0; border-radius: var(--radius-medium) var(--radius-medium) 0 0;
+  height: var(--mf-ctl-h); padding: 0 var(--mf-ctl-pad);
+  border: 0; border-radius: var(--radius-small);
   background: transparent; color: var(--text-muted); font-weight: var(--weight-medium); white-space: nowrap;
 }
-.mf-tab:hover { color: var(--text-primary); }
-.mf-tab[aria-selected="true"] { z-index: 1; --mf-tab-edge: var(--mf-edge); background: var(--mf-surface-content); color: var(--text-primary); font-weight: var(--weight-strong); }
+.mf-tab:hover { color: var(--text-primary); background: var(--fill-hover); }
+.mf-tab[aria-selected="true"] { background: var(--fill-selected); color: var(--text-selected); font-weight: var(--weight-strong); }
 .mf-tab:focus-visible { outline-offset: -3px; }
-/* Folded: one folder tab that says the chosen tab, its caret opening the rest. */
+/* Folded: one button that says the chosen tab, its caret opening the rest. */
 .mf-tabs-menu {
-  align-self: flex-end; align-items: center; gap: var(--space-1); box-sizing: border-box;
-  height: calc(var(--mf-ctl-h) + (var(--mf-band-h) - var(--mf-ctl-h)) / 2 + 1px);
-  margin-bottom: -1px; padding: 0 var(--space-2) calc((var(--mf-band-h) - var(--mf-ctl-h)) / 2) var(--mf-ctl-pad);
-  border: 1px solid var(--mf-edge); border-bottom: 0; border-radius: var(--radius-medium) var(--radius-medium) 0 0;
-  background: var(--mf-surface-content); font-weight: var(--weight-strong); white-space: nowrap;
+  align-items: center; gap: var(--space-1); box-sizing: border-box;
+  height: var(--mf-ctl-h); padding: 0 var(--space-2) 0 var(--mf-ctl-pad);
+  border: 0; border-radius: var(--radius-small);
+  background: var(--fill-selected); color: var(--text-selected); font-weight: var(--weight-strong); white-space: nowrap;
 }
-.mf-tabs-menu .mf-caret { color: var(--text-muted); font-size: var(--icon-12); }
+.mf-tabs-menu .mf-caret { font-size: var(--icon-12); }
 
 /* The search field: the field step, its magnifier inside. */
 .mf-search {
@@ -5855,6 +5848,14 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-chip:hover, .mf-chips-menu:hover { color: var(--text-primary); background: var(--fill-hover); }
 .mf-chip .mf-chip-mark, .mf-chips-menu > i { font-size: var(--icon-12); }
 .mf-chip.is-on { border-color: transparent; background: var(--fill-selected); color: var(--text-selected); font-weight: var(--weight-medium); }
+
+/* Quick sets: the same chips, but one is chosen at a time, with counts; the chosen one is filled solid. */
+.mf-quickset { display: flex; flex: none; align-items: center; gap: var(--space-1); }
+.mf-quickset .mf-chip.is-on { background: var(--accent-fill); color: var(--text-on-accent); }
+.mf-quickset .mf-chip:not(.is-on) { background: transparent; }
+
+/* The Filters button: its count is the shared .sdk-badge; always shown, only ever moved into More. */
+.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; line-height: 1; border-radius: var(--radius-small); }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }
@@ -5916,6 +5917,12 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   font-size: var(--text-12);
 }
 .mf-status[hidden] { display: none; }
+/* Light mode: the title and status bars are a deeper tint of the theme's own warm tone (panel toward the accent), never black. */
+:root[data-theme-mode="light"], :root[data-mode-shown="light"]:not([data-theme-mode="dark"]) {
+  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 76%, color-mix(in srgb, var(--accent-fill) 60%, var(--text-primary)));
+  --mf-surface-status: var(--mf-surface-title);
+}
+:root[data-theme-mode="light"] .mf-status, :root[data-mode-shown="light"]:not([data-theme-mode="dark"]) .mf-status { color: color-mix(in srgb, var(--text-primary) 80%, var(--mf-surface-status)); }
 .mf-status-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mf-status-items { display: flex; flex: none; align-items: center; gap: var(--space-3); white-space: nowrap; }
 .mf-status-item { display: inline-flex; align-items: center; gap: var(--space-1); }

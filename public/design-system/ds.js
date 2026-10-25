@@ -1,11 +1,13 @@
 /* The design system page's engine (public/design-system/index.html). Plain script, no build, no external script.
  *
- * It reads the product's own stylesheets (style.css, host.css, theme.css and each module's) as text, and draws:
+ * It reads the product's own stylesheets (style.css, sdk/system.css, sdk/host.css, theme.css and each module's) as text, and draws:
  *   - Tokens: every custom property on :root, in light and dark, with contrast; and what the stylesheets use today
  *     (font sizes, padding, shadows, z-index, breakpoints, transitions...) counted from the CSS so the page cannot drift.
- *   - Components: window.DS_FAMILIES (components*.js) as blocks; each family's examples are the product's real markup,
- *     drawn in a small same-origin frame that carries only the stylesheets that page or module really has, so a module's
- *     `.chip` is the module's, not the app's. Forced hover, focus and pressed come from copying the stylesheet's own
+ *   - Components: window.DS_FAMILIES (components*.js) as blocks, one per family block of public/sdk/system.css and the few
+ *     looks public/style.css still draws; each family's examples are the product's real markup, drawn in a small same-origin
+ *     frame that carries only the stylesheets that page or module really has: an app page has style.css, the theme and
+ *     system.css; a module's page has system.css and host.css (the server puts them in), and the module's own.
+ *     tools/check-design-system-catalog.mjs fails on a class in an example that none of those stylesheets has a rule for. Forced hover, focus and pressed come from copying the stylesheet's own
  *     :hover, :focus and :active rules to classes (never a second copy of a look). Light and dark set <html data-theme-mode>.
  *   - Live SDK pieces: the real public/sdk/host.js, with a stand-in host (`call`), mounts host.ui.* and host.menu.show.
  *   - Icons: the Font Awesome Free solid icons the product uses (DS_SOURCES.icons, found by tools/design-system-snapshot.mjs).
@@ -17,7 +19,7 @@
   const SRC = window.DS_SOURCES || {};
   const FILES = SRC.files || {};
   const PATHS = {
-    'style.css': '/style.css', 'host.css': '/sdk/host.css', 'theme.css': '/theme.css', 'host.js': '/sdk/host.js', 'tooltip.js': '/tooltip.js',
+    'style.css': '/style.css', 'system.css': '/sdk/system.css', 'host.css': '/sdk/host.css', 'theme.css': '/theme.css', 'host.js': '/sdk/host.js', 'tooltip.js': '/tooltip.js',
     'destination.css': '/destination.css', 'landing.css': '/landing.css', 'diag.css': '/diag.css',
   };
   const stats = { frames: 0, loaded: 0, families: 0, variants: 0, examples: 0, errors: [], notLoaded: [], forcedRules: 0, tokens: 0, icons: 0, orphans: [] };
@@ -81,24 +83,27 @@
   // ---- contexts: which stylesheets a page or module really has ----
   const MODULE_ORDER = ['assistant', 'budget', 'calendar', 'maps', 'places', 'polls', 'research', 'stream', 'todo', 'travel'];
   function ctxLabel(ctx) {
-    if (ctx === 'app') return 'An app page (public/style.css)';
-    if (ctx === 'host') return 'A module page with only the SDK base (public/sdk/host.css)';
-    if (ctx.startsWith('widget:')) return `The ${ctx.slice(7)} dashboard widget (host.css and its widget stylesheet)`;
-    return `The ${ctx.slice(4)} module (host.css and its own stylesheet)`;
+    if (ctx === 'app') return 'An app page (public/style.css, the theme and public/sdk/system.css)';
+    if (ctx === 'host') return 'A module page (public/sdk/system.css and public/sdk/host.css)';
+    if (ctx.startsWith('widget:')) return `The ${ctx.slice(7)} dashboard widget (system.css, host.css and its widget stylesheet)`;
+    return `The ${ctx.slice(4)} module (system.css, host.css and its own stylesheet)`;
   }
   // The menu's and the more button's CSS is a string inside host.js (UI_CSS), added to a module's page when the SDK starts.
   const uiCss = () => { const m = /const UI_CSS = `([\s\S]*?)`;/.exec(text['host.js'] || ''); return m ? m[1] : ''; };
+  // In the order the product loads them: an app page links style.css, the theme, then system.css; a module's page gets
+  // system.css then host.css from the server (server/index.js), then its own stylesheet.
   function ctxSheets(ctx) {
-    if (ctx === 'app') return [text['style.css'], text['theme.css']];
-    if (ctx === 'host') return [text['host.css'], uiCss()];
-    if (ctx.startsWith('widget:')) return [text['host.css'], uiCss(), widgetCss(ctx.slice(7))];
-    return [text['host.css'], uiCss(), modCss(ctx.slice(4))];
+    if (ctx === 'app') return [text['style.css'], text['theme.css'], text['system.css']];
+    if (ctx === 'host') return [text['system.css'], text['host.css'], uiCss()];
+    if (ctx.startsWith('widget:')) return [text['system.css'], text['host.css'], uiCss(), widgetCss(ctx.slice(7))];
+    return [text['system.css'], text['host.css'], uiCss(), modCss(ctx.slice(4))];
   }
+  const SYS = { file: 'public/sdk/system.css', get text() { return text['system.css']; } };
   function ctxFiles(ctx) {
-    if (ctx === 'app') return [{ file: 'public/style.css', text: text['style.css'] }, { file: 'public/theme.css', text: text['theme.css'] }];
-    if (ctx === 'host') return [{ file: 'public/sdk/host.css', text: text['host.css'] }];
-    if (ctx.startsWith('widget:')) return [{ file: 'public/sdk/host.css', text: text['host.css'] }, ...widgetFiles(ctx.slice(7)).map((f) => ({ file: f.file, text: f.text }))];
-    return [{ file: 'public/sdk/host.css', text: text['host.css'] }, ...pageFiles(ctx.slice(4)).map((f) => ({ file: f.file, text: f.text }))];
+    if (ctx === 'app') return [{ file: 'public/style.css', text: text['style.css'] }, { file: 'public/theme.css', text: text['theme.css'] }, SYS];
+    if (ctx === 'host') return [SYS, { file: 'public/sdk/host.css', text: text['host.css'] }];
+    if (ctx.startsWith('widget:')) return [SYS, { file: 'public/sdk/host.css', text: text['host.css'] }, ...widgetFiles(ctx.slice(7)).map((f) => ({ file: f.file, text: f.text }))];
+    return [SYS, { file: 'public/sdk/host.css', text: text['host.css'] }, ...pageFiles(ctx.slice(4)).map((f) => ({ file: f.file, text: f.text }))];
   }
   // "file:line" of the first rule whose selector starts with `sel`, searched last file first (the module's own rule wins over the base).
   function locate(ctx, sel) {
@@ -117,7 +122,10 @@
   }
 
   // ---- frames ----
-  const THEME_TOKENS = ['--bg', '--bg-section', '--bg-card', '--bg-input', '--border', '--text', '--text-dim', '--accent', '--on-accent', '--accent-hover', '--primary-hover', '--secondary', '--secondary-text', '--secondary-hover', '--header-bg', '--header-text', '--icon-hover', '--danger', '--ok', '--surface', '--surface-hover', '--shade', '--tint-gold', '--tint-blue', '--tint-green', '--tint-teal', '--tint-purple', '--tint-red', '--tint-orange', '--tint-pink'];
+  // The same list as public/module-host.js (THEME_TOKENS): what a module's frame is given of the host's theme.
+  const THEME_TOKENS = ['--bg', '--bg-section', '--bg-card', '--bg-input', '--border', '--text', '--text-dim', '--accent', '--on-accent', '--accent-hover', '--primary-hover', '--secondary', '--secondary-text', '--secondary-hover', '--header-bg', '--header-text', '--icon-hover', '--danger', '--ok', '--surface', '--surface-hover', '--shade',
+    '--accent-fill', '--accent-fill-hover', '--text-on-accent', '--fill-secondary', '--fill-secondary-hover', '--text-on-secondary', '--edge-hairline', '--text-primary', '--text-muted', '--fill-hover', '--fill-selected', '--text-selected', '--focus-ring', '--status-danger-fill', '--status-danger-text', '--status-danger-on-fill',
+    '--tint-gold', '--tint-blue', '--tint-green', '--tint-teal', '--tint-purple', '--tint-red', '--tint-orange', '--tint-pink'];
   let mode = 'dark';
   let width = 'fit';
   let FA_HREF = '';
@@ -133,13 +141,13 @@
   }
   const FRAME_CSS = `
 html, body { min-height: 0 !important; height: auto !important; overflow-x: hidden; }
-body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; }
+body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui, system-ui, sans-serif); font-size: 14px; }
 .dsf { padding: 4px 14px 14px; }
 .dsf-var { padding: 12px 0 14px; border-top: 1px solid var(--border); }
 .dsf-var:first-child { border-top: 0; }
 .dsf-cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 0 8px; font-size: 12px; line-height: 1.4; color: var(--text-dim); }
 .dsf-cap b { color: var(--text); font-size: 13px; font-weight: 700; }
-.dsf-cap code { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-dim); overflow-wrap: anywhere; }
+.dsf-cap code, .dsf-note code { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-dim); overflow-wrap: anywhere; }
 .dsf-note { margin: 0 0 8px; color: var(--text-dim); font-size: 12px; max-width: 80ch; }
 .dsf-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
 .dsf-state { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
@@ -235,7 +243,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     const states = (v.states || []).map((s) => (typeof s === 'string' ? STATE_NAMES[s] : s)).filter(Boolean);
     const cells = [{ n: states.length ? 'Rest' : '', html: v.html }, ...states.map((s) => ({ n: s.n, html: stateHtml(v, s) }))];
     const where = v.where || locate(ctx, v.sel);
-    const cap = `<header class="dsf-cap"><b>${h(v.n)}</b>${where ? `<code>${h(where)}</code>` : ''}${v.dup ? `<span>${h(v.dup)}</span>` : ''}</header>${v.note ? `<p class="dsf-note">${v.note}</p>` : ''}`;
+    const cap = `<header class="dsf-cap"><b>${h(v.n)}</b>${where ? `<code>${h(where)}</code>` : ''}</header>${v.note ? `<p class="dsf-note">${v.note}</p>` : ''}`;
     const body = cells.map((c) => `<div class="dsf-state">${c.n ? `<small>${h(c.n)}</small>` : ''}<div class="dsf-ex">${c.html}</div></div>`).join('');
     return `<section class="dsf-var${v.wide ? ' dsf-wide' : ''}${v.static ? ' dsf-static' : ''}${v.box ? ' dsf-box' : ''}" data-v="${seq}">${cap}<div class="dsf-states">${body}</div><details class="dsf-md"><summary>Markup</summary><button type="button" class="dsf-copy">Copy</button><pre></pre></details></section>`;
   }
@@ -273,8 +281,9 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
             if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done); else done();
           }
           // The examples are pictures of the product: a link or a form in one goes nowhere.
+          // A link to another design system page (target="_top") does go there.
           const a = e.target.closest && e.target.closest('a[href]');
-          if (a) e.preventDefault();
+          if (a && a.target !== '_top') e.preventDefault();
         });
         doc.addEventListener('submit', (e) => e.preventDefault());
         if (!f.fixed) {
@@ -311,7 +320,9 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     }
     stats.variants += variants.length;
     stats.examples += variants.reduce((a, v) => a + 1 + (v.states || []).length, 0);
-    block.innerHTML = `<header><h3 id="${fam.id}-h"><a href="#today/${fam.id}">${h(fam.name)}</a></h3><span class="ds-count">${variants.length} look${variants.length === 1 ? '' : 's'} in ${groups.length} stylesheet context${groups.length === 1 ? '' : 's'}</span>${fam.dup ? `<span class="ds-dup" title="Several looks do the same job">${fam.dupCount ? fam.dupCount + ' ' : ''}duplicates</span>` : ''}</header>${fam.desc ? `<p class="ds-desc">${fam.desc}</p>` : ''}${fam.dup ? `<p class="ds-dupnote"><b>Duplicates.</b> ${fam.dup}</p>` : ''}`;
+    const blockId = fam.block || fam.id;
+    const from = SYS_BLOCKS.has(blockId) ? `public/sdk/system.css, the ${blockId} block` : 'public/style.css';
+    block.innerHTML = `<header><h3 id="${fam.id}-h"><a href="#today/${fam.id}">${h(fam.name)}</a></h3><span class="ds-count">${variants.length} look${variants.length === 1 ? '' : 's'}, from ${h(from)}</span></header>${fam.desc ? `<p class="ds-desc">${fam.desc}</p>` : ''}`;
     for (const g of groups) {
       const cap = mk('p', 'ds-ctx', `Drawn with: ${h(ctxLabel(g.ctx))}`);
       block.appendChild(cap);
@@ -353,7 +364,21 @@ window.__dsLog = [];
     doc.head.appendChild(s);
   }
   function liveFrame(spec) {
-    const wrap = makeFrame('host', spec.body, {
+    // The module panel is an app page's piece (public/module-frame.js, an ES module): it is imported, not mounted by the SDK.
+    if (spec.module) {
+      return makeFrame(spec.ctx || 'app', spec.body, {
+        height: spec.height || 360, title: spec.title,
+        css: '.dsf-live { padding-top: 10px; }',
+        onLoad: (iframe, doc) => {
+          const win = iframe.contentWindow;
+          win.addEventListener('error', (e) => stats.errors.push('live: ' + e.message));
+          win.addEventListener('unhandledrejection', (e) => stats.errors.push('live: ' + (e.reason && e.reason.message)));
+          if (location.protocol === 'file:') { doc.body.insertAdjacentHTML('beforeend', '<p class="dsf-note">Open this page from the app to see the live panel; a copy on disk cannot load public/module-frame.js.</p>'); return; }
+          injectScript(doc, `window.__dsDone = (function () { ${spec.script} })().catch(function (e) { window.__dsFail = String(e && e.message || e); });`);
+        },
+      });
+    }
+    const wrap = makeFrame(spec.ctx || 'host', spec.body, {
       height: spec.height || 360, title: spec.title,
       css: '.dsf-live { display: grid; gap: 18px; padding-top: 10px; } .dsf-live h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-dim); font-weight: 700; } .dsf-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .dsf-live p { margin: 0; }',
       onLoad: (iframe, doc) => {
@@ -370,64 +395,9 @@ window.__dsLog = [];
     });
     return wrap;
   }
-  const LIVE = [
-    {
-      id: 'live-pickers', name: 'Live: date picker, kind picker, currency list', height: 330,
-      desc: 'Mounted by the real SDK on plain fields, as a module\'s script does. Click a field\'s button to open it.',
-      title: 'Live pickers',
-      body: `<div class="dsf-live"><form class="sdk-form" onsubmit="return false">
-        <div class="sdk-form-row">
-          <label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" id="d1" value="2026-10-09"><span class="sdk-hint"></span></label>
-          <label class="sdk-field sdk-m"><span class="sdk-label">Currency</span><select id="currency1"></select><span class="sdk-hint"></span></label>
-          <div class="sdk-field sdk-full"><span class="sdk-label">Kind</span><div id="f-types"></div></div>
-        </div></form></div>`,
-      script: `
-        var inp = document.getElementById('d1'); host.ui.datePicker(inp, { clearable: true });
-        host.ui.currencySelect(document.getElementById('currency1'), { value: 'USD' });
-        host.ui.kindPicker(document.getElementById('f-types'), { label: 'What is it', value: 'sight', groups: [
-          { label: 'Places', options: [{ id: 'sight', label: 'Sight', icon: 'landmark', color: '#c47a2c', words: 'sight' }, { id: 'food', label: 'Food and drink', icon: 'utensils', color: '#2c7ac4', words: 'food' }] },
-          { label: 'Getting about', options: [{ id: 'flight', label: 'Flight', icon: 'plane', color: '#7a2cc4', words: 'flight' }] }] });`,
-    },
-    {
-      id: 'live-datepicker-open', name: 'Live: date picker, open', height: 330, title: 'Live date picker, open',
-      desc: 'The month grid (.sdk-dp) opened under a field.',
-      body: '<div class="dsf-live"><form class="sdk-form" onsubmit="return false"><div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Departure day</span><input type="date" id="d2" value="2026-10-14"><span class="sdk-hint"></span></label></div></form></div>',
-      script: `host.ui.datePicker(document.getElementById('d2'), { clearable: true }); var b = document.querySelector('.sdk-datefield .sdk-icon-btn'); if (b) b.click();`,
-    },
-    {
-      id: 'live-menu', name: 'Live: host.menu.show (the module menu and its flyout)', height: 330, title: 'Live menu',
-      desc: '.sdk-menu, opened by host.menu.show on a button, with a category that opens a flyout, a separator, a heading, a danger entry and a disabled one.',
-      body: '<div class="dsf-live"><div class="dsf-row"><button type="button" class="btn" id="mb">Open the menu</button><button type="button" class="sdk-more" id="mm"></button></div></div>',
-      script: `
-        host.ui.moreButton(document.getElementById('mm'), { label: 'More' });
-        var open = function () { host.menu.show({ id: 'ds-menu', anchor: document.getElementById('mb'), items: [
-          { label: 'Edit', icon: 'pen' }, { label: 'Duplicate', icon: 'copy', hint: 'Makes a copy beside it' },
-          { label: 'Move to', icon: 'arrow-right', items: [{ label: 'Day 1' }, { label: 'Day 2' }, { label: 'Unscheduled' }] },
-          { separator: true }, { heading: 'Danger' }, { label: 'Not now', disabled: true }, { label: 'Delete', icon: 'trash', danger: true }] }); };
-        document.getElementById('mb').addEventListener('click', open); open();
-        setTimeout(function () { var c = document.querySelector('.sdk-menu-category'); if (c) c.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, 400);`,
-    },
-    {
-      id: 'live-switch', name: 'Live: view switch, more button, toast', height: 230, title: 'Live view switch and toast',
-      desc: 'host.ui.viewSwitch with an element (the toolbar form is host-drawn), host.ui.moreButton and host.ui.toast.',
-      body: '<div class="dsf-live"><div class="dsf-row"><div id="vs"></div></div><div class="dsf-row"><div id="vs2"></div></div><div class="dsf-row"><button type="button" class="btn" id="tb">Show a toast</button></div></div>',
-      script: `
-        host.ui.viewSwitch({ id: 'a', element: document.getElementById('vs'), value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'month', label: 'Month', icon: 'calendar' }, { id: 'map', label: 'Map', icon: 'map' }], onChange: function () {} });
-        host.ui.viewSwitch({ id: 'b', element: document.getElementById('vs2'), value: 'all', options: [{ id: 'all', label: 'All' }, { id: 'mine', label: 'Mine' }], onChange: function () {} });
-        var t = function () { host.ui.toast('Saved in Places.'); }; document.getElementById('tb').addEventListener('click', t); t();`,
-    },
-    {
-      id: 'live-editor', name: 'Live: editor window (host.ui.editor)', height: 560, title: 'Live editor window',
-      desc: 'A &lt;dialog class="sdk-editor"&gt; opened with host.ui.editor, with the form standard inside. The SDK adds the Close button; this frame is not lifted, so a narrow width shows the phone sheet.',
-      body: `<div class="dsf-live"><dialog class="sdk-editor" id="ed" aria-label="Add a place"><div class="sdk-editor-body"><h3 style="margin:0 0 12px">Add a place</h3><form class="sdk-form" onsubmit="return false">
-          <label class="sdk-field sdk-full"><span class="sdk-label">Name</span><input type="text" value="Louvre" id="en"><span class="sdk-hint"></span></label>
-          <div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" value="2026-10-12"><span class="sdk-hint"></span></label>
-          <label class="sdk-field sdk-m"><span class="sdk-label">Cost</span><input type="text" value="22" aria-invalid="true"><span class="sdk-error">Enter a number.</span></label></div>
-          <div class="sdk-checks"><label class="sdk-check"><input type="checkbox" checked> Booked</label></div>
-        </form></div><div class="sdk-editor-actions"><button type="button" class="btn btn-primary">Save</button><button type="button" class="btn" id="ec">Cancel</button></div></dialog></div>`,
-      script: `var ed = host.ui.editor(document.getElementById('ed'), { size: 'medium', isDirty: function () { return false; } }); ed.open({}); document.getElementById('ec').addEventListener('click', function () { ed.cancel(); });`,
-    },
-  ];
+  // The family blocks of public/sdk/system.css (/* <id>:start */ ... /* <id>:end */), read when the page opens.
+  const SYS_BLOCKS = new Set();
+  const LIVE = window.DS_LIVE || [];
 
   // ---- tokens ----
   const probeCanvas = D.createElement('canvas'); probeCanvas.width = probeCanvas.height = 1;
@@ -678,9 +648,10 @@ window.__dsLog = [];
 
   async function init() {
     FA_HREF = $('link[data-ds="fa"]').href;
-    await Promise.all(['style.css', 'host.css', 'theme.css', 'host.js', 'tooltip.js', 'destination.css', 'landing.css', 'diag.css'].map(load));
+    await Promise.all(['style.css', 'system.css', 'host.css', 'theme.css', 'host.js', 'tooltip.js', 'destination.css', 'landing.css', 'diag.css'].map(load));
     $('#ds-status').textContent = 'Drawing the examples';
 
+    for (const m of (text['system.css'] || '').matchAll(/\/\* ([a-z][a-z0-9-]*):start \*\//g)) SYS_BLOCKS.add(m[1]);
     const families = (window.DS_FAMILIES || []).slice();
     stats.families = families.length;
     const tokenSec = await tokenSection();
@@ -688,7 +659,7 @@ window.__dsLog = [];
 
     const compSec = mk('section', 'ds-sec');
     compSec.id = 'components';
-    compSec.innerHTML = `<h2>Components</h2><p class="ds-lead">${families.length} families. Every example is the product's own markup and classes, drawn in a small frame that carries only the stylesheets that page or module really has, so what you see is what a person sees. Where several looks do one job, the family is marked <b>duplicates</b>. Use the width and light or dark buttons at the top; the state cells (hover, focus, pressed) are the stylesheet's own :hover, :focus and :active rules, forced on. Under each look, <b>Markup</b> shows the HTML to copy.</p>`;
+    compSec.innerHTML = `<h2>Components</h2><p class="ds-lead">${families.length} families: one for each family block of public/sdk/system.css, and the few looks public/style.css still draws. Every example is the product's own markup and classes, drawn in a small frame that carries only the stylesheets that page or module really has, so what you see is what a person sees; a check (tools/check-design-system-catalog.mjs) fails if an example uses a class no stylesheet has. Use the width and light or dark buttons at the top; the state cells (hover, focus, pressed) are the stylesheet's own :hover, :focus and :active rules, forced on. Under each look, <b>Markup</b> shows the HTML to copy.</p>`;
     content.appendChild(compSec);
     const order = []; const byGroup = new Map();
     for (const f of families) { if (!byGroup.has(f.group)) { byGroup.set(f.group, []); order.push(f.group); } byGroup.get(f.group).push(f); }

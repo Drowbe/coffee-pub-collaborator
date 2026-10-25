@@ -31,12 +31,14 @@
 //
 // A toolbar entry is one of:
 //   { type: 'switch', id, label, value, options: [{ id, label, icon }] }   a segmented view switch
-//   { type: 'tabs', id, label, value, options: [{ id, label, count? }] }  a tab strip
+//   { type: 'tabs', id, label, value, options: [{ id, label, count? }] }  a tab strip, for switching between different pages
+//   { type: 'quickset', id, label, value, options: [{ id, label, count? }] }  quick sets: one filter chip chosen at a time, with counts
 //   { type: 'search', id, label, placeholder, value? }
 //   { type: 'chips', id, label, options: [{ id, label, on }] }            filter chips
+//   { type: 'filters', id, label, groups: [{ id, heading, single?, value?, options: [{ id, label, count?, on? }] }] }  one Filters button with a count; its menu has Clear filters and the groups
 //   { type: 'button', id, label, icon?, kind: 'primary' | 'secondary' | 'icon' }
 //   { type: 'title', text }                                               words in the row
-//   { type: 'spacer' }                                                     what follows sits at the end
+//   (a 'spacer' is no longer needed: the row's end group is always search, then Filters, at the same place from the right edge)
 //
 // The overflow rule, one row, nothing ever cut. While the row is wider than its room, these steps are taken in this
 // order, each only if the row still does not fit: the chips fold into one Filters button; the view switch shows only its
@@ -59,7 +61,7 @@ const STANDARD = [
 const STANDARD_ON = Object.fromEntries(STANDARD.map((s) => [s.id, true]));
 const FOLDS = ['chips', 'switch', 'secondary', 'tabs', 'search', 'primary'];
 // Which control goes into "More" first: the lowest number first, then the one furthest along the row.
-const MOVE = { icon: 1, secondary: 2, chips: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
+const MOVE = { icon: 1, secondary: 2, chips: 3, quickset: 3, title: 4, primary: 5, switch: 6, tabs: 7, search: 8 };
 
 let seq = 0;
 
@@ -187,7 +189,7 @@ export function createModuleFrame(opts = {}) {
     }
     if (tb.add) {
       const add = typeof tb.add === 'object' ? tb.add : {};
-      const b = button('mf-add-btn', { label: add.label || 'Add', iconName: 'plus', words: false });
+      const b = button('mf-icon-btn mf-titlebar-btn mf-add-btn', { label: add.label || 'Add', iconName: 'plus', words: false });
       if (Array.isArray(add.entries) && add.entries.length) {
         b.setAttribute('aria-haspopup', 'menu');
         b.addEventListener('click', () => openHostMenu(b, add.entries.map((e) => ({ label: e.label, icon: e.icon, onPick: () => tbFire({ id: 'add', value: e.id }) }))));
@@ -245,7 +247,7 @@ export function createModuleFrame(opts = {}) {
       const on = o.id === it.value;
       const t = el('button', 'mf-tab', { type: 'button', role: 'tab', 'aria-selected': String(on), 'aria-controls': `${uid}-content`, tabindex: on ? '0' : '-1' });
       t.append(word(o.label));
-      if (o.count !== undefined && o.count !== null) t.append(el('span', 'mf-count', { text: String(o.count) }));
+      if (o.count !== undefined && o.count !== null) t.append(el('span', 'sdk-badge', { text: String(o.count) }));
       t.addEventListener('click', () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(`tab:${it.id}`); });
       strip.append(t);
       return t;
@@ -268,6 +270,31 @@ export function createModuleFrame(opts = {}) {
     menu.append(word(current ? current.label : ''), icon('caret-down', 'mf-caret'));
     menu.addEventListener('click', () => tabsMenu(it, menu));
     return [strip, menu];
+  }
+  // Quick sets: a single-choice group of chips with counts. The chosen one is filled, the others outlined; narrow, the whole group goes into More.
+  function drawQuickset(it) {
+    const group = el('div', 'mf-quickset', { role: 'radiogroup', 'aria-label': it.label || 'Show' });
+    const chips = it.options.map((o) => {
+      const on = o.id === it.value;
+      const c = el('button', `mf-chip${on ? ' is-on' : ''}`, { type: 'button', role: 'radio', 'aria-checked': String(on), tabindex: on ? '0' : '-1' });
+      c.append(word(o.label));
+      if (o.count !== undefined && o.count !== null) c.append(el('span', 'sdk-badge', { text: String(o.count) }));
+      c.dataset.key = `chip:${it.id}:${o.id}`;
+      c.addEventListener('click', () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(`chip:${it.id}:${o.id}`); });
+      group.append(c);
+      return c;
+    });
+    group.addEventListener('keydown', (e) => {
+      const at = chips.indexOf(doc.activeElement);
+      if (at < 0) return;
+      let to = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') to = (at + 1) % chips.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') to = (at - 1 + chips.length) % chips.length;
+      if (to === null) return;
+      e.preventDefault();
+      chips[to].click();
+    });
+    return [group];
   }
   function drawSearch(it) {
     const form = el('form', 'mf-search', { role: 'search' });
@@ -307,9 +334,47 @@ export function createModuleFrame(opts = {}) {
     const on = it.options.filter((o) => o.on).length;
     const menu = el('button', 'mf-chips-menu', { type: 'button', 'aria-haspopup': 'menu', 'aria-label': `${it.label || 'Filters'}${on ? `, ${on} on` : ''}` });
     menu.append(icon('filter'), word(it.label || 'Filters'));
-    if (on) menu.append(el('span', 'mf-count', { text: String(on) }));
+    if (on) menu.append(el('span', 'sdk-badge', { text: String(on) }));
     menu.addEventListener('click', () => chipsMenu(it, menu));
     return [group, menu];
+  }
+  // Filters: ONE button with a count of what is applied; its menu holds Clear filters, then the groups, each under a heading.
+  // A group is single (one choice; the first option is "nothing applied") or switches (any number). The menu stays open.
+  const filterCount = (it) => it.groups.reduce((n, g) => n + (g.single ? (g.value !== g.options[0].id ? 1 : 0) : g.options.filter((o) => o.on).length), 0);
+  function filterItems(it) {
+    const list = [{ label: 'Clear filters', icon: 'xmark', disabled: filterCount(it) === 0, keepOpen: true, onPick: () => {
+      for (const g of it.groups) {
+        if (g.single) { g.value = g.options[0].id; fire({ id: g.id, value: g.value }); continue; }
+        for (const o of g.options) if (o.on) { o.on = false; fire({ id: g.id, value: o.id, on: false }); }
+      }
+      refreshCount(it);
+    } }];
+    for (const g of it.groups) {
+      list.push({ heading: g.heading });
+      for (const o of g.options) {
+        list.push(g.single
+          ? { label: o.label, radio: true, checked: o.id === g.value, badge: o.count, keepOpen: true, onPick: () => { g.value = o.id; fire({ id: g.id, value: o.id }); refreshCount(it); } }
+          : { label: o.label, checked: Boolean(o.on), toggle: true, onPick: () => { o.on = !o.on; fire({ id: g.id, value: o.id, on: o.on }); refreshCount(it); } });
+      }
+    }
+    return list;
+  }
+  function refreshCount(it) {
+    const b = it._els && it._els[0];
+    if (!b) return;
+    const n = filterCount(it);
+    const c = b.querySelector('.sdk-badge');
+    if (c) c.remove();
+    if (n) b.append(el('span', 'sdk-badge', { text: String(n) }));
+    b.setAttribute('aria-label', `${it.label || 'Filters'}${n ? `, ${n} applied` : ''}`);
+  }
+  function drawFilters(it) {
+    const b = el('button', 'mf-chips-menu mf-filters', { type: 'button', 'aria-haspopup': 'menu' });
+    b.append(icon('filter'), word(it.label || 'Filters'));
+    it._els = [b];
+    refreshCount(it);
+    b.addEventListener('click', () => openHostMenu(b, () => filterItems(it)));
+    return [b];
   }
   function drawButton(it) {
     const kind = it.kind === 'primary' || it.kind === 'icon' ? it.kind : 'secondary';
@@ -324,12 +389,13 @@ export function createModuleFrame(opts = {}) {
     if (it.type === 'button') return [{ label: it.label, icon: it.icon, onPick: () => fire({ id: it.id }) }];
     if (it.type === 'title') return [{ heading: it.text }];
     if (it.type === 'search') return [{ label: it.label || 'Search', icon: 'magnifying-glass', onPick: () => win.setTimeout(() => startSearching(it._input), 0) }];
-    if (it.type === 'switch' || it.type === 'tabs') {
-      return [{ heading: it.label || (it.type === 'switch' ? 'View' : 'Tabs') }, ...it.options.map((o) => ({
+    if (it.type === 'switch' || it.type === 'tabs' || it.type === 'quickset') {
+      return [{ heading: it.label || (it.type === 'switch' ? 'View' : it.type === 'quickset' ? 'Show' : 'Tabs') }, ...it.options.map((o) => ({
         label: o.label, ...(o.icon ? { icon: o.icon } : {}), radio: true, checked: o.id === it.value, badge: o.count,
         onPick: () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(); },
       }))];
     }
+    if (it.type === 'filters') return filterItems(it);
     if (it.type === 'chips') {
       return [{ heading: it.label || 'Filters' }, ...it.options.map((o) => ({
         label: o.label, checked: Boolean(o.on), toggle: true,
@@ -364,19 +430,28 @@ export function createModuleFrame(opts = {}) {
   function drawToolbar() {
     if (hostMenuOpen() && toolbar.contains(doc.activeElement)) closeHostMenu();
     toolbar.textContent = '';
+    // The row has two regions. The start group: everything but search and filters, left-aligned in the order given. The end
+    // group: search, then the Filters button, always last, in those slots, at the same distance from the right edge. A
+    // 'spacer' entry is not needed (the gap between the groups is drawn here) and is ignored.
+    const start = [];
+    const end = [];
     for (const it of entries) {
       let els = [];
       if (it.type === 'switch') els = drawSwitch(it);
       else if (it.type === 'tabs') els = drawTabs(it);
       else if (it.type === 'search') { els = drawSearch(it); it._input = els[0].querySelector('input'); }
       else if (it.type === 'chips') els = drawChips(it);
+      else if (it.type === 'filters') els = drawFilters(it);
+      else if (it.type === 'quickset') els = drawQuickset(it);
       else if (it.type === 'button') els = drawButton(it);
       else if (it.type === 'title') els = [el('span', 'mf-tb-title', { text: it.text, 'data-tip': it.text, 'data-tip-if-truncated': '', tabindex: '0' })];
-      else if (it.type === 'spacer') els = [el('span', 'mf-spacer', { 'aria-hidden': 'true' })];
       it._els = els;
-      toolbar.append(...els);
+      (it.type === 'search' ? end : it.type === 'filters' ? end : start).push({ it, els });
     }
-    toolbar.append(moreBtn);
+    end.sort((x, y) => (x.it.type === 'search' ? 0 : 1) - (y.it.type === 'search' ? 0 : 1));
+    for (const g of start) toolbar.append(...g.els);
+    toolbar.append(moreBtn, el('span', 'mf-spacer', { 'aria-hidden': 'true' }));
+    for (const g of end) toolbar.append(...g.els);
     toolbar.hidden = entries.length === 0;
     if (searching) toolbar.classList.add('is-searching');
   }

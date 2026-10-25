@@ -149,7 +149,7 @@ export function buildSnapshot(out, page = 'today') {
   // The page, paths made relative (System v1 reads the shared pages.css from two folders up).
   const from = page === 'proposed' ? V1 : DS;
   let html = fs.readFileSync(path.join(from, page === 'proposed' ? 'proposed.html' : 'index.html'), 'utf8');
-  html = html.replace('href="/fa/css/all.min.css"', 'href="fa/css/all.min.css"').replace('href="/style.css"', 'href="style.css"').replace('href="/theme.css"', 'href="theme.css"').replace('href="../../pages.css"', 'href="pages.css"');
+  html = html.replace('href="/fa/css/all.min.css"', 'href="fa/css/all.min.css"').replace('href="/sdk/system.css"', 'href="system.css"').replace('href="/style.css"', 'href="style.css"').replace('href="/theme.css"', 'href="theme.css"').replace('href="../../pages.css"', 'href="pages.css"');
   let keep;
   if (page === 'proposed') {
     // The families the manifest names, and the manifest itself (also written into the page: a file on disk cannot read it by XHR).
@@ -183,6 +183,7 @@ export function buildSnapshot(out, page = 'today') {
     data = built.data; unknown = built.unknown;
     fs.writeFileSync(path.join(out, 'sources.js'), built.js);
   }
+  copy(path.join(root, 'public', 'sdk', 'system.css'), path.join(out, 'system.css'));
   fs.writeFileSync(path.join(out, 'style.css'), data.files['style.css']);
   fs.writeFileSync(path.join(out, 'theme.css'), data.files['theme.css']);
   // Font Awesome: the stylesheet and its fonts, beside it as the stylesheet expects (../webfonts/).

@@ -77,6 +77,8 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   for (const m of html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
     if (/^(https?:)?\/\//i.test(m[1]) || m[1].startsWith('/')) fail(`the ${label} snapshot's index.html loads a script from ${m[1]}`);
   }
+  if (!fs.existsSync(path.join(dir, 'system.css'))) fail(`the ${label} snapshot has no system.css`);
+  if (!/<link\b[^>]*href="system\.css"/.test(html)) fail(`the ${label} snapshot's index.html does not link system.css`);
   for (const m of html.matchAll(/<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
     if (/^(https?:)?\/\//i.test(m[1]) || m[1].startsWith('/')) fail(`the ${label} snapshot's index.html links ${m[1]}, not a relative path`);
   }

@@ -49,9 +49,7 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-block h3 a { color: inherit; }
 .ds-block h3 a:hover { color: var(--accent); }
 .ds-count { color: var(--text-dim); font-size: 12px; }
-.ds-dup { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tint-orange) 18%, transparent); color: var(--tint-orange); font-size: 12px; font-weight: 600; }
 .ds-desc { max-width: 90ch; margin: 0 0 10px; color: var(--text-dim); }
-.ds-dupnote { max-width: 90ch; margin: 0 0 10px; font-size: 13px; }
 .ds-ctx { margin: 14px 0 6px; color: var(--text-dim); font-size: 12px; }
 .ds-ctx code { color: var(--text); }
 .ds-frame-wrap { overflow-x: auto; border-radius: var(--radius-medium); background: var(--bg); }

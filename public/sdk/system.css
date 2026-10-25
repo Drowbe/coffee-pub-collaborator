@@ -5714,10 +5714,10 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   --mf-search-min: 120px; /* the least it gives way to before it folds to a magnifier */
   --mf-title-min: 64px; /* the least a title is cut to before what is beside it folds */
   --mf-shadow: var(--shadow-2); /* the panel's own shadow */
-  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 86%, var(--text-primary)); /* level 1, the strongest step */
+  --mf-surface-title: color-mix(in srgb, var(--surface-panel) 70%, black); /* level 1: deeper than the toolbar and the content, the same hue, in light and dark */
   --mf-surface-toolbar: color-mix(in srgb, var(--surface-panel) 93%, var(--text-primary)); /* level 2 */
   --mf-surface-content: var(--surface-panel); /* level 3 */
-  --mf-surface-status: color-mix(in srgb, var(--surface-panel) 82%, var(--surface-page)); /* level 4, toward the page */
+  --mf-surface-status: var(--mf-surface-title); /* level 4: the title bar's tone, so the panel is framed top and bottom */
   --mf-surface-row: color-mix(in srgb, var(--surface-card) 90%, var(--text-primary)); /* an object's row on the content */
   --mf-edge: var(--edge-hairline); /* the panel's edge and the hairlines between the levels */
 }

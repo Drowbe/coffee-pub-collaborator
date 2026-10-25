@@ -69,9 +69,9 @@ const rows = (n, words) => {
   return ul;
 };
 const WORDS = ['Passports and visas', 'Chargers and adaptors', 'Rain jackets', 'First aid kit', 'Snacks for the drive', 'Maps printed', 'Camera and spare batteries', 'Sunscreen'];
-const titlebar = () => ({
+const titlebar = (extra = []) => ({
   add: { label: 'Add', entries: [{ id: 'list', label: 'A list', icon: 'list' }, { id: 'note', label: 'A note', icon: 'note-sticky' }] },
-  actions: [{ id: 'pin', icon: 'thumbtack', label: 'Pin', placement: 'bar', on: false }, { id: 'alerts', icon: 'bell', label: 'Alerts', placement: 'bar' }],
+  actions: [...extra, { id: 'pin', icon: 'thumbtack', label: 'Pin', placement: 'bar', on: false }, { id: 'alerts', icon: 'bell', label: 'Alerts', placement: 'bar' }],
   close: true,
 });
 const viewSwitch = () => ({ type: 'switch', id: 'view', label: 'View', value: 'list', options: [{ id: 'list', label: 'List', icon: 'list' }, { id: 'board', label: 'Board', icon: 'table-columns' }, { id: 'calendar', label: 'Calendar', icon: 'calendar' }] });
@@ -87,11 +87,6 @@ const manyTools = () => [
   { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' },
   filtersCtl(),
   { type: 'title', text: 'Week of 3 May' },
-  { type: 'button', id: 'export', label: 'Export', icon: 'file-export', kind: 'secondary' },
-  { type: 'button', id: 'share', label: 'Share', icon: 'share-nodes', kind: 'secondary' },
-  { type: 'button', id: 'print', label: 'Print', icon: 'print', kind: 'icon' },
-  { type: 'button', id: 'settings', label: 'Settings', icon: 'gear', kind: 'icon' },
-  { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' },
 ];
 
 const tabsGroup = { name: 'Tabs', note: 'A tab strip, for switching between different pages: a plain fill on the chosen tab, no shape that joins the content.',
@@ -103,18 +98,18 @@ const tabsGroup = { name: 'Tabs', note: 'A tab strip, for switching between diff
   }) };
 const STATES = [
   {
-    name: 'Idle', note: 'A typical panel: a view switch, a search and one primary button.',
+    name: 'Idle', note: 'A typical panel: a view switch, then the search and Filters at the end. The "+" adds; Share, Print and Settings are in the menu.',
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(),
-      toolbar: [viewSwitch(), { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' }, { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, filtersCtl()],
+      toolbar: [viewSwitch(), { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, filtersCtl()],
       content: rows(12, WORDS),
       status: { text: '12 things, 3 packed', items: [{ text: 'Saved', icon: 'check', tone: 'ok' }] },
     }),
   },
   {
-    name: 'Many controls', note: 'Every kind of control at once. Narrow the width: they fold in order, then go into More; nothing is cut.',
+    name: 'Many controls', note: 'The view switch, an info line, and the search and Filters at the end. Export is an icon in the title bar. Narrow the width: the left side folds first; the end group stays put.',
     frame: () => ({
-      title: 'Packing list for the long weekend in the mountains', icon: 'suitcase', titlebar: titlebar(), toolbar: manyTools(),
+      title: 'Packing list for the long weekend in the mountains', icon: 'suitcase', titlebar: titlebar([{ id: 'export', icon: 'file-export', label: 'Export', placement: 'bar' }]), toolbar: manyTools(),
       content: rows(6, WORDS),
       status: { text: 'Showing 24 of 31, filtered by Today, sorted by date', items: [{ text: '2 late', icon: 'triangle-exclamation', tone: 'warn' }, { text: 'Saved', icon: 'check', tone: 'ok' }] },
     }),
@@ -123,13 +118,13 @@ const STATES = [
     name: 'Empty', note: 'No content yet: the empty state in the content area.',
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(),
-      toolbar: [viewSwitch(), { type: 'spacer' }, { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' }],
+      toolbar: [viewSwitch()],
       empty: { icon: 'inbox', title: 'Nothing here yet', text: 'Add the first one with New.' },
       status: { text: 'Nothing yet' },
     }),
   },
   {
-    name: 'Narrow', note: 'Always 300 pixels wide, every kind of control: most of them in More.', narrow: true,
+    name: 'Narrow', note: 'Always 300 pixels wide: the left side goes into More; the search and Filters stay at the end.', narrow: true,
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(), toolbar: manyTools(),
       content: rows(6, WORDS),

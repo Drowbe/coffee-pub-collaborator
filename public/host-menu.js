@@ -261,7 +261,7 @@ export function openHostMenu(trigger, items) {
     if (count) {
       const badge = doc.createElement('span');
       badge.className = 'sdk-badge';
-      badge.textContent = count > 9 ? '9+' : String(count);
+      badge.textContent = String(count);
       // `badgeTone: 'ok'` draws it green; `badgeLabel` ("2 updates available") is said after the row's name.
       if (item.badgeTone === 'ok') badge.dataset.tone = 'ok';
       if (item.badgeLabel && !item.ariaLabel) b.setAttribute('aria-label', `${spoken || item.label || item.title || ''}, ${item.badgeLabel}`);

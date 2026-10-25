@@ -78,7 +78,7 @@ window.DS_FAMILIES = window.DS_FAMILIES || [];
   });
 
   // ---- Dialogs and sheets ----
-  const editor = (title, body, actions, extra = '') => `<dialog class="sdk-editor${extra}" open aria-label="${title}" style="position:static;margin:0 auto;height:auto"><div class="sdk-editor-head"><h2 class="sdk-editor-title">${title}</h2><button type="button" class="sdk-icon-btn btn-quiet btn-small sdk-editor-close" aria-label="Close">${fa('xmark')}</button></div><form class="sdk-form" onsubmit="return false">${body}${actions}</form></dialog>`;
+  const editor = (title, body, actions, extra = '') => `<dialog class="sdk-editor${extra}" open aria-label="${title}" style="position:static;margin:0 auto;height:auto;width:auto;max-width:100%"><div class="sdk-editor-head"><h2 class="sdk-editor-title">${title}</h2><button type="button" class="sdk-icon-btn btn-quiet btn-small sdk-editor-close" aria-label="Close">${fa('xmark')}</button></div><form class="sdk-form" onsubmit="return false">${body}${actions}</form></dialog>`;
   const fieldBody = '<label class="sdk-field sdk-full"><span class="sdk-label">Name</span><input type="text" value="Louvre"><span class="sdk-hint"></span></label><div class="sdk-form-row"><label class="sdk-field sdk-m"><span class="sdk-label">Day</span><input type="date" value="2026-10-12"><span class="sdk-hint">Mon</span></label><label class="sdk-field sdk-s"><span class="sdk-label">Time</span><input type="time" value="10:30"><span class="sdk-hint"></span></label></div>';
   F.push({
     id: 'dialogs', group: 'Containers', name: 'Dialogs and sheets',

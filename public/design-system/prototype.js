@@ -94,7 +94,7 @@ const manyTools = () => [
   { type: 'button', id: 'new', label: 'New', icon: 'plus', kind: 'primary' },
 ];
 
-const tabsPanel = { name: 'Tabs', note: 'A tab strip, for switching between different pages: a plain fill on the chosen tab, no shape that joins the content.',
+const tabsGroup = { name: 'Tabs', note: 'A tab strip, for switching between different pages: a plain fill on the chosen tab, no shape that joins the content.',
   frame: () => ({
     title: 'Trip', icon: 'suitcase', titlebar: titlebar(),
     toolbar: [{ type: 'tabs', id: 'page', label: 'Page', value: 'plan', options: [{ id: 'plan', label: 'Plan' }, { id: 'people', label: 'People', count: 4 }, { id: 'money', label: 'Money' }] }],
@@ -143,7 +143,7 @@ const lastAction = (log) => (e) => {
   log.textContent = `Last: ${e.area} ${e.id}${e.standard ? ' (standard)' : ''}${e.value !== undefined ? ` = ${e.value}` : ''}${e.on !== undefined ? (e.on ? ' (on)' : ' (off)') : ''}`;
 };
 // One panel: its name, a note, the panel on the canvas colour, and a line that says what was last pressed.
-function panel(s, into, level = 'h2') {
+function drawState(s, into, level = 'h2') {
   const sec = D.createElement('section');
   sec.className = 'pp-state';
   const h = D.createElement(level);
@@ -163,12 +163,12 @@ function panel(s, into, level = 'h2') {
   into.append(sec);
   return { frame, box };
 }
-for (const s of [...STATES, tabsPanel]) panel(s, main);
+for (const s of [...STATES, tabsGroup]) drawState(s, main);
 
 // ---- the title bar's actions (Thomas, 2026-10-24) ----
 const EXPENSES = ['Hotel, two nights', 'Train tickets', 'Dinner on Friday', 'Museum passes', 'Taxi from the station', 'Coffee and snacks'];
 const EVENTS = ['Breakfast at the hotel', 'Walking tour', 'Lunch by the river', 'Train to the coast', 'Dinner booking'];
-const MESSAGES = ['Ana: The train is at nine', 'Ben: I will bring the snacks', 'Mia: Rooms are booked', 'Ana: Who has the passes?'];
+const MESSAGES = ['Ana: The train is at nine', 'Ben: I will bring the snacks', 'Mia: Hotel is booked', 'Ana: Who has the passes?'];
 const budgetLike = () => ({
   title: 'Budget', icon: 'wallet',
   titlebar: { add: { label: 'Add an expense' }, actions: [{ id: 'clear', label: 'Clear', icon: 'trash', placement: 'menu', danger: true }], close: true },
@@ -272,11 +272,11 @@ groupName.id = 'pp-titlebar-actions';
 groupName.textContent = 'Title bar actions';
 const groupNote = D.createElement('p');
 groupNote.className = 'pp-state-note';
-groupNote.textContent = 'Standard actions are the host\'s, the same in every module; a module adds its own, as icons beside the menu or in it. The "+" is always beside the menu.';
+groupNote.textContent = 'Standard actions are the host\'s, the same in every tool; a tool adds its own, as icons beside the menu or in it. The "+" is always beside the menu.';
 group.append(groupName, groupNote);
 main.append(group);
 for (const s of TITLEBAR_STATES) {
-  const { frame, box } = panel(s, group, 'h3');
+  const { frame, box } = drawState(s, group, 'h3');
   if (!s.open) continue;
   const menu = staticMenu(frame.titlebarMenu());
   box.append(menu);

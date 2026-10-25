@@ -13,7 +13,8 @@
 // See documentation/architecture/architecture-canvas.md.
 
 import { api, markModuleRead, followTheme, word } from '/brand.js';
-import { mountModule, createFrameLift, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot, cleanHeaderItems, drawHeaderItems } from '/module-host.js';
+import { mountModule, createFrameLift, openClearMenu, registerDragRelay, createFrameBands } from '/module-host.js';
+import { createModuleFrame } from '/module-frame.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import { nav } from '/nav-bar.js';
 import { whatOpens, readAliased, firstVisitLayout, SYSTEM_TABS } from '/opens-with.js';
@@ -27,10 +28,10 @@ import { composeList, aliasesFor, compositeById, compositesToAsk } from '/compos
 // spaces, and is the starting point for a space with nothing saved yet.
 const STORE_KEY = 'app.canvas';
 const storeKey = (spaceId) => `${STORE_KEY}.${spaceId}`;
-// The shared module header height (--module-header-h in style.css: 34px, 42px on a phone), read where it is used.
+// The module frame's title bar height (--mf-title-h, the moduleframe block of /sdk/system.css: 36px), read where it is used.
 const headH = () => {
-  const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--module-header-h'));
-  return Number.isFinite(h) && h > 0 ? h : 34;
+  const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-title-h'));
+  return Number.isFinite(h) && h > 0 ? h : 36;
 };
 // A fixed column's least width (DOCK_MIN), the flexible column's (FLEX_MIN) and the narrow line (NARROW) are snap-grid.js's,
 // beside fitDock(), the rule for how many columns a window holds (plan-docked-limit.md).
@@ -52,11 +53,6 @@ function loadSaved(spaceId) {
 
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// The buttons at the end of a module's header: the "..." (an installed module's: its own Clear, then Dock as a panel or
-// Open as a window, and Open in its own window; Thomas, 2026-10-13: those left the titlebar for the "..."), and Close.
-// A module has no snap switch of its own: the Layout menu's Snap to grid is the one (Thomas, 2026-10-13).
-const MORE_HTML = '<button class="sdk-icon-btn btn-quiet btn-small" data-module-menu type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
-const CLOSE_HTML = '<button class="sdk-icon-btn btn-quiet btn-small" data-close type="button" data-tip="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
 
 // `onNote(text)`: a short line for the Layout menu's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
 // Layout menu opened (space.js reads its layouts again as it opens). `menuItems()`: the page's own entries for the
@@ -775,16 +771,32 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // --- installed modules -------------------------------------------------------
 
-  // The titlebar: icon, name, the module's own tools, the "+" (host.add.set; hidden until the module gives it actions),
-  // "...", Close. A composite's "..." has only the ways to show it (Clear everything is each part's, in the page it holds), so on a phone, where those
-  // are not offered, it is not shown (.mod-more-ways).
-  const moduleHeader = (m) => `
-    <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace('class="sdk-icon-btn btn-quiet btn-small"', 'class="sdk-icon-btn btn-quiet btn-small mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
-
-  // The status bar at the bottom of the module's own window or column (host.status.set; module-host.js fills it), a
-  // labelled region hidden until the module sets something.
-  const statusHtml = (m) => `<div class="mod-status" data-status role="region" aria-label="${escapeHtml(`${m.name} status`)}" hidden></div>`;
+  // An installed module's window is the module frame (createModuleFrame, public/module-frame.js), the same in every mode:
+  // the title bar (icon, name, the module's own actions, the "+", the menu, Close), the toolbar row, the module in the
+  // content and the status bar. The menu's standard actions are the ways to show it (standardFor) and the host's Clear,
+  // last, in red (it asks first); a composite has only the ways (Clear everything is each part's, in the page it holds).
+  // Moving between docked and floating moves the whole frame. `holderEl` is the module's place in the content.
+  function makeFrame(m, mode, holderEl) {
+    const frame = createModuleFrame({
+      document: canvasDoc(),
+      title: m.name,
+      icon: m.icon,
+      tint: colorOf(m.id),
+      variant: mode === 'dock' ? 'docked' : 'window',
+      titlebar: { close: true, standard: () => standardFor(m.id), onAction: (e) => titlebarAction(m.id, e) },
+      flush: true,
+      content: holderEl,
+      onAction: (e) => opened.get(m.id)?.mount?.bandEvent?.(e),
+    });
+    frame.el.dataset.moduleFrame = m.id;
+    return frame;
+  }
+  // The module's place in its frame's content, from holder()'s markup.
+  const holderElement = (m) => {
+    const wrap = canvasDoc().createElement('div');
+    wrap.innerHTML = holder(m, 'module-holder');
+    return wrap.firstElementChild;
+  };
 
   // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, `/map?space=<id>`, the
   // page the Calendar and Map layout tabs show filling the canvas; it draws no top bar of its own in a frame), with a
@@ -806,22 +818,26 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // What stands in for a composite's mount: nothing runs through the SDK here (the parts inside the page have their own
   // host); a pointer to open (openRef) goes to the page as #ref=, which it already takes (destination.js, takeHash).
-  // The page (marked by the frame's data-composite) hands up its parts' adds, titlebar icons and status lines
-  // ('app:compositechrome'): they are drawn in this titlebar's one "+" and icons and this window's status bar, and a pick
-  // goes back to the page ('app:compositeadd', 'app:compositeheader'), which hands it to that part. The toolbar row is the
-  // page's own, under this titlebar. Each new page in the frame is asked for them ('app:compositehello').
+  // The page (marked by the frame's data-composite) hands up its parts' adds, title bar icons and status lines
+  // ('app:compositechrome'): they are drawn in this window's frame (its title bar's "+" and icons, its status bar), and a
+  // pick goes back to the page ('app:compositeadd', 'app:compositeheader'), which hands it to that part. The toolbar row is
+  // the page's own, the first thing in it, right under this title bar. Each new page in the frame is asked for them
+  // ('app:compositehello').
   function compositeMount(mod, frame) {
     // A drag from a module on the Workspace over the frame reaches the parts inside (module-host.js, registerDragRelay).
     const unrelay = registerDragRelay(frame);
     const c = compositeOf(mod.m);
     const hostWin = frame.ownerDocument.defaultView || window;
     const post = (data) => { try { frame.contentWindow?.postMessage(data, hostWin.location.origin); } catch { /* the page is not there */ } };
-    const addEl = mod.el.querySelector('[data-header-add]');
-    const headerEl = mod.el.querySelector('[data-header-custom]');
-    const statusEl = mod.el.querySelector('[data-status]');
-    const addSlot = addEl ? createAddSlot(addEl, (event, data) => { if (event === 'add' && data?.id) { opener = { el: frame.ownerDocument.activeElement, at: Date.now() }; post({ type: 'app:compositeadd', id: data.id }); } }) : null;
-    const statusSlot = statusEl ? createStatusSlot(statusEl) : null;
-    let opener = null; // the "+" the person used: focus goes back to it when the editor window closes
+    let opener = null; // the "+" or icon the person used: focus goes back to it when the editor window closes
+    // The parts' "+" and title bar icons drawn in this window's frame (createFrameBands), a pick posted back to the page.
+    const bands = createFrameBands(mod.frame, {
+      send: (event, data) => {
+        opener = { el: frame.ownerDocument.activeElement, at: Date.now() };
+        if (event === 'add' && data?.id) post({ type: 'app:compositeadd', id: data.id });
+        else if (event === 'header' && data?.id) post({ type: 'app:compositeheader', id: data.id });
+      },
+    });
     const lift = createFrameLift(frame, {
       mount: { send: (event, data) => post({ type: 'app:compositeevent', event, data }) },
       tell: () => post({ type: 'app:compositeevent', event: 'editordismiss', data: {} }),
@@ -837,20 +853,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         return post({ type: 'app:compositelifted', seq: d.seq, result });
       }
       if (!d || d.type !== 'app:compositechrome') return;
-      if (addSlot && Array.isArray(d.add)) addSlot.set(d.add);
-      // The parts' titlebar icons (host.header.set), cleaned again here; a click goes back to the page, which hands it to its part.
-      if (headerEl && Array.isArray(d.header)) {
-        const icons = cleanHeaderItems(d.header);
-        if (icons.length) drawHeaderItems(headerEl, icons, (event, data) => { opener = { el: frame.ownerDocument.activeElement, at: Date.now() }; post({ type: 'app:compositeheader', id: data.id }); });
-        else headerEl.textContent = '';
-      }
-      if (statusSlot && Array.isArray(d.status)) statusSlot.set(d.status);
+      // Cleaned again here; a pick goes back to the page, which hands it to its part.
+      if (Array.isArray(d.add)) bands.add(d.add);
+      if (Array.isArray(d.header)) bands.header(d.header);
+      if (Array.isArray(d.status)) bands.status(d.status);
     };
     hostWin.addEventListener('message', onChrome);
     frame.addEventListener('load', () => {
-      if (addSlot) addSlot.set([]);
-      if (statusSlot) statusSlot.set([]);
-      if (headerEl) headerEl.textContent = '';
+      bands.add([]);
+      bands.header([]);
+      bands.status([]);
       post({ type: 'app:compositehello' });
       if (typeof onCompositeLoad === 'function') { try { onCompositeLoad(frame); } catch { /* the page's links stay its own */ } }
     });
@@ -874,6 +886,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         if (loaded()) show(data.ref); else waiting = data.ref;
       },
       send() {},
+      bandEvent: (e) => bands.event(e),
       lift: (open) => (open ? false : lift.release()),
       beginDragForTest() {},
       ptrForTest() {},
@@ -882,8 +895,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const close = mount.destroy;
     mount.destroy = () => {
       hostWin.removeEventListener('message', onChrome);
-      if (addSlot) addSlot.destroy();
-      if (statusSlot) statusSlot.destroy();
+      bands.destroy();
       close();
     };
     return mount;
@@ -892,7 +904,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const unreadOf = (id) => { const c = compositeById(id); return c ? c.parts.reduce((sum, p) => sum + (unread[p] || 0), 0) : unread[id] || 0; };
   const markRead = (id) => { const c = compositeById(id); for (const one of c ? c.parts : [id]) markModuleRead(one); };
 
-  // onToolbar and onResize are wired the same way regardless of which mode a module opened in, and read
+  // onResize is wired the same way regardless of which mode a module opened in, and reads
   // the module's *current* element and mode rather than the one it was mounted with (`mod.el`, `mod.mode`):
   // that is what lets moveModule, below, hand a mount that started in one mode on to the other without
   // remounting it. onResize only remembers a size while floating. A module has no bar along the bottom
@@ -903,10 +915,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     return mountModule({
       module: { id: m.id, version: m.version, scope: m.scope, budget: m.budget === true, content: m.content },
       ...(frame.tagName === 'IFRAME' ? { frame } : { container: frame }),
-      header: mod.el.querySelector('[data-header-custom]'),
-      toolbar: mod.el.querySelector('[data-toolbar]'),
-      add: mod.el.querySelector('[data-header-add]'),
-      status: mod.el.querySelector('[data-status]'),
+      chrome: mod.frame,
       onOpenRef: openRef,
       // A request for an action waits for the page of the module that carries it: open that module if it is on here.
       onOpenModule: (id) => { const target = available.find((x) => x.id === readId(id)); if (target && !opened.has(target.id)) openModule(target); },
@@ -915,8 +924,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       spaceId,
       guestToken,
       entry: m.canvas.entry,
-      onTitle: (title) => { mod.el.querySelector('[data-title]').textContent = title || m.name; },
-      onToolbar: (has) => mod.el.classList.toggle('has-toolbar', has),
+      onTitle: (title) => { mod.frame.setTitle(title || m.name); },
       onResize: ({ width, height } = {}) => {
         if (mod.mode !== 'float') return;
         const b = currentBox(mod.el);
@@ -935,21 +943,21 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     });
   }
 
-  // `reuse` (from moveModule) carries a frame/container, toolbar, header-buttons span, "+" slot and status bar already
-  // mounted in the other mode's chrome: they are moved into the new chrome instead of built fresh, so the
-  // module inside keeps running and keeps whatever it was holding (a conversation, a draft, ...) rather
-  // than being torn down and started over. Only the class that lays each one out changes.
+  // `reuse` (from moveModule) carries the module's frame (createModuleFrame: its bands and the module's own frame or
+  // container in its content) and its mount, already running in the other mode: the frame is moved into the new place
+  // instead of built fresh, so the mount inside keeps whatever it was holding (a conversation, a draft, ...) rather than
+  // being torn down and started over. Only the frame's variant changes (a docked column, or a window).
   function openModuleFloating(m, reuse) {
     const doc = canvasDoc();
     const floater = doc.createElement('section');
-    floater.className = 'module-floating';
+    floater.className = 'module-floating module-window';
     floater.dataset.module = m.id;
-    floater.innerHTML = `
-      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m)}</header>
-      <div class="mod-toolbar" data-toolbar hidden></div>
-      ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
-      ${statusHtml(m)}
-      <span class="module-floating-grip" title="Drag to resize"></span>`;
+    const grip = doc.createElement('span');
+    grip.className = 'module-floating-grip';
+    grip.title = 'Drag to resize';
+    const frame = reuse ? reuse.frame : makeFrame(m, 'float', holderElement(m));
+    frame.el.classList.remove('mf-docked');
+    floater.append(frame.el, grip);
     layerFor(doc).appendChild(floater);
     const index = [...opened.values()].filter((p) => p.mode === 'float').length;
     const win = canvasWin();
@@ -961,21 +969,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     });
     if (snapping(m.id)) snapOntoGrid(m.id, floater);
     front(floater);
-    const mod = { id: m.id, kind: 'module', mode: 'float', m, el: floater, modes: m.canvas.mode, order: ++order, parts: () => [] };
-    if (reuse) {
-      reuse.frame.className = reuse.frame.classList.contains('module-root') ? 'module-root module-floating-frame' : 'module-floating-frame';
-      floater.querySelector('.frame-slot').replaceWith(reuse.frame);
-      floater.querySelector('[data-header-custom]').replaceWith(reuse.headerCustom);
-      floater.querySelector('[data-toolbar]').replaceWith(reuse.toolbar);
-      if (reuse.add) floater.querySelector('[data-header-add]').replaceWith(reuse.add);
-      if (reuse.status) floater.querySelector('[data-status]').replaceWith(reuse.status);
-      mod.mount = reuse.mount;
-    } else {
-      mod.mount = mountFor(mod, floater.querySelector('iframe, .module-root'));
-    }
+    const mod = { id: m.id, kind: 'module', mode: 'float', m, el: floater, frame, modes: m.canvas.mode, order: ++order, parts: () => [] };
+    if (reuse) mod.mount = reuse.mount;
+    else mod.mount = mountFor(mod, frame.content.querySelector('iframe, .module-root'));
     opened.set(m.id, mod);
-    wireFloating(m.id, floater, floater.querySelector('.module-floating-head'), floater.querySelector('.module-floating-grip'));
-    wireHeader(floater, mod);
+    wireFloating(m.id, floater, frame.titlebar, grip);
   }
 
   function openModuleDocked(m, reuse) {
@@ -983,65 +981,39 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const section = doc.createElement('section');
     section.className = 'module module-docked';
     section.dataset.module = m.id;
-    section.innerHTML = `
-      <div class="dock-resize" title="Drag to resize"></div>
-      <div class="mod-content dock-content">
-        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m)}</header>
-        <div class="mod-toolbar" data-toolbar hidden></div>
-        ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
-        ${statusHtml(m)}
-      </div>`;
+    section.innerHTML = '<div class="dock-resize" title="Drag to resize"></div><div class="mod-content dock-content"></div>';
+    const frame = reuse ? reuse.frame : makeFrame(m, 'dock', holderElement(m));
+    frame.el.classList.add('mf-docked');
+    section.querySelector('.dock-content').append(frame.el);
     canvas.appendChild(section);
     const mod = {
-      id: m.id, kind: 'module', mode: 'dock', m, el: section, modes: m.canvas.mode, order: ++order,
+      id: m.id, kind: 'module', mode: 'dock', m, el: section, frame, modes: m.canvas.mode, order: ++order,
       width: clampDock(saved[m.id]?.dockW || m.canvas.width),
       parts: () => [...section.children],
     };
-    if (reuse) {
-      reuse.frame.className = reuse.frame.classList.contains('module-root') ? 'module-root dock-frame' : 'dock-frame';
-      section.querySelector('.frame-slot').replaceWith(reuse.frame);
-      section.querySelector('[data-header-custom]').replaceWith(reuse.headerCustom);
-      section.querySelector('[data-toolbar]').replaceWith(reuse.toolbar);
-      if (reuse.add) section.querySelector('[data-header-add]').replaceWith(reuse.add);
-      if (reuse.status) section.querySelector('[data-status]').replaceWith(reuse.status);
-      mod.mount = reuse.mount;
-      // The toolbar's own onToolbar callback only fires on the next change; a toolbar already showing needs this now.
-      section.classList.toggle('has-toolbar', !reuse.toolbar.hidden);
-    } else {
-      // The module's content fills the column, its status bar the last thing in it.
-      mod.mount = mountFor(mod, section.querySelector('iframe, .module-root'));
-    }
+    // The module's content fills the column, its status bar the last thing in it.
+    if (reuse) mod.mount = reuse.mount;
+    else mod.mount = mountFor(mod, frame.content.querySelector('iframe, .module-root'));
     opened.set(m.id, mod);
     syncDock();
     wireDockResize(() => mod, section.querySelector('.dock-resize'));
-    wireHeader(section, mod);
-    wireReorder(section.querySelector('.mod-header'), () => opened.get(m.id));
+    wireReorder(frame.titlebar, () => opened.get(m.id));
   }
 
-  // Switch an installed module between docked and floating without the module inside noticing: pull its frame
-  // (or in-page container), its toolbar, header buttons, "+" and status bar out of the old chrome and into the
-  // new one, then drop the emptied-out old chrome. Leaving for a window is a real new page, so that keeps
-  // going through closeModule + popOut instead (see setMode).
+  // Switch an installed module between docked and floating without the module inside noticing: move its frame (its bands
+  // and its own frame or in-page container) into the new place, then drop the emptied-out old one. Leaving for a window
+  // is a real new page, so that keeps going through closeModule + popOut instead (see setMode).
   function moveModule(id, mode) {
     const mod = opened.get(id);
     const m = mod.m;
-    const reuse = {
-      frame: mod.el.querySelector('iframe, .module-root'),
-      headerCustom: mod.el.querySelector('[data-header-custom]'),
-      toolbar: mod.el.querySelector('[data-toolbar]'),
-      add: mod.el.querySelector('[data-header-add]'),
-      status: mod.el.querySelector('[data-status]'),
-      mount: mod.mount,
-    };
-    const titleText = mod.el.querySelector('[data-title]')?.textContent || '';
+    const reuse = { frame: mod.frame, mount: mod.mount };
     const old = mod.el;
     // A sandboxed frame lifted over the canvas for its editor window goes back first: the move takes its backdrop away
-    // with the old chrome and the frame starts over in the new one, so nothing may stay inert behind it.
+    // with the old place and the frame starts over in the new one, so nothing may stay inert behind it.
     mod.mount?.lift?.(false);
     opened.delete(id);
     if (mode === 'dock') openModuleDocked(m, reuse); else openModuleFloating(m, reuse);
     old.remove();
-    if (titleText) opened.get(id).el.querySelector('[data-title]').textContent = titleText;
     // The move took the module's box out of the page and back, which drops an open editor window (a modal <dialog>,
     // host.ui.editor) out of the top layer: the module's SDK shows it again on this event.
     opened.get(id).mount?.deliver('moved', { mode });
@@ -1295,6 +1267,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (!restoring) keepLayout = false;
     if (mod.kind === 'builtin') return closeBuiltin(id);
     mod.mount.destroy();
+    mod.frame?.destroy();
     mod.el.remove();
     opened.delete(id);
     syncDock();
@@ -1358,39 +1331,35 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (mod) closeModule(m.id);
   }
 
-  function wireHeader(el, mod) {
-    el.querySelector('[data-close]').addEventListener('click', () => closeModule(mod.id));
-    el.querySelector('[data-module-menu]')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const trigger = event.currentTarget;
-      openHostMenu(trigger, () => moduleMenuItems(mod.id, trigger));
-    });
-  }
-
-  // The ways to show a module, at the end of its "..." (Thomas, 2026-10-13: Panel Mode and Window Mode): Dock as a panel
-  // while it floats (unavailable, and why, while it waits or the columns are full), Open as a window while docked, and
-  // Open in its own window (pop out). None on a phone, where each module is a tab.
-  function wayItems(mod) {
-    if (!mod || isNarrow()) return [];
-    const ways = [];
-    if (mod.mode === 'dock' && supports(mod, 'float')) {
-      ways.push({ icon: 'window-restore', regular: true, label: 'Open as a window', tip: 'Float over the call', onPick: () => setMode(mod.id, 'float') });
-    }
+  // The ways to show a module, the standard actions of its frame's menu (Thomas, 2026-10-13: Panel Mode and Window Mode):
+  // Dock as a panel while it floats (unavailable, and why, while it waits or the columns are full), Open as a window while
+  // docked, and Open in its own window (pop out). None on a phone, where each module is a tab. Then the host's Clear, last
+  // and red (it asks first); not a composite's (Clear everything is each part's, in the page it holds).
+  function standardFor(id) {
+    const out = { dock: false, window: false, popout: false, settings: false, share: false, print: false, clear: false };
+    const mod = opened.get(id);
+    if (!mod) return out;
+    out.clear = !compositeOf(mod.m);
+    if (isNarrow()) return out;
+    if (mod.mode === 'dock' && supports(mod, 'float')) out.window = true;
     if (mod.mode === 'float' && supports(mod, 'dock')) {
       const why = dockBlocked(mod);
-      ways.push({ icon: 'fa-solid fa-table-columns', label: 'Dock as a panel', tip: 'Dock beside the video', hint: why || undefined, disabled: Boolean(why), onPick: () => setMode(mod.id, 'dock') });
+      out.dock = why ? { hint: why, disabled: true } : true;
     }
-    ways.push({ icon: 'up-right-from-square', label: 'Open in its own window', tip: 'Pop out of this page', onPick: () => popOut(mod.id) });
-    return ways;
+    out.popout = true;
+    return out;
   }
-  // An installed module's "...": Clear (it asks first), then the ways to show it after a line. A composite's has only the
-  // ways (Clear everything is each part's, in the page it holds).
-  function moduleMenuItems(id, trigger) {
+  // The window's own title bar events: Close and the standard actions. The module's own ("+", its icons and menu actions)
+  // go to its mount.
+  function titlebarAction(id, e) {
     const mod = opened.get(id);
-    if (!mod) return [];
-    const own = compositeOf(mod.m) ? [] : [{ icon: 'trash', label: 'Clear', danger: true, onPick: () => openClearMenu(trigger, () => clearModuleData(opened.get(id) || mod), { armed: true }) }];
-    const ways = wayItems(mod);
-    return own.length && ways.length ? [...own, { divider: true }, ...ways] : [...own, ...ways];
+    if (!mod) return;
+    if (e.id === 'close') return closeModule(id);
+    if (!e.standard) { mod.mount?.bandEvent?.(e); return; }
+    if (e.id === 'window') return setMode(id, 'float');
+    if (e.id === 'dock') return setMode(id, 'dock');
+    if (e.id === 'popout') return popOut(id);
+    if (e.id === 'clear' && e.el) openClearMenu(e.el, () => clearModuleData(opened.get(id) || mod), { armed: true });
   }
 
   // Everything this module holds in this space. The conference and the chat are not modules, so they never get this.

@@ -5103,12 +5103,6 @@ html.has-background .panel.login {
   display: none;
 }
 
-/* A comfortable touch width for a module's titlebar buttons, the close button above all; the height is the shared header's. */
-.canvas.narrow .module-docked .mod-header .sdk-icon-btn {
-  min-width: 44px;
-  align-self: stretch; /* as tall as the shared header, which sets the touch height */
-}
-
 /* Something dragged over the chat, to send as a picture */
 .chat.drop .mod-content,
 .chat.drop .chat-bar {
@@ -5132,12 +5126,11 @@ body.module-page {
   display: flex;
 }
 
-.module-frame {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: var(--bg);
+/* The module frame fills the page under the header (public/module-frame.js, its page variant). */
+.module-canvas > .mf {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
 .module-missing {
@@ -5218,8 +5211,9 @@ body.conference-window {
   z-index: var(--z-dialog);
 }
 
-/* A floating module: where it sits and its least size. Its look (the window's step, the hairline, the large corner, --shadow-2)
-   and its title bar (.mod-header, the handle) are the Module window block in public/sdk/system.css. */
+/* A floating module: where it sits and its least size. An installed module's (.module-window) holds its module frame
+   (public/module-frame.js; the moduleframe block of public/sdk/system.css draws the window, its edge, corner and shadow),
+   whose title bar is the handle. */
 .module-floating {
   position: absolute;
   min-width: 240px;
@@ -5227,12 +5221,34 @@ body.conference-window {
   pointer-events: auto;
 }
 
-.module-floating-frame {
+.module-floating.module-window {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.module-window > .mf { flex: 1 1 auto; min-height: 0; }
+.module-window .mf-titlebar { cursor: grab; touch-action: none; }
+.module-window .mf-titlebar:active { cursor: grabbing; }
+
+/* The module in its frame's content: its sandboxed frame, its in-page root or a composite's page, filling the content (the
+   module pads its own slot, --pad-window, the frame's --mf-inset). */
+.mf-content:has(> .module-holder) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.module-holder {
   flex: 1;
   min-height: 0;
   width: 100%;
   border: 0;
-  background: var(--surface-page);
+  background: var(--surface-panel);
 }
 
 .module-floating-grip {
@@ -5247,7 +5263,7 @@ body.conference-window {
   background: linear-gradient(135deg, transparent 50%, var(--border) 50%, var(--border) 60%, transparent 60%, transparent 70%, var(--border) 70%, var(--border) 80%, transparent 80%);
 }
 
-.module-layer.dragging .module-floating-frame {
+.module-layer.dragging .module-holder {
   pointer-events: none;
 }
 
@@ -5267,32 +5283,15 @@ body.conference-window {
   display: block;
 }
 
-/* Docked modules: a column of the space's grid, beside the video and the chat. The column's step (the window's) and its
-   title bar, toolbar and status line are the Module window block in public/sdk/system.css. */
+/* Docked modules: a column of the space's grid, beside the video and the chat, holding the module frame (its docked variant:
+   the column's divider is the frame's left edge; the moduleframe block of public/sdk/system.css). */
 .module-docked > .mod-content {
   grid-row: 1 / -1; /* fills the whole column: a module has no bar in the shared bottom row */
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--edge-hairline);
 }
 
-.tb-slider {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-}
-
-.tb-slider-label {
-  color: var(--text-dim);
-  font-size: var(--text-12);
-  white-space: nowrap;
-}
-
-.tb-slider input[type="range"] {
-  width: 90px;
-  height: var(--space-6);
-}
+.module-docked > .mod-content > .mf { flex: 1 1 auto; min-height: 0; }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
    that ran out of room, the canvas title bars' menus and the account menu under your picture -- the same idea as
@@ -5329,14 +5328,6 @@ body.conference-window {
 
 .host-menu .module-chooser-note:empty {
   padding: 0;
-}
-
-.dock-frame {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  border: 0;
-  background: var(--bg);
 }
 
 /* lift:start -- a sandboxed frame lifted over the canvas while its editor window is open (module-host.js, editor.lift;
@@ -5459,17 +5450,13 @@ iframe.module-editor-lifted.module-editor-lifted-large {
   background: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
-.canvas.resizing-dock .dock-frame,
+.canvas.resizing-dock .module-holder,
 .canvas.resizing-dock .module-video iframe {
   pointer-events: none; /* a frame under the pointer would swallow the drag */
 }
 
 
-/* A module popped out into its own window: just the module under its own titlebar. */
-body.module-popout .module-titlebar {
-  position: relative;
-}
-
+/* A module popped out into its own window: just the module frame, its title bar the window's. */
 body.module-popout .topbar {
   display: none;
 }
@@ -5621,88 +5608,6 @@ body.chat-window {
   color: var(--text);
 }
 
-/* A module's own icon buttons in its titlebar (host.header.set), then a pipe before the module's buttons. */
-.titlebar-custom {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.titlebar-custom[hidden] {
-  display: none;
-}
-
-.header-pipe {
-  width: 1px;
-  height: 16px;
-  margin: 0 6px;
-  background: var(--border);
-}
-
-/* mod-chrome:start -- where a module window's "+" (host.add.set) and its status bar (host.status.set) sit; module-host.js
-   draws them, canvas.js gives their places (plan-module-titlebar-add.md). The "+" is a Quiet small icon button like the "...";
-   it runs the one add action, or opens the shared menu of them. Their look, and the status bar's (one read-only line,
-   --status-bar-h tall, and the home-indicator inset on a module's own page), are the Module window block in
-   public/sdk/system.css; here are only the touch sizes on a phone. */
-.titlebar-add {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-}
-
-.titlebar-add[hidden] {
-  display: none;
-}
-
-/* The tools group as tall as the titlebar, so the "+" can be (44px wide, the titlebar's 42px tall). */
-.canvas.narrow .module-docked .mod-header-tools {
-  align-self: stretch;
-  align-items: center; /* the "..." keeps its 30px, centred; the "+" and Close stretch */
-}
-
-.canvas.narrow .module-docked .titlebar-add {
-  align-self: stretch;
-  align-items: stretch;
-}
-
-.canvas.narrow .module-docked .titlebar-add > .sdk-icon-btn {
-  --btn-h: auto; /* as tall as the titlebar */
-  width: 44px;
-}
-
-/* A module on its own page or popped out (public/module.html): the "+" is in the page bar's right zone, or in the
-   window's own titlebar. */
-@media (max-width: 640px) {
-  /* Touch sizes: 44px wide, as tall as the bar or titlebar it sits in. */
-  body.module-popout .module-titlebar .mod-header-tools {
-    align-self: stretch;
-    align-items: center; /* the "..." keeps its 30px, centred; the "+" and Close stretch */
-  }
-
-  body.module-popout .module-titlebar .titlebar-add,
-  .page-bar-add {
-    align-self: stretch;
-    align-items: stretch;
-  }
-
-  body.module-popout .module-titlebar .sdk-icon-btn {
-    align-self: stretch;
-  }
-
-  body.module-popout .module-titlebar .sdk-icon-btn {
-    width: 44px;
-    min-width: 44px;
-    height: auto;
-  }
-
-  .page-bar-add > .sdk-icon-btn {
-    --btn-h: auto; /* as tall as the bar */
-    width: 44px;
-    min-width: 44px;
-  }
-}
-
-/* mod-chrome:end */
 
 /* A module that runs in the page: an element of its own, holding a shadow root the module fills. */
 .module-root {

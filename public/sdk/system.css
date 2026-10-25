@@ -5930,4 +5930,22 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-tone-ok { color: var(--status-ok-text); }
 .mf-tone-warn { color: var(--status-warn-text); }
 .mf-tone-danger { color: var(--status-danger-text); }
+.mf-status-part > i { font-size: var(--icon-12); }
+.mf-status-sep { color: var(--text-muted); }
+
+/* ---- additions the product needs, in the same look ---- */
+/* The module's tint on the title bar's icon (module-tint.js: every module is told apart). */
+.mf-titlebar-icon[data-tint] { color: color-mix(in srgb, var(--tint) 62%, var(--text-primary)); }
+/* Quieter words in the row (a short note), never cut; they move into "More" whole. */
+.mf-tb-text { flex: none; color: var(--text-muted); font-size: var(--text-12); white-space: nowrap; }
+/* A pressed button (a toggle the module keeps): the selected fill, as an icon button's. */
+.mf-btn.is-on { border-color: transparent; background: var(--fill-selected); color: var(--text-selected); }
+
+/* ---- where the frame is drawn ---- */
+/* A docked column of the canvas: the column's divider is its left edge; no corner, no shadow. A page (a module's own page,
+   its window, a destination's page): it fills the page, no edge at all. */
+.mf.mf-docked { border-width: 0 0 0 1px; border-radius: 0; box-shadow: none; }
+.mf.mf-page { border: 0; border-radius: 0; box-shadow: none; }
+/* The page reaches the bottom of the screen: its status bar keeps clear of the home indicator. */
+.mf.mf-page > .mf-status { box-sizing: content-box; padding-bottom: var(--safe-bottom); }
 /* moduleframe:end */

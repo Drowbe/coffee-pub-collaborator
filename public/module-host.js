@@ -7,8 +7,8 @@
 import { api, accessKeyHeaders, word, words, withinSpacePage, showNote } from '/brand.js';
 import { confirmDialog } from '/confirm.js';
 import { nav as navBar } from '/nav-bar.js';
-import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
-import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus, cleanToolbarItems, chipsSummary } from '/module-chrome.js';
+import { openHostMenu, closeHostMenu } from '/host-menu.js';
+import { cleanAddEntries, foldBarItems, cleanStatusItems, statusKey, statusSpoken, statusFrame, createAnnouncer, topmostAt, cleanToolbarItems, cleanHeaderItems, titlebarActions, frameToolbar, frameAdd } from '/module-chrome.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -773,22 +773,6 @@ export function sameSiteOpener() {
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };
 
-// The host's "..." (same look as host.ui.moreButton / .sdk-icon-btn inside a module).
-function drawMoreButton(doc, extraClass, onClick) {
-  const more = doc.createElement('button');
-  more.type = 'button';
-  more.className = extraClass ? `sdk-icon-btn btn-quiet btn-small ${extraClass}` : 'sdk-icon-btn btn-quiet btn-small';
-  more.dataset.tip = 'More';
-  more.setAttribute('aria-label', 'More');
-  more.setAttribute('aria-haspopup', 'menu');
-  const i = doc.createElement('i');
-  i.className = 'fa-solid fa-ellipsis-vertical fa-fw';
-  i.setAttribute('aria-hidden', 'true');
-  more.appendChild(i);
-  more.addEventListener('click', onClick);
-  return more;
-}
-
 // A confirm in this same menu, under the button that opened it. The first choice asks; the second does it.
 // `armed` skips the ask, for a choice that was already picked from a longer menu.
 // `choices` ([{ label, hint?, disabled?, onConfirm }]) makes the armed confirm offer more than one way to do it (Chat's
@@ -818,17 +802,6 @@ export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash',
 // canvas's longer "..." (canvas.js, moduleMenuItems), so it asks straight away.
 export function openClearMenu(trigger, onClear, { armed = false } = {}) {
   openConfirmMenu(trigger, { label: 'Clear', confirm: 'Clear everything and start again?', onConfirm: onClear, armed });
-}
-
-// Splits a cleaned item list into what a header or toolbar row shows directly and what collapses into
-// its "..." (an item marked `overflow: true`, or whatever doesn't fit in `max` slots including the "...").
-// Leftovers come off the left of `shown`, so the rightmost (the primary, when there is one) stays.
-function splitOverflow(items, max) {
-  const shown = [];
-  const hidden = [];
-  for (const item of items) (item.overflow ? hidden : shown).push(item);
-  while (shown.length + (hidden.length ? 1 : 0) > max) hidden.push(shown.shift());
-  return { shown, hidden };
 }
 
 // The lifts (editor.lift, in mountModule below), for the page as a whole: how many lifts hold each element inert, which
@@ -988,493 +961,69 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
   return { lift, release, dismiss, isLifted: () => Boolean(lifted) };
 }
 
-// The "+" in a titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between docked
-// and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of them,
-// categories as flyouts. A pick goes to `send('add', { id })`. See public/module-chrome.js for the rules. mountModule draws
-// a module's with it; canvas.js draws a composite's with it, from the adds its page hands up (destination.js).
-// Returns { set(entries), destroy() }.
-export function createAddSlot(add, send) {
-  let addEntries = [];
-  let addButton = null;
-  function drawAdd() {
-    if (!add) return;
-    const plan = addPlan(addEntries);
-    if (plan.kind === 'none') {
-      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
-      add.hidden = true;
-      return;
-    }
-    const doc = add.ownerDocument;
-    if (!addButton) {
-      addButton = doc.createElement('button');
-      addButton.type = 'button';
-      addButton.className = 'sdk-icon-btn btn-quiet btn-small';
-      const i = doc.createElement('i');
-      i.className = 'fa-solid fa-plus fa-fw';
-      i.setAttribute('aria-hidden', 'true');
-      addButton.appendChild(i);
-      addButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const now = addPlan(addEntries);
-        if (now.kind === 'direct') { if (!now.leaf.disabled) send('add', { id: now.leaf.id }); return; }
-        if (now.kind === 'menu') openHostMenu(addButton, () => addMenuItems(addEntries, (id) => send('add', { id })));
-      });
-      add.appendChild(addButton);
-    }
-    const label = plan.kind === 'direct' ? plan.leaf.label : plan.label;
-    addButton.dataset.tip = label;
-    addButton.setAttribute('aria-label', label);
-    if (plan.kind === 'menu') {
-      addButton.setAttribute('aria-haspopup', 'menu');
-      if (!addButton.hasAttribute('aria-expanded')) addButton.setAttribute('aria-expanded', 'false');
-      addButton.disabled = false;
-    } else {
-      addButton.removeAttribute('aria-haspopup');
-      addButton.removeAttribute('aria-expanded');
-      addButton.disabled = plan.leaf.disabled;
-    }
-    add.hidden = false;
-  }
-  return {
-    set(entries) {
-      addEntries = cleanAddEntries(entries);
-      drawAdd();
-    },
-    destroy() {
-      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
-    },
-  };
-}
-
-// The titlebar's own icons (host.header.set) drawn into `header` (the titlebar's slot, or the page bar's on a module's own
-// page and a destination's): icon buttons, a pipe after them, more than five folded into the host's "...". A click goes to
-// `send('header', { id })`. Used by mountModule, and by canvas.js for a composite (its page hands its parts' icons up).
-export function cleanHeaderItems(items) {
-  return (Array.isArray(items) ? items : []).slice(0, 10).map((i) => ({
-    id: String(i?.id ?? '').slice(0, 40),
-    title: String(i?.title ?? '').slice(0, 40),
-    icon: /^[a-z0-9-]{1,40}$/.test(i?.icon || '') ? i.icon : '',
-    regular: Boolean(i?.regular),
-    on: Boolean(i?.on),
-    disabled: Boolean(i?.disabled),
-    overflow: Boolean(i?.overflow),
-  })).filter((i) => i.id && i.icon);
-}
-export function drawHeaderItems(header, clean, send) {
-  const { shown, hidden } = splitOverflow(clean, 5);
-  header.textContent = '';
-  const doc = header.ownerDocument;
-  if (hidden.length) {
-    const more = drawMoreButton(doc, '', () => openHostMenu(more, hidden.map((item) => ({ ...item, onPick: () => send('header', { id: item.id }) }))));
-    header.appendChild(more);
-  }
-  for (const item of shown) {
-    const b = doc.createElement('button');
-    b.type = 'button';
-    b.className = `sdk-icon-btn btn-quiet btn-small${item.on ? ' on' : ''}`;
-    if (item.title) b.dataset.tip = item.title;
-    b.setAttribute('aria-label', item.title || item.id);
-    b.setAttribute('aria-pressed', String(item.on));
-    b.disabled = item.disabled;
-    const i = doc.createElement('i');
-    i.className = `fa-${item.regular ? 'regular' : 'solid'} fa-${item.icon} fa-fw`;
-    i.setAttribute('aria-hidden', 'true');
-    b.appendChild(i);
-    b.addEventListener('click', () => send('header', { id: item.id }));
-    header.appendChild(b);
-  }
-  if (clean.length) {
-    const pipe = doc.createElement('span');
-    pipe.className = 'header-pipe';
-    header.appendChild(pipe);
-  }
-  header.hidden = false;
-}
-
-// The toolbar row (host.toolbar.set; plan-unified-layout.md, "One toolbar row"): one band under the titlebar, drawn into
-// `row` (a .mod-toolbar the chrome gives) from the items module-chrome.js's cleanToolbarItems keeps. `send(data, item)`
-// gets each control's event ({ id, value?, on?, submit?, x? }); an item that carries its own `send(data, button)` (the host
-// page's own items, and a destination's parts' items, mixed into the page's one row) gets it instead. `box()` is the module's area, for a button's `x`.
-// The row stays one line: while it is too narrow, first the chips fold into one menu button (their switches in the host's
-// menu), then a view switch shows only its icons (hostSwitch), then that menu button shows only its icon, then a button
-// with an icon shows only its icon (its words its name and tooltip), then an empty search shows only its magnifier until it
-// is used, then the title is cut; the search field gives way to its least width first. A search field and a folded chips button are kept between draws, so typing and an open menu survive a
-// redraw. Returns { set(items) -> the cleaned items, destroy() }.
-export function createToolbar(row, { send, box = null }) {
-  const doc = row.ownerDocument;
-  const win = doc.defaultView || window;
-  const kept = new Map(); // key -> { el, input? } for a search field and a chips menu button
-  let chipsNow = new Map(); // chips id -> the item as last drawn (the folded menu reads it as it opens)
-  let observer = null;
-  let frame = 0;
-  const fire = (item, data, el = null) => (item.send ? item.send(data, el) : send(data, item));
-  const icon = (name, regular = false) => {
-    const i = doc.createElement('i');
-    i.className = `fa-${regular ? 'regular' : 'solid'} fa-${name} fa-fw`;
-    i.setAttribute('aria-hidden', 'true');
-    return i;
-  };
-  // One line: chips folded only when the row (the title at its own width, a search at its least) cannot hold them.
-  function fit() {
-    frame = 0;
-    if (!row.isConnected || row.hidden) return;
-    row.classList.remove('tb-chips-folded', 'tb-chips-iconic', 'tb-buttons-iconic', 'tb-search-iconic');
-    row.classList.add('tb-measure');
-    const over = () => row.scrollWidth > row.clientWidth + 1;
-    if (row.querySelector('.tb-chips') && over()) row.classList.add('tb-chips-folded');
-    if (win.hostSwitch) win.hostSwitch.fit(row);
-    row.classList.remove('tb-chips-iconic');
-    if (row.classList.contains('tb-chips-folded') && over()) row.classList.add('tb-chips-iconic');
-    if (row.querySelector('.tb-btn-word') && over()) row.classList.add('tb-buttons-iconic');
-    const iconic = row.classList.contains('tb-buttons-iconic');
-    for (const b of row.querySelectorAll('[data-tb-word-tip]')) {
-      if (iconic) b.dataset.tip = b.getAttribute('aria-label'); else delete b.dataset.tip;
-    }
-    row.classList.remove('tb-measure');
-    // The search is measured at its least width (not the room it is given while measuring): a magnifier alone only when even
-    // that does not fit.
-    if (row.querySelector('.tb-search') && over()) row.classList.add('tb-search-iconic');
-  }
-  const later = () => { if (!frame) frame = win.requestAnimationFrame(fit); };
-  function chipsMenu(item) {
-    const key = toolbarKey('chips', item.id);
-    let entry = kept.get(key);
-    if (!entry) {
-      const b = doc.createElement('button');
-      b.type = 'button';
-      b.className = 'btn btn-small btn-quiet tb-chips-menu';
-      b.setAttribute('aria-haspopup', 'menu');
-      b.dataset.tbKey = key;
-      const word = doc.createElement('span');
-      word.className = 'tb-chips-word';
-      b.append(icon('filter'), word);
-      // Each choice a switch in the host's menu, which stays open while several are flipped. The flip shows at once; the
-      // module draws the row again with the same answer.
-      b.addEventListener('click', () => openHostMenu(b, () => {
-        const now = chipsNow.get(b.dataset.chipsId);
-        if (!now) return [];
-        return now.options.map((o) => ({
-          label: o.note ? `${o.label} (${o.note})` : o.label,
-          ...(o.icon ? { icon: o.icon } : {}),
-          ...(o.tint ? { tint: o.tint } : {}),
-          checked: o.on,
-          toggle: true,
-          onPick: () => { o.on = !o.on; fire(now, { id: now.id, value: o.id, on: o.on }); },
-        }));
-      }));
-      entry = { el: b };
-    }
-    const b = entry.el;
-    b.dataset.chipsId = item.id;
-    b.firstChild.className = `fa-solid fa-${item.icon} fa-fw`;
-    const words = chipsSummary(item);
-    b.lastChild.textContent = words;
-    b.setAttribute('aria-label', words);
-    b.dataset.tip = words;
-    return entry;
-  }
-  function search(item) {
-    const key = toolbarKey('search', item.id);
-    let entry = kept.get(key);
-    if (!entry) {
-      const form = doc.createElement('form');
-      form.className = 'sdk-search sdk-search-small tb-search';
-      form.setAttribute('role', 'search');
-      const input = doc.createElement('input');
-      input.type = 'search';
-      input.maxLength = 200;
-      input.autocomplete = 'off';
-      input.enterKeyHint = 'search';
-      input.dataset.tbKey = key;
-      form.append(icon('magnifying-glass'), input);
-      const now = () => entry.item;
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        fire(now(), { id: now().id, value: input.value, submit: true });
-      });
-      input.addEventListener('input', () => fire(now(), { id: now().id, value: input.value }));
-      input.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape' || !input.value) return;
-        event.preventDefault();
-        event.stopPropagation();
-        input.value = '';
-        fire(now(), { id: now().id, value: '' });
-      });
-      entry = { el: form, input, value: null };
-    }
-    entry.item = item;
-    const { input } = entry;
-    input.placeholder = item.placeholder;
-    input.setAttribute('aria-label', item.label);
-    // The module's value only when it changed what it said (clearing after a pick, say): never under the person's typing.
-    if (entry.value !== item.value) { entry.value = item.value; if (input.value !== item.value) input.value = item.value; }
-    return entry;
-  }
-  function set(items) {
-    const clean = cleanToolbarItems(items);
-    const focusKey = focusedToolbarKey(row); // the control the keyboard is on, found again once the row is drawn
-    const active = doc.activeElement;
-    const typing = active && active.tagName === 'INPUT' && row.contains(active) ? active : null;
-    const used = new Set();
-    // The kept elements leave the row without losing focus where possible: the row is rebuilt around them.
-    for (const child of [...row.childNodes]) if (![...kept.values()].some((e) => e.el === child)) child.remove();
-    const buttons = clean.filter((i) => i.type === 'button');
-    const { shown, hidden: overflow } = splitOverflow(buttons, 5);
-    const shownIds = new Set(shown.map((i) => i.id));
-    const parts = [];
-    let moreDrawn = false;
-    chipsNow = new Map();
-    const drawMore = () => {
-      if (moreDrawn || !overflow.length) return;
-      moreDrawn = true;
-      const more = drawMoreButton(doc, '', () => openHostMenu(more, overflow.map((item) => ({ label: item.label || item.title || item.id, ...(item.icon ? { icon: item.icon } : {}), disabled: item.disabled, onPick: () => fire(item, { id: item.id }) }))));
-      more.dataset.tbKey = toolbarKey('more', '');
-      parts.push(more);
-    };
-    for (const item of clean) {
-      if (item.type === 'button' && !shownIds.has(item.id)) continue;
-      if (item.type === 'button') drawMore();
-      if (item.separator) { const s = doc.createElement('span'); s.className = 'tb-sep'; parts.push(s); continue; }
-      if (item.type === 'text' || item.type === 'title') {
-        const s = doc.createElement('span');
-        s.className = item.type === 'title' ? 'tb-title' : 'tb-text';
-        s.textContent = item.text;
-        if (item.type === 'title') s.title = item.text;
-        parts.push(s);
-        continue;
-      }
-      if (item.type === 'progress') {
-        const wrap = doc.createElement('span');
-        wrap.className = 'sdk-progress sdk-progress-sm sdk-progress-short';
-        wrap.setAttribute('role', 'progressbar');
-        wrap.setAttribute('aria-label', item.label || 'Progress');
-        wrap.setAttribute('aria-valuemin', '0');
-        wrap.setAttribute('aria-valuemax', '100');
-        wrap.setAttribute('aria-valuenow', String(Math.round(Number(item.value) || 0)));
-        const fill = doc.createElement('span');
-        fill.className = 'sdk-progress-fill';
-        fill.style.setProperty('--pct', `${item.value}%`);
-        wrap.appendChild(fill);
-        parts.push(wrap);
-        continue;
-      }
-      if (item.type === 'slider') {
-        const wrap = doc.createElement('span');
-        wrap.className = 'tb-slider';
-        if (item.label) {
-          const lbl = doc.createElement('span');
-          lbl.className = 'tb-slider-label';
-          lbl.textContent = item.label;
-          wrap.appendChild(lbl);
-        }
-        const input = doc.createElement('input');
-        input.type = 'range';
-        input.min = String(item.min);
-        input.max = String(item.max);
-        input.step = String(item.step);
-        input.value = String(item.value);
-        input.disabled = item.disabled;
-        input.setAttribute('aria-label', item.label || item.id);
-        input.dataset.tbKey = toolbarKey('range', item.id);
-        input.addEventListener('input', () => fire(item, { id: item.id, value: Number(input.value) }));
-        wrap.appendChild(input);
-        parts.push(wrap);
-        continue;
-      }
-      if (item.type === 'tabs') {
-        // The shared view switch (hostSwitch, public/sdk/host.js): icon and word, icons only while the row is too narrow.
-        const seg = doc.createElement('span');
-        seg.className = 'tb-tabs';
-        seg.setAttribute('role', 'group');
-        for (const opt of item.options) {
-          const b = doc.createElement('button');
-          b.type = 'button';
-          win.hostSwitch.fill(b, opt);
-          b.classList.toggle('on', opt.id === item.value);
-          b.setAttribute('aria-pressed', String(opt.id === item.value));
-          b.dataset.tbKey = toolbarKey('tab', item.id, opt.id);
-          b.addEventListener('click', () => fire(item, { id: item.id, value: opt.id }));
-          seg.appendChild(b);
-        }
-        parts.push(seg);
-        continue;
-      }
-      if (item.type === 'search') {
-        const entry = search(item);
-        kept.set(toolbarKey('search', item.id), entry);
-        used.add(toolbarKey('search', item.id));
-        parts.push(entry.el);
-        continue;
-      }
-      if (item.type === 'chips') {
-        // The chips themselves, and the one button they fold into while the row is narrow (the stylesheet shows one of them).
-        chipsNow.set(item.id, item);
-        const group = doc.createElement('span');
-        group.className = 'sdk-chips tb-chips';
-        group.setAttribute('role', 'group');
-        group.setAttribute('aria-label', item.label);
-        for (const o of item.options) {
-          const c = doc.createElement('button');
-          c.type = 'button';
-          c.className = `sdk-chip${o.on ? ' on' : ''}`;
-          c.setAttribute('aria-pressed', String(o.on));
-          c.dataset.tbKey = toolbarKey('chip', item.id, o.id);
-          c.dataset.tip = `${o.on ? 'Hide' : 'Show'} ${o.label}${o.note ? ` (${o.note})` : ''}`;
-          if (o.icon) { const i = icon(o.icon); if (o.tint) i.dataset.tint = o.tint; c.appendChild(i); }
-          const w = doc.createElement('span');
-          w.className = 'sdk-chip-label';
-          w.textContent = o.label;
-          c.appendChild(w);
-          c.addEventListener('click', () => fire(item, { id: item.id, value: o.id, on: !o.on }));
-          group.appendChild(c);
-        }
-        const menu = chipsMenu(item);
-        kept.set(toolbarKey('chips', item.id), menu);
-        used.add(toolbarKey('chips', item.id));
-        parts.push(group, menu.el);
-        continue;
-      }
-      // A button: words (with an icon before them), or an icon alone (its `title`, else its label, the tooltip and name).
-      const b = doc.createElement('button');
-      b.type = 'button';
-      const iconOnly = Boolean(item.icon && !item.label);
-      b.className = iconOnly
-        ? `sdk-icon-btn btn-small ${item.primary ? 'btn-primary' : 'btn-quiet'}${item.on ? ' on' : ''}`
-        : `btn btn-small ${item.primary ? 'btn-primary' : 'btn-quiet'}${item.on ? ' on' : ''}`;
-      b.disabled = item.disabled;
-      b.dataset.tbKey = toolbarKey('btn', item.id);
-      if (item.on !== null) b.setAttribute('aria-pressed', String(item.on));
-      if (item.icon) b.appendChild(icon(item.icon));
-      if (item.label && item.icon) {
-        // Its words, which fold away while the row is too narrow (.tb-buttons-iconic): the icon alone, its words the tooltip.
-        const w = doc.createElement('span');
-        w.className = 'tb-btn-word';
-        w.textContent = item.label;
-        b.append(' ', w);
-      } else if (item.label) b.append(item.label);
-      const name = item.title || item.label || item.icon || item.id;
-      b.setAttribute('aria-label', name);
-      if (iconOnly || (item.title && item.title !== item.label)) b.dataset.tip = name;
-      else if (item.icon && item.label) b.dataset.tbWordTip = ''; // its words become its tooltip while they are folded away
-      // `x`: where the button starts across the module's own area, so a menu it opens can sit under it
-      // (host.ui.toolbarButton hands the event to its onClick).
-      b.addEventListener('click', () => {
-        const area = box ? box() : row.getBoundingClientRect();
-        fire(item, { id: item.id, x: Math.max(0, Math.round(b.getBoundingClientRect().left - area.left)) }, b);
-      });
-      parts.push(b);
-    }
-    drawMore();
-    for (const [key, entry] of kept) {
-      if (used.has(key)) continue;
-      if (hostMenuOpen(entry.el)) closeHostMenu();
-      entry.el.remove();
-      kept.delete(key);
-    }
-    // In order; a kept element moved only when it is not already where it goes (moving a focused field would blur it).
-    let at = 0;
-    for (const el of parts) {
-      if (row.childNodes[at] !== el) row.insertBefore(el, row.childNodes[at] || null);
-      at += 1;
-    }
-    while (row.childNodes.length > parts.length) row.lastChild.remove();
-    row.hidden = clean.length === 0;
-    if (!observer && typeof win.ResizeObserver === 'function') {
-      observer = new win.ResizeObserver(later);
-      observer.observe(row);
-    }
-    fit();
-    if (!typing || doc.activeElement !== typing) restoreToolbarFocus(row, focusKey);
-    return clean;
-  }
-  return {
-    set,
-    destroy() {
-      if (observer) observer.disconnect();
-      observer = null;
-      for (const entry of kept.values()) if (hostMenuOpen(entry.el)) closeHostMenu();
-    },
-  };
-}
-
-// The status bar (host.status.set): a slim read-only line at the bottom of a module's own window or column, hidden
-// while nothing is set. Its items and a visually hidden polite live node are drawn into `status` (a labelled region the
-// chrome gives, moved with the window like the "+"); the same items again draw nothing, and the live node hears the
-// non-quiet text only after it has been still for a moment (createAnnouncer). Used by mountModule, and by canvas.js
-// for a composite. Returns { set(items) (true, as status.set answers), destroy() }.
-export function createStatusSlot(status) {
+// A module's bands in a frame (createModuleFrame, public/module-frame.js; plan-unified-layout.md, "Bands everywhere"): what
+// it asks for through the SDK, drawn there with the pure rules of module-chrome.js. `send(event, data)` takes a control's
+// event back to the module ('add' { id }, 'header' { id }, 'toolbar' { id, value?, on?, submit?, x? }); `box()` is the
+// module's own area, for a button's `x` (a menu it opens sits under it). An item that carries its own `send(data, el)` (a
+// destination's parts' items, mixed into the page's one row and title bar) gets its event instead. The window keeps its
+// own title bar events (the standard actions, Close) and hands every other frame event to `event(e)`. The status bar draws
+// nothing for the same items again, and reads the non-quiet words out politely once they have been still a moment.
+// Used by mountModule, by canvas.js for a composite and by destination.js for its page.
+// Returns { add(entries), header(items), toolbar(items) -> the cleaned items, status(items) -> true, event(e), destroy() }.
+export function createFrameBands(frame, { send, box = null }) {
+  const win = frame.el.ownerDocument.defaultView || window;
+  let header = [];
+  let toolbar = [];
+  let actions = [];
+  let routes = new Map(); // a toolbar item's id -> the item
   let statusLast = null;
-  let statusList = null;
-  let statusLive = null;
-  let announcer = null;
-  let statusObserver = null;
-  // One line: when the items are wider than the bar, the last before the end item is cut first (statusFit).
-  function fitStatus() {
-    if (!statusList || status.hidden) return;
-    const els = [...statusList.querySelectorAll('.mod-status-item')];
-    for (const el of els) el.style.maxWidth = '';
-    const over = statusList.scrollWidth - statusList.clientWidth;
-    if (over <= 0) return;
-    const fit = statusFit(els.map((el) => ({ w: el.getBoundingClientRect().width, end: el.classList.contains('end') })), over);
-    els.forEach((el, at) => { if (fit[at] !== null) el.style.maxWidth = `${fit[at]}px`; });
-  }
-  function drawStatus(clean) {
-    const doc = status.ownerDocument;
-    const win = doc.defaultView || window;
-    if (!statusList) {
-      statusList = doc.createElement('span');
-      statusList.className = 'mod-status-items';
-      statusLive = doc.createElement('span');
-      statusLive.className = 'visually-hidden';
-      statusLive.setAttribute('aria-live', 'polite');
-      status.append(statusList, statusLive);
-      announcer = createAnnouncer({ write: (t) => { statusLive.textContent = t; }, setTimer: (fn, ms) => win.setTimeout(fn, ms), clearTimer: (t) => win.clearTimeout(t) });
-      statusObserver = new win.ResizeObserver(() => fitStatus());
-      statusObserver.observe(status);
-    }
-    statusList.textContent = '';
-    clean.forEach((item, at) => {
-      if (at > 0 && !item.end) {
-        const dot = doc.createElement('span');
-        dot.className = 'mod-status-sep';
-        dot.setAttribute('aria-hidden', 'true');
-        dot.textContent = '·';
-        statusList.appendChild(dot);
-      }
-      const el = doc.createElement('span');
-      el.className = `mod-status-item${item.chip ? ' sdk-status' : ''}${item.end ? ' end' : ''}`;
-      el.title = item.title;
-      if (item.quiet) el.setAttribute('aria-hidden', 'true');
-      if (item.icon) {
-        const i = doc.createElement('i');
-        i.className = `fa-solid fa-${item.icon} fa-fw`;
-        i.setAttribute('aria-hidden', 'true');
-        el.appendChild(i);
-      }
-      const t = doc.createElement('span');
-      t.className = 'mod-status-text';
-      t.textContent = item.text;
-      el.appendChild(t);
-      statusList.appendChild(el);
-    });
-    status.title = statusTitle(clean);
-    status.hidden = clean.length === 0;
-    fitStatus();
-    announcer.update(statusSpoken(clean));
-  }
+  const announcer = createAnnouncer({ write: (t) => frame.announce(t), setTimer: (fn, ms) => win.setTimeout(fn, ms), clearTimer: (t) => win.clearTimeout(t) });
+  const xOf = (el) => {
+    const area = box ? box() : frame.content.getBoundingClientRect();
+    return Math.max(0, Math.round(el.getBoundingClientRect().left - area.left));
+  };
+  const drawActions = () => {
+    actions = titlebarActions(header, toolbar);
+    frame.setTitlebar({ actions });
+  };
+  const to = (item, event, data, el) => (item && item.send ? item.send(data, el) : send(event, data));
   return {
-    set(items) {
+    add(entries) { frame.setTitlebar({ add: frameAdd(cleanAddEntries(entries), (id) => send('add', { id })) }); },
+    header(items) { header = cleanHeaderItems(items); drawActions(); },
+    toolbar(items) {
+      toolbar = cleanToolbarItems(items);
+      routes = new Map(toolbar.filter((i) => i.id).map((i) => [i.id, i]));
+      drawActions();
+      frame.setToolbar(frameToolbar(toolbar));
+      return toolbar;
+    },
+    status(items) {
       const clean = cleanStatusItems(items);
       const key = statusKey(clean);
       if (key === statusLast) return true;
       statusLast = key;
-      drawStatus(clean);
+      frame.setStatus(statusFrame(clean));
+      announcer.update(statusSpoken(clean));
       return true;
     },
-    destroy() {
-      if (announcer) announcer.stop();
-      if (statusObserver) { statusObserver.disconnect(); statusObserver = null; }
+    event(e) {
+      if (!e) return;
+      if (e.area === 'titlebar') {
+        if (e.id === 'add') { if (e.value !== undefined) send('add', { id: e.value }); return; }
+        const a = actions.find((x) => x.id === e.id);
+        if (!a) return;
+        if (a.from === 'header') to(a, 'header', { id: a.id }, e.el);
+        else to(a, 'toolbar', { id: a.id, ...(e.el ? { x: xOf(e.el) } : {}) }, e.el);
+        return;
+      }
+      if (e.area !== 'toolbar') return;
+      const item = routes.get(e.id);
+      const data = { id: e.id };
+      for (const k of ['value', 'on', 'submit']) if (e[k] !== undefined) data[k] = e[k];
+      if (item && item.type === 'button' && e.el) data.x = xOf(e.el);
+      to(item, 'toolbar', data, e.el);
     },
+    destroy() { announcer.stop(); },
   };
 }
 
@@ -1490,7 +1039,7 @@ export function createStatusSlot(status) {
 // window); the calls answer true. Wherever a module is drawn the host draws its bands; only a dashboard widget (no
 // header, toolbar, add or status given) answers false. `module.content` is the manifest's ("flush" or nothing). Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, onHeader = null, onToolbarItems = null, lift = true, onLift = null, liftUp = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, chrome = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, onHeader = null, onToolbarItems = null, lift = true, onLift = null, liftUp = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
@@ -1536,30 +1085,29 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   // The nav-bar tools this mount registered (their namespaced ids), so destroy() takes exactly those out.
   const navIds = new Set();
 
-  // The "+" in the titlebar (host.add.set) and the status bar (host.status.set), drawn in the slots the chrome gives
-  // (createAddSlot and createStatusSlot, above). The old action bar (host.bar.set, kept for modules written for it) is
-  // drawn nowhere: its buttons fold into this same "+" (foldBarItems), until the module calls host.add.set, whose list wins.
-  // While the "+" holds the fold, a pick goes back as the old 'bar' event ({ id }; a quick-add's { id, value: '' }).
+  // The module's bands in the frame it is drawn in (`chrome`, a createModuleFrame; createFrameBands above): the "+"
+  // (host.add.set), the title bar's icons (host.header.set), the toolbar row (host.toolbar.set) and the status bar
+  // (host.status.set). A destination's part (`onAdd`, `onHeader`, `onToolbarItems`, `onStatus`) hands them, cleaned, to its
+  // page, which draws them in its own frame with its own (or hands them up to a composite's window). Only a dashboard
+  // widget has neither. The old action bar (host.bar.set, kept for modules written for it) is drawn nowhere: its buttons
+  // fold into this same "+" (foldBarItems), until the module calls host.add.set, whose list wins. While the "+" holds the
+  // fold, a pick goes back as the old 'bar' event ({ id }; a quick-add's { id, value: '' }).
   let addOwn = null; // what host.add.set sent (null: never called)
   let barFold = []; // host.bar.set's buttons as "+" leaves
   let barQuick = new Set(); // which of them were quick-adds
   const folding = () => addOwn === null && barFold.length > 0;
-  const addSlot = add ? createAddSlot(add, (event, data) => {
-    if (event === 'add' && folding()) send('bar', barQuick.has(data.id) ? { id: data.id, value: '' } : { id: data.id });
-    else send(event, data);
+  const bands = chrome ? createFrameBands(chrome, {
+    send: (event, data) => {
+      if (event === 'add' && folding()) send('bar', barQuick.has(data.id) ? { id: data.id, value: '' } : { id: data.id });
+      else send(event, data);
+    },
+    box: () => (pageMode ? container : frame).getBoundingClientRect(),
   }) : null;
-  const drawAddSlot = () => { if (addSlot) addSlot.set(addOwn !== null ? addOwn : barFold); };
-  const statusSlot = status ? createStatusSlot(status) : null;
-  // The titlebar's icons and the toolbar row: drawn in the slots the chrome gives, or, for a destination's part
-  // (`onHeader`, `onToolbarItems`), handed cleaned to the page, which draws them in its own bar and its one row (the
-  // events come back through `send`). Only a dashboard widget has neither.
-  const toolbarRow = toolbar && !(destination && onToolbarItems)
-    ? createToolbar(toolbar, { send: (data) => send('toolbar', data), box: () => (pageMode ? container : frame).getBoundingClientRect() })
-    : null;
+  const drawAddSlot = () => { if (bands) bands.add(addOwn !== null ? addOwn : barFold); };
   const toolbarOut = destination && onToolbarItems
     ? (items) => { const clean = cleanToolbarItems(items); onToolbarItems(clean); return clean; }
-    : toolbarRow ? (items) => toolbarRow.set(items) : null;
-  const headerOut = destination && onHeader ? (clean) => onHeader(clean) : header ? (clean) => drawHeaderItems(header, clean, send) : null;
+    : bands ? (items) => bands.toolbar(items) : null;
+  const headerOut = destination && onHeader ? (clean) => onHeader(clean) : bands ? (clean) => bands.header(clean) : null;
   // How the content fills its slot (the manifest's `content`): "flush" for content edge to edge (a map), else the slot's
   // padding. The holder carries it for the page's stylesheet; the module's own document hears it in its hello.
   const contentFit = module.content === 'flush' ? 'flush' : 'padded';
@@ -2064,15 +1612,15 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // empty list takes the "+" away (a module sends one for a person who may not add: what "may add" means is the
     // module's own permission).
     async 'add.set'({ entries }) {
-      if (!add) return false;
+      if (!bands) return false;
       addOwn = Array.isArray(entries) ? entries : [];
       drawAddSlot();
       return true;
     },
     // The status bar (host.status.set). False where there is none (a destination's part, a dashboard widget).
     async 'status.set'({ items }) {
-      if (!status) return false;
-      return statusSlot.set(items);
+      if (!bands) return false;
+      return bands.status(items);
     },
     // What needs this person's action (host.attention.set / clear): kept by the server per space, person and module, and
     // counted in the space's status strip (space.js, which hears 'app:attention' and reads it again). Only a module
@@ -2451,6 +1999,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     ptrForTest: (step, ref, label, x, y) => (step === 'start' ? ptrBegin(mine, ref && ref.summary ? { summary: cleanSummary(ref.summary) } : { ref }, label, x, y) : step === 'move' ? ptrMove(x, y) : ptrDrop(x, y)),
     // An event for the module from the page (a pointer to open, objectopen; a place in its page, pagehash).
     deliver,
+    // A control in the frame's bands that is the module's (its "+", title bar icons, toolbar): the window that made the frame
+    // hands each such event here (its own standard actions and Close it keeps).
+    bandEvent: (e) => { if (bands) bands.event(e); },
     // The frame's lift for an editor window (editor.lift), for the page to put back itself: canvas.js does before it
     // moves a module between docked and floating. lift(false) when nothing is lifted does nothing.
     lift: (open, size) => (!pageMode ? liftFrame(Boolean(open), size === 'large' ? 'large' : 'medium') : false),
@@ -2464,9 +2015,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (ptrDrag && ptrDrag.source === mine) ptrEnd();
       for (const id of navIds) navBar.unregister(id); // its nav tools go with it
       navIds.clear();
-      if (statusSlot) statusSlot.destroy();
-      if (addSlot) addSlot.destroy();
-      if (toolbarRow) toolbarRow.destroy();
+      if (bands) bands.destroy();
       clearTimeout(factsTimer);
       window.removeEventListener('app:phases', onPhasesEvent);
       if (phasesChannel) phasesChannel.close();

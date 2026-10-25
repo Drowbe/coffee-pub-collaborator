@@ -6,11 +6,11 @@
 //   /modules/<id>?space=<space>&popout=1   a module on a space's canvas, in a window of its own (?moduleRoom= redirects here)
 //                                          (add &guest=<token> for a guest)
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
-import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markModuleRead, word } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, markModuleRead, word } from '/brand.js';
 import { mountModule, openClearMenu, askCanvasToOpen, sameSiteOpener } from '/module-host.js';
 import { moduleTint } from '/module-tint.js';
 import { compositesOn, compositesToAsk } from '/composites.js';
-import { nav } from '/nav-bar.js';
+import { createModuleFrame } from '/module-frame.js';
 
 const $ = (id) => document.getElementById(id);
 const id = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -80,29 +80,37 @@ async function start() {
     return;
   }
   document.title = `${document.title.split(' - ')[0]} - ${mod.name}`;
-  if (popout) wireTitlebar(mod);
-  if (!popout) renderPageBar({ name: mod.name, icon: mod.icon }); // its name in the page bar (plan-two-zone-nav.md)
   if (!guestToken) markModuleRead(mod.id);
   let frame = $('module-frame');
   // A module that runs in the page gets an element of its own where the frame would be.
   const inPage = mod.runMode === 'page';
   if (inPage) {
     const holder = document.createElement('div');
-    holder.className = 'module-frame module-root';
+    holder.className = 'module-holder module-root';
     holder.id = 'module-frame';
     frame.replaceWith(holder);
     frame = holder;
   }
   frame.hidden = false;
-  // The "+" (host.add.set) and the status bar (host.status.set; plan-module-titlebar-add.md, step 5). Popped out, the
-  // "+" is in the window's own titlebar; on the module's own page it is a tool of the page bar's right zone (the nav
-  // registry), the same button. The status bar is the last thing on the page, under the module, above the safe area.
-  const status = $('module-status');
-  status.setAttribute('aria-label', `${mod.name} status`);
-  const add = popout ? $('module-titlebar-add') : pageAddSlot(mod);
-  // The module's own titlebar icons (host.header.set): popped out in the window's titlebar, on its own page in the page
-  // bar's right zone before the "+", as the page bar is this page's titlebar.
-  const header = popout ? $('module-titlebar-custom') : pageHeaderSlot();
+  // The module frame (public/module-frame.js) fills the page under the header: its title bar names the module (its colour
+  // on the icon, as on the canvas: the server's, else a stable pick from the id, module-tint.js) and holds the module's
+  // "+" and icons; its toolbar row, the module, its status bar. Popped out, the title bar is the window's: Close, and in
+  // the menu the way back into the space (as a docked column or floating, while the space page that opened it is still
+  // there) and Clear, last; on its own page in a space, Clear.
+  let mounted = null;
+  const chrome = createModuleFrame({
+    title: mod.name,
+    icon: mod.icon,
+    tint: moduleTint(mod.id, mod.color || null),
+    variant: 'page',
+    titlebar: popout
+      ? { close: true, standard: () => popoutStandard(mod), onAction: (e) => pageAction(mod, e, mounted) }
+      : { standard: spaceId ? { ...NONE, clear: true } : NONE, onAction: (e) => pageAction(mod, e, mounted) },
+    flush: true,
+    content: frame,
+    onAction: (e) => { if (mounted) mounted.bandEvent(e); },
+  });
+  $('module-main').prepend(chrome.el);
   // Showing an item in the module that owns it, from a module's own page: go to that module's page,
   // which is given the pointer in the address (#ref=...) and passes it to the module.
   const refHash = (ref) => `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
@@ -122,24 +130,20 @@ async function start() {
     location.href = `/modules/${encodeURIComponent(ref.module)}${q.toString() ? '?' + q : ''}${refHash(ref)}`;
     return true;
   };
-  const mounted = mountModule({
+  mounted = mountModule({
     onOpenRef: openRef,
     module: { id: mod.id, version: mod.version, scope: mod.scope, budget: mod.budget === true, content: mod.content },
     ...(inPage ? { container: frame } : { frame }),
     // A window of its own is the module: its frame fills the window, so an editor window needs no lift (editor.lift).
     lift: !popout,
-    header,
-    toolbar: $('module-toolbar'),
-    add,
-    status,
+    chrome,
     scope,
     spaceId,
     guestToken,
     entry,
     onTitle: (title) => {
       document.title = `${title || mod.name}`;
-      if (popout) $('module-titlebar-title').textContent = title || mod.name;
-      if (!popout) renderPageBar({ name: title || mod.name, icon: mod.icon });
+      chrome.setTitle(title || mod.name);
     },
   });
   // Opened by another module's link: hand the pointer on, and again if the address changes.
@@ -184,65 +188,36 @@ async function clearModuleData() {
   await api('DELETE', `/api/modules/${encodeURIComponent(id)}/data?${q}`);
 }
 
-// The "+" on a module's own page: an empty slot registered into the page bar's right zone (renderPageBar's bar, through
-// the nav registry), never folded into the bar's "..."; module-host.js draws the button in it (createAddSlot) and hides
-// the slot while the module has no adds. In the module's colour, as on its titlebar.
-function pageAddSlot(mod) {
-  const slot = document.createElement('span');
-  slot.className = 'titlebar-add page-bar-add';
-  slot.id = 'page-bar-add';
-  slot.hidden = true;
-  const tint = moduleTint(mod.id, mod.color || null);
-  if (tint) slot.dataset.tint = tint;
-  nav.register({ id: 'page-bar-add', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 990, fold: false, element: slot });
-  return slot;
-}
+// The module's own page has no ways to show it (it is not on a canvas, and it is the page); in a space it has Clear.
+const NONE = { dock: false, window: false, popout: false, settings: false, share: false, print: false, clear: false };
 
-// The module's titlebar icons on its own page: a slot in the page bar's right zone, before the "+" (pageAddSlot), never
-// folded into the bar's "..."; module-host.js draws the buttons in it (drawHeaderItems) and it shows once there are some.
-function pageHeaderSlot() {
-  const slot = document.createElement('span');
-  slot.className = 'titlebar-custom page-bar-custom';
-  slot.id = 'page-bar-custom';
-  slot.hidden = true;
-  nav.register({ id: 'page-bar-custom', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 989, fold: false, element: slot });
-  return slot;
-}
-
-// The window's own titlebar: close, and (while the space page that opened it is still there) the
-// way back into the space as a docked column or floating.
-function wireTitlebar(mod) {
-  $('module-titlebar').hidden = false;
-  $('module-titlebar-icon').className = `fa-solid fa-${mod.icon} fa-fw`;
-  // The module's colour on the titlebar and its icon, as on the canvas (plan-chat-model.md, decision 18; GitHub #229):
-  // the server's, else a stable pick from the id (module-tint.js).
-  const tint = moduleTint(mod.id, mod.color || null);
-  if (tint) {
-    $('module-titlebar-icon').dataset.tint = tint;
-    $('module-titlebar').dataset.tint = tint;
-  }
-  $('module-titlebar-title').textContent = mod.name;
-  $('module-close').addEventListener('click', () => window.close());
-  $('module-menu').addEventListener('click', (event) => {
-    event.stopPropagation();
-    openClearMenu(event.currentTarget, () => clearModuleData());
-  });
-  let host = null;
+// The space page that opened this window, while it is still there (window.hostModules, set by the canvas).
+function openerCanvas() {
   try {
-    host = window.opener && !window.opener.closed ? window.opener.hostModules : null;
+    return window.opener && !window.opener.closed ? window.opener.hostModules : null;
   } catch {
-    host = null;
+    return null;
   }
-  if (!host) return;
-  const back = (mode) => {
-    host.open(mod.id, mode);
-    window.close();
+}
+
+// Popped out: the way back into the space as a docked column or floating, where the canvas that opened it can, and Clear.
+function popoutStandard(mod) {
+  const host = openerCanvas();
+  return {
+    ...NONE,
+    dock: Boolean(host && host.supportsMode(mod.id, 'dock')) && { label: 'Dock beside the call' },
+    window: Boolean(host && host.supportsMode(mod.id, 'float')) && { label: 'Float over the call', tip: 'Float over the call' },
+    clear: true,
   };
-  for (const mode of ['dock', 'float']) {
-    const button = $(`module-back-${mode}`);
-    button.hidden = !host.supportsMode(mod.id, mode);
-    button.addEventListener('click', () => back(mode));
-  }
+}
+function pageAction(mod, e, mounted) {
+  if (e.id === 'close') { window.close(); return; }
+  if (!e.standard) { if (mounted) mounted.bandEvent(e); return; }
+  if (e.id === 'clear' && e.el) { openClearMenu(e.el, () => clearModuleData(), { armed: true }); return; }
+  const host = openerCanvas();
+  if (!host || (e.id !== 'dock' && e.id !== 'window')) return;
+  host.open(mod.id, e.id === 'dock' ? 'dock' : 'float');
+  window.close();
 }
 
 // Whatever goes wrong, say so on the page instead of leaving it blank.

@@ -280,7 +280,7 @@
    "family": "Calendar",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
      "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
@@ -293,11 +293,11 @@
    "family": "Calendar",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "button.tb-tab[data-tb-key=\"tab:dest-view:week\"]",
-     "until": "button.tb-tab.on[data-tb-key=\"tab:dest-view:week\"]",
+     "click": "button.mf-switch-btn[data-key=\"switch:dest-view:week\"]",
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"][data-key=\"switch:dest-view:week\"]",
      "untilText": ""
     },
     {
@@ -311,11 +311,11 @@
    "family": "Calendar",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "button.tb-tab[data-tb-key=\"tab:dest-view:day\"]",
-     "until": "button.tb-tab.on[data-tb-key=\"tab:dest-view:day\"]",
+     "click": "button.mf-switch-btn[data-key=\"switch:dest-view:day\"]",
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"][data-key=\"switch:dest-view:day\"]",
      "untilText": ""
     },
     {
@@ -329,12 +329,12 @@
    "family": "Calendar",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Agenda",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     },
     {
      "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
@@ -347,12 +347,12 @@
    "family": "Calendar",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "To-do",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     },
     {
      "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
@@ -365,10 +365,10 @@
    "family": "Chips and badges",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "eval": "(() => { const b = document.querySelector('#dest-toolbar .tb-chips-menu'); if (b && b.getClientRects().length) b.click(); })()"
+     "eval": "(() => { const b = document.querySelector('#dest-frame .mf-filters'); if (b && b.getClientRects().length) b.click(); })()"
     },
     {
      "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
@@ -381,10 +381,10 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "#page-bar-add button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -401,12 +401,12 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Agenda",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     },
     {
      "click": "div.module-root.dest-part-root >>> button.sdk-row",
@@ -426,15 +426,15 @@
    "family": "Forms and editor windows",
    "as": "mia",
    "url": "/calendar",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "To-do",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     },
     {
-     "click": "#page-bar-add button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -451,7 +451,7 @@
    "family": "Empty and loading states",
    "as": "mia",
    "url": "/calendar?space={second}",
-   "wait": "#dest-toolbar .tb-title",
+   "wait": "#dest-frame .mf-tb-title",
    "tier": "state"
   },
   {
@@ -470,9 +470,9 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Decisions",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -485,9 +485,9 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Bookings",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -731,7 +731,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     }
    ],
    "tier": "state"
@@ -744,7 +744,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-category",
@@ -787,7 +787,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-category",
@@ -808,7 +808,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-category",
@@ -829,7 +829,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -846,7 +846,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-category",
@@ -867,7 +867,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-category",
@@ -888,7 +888,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -931,7 +931,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -977,9 +977,9 @@
    "wait": "#module-frame >>> .place-row",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Mine",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -992,8 +992,8 @@
    "wait": "#module-frame >>> .place-row",
    "steps": [
     {
-     "click": "button.tb-tab:nth-of-type(3)",
-     "until": "button.tb-tab.on:nth-of-type(3)",
+     "click": "button.mf-switch-btn:nth-of-type(3)",
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]:nth-of-type(3)",
      "untilText": ""
     }
    ],
@@ -1015,7 +1015,11 @@
    "wait": "#module-frame >>> .place-row",
    "steps": [
     {
-     "click": ".tb-chips button.sdk-chip",
+     "click": "button.mf-filters",
+     "until": ".host-menu"
+    },
+    {
+     "click": ".host-menu-item",
      "text": "Sights"
     }
    ],
@@ -1059,7 +1063,7 @@
    "wait": "#module-frame >>> .place-row",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     }
    ],
    "tier": "state"
@@ -1072,7 +1076,7 @@
    "wait": "#module-frame >>> .place-row",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "#module-frame >>> button",
@@ -1110,12 +1114,45 @@
    "wait": "#module-frame >>> #target-edit",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Costs",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
+  },
+  {
+   "id": "budget-filters-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.mf-switch-btn",
+     "text": "Costs",
+     "until": "button.mf-filters"
+    },
+    {
+     "click": "button.mf-filters",
+     "until": ".host-menu"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "budget-titlebar-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.mf-titlebar-menu",
+     "until": ".host-menu"
+    }
+   ],
+   "tier": "state"
   },
   {
    "id": "budget-settle",
@@ -1125,9 +1162,9 @@
    "wait": "#module-frame >>> #target-edit",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Settle up",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1148,7 +1185,7 @@
    "wait": "#module-frame >>> #target-edit",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     }
    ],
    "tier": "state"
@@ -1161,7 +1198,7 @@
    "wait": "#module-frame >>> #target-edit",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "#module-frame >>> #f-save"
@@ -1198,9 +1235,9 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Closed",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1213,9 +1250,9 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "All",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1236,7 +1273,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     }
    ],
    "tier": "state"
@@ -1249,7 +1286,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "#module-frame >>> #f-save"
@@ -1273,9 +1310,9 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "List",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1288,9 +1325,9 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.tb-tab",
+     "click": "button.mf-switch-btn",
      "text": "Mine",
-     "until": "button.tb-tab.on"
+     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1325,7 +1362,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     }
    ],
    "tier": "state"
@@ -1338,7 +1375,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -1355,7 +1392,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-item",
@@ -1465,7 +1502,7 @@
    "wait": "button.sdk-strip-fact[data-module=budget]",
    "steps": [
     {
-     "click": "button.sdk-icon-btn[data-module-menu]"
+     "click": "button.mf-titlebar-menu"
     }
    ],
    "call": true,
@@ -1837,7 +1874,7 @@
    "wait": "#module-frame >>> .day-add",
    "steps": [
     {
-     "click": ".titlebar-add > button"
+     "click": ".mf-add-btn"
     },
     {
      "click": "button.host-menu-category",

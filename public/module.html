@@ -18,27 +18,11 @@
 <body class="module-page">
   <header class="topbar"></header>
 
-  <!-- A module in a window of its own has a titlebar like a module on a space's canvas, with the way back
-       to a column beside the call or floating. -->
-  <header class="mod-header module-titlebar" id="module-titlebar" hidden>
-    <span class="mod-title"><i class="fa-solid fa-fw" id="module-titlebar-icon" aria-hidden="true"></i> <span id="module-titlebar-title"></span></span>
-    <span class="mod-header-tools">
-      <span class="titlebar-custom" id="module-titlebar-custom"></span>
-      <span class="titlebar-add" id="module-titlebar-add" hidden></span>
-      <button class="sdk-icon-btn btn-quiet btn-small" id="module-menu" type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
-      <button class="sdk-icon-btn btn-quiet btn-small" id="module-back-float" type="button" data-tip="Float over the call" aria-label="Float over the call" hidden><i class="fa-solid fa-window-restore fa-fw" aria-hidden="true"></i></button>
-      <button class="sdk-icon-btn btn-quiet btn-small" id="module-back-dock" type="button" data-tip="Dock beside the call" aria-label="Dock beside the call" hidden><i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i></button>
-      <button class="sdk-icon-btn btn-quiet btn-small" id="module-close" type="button" data-tip="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
-    </span>
-  </header>
-
-  <div class="mod-toolbar" id="module-toolbar" hidden></div>
-
-  <!-- A module's own page: the module runs in a sandboxed frame (see
-       module-host.js) and fills everything under the header, over its status bar (host.status.set). -->
-  <main class="module-canvas">
-    <iframe class="module-frame" id="module-frame" title="{Module}" data-fill hidden></iframe>
-    <div class="mod-status module-status" id="module-status" role="region" aria-label="Status" hidden></div>
+  <!-- A module's own page, or the module popped out into a window of its own: the module frame (public/module-frame.js,
+       drawn by module.js) fills everything under the header: its title bar, toolbar row, the module (it runs in a sandboxed
+       frame, module-host.js, or in the page) and its status bar. -->
+  <main class="module-canvas" id="module-main">
+    <iframe class="module-holder" id="module-frame" title="{Module}" data-fill hidden></iframe>
     <p class="hint module-missing" id="module-missing" data-fill hidden>That {module} is not available.</p>
   </main>
 

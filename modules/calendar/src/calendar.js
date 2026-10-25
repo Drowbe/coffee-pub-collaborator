@@ -630,34 +630,35 @@
   }
 
   // --- the toolbar row ---------------------------------------------------------------
-  // The host's one row: back, Today and forward (Today alone on the Agenda), the period's title, the filter's chips, then the
-  // view switch. The chips: on the environment page the viewer's spaces, the kinds of markers ("Tasks due") and the person's
-  // other calendars; in a space the kinds of markers alone. As the destination's calendar the page's row has the view switch
-  // and the filter, so this gives only the first four; the Agenda gives nothing (the page's panel switch is its heading).
+  // The host's one row: the view switch, the period's title, back, Today and forward (Today alone on the Agenda), and the
+  // filters in the row's Filters menu: on the environment page the viewer's spaces, the kinds of markers ("Tasks due") and
+  // the person's other calendars; in a space the kinds of markers alone. As the destination's calendar the page's row has
+  // the view switch and the filters, so this gives only the title and the way through; the Agenda gives nothing (the
+  // page's panel switch is its heading).
   const ICON_NAME = /^[a-z0-9-]{1,40}$/;
   const EXTERNAL_TINT_NAMES = ['blue', 'teal', 'purple', 'green', 'orange']; // .ext-0 to .ext-4, in the destination's order
   function periodTitle() {
     return view === 'week' ? weekTitle() : view === 'day' ? dayHeading(anchor) : view === 'list' ? 'Next 90 days' : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
   }
-  function filterChips() {
-    if (part) return null;
+  // The filters, each a group of switches in the row's Filters menu (on: shown; one turned off is a filter applied).
+  function filterGroups() {
+    if (part) return [];
     const kinds = [...markerKinds.values()];
-    const options = [
-      ...(inSpace ? [] : [...spaceInfo.values()].map((r) => ({ id: `space:${r.id}`, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) }))),
-      ...kinds.map((k) => ({ id: `marker:${k.id}`, label: k.label, ...(ICON_NAME.test(k.icon || '') ? { icon: k.icon } : {}), ...(k.tint ? { tint: k.tint } : {}), on: !hiddenMarkers.has(k.id) })),
-      ...(inSpace ? [] : [...externalCalendars.values()].map((c) => ({ id: `ext:${c.id}`, label: c.name, icon: 'calendar', note: 'only you', tint: EXTERNAL_TINT_NAMES[c.tint] || 'blue', on: !hiddenExternal.has(c.id) }))),
+    const groups = [
+      { id: 'show-spaces', label: word('space', { many: true, cap: true }), options: inSpace ? [] : [...spaceInfo.values()].map((r) => ({ id: `space:${r.id}`, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) })) },
+      { id: 'show-markers', label: 'Markers', options: kinds.map((k) => ({ id: `marker:${k.id}`, label: k.label, ...(ICON_NAME.test(k.icon || '') ? { icon: k.icon } : {}), ...(k.tint ? { tint: k.tint } : {}), on: !hiddenMarkers.has(k.id) })) },
+      { id: 'show-calendars', label: 'Other calendars', options: inSpace ? [] : [...externalCalendars.values()].map((c) => ({ id: `ext:${c.id}`, label: c.name, icon: 'calendar', note: 'only you', tint: EXTERNAL_TINT_NAMES[c.tint] || 'blue', on: !hiddenExternal.has(c.id) })) },
     ];
-    return options.length ? { type: 'chips', id: 'show', label: 'Show', icon: 'filter', options } : null;
+    return groups.filter((g) => g.options.length).map((g) => ({ type: 'chips', ...g }));
   }
   function syncToolbar() {
     if (part === 'panel') return;
-    const chips = filterChips();
     host.toolbar.set([
+      { type: 'title', text: periodTitle() },
       ...(view !== 'list' ? [{ id: 'prev', icon: 'chevron-left', title: 'Previous' }] : []),
       { id: 'today', label: 'Today' },
       ...(view !== 'list' ? [{ id: 'next', icon: 'chevron-right', title: 'Next' }] : []),
-      { type: 'title', text: periodTitle() },
-      ...(chips ? [chips] : []),
+      ...filterGroups(),
     ]).catch(() => {});
     if (viewSwitch) viewSwitch.set(view);
   }
@@ -665,7 +666,7 @@
     if (e.id === 'prev') step(-1);
     else if (e.id === 'next') step(1);
     else if (e.id === 'today') { anchor = part ? startOfDay(new Date()) : new Date(); cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1); render(); }
-    else if (e.id === 'show' && typeof e.value === 'string') {
+    else if (['show-spaces', 'show-markers', 'show-calendars'].includes(e.id) && typeof e.value === 'string') {
       const at = e.value.indexOf(':');
       const what = e.value.slice(0, at);
       const id = e.value.slice(at + 1);
@@ -1099,7 +1100,7 @@
       }
       items.push({ text: range }, { text: count ? `${count} ${count === 1 ? 'event' : 'events'}` : 'No events' });
       const hiddenKinds = [...markerKinds.values()].filter((k) => hiddenMarkers.has(k.id)).length;
-      if (hiddenKinds) items.push({ text: `${hiddenKinds} ${hiddenKinds === 1 ? 'kind' : 'kinds'} hidden`, chip: true, title: 'Kinds of markers hidden in Show' });
+      if (hiddenKinds) items.push({ text: `${hiddenKinds} ${hiddenKinds === 1 ? 'kind' : 'kinds'} hidden`, title: 'Kinds of markers hidden in Filters' });
     }
     host.status.set(items).catch(() => {});
   }

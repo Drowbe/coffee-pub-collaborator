@@ -372,7 +372,7 @@
       const waiting = canVote ? open.filter((x) => x.scope === 'own' && !tally(x).mine.length).length : 0;
       items.push({ text: open.length ? `${open.length} open ${open.length === 1 ? 'poll' : 'polls'}` : 'No open polls' });
       if (waiting) items.push({ text: `${waiting} waiting for your vote` });
-      if (SHOW_WORDS[show]) items.push({ text: SHOW_WORDS[show], chip: true });
+      if (SHOW_WORDS[show]) items.push({ text: SHOW_WORDS[show] });
     }
     host.status.set(items).catch(() => {});
   }
@@ -725,12 +725,12 @@
 
   // --- wiring ---------------------------------------------------------------
 
-  // The toolbar row: on the environment page, a chip for each of the viewer's spaces to show or hide its polls; the view
-  // switch follows it in the same row.
+  // The toolbar row: the view switch leads it; on the environment page the row's Filters menu has a switch for each of the
+  // viewer's spaces, to show or hide its polls.
   const ICON_NAME = /^[a-z0-9-]{1,40}$/;
   function syncToolbar() {
     const chips = spaceInfo.size
-      ? [{ type: 'chips', id: 'spaces', label: word('space', { many: true, cap: true }), icon: 'filter', options: [...spaceInfo.values()].map((r) => ({ id: r.id, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) })) }]
+      ? [{ type: 'chips', id: 'spaces', label: word('space', { many: true, cap: true }), options: [...spaceInfo.values()].map((r) => ({ id: r.id, label: r.name, ...(ICON_NAME.test(r.icon || '') ? { icon: r.icon } : {}), on: !hiddenSpaces.has(r.id) })) }]
       : [];
     host.toolbar.set(chips).catch(() => {});
   }

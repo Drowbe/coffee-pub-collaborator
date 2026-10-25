@@ -1348,8 +1348,8 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.btn",
-     "text": "Tags"
+     "click": "button.mf-filters",
+     "until": ".host-menu"
     }
    ],
    "tier": "state"

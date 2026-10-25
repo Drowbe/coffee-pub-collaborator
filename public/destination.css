@@ -83,6 +83,11 @@ body.destination-page > .mf {
   display: flex;
 }
 
+/* The panel's parts are one above the other (only one shows), each the panel's whole width, sized or not. */
+.dest-side-body {
+  flex-direction: column;
+}
+
 .dest-part-root,
 .dest-part-frame {
   flex: 1;
@@ -90,7 +95,7 @@ body.destination-page > .mf {
   height: 100%;
   min-width: 0;
   border: 0;
-  background: var(--bg);
+  background: var(--mf-surface-content); /* the frame's content level */
 }
 
 .dest-missing {

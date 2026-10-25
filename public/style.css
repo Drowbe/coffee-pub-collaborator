@@ -46,15 +46,6 @@
   --surface: color-mix(in srgb, var(--surface-panel) 90%, var(--accent-fill) 10%);
   --surface-hover: color-mix(in srgb, var(--surface-panel) 78%, var(--accent-fill) 22%);
   --shade: var(--bg-input);
-  /* Layout: the one height every module header strip has, so headers in
-     neighbouring columns line up. Nothing else sets a module header height
-     (tools/check-canvas.mjs enforces it). 34px wider than a phone: the 28px titlebar buttons with 3px above and below
-     (Thomas, 2026-10-13: the tinted titlebars read as too tall at 42px); 42px on a phone, as before, for the touch
-     height (--module-header-phone-h, set at 640px and below further down). canvas.js reads it (headH). */
-  --module-header-h: var(--module-header-phone-h, 34px);
-  /* The status bar at the bottom of a module's own window or column (host.status.set): one slim, fixed line.
-     public/sdk/host.css has the same token. */
-  --status-bar-h: 24px;
   /* The space's status strip (plan-space-status-strip.md; the Journey bar family, design system step 30: the day grid):
      one fixed line, the header's second row wider than a phone (--status-strip-h: the row's 1px rule and the 56px grid,
      the pin, the 24px bar, the ticks and their dates) and a slim line under the top row on a phone
@@ -72,8 +63,6 @@
      call toolbar's own: a 20px icon in a 38px button. */
   --action-btn-h: var(--bar-control-h);
   --action-icon-ratio: calc(20 / 38);
-  /* The one height a module's optional toolbar row (under the titlebar) has, wherever it appears. */
-  --toolbar-h: 34px;
   /* The one small gap between the top bar's right-end controls (the favorites, Layout, the bell, your picture, Set up,
      Full screen, Pop out) and around a divider there; a layout token, no theme sets it. */
   --topbar-gap: 4px;
@@ -133,13 +122,6 @@
   font-size: var(--text-14);
   color: var(--text);
   background: var(--bg);
-}
-
-/* A module's titlebar on a phone keeps its 42px touch height (--module-header-h above). */
-@media (max-width: 640px) {
-  :root {
-    --module-header-phone-h: 42px;
-  }
 }
 
 /* The tints in the light mode: darker, so an icon and a message's edge read on a light page. On whichever mode shows:
@@ -3306,8 +3288,8 @@ a.crumb-here:hover {
 
 .no-call {
   position: absolute;
-  /* Below the module's header, so its title, its tools and its x are never covered. */
-  top: var(--module-header-h);
+  /* Below the module's title bar, so its title, its tools and its x are never covered. */
+  top: var(--mf-title-h);
   right: 0;
   bottom: 0;
   left: 0;
@@ -3490,7 +3472,8 @@ a.crumb-here:hover {
   background: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
-/* The chat's header (.chat-head) and its tools (.chat-tools) are a module's title bar: public/sdk/system.css, modulechrome. */
+/* The chat's header (.chat-head) and its tools (.chat-tools) are the module frame's title bar bands (.mf-titlebar,
+   .mf-titlebar-tools; public/sdk/system.css, moduleframe). */
 
 /* Chat's two views (#chat-views, chat-input.js, GitHub #203): #messages carries data-view and each line data-in
    (discussion, assistant or both; a line without one is the Discussion's). Changing the view fetches nothing. */
@@ -3587,8 +3570,8 @@ a.crumb-here:hover {
   font-size: 0.85em;
 }
 
-/* Chat's status area: the modules' own .mod-status line under the composer. Its notice shows an error in the error text
-   colour (a fill-free state, as a module's status does). */
+/* Chat's status area: the module frame's status bar (.mf-status) under the composer. Its notice shows an error in the error
+   text colour (a fill-free state). */
 .chat-status .error {
   color: var(--danger-text);
 }
@@ -5139,7 +5122,7 @@ body.module-page {
 
 /* The conference in a floating panel or a window of its own: its tiles are styled under
    a .canvas, so it brings one. Popovers hang above the toolbar, past the panel's edge. */
-.conference-floating {
+.builtin-floating.conference-floating {
   overflow: visible;
 }
 
@@ -5221,6 +5204,23 @@ body.conference-window {
   pointer-events: auto;
 }
 
+/* A built-in floating window (the Chat, the call) has the module frame's window look: its edge, corner, shadow and the
+   content's surface (the frame's tokens: the moduleframe block of public/sdk/system.css), its own title bar the handle. */
+.module-floating.builtin-floating {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--mf-edge);
+  border-radius: var(--radius-large);
+  background: var(--mf-surface-content);
+  box-shadow: var(--mf-shadow);
+  color: var(--text-primary);
+}
+
+.builtin-floating .mf-titlebar { cursor: grab; touch-action: none; }
+.builtin-floating .mf-titlebar:active { cursor: grabbing; }
+
 .module-floating.module-window {
   display: flex;
   flex-direction: column;
@@ -5248,7 +5248,7 @@ body.conference-window {
   min-height: 0;
   width: 100%;
   border: 0;
-  background: var(--surface-panel);
+  background: var(--mf-surface-content); /* the frame's content level */
 }
 
 .module-floating-grip {
@@ -5292,6 +5292,8 @@ body.conference-window {
 }
 
 .module-docked > .mod-content > .mf { flex: 1 1 auto; min-height: 0; }
+/* On a phone the module is the whole view: no column, so no divider. */
+.canvas.narrow .module-docked > .mod-content > .mf { border-left-width: 0; }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
    that ran out of room, the canvas title bars' menus and the account menu under your picture -- the same idea as
@@ -6258,7 +6260,7 @@ body.chat-window {
 .option-help a { color: var(--accent); }
 
 /* Reordering the columns of the canvas: a docked module is dragged by its titlebar (buttons in it still click). */
-.mod-header.reorderable, .chat-head.reorderable, .conference-head.reorderable, header.reorderable { cursor: grab; }
+.mf-titlebar.reorderable, header.reorderable { cursor: grab; }
 .reorderable button, .reorderable a, .reorderable input { cursor: pointer; }
 .canvas.reordering, .canvas.reordering * { cursor: grabbing !important; user-select: none; }
 .canvas.reordering iframe { pointer-events: none; }
@@ -8007,21 +8009,10 @@ h4.setup-subheading {
   color: var(--text);
 }
 
-/* The call's titlebar, as the chat's (.chat header): its name and a "...". Above the call wherever it sits in the
-   column; at the top it keeps clear of the handle (.side-column-toggle). */
+/* The call's title bar, the module frame's band (.mf-titlebar), as the chat's: its name and a "...". Above the call wherever it
+   sits in the column; at the top it keeps clear of the handle (.side-column-toggle). */
 .side-column-call-head {
-  flex: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  box-sizing: border-box;
-  height: var(--module-header-h);
-  padding: 0 40px 0 12px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 96%, transparent);
-  color: var(--text);
-  font-weight: var(--weight-strong);
+  padding-right: 40px;
 }
 
 .call-time {
@@ -8035,17 +8026,6 @@ h4.setup-subheading {
 
 .side-column-call-head[hidden] {
   display: none;
-}
-
-.side-column-call-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.side-column-call-title i {
-  color: var(--text-dim);
 }
 
 .side-column-toggle:focus-visible {

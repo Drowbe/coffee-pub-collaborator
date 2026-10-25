@@ -105,11 +105,12 @@
     <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" data-tip="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
     <!-- The call's titlebar, as the chat's: its name (the environment's name for the conference, else Call) and a "..."
          with Pop out, Call position, Settings and Leave the call (space.js, the call's place). -->
-    <header class="side-column-call-head" id="call-head">
-      <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
-      <span class="chat-tools">
-        <button class="sdk-icon-btn btn-quiet btn-small" id="call-head-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
-        <button class="sdk-icon-btn btn-quiet btn-small" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+    <header class="mf-titlebar side-column-call-head" id="call-head">
+      <span class="mf-titlebar-icon" aria-hidden="true"><i class="fa-solid fa-video fa-fw" id="call-head-icon"></i></span>
+      <span class="mf-titlebar-title side-column-call-title"><span id="call-head-name">Call</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
+      <span class="mf-titlebar-tools">
+        <button class="mf-icon-btn mf-titlebar-btn" id="call-head-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
+        <button class="mf-icon-btn mf-titlebar-btn" id="call-more" type="button" data-tip="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
       </span>
     </header>
     <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
@@ -150,11 +151,12 @@
          and chat are the first two; see documentation/architecture/architecture-canvas.md. -->
     <section class="module module-video" id="conference" hidden>
       <div class="mod-content" id="video-content">
-      <header class="mod-header conference-head">
-        <span class="mod-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" data-module-icon></i> <span data-module-name>Conference</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
-        <span class="mod-header-tools conference-tools">
-          <button class="sdk-icon-btn btn-quiet btn-small" id="conf-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
-          <button class="sdk-icon-btn btn-quiet btn-small" id="conf-close" data-module-close type="button" data-tip="Leave the call" aria-label="Leave the call"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+      <header class="mf-titlebar conference-head">
+        <span class="mf-titlebar-icon" aria-hidden="true"><i class="fa-solid fa-video fa-fw" data-module-icon></i></span>
+        <span class="mf-titlebar-title"><span data-module-name>Conference</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
+        <span class="mf-titlebar-tools conference-tools">
+          <button class="mf-icon-btn mf-titlebar-btn" id="conf-popout" type="button" data-tip="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
+          <button class="mf-icon-btn mf-titlebar-btn" id="conf-close" data-module-close type="button" data-tip="Leave the call" aria-label="Leave the call"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
       <div class="grid" id="grid"></div>
@@ -322,16 +324,16 @@
     <aside class="chat module module-chat" id="chat" hidden>
       <div class="chat-resize" id="chat-resize" title="Drag to resize"></div>
       <div class="mod-content" id="chat-content">
-      <header class="chat-head">
-        <span data-module-name>Chat</span>
-        <span class="chat-tools">
-          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-more" type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
-          <button class="sdk-icon-btn btn-quiet btn-small" id="chat-close" type="button" data-tip="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+      <header class="mf-titlebar chat-head">
+        <span class="mf-titlebar-title" data-module-name>Chat</span>
+        <span class="mf-titlebar-tools chat-tools">
+          <button class="mf-icon-btn mf-titlebar-btn" id="chat-more" type="button" data-tip="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="mf-icon-btn mf-titlebar-btn" id="chat-close" type="button" data-tip="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
       <!-- Chat's two views (GitHub #203), one store: Discussion, what everyone sees, and Assistant, your own commands, AI
            answers and what you bring in. chat-input.js keeps it; the Discussion word follows the template. -->
-      <div class="mod-toolbar" id="chat-views" hidden>
+      <div class="mf-toolbar chat-views" id="chat-views" hidden>
         <span class="tb-tabs" role="tablist" aria-label="Chat views">
           <button class="tb-tab on" id="chat-view-discussion" type="button" role="tab" aria-selected="true" aria-controls="messages" aria-describedby="chat-view-discussion-new" tabindex="0" aria-label="Discussion"><i class="tb-tab-glyph fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Discussion</span><span class="chat-view-count" id="chat-view-discussion-count" aria-hidden="true" hidden></span></button>
           <button class="tb-tab" id="chat-view-assistant" type="button" role="tab" aria-selected="false" aria-controls="messages" aria-describedby="chat-view-assistant-new" tabindex="-1" aria-label="Assistant"><i class="tb-tab-glyph fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Assistant</span><span class="chat-view-dot" id="chat-view-assistant-dot" aria-hidden="true" hidden></span></button>
@@ -374,13 +376,11 @@
         <textarea id="chat-input" maxlength="1000" placeholder="Send a message or type / for commands" rows="1" enterkeyhint="send"></textarea>
         <input type="file" id="chat-file" accept="image/*" hidden>
       </form>
-      <!-- The Chat column's status line, the modules' own (.mod-status): the connection on the left, the latest notice on
-           the right. Always there, one line; each part is a polite live region so a change is read out once. -->
-      <div class="mod-status chat-status" id="chat-status" role="region" aria-label="Chat status">
-        <span class="mod-status-items">
-          <span class="mod-status-item" id="chat-conn" aria-live="polite"><i class="fa-solid fa-fw" id="chat-conn-icon" aria-hidden="true"></i><span class="mod-status-text" id="chat-conn-text"></span><span class="mod-status-text" id="chat-conn-time" aria-hidden="true"></span></span>
-          <span class="mod-status-item end" id="chat-note-item"><span class="mod-status-text" id="chat-note" role="status" aria-live="polite"></span></span>
-        </span>
+      <!-- The Chat column's status bar, the module frame's (.mf-status): the connection at the start, the latest notice at
+           the end. Always there, one line; each part is a polite live region so a change is read out once. -->
+      <div class="mf-status chat-status" id="chat-status" role="region" aria-label="Chat status">
+        <span class="mf-status-text" id="chat-conn" aria-live="polite"><i class="fa-solid fa-fw" id="chat-conn-icon" aria-hidden="true"></i> <span id="chat-conn-text"></span> <span id="chat-conn-time" aria-hidden="true"></span></span>
+        <span class="mf-status-items"><span class="mf-status-item" id="chat-note-item"><span id="chat-note" role="status" aria-live="polite"></span></span></span>
       </div>
       </div>
     </aside>

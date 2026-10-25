@@ -1411,6 +1411,25 @@
    "tier": "core"
   },
   {
+   "id": "space-module-phone",
+   "family": "Space page (call stand-in)",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.sdk-strip-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#modules-menu button",
+     "text": "Itinerary",
+     "until": ".module-docked .mf-titlebar"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
    "id": "space-calendar-tab",
    "family": "Space page (call stand-in)",
    "as": "mia",

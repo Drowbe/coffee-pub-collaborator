@@ -247,7 +247,7 @@ export function createModuleFrame(opts = {}) {
       const on = o.id === it.value;
       const t = el('button', 'mf-tab', { type: 'button', role: 'tab', 'aria-selected': String(on), 'aria-controls': `${uid}-content`, tabindex: on ? '0' : '-1' });
       t.append(word(o.label));
-      if (o.count !== undefined && o.count !== null) t.append(el('span', 'mf-count', { text: String(o.count) }));
+      if (o.count !== undefined && o.count !== null) t.append(el('span', 'sdk-badge', { text: String(o.count) }));
       t.addEventListener('click', () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(`tab:${it.id}`); });
       strip.append(t);
       return t;
@@ -278,7 +278,7 @@ export function createModuleFrame(opts = {}) {
       const on = o.id === it.value;
       const c = el('button', `mf-chip${on ? ' is-on' : ''}`, { type: 'button', role: 'radio', 'aria-checked': String(on), tabindex: on ? '0' : '-1' });
       c.append(word(o.label));
-      if (o.count !== undefined && o.count !== null) c.append(el('span', 'mf-count', { text: String(o.count) }));
+      if (o.count !== undefined && o.count !== null) c.append(el('span', 'sdk-badge', { text: String(o.count) }));
       c.dataset.key = `chip:${it.id}:${o.id}`;
       c.addEventListener('click', () => { it.value = o.id; fire({ id: it.id, value: o.id }); redraw(`chip:${it.id}:${o.id}`); });
       group.append(c);
@@ -334,7 +334,7 @@ export function createModuleFrame(opts = {}) {
     const on = it.options.filter((o) => o.on).length;
     const menu = el('button', 'mf-chips-menu', { type: 'button', 'aria-haspopup': 'menu', 'aria-label': `${it.label || 'Filters'}${on ? `, ${on} on` : ''}` });
     menu.append(icon('filter'), word(it.label || 'Filters'));
-    if (on) menu.append(el('span', 'mf-count', { text: String(on) }));
+    if (on) menu.append(el('span', 'sdk-badge', { text: String(on) }));
     menu.addEventListener('click', () => chipsMenu(it, menu));
     return [group, menu];
   }
@@ -363,9 +363,9 @@ export function createModuleFrame(opts = {}) {
     const b = it._els && it._els[0];
     if (!b) return;
     const n = filterCount(it);
-    const c = b.querySelector('.mf-count');
+    const c = b.querySelector('.sdk-badge');
     if (c) c.remove();
-    if (n) b.append(el('span', 'mf-count mf-count-box', { text: String(n) }));
+    if (n) b.append(el('span', 'sdk-badge', { text: String(n) }));
     b.setAttribute('aria-label', `${it.label || 'Filters'}${n ? `, ${n} applied` : ''}`);
   }
   function drawFilters(it) {

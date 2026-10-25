@@ -5745,7 +5745,6 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf :where(button) { margin: 0; cursor: pointer; }
 .mf :where(button):disabled { cursor: default; opacity: 0.5; }
 .mf .mf-word { white-space: nowrap; }
-.mf .mf-count { display: inline-flex; align-items: center; justify-content: center; min-width: var(--icon-16); height: var(--icon-16); padding: 0 var(--space-1); box-sizing: border-box; border-radius: var(--radius-round); background: var(--surface-track); color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-medium); line-height: var(--leading-ui); }
 
 /* ---- 1. the title bar ---- */
 .mf-titlebar {
@@ -5853,14 +5852,10 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 /* Quick sets: the same chips, but one is chosen at a time, with counts; the chosen one is filled solid. */
 .mf-quickset { display: flex; flex: none; align-items: center; gap: var(--space-1); }
 .mf-quickset .mf-chip.is-on { background: var(--accent-fill); color: var(--text-on-accent); }
-.mf-quickset .mf-chip.is-on .mf-count { background: transparent; color: inherit; }
 .mf-quickset .mf-chip:not(.is-on) { background: transparent; }
 
-/* The Filters button: a small-corner box for the count of what is applied (never a pill); always shown, only ever moved into More. */
-.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; border-radius: var(--radius-small); }
-.mf-filters > i { transform: translateY(-1.5px); } /* the label's ink sits above its line box's middle: the funnel and the count follow the ink (measured in pixels at 3x) */
-.mf-filters .mf-count-box { transform: translateY(-1px); }
-.mf .mf-count.mf-count-box { border-radius: var(--radius-round); padding: 0 var(--space-1); line-height: 1; align-self: center; background: var(--accent-fill); color: var(--text-on-accent); }
+/* The Filters button: its count is the shared .sdk-badge; always shown, only ever moved into More. */
+.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; line-height: 1; border-radius: var(--radius-small); }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }

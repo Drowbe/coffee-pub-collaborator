@@ -131,6 +131,10 @@ function selfTest() {
   assert.equal(html('<header class="sdk-card-head"></header>').size, 0, "the shared banded card's own head is not a header bar");
   assert.equal(html('<header class="sdk-card-headx"></header>').get('markup: <header>'), 1, 'a look-alike class still fails');
   assert.equal(html('<div class="sdk-toolbar"></div>').get('markup: class sdk-toolbar'), 1, 'a toolbar of its own fails');
+  assert.equal(css('.mf-titlebar { color: red }').size, 1, "the frame's title bar class fails");
+  assert.equal(css('.mf-icon-btn:hover { color: red }').size, 1, "any frame class fails");
+  assert.equal(html('<div class="mf-toolbar"></div>').get('markup: class mf-toolbar'), 1, "the frame's toolbar in markup fails");
+  assert.equal(html('<footer class="mf-status"></footer>').get('markup: class mf-status'), 1, "the frame's status band in markup fails");
   assert.equal(html('<div class="a page-bar"></div>').get('markup: class page-bar'), 1, 'a page-bar fails');
   assert.equal(html('<div class="tabs"></div>').get('markup: class tabs'), 1, 'a tabs strip fails');
   assert.equal(html('<div class="sdk-card sdk-row sdk-field"></div>').size, 0, 'using the shared classes in markup is the rule, not a finding');

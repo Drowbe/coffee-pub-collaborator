@@ -110,7 +110,7 @@ await test('pages: the Calendar draws markers as chips, by the filter, in every 
   assert.match(js, /return groups\.filter\(\(g\) => g\.options\.length\)\.map\(\(g\) => \(\{ type: 'chips', \.\.\.g \}\)\);/, 'each group a chips item of the toolbar');
   assert.match(js, /if \(what === 'marker'\) return toggleMarkerKind\(id, Boolean\(e\.on\)\);/, 'a switch turns its kind on or off');
   const frameJs = read('public/module-frame.js');
-  assert.match(frameJs, /onPick: \(\) => \{ o\.on = !isOn\(o\); fire\(\{ id: g\.id, value: o\.id, on: o\.on \}\); refreshCount\(\); \}/, 'the frame sends the switch and its new state');
+  assert.match(frameJs, /on\.on = !isOn\(on\);\s*\n\s*pick\(`\$\{n\.id\}\\n\$\{on\.id\}`, on\.on\);\s*\n\s*fire\(\{ id: n\.id, value: on\.id, on: on\.on \}\);/, 'the frame sends the switch and its new state (on the entry shown now)');
   const hostPage = read('public/module-host.js');
   assert.match(hostPage, /for \(const k of \['value', 'on', 'submit'\]\) if \(e\[k\] !== undefined\) data\[k\] = e\[k\];/, 'and the host hands it to the module as it is');
   // A space's switches are remembered in this browser, per space, as /calendar remembers its filter.

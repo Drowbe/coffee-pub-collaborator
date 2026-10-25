@@ -5553,8 +5553,9 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-quickset .mf-chip.is-on { background: var(--accent-fill); color: var(--text-on-accent); }
 .mf-quickset .mf-chip:not(.is-on) { background: transparent; }
 
-/* The Filters button: its count is the shared .sdk-badge; always shown, only ever moved into More. */
-.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; line-height: 1; border-radius: var(--radius-small); }
+/* The Filters button: its count is the shared .sdk-badge; always shown, only ever moved into More. A control's height, as the
+   search beside it and the buttons on the left (QA, 2026-10-25: By day stood taller than Filters). */
+.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; height: var(--mf-ctl-h); line-height: 1; border-radius: var(--radius-small); }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }

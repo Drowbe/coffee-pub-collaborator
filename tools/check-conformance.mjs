@@ -20,7 +20,7 @@
 //   Filters button) exactly --mf-inset from the end, the same place in every window; with no end group, nothing closer;
 //   status bar --mf-status-h (24 px), its first item --mf-inset in;
 //   a search field and a control in a band (a button, the view switch, a tab, the "+", the menu, Close) --mf-ctl-h (28 px);
-//   the Filters button and a filter chip --mf-chip-h (24 px); nothing in a band is cut (its controls inside its padding);
+//   the Filters button --mf-ctl-h too, a filter chip --mf-chip-h (24 px); nothing in a band is cut (its controls inside its padding);
 //   a tab strip or view switch (the Tabs family in a band: the Chat's Discussion | Assistant row; the frame's switch and
 //   tabs; and a row of tabs of a module's own, measured as a band of its own): centred in its band, as far from its top as
 //   from its bottom;
@@ -122,7 +122,7 @@ const COLLECT = String.raw`(() => {
       if (!shown(b) || b.closest('.sdk-search, .mf-search') || (b.matches('.mf-switch-btn, .tb-tab') && b.closest('.mf-switch'))) continue;
       if (b.matches('.mf-chip') && b.closest('.mf-quickset, .mf-chips')) { out.buttons.push({ h: px(R(b).height), chip: true, what: (b.textContent || '').trim().slice(0, 24) }); continue; }
       if (b.matches('.tb-tab, .mf-tab')) continue; // a tab is measured with its strip
-      out.buttons.push({ h: px(R(b).height), chip: b.matches('.mf-chip, .mf-chips-menu'), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
+      out.buttons.push({ h: px(R(b).height), chip: b.matches('.mf-chip, .mf-chips-menu:not(.mf-filters)'), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
     }
     out.at = { x: Math.round(r.left + offsetOf(el).x), y: Math.round(r.top + offsetOf(el).y) };
     out.top = px(r.top + offsetOf(el).y); out.bottom = px(r.bottom + offsetOf(el).y); out.x0 = px(r.left + offsetOf(el).x); out.x1 = px(r.right + offsetOf(el).x);
@@ -481,8 +481,8 @@ function judge(context, phone, windows) {
       }
       if (b.band === 'status' && b.left !== null && Math.abs(b.left - want.statusLeft) > 0.5) bad('status bar inset, start', b.left, want.statusLeft);
       for (const x of b.buttons) {
-        // Every control in a band is the frame's --mf-ctl-h, on every width (the Prototype at 390 too); the Filters button and a
-        // filter chip are the chip's --mf-chip-h.
+        // Every control in a band is the frame's --mf-ctl-h, on every width (the Prototype at 390 too), the Filters button too; a
+        // filter chip is the chip's --mf-chip-h.
         const should = x.chip ? want.chip : want.button;
         if (Math.abs(x.h - should) > 0.5) bad(`control in the ${b.band} (${x.what})`, x.h, should);
       }
@@ -552,6 +552,37 @@ async function main() {
           judge(`Workspace, 390 px, dark: ${id}`, true, wins);
           await symmetry(tab, `Workspace, 390 px, dark: ${id}`);
         }
+      } finally { await closeTab(tab); }
+    }]);
+    // 2b. The Filters menu follows the picks made in it while it is open (QA e6a659d): three single choices in a row each show as
+    // the one chosen (the module draws its row again between them), and Clear filters unmarks them.
+    jobs.push(['Filters menu', async () => {
+      const tab = await openTab(browser, S, 1280, 'light', '/modules/budget?space={trip}');
+      const ctx = 'Budget, 1280 px, light: the Filters menu';
+      const bad = (what, got, should) => failures.push({ context: ctx, window: 'Budget (own page)', what, got, should });
+      const checkedIn = `(() => { const m = document.querySelector('.host-menu'); if (!m) return null; const rows = [...m.querySelectorAll('[role=menuitemradio]')]; return rows.filter((r) => r.getAttribute('aria-checked') === 'true').map((r) => r.textContent.trim().replace(/\\s*\\d+$/, '')); })()`;
+      const click = (expr) => tab.eval(`(() => { const b = ${expr}; if (b) b.click(); return Boolean(b); })()`);
+      try {
+        await tab.waitFor('.mf-switch-btn', '', 45000);
+        await sleep(1000);
+        await click(`[...document.querySelectorAll('.mf-switch-btn')].find((b) => b.textContent.trim() === 'Costs')`);
+        await sleep(800);
+        if (!(await click(`document.querySelector('button.mf-filters')`))) { bad('Filters button', 'none', 'one'); return; }
+        await sleep(400);
+        let last = null;
+        for (const name of ['Travel', 'Lodging', 'Food']) {
+          const found = await click(`[...document.querySelectorAll('.host-menu [role=menuitemradio]')].find((r) => r.textContent.trim().startsWith('${name}'))`);
+          if (!found) { bad(`the option ${name}`, 'missing', 'in the menu'); continue; }
+          await sleep(700);
+          last = await tab.eval(checkedIn);
+          const cat = (last || []).filter((x) => !/^(Date|Amount|Title|Anyone|Nobody|Paid)/.test(x));
+          if (cat.length !== 1 || cat[0] !== name) bad(`after picking ${name}, the menu marks`, JSON.stringify(cat), `["${name}"]`);
+        }
+        if (!(await click(`[...document.querySelectorAll('.host-menu .host-menu-item')].find((r) => r.textContent.trim() === 'Clear filters')`))) bad('Clear filters', 'missing', 'in the menu');
+        await sleep(700);
+        const after = (await tab.eval(checkedIn)) || [];
+        if (!after.includes('All categories') || after.some((x) => ['Travel', 'Lodging', 'Food'].includes(x))) bad('after Clear filters, the menu marks', JSON.stringify(after), 'All categories, nothing picked');
+        results.push({ context: ctx, head: '  Filters menu', rows: [`    marked after the last pick: ${JSON.stringify(last)}; after Clear filters: ${JSON.stringify(after)}`], failed: false });
       } finally { await closeTab(tab); }
     }]);
     // 3. Each module's own page and each destination's page.

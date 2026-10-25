@@ -64,7 +64,7 @@
 // the search becomes a magnifier (it opens over the row); a primary button with an icon shows only its icon. Then, if it
 // still does not fit, whole controls go into the "More" menu one at a time, in MOVE order below, until it fits. A word
 // folded away is the control's tooltip and its name.
-import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
+import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import '/tooltip.js';
 
 // The standard title bar actions, drawn by the host the same in every module, in this order; each is on unless the module
@@ -414,11 +414,17 @@ export function createModuleFrame(opts = {}) {
   const isOn = (o) => Boolean(o.on);
   const applied = (g) => (g.single ? (g.options.length && g.value !== g.options[0].id ? 1 : 0) : g.options.filter((o) => isOn(o) !== Boolean(o.default)).length);
   const filterCount = (it) => it.groups.reduce((n, g) => n + applied(g), 0);
+  // A pick acts on the entry shown now (the module may have drawn its row again since the menu was drawn: the newest entry
+  // is what the menu reads) and is kept until the menu closes, so an answer still on its way with an older state never shows
+  // the previous choice as chosen.
+  const nowGroup = (g) => { const k = kept.get('filters'); return (k && k.it.groups.find((x) => x.id === g.id)) || g; };
+  const pick = (key, value) => { const k = kept.get('filters'); if (k) k.picks.set(key, value); };
   function filterItems(it) {
     const list = [{ label: 'Clear filters', icon: 'xmark', disabled: filterCount(it) === 0, keepOpen: true, onPick: () => {
-      for (const g of it.groups) {
-        if (g.single) { if (applied(g)) { g.value = g.options[0].id; fire({ id: g.id, value: g.value }); } continue; }
-        for (const o of g.options) if (isOn(o) !== Boolean(o.default)) { o.on = Boolean(o.default); fire({ id: g.id, value: o.id, on: o.on }); }
+      for (const g0 of it.groups) {
+        const g = nowGroup(g0);
+        if (g.single) { if (applied(g)) { g.value = g.options[0].id; pick(g.id, g.value); fire({ id: g.id, value: g.value }); } continue; }
+        for (const o of g.options) if (isOn(o) !== Boolean(o.default)) { o.on = Boolean(o.default); pick(`${g.id}\n${o.id}`, o.on); fire({ id: g.id, value: o.id, on: o.on }); }
       }
       refreshCount();
     } }];
@@ -427,8 +433,15 @@ export function createModuleFrame(opts = {}) {
       for (const o of g.options) {
         const look = { ...(o.icon ? { icon: o.icon } : {}), ...(TINT.test(o.tint || '') ? { tint: o.tint } : {}), ...(o.note ? { hint: o.note } : {}) };
         list.push(g.single
-          ? { label: o.label, ...look, radio: true, checked: o.id === g.value, badge: o.count, keepOpen: true, onPick: () => { g.value = o.id; fire({ id: g.id, value: o.id }); refreshCount(); } }
-          : { label: o.label, ...look, checked: isOn(o), toggle: true, badge: o.count, onPick: () => { o.on = !isOn(o); fire({ id: g.id, value: o.id, on: o.on }); refreshCount(); } });
+          ? { label: o.label, ...look, radio: true, checked: o.id === g.value, badge: o.count, keepOpen: true, onPick: () => { const n = nowGroup(g); n.value = o.id; pick(n.id, o.id); fire({ id: n.id, value: o.id }); refreshCount(); } }
+          : { label: o.label, ...look, checked: isOn(o), toggle: true, badge: o.count, onPick: () => {
+            const n = nowGroup(g);
+            const on = n.options.find((x) => x.id === o.id) || o;
+            on.on = !isOn(on);
+            pick(`${n.id}\n${on.id}`, on.on);
+            fire({ id: n.id, value: on.id, on: on.on });
+            refreshCount();
+          } });
       }
     }
     return list;
@@ -448,13 +461,24 @@ export function createModuleFrame(opts = {}) {
       const b = el('button', 'mf-chips-menu mf-filters', { type: 'button', 'aria-haspopup': 'menu' });
       b.dataset.key = 'filters';
       b.append(icon('filter'), word(it.label || 'Filters'));
-      k = { b, it };
-      b.addEventListener('click', () => openHostMenu(b, () => filterItems(k.it)));
+      k = { b, it, picks: new Map() };
+      b.addEventListener('click', () => { k.picks.clear(); openHostMenu(b, () => filterItems(k.it)); });
       kept.set('filters', k);
     }
+    // While the menu is open, the picks made in it hold over an entry drawn from an older state, and the menu is drawn again.
+    const open = hostMenuOpen(k.b);
+    if (open) {
+      for (const [key, value] of k.picks) {
+        const [gid, oid] = key.split('\n');
+        const g = it.groups.find((x) => x.id === gid);
+        if (!g) continue;
+        if (oid === undefined) { if (g.single) g.value = value; } else { const o = g.options.find((x) => x.id === oid); if (o) o.on = value; }
+      }
+    } else k.picks.clear();
     k.it = it;
     k.b.querySelector('.mf-word').textContent = it.label || 'Filters';
     refreshCount();
+    if (open) refreshHostMenu();
     return [k.b];
   }
   function drawButton(it) {
@@ -466,8 +490,28 @@ export function createModuleFrame(opts = {}) {
     if (kind !== 'icon' && it.tip) b.dataset.tipOwn = '';
     if (typeof it.on === 'boolean') { b.setAttribute('aria-pressed', String(it.on)); b.classList.toggle('is-on', it.on); }
     b.disabled = Boolean(it.disabled);
-    b.addEventListener('click', () => fire({ id: it.id, el: b }));
+    b.addEventListener('click', (e) => { fire({ id: it.id, el: b }); if (e.detail === 0) keepFocusOn(b.dataset.key); });
     return [b];
+  }
+  // A button pressed with the keyboard whose module answers in its own place (a menu of choices, say: Budget's By day) gets the keyboard back when that
+  // closes and the focus would fall to the page: while the person is in the button, the row or the module, then is nowhere,
+  // the button (drawn again, found by its key) takes it. Given up once the focus goes anywhere else, or after a minute.
+  let focusWatch = 0;
+  function keepFocusOn(key) {
+    const until = Date.now() + 60000;
+    const id = ++focusWatch;
+    const look = () => {
+      if (id !== focusWatch || !root.isConnected || Date.now() > until) return;
+      const a = doc.activeElement;
+      if (!a || a === doc.body) {
+        const b = toolbar.querySelector(`[data-key="${key}"]`);
+        if (b && b.offsetParent && !b.disabled) b.focus({ preventScroll: true });
+        return;
+      }
+      if (!root.contains(a)) return; // the person went elsewhere
+      win.setTimeout(look, 100);
+    };
+    win.setTimeout(look, 100);
   }
   // The entries one control gives the "More" menu.
   function moreEntries(it) {

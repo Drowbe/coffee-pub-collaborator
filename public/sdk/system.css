@@ -522,9 +522,10 @@
 }
 
 /* A strip in a band (the Chat's Discussion | Assistant row): the band is the module frame's toolbar (moduleframe) and the tabs
-   are the small ones, the same on every width. No page sets its own. */
-:is(.mf-toolbar, .mf-titlebar) :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs) {
-  --tab-h: var(--tab-h-small);
+   are the frame's controls' height (--mf-ctl-h), the same on every width. No page sets its own. (Named twice, so it outranks
+   the small strip's rule above, whose .page-bar .subtabs weighs three classes.) */
+:is(.mf-toolbar, .mf-titlebar) :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs) {
+  --tab-h: var(--mf-ctl-h);
   --tab-font: var(--text-13);
   --tab-icon: var(--icon-14);
   --tab-icon-dy: 0px;
@@ -5636,6 +5637,8 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-titlebar-icon[data-tint] { color: color-mix(in srgb, var(--tint) 62%, var(--text-primary)); }
 /* Quieter words in the row (a short note), never cut; they move into "More" whole. */
 .mf-tb-text { flex: none; color: var(--text-muted); font-size: var(--text-12); white-space: nowrap; }
+/* A shared button in a band (the Chat's Start call in its row): the frame's control height. */
+:is(.mf-toolbar, .mf-titlebar) .btn-small { --btn-h: var(--mf-ctl-h); }
 /* A pressed button (a toggle the module keeps): the selected fill, as an icon button's. */
 .mf-btn.is-on { border-color: transparent; background: var(--fill-selected); color: var(--text-selected); }
 
@@ -5667,5 +5670,5 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf.mf-docked { border-width: 0 0 0 1px; border-radius: 0; box-shadow: none; }
 .mf.mf-page { border: 0; border-radius: 0; box-shadow: none; }
 /* The page reaches the bottom of the screen: its status bar keeps clear of the home indicator. */
-.mf.mf-page > .mf-status { box-sizing: content-box; padding-bottom: var(--safe-bottom); }
+.mf.mf-page > .mf-status { height: calc(var(--mf-status-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); }
 /* moduleframe:end */

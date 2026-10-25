@@ -160,20 +160,30 @@ test('host.menu.show: categories fly out in a module too', () => {
   assert.ok(sdkSrc.includes('// An item with `items` (or `submenu`'), 'the contract says so');
 });
 
-test('a module\'s titlebar: Dock, Window and Pop out are in its "..."', () => {
+test('a module\'s title bar: Dock, Window and Pop out are in its "..."', () => {
   const src = read('public/canvas.js');
-  assert.ok(!/data-popout|data-mode="(float|dock)"/.test(src), 'no Dock, Window or Pop out button in a titlebar');
-  const header = src.slice(src.indexOf('  const moduleHeader = '), src.indexOf('  // The page a composite holds'));
-  assert.ok(header.includes('<span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace'), 'every module, a composite too, has a "..."');
-  assert.ok(header.includes('${CLOSE_HTML}</span>`'), 'Close last');
-  const ways = src.slice(src.indexOf('  function wayItems(mod) {'), src.indexOf('  // Everything this module holds in this space.'));
-  assert.ok(ways.includes("if (!mod || isNarrow()) return [];"), 'none on a phone');
-  assert.ok(ways.includes("label: 'Open as a window', tip: 'Float over the call', onPick: () => setMode(mod.id, 'float')"));
-  assert.ok(ways.includes("label: 'Dock as a panel', tip: 'Dock beside the video', hint: why || undefined, disabled: Boolean(why), onPick: () => setMode(mod.id, 'dock')"));
-  assert.ok(ways.includes("label: 'Open in its own window', tip: 'Pop out of this page', onPick: () => popOut(mod.id)"));
-  assert.ok(ways.includes("own.length && ways.length ? [...own, { divider: true }, ...ways]"), 'after the module\'s own entries, below a line');
-  assert.ok(ways.includes('openClearMenu(trigger, () => clearModuleData(opened.get(id) || mod), { armed: true })'), 'Clear still asks first');
-  assert.ok(src.includes('openHostMenu(trigger, () => moduleMenuItems(mod.id, trigger));'), 'on the shared menu');
+  assert.ok(!/data-popout|data-mode="(float|dock)"/.test(src), 'no Dock, Window or Pop out button in a title bar');
+  const make = src.slice(src.indexOf('  function makeFrame('), src.indexOf('  // The page a composite holds'));
+  assert.ok(make.includes('titlebar: { close: true, standard: () => standardFor(m.id), onAction: (e) => titlebarAction(m.id, e) }'), 'every module, a composite too, has the frame\'s "..." (standard actions) and Close');
+  const frameJs = read('public/module-frame.js');
+  const drawTb = frameJs.slice(frameJs.indexOf('  function drawTitlebar() {'), frameJs.indexOf('  function showMenuButton() {'));
+  assert.ok(drawTb.indexOf("'mf-icon-btn mf-titlebar-btn mf-titlebar-menu'") < drawTb.indexOf("'mf-icon-btn mf-titlebar-btn mf-close-btn'"), 'Close last');
+  assert.ok(drawTb.indexOf('mf-add-btn') < drawTb.indexOf('mf-titlebar-menu'), 'the "+" before the menu');
+  const ways = src.slice(src.indexOf('  function standardFor(id) {'), src.indexOf('  // Everything this module holds in this space.'));
+  assert.ok(ways.includes('if (isNarrow()) return out;'), 'none on a phone');
+  assert.ok(ways.includes("if (mod.mode === 'dock' && supports(mod, 'float')) out.window = true;"), 'Open as a window while docked');
+  assert.ok(ways.includes("out.dock = why ? { hint: why, disabled: true } : true;"), 'Dock as a panel while floating, unavailable and why while it cannot');
+  assert.ok(ways.includes('out.popout = true;'), 'Open in its own window');
+  assert.ok(ways.includes('out.clear = !compositeOf(mod.m);'), 'Clear, not a composite\'s');
+  assert.ok(ways.includes("if (e.id === 'window') return setMode(id, 'float');") && ways.includes("if (e.id === 'dock') return setMode(id, 'dock');") && ways.includes("if (e.id === 'popout') return popOut(id);"), 'each does what it says');
+  assert.ok(ways.includes("if (e.id === 'clear' && e.el) openClearMenu(e.el, () => clearModuleData(opened.get(id) || mod), { armed: true });"), 'Clear still asks first');
+  // The frame's menu: the module's own actions, a line, the standard actions, a line, the destructive ones last.
+  assert.ok(frameJs.includes("{ id: 'dock', label: 'Dock as a panel', icon: 'table-columns', tip: 'Dock beside the video', off: true },"));
+  assert.ok(frameJs.includes("{ id: 'window', label: 'Open as a window', icon: 'window-restore', regular: true, tip: 'Float over the call' },"));
+  assert.ok(frameJs.includes("{ id: 'popout', label: 'Open in its own window', icon: 'up-right-from-square', tip: 'Pop out of this page' },"));
+  assert.ok(frameJs.includes("{ id: 'clear', label: 'Clear', icon: 'trash', danger: true, off: true },"));
+  assert.ok(frameJs.includes('return runs.flatMap((r, at) => (at ? [{ divider: true }, ...r] : r));'), 'after the module\'s own entries, below a line');
+  assert.ok(frameJs.includes("menu.addEventListener('click', () => openHostMenu(menu, titlebarMenu));"), 'on the shared menu');
   assert.ok(read('public/host-menu.js').includes('if (item.tip) b.title = item.tip;'), 'the old tooltips, on the entries');
 });
 

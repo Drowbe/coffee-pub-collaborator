@@ -498,7 +498,7 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   assert.ok(src.includes('lift = true, onLift = null, liftUp = null }) {'), 'mountModule takes lift, onLift and liftUp');
   // The lift itself, run on a stand-in page: body > [header, main > [section > [bar, frame], other]].
   const pageStart = src.indexOf('const inertCount = new WeakMap();'); // the page-wide lift state, above mountModule
-  const pageEnd = src.indexOf('// The "+" in a titlebar', pageStart);
+  const pageEnd = src.indexOf('// A module\'s bands in a frame (createModuleFrame', pageStart);
   assert.ok(pageStart > 0 && pageEnd > pageStart, 'module-host.js has the page-wide lift state');
   assert.ok(src.includes('export function createFrameLift(frame, {'), 'module-host.js has createFrameLift');
   const el = (tag, cls = '') => {

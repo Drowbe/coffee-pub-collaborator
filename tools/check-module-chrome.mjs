@@ -1,19 +1,24 @@
 #!/usr/bin/env node
 /*
- * check-module-chrome.mjs -- a module window's "+" (host.add.set) and its status bar (host.status.set), step 1 of
- * documentation/plans/plan-module-titlebar-add.md. public/module-chrome.js holds the pure rules; module-host.js draws
- * with them and canvas.js gives them their places. This fails when:
+ * check-module-chrome.mjs -- a module window's bands as the SDK asks for them: the "+" (host.add.set), the status bar
+ * (host.status.set), the title bar's icons (host.header.set) and the toolbar row (host.toolbar.set); step 1 of
+ * documentation/plans/plan-module-titlebar-add.md and the module frame (public/module-frame.js). public/module-chrome.js
+ * holds the pure rules and maps them onto the frame; module-host.js draws with them (createFrameBands) and canvas.js,
+ * module.js and destination.js give each window its frame. This fails when:
  *   - the "+"'s entries are not cleaned to the contract (the caps, one level, a one-leaf category as its leaf);
  *   - one leaf does not run at once with its label as the name, or several do not open the menu (categories as flyouts);
- *   - the status items are not cleaned (4 at most, one end item and last, 60 characters), the same items are not seen as
- *     the same, or the last item before the end one is not cut first;
+ *   - the status items are not cleaned (4 at most, one end item and last, 60 characters, no pill), the same items are not
+ *     seen as the same, or the frame does not get the words at the start (cut first) and the end item at the end;
  *   - the read-out speaks on the first draw, before 1.5 s of quiet, a quiet item, or the same text twice;
  *   - no titlebar does not answer false;
  *   - host.bar.set (kept for modules written for the old bar) stops folding its buttons into the "+" (the primary first,
  *     a quick-add a leaf sending an empty value, host.add.set's list winning), or the old bar comes back anywhere;
  *   - a bundled module calls host.bar.set (step 6: every one of them draws the "+");
- *   - the chrome stops giving the "+" a slot and the status bar a labelled region (a window, popped out and the module's
- *     own page), or moveModule rebuilds them instead of moving them.
+ *   - a window stops getting its frame (a window, popped out and the module's own page), its status bar stops being a
+ *     labelled region, or moveModule rebuilds the frame instead of moving it;
+ *   - the toolbar's items are not cleaned and mapped to the frame's one row (the switches, words and buttons on the left;
+ *     the search and one Filters button holding every chips group at the end), or the title bar's actions lose their
+ *     placement (an icon, the menu, a destructive one last).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -121,7 +126,7 @@ test('the status bar: items cleaned (4 at most, one end item and last, 60 charac
   assert.deepEqual(clean.map((i) => i.text), ['12 of 40', 'Links', 'Second end', 'Updated now'], 'in order, a second end item a plain one');
   assert.equal(clean[3].end, true, 'the end item goes last');
   assert.equal(clean.filter((i) => i.end).length, 1, 'one end item');
-  assert.equal(clean[1].chip, true);
+  assert.equal('chip' in clean[1], false, 'no pill: a status item is words');
   assert.equal(clean[1].icon, 'link');
   assert.equal(clean[0].title, '12 of 40', 'the title is the text unless given');
   const long = R.cleanStatusItems([{ text: 'y'.repeat(100), title: 'The whole long thing' }])[0];
@@ -130,18 +135,25 @@ test('the status bar: items cleaned (4 at most, one end item and last, 60 charac
   assert.deepEqual(R.cleanStatusItems(undefined), []);
 });
 
-test('the status bar: the same items are the same, the text read out, the bar\'s title, who gives way first', () => {
+test('the status bar: the same items are the same, the text read out, the bar\'s title, the frame\'s start and end', () => {
   const a = R.cleanStatusItems([{ text: '3 open' }, { text: 'Updated 2 min ago', quiet: true, end: true }]);
   const b = R.cleanStatusItems([{ text: '3 open' }, { text: 'Updated 2 min ago', quiet: true, end: true }]);
   assert.equal(R.statusKey(a), R.statusKey(b), 'the same items: nothing drawn again');
   assert.notEqual(R.statusKey(a), R.statusKey(R.cleanStatusItems([{ text: '4 open' }])));
   assert.equal(R.statusSpoken(a), '3 open', 'a quiet item is not read out');
   assert.equal(R.statusTitle(a), '3 open · Updated 2 min ago', 'the bar\'s title is every item\'s text');
-  const items = [{ w: 40 }, { w: 90 }, { w: 300 }, { w: 70, end: true }];
-  assert.deepEqual(R.statusFit(items, 0), [null, null, null, null], 'it fits: nothing cut');
-  assert.deepEqual(R.statusFit(items, 100.4), [null, null, 199, null], 'the last before the end is cut first, the rest whole');
-  assert.deepEqual(R.statusFit(items, 350), [null, 40, 0, null], 'then the one before it');
-  assert.deepEqual(R.statusFit(items, 1000), [0, 0, 0, null], 'the end item never gives way');
+  const f = R.statusFrame(R.cleanStatusItems([{ text: '12 of 40', icon: 'list' }, { text: 'Links' }, { text: 'Saved', end: true, title: 'Saved a moment ago' }]));
+  assert.deepEqual(f.lead.map((i) => i.text), ['12 of 40', 'Links'], 'the words at the start, in order (one span, cut with an ellipsis from its end)');
+  assert.equal(f.lead[0].icon, 'list');
+  assert.deepEqual(f.items.map((i) => i.text), ['Saved'], 'the end item at the end, never cut');
+  assert.equal(f.items[0].title, 'Saved a moment ago');
+  assert.equal(f.title, '12 of 40 · Links · Saved', 'the bar\'s tooltip is every item');
+  assert.deepEqual(R.statusFrame([]), { lead: [], items: [], title: '' }, 'nothing: the bar hides');
+  const frameJs = read('public/module-frame.js');
+  assert.match(frameJs, /status\.hidden = !st\.text && items\.length === 0 && lead\.length === 0;/, 'hidden while it holds nothing');
+  const block = read('public/sdk/system.css').slice(read('public/sdk/system.css').indexOf('/* moduleframe:start */'), read('public/sdk/system.css').indexOf('/* moduleframe:end */'));
+  assert.match(block, /\.mf-status-text \{[^}]*flex: 1 1 auto;[^}]*min-width: 0;[^}]*overflow: hidden;[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;/, 'the start gives way first, cut with an ellipsis');
+  assert.match(block, /\.mf-status-items \{[^}]*flex: none;/, 'the end never gives way');
 });
 
 test('the read-out: polite and debounced (never the first draw, 1.5 s of quiet, never the same twice)', () => {
@@ -218,15 +230,16 @@ test('the old bar folded into the "+": each button a leaf, the primary first, a 
 });
 
 test('the host: no old bar; bar.set folds into the "+", add.set\'s list wins, a fold pick sends the bar event', () => {
-  assert.match(host, /async 'add\.set'\(\{ entries \}\) \{\s*\n\s*if \(!add\) return false;/);
-  assert.match(host, /async 'status\.set'\(\{ items \}\) \{\s*\n\s*if \(!status\) return false;/);
+  assert.match(host, /async 'add\.set'\(\{ entries \}\) \{\s*\n\s*if \(!bands\) return false;/);
+  assert.match(host, /async 'status\.set'\(\{ items \}\) \{\s*\n\s*if \(!bands\) return false;\s*\n\s*return bands\.status\(items\);/);
   assert.match(host, /if \(key === statusLast\) return true;/, 'the same items draw nothing');
   assert.match(host, /async 'bar\.set'\(\{ items \}\) \{\s*\n\s*\(\{ entries: barFold, quick: barQuick \} = foldBarItems\(items\)\);\s*\n\s*drawAddSlot\(\);\s*\n\s*return true;/, 'bar.set folds and answers true');
-  assert.match(host, /const drawAddSlot = \(\) => \{ if \(addSlot\) addSlot\.set\(addOwn !== null \? addOwn : barFold\); \};/, 'add.set\'s list wins over the fold');
+  assert.match(host, /const drawAddSlot = \(\) => \{ if \(bands\) bands\.add\(addOwn !== null \? addOwn : barFold\); \};/, 'add.set\'s list wins over the fold');
   assert.match(host, /if \(event === 'add' && folding\(\)\) send\('bar', barQuick\.has\(data\.id\) \? \{ id: data\.id, value: '' \} : \{ id: data\.id \}\);/, 'a fold pick is the old bar event');
-  for (const gone of ['drawModuleBar', 'barObserver', 'onBar', 'quick-add-go']) assert.ok(!host.includes(gone), `module-host.js: ${gone} is gone`);
+  for (const gone of ['drawModuleBar', 'barObserver', 'onBar', 'quick-add-go', 'createToolbar', 'createAddSlot', 'createStatusSlot', 'drawHeaderItems', 'splitOverflow', 'drawMoreButton']) assert.ok(!host.includes(gone), `module-host.js: ${gone} is gone`);
   for (const [rel, code] of [['public/canvas.js', canvas], ['public/module.js', moduleJs], ['public/module.html', moduleHtml], ['public/style.css', css], ['public/sdk/host.css', sdkCss]]) {
     assert.ok(!/dock-bar|module-floating-bar|has-bar|id="module-bar"|\$\('module-bar'\)/.test(code), `${rel}: the old bar is gone`);
+    assert.ok(!/mod-header|mod-toolbar|mod-status|titlebar-add(?!\.md)|titlebar-custom|data-header-add|page-bar-add|module-titlebar(?![-\w])/.test(code), `${rel}: the old title bar, toolbar and status are gone`);
   }
   assert.match(sdk, /add: \{\s*\n\s*set: \(entries\) => call\('add\.set', \{ entries \}\),/);
   assert.match(sdk, /status: \{\s*\n\s*set: \(items\) => call\('status\.set', \{ items \}\),/);
@@ -235,50 +248,56 @@ test('the host: no old bar; bar.set folds into the "+", add.set\'s list wins, a 
 });
 
 test('the "+" and the status bar as drawn: names, the shared menu, the live node, focus back to the "+"', () => {
-  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus, cleanToolbarItems, chipsSummary \} from '\/module-chrome\.js';/);
-  assert.match(host, /openHostMenu\(addButton, \(\) => addMenuItems\(addEntries, \(id\) => send\('add', \{ id \}\)\)\)/, 'several: the shared menu');
-  assert.match(host, /if \(now\.kind === 'direct'\) \{ if \(!now\.leaf\.disabled\) send\('add', \{ id: now\.leaf\.id \}\); return; \}/, 'one: at once');
-  assert.match(host, /addButton\.setAttribute\('aria-label', label\);/);
-  assert.match(host, /addButton\.setAttribute\('aria-haspopup', 'menu'\);/);
-  assert.match(host, /addButton\.removeAttribute\('aria-haspopup'\);/, 'one leaf is a plain button');
-  assert.match(host, /statusLive\.setAttribute\('aria-live', 'polite'\);/);
-  assert.match(host, /statusLive\.className = 'visually-hidden';/);
-  assert.match(host, /status\.hidden = clean\.length === 0;/, 'hidden when empty');
-  assert.match(host, /const fit = statusFit\(/, 'one line: cut in order');
-  assert.match(host, /statusObserver\.observe\(status\);/, 'and again when the window changes width');
-  assert.match(host, /if \(item\.quiet\) el\.setAttribute\('aria-hidden', 'true'\);/);
+  assert.match(host, /import \{ cleanAddEntries, foldBarItems, cleanStatusItems, statusKey, statusSpoken, statusFrame, createAnnouncer, topmostAt, cleanToolbarItems, cleanHeaderItems, titlebarActions, frameToolbar, frameAdd \} from '\/module-chrome\.js';/);
+  // The plan: several open the shared menu, one runs at once (its id the event's value), none takes the "+" away.
+  const picked = [];
+  const several = R.frameAdd(R.cleanAddEntries([{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }]), (id) => picked.push(id));
+  assert.equal(several.label, 'Add');
+  assert.equal(typeof several.items, 'function', 'several: the shared menu\'s items, asked as it opens');
+  several.items()[1].onPick();
+  assert.deepEqual(picked, ['b']);
+  assert.deepEqual(R.frameAdd(R.cleanAddEntries([{ id: 'event', label: 'Add event', disabled: true }]), () => {}), { label: 'Add event', disabled: true, value: 'event' }, 'one: at once, named by its label');
+  assert.equal(R.frameAdd([], () => {}), null, 'none: no "+"');
+  assert.match(host, /add\(entries\) \{ frame\.setTitlebar\(\{ add: frameAdd\(cleanAddEntries\(entries\), \(id\) => send\('add', \{ id \}\)\) \}\); \}/, 'the host draws the plan in the frame\'s title bar');
+  assert.match(host, /if \(e\.id === 'add'\) \{ if \(e\.value !== undefined\) send\('add', \{ id: e\.value \}\); return; \}/, 'one: its pick sends the leaf\'s id');
+  const frameJs = read('public/module-frame.js');
+  assert.match(frameJs, /button\('mf-icon-btn mf-titlebar-btn mf-add-btn', \{ label: add\.label \|\| 'Add', iconName: 'plus', words: false \}\)/, 'the "+" is named by its label (its tooltip too)');
+  assert.match(frameJs, /b\.setAttribute\('aria-haspopup', 'menu'\);\s*\n\s*b\.setAttribute\('aria-expanded', 'false'\);\s*\n\s*b\.addEventListener\('click', \(\) => openHostMenu\(b, items\)\);/, 'several: the shared menu');
+  assert.match(frameJs, /b\.disabled = Boolean\(add\.disabled\);/);
+  assert.match(frameJs, /const live = el\('span', 'visually-hidden', \{ 'aria-live': 'polite' \}\);/, 'a polite live node');
+  assert.match(host, /createAnnouncer\(\{ write: \(t\) => frame\.announce\(t\)/, 'read out through the frame\'s live node');
+  assert.match(host, /announcer\.update\(statusSpoken\(clean\)\);/, 'a quiet item is not read out');
+  assert.match(frameJs, /const status = el\('footer', 'mf-status', \{ role: 'region' \}\);/, 'the status bar is a region');
+  assert.match(frameJs, /status\.setAttribute\('aria-label', text \? `\$\{text\} status` : 'Status'\);/, 'named by the module');
   assert.match(host, /event === 'nav' \|\| event === 'add'\)\) opener =/, 'focus goes back to the "+" when its editor closes');
 });
 
-test('the chrome: a "+" slot before "...", a labelled status region, moved (not rebuilt) between docked and floating', () => {
-  const header = canvas.slice(canvas.indexOf('  const moduleHeader = '), canvas.indexOf('  // The page a composite holds'));
-  assert.ok(header.includes('<span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML'), 'icon, name, tools, "+", then the host\'s buttons (no snap switch: the Layout menu\'s Snap to grid is the one)');
-  assert.match(canvas, /const statusHtml = \(m\) => `<div class="mod-status" data-status role="region" aria-label="\$\{escapeHtml\(`\$\{m\.name\} status`\)\}" hidden><\/div>`;/);
+test('the window: a frame for every module, moved (not rebuilt) between docked and floating', () => {
+  const make = canvas.slice(canvas.indexOf('  function makeFrame('), canvas.indexOf('  // The page a composite holds'));
+  assert.match(make, /createModuleFrame\(\{/, 'the canvas draws a module window with the frame');
+  assert.match(make, /titlebar: \{ close: true, standard: \(\) => standardFor\(m\.id\), onAction: \(e\) => titlebarAction\(m\.id, e\) \}/, 'Close and the standard actions are the window\'s');
+  assert.match(make, /onAction: \(e\) => opened\.get\(m\.id\)\?\.mount\?\.bandEvent\?\.\(e\)/, 'the module\'s own controls go to its mount');
   const floating = canvas.slice(canvas.indexOf('  function openModuleFloating('), canvas.indexOf('  function openModuleDocked('));
   const docked = canvas.slice(canvas.indexOf('  function openModuleDocked('), canvas.indexOf('  function moveModule('));
   const move = canvas.slice(canvas.indexOf('  function moveModule('), canvas.indexOf('  // --- built-in modules'));
-  assert.ok(floating.includes("${statusHtml(m)}\n      <span class=\"module-floating-grip\""), 'floating: under the content, the last thing in the window');
-  assert.ok(docked.includes('${statusHtml(m)}\n      </div>`;'), 'docked: the last thing in the module\'s own column');
   for (const [name, code] of [['floating', floating], ['docked', docked]]) {
-    assert.ok(/if \(reuse\.add\) \w+\.querySelector\('\[data-header-add\]'\)\.replaceWith\(reuse\.add\);/.test(code), `${name}: the "+" moved in`);
-    assert.ok(/if \(reuse\.status\) \w+\.querySelector\('\[data-status\]'\)\.replaceWith\(reuse\.status\);/.test(code), `${name}: the status bar moved in`);
+    assert.ok(/const frame = reuse \? reuse\.frame : makeFrame\(m, '(float|dock)', holderElement\(m\)\);/.test(code), `${name}: the frame moved in, else made`);
+    assert.ok(/if \(reuse\) mod\.mount = reuse\.mount;/.test(code), `${name}: the mount kept`);
   }
-  assert.ok(move.includes("add: mod.el.querySelector('[data-header-add]'),") && move.includes("status: mod.el.querySelector('[data-status]'),"), 'moveModule carries both');
-  assert.ok(canvas.includes("add: mod.el.querySelector('[data-header-add]'),\n      status: mod.el.querySelector('[data-status]'),\n      onOpenRef"), 'the mount gets both');
+  assert.ok(move.includes('const reuse = { frame: mod.frame, mount: mod.mount };'), 'moveModule carries the frame and the mount');
+  assert.ok(canvas.includes('      chrome: mod.frame,\n'), 'the mount draws its bands in the frame');
+  assert.match(canvas, /mod\.frame\?\.destroy\(\);/, 'closing lets the frame go');
 });
 
-test('popped out and on the module\'s own page: the "+" and the status bar (step 5)', () => {
-  assert.match(moduleHtml, /<span class="titlebar-custom" id="module-titlebar-custom"><\/span>\s*\n\s*<span class="titlebar-add" id="module-titlebar-add" hidden><\/span>\s*\n\s*<button class="sdk-icon-btn btn-quiet btn-small" id="module-menu"/, 'popped out: icon, name, tools, "+", "...", close');
-  assert.match(moduleHtml, /<div class="mod-status module-status" id="module-status" role="region" aria-label="Status" hidden><\/div>/, 'a labelled status region under the module');
-  assert.match(moduleJs, /const add = popout \? \$\('module-titlebar-add'\) : pageAddSlot\(mod\);/, 'the titlebar popped out, the page bar on the own page');
-  assert.match(moduleJs, /status\.setAttribute\('aria-label', `\$\{mod\.name\} status`\);/);
-  assert.match(moduleJs, /nav\.register\(\{ id: 'page-bar-add', bar: 'secondary', zone: 'right',[^}]*fold: false, element: slot \}\);/, 'the page bar\'s "+" through the nav registry, never folded');
-  assert.ok(/\n    add,\n    status,\n/.test(moduleJs), 'the mount gets both');
+test('popped out and on the module\'s own page: the frame fills the page', () => {
+  assert.match(moduleHtml, /<main class="module-canvas" id="module-main">/, 'the place the frame fills');
+  assert.match(moduleHtml, /<iframe class="module-holder" id="module-frame"/, 'the module\'s own frame, in the frame\'s content');
+  assert.match(moduleJs, /const chrome = createModuleFrame\(\{[\s\S]*?variant: 'page',[\s\S]*?\}\);\s*\n\s*\$\('module-main'\)\.prepend\(chrome\.el\);/, 'a module\'s own page is the frame\'s page variant');
+  assert.match(moduleJs, /\? \{ close: true, standard: \(\) => popoutStandard\(mod\)/, 'popped out: Close, and the way back in the menu');
+  assert.ok(/\n    chrome,\n/.test(moduleJs), 'the mount draws its bands in it');
   const sys = read('public/sdk/system.css');
-  assert.match(sys, /:is\(\.sdk-window-popout, body\.module-page, body\.destination-page:not\(\.dest-has-tabs\)\) \{ --safe-b: var\(--safe-bottom\); \}/, 'clear of the home indicator: the inset on a module\'s own page and a destination\'s (over the phone\'s tabs, none)');
-  assert.match(sys, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*padding: 0 var\(--pad-band-x\) var\(--safe-b\);/, 'the status line grows by the inset');
-  assert.match(css, /body\.module-popout \.module-titlebar \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, popped out');
-  assert.match(css, /\.page-bar-add > \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone, in the page bar');
+  assert.match(sys, /\.mf\.mf-page > \.mf-status \{ height: calc\(var\(--mf-status-h\) \+ var\(--safe-bottom\)\); padding-bottom: var\(--safe-bottom\); \}/, 'clear of the home indicator where the page ends the screen');
+  assert.match(sys, /\.mf\.mf-page \{ border: 0; border-radius: 0; box-shadow: none; \}/, 'a page: no edge, no corner');
 });
 
 test('no bundled module calls host.bar.set (every one draws the "+")', () => {
@@ -297,56 +316,53 @@ test('no bundled module calls host.bar.set (every one draws the "+")', () => {
   assert.match(sdk, /bar: \{\s*\n\s*set: \(items\) => call\('bar\.set', \{ items \}\),/, 'host.bar.set stays in the SDK');
 });
 
-test('the styles: --status-bar-h 24px in both sheets, one line, tokens only', () => {
-  assert.match(css, /--status-bar-h: 24px;/);
-  assert.match(sdkCss, /--status-bar-h: 24px;/);
+test('the styles: the status bar 24px in the moduleframe block, one line, tokens only', () => {
   const sys = read('public/sdk/system.css');
-  const block = sys.slice(sys.indexOf('/* modulechrome:start */'), sys.indexOf('/* modulechrome:end */'));
-  assert.ok(block.length > 100, 'the Module window block is in system.css');
-  assert.match(block, /:is\(\.sdk-status-line, \.mod-status\) \{[^}]*height: calc\(var\(--status-bar-h\) \+ var\(--safe-b\)\);[^}]*border-top: 1px solid var\(--edge-hairline\);[^}]*background: var\(--surface-panel\);[^}]*color: var\(--text-muted\);[^}]*font-size: var\(--text-12\);[^}]*white-space: nowrap;/, 'one line on the window\'s step, muted 12px words under a hairline');
-  assert.match(block, /:is\(\.sdk-status-line, \.mod-status\)\[hidden\] \{ display: none; \}/);
-  assert.match(block, /:is\(\.sdk-status-text, \.mod-status-text\) \{[^}]*text-overflow: ellipsis;/);
-  assert.match(block, /:is\(\.sdk-status-line, \.mod-status\) \.sdk-status \{\s*--chip-h: var\(--mc-chip-h\);/, 'a status label in the line is 20px');
-  assert.match(block, /--mc-chip-h: 20px;/);
-  assert.match(css, /\.canvas\.narrow \.module-docked \.titlebar-add > \.sdk-icon-btn \{[^}]*width: 44px;/, '44 px on a phone');
+  const block = sys.slice(sys.indexOf('/* moduleframe:start */'), sys.indexOf('/* moduleframe:end */'));
+  assert.ok(block.length > 100, 'the moduleframe block is in system.css');
+  assert.ok(!sys.includes('/* modulechrome:start */'), 'the old Module window block is gone');
+  assert.match(block, /--mf-status-h: 24px;/);
+  assert.match(block, /\.mf-status \{[^}]*height: var\(--mf-status-h\);[^}]*border-top: 1px solid var\(--mf-edge\);[^}]*background: var\(--mf-surface-status\);[^}]*color: var\(--text-muted\);[^}]*font-size: var\(--text-12\);/, 'one line on the status bar\'s surface, muted 12px words under a hairline');
+  assert.match(block, /\.mf-status\[hidden\] \{ display: none; \}/);
+  assert.match(block, /\.mf-status-text \{[^}]*text-overflow: ellipsis;/);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block) && !/rgba?\(/.test(block), 'tokens only');
-  for (const gone of ['.mod-status {', '.mod-status-item {', '.mod-header {', '.mod-toolbar {', '.module-floating-head {', '.tb-sep {']) assert.ok(!css.includes(`\n${gone}`), `style.css: ${gone} moved to the Module window block`);
+  for (const gone of ['.mod-status {', '.mod-status-item {', '.mod-header {', '.mod-toolbar {', '.module-floating-head {', '.tb-sep {', '--status-bar-h:', '--module-header-h:', '--toolbar-h:']) {
+    assert.ok(!css.includes(gone) && !sys.includes(gone) && !sdkCss.includes(gone), `${gone} is gone`);
+  }
 });
 
-test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding above or below, its buttons 30px (Thomas, 2026-10-13: "too much top and bottom padding")', () => {
-  const css = read('public/style.css');
-  assert.match(css, /--module-header-h: var\(--module-header-phone-h, 34px\);/, 'the one token: 34px wider than a phone');
-  assert.match(css, /@media \(max-width: 640px\) \{\n\s*:root \{\n\s*--module-header-phone-h: 42px;/, 'a phone keeps its 42px touch height');
-  assert.equal((css.match(/--module-header-phone-h:/g) || []).length, 1, 'set in one place');
+test('the title bar\'s height: --mf-title-h, no padding above or below, its buttons --mf-ctl-h', () => {
   const sys = read('public/sdk/system.css');
-  const block = sys.slice(sys.indexOf('/* modulechrome:start */'), sys.indexOf('/* modulechrome:end */'));
+  const block = sys.slice(sys.indexOf('/* moduleframe:start */'), sys.indexOf('/* moduleframe:end */'));
+  assert.match(block, /--mf-title-h: 36px;/, 'the one token');
+  assert.equal((sys.match(/--mf-title-h:/g) || []).length + (css.match(/--mf-title-h:/g) || []).length, 1, 'set in one place');
   const rule = (sel) => { const m = block.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`)); return m ? m[2] : null; };
-  const head = rule(':is(.sdk-titlebar, .mod-header, .chat-head)');
-  assert.ok(head, 'the title bar (.mod-header, and the chat\'s .chat-head with it) is in the Module window block');
-  assert.match(head, /height: var\(--module-header-h\);/);
-  assert.match(head, /padding: 0 var\(--space-1\) 0 var\(--pad-band-x\);/, 'no padding above or below: the height is the token\'s alone');
-  assert.match(read('public/space.html'), /<header class="chat-head">/, 'the chat\'s header is the title bar');
-  // Nothing in a titlebar may be taller than the small buttons (the "...", the "+", Close): 2px above and below.
-  assert.match(read('public/sdk/system.css'), /--btn-h-small: 30px;/);
+  const head = rule('.mf-titlebar');
+  assert.ok(head, 'the title bar is in the moduleframe block');
+  assert.match(head, /height: var\(--mf-title-h\);/);
+  assert.match(head, /padding: 0 var\(--space-1\) 0 var\(--mf-inset\);/, 'no padding above or below: the height is the token\'s alone');
+  assert.match(read('public/space.html'), /<header class="mf-titlebar chat-head">/, 'the chat\'s header is the frame\'s title bar');
+  assert.match(read('public/space.html'), /<header class="mf-titlebar conference-head">/, 'so is the call\'s');
+  assert.match(block, /--mf-ctl-h: 28px;/, 'nothing in a title bar is taller than its buttons');
   for (const m of (css + '\n' + block).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sel = m[1].trim();
-    if (!/\.mod-header|\.module-floating-head|\.module-titlebar|\.chat-head/.test(sel) || /\.canvas\.narrow/.test(sel)) continue;
+    if (!/\.mf-titlebar\b|\.chat-head|\.conference-head|\.side-column-call-head/.test(sel) || /\.mf-titlebar-|\.canvas\.narrow/.test(sel)) continue;
     for (const decl of m[2].split(';')) {
-      const d = decl.match(/^\s*(min-height|padding(?:-top|-bottom)?|margin(?:-top|-bottom)?)\s*:\s*(.+)$/);
+      const d = decl.match(/^\s*(min-height|height|padding(?:-top|-bottom)?|margin(?:-top|-bottom)?)\s*:\s*(.+)$/);
       if (!d) continue;
-      if (d[1] === 'min-height') assert.fail(`${sel} sets a min-height (${d[2].trim()}): the titlebar is the token's height`);
+      if (d[1] === 'min-height') assert.fail(`${sel} sets a min-height (${d[2].trim()}): the title bar is the token's height`);
+      if (d[1] === 'height') { assert.equal(d[2].trim(), 'var(--mf-title-h)', `${sel} sets its own height`); continue; }
       if (/^padding$|^margin$/.test(d[1])) {
         const v = d[2].trim().split(/\s+/);
         const [top, bottom] = [v[0], v[2] ?? v[0]];
-        assert.ok(/^0(px)?$/.test(top) && /^0(px)?$/.test(bottom), `${sel} pads the titlebar above or below (${d[1]}: ${d[2].trim()})`);
+        assert.ok(/^0(px)?$/.test(top) && /^0(px)?$/.test(bottom), `${sel} pads the title bar above or below (${d[1]}: ${d[2].trim()})`);
       }
       else assert.ok(/^0(px)?$/.test(d[2].trim()), `${sel} sets ${d[1]}: ${d[2].trim()}`);
     }
   }
-  // canvas.js reads the token (a floating window's height is its content's plus the titlebar's), never a fixed 42.
-  const canvas = read('public/canvas.js');
-  assert.ok(!/HEAD_H = 42/.test(canvas), 'no fixed titlebar height');
-  assert.ok(canvas.includes("getPropertyValue('--module-header-h')"), 'the token, read where it is used');
+  // canvas.js reads the token (a floating window's height is its content's plus the title bar's), never a fixed number.
+  assert.ok(!/HEAD_H = \d+/.test(canvas), 'no fixed title bar height');
+  assert.ok(canvas.includes("getPropertyValue('--mf-title-h')"), 'the token, read where it is used');
 });
 
 // Issue #60: the drop lands on what is on top, not on the first module mounted.
@@ -368,63 +384,73 @@ test('the drop target is the topmost visible module at the point', () => {
   assert.ok(/function ptrTarget[\s\S]*?elementsFromPoint[\s\S]*?topmostAt\(/.test(host), 'ptrTarget reads the page\'s stacking');
 });
 
-// Issue #155: a toolbar drawn again keeps the keyboard on the same control.
+// Issue #155: a toolbar drawn again keeps the keyboard on the same control; the search and the Filters button are kept.
 test('a toolbar redraw puts focus back on the same control', () => {
-  const makeRow = () => {
-    const doc = { activeElement: null };
-    const row = { ownerDocument: doc, kids: [], contains(el) { return this.kids.includes(el); }, querySelectorAll() { return this.kids; } };
-    const add = (key) => { const el = { dataset: { tbKey: key }, disabled: false, focus() { doc.activeElement = el; } }; row.kids.push(el); return el; };
-    return { row, doc, add };
-  };
-  const { row, doc, add } = makeRow();
-  const open = add(R.toolbarKey('tab', 'status', 'open'));
-  add(R.toolbarKey('tab', 'status', 'closed'));
-  open.focus();
-  const key = R.focusedToolbarKey(row);
-  assert.equal(key, 'tab:status:open');
-  row.kids = []; // the row is cleared and drawn again: new elements
-  const again = add(R.toolbarKey('tab', 'status', 'open'));
-  add(R.toolbarKey('tab', 'status', 'closed'));
-  doc.activeElement = null;
-  assert.ok(R.restoreToolbarFocus(row, key));
-  assert.equal(doc.activeElement, again, 'the same choice has the focus');
-  doc.activeElement = { dataset: {} };
-  assert.equal(R.focusedToolbarKey(row), null, 'focus outside the row is left alone');
-  assert.equal(R.restoreToolbarFocus(row, null), false);
-  const host = read('public/module-host.js');
-  const set = host.slice(host.indexOf('export function createToolbar('), host.indexOf('// The status bar (host.status.set)'));
-  const draw = set.slice(set.indexOf('function set(items)'));
-  assert.ok(draw.indexOf('focusedToolbarKey(row)') > -1 && draw.indexOf('focusedToolbarKey(row)') < draw.indexOf('child.remove()'), 'focus is read before the row is cleared');
-  assert.ok(draw.indexOf('restoreToolbarFocus(row, focusKey)') > draw.indexOf('row.hidden = clean.length'), 'and put back after it is drawn');
-  assert.ok(/b\.setAttribute\('aria-pressed', String\(opt\.id === item\.value\)\)/.test(set), 'a switch choice says whether it is pressed');
-  assert.ok(/tbKey = toolbarKey\('tab'/.test(set) && /tbKey = toolbarKey\('btn'/.test(set) && /tbKey = toolbarKey\('range'/.test(set) && /tbKey = toolbarKey\('chip'/.test(set) && /tbKey = key/.test(set), 'every control carries its key');
-  assert.ok(/if \(!typing \|\| doc\.activeElement !== typing\) restoreToolbarFocus/.test(draw), 'a search being typed in keeps its focus through a redraw');
+  const frameJs = read('public/module-frame.js');
+  const redraw = frameJs.slice(frameJs.indexOf('  function redraw('), frameJs.indexOf('  // ---- 3. the content ----'));
+  assert.ok(redraw.indexOf('active.dataset.key') > -1 && redraw.indexOf('active.dataset.key') < redraw.indexOf('drawToolbar()'), 'focus is read before the row is drawn again');
+  assert.ok(redraw.indexOf('again.focus(') > redraw.indexOf('drawToolbar()'), 'and put back after it is drawn');
+  for (const key of ["b.dataset.key = `switch:${it.id}:${o.id}`;", "b.dataset.key = `btn:${it.id}`;", "c.dataset.key = `chip:${it.id}:${o.id}`;", "input.dataset.key = key;", "b.dataset.key = 'filters';", "moreBtn.dataset.key = 'more';"]) {
+    assert.ok(frameJs.includes(key), `every control carries its key (${key})`);
+  }
+  assert.match(frameJs, /b = el\('button', 'mf-switch-btn', \{ type: 'button', 'aria-pressed': String\(o\.id === it\.value\)/, 'a switch choice says whether it is pressed');
+  // The search and the Filters button live on between draws: typing, focus and an open menu survive the module drawing again.
+  assert.match(frameJs, /const kept = new Map\(\);/);
+  assert.match(frameJs, /let k = kept\.get\(key\);\s*\n\s*if \(!k\) \{\s*\n\s*const form = el\('form', 'mf-search'/, 'the search is made once');
+  assert.match(frameJs, /if \(k\.given !== value\) \{ k\.given = value; if \(k\.input\.value !== value\) k\.input\.value = value; \}/, 'the module\'s value only when it changed what it said, never under the person\'s typing');
+  assert.match(frameJs, /parts\.forEach\(\(p, at\) => \{ if \(toolbar\.childNodes\[at\] !== p\) toolbar\.insertBefore\(p, toolbar\.childNodes\[at\] \|\| null\); \}\);/, 'a kept element is not moved when it is already in place (moving a focused field would blur it)');
 });
 
-// The toolbar's items (plan-unified-layout.md, "One toolbar row"): a title, a search, filter chips, beside the old ones.
-test('the toolbar row: title, search and chips cleaned, the rest dropped', () => {
+// The toolbar's items (plan-unified-layout.md, "One toolbar row") and their place in the frame's row.
+test('the toolbar row: items cleaned, the rest dropped', () => {
   const clean = R.cleanToolbarItems([
     { type: 'title', text: 'October 2026' },
     { type: 'search', id: 'find', placeholder: 'Find a place', value: 'paris' },
     { type: 'search' }, // no id
-    { type: 'chips', id: 'show', label: 'Trips', options: [{ id: 'a', label: 'Paris', icon: 'plane', tint: 'blue', on: true }, { id: 'b', label: 'Rome', on: false, tint: 'nope' }, { id: '', label: 'x' }] },
+    { type: 'chips', id: 'show', label: 'Trips', options: [{ id: 'a', label: 'Paris', icon: 'plane', tint: 'blue', on: true }, { id: 'b', label: 'Rome', on: false, tint: 'nope' }, { id: 'c', label: 'Tags', default: false, count: 3 }, { id: '', label: 'x' }] },
+    { type: 'chips', id: 'kind', label: 'Kind', single: true, value: 'nope', options: [{ id: 'all', label: 'All' }, { id: 'note', label: 'Notes', count: 2 }] },
     { type: 'chips', id: 'none', options: [] },
     { id: 'prev', icon: 'chevron-left', title: 'Previous' },
+    { id: 'export', icon: 'file-export', title: 'Export', placement: 'titlebar' },
     { type: 'tabs', id: 'view', value: 'month', options: [{ id: 'month', label: 'Month', icon: 'calendar-days' }] },
     { separator: true },
-    { type: 'nonsense', id: 'x' }, // a button with neither label nor icon: dropped
+    { type: 'progress', value: 3 },
+    { type: 'slider', id: 's', value: 2 },
+    { type: 'nonsense', id: 'x', label: 'X' },
     { type: 'title', text: 'x', send: () => {} },
   ]);
-  assert.deepEqual(clean.map((i) => i.type || 'sep'), ['title', 'search', 'chips', 'button', 'tabs', 'sep', 'title']);
+  assert.deepEqual(clean.map((i) => i.type), ['title', 'search', 'chips', 'chips', 'button', 'button', 'tabs', 'title'], 'no separator, progress, slider or unknown type');
   assert.equal(clean[1].label, 'Find a place', 'a search is named by its placeholder when it has no label');
   assert.equal(clean[1].value, 'paris');
-  assert.deepEqual(clean[2].options.map((o) => [o.id, o.on, o.tint || null, o.icon || null]), [['a', true, 'blue', 'plane'], ['b', false, null, null]]);
-  assert.equal(clean[2].icon, 'filter', 'chips fold into a filter button');
-  assert.equal(clean[3].title, 'Previous', 'an icon button keeps its title');
-  assert.equal(typeof clean[6].send, 'function', 'the host page\'s own items keep their send');
-  assert.equal(R.chipsSummary(clean[2]), 'Trips · 1 off');
-  assert.equal(R.chipsSummary({ label: 'Filter', options: [{ on: true }] }), 'Filter');
+  assert.deepEqual(clean[2].options.map((o) => [o.id, o.on, o.default, o.tint || null, o.icon || null, o.count ?? null]), [['a', true, true, 'blue', 'plane', null], ['b', false, true, null, null, null], ['c', false, false, null, null, 3]], 'a switch is on unless off; its default on unless given');
+  assert.equal(clean[3].single, true);
+  assert.equal(clean[3].value, 'all', 'a single choice falls back to its first option');
+  assert.equal(clean[4].title, 'Previous', 'an icon button keeps its title');
+  assert.equal(clean[4].placement, 'row');
+  assert.equal(clean[5].placement, 'titlebar');
+  assert.equal(typeof clean[7].send, 'function', 'the host page\'s own items keep their send');
   assert.equal(R.cleanToolbarItems(Array.from({ length: 30 }, (_, i) => ({ type: 'text', text: String(i) }))).length, R.TOOLBAR_LIMITS.items);
+  // The row: Thomas's order on the left (switches, words, buttons), the search, then one Filters button with every group.
+  const row = R.frameToolbar(clean);
+  assert.deepEqual(row.map((e) => e.type), ['switch', 'title', 'title', 'button', 'search', 'filters']);
+  assert.equal(row[3].kind, 'icon', 'an icon with no words is an icon button');
+  assert.equal(row[3].tip, 'Previous');
+  const filters = row[5];
+  assert.deepEqual(filters.groups.map((g) => [g.id, g.heading, g.single]), [['show', 'Trips', false], ['kind', 'Kind', true]], 'every chips item a group, under its label');
+  assert.equal(R.frameToolbar([]).length, 0, 'nothing: no row');
+  assert.ok(!R.frameToolbar(R.cleanToolbarItems([{ type: 'search', id: 'q' }])).some((e) => e.type === 'filters'), 'no chips: no Filters button');
+  // The title bar's actions: the header's icons, then the toolbar buttons placed there; past five, the menu.
+  const header = R.cleanHeaderItems([{ id: 'pin', icon: 'thumbtack', title: 'Pin', on: true }, { id: 'del', icon: 'trash', title: 'Delete', danger: true }, { id: 'more', icon: 'gear', title: 'Options', overflow: true }]);
+  const acts = R.titlebarActions(header, clean);
+  assert.deepEqual(acts.map((a) => [a.id, a.from, a.placement, Boolean(a.danger)]), [['pin', 'header', 'bar', false], ['del', 'header', 'bar', true], ['more', 'header', 'menu', false], ['export', 'toolbar', 'bar', false]]);
+  assert.equal(acts[0].on, true);
+  const many = R.titlebarActions(R.cleanHeaderItems(Array.from({ length: 7 }, (_, i) => ({ id: `h${i}`, icon: 'star', title: `H${i}` }))), []);
+  assert.deepEqual(many.map((a) => a.placement), ['bar', 'bar', 'bar', 'bar', 'bar', 'menu', 'menu'], 'more than five icons: the rest in the menu');
+  // The frame draws a destructive action last in its menu, red, never as an icon.
+  const frameJs = read('public/module-frame.js');
+  assert.match(frameJs, /if \(a\.placement !== 'bar' \|\| a\.danger\) continue;/, 'a destructive action is never an icon');
+  assert.match(frameJs, /const danger = \[\.\.\.actions\.filter\(\(a\) => a\.danger\)\.map\(entry\), \.\.\.hostDanger\];/, 'the destructive ones last: the module\'s, then the host\'s Clear');
+  assert.match(frameJs, /const runs = \[own, standard, danger\]\.filter\(\(r\) => r\.length\);/, 'own, a line, the standard actions, a line, the destructive ones');
 });
 
 test('the "+": one entry for one add (Thomas, 2026-10-14: the Map\'s "+" offered "Add a place" twice)', () => {

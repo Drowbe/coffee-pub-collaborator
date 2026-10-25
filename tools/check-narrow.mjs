@@ -1,7 +1,7 @@
 // check-narrow.mjs: three layout rules measured in the running product (headless Chromium, the screenshot seed), each at the
 // size where it once broke.
-//   1. Maps: its notice (#state, "Maps is not set up yet") sits in the content area, below the search field (the host's toolbar
-//      field, .tb-search, in the module's window), never over it
+//   1. Maps: its notice (#state, "Maps is not set up yet") sits in the content area, below the search field (the module frame's
+//      toolbar field, .mf-search, in the module's window), never over it
 //      (the Workspace with Maps open in a window; Maps' own page at 390 px).
 //   2. Planner (Itinerary): in a narrow window (260 px) no word of a card's title is broken across lines (a word is only ever
 //      split when it is longer than the line).
@@ -21,7 +21,7 @@ const shown = `const shown = (e) => e && !e.hidden && e.getClientRects().length 
 
 const MAPS = `(() => { ${ROOTS} ${shown}
   const out = [];
-  for (const r of roots) { const st = r.querySelector('#state'); const win = r.host ? r.host.closest('.module, .module-floating, body') : null; const se = win ? win.querySelector('.mod-toolbar .tb-search') : null;
+  for (const r of roots) { const st = r.querySelector('#state'); const win = r.host ? r.host.closest('.mf, .module-floating, body') : null; const se = win ? win.querySelector('.mf-toolbar .mf-search') : null;
     if (!shown(st) || st.querySelector('.sdk-skel')) continue;
     const a = st.getBoundingClientRect(); const own = a.top;
     const title = st.querySelector('.sdk-empty-title'); const t = title ? title.getBoundingClientRect() : null;
@@ -68,7 +68,7 @@ async function main() {
     for (const [name, size, screen] of [['Workspace 1280', 1280, workspace], ['Maps page 390', 390, page], ['Maps page 1280', 1280, page]]) {
       const got = await view(browser, S, size, 'light', screen, MAPS, 3000);
       const states = (got || []).filter((x) => x.search !== null);
-      if (name === 'Workspace 1280' && !states.length) failures.push(`${name}: Maps showed no notice with a search field (the seed has no map file), so nothing was measured`);
+      if (!states.length) failures.push(`${name}: Maps showed no notice with a search field (the seed has no map file), so nothing was measured`);
       for (const x of states) if (x.state < x.search - 0.5) failures.push(`${name}: the notice starts at ${Math.round(x.state)}px, over the search field that ends at ${Math.round(x.search)}px`);
       say(`${name}: ${states.length ? states.map((x) => `notice top ${Math.round(x.state)} / search bottom ${Math.round(x.search)}`).join('; ') : 'no search field over a notice'}`);
     }

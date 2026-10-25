@@ -140,7 +140,7 @@ export function createModuleFrame(opts = {}) {
   const head = el('header', 'mf-titlebar');
   const toolbar = el('div', 'mf-toolbar', { role: 'group', 'aria-label': 'Tools' });
   const content = el('div', 'mf-content', { id: `${uid}-content`, tabindex: '-1' });
-  const status = el('footer', 'mf-status');
+  const status = el('footer', 'mf-status', { role: 'region' });
   const live = el('span', 'visually-hidden', { 'aria-live': 'polite' });
   root.append(...(bands.titlebar ? [head] : []), toolbar, content, ...(bands.status ? [status] : []), live);
   if (!bands.titlebar && opts.title) root.setAttribute('aria-label', opts.title);
@@ -157,6 +157,7 @@ export function createModuleFrame(opts = {}) {
     if (iconName) headIcon.append(icon(iconName));
     headIcon.hidden = !iconName;
     if (!bands.titlebar && text) root.setAttribute('aria-label', text);
+    status.setAttribute('aria-label', text ? `${text} status` : 'Status');
   }
   if (TINT.test(opts.tint || '')) headIcon.dataset.tint = opts.tint;
   // The title bar's actions (Thomas, 2026-10-24). Three kinds, one menu: the module's own actions (each 'bar', an icon

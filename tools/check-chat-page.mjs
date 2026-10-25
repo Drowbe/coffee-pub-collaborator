@@ -419,13 +419,13 @@ test('a tint colours a message\'s portrait (no edge: the Chat family, step 29) a
   }
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.
   const canvasJs = read('public/canvas.js');
-  assert.match(canvasJs, /<span class="mod-title"><i class="fa-solid fa-\$\{escapeHtml\(m\.icon\)\} fa-fw" aria-hidden="true"\$\{tintAttr\(m\.id\)\}><\/i>/);
+  assert.match(canvasJs, /title: m\.name,\s*\n\s*icon: m\.icon,\s*\n\s*tint: colorOf\(m\.id\),/, 'the window\'s frame: its title bar\'s icon in the module\'s tint');
+  assert.match(read('public/module-frame.js'), /if \(TINT\.test\(opts\.tint \|\| ''\)\) headIcon\.dataset\.tint = opts\.tint;/);
   assert.ok(canvasJs.includes("icon: m.icon, tint: colorOf(m.id), label: m.name, ...(m.description ? { hint: m.description, clamp: true } : {}), badge: unreadOf(m.id)"), 'the Layout menu\'s Show list tints each module\'s icon');
   assert.match(read('public/switch-list.js'), /data-tint="\$\{tint\}"/);
   // The popped-out page's titlebar (GitHub #229): the server's colour, else a stable pick from the id (module-tint.js).
   const moduleJs = read('public/module.js');
-  assert.match(moduleJs, /const tint = moduleTint\(mod\.id, mod\.color \|\| null\);/);
-  assert.match(moduleJs, /\$\('module-titlebar-icon'\)\.dataset\.tint = tint;/);
+  assert.match(moduleJs, /tint: moduleTint\(mod\.id, mod\.color \|\| null\),/);
   // On a message: a command's colour from its module, the AI gold.
   const look = fnBody(chat.replace(/^ {2}/gm, ''), 'function commandLook({ kind, command, module } = {}) {');
   assert.match(look, /if \(kind === 'ai' \|\| command === 'ai'\) return \{ icon: 'robot', tint: 'gold', label: '\/ai' \};/);
@@ -1079,7 +1079,7 @@ test('Send to...: the private warning is on each entry\'s hint, and Chat\'s note
   assert.ok(!/disabled: true/.test(to), 'no row the keyboard skips');
   assert.match(to, /const seen = entry\.visibility === 'private' \? `Everyone in this \$\{word\('space'\)\} will see it` : '';/);
   assert.match(to, /hint: \[closed \? `Open \$\{c\.moduleName\} first` : c\.hint, seen\]\.filter\(Boolean\)\.join\('; '\),/);
-  assert.match(read('public/space.html'), /<span class="mod-status-text" id="chat-note" role="status" aria-live="polite"><\/span>/);
+  assert.match(read('public/space.html'), /<span class="mf-status-item" id="chat-note-item"><span id="chat-note" role="status" aria-live="polite"><\/span><\/span>/);
   const set = fnBody(chat.replace(/^  /gm, ''), 'function setNote(');
   assert.match(set, /el\.textContent = text \|\| '';/, 'the status area is always there: only its words change');
 });
@@ -1167,10 +1167,10 @@ test('the composer: the Discussion has no paste box; the Assistant has no format
   assert.ok(!/offerImport|pendingImport/.test(chat), 'a long paste no longer offers a button');
 });
 
-test('the status area: the modules\' status line under the composer, always there, announced politely', () => {
+test('the status area: the module frame\'s status bar under the composer, always there, announced politely', () => {
   const html = read('public/space.html');
   const bar = /<div class="mod-bar chat-bar" id="chat-bar">[\s\S]*?<\/aside>/.exec(html)[0];
-  assert.match(bar, /<div class="mod-status chat-status" id="chat-status" role="region" aria-label="Chat status">/, 'the shared .mod-status look; not hidden, so nothing jumps');
+  assert.match(bar, /<div class="mf-status chat-status" id="chat-status" role="region" aria-label="Chat status">/, 'the frame\'s status bar look; not hidden, so nothing jumps');
   assert.ok(bar.indexOf('id="chat-form"') < bar.indexOf('id="chat-status"'), 'under the composer');
   assert.match(bar, /id="chat-conn" aria-live="polite"/, 'the connection is announced');
   assert.match(bar, /id="chat-note" role="status" aria-live="polite"/, 'a notice is announced');

@@ -1039,7 +1039,7 @@ export function createFrameBands(frame, { send, box = null }) {
 // window); the calls answer true. Wherever a module is drawn the host draws its bands; only a dashboard widget (no
 // header, toolbar, add or status given) answers false. `module.content` is the manifest's ("flush" or nothing). Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, chrome = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, onHeader = null, onToolbarItems = null, lift = true, onLift = null, liftUp = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, chrome = null, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, onHeader = null, onToolbarItems = null, lift = true, onLift = null, liftUp = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
@@ -1674,20 +1674,19 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const place = factsPlace();
       return place ? sendFacts('DELETE', place) : false;
     },
-    // Icon buttons in the module's titlebar, before the host's own buttons and set off by a pipe: the window's titlebar,
-    // the page bar on a module's own page and on a destination's page, a composite's titlebar on a space's canvas.
+    // The module's own actions in its frame's title bar (icons beside the menu, or in it): a window's, popped out too, a
+    // module's own page, a destination's page, a composite's window on a space's canvas.
     async 'header.set'({ items }) {
       if (!headerOut) return false; // a dashboard widget
       headerOut(cleanHeaderItems(items));
       return true;
     },
-    // The one toolbar row under the titlebar (createToolbar, above): a view switch, a title, a search, filter chips, a
-    // progress bar -- see host.toolbar.set. A destination's part hands its items to the page, which draws them in the
+    // The one toolbar row under the title bar (createFrameBands, above): the view switches, a title, buttons, a search,
+    // the filters -- see host.toolbar.set. A destination's part hands its items to the page, which draws them in the
     // page's one row with its own.
     async 'toolbar.set'({ items }) {
       if (!toolbarOut) return false; // a dashboard widget
-      const clean = toolbarOut(items);
-      if (onToolbar) onToolbar(clean.length > 0);
+      toolbarOut(items);
       return true;
     },
     // The module's tools in the nav bars (host.nav.set): registered under the module's own namespace in the shared

@@ -50,7 +50,7 @@ The settings popover, the reactions tray and the overflow menu live inside the v
 
 ## Rules
 
-- **The header height is one token.** `--module-header-h` sets every module header strip so neighbouring columns line up. Nothing else sets a module header height.
+- **The title bar height is one token.** `--mf-title-h` (36px, in the moduleframe block of `public/sdk/system.css`) sets every module's title bar so neighbouring columns line up. Nothing else sets a module title bar height.
 - **The bottom row has one control height.** `--bar-control-h` (38px) is the height of every control in the shared bottom row: the call toolbar's buttons (`.fbtn`), the chat's icons button, input and Send, and each module's quick-add field and button. The bars pad by the same 8px, so a single-line bar is the same height in every cell and the controls line up; a multi-line chat message grows the chat cell upward from the bottom edge. Nothing else sets a control height in that row.
 - **No measured heights.** `--barh` and `--floatbar-h` are gone. Anchor to the bar instead of measuring it, and let the row size itself.
 - **No hand-subtracted widths.** A module that needs width gets a column; nobody writes `calc(100% - chat-w)`.
@@ -70,7 +70,7 @@ The pop-out keeps its videos live. LiveKit's adaptive stream pauses a remote vid
 
 ## The conference module
 
-The conference's titlebar (`.conference-head`, a `.mod-header` at `--module-header-h`) is the first thing in its content, above the tiles. The overlays for asides, the recall countdown and away (`#aside-overlay`, `#recall-overlay`, `#away-overlay`) are inside the same content, so they cover the conference wherever it is.
+The conference's title bar (`.conference-head`, an `.mf-titlebar` at `--mf-title-h`) is the first thing in its content, above the tiles. The overlays for asides, the recall countdown and away (`#aside-overlay`, `#recall-overlay`, `#away-overlay`) are inside the same content, so they cover the conference wherever it is.
 
 Floating or in a window, the conference is not inside the canvas, but its tiles and toolbar are styled by an ancestor `.canvas`, so the canvas manager wraps it in a `.canvas.conference-canvas` (`def.wrap`). Page code finds its elements through `$()`, which falls back to the conference element, and reads the conference's size (not the canvas's) for the `compact` and `tiny` classes. A window has its own document, so the conference registers `onWindow` to attach the idle, outside-click and key listeners there. A module's `pagehide` handler is registered only after its window has loaded, because the blank page a popup starts as also fires `pagehide` when it navigates, and that must not read as the person closing it. Moving the conference between docked, floating and a window passes `moving: true` to `onChange`, so the call keeps running. Closing it stops the call; opening it never starts one (see "The conference and the call").
 
@@ -207,7 +207,7 @@ Being in the space and being on the call are separate. The page stays connected 
 
 ## Docked installed modules
 
-An installed module can dock as a column after the chat. `public/canvas.js` adds a `.module.module-docked` element to the canvas holding a `.dock-resize` handle and a `.mod-content` with a host-drawn `.mod-header` (at `--module-header-h`) and the module's frame. The content always spans both rows of the grid: a module draws its add actions in the titlebar's **+** and its counts in the status line at the foot of its own window, and there is no bar in the bottom row (the old `host.bar.set` is folded into the **+**). The canvas sets `--canvas-cols` and places each column, so the template is one column per docked module, with the conference or the first module flexible. Dragging a column's left edge changes only that column's width.
+An installed module can dock as a column after the chat. `public/canvas.js` adds a `.module.module-docked` element to the canvas holding a `.dock-resize` handle and the docked variant of the module frame (`createModuleFrame`, [architecture-module-window](architecture-module-window.md)): a title bar at `--mf-title-h`, the toolbar row, the module's content and the status bar, with its left edge only (no divider on a phone). The content always spans both rows of the grid: a module draws its add actions in the titlebar's **+** and its counts in the status line at the foot of its own window, and there is no bar in the bottom row (the old `host.bar.set` is folded into the **+**). The canvas sets `--canvas-cols` and places each column, so the template is one column per docked module, with the conference or the first module flexible. Dragging a column's left edge changes only that column's width.
 
 On a narrow window one view is shown at a time (see the narrow rules above). A module opens docked, laid out as the chat is (the canvas gets `module-open`, set by `syncDock`, beside `chat-open` and `conference-open`): it fills the canvas, its action bar below it. A module that cannot dock still floats. Its titlebar buttons are 44px wide for touch, at the shared header height.
 

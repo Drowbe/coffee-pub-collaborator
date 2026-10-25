@@ -65,6 +65,17 @@ const ALLOWED_EXT = new Set([
   '.woff', '.woff2', '.ttf', '.otf',
 ]);
 const HOOKS = ['schedule', 'notify', 'ai', 'external'];
+
+// A manifest's hooks, each true or false, except `ai`: true (it can't work without the AI service) or "optional" (it uses the
+// service when it is on and works without it). Anything else for `ai` is refused.
+function cleanHooks(raw) {
+  const hooks = Object.fromEntries(HOOKS.map((h) => [h, Boolean(raw?.[h])]));
+  if (raw && Object.prototype.hasOwnProperty.call(raw, 'ai')) {
+    if (raw.ai !== true && raw.ai !== 'optional') throw new ModuleError('module.json: hooks.ai must be true (the module needs the AI service) or "optional" (it uses the service when it is on)');
+    hooks.ai = raw.ai;
+  }
+  return hooks;
+}
 // What an object's summary (what another module may show of it) can carry, and which of the producing module's own
 // stored fields fill it (`refs.produces[].summary`). See documentation/api/api-module-sdk.md ("Objects").
 const SUMMARY_FIELDS = ['title', 'subtitle', 'when', 'end', 'allDay', 'done', 'place', 'category', 'text', 'amount', 'planned', 'paidBy', 'sharedBy', 'icon', 'visit', 'color', 'spaces'];
@@ -848,7 +859,7 @@ function cleanManifest(raw, files) {
       default: { member: Boolean(d.member), guest: Boolean(d.guest), moderator: Boolean(d.moderator ?? d.member) },
     });
   }
-  const hooks = Object.fromEntries(HOOKS.map((h) => [h, Boolean(raw.hooks?.[h])]));
+  const hooks = cleanHooks(raw.hooks);
 
   const refs = cleanRefs(raw.refs, id);
   const storage = cleanStorage(raw.storage);
@@ -1040,7 +1051,7 @@ class ModuleManager {
       // but never runs: enabled() answers null for it and view() says why.
       manifest.outdated = oldNameIn(manifest);
       // Fill in what it left out.
-      manifest.hooks = Object.fromEntries(HOOKS.map((h) => [h, Boolean(manifest.hooks?.[h])]));
+      manifest.hooks = Object.fromEntries(HOOKS.map((h) => [h, h === 'ai' ? (manifest.hooks?.ai === 'optional' ? 'optional' : Boolean(manifest.hooks?.ai)) : Boolean(manifest.hooks?.[h])]));
       manifest.scope = cleanScope(manifest.scope);
       if (!Array.isArray(manifest.permissions)) manifest.permissions = [];
       if (!manifest.access || typeof manifest.access !== 'object') manifest.access = {};
@@ -1279,14 +1290,15 @@ class ModuleManager {
   missingFor(manifest) {
     const waiting = this.needsUpdateFor(manifest);
     const missing = (manifest.requires || []).filter((r) => !waiting.includes(r) && !this.enabled(r));
-    if (manifest.hooks.ai && !this.aiReady()) missing.push('ai');
+    if (manifest.hooks.ai === true && !this.aiReady()) missing.push('ai');
     return missing;
   }
 
-  // The enabled modules that declare the `ai` hook: what depends on the AI service, the way `dependentsOf` says what depends
+  // The enabled modules that declare the `ai` hook as required (an "optional" one works without the service, so it stays on):
+  // what depends on the AI service, the way `dependentsOf` says what depends
   // on a module. For the AI service's own admin page, and to cascade turning it off.
   aiDependents() {
-    return this.enabledAll().filter(({ manifest }) => manifest.hooks.ai).map(({ manifest }) => ({ id: manifest.id, name: this.shownName(manifest) }));
+    return this.enabledAll().filter(({ manifest }) => manifest.hooks.ai === true).map(({ manifest }) => ({ id: manifest.id, name: this.shownName(manifest) }));
   }
 
   // A missing id's name for a message: another module's, or "the AI service".

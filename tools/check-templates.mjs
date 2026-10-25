@@ -298,11 +298,11 @@ try {
     assert.equal(env.store.addSpace({ name: 'Later' }).profile, 'roleplaying');
   });
 
-  await test('a module that installs but can\'t be on yet (Research, with no AI service) is in every space, off, and recorded with why', async () => {
+  await test('Research, which uses the AI service only when it is on, is on in every space with no AI service', async () => {
     const env = freshEnvironment('no-ai');
-    assert.deepEqual(await templates.applyTemplate(env, travel), [{ id: 'research', why: 'Research needs the AI service installed and turned on first' }]);
+    assert.deepEqual(await templates.applyTemplate(env, travel), []);
     const research = env.modules.view('research');
-    assert.equal(research.enabled, false);
+    assert.deepEqual([research.enabled, research.missing, research.hooks.ai], [true, [], 'optional']);
   });
 
   await test('a module the plan leaves out is skipped and recorded; what needs a skipped one is skipped too', async () => {

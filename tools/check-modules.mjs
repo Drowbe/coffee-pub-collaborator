@@ -789,4 +789,39 @@ test('the manifest field content is padded or flush, and nothing else', () => {
   }
 }
 
+// A module's `ai` hook: true needs the AI service, "optional" uses it when it is on, anything else is refused.
+test('hooks.ai: true or "optional" only; required waits on the AI service, optional does not, and turning the service off keeps optional users on', () => {
+  for (const bad of ['yes', 'required', false, 1, null, {}, ['optional']]) {
+    assert.throws(() => cleanManifest({ ...base(), hooks: { ai: bad } }, files), (err) => err instanceof ModuleError && /hooks\.ai must be true .* or "optional"/.test(err.message), `refused: ${JSON.stringify(bad)}`);
+  }
+  assert.equal(cleanManifest(base(), files).hooks.ai, false, 'absent: no AI use');
+  assert.equal(cleanManifest({ ...base(), hooks: { ai: true } }, files).hooks.ai, true);
+  assert.equal(cleanManifest({ ...base(), hooks: { ai: 'optional' } }, files).hooks.ai, 'optional');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-modules-'));
+  try {
+    for (const [id, ai] of [['needs-ai', true], ['uses-ai', 'optional']]) {
+      const d = path.join(dir, 'modules', id, 'versions', '1.0.0');
+      fs.mkdirSync(d, { recursive: true });
+      fs.writeFileSync(path.join(d, 'module.json'), JSON.stringify({ id, name: id, version: '1.0.0', scope: ['environment'], surfaces: { page: { entry: 'page.html' } }, hooks: { ai } }));
+      fs.writeFileSync(path.join(d, 'page.html'), '<p>x</p>');
+    }
+    const entry = (id) => ({ id, versions: ['1.0.0'], version: '1.0.0', enabled: false, allSpaces: true, spaces: [], approved: { permissions: [], hooks: ['ai'], refs: [], events: [], actions: [] }, source: 'upload' });
+    fs.writeFileSync(path.join(dir, 'modules', 'registry.json'), JSON.stringify({ modules: { 'needs-ai': entry('needs-ai'), 'uses-ai': entry('uses-ai') }, autoInstalled: [] }));
+    const mm = new ModuleManager(dir);
+    let on = false;
+    mm.aiReady = () => on;
+    assert.deepEqual([mm.view('needs-ai').missing, mm.view('uses-ai').missing], [['ai'], []], 'only the required one waits on the service');
+    assert.throws(() => mm.update('needs-ai', { enabled: true }), (err) => /needs the AI service installed and turned on first/.test(err.message), 'required: refused with the service off');
+    assert.equal(mm.update('uses-ai', { enabled: true }).enabled, true, 'optional: on with the service off');
+    on = true;
+    assert.equal(mm.update('needs-ai', { enabled: true }).enabled, true);
+    assert.deepEqual(mm.aiDependents().map((m) => m.id), ['needs-ai'], 'the service lists only the required one');
+    on = false;
+    assert.equal(mm.enabled('uses-ai') !== null, true, 'the optional one keeps running with the service off');
+    assert.deepEqual(mm.view('uses-ai').missing, []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 console.log(`check-modules: ${n} groups OK`);

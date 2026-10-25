@@ -189,7 +189,7 @@ export function createModuleFrame(opts = {}) {
     }
     if (tb.add) {
       const add = typeof tb.add === 'object' ? tb.add : {};
-      const b = button('mf-add-btn', { label: add.label || 'Add', iconName: 'plus', words: false });
+      const b = button('mf-icon-btn mf-titlebar-btn mf-add-btn', { label: add.label || 'Add', iconName: 'plus', words: false });
       if (Array.isArray(add.entries) && add.entries.length) {
         b.setAttribute('aria-haspopup', 'menu');
         b.addEventListener('click', () => openHostMenu(b, add.entries.map((e) => ({ label: e.label, icon: e.icon, onPick: () => tbFire({ id: 'add', value: e.id }) }))));

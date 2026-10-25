@@ -5765,23 +5765,17 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 /* The title bar's buttons, start to end: the module's bar actions, the "+", the menu (More, the host's menu: module-frame.js)
    and the close button. A button whose menu is open keeps the hover fill while it is open. */
 .mf-titlebar-tools > [aria-expanded="true"] { background: var(--fill-hover); color: var(--text-primary); }
-/* The "+": outlined, its plus in the accent, so it reads as "make something" beside the bare icon buttons. */
-.mf-add-btn {
-  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-  width: var(--mf-ctl-h); height: var(--mf-ctl-h); margin-inline: var(--space-1); padding: 0;
-  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field); color: var(--text-accent);
-  font-size: var(--icon-14);
-}
-.mf-add-btn:hover { background: var(--fill-hover); }
+/* The "+": the same icon button as the rest of the row (.mf-icon-btn); only its plus is the accent. */
+.mf-icon-btn.mf-add-btn, .mf-add-btn:hover { color: var(--text-accent); }
 
 /* ---- the kinds of control ---- */
 /* An icon button: bare, square, the icon colour; a fill only on hover or while it is on. */
-.mf-icon-btn {
+.mf-icon-btn, .mf-add-btn {
   display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box;
   width: var(--mf-ctl-h); height: var(--mf-ctl-h); padding: 0;
   border: 0; border-radius: var(--radius-small); background: transparent; color: var(--icon-default); font-size: var(--icon-14);
 }
-.mf-icon-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
+.mf-icon-btn:hover, .mf-add-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
 .mf-icon-btn.is-on { background: var(--fill-selected); color: var(--text-selected); }
 
 /* A button: square-cornered, words (and an icon before them). Primary filled with the accent; secondary outlined on the card step. */
@@ -5863,7 +5857,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 
 /* The Filters button: a small-corner box for the count of what is applied (never a pill); always shown, only ever moved into More. */
 .mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; border-radius: var(--radius-small); }
-.mf .mf-count.mf-count-box { border-radius: var(--radius-small); background: var(--accent-fill); color: var(--text-on-accent); }
+.mf .mf-count.mf-count-box { border-radius: var(--radius-round); padding: 0 var(--space-1); line-height: 1; align-self: center; background: var(--accent-fill); color: var(--text-on-accent); }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }

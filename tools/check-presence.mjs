@@ -13,8 +13,9 @@
  * Where people are comes from the live register (server/live.js, plan-realtime-optional-livekit.md step 1), with the
  * call service's list merged in (mergeCall); presenceView() reads that. First server/presence-view.js on its own and fed
  * from a register, then a real single-environment server on a throwaway DATA_DIR against a stand-in LiveKit (a small
- * Twirp JSON server answering ListRooms, ListParticipants and SendData), with people in the register through GET
- * /api/live as well. No network beyond localhost.
+ * Twirp JSON server answering ListRooms and ListParticipants), with people in the register through GET /api/live as
+ * well: an aside is pulled from the register's word about the call, and its aside-started goes on the live stream
+ * (plan-realtime-optional-livekit.md, step 4). No network beyond localhost.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -160,7 +161,6 @@ const test = async (name, fn) => {
 // --- live: a single-environment server and a stand-in LiveKit -------------------------------------------------------
 // `calls` is { callName: [person, ...] }; a person is an identity on the call, or { id, call, hidden }.
 const calls = {};
-const sent = []; // what SendData was asked to send: { call, topic, to, payload }
 const participant = (person) => {
   const identity = person.id || person;
   return { sid: `PA_${identity}`, identity, name: identity, joinedAt: '1', permission: { hidden: Boolean(person.hidden) }, tracks: [], attributes: person.hidden ? {} : { call: person.call || 'on' } };
@@ -173,7 +173,6 @@ const standIn = http.createServer((req, res) => {
     let answer = {};
     if (req.url.endsWith('/ListRooms')) answer = { rooms: Object.entries(calls).map(([name, people]) => ({ sid: `RM_${name}`, name, numParticipants: people.length })) };
     else if (req.url.endsWith('/ListParticipants')) answer = { participants: (calls[ask.room] || []).map(participant) };
-    else if (req.url.endsWith('/SendData')) sent.push({ call: ask.room, topic: ask.topic, to: ask.destinationIdentities || [], payload: JSON.parse(Buffer.from(ask.data || '', 'base64').toString('utf8') || 'null') });
     else { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(answer));
@@ -250,7 +249,42 @@ try {
     return u ? [u.space, u.aside, u.elsewhere, u.inCall, u.online] : undefined;
   };
   const kind = (answer, key) => answer.json.users.find((x) => x.key === key)?.asidePrivate;
-  const startedOn = (callName) => sent.filter((m) => m.topic === 'aside-started' && m.call === callName).map((m) => m.payload);
+  // In a space as the register says: a live stream open there (GET /api/live), on the call when `onCall` (the page's
+  // word). Answers { events, close }; `events` collects each event's data.
+  const opened = [];
+  const enter = async (token, space, { onCall = false } = {}) => {
+    const ctl = new AbortController();
+    const res = await fetch(`http://127.0.0.1:${port}/api/live?space=${space}`, { headers: { authorization: `Bearer ${token}` }, signal: ctl.signal });
+    assert.equal(res.status, 200, `the live stream opens for ${space}`);
+    const events = [];
+    let buf = '';
+    let gotReady;
+    const ready = new Promise((r) => { gotReady = r; });
+    (async () => {
+      const decoder = new TextDecoder();
+      try {
+        for await (const chunk of res.body) {
+          buf += decoder.decode(chunk, { stream: true });
+          let at;
+          while ((at = buf.indexOf('\n\n')) >= 0) {
+            const line = buf.slice(0, at).split('\n').find((l) => l.startsWith('data: '));
+            buf = buf.slice(at + 2);
+            if (!line) continue;
+            const data = JSON.parse(line.slice(6));
+            events.push(data);
+            if (data.type === 'ready') gotReady(data.stream);
+          }
+        }
+      } catch { /* closed */ }
+    })();
+    const stream = await ready;
+    if (onCall) assert.equal((await call('PATCH', `/api/spaces/${space}/presence`, { token, body: { onCall: true, stream } })).status, 200);
+    const entered = { events, close: () => ctl.abort() };
+    opened.push(entered);
+    return entered;
+  };
+  const quiet = (ms = 300) => new Promise((r) => setTimeout(r, ms));
+  const startedIn = (s) => s.events.filter((e) => e.type === 'aside-started').map(({ type, spaceId, members, private: priv }) => (members ? { type, spaceId, members, private: priv } : { type, spaceId, private: priv }));
 
   // Alice, Carol and Dana on the Keep's call, Bob on the Tower's with a hidden OBS viewer, a guest in the Keep.
   setCalls({ [spaceA]: [alice, carol, dana, 'guest-wanderer'], [spaceB]: [bob, { id: 'obs-viewer', hidden: true }] });
@@ -267,11 +301,20 @@ try {
     assert.ok(!r.text.includes('obs-viewer') && !b.text.includes('obs-viewer'), 'an OBS viewer is never listed');
   });
 
-  // Carol pulls Dana into a private conversation from the Keep's call; then both are on the aside's call.
+  // Carol pulls Dana into a private conversation from the Keep's call (both on it as the register says; Alice in the Keep,
+  // off the call by her page's word, hears it start); then both are on the aside's call, and in the aside.
+  const aliceIn = await enter(aliceT, spaceA);
+  const carolIn = await enter(carolT, spaceA, { onCall: true });
+  const danaIn = await enter(danaT, spaceA, { onCall: true });
   const pulled = await call('POST', '/api/asides', { token: carolT, body: { with: [dana], private: true } });
   assert.equal(pulled.status, 200, pulled.text);
   const aside = pulled.json.aside.id;
   setCalls({ [spaceA]: [alice, 'guest-wanderer'], [`aside-${aside}`]: [carol, dana], [spaceB]: [bob, { id: 'obs-viewer', hidden: true }] });
+  await quiet();
+  carolIn.close();
+  danaIn.close();
+  await enter(carolT, aside, { onCall: true });
+  await enter(danaT, aside, { onCall: true });
 
   await test('live: a private aside\'s members read as the Keep, stepped out, to a Keep member who is not in it', async () => {
     const r = await presence({ token: aliceT });
@@ -325,14 +368,22 @@ try {
   });
 
   await test('live: a private conversation\'s aside-started tells the call no members; an ordinary aside\'s does', async () => {
-    assert.deepEqual(startedOn(spaceA), [{ type: 'aside-started', spaceId: aside, private: true }], 'the private pull: no members, to the whole Keep call');
-    // The admin pulls Alice into an ordinary aside from the Keep (an owner's move).
+    assert.deepEqual(startedIn(aliceIn), [{ type: 'aside-started', spaceId: aside, private: true }], 'the private pull: no members, on the live stream of everyone in the Keep');
+    // The admin pulls Alice into an ordinary aside from the Keep (an owner's move); both on the Keep's call first.
     setCalls({ [spaceA]: [adminKey, alice, 'guest-wanderer'], [`aside-${aside}`]: [carol, dana], [spaceB]: [bob] });
+    const adminIn = await enter(admin, spaceA, { onCall: true });
+    aliceIn.close();
+    const aliceOn = await enter(aliceT, spaceA, { onCall: true });
     const pub = await call('POST', '/api/asides', { token: admin, body: { with: [alice] } });
     assert.equal(pub.status, 200, pub.text);
     const pubId = pub.json.aside.id;
-    assert.deepEqual(startedOn(spaceA)[1], { type: 'aside-started', spaceId: pubId, members: [adminKey, alice], private: false });
+    await quiet();
+    assert.deepEqual(startedIn(adminIn)[0], { type: 'aside-started', spaceId: pubId, members: [adminKey, alice], private: false });
     setCalls({ [`aside-${pubId}`]: [adminKey, alice], [`aside-${aside}`]: [carol, dana], [spaceB]: [bob] });
+    adminIn.close();
+    aliceOn.close();
+    await enter(admin, pubId, { onCall: true });
+    await enter(aliceT, pubId, { onCall: true });
     const d = await presence({ token: danaT });
     assert.deepEqual([person(d, alice), kind(d, alice)], [[spaceA, true, false, false, true], false], 'an ordinary aside, to a Keep member not in it');
     assert.deepEqual([person(d, carol), kind(d, carol)], [[aside, true, false, true, true], true], 'the private one, to its own member');
@@ -341,6 +392,9 @@ try {
     assert.equal((await presence({ token: bobT })).json.activeSpace, null);
     assert.equal((await presence({ token: aliceT })).json.activeSpace, pubId);
   });
+
+  for (const s of opened.splice(0)) s.close();
+  await quiet();
 
   await test('live: someone signed in and in no call is present, with no place', async () => {
     assert.equal((await call('POST', '/api/presence', { token: bobT })).status, 200);

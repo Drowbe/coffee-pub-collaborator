@@ -1,14 +1,14 @@
 // The live stream (documentation/plans/plan-realtime-optional-livekit.md, steps 2 and 3): one server-sent stream per
 // page, GET /api/live?space=<id> while the page is in a space or an aside, GET /api/live on Home. It says who is there
 // (`presence`, the whole list on connect and on every change) and what happens in the chat (the space's and the Lobby's,
-// Home's chat), and the page says its own state with PATCH /api/spaces/:id/presence (in the space is the stream being
+// Home's chat) and the asides' nudges for this person (step 4), and the page says its own state with PATCH /api/spaces/:id/presence (in the space is the stream being
 // open; away, its message and on the call are said). space.js opens it on entering and on Home; who is here, the
 // conference's "Not in a call" list, Start or Join call, the tiles' away and the chat read it.
 //
 // The stream drops (a network blip, a server restart): it is opened again after 2, 4, 8 seconds and so on, up to a
 // minute between tries, for as long as the page stays in the space. Each opening is a new stream with a new id, so the
 // page's state is said again on every `ready` (onReady). A refusal (401, 403 or 404 when asked again) or the server's
-// `removed` ends it for good (onEnd); 429 (too many open) is tried again later, since an old stream of the same person
+// `removed` (the access gone, or a kick) ends it for good (onEnd); 429 (too many open) is tried again later, since an old stream of the same person
 // may still be closing. Nothing here reads the page's globals: space.js hands in what it needs, so a check can run it
 // against a stand-in EventSource and clock.
 
@@ -57,11 +57,15 @@ export function peopleFromPresence(list, { you = null, youName = '', meOnCall = 
 
 // Open the stream. `url` is liveStreamUrl's; `onReady({ you, space, stream }, first)` on every opening (`first` true
 // only the first time, so the page catches up on the others), `onPresence(people)` on every presence event for this
-// space, `onChat(data)` on every chat event (`chat`, `chat-delete`, ... each with its `space`), `onState('live' |
-// 'reconnecting')` as it goes, `onEnd({ reason, error })` once when it ends for good (never on close()). `probe(url)` answers the HTTP status of a fresh request (0 when the server
+// space, `onChat(data)` on every chat event (`chat`, `chat-delete`, ... each with its `space`), `onAside(data)` on every
+// aside nudge (`aside-pull`, `aside-started`, `aside-recall`, `aside-return`, each with its `spaceId`), `onState('live' |
+// 'reconnecting')` as it goes, `onEnd({ reason, error })` once when it ends for good (never on close()); `reason` is the
+// server's (`access`, `kicked`) or `refused`. `probe(url)` answers the HTTP status of a fresh request (0 when the server
 // was not reached), asked after a stream that never opened, to tell a refusal from a drop. Answers { close, ready }:
 // `ready` is the last `ready`'s data while the stream is open, else null.
-export function openLiveStream({ url, onReady = () => {}, onPresence = () => {}, onChat = () => {}, onState = () => {}, onEnd = () => {}, probe = async () => 0, EventSourceImpl = globalThis.EventSource, schedule = (fn, ms) => setTimeout(fn, ms), cancel = (t) => clearTimeout(t) }) {
+export const ASIDE_NUDGES = ['aside-pull', 'aside-started', 'aside-recall', 'aside-return'];
+
+export function openLiveStream({ url, onReady = () => {}, onPresence = () => {}, onChat = () => {}, onAside = () => {}, onState = () => {}, onEnd = () => {}, probe = async () => 0, EventSourceImpl = globalThis.EventSource, schedule = (fn, ms) => setTimeout(fn, ms), cancel = (t) => clearTimeout(t) }) {
   let source = null;
   let timer = null;
   let tries = 0;
@@ -113,6 +117,8 @@ export function openLiveStream({ url, onReady = () => {}, onPresence = () => {},
         if (live && Array.isArray(data.people)) onPresence(data.people);
       } else if (typeof data.type === 'string' && data.type.startsWith('chat')) {
         if (live && typeof data.space === 'string') onChat(data);
+      } else if (ASIDE_NUDGES.includes(data.type)) {
+        if (live && typeof data.spaceId === 'string' && data.spaceId) onAside(data);
       } else if (data.type === 'removed') {
         end({ reason: data.reason || 'removed', error: data.error || '' });
       }

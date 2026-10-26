@@ -8,7 +8,11 @@
  * server): GET /api/live refuses the signed out (401), a non-member (403), no such space (404) and too many streams
  * (429); two people in one space each see the other in `presence`; away and onCall changes arrive; GET /api/presence
  * and GET /api/status answer from the register; a guest is listed and says away with their stream's id; a person
- * taken out of the space gets `removed` and the stream ends; an aside's stream is for its members only.
+ * taken out of the space gets `removed` and the stream ends; an aside's stream is for its members only. Asides and the
+ * kick on the live stream (step 4, Verify point 4), with no call service answering: POST /api/asides, /recall and /return
+ * read who is in the space and on the call from the register; each nudge reaches only its people; a nudge (and a kick)
+ * for a stream that is reconnecting arrives when it opens again, within 30 seconds; a kick sends `removed { reason:
+ * 'kicked' }`, ends the stream and leaves the space at once.
  * Then chat on the live stream (step 3, Verify point 3; what check-chat-stream and check-guest-chat held), on a second
  * server: a post reaches the other streams with its stored id and its space (a space's stream carries its own chat and
  * the Lobby's, Home's the Lobby's, a guest's their space's); deletes, visibility, Clear... and Delete the chat arrive; a
@@ -16,7 +20,8 @@
  * never stored, deleted and cleared by their sender); nothing is replayed on a reconnect; the guest limits on posts and
  * open streams (LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) hold, spoofed addresses change nothing, and a guest
  * link turned off or regenerated, or guests turned off, ends a guest's stream at once with `removed`.
- * What can't be checked here: anything that needs a real LiveKit server (the microphone and camera merged from a call).
+ * What can't be checked here: anything that needs a real LiveKit server (the microphone and camera merged from a call,
+ * a kick or a mute on a live call, a pull moving people's calls).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -28,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
-const { LiveRegister, mergeCall, cleanAwayMessage } = require('../server/live.js');
+const { LiveRegister, mergeCall, cleanAwayMessage, NUDGE_HOLD_MS } = require('../server/live.js');
 let n = 0;
 const ok = (cond, msg) => { assert.ok(cond, msg); n += 1; };
 const same = (a, b, msg) => { assert.deepEqual(a, b, msg); n += 1; };
@@ -108,6 +113,29 @@ const same = (a, b, msg) => { assert.deepEqual(a, b, msg); n += 1; };
   const g = reg.open({ who: 'guest-1', name: 'Vic', guest: true, space: 'keep' });
   same(reg.people('keep').find((p) => p.key === 'guest-1'), { key: 'guest-1', name: 'Vic', guest: true, onCall: false, away: false, awayMessage: '' }, 'a guest');
   reg.close(g);
+
+  // A nudge for a stream that is reconnecting (step 4): kept for 30 seconds while they are in the grace, handed once to
+  // the next stream they open there; never for someone not there. A kick's leave() ends the grace at once.
+  same(NUDGE_HOLD_MS, 30000, 'a nudge is kept for 30 seconds');
+  const h1 = reg.open({ who: 'fa', name: 'Fa', space: 'keep' });
+  reg.close(h1);
+  ok(reg.hold('fa', 'keep', { type: 'aside-return', spaceId: 'keep' }), 'kept for someone in the grace');
+  ok(!reg.hold('fa', 'tower', { type: 'aside-return', spaceId: 'x' }), 'not for a space they are not in');
+  ok(!reg.hold('nobody', 'keep', { type: 'aside-pull', spaceId: 'x' }), 'nor for someone not there');
+  same(reg.takeHeld('fa', 'tower'), [], 'nothing kept for another space');
+  t += 10000;
+  same(reg.takeHeld('fa', 'keep'), [{ type: 'aside-return', spaceId: 'keep' }], 'handed to the next stream they open there');
+  same(reg.takeHeld('fa', 'keep'), [], 'once');
+  ok(reg.hold('fa', 'keep', { type: 'removed', reason: 'kicked' }), 'kept again');
+  t += 30000;
+  same(reg.takeHeld('fa', 'keep'), [], 'and gone after 30 seconds');
+  const h2 = reg.open({ who: 'fa', name: 'Fa', space: 'keep' });
+  reg.set('fa', 'keep', { away: true });
+  reg.close(h2);
+  ok(reg.isThere('fa', 'keep'), 'in the grace');
+  reg.leave('fa', 'keep');
+  ok(!reg.isThere('fa', 'keep') && reg.placeOf('fa') === null, 'leave(): out at once, no grace');
+  ok(!reg.hold('fa', 'keep', { type: 'aside-pull', spaceId: 'x' }), 'and nothing is kept for them');
 
   // mergeCall: the register's place, the call service's media only for that call.
   const places = new Map([
@@ -220,6 +248,7 @@ async function openStream(urlPath, who) {
   return stream;
 }
 const quiet = (ms = 300) => new Promise((r) => setTimeout(r, ms));
+const within = (promise, ms) => Promise.race([promise, new Promise((r) => setTimeout(() => r('timeout'), ms))]);
 // The last presence event's people as [key, onCall, away, awayMessage, guest].
 const lastPeople = (s) => {
   const e = [...s.events].reverse().find((x) => x.type === 'presence');
@@ -356,6 +385,105 @@ try {
   g2.close();
   guest.close();
 
+  // --- asides and the kick on the live stream (step 4; the Verify section, point 4) ------------------------------
+  // No LiveKit answers here: who is in the space and on the call is the register's, and every nudge goes on the stream.
+  const readyOf = async (s) => (await s.until((e) => e.type === 'ready')).stream;
+  const say = (cookie, space, body) => call('PATCH', `/api/spaces/${space}/presence`, { cookie, body });
+  const nudges = (s, type) => s.events.filter((e) => e.type === type);
+  // Close `key`'s stream `s`, which said it is on the call, and wait until the server has seen it close: `watcher`, another
+  // stream in that space, hears them on the call, then not (the call's word goes with the stream; the grace keeps them
+  // there, or a stream of theirs open in another space takes them there).
+  const onCallIn = (watcher, key, on) => (e) => e.type === 'presence' && e.people.some((p) => p.key === key && p.onCall === on);
+  // `mark` is the watcher's event count before the person was last said to be there on the call.
+  const closeSeen = async (s, watcher, key, mark) => {
+    await watcher.until((e) => onCallIn(watcher, key, true)(e) && watcher.events.indexOf(e) >= mark);
+    const from = watcher.events.length;
+    s.close();
+    await watcher.until((e) => e.type === 'presence' && !onCallIn(watcher, key, true)(e) && watcher.events.indexOf(e) >= from);
+  };
+  const ownerKey = (await call('GET', '/api/me', { cookie: owner })).json.user.key;
+  const ownerS = await watch(K, owner);
+  const ownerSt = await readyOf(ownerS);
+  const patA = await watch(K, patC);
+  const patASt = await readyOf(patA);
+  const samSt = samS.events.find((e) => e.type === 'ready').stream;
+  const pull = (cookie, body) => call('POST', '/api/asides', { cookie, body });
+  same((await pull(owner, { with: [sam.key] })).json, { error: 'you need to be in a call yourself to pull someone aside' }, 'pulling off the call (as the register says): 400');
+  same((await say(owner, keep.id, { onCall: true, stream: ownerSt })).status, 200);
+  const offCall = await pull(owner, { with: [sam.key] });
+  same([offCall.status, offCall.json.error], [409, 'Sam is not in the conference right now'], 'someone in the space but off the call: 409');
+  const away = await pull(owner, { with: [lou.key] });
+  same([away.status, away.json.error], [404, 'Lou is not with you right now'], 'someone not in the space: 404');
+  same((await say(samC, keep.id, { onCall: true, stream: samSt })).status, 200);
+  const pulled = await pull(owner, { with: [sam.key] });
+  same(pulled.status, 200, `the owner pulls Sam, both on the call by the register, with no call service: ${pulled.text}`);
+  const a1 = pulled.json.aside.id;
+  const gotPull = await samS.until((e) => e.type === 'aside-pull');
+  same([gotPull.spaceId, gotPull.byOwner, gotPull.private, typeof gotPull.from], [a1, true, false, 'string'], 'aside-pull reaches the one pulled, on their stream');
+  for (const s of [patA, ownerS, samS]) same((await s.until((e) => e.type === 'aside-started')).members, [ownerKey, sam.key], 'aside-started reaches everyone in the space, with who went');
+  await quiet();
+  same([nudges(patA, 'aside-pull').length, nudges(ownerS, 'aside-pull').length], [0, 0], 'aside-pull reaches nobody else');
+
+  // Both in the aside; Sam's stream drops, the owner goes back: Sam's aside-return comes when it opens again.
+  const ownerX = await watch(`/api/live?space=${a1}`, owner);
+  await readyOf(ownerX);
+  const samMark = ownerX.events.length;
+  const samX = await watch(`/api/live?space=${a1}`, samC);
+  same((await say(samC, a1, { onCall: true, stream: await readyOf(samX) })).status, 200, 'on the aside\'s call');
+  await closeSeen(samX, ownerX, sam.key, samMark);
+  const back = await call('POST', '/api/asides/return', { cookie: owner });
+  same([back.status, back.json.space.id], [200, keep.id], 'returning from the aside answers the space it came from');
+  const sentAt = Date.now();
+  const samX2 = await watch(`/api/live?space=${a1}`, samC);
+  const late = await samX2.until((e) => e.type === 'aside-return', 30000);
+  same(late.spaceId, keep.id, 'a nudge for a reconnecting stream arrives when it opens again');
+  ok(Date.now() - sentAt < 30000, 'within 30 seconds');
+  same(nudges(ownerX, 'aside-return').length, 0, 'the one returning is not nudged');
+  same((await call('POST', '/api/asides/return', { cookie: patC })).json, { error: 'you are not in an aside' }, 'returning from no aside: 400');
+  samX2.close();
+  ownerX.close();
+  await quiet();
+
+  // A private conversation from the Keep; the owner there recalls it: only its members hear.
+  same((await say(patC, keep.id, { onCall: true, stream: patASt })).status, 200);
+  const priv = await pull(patC, { with: [sam.key], private: true });
+  same(priv.status, 200, `a member starts a private conversation: ${priv.text}`);
+  const a2 = priv.json.aside.id;
+  const privPull = await samS.until((e) => e.type === 'aside-pull' && e.spaceId === a2);
+  same([privPull.byOwner, privPull.private], [false, true], 'a peer\'s private pull asks first');
+  same(Object.keys(await ownerS.until((e) => e.type === 'aside-started' && e.spaceId === a2)).filter((k) => k !== '_id').sort(), ['private', 'spaceId', 'type'], 'a private aside-started names nobody');
+  const patY = await watch(`/api/live?space=${a2}`, patC);
+  await readyOf(patY);
+  const samY = await watch(`/api/live?space=${a2}`, samC);
+  await readyOf(samY);
+  same((await call('POST', '/api/asides/recall', { cookie: patC })).status, 403, 'recall is the owners\'');
+  same((await call('POST', '/api/asides/recall', { cookie: owner })).json, { recalled: 1 }, 'the owner in the Keep recalls');
+  for (const s of [patY, samY]) same((await s.until((e) => e.type === 'aside-recall')).spaceId, keep.id, 'aside-recall reaches the conversation\'s members');
+  await quiet();
+  same([nudges(ownerS, 'aside-recall').length, nudges(patA, 'aside-recall').length, nudges(samS, 'aside-recall').length], [0, 0, 0], 'and nobody outside it');
+
+  // The kick: out of the call and the space; the stream ends. A member without Can Kick is refused.
+  const refusedKick = await call('POST', `/api/users/${sam.key}/kick`, { cookie: patC });
+  same([refusedKick.status, refusedKick.json.error], [403, 'not allowed'], 'a member without Can Kick: 403');
+  same((await call('POST', `/api/users/${lou.key}/kick`, { cookie: owner })).json, { error: 'they are not in a space right now' }, 'kicking someone in no space: 404');
+  same((await call('POST', `/api/users/${sam.key}/kick`, { cookie: owner })).json, { ok: true }, 'the owner kicks Sam, with no call service');
+  same((await samY.until((e) => e.type === 'removed')).reason, 'kicked', 'Sam\'s stream there gets removed { reason: kicked }');
+  same(await within(samY.ended, 2000), true, 'and ends');
+  same((await patY.until((e) => e.type === 'presence' && !e.people.some((p) => p.key === sam.key))).people.map((p) => p.key), [pat.key], 'Sam is out of it at once, with no grace');
+  ok(!samS.ended || samS.events.at(-1).type !== 'removed', 'the stream of another space of theirs stays');
+  // A kick for someone whose stream is reconnecting comes when it opens again. Pat's aside stream closes, so the Keep's
+  // (on the call) is where Pat is; then that one closes too.
+  const patMark = ownerS.events.length;
+  patY.close();
+  await closeSeen(patA, ownerS, pat.key, patMark);
+  same((await call('POST', `/api/users/${pat.key}/kick`, { cookie: owner })).json, { ok: true }, 'kicking Pat in the grace');
+  const patBack = await watch(K, patC);
+  same((await patBack.until((e) => e.type === 'removed')).reason, 'kicked', 'the kick arrives when Pat\'s stream opens again');
+  same(await within(patBack.ended, 2000), true, 'and ends it');
+  ok((await call('GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === pat.key).space !== keep.id, 'Pat is out of the Keep at once');
+  ownerS.close();
+  ok(!/listener failed/.test(serverOut), `no listener failed:\n${serverOut}`);
+
   // --- the access no longer holding: removed, and the stream ends ------------------------------------------------
   await call('PATCH', `/api/spaces/${keep.id}`, { cookie: owner, body: { members: [pat.key] } });
   const removed = await samS.until((e) => e.type === 'removed', 4000);
@@ -393,7 +521,6 @@ try {
 // LIVE_STREAMS_PER_GUEST_LINK=5, so 2 an address; LIVE_STREAMS_PER_PERSON left at its default, 50), a 10 KB picture cap
 // (CHAT_PICTURE_MAX_MB=0.01), and TRUST_PROXY_HOPS=1: this check is the one proxy in front, so an address is told as the
 // proxy would, the rightmost X-Forwarded-For entry, and a client's own spoofed entries go to its left.
-const within = (promise, ms) => Promise.race([promise, new Promise((r) => setTimeout(() => r('timeout'), ms))]);
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40, 7)]);
 if (!failed) {
   await startServer({ GUEST_CHAT_POSTS_PER_MINUTE: '10', LIVE_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '1', CHAT_PICTURE_MAX_MB: '0.01' });

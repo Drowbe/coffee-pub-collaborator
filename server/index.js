@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const express = require('express');
 const yauzl = require('yauzl');
 const { AsyncLocalStorage } = require('async_hooks');
-const { AccessToken, RoomServiceClient, DataPacket_Kind } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 const QRCode = require('qrcode');
 const { ModuleManager, LIMITS: MODULE_LIMITS, compareVersions, oldNameIn, pendingWidensNothing } = require('./modules');
 const { buildModule, bundledModules, zipFiles } = require('./module-build');
@@ -3515,11 +3515,10 @@ async function whereEveryone() {
 }
 
 // Asides (plan-names step 3 moved these from /api/table/*; step 8 gave them their own record, store.asides, and made
-// them the call only: no modules, chat, layout, pictures or settings). Each nudge to a page
-// in a call goes over the call's data channel, on a topic that names it: aside-pull, aside-started, aside-recall and
-// aside-return. The data's `type` is the topic.
-const ASIDE_TOPICS = { pull: 'aside-pull', started: 'aside-started', recall: 'aside-recall', return: 'aside-return' };
-const asidePayload = (type, fields) => new TextEncoder().encode(JSON.stringify({ type, ...fields }));
+// them the call only: no modules, chat, layout, pictures or settings). Who is where and on the call is the live register's
+// (server/live.js), and each nudge to a page goes on its live stream (GET /api/live, tellLive), with a type that names it:
+// aside-pull, aside-started, aside-recall and aside-return (plan-realtime-optional-livekit.md, step 4). None of it asks
+// the call service, except the calls cap.
 
 // An invitation to a conversation of two: a private aside (off the record) for the inviter and the person invited,
 // who is told wherever they have the app open (the notification stream) and can join or decline. It lives a couple
@@ -3576,109 +3575,80 @@ app.get('/api/presence', async (req, res) => {
   res.json({ ...branding(), ...view, ownerOnline: hasOnlineOwner(byKey) });
 });
 
-// An admin pulls one or more people who are in their call into a new aside with them, for a word away from
-// everyone else. LiveKit here is a single, un-clustered node, so there is no server-side "move a live participant"
-// primitive to lean on: the admin's own browser gets the aside directly in this response and reconnects itself;
-// everyone else pulled gets a data-channel nudge (aside-pull) telling their page which aside to reconnect to.
-// An ordinary aside is a GM move -- pulling someone into an in-fiction private moment, admin only. A Private
-// Conversation is a real off-the-record word, which any two (or more) people in a call should be able to step
-// into together without needing the admin to broker it -- so this route allows any signed-in user, but still
-// requires admin for anything that isn't private.
+// An admin pulls one or more people who are on the call with them into a new aside. Nobody is moved by the server: the
+// admin's own browser gets the aside in this response and moves itself; everyone else pulled gets a nudge on their live
+// stream (aside-pull) telling their page which aside to move to, and everyone in the space the aside came from is told
+// it started (aside-started). The caller and the people pulled must be on the call as the register says (their page's
+// word, PATCH /api/spaces/:id/presence). An ordinary aside is a GM move -- pulling someone into an in-fiction private
+// moment, admin only. A Private Conversation is a real off-the-record word, which any two (or more) people in a call
+// should be able to step into together without needing the admin to broker it -- so this route allows any signed-in
+// user, but still requires admin for anything that isn't private.
 app.post('/api/asides', requireUser, async (req, res) => {
-  try {
-    const initiator = currentUser(req);
-    const priv = Boolean(req.body?.private);
-    if (priv && store.settings.allowPrivate === false) return res.status(403).json({ error: 'private conversations are turned off' });
-    if (!priv && store.settings.allowAsides === false) return res.status(403).json({ error: `${word('aside', { many: true })} are turned off` });
-    const raw = req.body?.with;
-    const keys = [...new Set(Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [])];
-    const targets = keys.filter((k) => k !== initiator.key).map((k) => store.userByKey(k)).filter(Boolean);
-    if (!targets.length) return res.status(400).json({ error: 'pick someone to pull aside' });
-    const here = new Map((await participants()).map((p) => [p.key, p]));
-    const initiatorCall = here.get(initiator.key)?.call;
-    if (!initiatorCall) return res.status(400).json({ error: 'you need to be in a call yourself to pull someone aside' });
-    const originId = spaceIdOfCall(initiatorCall);
-    const perms = store.spacePermissions(initiator.key, originId);
-    if (priv ? !perms.privateCall : !perms.startAside) return res.status(403).json({ error: priv ? 'you can\'t start a private conversation' : `you can't pull someone into ${word('aside', { a: true })}` });
-    for (const target of targets) {
-      const there = here.get(target.key);
-      if (!there || there.call !== initiatorCall) return res.status(404).json({ error: `${target.displayName} is not with you right now` });
-      if (!there.inCall) return res.status(409).json({ error: `${target.displayName} is not in the conference right now` });
-    }
-    // An aside is a call. Its members leave the call they are in for it: if nobody else stays on that call, the aside
-    // takes its slot; if others stay, the aside is a new running call and the plan's limit is asked here, before
-    // anyone is pulled (joining the aside is then never refused). The aside's slot is held until they show on its call.
-    const moving = [initiator.key, ...targets.map((t) => t.key)];
-    const refusal = await callsCapRefusal(null, initiator.key, { leaving: moving, hold: false });
-    if (refusal) return res.status(403).json({ error: refusal });
-    const aside = store.addAside(moving, originId, priv);
-    if (planCap('calls') !== null) holdCallStart(aside.id, initiator.key);
-    // byOwner tells the target's page whether to just go (an owner's call) or ask first.
-    const payload = asidePayload(ASIDE_TOPICS.pull, { spaceId: aside.id, byOwner: hasOwnerRights(initiator), private: priv, from: initiator.displayName });
-    await callService.sendData(initiatorCall, payload, DataPacket_Kind.RELIABLE, { destinationIdentities: targets.map((t) => t.key), topic: ASIDE_TOPICS.pull });
-    // Everyone left behind: a private word is private from the others, not invisible to them -- this is what lets
-    // their tiles turn into "in an aside" placeholders right away instead of just looking like they hung up until
-    // the next poll catches up. It goes only to this call, whose people just saw these members leave it. A private
-    // conversation's carries no members: who is with whom stays off the record (presence by membership gives the
-    // parent's members only `aside: true, asidePrivate: true` for each), and the page learns who stepped out from
-    // GET /api/presence.
-    const bystanderPayload = asidePayload(ASIDE_TOPICS.started, priv ? { spaceId: aside.id, private: true } : { spaceId: aside.id, members: aside.members, private: false });
-    await callService.sendData(initiatorCall, bystanderPayload, DataPacket_Kind.RELIABLE, { topic: ASIDE_TOPICS.started }).catch(() => {});
-    res.json({ aside });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
+  const initiator = currentUser(req);
+  const priv = Boolean(req.body?.private);
+  if (priv && store.settings.allowPrivate === false) return res.status(403).json({ error: 'private conversations are turned off' });
+  if (!priv && store.settings.allowAsides === false) return res.status(403).json({ error: `${word('aside', { many: true })} are turned off` });
+  const raw = req.body?.with;
+  const keys = [...new Set(Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [])];
+  const targets = keys.filter((k) => k !== initiator.key).map((k) => store.userByKey(k)).filter(Boolean);
+  if (!targets.length) return res.status(400).json({ error: 'pick someone to pull aside' });
+  const mine = live.placeOf(initiator.key);
+  if (!mine || !mine.onCall) return res.status(400).json({ error: 'you need to be in a call yourself to pull someone aside' });
+  const originId = mine.space;
+  const perms = store.spacePermissions(initiator.key, originId);
+  if (priv ? !perms.privateCall : !perms.startAside) return res.status(403).json({ error: priv ? 'you can\'t start a private conversation' : `you can't pull someone into ${word('aside', { a: true })}` });
+  for (const target of targets) {
+    const there = live.placeOf(target.key);
+    if (!there || there.space !== originId) return res.status(404).json({ error: `${target.displayName} is not with you right now` });
+    if (!there.onCall) return res.status(409).json({ error: `${target.displayName} is not in the conference right now` });
   }
+  // An aside is a call. Its members leave the call they are in for it: if nobody else stays on that call, the aside
+  // takes its slot; if others stay, the aside is a new running call and the plan's limit is asked here, before
+  // anyone is pulled (joining the aside is then never refused). The aside's slot is held until they show on its call.
+  const moving = [initiator.key, ...targets.map((t) => t.key)];
+  const refusal = await callsCapRefusal(null, initiator.key, { leaving: moving, hold: false });
+  if (refusal) return res.status(403).json({ error: refusal });
+  const aside = store.addAside(moving, originId, priv);
+  if (planCap('calls') !== null) holdCallStart(aside.id, initiator.key);
+  // byOwner tells the target's page whether to just go (an owner's call) or ask first.
+  for (const target of targets) tellLive(target.key, originId, { type: 'aside-pull', spaceId: aside.id, byOwner: hasOwnerRights(initiator), private: priv, from: initiator.displayName });
+  // Everyone in the space it came from, those pulled too: a private word is private from the others, not invisible to
+  // them -- this is what lets their tiles turn into "in an aside" placeholders right away instead of just looking like
+  // they hung up. A private conversation's carries no members: who is with whom stays off the record (presence by
+  // membership gives the parent's members only `aside: true, asidePrivate: true` for each), and the page learns who
+  // stepped out from GET /api/presence.
+  tellLiveSpace(originId, priv ? { type: 'aside-started', spaceId: aside.id, private: true } : { type: 'aside-started', spaceId: aside.id, members: aside.members, private: false });
+  res.json({ aside });
 });
 
-// Admin-only recall: every Private Conversation pulled out of the admin's own current space gets a data-channel
-// warning (aside-recall) -- their own page runs a 10-second countdown, then reconnects them back here itself,
+// Admin-only recall: every Private Conversation pulled out of the admin's own current space gets a warning on its
+// members' live streams (aside-recall) -- their own page runs a 10-second countdown, then moves them back here itself,
 // rather than being yanked back instantly. Doesn't touch ordinary asides: the admin is always already in those, so
 // there's nothing to recall them from that returning (POST /api/asides/return) doesn't already cover.
-app.post('/api/asides/recall', requireOwner, async (req, res) => {
-  try {
-    const admin = currentUser(req);
-    const online = await participants();
-    const adminCall = online.find((p) => p.key === admin.key)?.call;
-    if (!adminCall) return res.status(400).json({ error: 'you need to be in a call yourself to recall anyone' });
-    const originId = spaceIdOfCall(adminCall);
-    const destSpace = store.spaceById(originId);
-    const privateAsides = store.asides.filter((a) => a.private && a.origin === originId);
-    if (!privateAsides.length) return res.status(400).json({ error: 'nobody is off in a private conversation from here right now' });
-    const payload = asidePayload(ASIDE_TOPICS.recall, { spaceId: originId, spaceName: destSpace?.name || 'the call' });
-    // Each private aside's call by its name, and by whatever name the people in it are really in (a call from
-    // before the upgrade, for that one release).
-    const ids = new Set(privateAsides.map((r) => r.id));
-    const calls = new Set([...privateAsides.map((r) => callName(r.id)), ...online.filter((p) => ids.has(p.space)).map((p) => p.call)]);
-    await Promise.all([...calls].map((call) => callService.sendData(call, payload, DataPacket_Kind.RELIABLE, { topic: ASIDE_TOPICS.recall }).catch(() => {})));
-    res.json({ recalled: privateAsides.length });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
-  }
+app.post('/api/asides/recall', requireOwner, (req, res) => {
+  const admin = currentUser(req);
+  const mine = live.placeOf(admin.key);
+  if (!mine) return res.status(400).json({ error: `you need to be in ${word('space', { a: true })} yourself to recall anyone` });
+  const originId = mine.space;
+  const destSpace = store.spaceById(originId);
+  const privateAsides = store.asides.filter((a) => a.private && a.origin === originId);
+  if (!privateAsides.length) return res.status(400).json({ error: 'nobody is off in a private conversation from here right now' });
+  const payload = { type: 'aside-recall', spaceId: originId, spaceName: destSpace?.name || 'the call' };
+  for (const aside of privateAsides) for (const key of aside.members) tellLive(key, aside.id, payload);
+  res.json({ recalled: privateAsides.length });
 });
 
 // Whoever leaves an aside returns to the space it was pulled from (the Lobby if that space is gone by now), and
-// takes the aside's other member(s) with them the same way a pull does: a data-channel nudge (aside-return), since
-// leaving would otherwise be as one-sided as arriving used to be.
-app.post('/api/asides/return', requireUser, async (req, res) => {
-  try {
-    const me = currentUser(req);
-    const mine = (await participants()).find((p) => p.key === me.key);
-    if (!mine) return res.status(400).json({ error: 'you need to be in a call' });
-    const current = store.asideById(mine.space);
-    if (!current) return res.status(400).json({ error: `you are not in ${word('aside', { a: true })}` });
-    const dest = (current.origin && store.spaceById(current.origin)) || store.spaceById(LOBBY);
-    const others = current.members.filter((k) => k !== me.key);
-    if (others.length) {
-      const payload = asidePayload(ASIDE_TOPICS.return, { spaceId: dest.id });
-      // Best-effort: I still get to leave even if the others cannot be nudged.
-      await callService
-        .sendData(mine.call, payload, DataPacket_Kind.RELIABLE, { destinationIdentities: others, topic: ASIDE_TOPICS.return })
-        .catch(() => {});
-    }
-    res.json({ space: shownSpace(req, dest) });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
-  }
+// takes the aside's other member(s) with them the same way a pull does: a nudge on their live stream (aside-return),
+// since leaving would otherwise be as one-sided as arriving used to be.
+app.post('/api/asides/return', requireUser, (req, res) => {
+  const me = currentUser(req);
+  const mine = live.placeOf(me.key);
+  const current = mine ? store.asideById(mine.space) : null;
+  if (!current) return res.status(400).json({ error: `you are not in ${word('aside', { a: true })}` });
+  const dest = (current.origin && store.spaceById(current.origin)) || store.spaceById(LOBBY);
+  for (const key of current.members) if (key !== me.key) tellLive(key, current.id, { type: 'aside-return', spaceId: dest.id });
+  res.json({ space: shownSpace(req, dest) });
 });
 
 // Stream API (OBS pages and the Studio app) ---------------------------------
@@ -3901,36 +3871,53 @@ app.delete('/api/users/:key/spaces/:spaceId/images/:slot', requireOwner, (req, r
   res.json({ user: publicUser(req, store.userByKey(req.params.key)) });
 });
 
-// Admin, or a member the admin gave Can Kick / Can Mute for the space both of
-// them are in right now (never against an admin) -- see Permissions on a
-// user's profile, Spaces tab.
+// Admin, or a member the admin gave Can Kick / Can Mute for the space both of them are in right now (never against an
+// admin) -- see Permissions on a user's profile, Spaces tab. Where each is comes from the live register (server/live.js);
+// someone it does not have (a guest, whose key at the call service is not their key on the live stream yet) is looked
+// up on the calls. Answers { space, call } (call: their call's name at the call service when it was looked up there,
+// else null) or { error: [status, sentence] }.
 async function canModerate(req, targetKey, permission) {
   const actor = currentUser(req);
-  const call = await callOf(targetKey);
-  if (!call) return { error: [404, 'not in a call'] };
-  if (hasOwnerRights(actor)) return { call };
+  let space = live.placeOf(targetKey)?.space || null;
+  let call = null;
+  if (!space) {
+    call = await callOf(targetKey);
+    space = call ? spaceIdOfCall(call) : null;
+  }
+  if (!space) return { error: [404, `they are not in ${word('space', { a: true })} right now`] };
+  if (hasOwnerRights(actor)) return { space, call };
   const target = store.userByKey(targetKey);
   if (!target || hasOwnerRights(target) || target.key === actor.key) return { error: [403, 'not allowed'] };
-  if ((await callOf(actor.key)) !== call) return { error: [403, 'not allowed'] };
-  if (!store.spacePermissions(actor.key, spaceIdOfCall(call))[permission]) return { error: [403, 'not allowed'] };
-  return { call };
+  if (live.placeOf(actor.key)?.space !== space) return { error: [403, `you are not in their ${word('space')}`] };
+  if (!store.spacePermissions(actor.key, space)[permission]) return { error: [403, 'not allowed'] };
+  return { space, call };
 }
 
+// A kick takes the person out of the call and the space, both (plan-realtime-optional-livekit.md, decided 5): their live
+// streams there get `removed { reason: 'kicked' }` and end, they leave the register at once (no grace), and the call
+// service drops them from the call when they are on it. With no call service, or it not answering, the space part still
+// happens.
 app.post('/api/users/:key/kick', requireUser, async (req, res) => {
-  try {
-    const { call, error } = await canModerate(req, req.params.key, 'canKick');
-    if (error) return res.status(error[0]).json({ error: error[1] });
-    await callService.removeParticipant(call, req.params.key);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
+  const key = req.params.key;
+  const { space, call, error } = await canModerate(req, key, 'canKick');
+  if (error) return res.status(error[0]).json({ error: error[1] });
+  const atCall = call || await callOf(key);
+  if (atCall) {
+    await callService.removeParticipant(atCall, key).catch((err) => console.error(`Removing ${key} from the call failed: ${err.message}`));
   }
+  tellLive(key, space, { type: 'removed', reason: 'kicked' });
+  live.leave(key, space);
+  tellLivePresence([space]);
+  res.json({ ok: true });
 });
 
+// Muting is the call's: it needs them on a call at the call service.
 app.post('/api/users/:key/mute', requireUser, async (req, res) => {
+  const { call: known, error } = await canModerate(req, req.params.key, 'canMute');
+  if (error) return res.status(error[0]).json({ error: error[1] });
+  const call = known || await callOf(req.params.key);
+  if (!call) return res.status(404).json({ error: 'they are not in a call' });
   try {
-    const { call, error } = await canModerate(req, req.params.key, 'canMute');
-    if (error) return res.status(error[0]).json({ error: error[1] });
     const info = await callService.getParticipant(call, req.params.key);
     const mic = (info.tracks || []).find((t) => t.source === 2);
     if (!mic) return res.status(404).json({ error: 'no microphone track' });
@@ -4595,7 +4582,8 @@ app.get('/api/spaces/:id/chat', (req, res) => {
 // event to send before the stream ends. `start(stream)` runs once it is listening; `end()` once it has ended, however.
 // Each event has an `id:` line. Answers the stream, or null when it answered 429.
 //   stream.send(data): one default `message` event whose data is JSON;
-//   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends.
+//   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends;
+//   stream.close(last): sends `last` (when given) and ends it.
 const STREAM_RECHECK_MS = 2000;
 const STREAM_PING_MS = 25000;
 function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
@@ -4631,14 +4619,18 @@ function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
       if (ended) return false;
       const last = recheck();
       if (!last) return true;
-      stream.send(last);
+      stream.close(last);
+      return false;
+    },
+    close(last) {
+      if (ended) return;
+      if (last) stream.send(last);
       try {
         res.end();
       } catch {
         // already gone
       }
       cleanup();
-      return false;
     },
   };
   const bound = on.map(([emitter, event, fn]) => [emitter, event, listenIn(env, (...args) => { if (!ended) fn(stream, ...args); })]);
@@ -4657,6 +4649,7 @@ function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
   }
   for (const [emitter, event, fn] of bound) emitter.on(event, fn);
   if (start) start(stream);
+  if (ended) return stream; // start() ended it (a kick kept for this person)
   beat = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* gone */ } }, STREAM_PING_MS);
   again = setInterval(() => envContext.run(env, () => stream.check()), STREAM_RECHECK_MS);
   req.on('close', () => envContext.run(env, cleanup));
@@ -4706,6 +4699,23 @@ function tellLivePresence(spaceIds) {
   }
 }
 
+// A nudge for one person in a space or an aside (an aside's aside-pull, aside-recall or aside-return, a kick's `removed`),
+// on their live streams there. Someone whose stream there is reconnecting (the register's grace) gets it when they open
+// one again, within 30 seconds (server/live.js, hold). A `removed` ends the streams it reaches.
+function tellLive(who, space, data) {
+  if (!live.openFor(who, space).length) return live.hold(who, space, data);
+  try {
+    liveEvents.emit('nudge', who, space, data);
+  } catch (err) {
+    console.error(`A live stream's listener failed: ${err.stack || err.message}`);
+  }
+  return true;
+}
+// The same for everyone the register has in `space` (an aside's aside-started).
+function tellLiveSpace(space, data) {
+  for (const p of live.people(space)) tellLive(p.key, space, data);
+}
+
 // GET /api/live: the live stream (server-sent events), one per space page. ?space= is a space's or an aside's id (left
 // out on Home); a guest adds ?guest=<their link's token> and ?name=<the name they gave>. Each event is a default
 // `message` with an `id:` line and data { type, ... }:
@@ -4717,8 +4727,11 @@ function tellLivePresence(spaceIds) {
 //             says, each with `space`, for this stream's space and for the Lobby (Home's chat), each only while the
 //             reader may read that chat (chatAccess with chatRead, asked at every event). A private message is never sent;
 //             nothing is replayed, so a page catches up from GET /api/spaces/:id/chat after a reconnect.
+//   aside-pull { spaceId, byOwner, private, from }, aside-started { spaceId, private, members? }, aside-recall { spaceId,
+//             spaceName }, aside-return { spaceId }: the asides' nudges (POST /api/asides, /recall, /return), only to the
+//             people they are for; one for a stream that was reconnecting comes when it opens again, within 30 seconds.
 //   removed   { reason: 'access', error }: the access no longer holds (asked every STREAM_RECHECK_MS and at once on
-//             liveAccessChanged); then the stream ends.
+//             liveAccessChanged); { reason: 'kicked' }: a kick (POST /api/users/:key/kick). Then the stream ends.
 // The person is in the space while the stream is open and for the register's grace after (server/live.js). Too many open
 // at once (liveStreamKeys: LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) answers 429.
 app.get('/api/live', (req, res) => {
@@ -4744,6 +4757,11 @@ app.get('/api/live', (req, res) => {
         stream.send({ ...data, space: id });
       }],
       [liveEvents, 'access', (stream) => stream.check()],
+      [liveEvents, 'nudge', (stream, who, space, data) => {
+        if (who !== you || space !== spaceId) return;
+        if (data.type === 'removed') stream.close(data);
+        else stream.send(data);
+      }],
     ],
     recheck: () => {
       req._user = undefined;
@@ -4756,6 +4774,15 @@ app.get('/api/live', (req, res) => {
       streamId = live.open({ who: you, name, guest, space: spaceId });
       stream.send({ type: 'ready', you, space: spaceId, stream: streamId });
       tellLivePresence([before, spaceId]);
+      // What came while this person's stream was reconnecting. A kick kept for them ends this one too.
+      if (!spaceId) return;
+      for (const data of live.takeHeld(you, spaceId)) {
+        if (data.type !== 'removed') { stream.send(data); continue; }
+        stream.close(data);
+        live.leave(you, spaceId);
+        tellLivePresence([spaceId]);
+        break;
+      }
     },
     end: () => {
       const before = live.placeOf(you)?.space;

@@ -3,7 +3,7 @@
 // (plan-chat-model.md): every message is one entry in DATA_DIR/chat.json, and `visibility: "private"` marks one only
 // its author (`by`) ever receives. Absent means public, so every message stored before stays public.
 //
-// Public messages still travel live over LiveKit's data channel; the sender also posts the text here. Only text is
+// Public messages go out live on the live stream (GET /api/live) once the sender posts them here. Only text is
 // kept (not pictures), only for a real space (an aside is meant to be off the record), and only a rolling window,
 // counted apart: the last MAX_PUBLIC public messages per space and the last MAX_PRIVATE private messages per person
 // per space, none older than MAX_AGE_MS. An AI answer, or an /ai question, may be up to MAX_AI_TEXT characters; any

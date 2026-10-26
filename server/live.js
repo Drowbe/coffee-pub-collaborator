@@ -4,13 +4,14 @@
 // routes in server/index.js (GET /api/live, PATCH /api/spaces/:id/presence, POST and GET /api/presence, GET
 // /api/status) keep one register per environment and tell the open streams when something changed.
 //
-// Four things are held:
+// Five things are held:
 //   - streams: one entry per open live stream, { id, who, name, guest, space, onCall, openedAt }. `who` is a person's
 //     key or a guest's id; `space` is a space's or an aside's id, or null for a page in no space (Home).
 //   - left: a person whose last stream for a space closed, { who, name, guest, space, openedAt, until }. They still read
 //     as in that space until `until` (the grace), so a reload or a short drop does not read as leaving. Never on the call.
 //   - away: per person and space, { away, awayMessage }, kept while they are there (a stream or the grace).
 //   - beats: the page heartbeat (POST /api/presence), per person: on the site for siteMs after the last.
+//   - held: nudges (an aside's, a kick's) for someone whose stream was reconnecting, kept for holdMs (30 seconds).
 //
 // A person is in the space of their most recently opened stream that is in a space; with none open, the space they
 // left last, while its grace runs. They are on the call while one of their open streams there says so; a stream's word goes
@@ -22,14 +23,17 @@ const crypto = require('crypto');
 const GRACE_MS = 15 * 1000;
 const SITE_MS = 75 * 1000;
 const AWAY_MESSAGE_MAX = 200;
+const NUDGE_HOLD_MS = 30 * 1000;
 
 const pairKey = (who, space) => `${who}\u0000${space}`;
 
 class LiveRegister {
-  constructor({ now = Date.now, graceMs = GRACE_MS, siteMs = SITE_MS, makeId } = {}) {
+  constructor({ now = Date.now, graceMs = GRACE_MS, siteMs = SITE_MS, holdMs = NUDGE_HOLD_MS, makeId } = {}) {
     this.now = now;
     this.graceMs = graceMs;
     this.siteMs = siteMs;
+    this.holdMs = holdMs;
+    this.held = []; // nudges for a stream that is reconnecting: { who, space, data, until }
     // A stream's id is a guest's proof that the stream is theirs (PATCH /api/spaces/:id/presence), so it can't be guessed.
     this.makeId = makeId || (() => crypto.randomBytes(12).toString('base64url'));
     this.streams = new Map(); // id -> entry
@@ -111,9 +115,35 @@ class LiveRegister {
     return changed;
   }
 
-  // Graces that ran out go, with the away state of whoever is no longer there.
+  // Take `who` out of `space` now, with no grace (a kick): their away there goes too. Their streams there are ended by
+  // the caller; this is for the grace that closing them leaves.
+  leave(who, space) {
+    this.left.delete(pairKey(who, space));
+    this.away.delete(pairKey(who, space));
+  }
+
+  // A nudge (an aside's pull, return or recall, or a kick's `removed`) for `who` in `space` whose stream there is
+  // reconnecting: kept for NUDGE_HOLD_MS and handed to the next stream they open there (takeHeld). Only while they are
+  // still there (the grace); answers whether it was kept.
+  hold(who, space, data) {
+    this.sweep();
+    if (!this.left.has(pairKey(who, space))) return false;
+    this.held.push({ who, space, data, until: this.now() + this.holdMs });
+    return true;
+  }
+
+  // The nudges kept for `who` in `space`, oldest first, taken (each is handed over once).
+  takeHeld(who, space) {
+    this.sweep();
+    const mine = this.held.filter((h) => h.who === who && h.space === space);
+    if (mine.length) this.held = this.held.filter((h) => !mine.includes(h));
+    return mine.map((h) => h.data);
+  }
+
+  // Graces that ran out go, with the away state of whoever is no longer there; so do nudges kept too long.
   sweep() {
     const now = this.now();
+    if (this.held.length) this.held = this.held.filter((h) => h.until > now);
     for (const [key, l] of this.left) if (l.until <= now) this.left.delete(key);
     for (const key of this.away.keys()) {
       const [who, space] = key.split('\u0000');
@@ -199,4 +229,4 @@ function mergeCall(places, call = []) {
   return out;
 }
 
-module.exports = { LiveRegister, mergeCall, cleanAwayMessage, GRACE_MS, SITE_MS, AWAY_MESSAGE_MAX };
+module.exports = { LiveRegister, mergeCall, cleanAwayMessage, GRACE_MS, SITE_MS, AWAY_MESSAGE_MAX, NUDGE_HOLD_MS };

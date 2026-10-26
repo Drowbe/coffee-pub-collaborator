@@ -1288,7 +1288,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
 }
 
 // The way back from an aside: "Rejoin call" shows while I am in an aside that came from a space (its `origin`). The
-// server tells everyone on the call that an aside started (aside-started), those pulled into it too, and the page
+// server tells everyone in the space on the live stream that an aside started (aside-started, asideNudge), those pulled
+// into it too, and the page
 // lists it at once, without its origin; a join that finds that entry before presence answers must still end up with
 // presence's record (adoptPendingSpace), or Rejoin call never shows and Leave is the only way out.
 {
@@ -1303,34 +1304,31 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     assert.ok(entryLine && rejoin, 'asideEntry and the rejoin-call tool\'s visible() are where this check looks');
     // join() takes what the page already lists, else a pending stand-in; page.join below does the same.
     assert.match(fn('async function join('), /const known = presenceSpaces\.find\(\(r\) => r\.id === spaceId\);\n\s*currentSpace = known \|\| \{ id: spaceId, name: spaceName, members: \[\], pending: true \};/, 'join() looks the space up as this check does');
-    const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
-    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
-    const handlers = {};
-    const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
+    const nudge = fn('function asideNudge(');
     const noop = () => {};
     const stubs = {
-      RoomEvent: new Proxy({}, { get: (_t, name) => name }),
-      decoder: new TextDecoder(), presenceUsers: new Map(), word: () => 'Aside', reconcileGhostTiles: noop, removeParticipant: noop,
+      presenceUsers: new Map(), startedAsides: new Map(), loadPresence: noop, reconnectTo: noop, confirmDialog: noop, startRecallCountdown: noop,
+      word: () => 'Aside', reconcileGhostTiles: noop,
       setTimeout: noop, spaceDisplayName: (r) => r.name, applyPermissions: noop, updateRecallButton: noop, updateCrumb: noop,
       phoneWidth: () => true, // the bar's Rejoin call shows where the bar is the phone's tab bar; wider, the top bar's aside-rejoin is the one
     };
     const names = Object.keys(stubs);
-    const page = new Function(...names, `const call = arguments[${names.length}];
+    const page = new Function(...names, `
       let presenceSpaces = [];
       let currentSpace = null;
       let spaceName = '';
       ${entryLine}
       ${fn('function adoptPendingSpace(')}
-      ${chain};
+      ${nudge}
       return {
+        nudge: asideNudge,
         list: () => presenceSpaces,
         presence: (spaces) => { presenceSpaces = spaces.map(asideEntry); adoptPendingSpace(); },
         join: (id) => { currentSpace = presenceSpaces.find((r) => r.id === id) || { id, members: [], pending: true }; },
         rejoinShown: ${rejoin},
-      };`)(...names.map((k) => stubs[k]), fakeCall);
-    assert.equal(typeof handlers.DataReceived, 'function', 'a DataReceived handler');
-    const started = new TextEncoder().encode(JSON.stringify({ type: 'aside-started', spaceId: 'a1', members: ['me', 'ann'] }));
-    handlers.DataReceived(started, undefined, 0, 'aside-started');
+      };`)(...names.map((k) => stubs[k]));
+    assert.ok(nudge, 'asideNudge() is where this check looks');
+    page.nudge({ type: 'aside-started', spaceId: 'a1', members: ['me', 'ann'] });
     assert.ok(page.list().some((r) => r.id === 'a1' && r.isAside), 'aside-started lists the aside at once');
     page.join('a1'); // the pulled person's join, before presence has answered
     page.presence([{ id: 'a1', origin: 'lobby', members: ['me', 'ann'], private: false }]);
@@ -1938,6 +1936,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
       chats: [],
       catchUps: 0,
       painted: [],
+      nudges: [],
+      kicked: 0,
     };
     const run = new Function('env', `
       const { openLiveStream, liveStreamUrl, peopleFromPresence, api, guestToken, call, tiles, showAway, joinCallButton } = env;
@@ -1950,6 +1950,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
       function paintChatConn() { env.painted.push(chatStream); }
       function liveChatNotice(data) { env.chats.push(data); }
       function catchUpLiveChat() { env.catchUps += 1; }
+      function asideNudge(data) { env.nudges.push(data); }
+      function leaveKicked() { env.kicked += 1; }
       ${block}
       ${paint}
       return {
@@ -2040,9 +2042,19 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     assert.equal(sources[5].closed, true, '`removed` ends the stream');
     assert.equal(timers.length, 0, 'for good');
     assert.equal(env.painted.at(-1), 'paused', 'and Chat\'s status line says live updates are paused');
+    assert.equal(env.kicked, 0, 'the access gone is not a kick: the space stays open');
+    // The asides' nudges (step 4) come on the stream, and a kick leaves the space.
+    run.openLive('s4');
+    sources[6].say({ type: 'aside-pull', spaceId: 'a9', byOwner: true, private: false, from: 'Boss' }); // before ready: not yet
+    sources[6].say({ type: 'ready', you: 'me', space: 's4', stream: 'st-4' });
+    for (const type of ['aside-pull', 'aside-started', 'aside-recall', 'aside-return']) sources[6].say({ type, spaceId: 'a9' });
+    sources[6].say({ type: 'aside-pull' }); // no spaceId: not one
+    assert.deepEqual(env.nudges.map((d) => [d.type, d.spaceId]), [['aside-pull', 'a9'], ['aside-started', 'a9'], ['aside-recall', 'a9'], ['aside-return', 'a9']], 'each aside nudge reaches asideNudge, once the stream is live');
+    sources[6].say({ type: 'removed', reason: 'kicked' });
+    assert.deepEqual([sources[6].closed, env.kicked, timers.length], [true, 1, 0], 'a kick ends the stream for good and leaves the space (leaveKicked)');
     // Home: a stream in no space, for Home's chat.
     run.openLive(null);
-    assert.equal(sources[6].url, '/api/live', 'Home opens GET /api/live with no space');
+    assert.equal(sources[7].url, '/api/live', 'Home opens GET /api/live with no space');
     run.closeLive();
   } catch (err) {
     fail(F, `the page must read who is here from the live stream and say its state there: ${err.message}`);
@@ -2059,6 +2071,9 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   }
   if (!/const whoHere = createWhoHere\(\{\n\s*people: livePeople,/.test(spaceJs)) fail(F, 'who is here reads the live stream (createWhoHere({ people: livePeople }))');
   if (/RoomEvent\.Participant(Connected|Disconnected|AttributesChanged), syncCallControl/.test(spaceJs)) fail(F, 'who is here, the note and Join call follow the live stream, not the call\'s participant events');
+  // Step 4: the asides' nudges and the kick come on the live stream, never the call's data channel.
+  if (/topic === 'aside-|'aside-(pull|started|recall|return)' &&/.test(spaceJs) || !/onAside: asideNudge,/.test(spaceJs)) fail(F, 'the asides\' nudges come on the live stream (onAside: asideNudge), not the call\'s DataReceived');
+  if (!/if \(reason === 'kicked'\) return leaveKicked\(\);/.test(spaceJs)) fail(F, 'a kick\'s `removed` on the live stream leaves the space (leaveKicked)');
 }
 
 if (problems.length) {

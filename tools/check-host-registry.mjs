@@ -896,7 +896,7 @@ try {
   // A small Twirp JSON server answering ListRooms and ListParticipants from `calls` ({ name: [person, ...] }), so
   // the calls cap and callsNow can be checked with other environments' calls running beside this one's. A person is
   // an identity on the call (the "call" attribute 'on'), or { id, call } for one connected with another state
-  // ('off': in the space, not on the call). SendData is taken and dropped (an aside's pull sends one).
+  // ('off': in the space, not on the call).
   const calls = {};
   const standIn = http.createServer((req, res) => {
     let body = '';
@@ -906,7 +906,6 @@ try {
       let answer = {};
       if (req.url.endsWith('/ListRooms')) answer = { rooms: Object.entries(calls).map(([name, people]) => ({ sid: `RM_${name}`, name, numParticipants: people.length })) };
       else if (req.url.endsWith('/ListParticipants')) answer = { participants: (calls[ask.room] || []).map((person) => { const identity = person.id || person; return { sid: `PA_${identity}`, identity, name: identity, joinedAt: '1', permission: { hidden: false }, tracks: [], attributes: { call: person.call || 'on' } }; }) };
-      else if (req.url.endsWith('/SendData')) answer = {};
       else { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(answer));
@@ -1017,8 +1016,34 @@ try {
       assert.equal((await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey).space, 'lobby');
 
       // An aside is a call. Pulling everyone on a call into one moves the call (allowed); pulling some while others stay
-      // on it starts a second (refused over the cap, before anyone is pulled). Joining an aside is never refused.
+      // on it starts a second (refused over the cap, before anyone is pulled). Joining an aside is never refused. Who is
+      // in the Keep and on its call is the live register's (each opens acme's live stream there and says so).
       const pat = (await call(server, 'acme', 'POST', '/api/users', { cookie: owner, body: { login: 'pat', displayName: 'Pat', role: 'member', password: 'pat-password-1' } })).json.user.key;
+      await call(server, 'acme', 'PATCH', `/api/spaces/${keep}`, { cookie: owner, body: { members: [ownerKey, pat] } });
+      const patIn = await call(server, 'acme', 'POST', '/api/login', { body: { login: 'pat', password: 'pat-password-1' } });
+      const patCookie = [].concat(patIn.headers['set-cookie'] || []).map((c) => c.split(';')[0]).join('; ');
+      const onCallIn = (cookie, space) => new Promise((resolve, reject) => {
+        const req = http.request({ host: '127.0.0.1', port: server.port, path: `/api/live?space=${space}`, headers: { host: `acme.localhost:${server.port}`, cookie } }, (res) => {
+          assert.equal(res.statusCode, 200, 'acme\'s live stream opens');
+          let buf = '';
+          let done = false;
+          res.on('data', (d) => {
+            if (done) return;
+            buf += d;
+            const m = /data: (\{"type":"ready".*\})/.exec(buf);
+            if (!m) return;
+            done = true;
+            const stream = JSON.parse(m[1]).stream;
+            call(server, 'acme', 'PATCH', `/api/spaces/${space}/presence`, { cookie, body: { onCall: true, stream } }).then((r) => {
+              assert.equal(r.status, 200, r.text);
+              resolve(() => req.destroy());
+            }, reject);
+          });
+        });
+        req.on('error', () => {});
+        req.end();
+      });
+      const leaveLive = [await onCallIn(owner, keep), await onCallIn(patCookie, keep)];
       setCalls({ [`acme.${keep}`]: [ownerKey, pat] });
       const pulled = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
       assert.equal(pulled.status, 200, pulled.text);
@@ -1034,6 +1059,7 @@ try {
       assert.deepEqual(await join('lobby').then((r) => [r.status, r.json]), [200, { ok: true }], 'no cap: starting a third call is allowed');
       assert.equal((await guestCallJoin(guestLink)).status, 200);
       assert.equal((await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } })).status, 200, 'and an aside beside them');
+      for (const close of leaveLive) close();
       await server.stop();
       server = null;
     });

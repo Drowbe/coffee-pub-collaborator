@@ -138,7 +138,7 @@ nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-cho
 const call = new Room({ adaptiveStream: true, dynacast: true });
 const tiles = new Map(); // participant identity (user key) -> tile element
 const ghostTiles = new Map(); // identity -> tile element, for space members aside elsewhere
-// What the call's aside-started message said of the aside each person went to (key -> { private, members }): someone
+// What the live stream's aside-started message said of the aside each person went to (key -> { private, members }): someone
 // outside an aside learns who it is with only from that, since presence names only the space they stepped out of.
 const startedAsides = new Map();
 const STARTED_ASIDE_MS = 15000; // a presence answer older than the message can still say they are here
@@ -1119,7 +1119,8 @@ topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw(
 // connected, and the call's Disconnected (leaving, or moving with reconnectTo()) closes it. On Home, signed in and
 // allowed to read the chat, one in no space (syncHomeChatStream), for Home's chat. Its `presence` is who is here, the
 // conference's "Not in a call" list, Start or Join call and the tiles' away; its chat events are the space's chat and
-// the Lobby's (Home's chat and its unread count; liveChatNotice). The page says its own state with PATCH
+// the Lobby's (Home's chat and its unread count; liveChatNotice); its aside nudges move the page (asideNudge, step 4); a
+// kick's `removed` leaves the space (leaveKicked). The page says its own state with PATCH
 // /api/spaces/:id/presence: on the call (startCall, stopCall) and away with its message (sendAway, stopCall), and all of
 // it again on every `ready` (a reconnect is a new stream, which starts with nothing said). The PATCHes go one after
 // another, so a quick Away then Back arrive in that order. The LiveKit attributes ("call", "away") are still set as
@@ -1170,6 +1171,7 @@ function openLive(spaceId) {
       if (!first) catchUpLiveChat();
     },
     onChat: liveChatNotice,
+    onAside: asideNudge,
     onState: (state) => {
       chatStream = state;
       paintChatConn();
@@ -1182,7 +1184,8 @@ function openLive(spaceId) {
         if (p) showAway(p);
       }
     },
-    onEnd: ({ error }) => {
+    onEnd: ({ reason, error }) => {
+      if (reason === 'kicked') return leaveKicked();
       console.debug('[app] the live stream ended:', error || 'refused');
       chatStream = 'paused';
       paintChatConn();
@@ -5140,57 +5143,10 @@ call
     }
   })
   .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
-    // The call carries reactions and the asides' nudges; the chat comes on the live stream (liveChatNotice).
+    // The call carries reactions only; the chat and the asides' nudges come on the live stream (liveChatNotice, asideNudge).
     try {
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
-      // A server push (no sending participant): someone pulled me aside.
-      // An owner's word is final -- just go. A peer's "Privately" needs
-      // this end to actually agree to it first. Deferred a tick so this
-      // event's own dispatch finishes first.
-      else if (topic === 'aside-pull' && data.type === 'aside-pull' && data.spaceId) {
-        if (data.byOwner) {
-          setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
-        } else {
-          setTimeout(async () => {
-            if (await confirmDialog({ title: `${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`, action: 'Join' })) {
-              reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
-            }
-          }, 0);
-        }
-      }
-      // The other member of a pull-aside space clicked "Rejoin call";
-      // follow them there instead of being left behind.
-      else if (topic === 'aside-return' && data.type === 'aside-return' && data.spaceId) {
-        setTimeout(() => reconnectTo(data.spaceId, 'back to the call...', { keepCall: true }), 0);
-      }
-      // Someone just got pulled into a private aside: prime
-      // the local data so their tile can turn into an "in an aside"
-      // placeholder right away, without waiting for the next /api/presence poll.
-      // The server sends this to everyone on the call, those pulled too, and their join can find this entry before
-      // presence answers. It has no origin, so it is marked pending: presence replaces it (adoptPendingSpace), and
-      // with the origin "Rejoin call" shows in the aside. It says whether the aside is private: then the placeholders
-      // never name who it is with: a private one's message carries no members, and its entry keeps none even when one
-      // does (so it reads "Private", never "Private with ..."). Presence names only the space they stepped out of to
-      // those outside the aside (decision 6), so what the message said is kept for the placeholders (startedAsides).
-      else if (topic === 'aside-started' && data.type === 'aside-started' && data.spaceId) {
-        const priv = data.private !== false; // not said reads as private: never name who it is with by mistake
-        const said = Array.isArray(data.members) ? data.members.filter((k) => typeof k === 'string') : [];
-        if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: priv ? [] : said, private: priv, pending: true }));
-        for (const key of said) {
-          startedAsides.set(key, { private: priv, members: priv ? [] : said, at: Date.now() });
-          const user = presenceUsers.get(key);
-          if (user) { user.online = true; user.space = data.spaceId; user.aside = true; user.asidePrivate = priv; user.elsewhere = false; user.inCall = false; }
-        }
-        reconcileGhostTiles();
-        // A private one names nobody, so who stepped out comes from presence (asidePrivate): ask now, not at the next poll.
-        if (priv || !said.length) loadPresence();
-      }
-      // The admin clicked "Pull participants back" in the space this Private
-      // Conversation came from: warn, don't yank -- a countdown, then go.
-      else if (topic === 'aside-recall' && data.type === 'aside-recall' && data.spaceId) {
-        startRecallCountdown(data.spaceId, data.spaceName);
-      }
     } catch (err) {
       // not ours
     }
@@ -5258,6 +5214,61 @@ call
     toggleTray(false);
     loadPresence();
   });
+
+// An aside's nudge, from the live stream (openLive's onAside; the server's POST /api/asides, /recall and /return), with
+// its `spaceId`. Deferred a tick, so the stream's own event finishes first.
+function asideNudge(data) {
+  // Someone pulled me aside. An owner's word is final -- just go. A peer's "Privately" needs this end to actually agree
+  // to it first.
+  if (data.type === 'aside-pull') {
+    if (data.byOwner) {
+      setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
+    } else {
+      setTimeout(async () => {
+        if (await confirmDialog({ title: `${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`, action: 'Join' })) {
+          reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
+        }
+      }, 0);
+    }
+  }
+  // The other member of a pull-aside space clicked "Rejoin call"; follow them there instead of being left behind.
+  else if (data.type === 'aside-return') {
+    setTimeout(() => reconnectTo(data.spaceId, 'back to the call...', { keepCall: true }), 0);
+  }
+  // Someone just got pulled into an aside: prime the local data so their tile can turn into an "in an aside"
+  // placeholder right away, without waiting for the next /api/presence poll. The server sends this to everyone in the
+  // space, those pulled too, and their join can find this entry before presence answers. It has no origin, so it is
+  // marked pending: presence replaces it (adoptPendingSpace), and with the origin "Rejoin call" shows in the aside. It
+  // says whether the aside is private: then the placeholders never name who it is with: a private one's message carries
+  // no members, and its entry keeps none even when one does (so it reads "Private", never "Private with ..."). Presence
+  // names only the space they stepped out of to those outside the aside (decision 6), so what the message said is kept
+  // for the placeholders (startedAsides).
+  else if (data.type === 'aside-started') {
+    const priv = data.private !== false; // not said reads as private: never name who it is with by mistake
+    const said = Array.isArray(data.members) ? data.members.filter((k) => typeof k === 'string') : [];
+    if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: priv ? [] : said, private: priv, pending: true }));
+    for (const key of said) {
+      startedAsides.set(key, { private: priv, members: priv ? [] : said, at: Date.now() });
+      const user = presenceUsers.get(key);
+      if (user) { user.online = true; user.space = data.spaceId; user.aside = true; user.asidePrivate = priv; user.elsewhere = false; user.inCall = false; }
+    }
+    reconcileGhostTiles();
+    // A private one names nobody, so who stepped out comes from presence (asidePrivate): ask now, not at the next poll.
+    if (priv || !said.length) loadPresence();
+  }
+  // The admin clicked "Pull participants back" in the space this Private Conversation came from: warn, don't yank -- a
+  // countdown, then go.
+  else if (data.type === 'aside-recall') {
+    startRecallCountdown(data.spaceId, data.spaceName);
+  }
+}
+// Kicked (the live stream's `removed { reason: 'kicked' }`): out of the space, as leaving it. The server also takes them
+// off the call, whose Disconnected may get here first; either way the space is left once.
+function leaveKicked() {
+  forgetSpace();
+  if (call.state !== 'disconnected') call.disconnect(); // the Disconnected handler shows Home
+  else loadPresence();
+}
 
 async function fillDevices() {
   // Do not let the device list ask for permissions again: a denied camera

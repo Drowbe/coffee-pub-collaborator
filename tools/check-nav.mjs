@@ -1474,7 +1474,7 @@ test('presence by membership: the "In an aside" placeholder tiles come from the 
     assert.deepEqual(asidePlaceholder(p.user('bo'), hall, p.list), { private: priv, members: [] });
     assert.equal(asidePlaceholder(p.user('di'), hall, p.list), null, 'Di is here');
     assert.equal(asidePlaceholder(p.user('ed'), hall, p.list), null, 'Ed is elsewhere, not aside from here');
-    // With what the call's aside-started message said.
+    // With what the live stream's aside-started message said.
     const said = { private: priv, members: priv ? [] : ['bo', 'cy'] };
     assert.deepEqual(asidePlaceholder(p.user('bo'), hall, p.list, said), priv ? { private: true, members: [] } : { private: false, members: ['bo', 'cy'] });
     // An owner sees the aside record itself; a private one still names nobody.
@@ -1492,7 +1492,8 @@ test('presence by membership: the "In an aside" placeholder tiles come from the 
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const reconcile = space.slice(space.indexOf('function reconcileGhostTiles('), space.indexOf('\n}\n', space.indexOf('function reconcileGhostTiles(')));
   assert.match(reconcile, /asidePlaceholder\(user, currentSpace, presenceSpaces, startedAsides\.get\(key\)\)/, 'the tiles come from asidePlaceholder');
-  const started = space.slice(space.indexOf("topic === 'aside-started'"), space.indexOf("topic === 'aside-recall'"));
+  const started = space.slice(space.indexOf("data.type === 'aside-started'"), space.indexOf("data.type === 'aside-recall'"));
+  assert.ok(started, 'asideNudge() reads aside-started before aside-recall');
   assert.match(started, /data\.private/, 'the aside-started message is read for private');
   assert.match(started, /pending: true/, 'the pulled member\'s join still finds the pending entry');
   assert.ok(!/Array\.isArray\(data\.members\)\)\s*\{/.test(started), 'a private message with no members is still read');

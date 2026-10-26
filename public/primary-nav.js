@@ -90,7 +90,7 @@ export function hereCount(members = [], spaceId = null) {
 // of nothing, and what it says: null for none, else { private, members } (`members`: who they are with, to name;
 // never for a private one). Two ways to know: the person reads as stepped out of this space (the presence answer
 // alone, for those not in the aside), or as in an aside listed in `spaces` (its own people, owners, the admin, or the
-// aside-started message's entry). `started`, when given, is what the call's aside-started message said of the aside
+// aside-started message's entry). `started`, when given, is what the live stream's aside-started message said of the aside
 // they went to ({ private, members }), the only way someone outside it learns who it is with. Private is the
 // answer's own `asidePrivate` (so it holds after a reload), the aside record's, or the message's.
 export function asidePlaceholder(u, current, spaces = [], started = null) {

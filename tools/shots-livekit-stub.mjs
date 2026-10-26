@@ -51,7 +51,7 @@ export class Room extends Emitter {
       this.emit('ParticipantConnected', p);
     }
   }
-  async disconnect() { if (this.state === 'disconnected') return; this.state = 'disconnected'; this.emit('disconnected'); }
+  async disconnect() { if (this.state === 'disconnected') return; this.state = 'disconnected'; this.emit(RoomEvent.Disconnected); }
   registerByteStreamHandler() {}
   registerTextStreamHandler() {}
   async startAudio() {}

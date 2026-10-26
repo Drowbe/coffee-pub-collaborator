@@ -1,8 +1,9 @@
-// The live stream (documentation/plans/plan-realtime-optional-livekit.md, step 2): one server-sent stream per space page,
-// GET /api/live?space=<id>, open while the page is in a space or an aside. It says who is there (`presence`, the whole
-// list on connect and on every change), and the page says its own state with PATCH /api/spaces/:id/presence (in the
-// space is the stream being open; away, its message and on the call are said). space.js opens it on entering and closes
-// it on leaving; who is here, the conference's "Not in a call" list, Start or Join call and the tiles' away read it.
+// The live stream (documentation/plans/plan-realtime-optional-livekit.md, steps 2 and 3): one server-sent stream per
+// page, GET /api/live?space=<id> while the page is in a space or an aside, GET /api/live on Home. It says who is there
+// (`presence`, the whole list on connect and on every change) and what happens in the chat (the space's and the Lobby's,
+// Home's chat), and the page says its own state with PATCH /api/spaces/:id/presence (in the space is the stream being
+// open; away, its message and on the call are said). space.js opens it on entering and on Home; who is here, the
+// conference's "Not in a call" list, Start or Join call, the tiles' away and the chat read it.
 //
 // The stream drops (a network blip, a server restart): it is opened again after 2, 4, 8 seconds and so on, up to a
 // minute between tries, for as long as the page stays in the space. Each opening is a new stream with a new id, so the
@@ -20,14 +21,16 @@ export function liveRetryDelay(tries) {
   return Math.min(LIVE_RETRY_MAX_MS, LIVE_RETRY_FIRST_MS * 2 ** Math.min(n - 1, 16));
 }
 
-// The stream's address: the space (or aside); a guest adds their link's token and the name they gave.
-export function liveStreamUrl({ space, guest = null, name = '' }) {
-  const q = new URLSearchParams({ space });
+// The stream's address: the space (or aside), none on Home; a guest adds their link's token and the name they gave.
+export function liveStreamUrl({ space = null, guest = null, name = '' } = {}) {
+  const q = new URLSearchParams();
+  if (space) q.set('space', space);
   if (guest) {
     q.set('guest', guest);
     if (name) q.set('name', name);
   }
-  return `/api/live?${q}`;
+  const query = String(q);
+  return query ? `/api/live?${query}` : '/api/live';
 }
 
 // The people of a `presence` event as who is here lists them: { key, name, you, onCall, away, awayMessage }, you first,
@@ -52,17 +55,19 @@ export function peopleFromPresence(list, { you = null, youName = '', meOnCall = 
   return out.concat(others);
 }
 
-// Open the stream. `url` is liveStreamUrl's; `onReady({ you, space, stream })` on every opening, `onPresence(people)` on
-// every presence event for this space, `onState('live' | 'reconnecting')` as it goes, `onEnd({ reason, error })` once
-// when it ends for good (never on close()). `probe(url)` answers the HTTP status of a fresh request (0 when the server
+// Open the stream. `url` is liveStreamUrl's; `onReady({ you, space, stream }, first)` on every opening (`first` true
+// only the first time, so the page catches up on the others), `onPresence(people)` on every presence event for this
+// space, `onChat(data)` on every chat event (`chat`, `chat-delete`, ... each with its `space`), `onState('live' |
+// 'reconnecting')` as it goes, `onEnd({ reason, error })` once when it ends for good (never on close()). `probe(url)` answers the HTTP status of a fresh request (0 when the server
 // was not reached), asked after a stream that never opened, to tell a refusal from a drop. Answers { close, ready }:
 // `ready` is the last `ready`'s data while the stream is open, else null.
-export function openLiveStream({ url, onReady = () => {}, onPresence = () => {}, onState = () => {}, onEnd = () => {}, probe = async () => 0, EventSourceImpl = globalThis.EventSource, schedule = (fn, ms) => setTimeout(fn, ms), cancel = (t) => clearTimeout(t) }) {
+export function openLiveStream({ url, onReady = () => {}, onPresence = () => {}, onChat = () => {}, onState = () => {}, onEnd = () => {}, probe = async () => 0, EventSourceImpl = globalThis.EventSource, schedule = (fn, ms) => setTimeout(fn, ms), cancel = (t) => clearTimeout(t) }) {
   let source = null;
   let timer = null;
   let tries = 0;
   let stopped = false;
   let ready = null;
+  let readies = 0;
   const stop = () => {
     stopped = true;
     ready = null;
@@ -101,10 +106,13 @@ export function openLiveStream({ url, onReady = () => {}, onPresence = () => {},
         live = true;
         tries = 0;
         ready = { you: data.you, space: data.space, stream: data.stream };
+        readies += 1;
         onState('live');
-        onReady(ready);
+        onReady(ready, readies === 1);
       } else if (data.type === 'presence') {
         if (live && Array.isArray(data.people)) onPresence(data.people);
+      } else if (typeof data.type === 'string' && data.type.startsWith('chat')) {
+        if (live && typeof data.space === 'string') onChat(data);
       } else if (data.type === 'removed') {
         end({ reason: data.reason || 'removed', error: data.error || '' });
       }

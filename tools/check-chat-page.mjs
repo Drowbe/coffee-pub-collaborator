@@ -33,7 +33,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, commandName, commandForms, looksLikeImport, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, commandName, commandForms, looksLikeImport, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -114,16 +114,17 @@ test('the badge: the author of a stored message flips it with PATCH, both ways; 
 });
 
 test('chat-visibility beside chat-delete: made public, drawn by its time and counted unread; made private, gone', () => {
-  assert.match(space, /data\.type === 'chat-delete' && chatIdOk\(data\.id\)\) applyDeleteNotice\(data, participant\);\n\s*else if \(topic === 'chat' && data\.type === 'chat-visibility'\) applyVisibilityNotice\(data, participant\);/);
-  // A page's chat-delete speaks only for its own messages; a moderator's delete comes from the server (no sender).
-  assert.match(fnBody(space, 'function applyDeleteNotice(data, participant) {'), /if \(from && have && have\.by !== from\) return;\n\s*dropChatMessage\(data\.id\);/, "a page cannot delete another's message");
-  // Delete the chat: only the server's chat-clear (no sender) empties the page; the clearer's own page empties itself
-  // once the server has taken it, not through its own notice.
-  assert.match(space, /else if \(topic === 'chat' && data\.type === 'chat-clear' && !participant\) dropSharedChat\(\);/, "a page's chat-clear is ignored");
+  // Every chat notice is the server's word on the live stream (plan-realtime-optional-livekit.md, step 3); no page sends one.
+  const apply = fnBody(space, 'function applyChatNotice(data) {');
+  assert.match(apply, /data\.type === 'chat-delete' && chatIdOk\(data\.id\)\) applyDeleteNotice\(data\);\n\s*else if \(data\.type === 'chat-visibility'\) applyVisibilityNotice\(data\);/);
+  assert.match(fnBody(space, 'function applyDeleteNotice(data) {'), /dropChatMessage\(data\.id\);/);
+  // Delete the chat: the server's chat-clear empties the page; the clearer's own page empties itself once the server
+  // has taken it.
+  assert.match(apply, /else if \(data\.type === 'chat-clear'\) dropSharedChat\(\);/);
+  assert.ok(!/publishChat|publishData\([^)]*topic: 'chat'|sendChatMessage|registerByteStreamHandler\('chat-image'|RoomEvent\.ChatMessage/.test(space), 'nothing of the chat goes over the call');
   assert.match(space, /const space = chatSpace\(\);\n\s*if \(!space\) return;\n\s*try \{\n\s*await api\('DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(space\.id\)\}\/chat`\);\n[\s\S]{0,200}?\n\s*dropSharedChat\(\);/, 'the clearer empties its own page after the server answers (the chat showing: Home\'s or the space\'s)');
-  assert.match(read('server/index.js'), /chatHistory\.clear\(found\.space\.id\);\n\s*tellChat\(found\.space\.id, \{ type: 'chat-clear' \}\);/, 'the server always tells the call');
-  const notice = fnBody(space, 'function applyVisibilityNotice(data, participant) {');
-  assert.match(notice, /if \(from && data\.message\.by !== from\) return;/, 'only the author\'s page may say so');
+  assert.match(read('server/index.js'), /chatHistory\.clear\(found\.space\.id\);\n\s*forgetChatPictures\(found\.space\.id, \(\) => true\);\n\s*tellChat\(found\.space\.id, \{ type: 'chat-clear' \}\);/, 'the server always tells the live stream');
+  const notice = fnBody(space, 'function applyVisibilityNotice(data) {');
   assert.match(notice, /dropChatMessage\(data\.id\);/, 'made private: gone for everyone else');
   assert.match(notice, /addEntry\(entry, entry\.by === me\?\.key\);/, 'made public: added, as a new message from its author');
   const add = fnBody(space, 'function addEntry(entry, own = false) {');
@@ -133,8 +134,8 @@ test('chat-visibility beside chat-delete: made public, drawn by its time and cou
   // placeMessage: before the first message that is later, else last.
   const place = fnBody(space, 'function placeMessage(el) {');
   assert.match(place, /\.find\(\(m\) => Number\(m\.dataset\.at\) > at\)/);
-  // The page's own notice after a PATCH, as it does after a delete.
-  assert.match(fnBody(space, 'async function setMessageVisibility('), /publishChat\(entry\.visibility === 'public'\n\s*\? \{ type: 'chat-visibility', id: entry\.id, visibility: 'public', message \}\n\s*: \{ type: 'chat-visibility', id: entry\.id, visibility: 'private' \}\);/);
+  // The others hear it from the server only, as after a delete.
+  assert.ok(!/publishChat/.test(fnBody(space, 'async function setMessageVisibility(')));
 });
 
 test('a public AI answer reads "AI, for <name>" and quotes the question in one line (decision 11)', () => {
@@ -149,9 +150,9 @@ test('"Delete your private messages" is gone for Clear… (plan-chat-clear.md, d
   assert.ok(!/Clear your AI thread/.test(space));
   assert.ok(!/Delete your private messages/.test(space), 'the old entry is gone');
   assert.ok(!/\/chat\/private/.test(space), 'the page no longer calls /chat/private');
-  // A private message is deleted by its author only, and never announced to the call.
+  // A private message is deleted by its author only, and never announced (the server tells only a public one).
   assert.match(fnBody(space, 'function canDeleteChatEntry(entry) {'), /if \(entry\.visibility === 'private'\) return Boolean\(me\?\.key && entry\.by === me\.key && me\.role !== 'guest'\);/);
-  assert.match(fnBody(space, 'async function deleteMessage(el, entry) {'), /if \(entry\.visibility !== 'private'\) publishChat\(\{ type: 'chat-delete', id: entry\.id \}\);/);
+  assert.match(read('server/index.js'), /if \(gone\.visibility !== 'private'\) tellChat\(found\.space\.id, \{ type: 'chat-delete', id: gone\.id \}\);/);
 });
 
 // --- Clear… (plan-chat-clear.md, step 2) -----------------------------------------------------------------------------
@@ -212,20 +213,14 @@ test('Clear…: chat and all take pictures too, the person\'s own for mine, ever
   assert.equal(clearTakesPicture(HELD[0], { type: 'chat', scope: 'everyone', by: 'pat' }), false, 'only a picture');
 });
 
-test("Clear…'s notice: a page's takes only its sender's own, whatever its scope; the server's takes what it lists", () => {
+test("Clear…'s notice (the server's): what it lists, and the pictures by the rule", () => {
   const held = HELD.map((e, i) => ({ ...e, id: e.blob ? e.id : `${i}`.padStart(12, 'c') })); // each its own id
   const every = new Set(held.map((e) => e.id));
   const takes = (opts) => held.filter((e) => clearNoticeTakes(e, { ids: every, ...opts }));
-  // A spoofed page notice from Sam: scope everyone, every id, chat or all. Only Sam's own go; Pat's picture stays.
-  for (const type of ['chat', 'all']) {
-    const gone = takes({ type, scope: 'everyone', by: 'sam', fromPage: true });
-    assert.deepEqual(gone.map((e) => e.by), gone.map(() => 'sam'), `${type}: a page's notice took someone else's`);
-    assert.ok(gone.length > 0, `${type}: Sam's own still go`);
-  }
-  // Ids not Sam's, listed under scope mine: none go.
-  const pats = new Set(held.filter((e) => e.by === 'pat').map((e) => e.id));
-  assert.deepEqual(held.filter((e) => clearNoticeTakes(e, { ids: pats, type: 'all', scope: 'mine', by: 'sam', fromPage: true })), []);
-  // The server's notice (no sender): everyone's listed ids, and for chat or all every picture.
+  // Scope mine with no ids: only Sam's pictures go (chat or all).
+  const mine = held.filter((e) => clearNoticeTakes(e, { ids: new Set(), type: 'chat', scope: 'mine', by: 'sam' }));
+  assert.deepEqual(mine.map((e) => [e.by, Boolean(e.blob)]), mine.map(() => ['sam', true]), "a clear of mine takes the clearer's pictures only");
+  // Everyone's listed ids, and for chat or all every picture.
   const server = takes({ type: 'all', scope: 'everyone', by: 'sam' });
   assert.ok(server.some((e) => e.by === 'pat' && !e.blob), "the server's notice takes Pat's listed messages");
   assert.ok(server.includes(held[9]), "the server's clear of everyone's takes Pat's picture");
@@ -243,7 +238,7 @@ test('Clear… in the ⋮ menu: after Save the chat, before Delete the chat; nev
   assert.match(clear, /api\('DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(chatSpace\(\)\.id\)\}\/chat\/messages\?\$\{q\}`\)/, 'the route of decision 11');
   assert.ok(clear.indexOf('await api(') < clear.indexOf('dropChatEntries(gone)'), 'dropped here only once the server took it');
   assert.ok(!/catch/.test(clear), 'a refusal is thrown, for the confirm to show');
-  assert.match(clear, /e\.stored && e\.visibility !== 'private'/, 'only public ids are told to the call');
+  assert.ok(!/publishChat/.test(clear), 'the server tells the others');
   const confirm = fnBody(space, 'function confirmClearChat(');
   assert.match(confirm, /confirm: `Clear your \$\{choice\.mine\} \$\{what\}\$\{messagesWord\(choice\.mine\)\}\?`/, 'a member: one choice with the count');
   assert.match(confirm, /label: `Clear yours \(\$\{choice\.mine\}\)`/);
@@ -255,11 +250,10 @@ test('Clear… in the ⋮ menu: after Save the chat, before Delete the chat; nev
   assert.match(cm, /catch \(err\) \{ openHostMenu\(trigger, \[\{ label: err\.message \|\| fail, disabled: true \}\]\); \}/);
   assert.match(cm, /\[\.\.\.doing, \{ icon: 'xmark', label: 'Keep it'/);
   // The notice beside chat-delete; only someone else's clear of everyone's leaves a line.
-  assert.match(space, /data\.type === 'chat-visibility'\) applyVisibilityNotice\(data, participant\);\n\s*else if \(topic === 'chat' && data\.type === 'chat-clear-some'\) applyClearNotice\(data, participant\);/);
-  const notice = fnBody(space, 'function applyClearNotice(data, participant) {');
-  assert.match(notice, /if \(!by \|\| \(from && from !== by\)\) return;/, 'a page speaks only for itself');
-  assert.match(notice, /clearNoticeTakes\(e, \{ ids, type, scope, by, fromPage: Boolean\(from\) \}\)/, 'what a notice takes, by who sent it');
-  assert.match(notice, /if \(from \|\| scope !== 'everyone' \|\| by === me\?\.key\) return;/, "only the server's notice adds the line");
+  assert.match(fnBody(space, 'function applyChatNotice(data) {'), /data\.type === 'chat-visibility'\) applyVisibilityNotice\(data\);\n\s*else if \(data\.type === 'chat-clear-some'\) applyClearNotice\(data\);/);
+  const notice = fnBody(space, 'function applyClearNotice(data) {');
+  assert.match(notice, /clearNoticeTakes\(e, \{ ids, type, scope, by \}\)/, 'what a notice takes');
+  assert.match(notice, /if \(scope !== 'everyone' \|\| by === me\?\.key\) return;/, "only someone else's clear of everyone's adds the line");
   assert.ok(!/addEntry|chatLog\.push|unread \+=/.test(notice), 'the line is not stored and not counted');
   // Tints in the host menu come from the tokens.
   const menuJs = read('public/host-menu.js');
@@ -470,36 +464,31 @@ test('links: Keep only for the keeper\'s saveLink with may: true (decision 10), 
   assert.equal(linkKeeper([]), null, 'no keeper (decision 9)');
 });
 
-test('links: chat-preview and chat-kept take the first copy, and a page\'s notice speaks only for its own messages', () => {
+test('links: chat-preview and chat-kept (the server\'s, on the live stream) take the first copy', () => {
   const entry = { id: 'aaaaaaaaaaaa', by: 'author', kind: '', preview: { url: 'https://x.com/h' } };
   const notice = { id: entry.id, preview: { url: 'https://x.com/h', at: 3, title: 'T' } };
-  assert.equal(previewNoticeTakes(entry, notice, ''), true, 'the server\'s');
-  assert.equal(previewNoticeTakes(entry, notice, 'author'), true, 'its author\'s page');
-  assert.equal(previewNoticeTakes(entry, notice, 'someone-else'), false, 'a forged one from another page');
-  assert.equal(previewNoticeTakes({ ...entry, preview: { ...entry.preview, at: 1 } }, notice, ''), false, 'a second copy');
-  assert.equal(previewNoticeTakes(entry, { ...notice, preview: { ...notice.preview, url: 'https://evil.example' } }, ''), false, 'another address');
-  assert.equal(previewNoticeTakes(entry, { ...notice, preview: { url: 'https://x.com/h' } }, ''), false, 'nothing read');
-  assert.equal(previewNoticeTakes({ ...entry, kind: 'ai' }, notice, ''), false, 'only an ordinary message');
+  assert.equal(previewNoticeTakes(entry, notice), true, 'the server\'s');
+  assert.equal(previewNoticeTakes({ ...entry, preview: { ...entry.preview, at: 1 } }, notice), false, 'a second copy');
+  assert.equal(previewNoticeTakes(entry, { ...notice, preview: { ...notice.preview, url: 'https://evil.example' } }), false, 'another address');
+  assert.equal(previewNoticeTakes(entry, { ...notice, preview: { url: 'https://x.com/h' } }), false, 'nothing read');
+  assert.equal(previewNoticeTakes({ ...entry, kind: 'ai' }, notice), false, 'only an ordinary message');
   const kept = { id: entry.id, kept: { by: 'mia', who: 'Mia', at: 4 } };
-  assert.equal(keptNoticeTakes(entry, kept, ''), true, 'the server\'s');
-  assert.equal(keptNoticeTakes(entry, kept, 'mia'), false, 'another person\'s page, for someone else\'s message');
-  assert.equal(keptNoticeTakes(entry, { ...kept, kept: { by: 'author', who: 'Anyone at all' } }, 'author'), false, 'never a page\'s: it could name anyone');
-  assert.equal(keptNoticeTakes({ ...entry, kept: { by: 'x' } }, kept, ''), false, 'kept once (decision 11)');
-  assert.equal(keptNoticeTakes({ ...entry, preview: undefined }, kept, ''), false, 'no link');
+  assert.equal(keptNoticeTakes(entry, kept), true, 'the server\'s');
+  assert.equal(keptNoticeTakes({ ...entry, kept: { by: 'x' } }, kept), false, 'kept once (decision 11)');
+  assert.equal(keptNoticeTakes({ ...entry, preview: undefined }, kept), false, 'no link');
 });
 
-test('links: storedEntry keeps preview and kept; the page asks for the preview, passes it on, draws from the image route; Keep calls the keep route', () => {
+test('links: storedEntry keeps preview and kept; the page asks for the preview, draws from the image route; Keep calls the keep route', () => {
   const space = read('public/space.js');
   const stored = space.slice(space.indexOf('function storedEntry('), space.indexOf('async function postChatMessage('));
   assert.match(stored, /if \(!kind\) \{\s*const preview = cleanPreview\(m\.preview\);/);
   assert.match(stored, /const kept = preview \? cleanKept\(m\.kept\) : null;/);
   const send = space.slice(space.indexOf('async function sendChatText('), space.indexOf('function dropChatMessage('));
-  assert.match(send, /\.\.\.\(entry\.preview \? \{ preview: \{ url: entry\.preview\.url \} \} : \{\}\)/, 'the chat notice carries the address');
   assert.match(send, /me\?\.key && me\.role !== 'guest' && !guestToken/, 'never asked for a guest');
   const ask = space.slice(space.indexOf('async function askLinkPreview('), space.indexOf('function applyLinkNotice('));
   assert.match(ask, /\/chat\/\$\{entry\.id\}\/preview`/);
-  assert.match(ask, /publishChat\(\{ type: 'chat-preview', id: entry\.id, preview: message\.preview \}\)/);
-  assert.match(ask, /entry\.visibility !== 'private'/, 'a private message is never told');
+  assert.ok(!/publishChat/.test(ask), 'the server tells the others');
+  assert.match(read('server/index.js'), /if \(out\.changed && out\.message\.visibility !== 'private'\) tellChat\(space\.id, \{ type: 'chat-preview'/, 'a private message is never told');
   const box = space.slice(space.indexOf('function linkBox('), space.indexOf('function paintLinkBox('));
   assert.match(box, /img\.src = `\/api\/spaces\/\$\{encodeURIComponent\(chatSpace\(\)\.id\)\}\/chat\/\$\{entry\.id\}\/image\$\{q\}`/);
   assert.ok(!/innerHTML/.test(box), 'a preview\'s words are drawn as text');
@@ -510,11 +499,10 @@ test('links: storedEntry keeps preview and kept; the page asks for the preview, 
   assert.match(keep, /\/chat\/\$\{entry\.id\}\/keep\$\{q\}`/);
   assert.match(keep, /const kept = cleanKept\(out\?\.message\?\.kept\);\n\s*if \(kept\) entry\.kept = kept;/, '"Kept by" from the answer');
   assert.ok(!/publishChat/.test(keep), 'chat-kept is the server\'s only');
-  assert.match(space, /preview: noticePreview\(data\) \}\), false\);/, 'a live chat notice keeps only its own text\'s address');
-  assert.match(space, /else if \(topic === 'chat' && \(data\.type === 'chat-preview' \|\| data\.type === 'chat-kept'\) && chatIdOk\(data\.id\)\) applyLinkNotice\(data, participant\);/);
+  assert.match(fnBody(space, 'function applyChatNotice(data) {'), /else if \(\(data\.type === 'chat-preview' \|\| data\.type === 'chat-kept'\) && chatIdOk\(data\.id\)\) applyLinkNotice\(data\);/);
   const notice = space.slice(space.indexOf('function applyLinkNotice('), space.indexOf('// --- end links in Chat ---'));
-  assert.match(notice, /previewNoticeTakes\(entry, data, from\)/);
-  assert.match(notice, /keptNoticeTakes\(entry, data, from\)/);
+  assert.match(notice, /previewNoticeTakes\(entry, data\)/);
+  assert.match(notice, /keptNoticeTakes\(entry, data\)/);
   assert.match(space, /loadLinkKeeper\(currentSpace\.id\);/);
 });
 
@@ -555,7 +543,7 @@ test('Keep reads how its request went: the bus answers pending at first, so the 
   assert.match(fnBody(read('public/canvas.js').replace(/^  /gm, ''), 'const api_show = (id) => {'), /else setView\(m\.id\);/);
 });
 
-test('links: the page finds a message\'s link by the server\'s rule, and a live chat notice keeps only that address', () => {
+test('links: the page finds a message\'s link by the server\'s rule', () => {
   const { findLink: serverFindLink } = createRequire(import.meta.url)('../server/chat-links.js');
   const texts = [
     'This one? https://example.com/hotel.', 'see [the hotel](https://a.example/x) and https://b.example', '`https://code.example` then http://plain.example/p',
@@ -563,11 +551,6 @@ test('links: the page finds a message\'s link by the server\'s rule, and a live 
     `https://x.example/${'a'.repeat(600)}`, 'no link here', '(https://paren.example/a)', 'two https://first.example https://second.example',
   ];
   for (const t of texts) assert.equal(findLink(t), serverFindLink(t), t.slice(0, 50));
-  const data = { id: 'aaaaaaaaaaaa', text: 'look https://good.example/a', preview: { url: 'https://good.example/a', at: 9, title: 'Your bank', description: 'x', image: 'https://evil.example/i.png', module: 'research' } };
-  assert.deepEqual(noticePreview(data), { url: 'https://good.example/a' }, 'the address only: nothing read comes with a chat notice');
-  assert.equal(noticePreview({ ...data, preview: { url: 'https://evil.example' } }), null, 'an address its text does not have');
-  assert.equal(noticePreview({ ...data, text: 'no link' }), null);
-  assert.equal(noticePreview({ ...data, preview: undefined }), null);
 });
 
 // --- Object handoff (plan-object-handoff.md, step 1) ---------------------------------------------------------------
@@ -1176,13 +1159,13 @@ test('the status area: the module frame\'s status bar under the composer, always
   assert.match(bar, /id="chat-note" role="status" aria-live="polite"/, 'a notice is announced');
   assert.ok(!/id="chat-status"[^>]*hidden/.test(bar));
   const conn = fnBody(space, 'function chatConnState() {');
-  for (const state of ["'failed'", "'paused'", "'reconnecting'", "'call'", "'idle'"]) assert.ok(conn.includes(state), `${state} is a state`);
+  for (const state of ["'paused'", "'reconnecting'", "'call'", "'idle'"]) assert.ok(conn.includes(state), `${state} is a state`);
   const look = fnBody(space, 'function paintChatConn() {');
   assert.ok(look.includes("'In a call'"), 'in a call shows In a call');
   assert.match(look, /idle: \['', '', ''\]/, 'out of a call the left is empty');
   assert.ok(look.includes('Reconnecting… messages may be late'), 'reconnecting says what it means');
   assert.ok(look.includes('Paused. Reload to see new messages'), 'paused says the fix');
-  assert.ok(look.includes('Can’t reach the server'), 'a failed stream says so');
+  assert.ok(look.includes('Live updates are paused. Reload the page to try again.'), 'the plan\'s words for a refusal');
   assert.ok(!/\bNot live\b|'Live'|Live'/.test(look + conn + bar), 'no Live or Not live');
   assert.ok(!/arrive as they are sent|New messages show when you load/.test(look + bar), 'the old tooltips are gone');
   assert.match(bar, /id="chat-conn-time" aria-hidden="true"/, 'the ticking time is not announced');
@@ -1192,7 +1175,9 @@ test('the status area: the module frame\'s status bar under the composer, always
   const note = fnBody(chat.replace(/^ {2}/gm, ''), 'function setNote(');
   assert.match(note, /el\.classList\.toggle\('error', Boolean\(text\) && error\);/, 'an error shows in the error colour');
   assert.match(fnBody(space, 'function chatNotice(text, error = false) {'), /chatNoteFn\(text, error\);/);
-  assert.match(fnBody(space, 'async function sendChatText(text) {'), /chatNotice\(`chat: \$\{err\.message\}`, true\);/, 'a failed send shows in the status area');
+  const sendText = fnBody(space, 'async function sendChatText(text) {');
+  assert.match(sendText, /chatNotice\(err\.serverSaid \? `Not sent: \$\{err\.message\}` : 'Not sent\. Try again\.', true\);/, 'a failed send says so in the status area');
+  assert.ok(!/sendChatMessage|publish/.test(sendText), 'and is not sent some other way');
   assert.ok(!/chat-clear-note/.test(space), 'a clear is told in the status area, not as a line in the list');
   assert.match(css, /\.chat-status \.error \{\n\s*color: var\(--danger-text\);/);
 });

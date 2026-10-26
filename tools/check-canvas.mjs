@@ -1515,7 +1515,10 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const wanted = spaceJs.slice(spaceJs.indexOf('function homeChatWanted() {'), spaceJs.indexOf('function syncHomeChat() {'));
   for (const [re, why] of [[/!guestToken/, 'never on a guest link'], [/me\.role !== 'guest'/, 'never for a guest'], [/!currentSpace/, 'only with no space entered (Home over a space is step 4)'], [/canDo\('chatRead'\)/, 'only for whoever may read chat'], [/!homeChatEntering/, 'not while a space is being entered']]) if (!re.test(wanted)) fail(F, `Home's chat shows ${why}`);
   if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(spaceJs)) fail(F, 'Home\'s chat is the one #chat, moved, never a copy');
-  if (!/liveChatStream\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`, \{ onData: homeChatNotice, catchUp: catchUpHomeChat \}\)/.test(spaceJs) || !/const es = new EventSource\(url\);/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
+  // Home's chat rides the live stream (plan-realtime-optional-livekit.md, step 3): on Home one in no space, in a space its own.
+  const homeSync = spaceJs.slice(spaceJs.indexOf('function syncHomeChatStream() {'), spaceJs.indexOf('function liveChatNotice(data) {'));
+  if (!/if \(liveSpaceId\) return;/.test(homeSync) || !/if \(!liveStream\) openLive\(null\);/.test(homeSync)) fail(F, 'Home\'s chat hears others live from the live stream: on Home one in no space, in a space the space\'s carries it');
+  if (!/else if \(data\.space === HOME_CHAT && !guestToken\) homeChatNotice\(data\);/.test(spaceJs)) fail(F, 'the Lobby\'s chat on the live stream is Home\'s chat, never a guest\'s');
   if (!/homeChatEntering = true;[^\n]*\n\s*hideHomeChat\(\);/.test(spaceJs.slice(spaceJs.indexOf('async function join('), spaceJs.indexOf('async function joinAsGuest(')))) fail(F, 'entering a space takes the chat out of Home\'s column first');
   if (!/word\('module', \{ many: true, cap: true \}\)/.test(spaceJs.slice(spaceJs.indexOf('function renderSpaceListHead('), spaceJs.indexOf('async function addSpace(')))) fail(F, 'the Modules column is headed with the module word (the template\'s, else Modules)');
 
@@ -1544,9 +1547,9 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(show)) fail(F, 'Home\'s chat over a space is the same one #chat, moved');
   const hide = body('function hideHomeChat() {');
   if (!/\$\('messages'\)\.replaceChildren\(\.\.\.stash\.nodes\);/.test(hide) || !/stash\.parent\.insertBefore\(chat,/.test(hide) || !/for \(const run of stash\.parked\) run\(\);/.test(hide)) fail(F, 'back in the space: its messages, #chat in its place, then what its call said meanwhile');
-  if (!/^\s*if \(homeChatSpace\) return;/m.test(body('function publishChat(data) {'))) fail(F, 'Home\'s chat never goes on the space\'s call');
-  if (!/if \(topic === 'chat' && parkSpaceChat\(\(\) => onCallData\(payload, participant, _kind, topic\)\)\) return;/.test(spaceJs)) fail(F, 'the space\'s call chat heard while Home\'s chat shows is kept for the space, never drawn in Home\'s');
-  if (!/if \(!parkSpaceChat\(add\)\) add\(\);/.test(spaceJs) || !/\|\| homeChatSpace\) return;/.test(body('async function sendImage(file) {'))) fail(F, 'pictures stay the space\'s: a received one waits, none is sent into Home\'s chat');
+  if (/publishChat|topic: 'chat'|'chat-image'|sendChatMessage|RoomEvent\.ChatMessage/.test(spaceJs)) fail(F, 'nothing of the chat goes over the call: every chat event comes on the live stream');
+  if (!/if \(parkSpaceChat\(\(\) => applyChatNotice\(data\)\)\) return;/.test(body('function liveChatNotice(data) {'))) fail(F, 'the space\'s chat heard while Home\'s chat shows is kept for the space, never drawn in Home\'s');
+  if (!/\|\| homeChatSpace\) return;/.test(body('async function sendImage(file) {'))) fail(F, 'pictures stay the space\'s: none is sent into Home\'s chat');
   const disc = spaceJs.slice(spaceJs.indexOf('.on(RoomEvent.Disconnected, () => {'), spaceJs.indexOf('async function fillDevices('));
   if (!/viewingHome = false;[^\n]*\n\s*hideHomeChat\(\);/.test(disc)) fail(F, 'a dropped connection gives the space\'s chat back before it clears');
   // Unread on the Home link (decision 8), fed by Home's chat stream while Home is out of sight; cleared when it shows.
@@ -1557,18 +1560,12 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/setHomeUnread\(0\);/.test(show)) fail(F, 'Home in sight clears the count');
   if (!/nav\.setBadge\('menu-home', n\);/.test(body('function paintHomeUnread() {')) || !/#brand-home-link \.brand-logo/.test(body('function paintHomeUnread() {'))) fail(F, 'the count shows on the Home link: the logo, and the phone menu\'s Home');
   if (!/\.topbar \.brand-logo \.home-unread \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/.test(css)) fail('public/style.css', 'the Home link\'s count is drawn in theme tokens');
-  // Catch-up: every `ready` after the first (a reconnect) reads the history again; other event types are left alone.
-  const live = body('function liveChatStream(url, { onData, catchUp }) {');
-  if (!/if \(data\?\.type === 'ready'\) \{[^}]*readies \+= 1;\s*if \(readies > 1\) catchUp\(\);/.test(live)) fail(F, 'a reconnected stream catches up on what was missed');
-  // A stream is never left silently not live (QA, #289): on `error` it is closed and opened again with a backoff (2 s,
-  // doubling, 60 s at most, a limited number of tries); a refusal (401, 403, 429) or the server's `closed` stops it, and
-  // the page says so once.
-  if (!/es\.addEventListener\('error', \(\) => \{[^}]*es\.close\(\);[^}]*again\(live\);/.test(live)) fail(F, 'a stream that errs is closed and tried again');
-  if (!/Math\.min\(60000, 2000 \* 2 \*\* \(tries - 1\)\)/.test(live) || !/if \(tries > CHAT_STREAM_TRIES\) return pause\(\);/.test(live)) fail(F, 'the tries back off from 2 s to 60 s, a limited number of times');
-  if (!/status === 401 \|\| status === 403 \|\| status === 429\) return pause\(\);/.test(live) || !/data\?\.type === 'closed'\) \{\s*pause\(\);/.test(live)) fail(F, 'a refusal or the server\'s `closed` stops the tries');
-  if (!/chatStream = 'paused';\s*paintChatConn\(\);/.test(body('function sayChatPaused() {')) || !/if \(chatPausedSaid\) return;/.test(body('function sayChatPaused() {'))) fail(F, 'the page says once that live chat is paused');
-  if (!/guestChatStream = liveChatStream\(`\/api\/spaces\/\$\{LOBBY\}\/chat\/stream\?guest=/.test(spaceJs)) fail(F, 'a guest\'s Lobby stream is kept live the same way');
-  if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {'))) fail(F, 'the catch-up reads Home\'s history');
+  // Catch-up: every `ready` after the first (a reconnect) reads the history again (the retries and their backoff are
+  // space-live.js's, run below against a stand-in EventSource). A drop says Reconnecting; a refusal or `removed`, paused.
+  const openLiveBody = body('function openLive(spaceId) {');
+  if (!/if \(!first\) catchUpLiveChat\(\);/.test(openLiveBody)) fail(F, 'a reconnected stream catches up on what was missed');
+  if (!/onChat: liveChatNotice,/.test(openLiveBody) || !/chatStream = state;\s*paintChatConn\(\);/.test(openLiveBody) || !/chatStream = 'paused';\s*paintChatConn\(\);/.test(openLiveBody)) fail(F, 'the live stream feeds the chat and says its state in Chat\'s status line');
+  if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {')) || !/fetchChatHistory\(id\)/.test(body('async function catchUpLiveChat() {'))) fail(F, 'the catch-up reads Home\'s history and the space\'s');
 }
 
 // The call pops out again, and has a place (Thomas, 2026-10-14): a visible Pop out on the call's toolbar (the same button
@@ -1937,6 +1934,10 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
       fetchStatus: () => probeStatus,
       joinCallButton,
       synced: 0,
+      FakeES,
+      chats: [],
+      catchUps: 0,
+      painted: [],
     };
     const run = new Function('env', `
       const { openLiveStream, liveStreamUrl, peopleFromPresence, api, guestToken, call, tiles, showAway, joinCallButton } = env;
@@ -1944,6 +1945,11 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
       const fetch = async () => ({ status: env.fetchStatus() });
       const console = { debug() {} };
       function syncCallControl() { env.synced += 1; paintJoinCall(); }
+      const EventSource = env.FakeES;
+      let chatStream = '';
+      function paintChatConn() { env.painted.push(chatStream); }
+      function liveChatNotice(data) { env.chats.push(data); }
+      function catchUpLiveChat() { env.catchUps += 1; }
       ${block}
       ${paint}
       return {
@@ -1963,6 +1969,14 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     sources[0].say({ type: 'ready', you: 'me', space: 's1', stream: 'st-1' });
     await settle();
     assert.equal(patches.length, 0, 'ready with nothing to say sends nothing');
+    assert.equal(env.painted.at(-1), 'live', 'Chat\'s status line hears the stream is live');
+    assert.equal(env.catchUps, 0, 'the first ready catches nothing up');
+    // The chat (step 3): every chat event, with its space, goes to the page's chat; nothing over the call.
+    sources[0].say({ type: 'chat', space: 's1', id: 'aaaaaaaaaaaa', text: 'hi', by: 'zed', who: 'Zed' });
+    sources[0].say({ type: 'chat-delete', space: 'lobby', id: 'aaaaaaaaaaaa' });
+    sources[0].say({ type: 'chat-picture', space: 's1', id: 'bbbbbbbbbbbb', mime: 'image/png', data: '' });
+    sources[0].say({ type: 'chat', id: 'cccccccccccc' }); // no space: not one of ours
+    assert.deepEqual(env.chats.map((d) => [d.type, d.space]), [['chat', 's1'], ['chat-delete', 'lobby'], ['chat-picture', 's1']], 'the live stream\'s chat events reach the chat, each with its space');
     sources[0].say({ type: 'presence', space: 's1', people: [
       { key: 'me', name: 'Me Myself', onCall: false, away: false, awayMessage: '' },
       { key: 'zed', name: 'Zed', onCall: false, away: true, awayMessage: 'lunch' },
@@ -1996,6 +2010,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     sources[1].say({ type: 'ready', you: 'me', space: 's1', stream: 'st-2' });
     await settle();
     assert.deepEqual(patches.map((p) => p.body), [{ onCall: true, away: true, awayMessage: 'brb', stream: 'st-2' }], 'its ready says the state again, on the new stream');
+    assert.equal(env.catchUps, 1, 'and the chat catches up on what it missed (nothing is replayed)');
+    assert.ok(env.painted.includes('reconnecting'), 'the drop said Reconnecting in Chat\'s status line');
     // A drop before it ever opened: asked again; a refusal ends it, anything else backs off 4, 8 ... seconds.
     sources[1].drop();
     await settle();
@@ -2023,6 +2039,11 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     sources[5].say({ type: 'removed', reason: 'access', error: 'you are not in that space' });
     assert.equal(sources[5].closed, true, '`removed` ends the stream');
     assert.equal(timers.length, 0, 'for good');
+    assert.equal(env.painted.at(-1), 'paused', 'and Chat\'s status line says live updates are paused');
+    // Home: a stream in no space, for Home's chat.
+    run.openLive(null);
+    assert.equal(sources[6].url, '/api/live', 'Home opens GET /api/live with no space');
+    run.closeLive();
   } catch (err) {
     fail(F, `the page must read who is here from the live stream and say its state there: ${err.message}`);
   }

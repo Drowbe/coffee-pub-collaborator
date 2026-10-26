@@ -748,8 +748,10 @@ if (!failed) {
     same((await call('POST', P, { cookie: patC, raw: Buffer.from('<svg/>'), type: 'image/svg+xml' })).json, { error: 'send a PNG, JPEG, GIF or WebP picture' }, 'another type: 415');
     const big = await call('POST', P, { cookie: patC, raw: Buffer.concat([PNG, Buffer.alloc(11 * 1024)]), type: 'image/png' });
     same([big.status, big.json.error], [413, 'that picture is over 10 KB'], 'over the cap (CHAT_PICTURE_MAX_MB): 413');
-    const gpic = await call('POST', `${P}?${g(tripToken)}&name=Tia`, { ip: '10.0.0.20', raw: PNG, type: 'image/png' });
-    same([gpic.status, (await samTrip.until((x) => x.type === 'chat-picture' && x.id === gpic.json.id)).who], [200, 'Tia'], 'a guest sends one, by the name they gave');
+    const gpic = await call('POST', `${P}?${g(tripToken)}&${await pass(tripToken)}&name=Pat`, { ip: '10.0.0.20', raw: PNG, type: 'image/png' });
+    same([gpic.status, (await samTrip.until((x) => x.type === 'chat-picture' && x.id === gpic.json.id)).who], [200, 'Tia'], "a guest sends one, under their pass's name (a ?name= is ignored)");
+    const noPass = await call('POST', `${P}?${g(tripToken)}&name=Pat`, { ip: '10.0.0.20', raw: PNG, type: 'image/png' });
+    same([noPass.status, noPass.json.error], [403, 'that guest pass is not valid; enter again'], "a guest's picture without a pass: 403");
     same((await call('POST', `/api/spaces/lobby/chat/pictures?${g(tripToken)}`, { ip: '10.0.0.20', raw: PNG, type: 'image/png' })).status, 403, 'not into another space');
     same((await call('DELETE', `${T}/${pic.json.id}`, { cookie: samC })).json, { error: 'you can only delete a message you sent' }, 'someone else\'s picture can\'t be deleted');
     same((await call('DELETE', `${T}/${pic.json.id}`, { cookie: patC })).status, 200, 'its sender deletes it');
@@ -790,46 +792,51 @@ if (!failed) {
     n += 1;
 
     // --- the Lobby's guest posts in the Lobby, and nowhere else --------------------------------------------------------
-    const guestPost = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'hello from a guest' } });
-    same([guestPost.status, guestPost.json.message.by, guestPost.json.message.who], [200, 'guest', 'Vic'], 'kept as a guest, with their name');
+    const guestPost = await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Pat', text: 'hello from a guest' } });
+    same([guestPost.status, guestPost.json.message.by, guestPost.json.message.who], [200, 'guest', 'Vic'], "kept as a guest, under their pass's name (a name in the body is ignored)");
+    const unpassed = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.10', body: { name: 'Pat', text: 'no pass' } });
+    same([unpassed.status, unpassed.json.error], [403, 'that guest pass is not valid; enter again'], "a guest's post without a pass: 403");
+    const forged = await call('POST', `${L}?${g(lobbyToken)}&pass=${encodeURIComponent(passes.get(tripToken))}`, { ip: '10.0.0.10', body: { text: 'wrong pass' } });
+    same(forged.status, 403, "another link's pass is not one");
     await lobbyGuest.until((e) => e.type === 'chat' && e.id === guestPost.json.message.id);
     await again.until((e) => e.type === 'chat' && e.id === guestPost.json.message.id);
     ok(true, "the guest's own message comes back on their stream, and reaches Home");
     for (const [what, r] of [
       ['history', await call('GET', `${T}?${g(lobbyToken)}`, { ip: '10.0.0.9' })],
-      ['post', await call('POST', `${T}?${g(lobbyToken)}`, { ip: '10.0.0.9', body: { name: 'Vic', text: 'sneaking in' } })],
+      ['post', await call('POST', `${T}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.9', body: { text: 'sneaking in' } })],
       ['stream', await watch(`${LT}&${g(lobbyToken)}`, { ip: '10.0.0.9' })],
     ]) {
       same(r.status, 403, `another space's ${what} is refused to the Lobby's guest`);
       ok(/not in that/.test(r.error || r.json?.error), 'with one plain sentence');
     }
-    same((await call('POST', `${L}?${g(tripToken)}`, { ip: '10.0.0.9', body: { name: 'Tia', text: 'wrong place' } })).status, 403, "another space's guest can't post in the Lobby");
+    same((await call('POST', `${L}?${g(tripToken)}&${await pass(tripToken)}`, { ip: '10.0.0.9', body: { text: 'wrong place' } })).status, 403, "another space's guest can't post in the Lobby");
     const dead = await call('POST', `${L}?guest=nosuchtoken0000000000`, { ip: '10.0.0.9', body: { name: 'X', text: 'x' } });
     same([dead.status, dead.json.error], [401, 'that guest link is off or wrong'], 'a token that names no space says so');
 
     // --- the length cap (as for everyone: cut at 1000 characters; the request body is at most 64 KB) ---------------------
-    const long = await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.5', body: { name: 'V'.repeat(80), text: 'a'.repeat(5000) } });
-    same([long.status, long.json.message.text.length, long.json.message.who.length], [200, 1000, 40], "a guest's long message is cut to 1000 characters, the name to 40");
-    same((await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.5', body: { name: 'V', text: 'a'.repeat(70 * 1024) } })).status, 413, 'a body over 64 KB is refused');
+    const longPass = (await call('POST', '/api/guest-join', { body: { token: tripToken, name: 'V'.repeat(80) } })).json.guest.pass;
+    const long = await call('POST', `${T}?${g(tripToken)}&pass=${encodeURIComponent(longPass)}`, { ip: '10.0.0.5', body: { text: 'a'.repeat(5000) } });
+    same([long.status, long.json.message.text.length, long.json.message.who.length], [200, 1000, 40], "a guest's long message is cut to 1000 characters, the name on their pass to 40");
+    same((await call('POST', `${T}?${g(tripToken)}&${await pass(tripToken)}`, { ip: '10.0.0.5', body: { text: 'a'.repeat(70 * 1024) } })).status, 413, 'a body over 64 KB is refused');
 
     // --- guest posts: per address (half the link's) and per guest link --------------------------------------------------
     // 10.0.0.1 has posted once with the Lobby's link (above): four more, then the sixth in the minute is refused as the
     // address's, though the link has five left.
-    for (let i = 0; i < 4; i += 1) same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: `post ${i}` } })).status, 200);
-    const limited = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'one too many' } });
+    for (let i = 0; i < 4; i += 1) same((await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.1', body: { text: `post ${i}` } })).status, 200);
+    const limited = await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.1', body: { text: 'one too many' } });
     same(limited.status, 429, 'the sixth guest post in a minute from one address is refused');
     same(limited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 5 messages a minute from one address; try again in N seconds', 'with one plain sentence');
     ok(Number(limited.retryAfter) >= 1 && Number(limited.retryAfter) <= 60, `with Retry-After (${limited.retryAfter})`);
     for (let i = 0; i < 5; i += 1) {
-      const spoofed = await call('POST', `${L}?${g(lobbyToken)}`, { ip: `203.0.113.${i + 1}, 10.0.0.1`, body: { name: 'Vic', text: `spoof ${i}` } });
+      const spoofed = await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: `203.0.113.${i + 1}, 10.0.0.1`, body: { text: `spoof ${i}` } });
       same(spoofed.status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not raise the address's limit`);
     }
-    same((await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'other link' } })).status, 429, 'the address is limited with another guest link too');
-    for (let i = 0; i < 5; i += 1) same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.2', body: { name: 'Ann', text: `from elsewhere ${i}` } })).status, 200, 'another address on the link still posts');
-    const linkLimited = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.3', body: { name: 'Bo', text: 'link is full' } });
+    same((await call('POST', `${T}?${g(tripToken)}&${await pass(tripToken)}`, { ip: '10.0.0.1', body: { text: 'other link' } })).status, 429, 'the address is limited with another guest link too');
+    for (let i = 0; i < 5; i += 1) same((await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.2', body: { text: `from elsewhere ${i}` } })).status, 200, 'another address on the link still posts');
+    const linkLimited = await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.3', body: { text: 'link is full' } });
     same(linkLimited.status, 429, "the guest link's minute is spent");
     same(linkLimited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 10 messages a minute; try again in N seconds', 'with one plain sentence');
-    same((await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.3', body: { name: 'Tia', text: 'fresh' } })).status, 200, 'another link from another address is not');
+    same((await call('POST', `${T}?${g(tripToken)}&${await pass(tripToken)}`, { ip: '10.0.0.3', body: { text: 'fresh' } })).status, 200, 'another link from another address is not');
     for (let i = 0; i < 6; i += 1) same((await call('POST', L, { cookie: patC, body: { text: `member ${i}` } })).status, 200, 'members are not under the guest limit');
 
     // --- open streams: a signed-in person (one a tab, 50 at most) ---------------------------------------------------------
@@ -875,7 +882,7 @@ if (!failed) {
     same(await within(lobbyGuest.ended, 1500), true, 'turning the link off ends its streams');
     ok(Date.now() - offAt < 1500, 'at once');
     same([lobbyGuest.events.at(-1).type, lobbyGuest.events.at(-1).reason, lobbyGuest.events.at(-1).error], ['removed', 'access', 'that guest link is off or wrong'], 'with a last event that says why');
-    same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'still here?' } })).status, 401, 'and refuses its posts');
+    same((await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.8', body: { text: 'still here?' } })).status, 401, 'and refuses its posts');
     same((await watch(await LG(lobbyToken), { ip: '10.0.0.8' })).status, 401, 'and its streams');
     lobbyToken = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: {} })).json.space.guestToken;
     const s2 = await watch(await LG(lobbyToken), { ip: '10.0.0.8' });
@@ -883,8 +890,8 @@ if (!failed) {
     const fresh = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: { regenerate: true } })).json.space.guestToken;
     ok(fresh && fresh !== lobbyToken, 'regenerated');
     same(await within(s2.ended, 1500), true, "regenerating the link ends the old token's streams");
-    same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'old link' } })).status, 401, "and refuses the old token's posts");
-    same((await call('POST', `${L}?${g(fresh)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'new link' } })).status, 200, 'the new token posts');
+    same((await call('POST', `${L}?${g(lobbyToken)}&${await pass(lobbyToken)}`, { ip: '10.0.0.8', body: { text: 'old link' } })).status, 401, "and refuses the old token's posts");
+    same((await call('POST', `${L}?${g(fresh)}&${await pass(fresh)}`, { ip: '10.0.0.8', body: { text: 'new link' } })).status, 200, 'the new token posts');
     const s3 = await watch(await LG(fresh), { ip: '10.0.0.8' });
     await s3.until((e) => e.type === 'ready');
     same((await call('PATCH', '/api/spaces/lobby', { cookie: owner, body: { allowGuests: false } })).status, 200);

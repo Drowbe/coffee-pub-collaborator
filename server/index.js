@@ -5059,6 +5059,11 @@ app.patch('/api/spaces/:id/chat/:messageId', (req, res) => {
   res.json({ message: out.message });
 });
 
+// A guest's pass on a chat request (?guest=<token>&pass=<pass>): { id, name }, or null when there is no valid one.
+function chatGuestPass(req) {
+  return typeof req.query.pass === 'string' ? readGuestPass(req.query.guest, req.query.pass) : null;
+}
+
 // One person's chat writes in the last ten seconds (posting, and changing who sees a message): 30 at most.
 function chatPostLimited(key) {
   const now = Date.now();
@@ -5073,6 +5078,9 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   const { who, space } = found;
   const key = who.user ? who.user.key : `guest:${space.id}`;
+  // A guest posts under the name on their pass (POST /api/guest-join), never one they send.
+  const pass = who.user ? null : chatGuestPass(req);
+  if (!who.user && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
   if (!who.user) {
     const slug = chatSlug();
     const { wait, which } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
@@ -5088,7 +5096,7 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   // (plan-chat-links.md) is stored as `preview: { url }` at once; nothing is fetched here.
   const message = chatHistory.add(space.id, {
     by: who.user ? who.user.key : 'guest',
-    who: who.user ? who.user.displayName : req.body?.name,
+    who: who.user ? who.user.displayName : pass.name,
     text: req.body?.text,
     link: findLink(typeof req.body?.text === 'string' ? req.body.text : ''),
   });
@@ -5174,25 +5182,27 @@ setInterval(() => {
 }, 60000).unref();
 const tooManyPictures = (res, wait) => res.status(429).set('Retry-After', String(wait)).json({ error: 'too many pictures, wait a moment' });
 
-// POST /api/spaces/:id/chat/pictures?file=<its name>[&guest=<token>&name=<the guest's name>], the picture's bytes as the
+// POST /api/spaces/:id/chat/pictures?file=<its name>[&guest=<token>&pass=<the guest's pass>], the picture's bytes as the
 // body with its type (PNG, JPEG, GIF or WebP): sent at once to the live streams that may read this chat as
 // { type: 'chat-picture', space, id, by, who, file, mime, data (base64), at }, and answers { id }. Needs "send pictures";
 // counted as a chat post (the same limits, a guest's too), and under CHAT_PICTURE_MB_PER_MINUTE (429). Not in Home's
-// chat (the Lobby: 403). Who may send, Home, the size the request says (Content-Length, 413) and the picture limit are
-// all asked before the body is read.
+// chat (the Lobby: 403). A guest is shown by the name on their pass (403 without a valid one). Who may send, Home, the
+// pass, the size the request says (Content-Length, 413) and the picture limit are all asked before the body is read.
 function chatPictureFirst(req, res, next) {
   const found = chatSpaceFor(req, res, 'sendPictures');
   if (!found) return;
   if (found.space.id === LOBBY) return res.status(403).json({ error: `pictures can only be sent in a ${word('space')}'s chat` });
   const declared = Number(req.get('content-length'));
   if (Number.isFinite(declared) && declared > chatPictureMaxBytes) return res.status(413).json({ error: `that picture is over ${chatPictureMaxSaid}` });
-  req.chatPicture = { ...found, sender: found.who.user ? `person|${found.who.user.key}` : `link|${req.query.guest}` };
+  const pass = found.who.user ? null : chatGuestPass(req);
+  if (!found.who.user && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  req.chatPicture = { ...found, pass, sender: found.who.user ? `person|${found.who.user.key}` : `link|${req.query.guest}` };
   const wait = chatPictureWait(req.chatPicture.sender, Number.isFinite(declared) ? declared : 0);
   if (wait) return tooManyPictures(res, wait);
   next();
 }
 app.post('/api/spaces/:id/chat/pictures', chatPictureFirst, rawChatPicture, (req, res) => {
-  const { who, space, sender } = req.chatPicture;
+  const { who, space, sender, pass } = req.chatPicture;
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(415).json({ error: 'send a PNG, JPEG, GIF or WebP picture' });
   const mime = chatPictureType(req.body);
   if (!mime || mime !== req.get('content-type')?.split(';')[0].trim().toLowerCase()) return res.status(415).json({ error: 'that is not a PNG, JPEG, GIF or WebP picture' });
@@ -5211,7 +5221,7 @@ app.post('/api/spaces/:id/chat/pictures', chatPictureFirst, rawChatPicture, (req
   keepChatPicture(id, { space: space.id, by, at });
   tellChat(space.id, {
     type: 'chat-picture', id, by,
-    who: who.user ? who.user.displayName : cleanText(req.query.name, 40) || word('guest', { cap: true }),
+    who: who.user ? who.user.displayName : pass.name,
     file: cleanText(req.query.file, 120) || 'picture',
     mime,
     data: req.body.toString('base64'),

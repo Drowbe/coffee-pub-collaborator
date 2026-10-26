@@ -3827,8 +3827,9 @@ function storedEntry(m, { local = false } = {}) {
 // throws when it was not taken (the server's sentence, or the network's).
 async function postChatMessage(text) {
   if (!chatSpace() || chatSpace().isAside) throw new Error('');
-  const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-  const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text, name: me?.displayName });
+  // A guest is shown by the name on their pass (the server reads it from there).
+  const q = guestToken ? `?${new URLSearchParams({ guest: guestToken, pass: guestPass })}` : '';
+  const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text });
   if (!message?.id) throw new Error('');
   return message;
 }
@@ -4655,7 +4656,7 @@ async function sendImage(file) {
     const q = new URLSearchParams({ file: entry.name });
     if (guestToken) {
       q.set('guest', guestToken);
-      if (me?.displayName) q.set('name', me.displayName);
+      q.set('pass', guestPass);
     }
     const { id } = await api('POST', `/api/spaces/${encodeURIComponent(space.id)}/chat/pictures?${q}`, out, out.type);
     if (chatIdOk(id)) {

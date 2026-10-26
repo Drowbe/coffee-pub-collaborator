@@ -87,7 +87,7 @@ await test('hooks: one schedule that cannot be delivered does not stop the other
 async function startServer(dataDir, extraEnv) {
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: 'UTC', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...extraEnv },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: 'UTC', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';

@@ -177,9 +177,17 @@ function checkoutUrlFor(planId) {
 
 const VERSION = `v${require('../package.json').version} (${String(APP_REVISION).slice(0, 7)})`;
 
-if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
-  console.error('LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required.');
-  process.exit(1);
+// The call service (LiveKit) is optional (plan-realtime-optional-livekit.md, step 6): with both keys set the server
+// has one and voice and video work; with either unset it starts without one, never builds a LiveKit client and never
+// asks it, and everything but the call works (spaces, chat, presence, modules). branding().callService says which.
+const HAS_CALL_SERVICE = Boolean(LIVEKIT_API_KEY && LIVEKIT_API_SECRET);
+// What a person reads wherever voice and video are refused for want of a call service: the API's answer (503), and
+// the sentence the Manage > Modules Conference card shows.
+const NO_CALL_SERVICE = 'voice and video are not set up on this server';
+const NO_CALL_SERVICE_CARD = 'Voice and video are not set up on this server.';
+if (!HAS_CALL_SERVICE) {
+  if (LIVEKIT_API_KEY || LIVEKIT_API_SECRET) console.warn(`No LiveKit: ${LIVEKIT_API_KEY ? 'LIVEKIT_API_SECRET' : 'LIVEKIT_API_KEY'} is not set, so voice and video are off.`);
+  else console.log('No LiveKit: voice and video are off.');
 }
 
 // --- environments (one host, many environments: documentation/plans/plan-environments.md, phase 1) -----------------
@@ -600,6 +608,8 @@ function environmentFor(slug) {
   // A display icon may also be a built-in module's own icon (store.displayIconIds), beside the installed modules' ones.
   const installedIcons = env.store.moduleIconIds;
   env.store.moduleIconIds = () => [...installedIcons(), ...BUILTIN_MODULES.map((b) => b.icon)];
+  // With no call service nobody has the conference, whatever the roles say (store.roleSet).
+  env.store.callService = HAS_CALL_SERVICE;
   // Whether a system layout (calendar, map) is on in a space, whoever asks: its destination resolves there (module on in
   // the space, map file present). A space's defaultLayout may name it only while this holds (store.updateSpace).
   env.store.systemLayoutOn = (spaceId, id) => {
@@ -1183,8 +1193,9 @@ function livekitApiUrl() {
 
 // The SDK waits 10 seconds when the call service does not answer, and /api/presence and /api/status wait
 // with it, so the call page and the space list sit still (GitHub #71). Two seconds, then those routes
-// answer with nobody in a call. The same client serves every other call to the service.
-const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { requestTimeout: 2 });
+// answer with nobody in a call. The same client serves every other call to the service. null with no call service
+// (HAS_CALL_SERVICE): every use below asks for it first.
+const callService = HAS_CALL_SERVICE ? new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { requestTimeout: 2 }) : null;
 
 // A token for the call service. A person's (`publisher`) is minted only by POST /api/call/join, as they join the call,
 // so being at the call service is being on the call: no attribute says it. An OBS viewer's (POST /api/token) is hidden
@@ -1222,6 +1233,7 @@ function spaceIdOfCall(name) {
 // name from before the upgrade); it is never sent in an answer (see withoutCall). Asked only while the live register has
 // someone on a call (whereEveryone).
 async function participants() {
+  if (!callService) return [];
   try {
     const active = await callService.listRooms();
     const out = [];
@@ -1560,7 +1572,7 @@ function branding() {
   const s = store.settings;
   // The template's ordered phases, for the phase chip (plan-one-bar.md, step 3); [] with no template or none in it.
   const phases = (Array.isArray(store.templatePhases) ? store.templatePhases : []).map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), ...(p.icon ? { icon: p.icon } : {}) }));
-  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), verbs: store.resolvedVerbs(), phases, homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, autoJoinCall: s.autoJoinCall === true, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
+  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), verbs: store.resolvedVerbs(), phases, homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, callService: HAS_CALL_SERVICE, autoJoinCall: s.autoJoinCall === true, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
 }
 
 function initials(name) {
@@ -1826,7 +1838,7 @@ function environmentUsage(slug) {
 async function hostCallsNow(list) {
   const out = new Map();
   const capped = list.filter((t) => t.plan?.calls != null && !refusalView(t.slug));
-  if (!capped.length) return out;
+  if (!capped.length || !callService) return out;
   let listed;
   try {
     listed = await callService.listRooms();
@@ -2207,8 +2219,9 @@ function environmentStorageBytes(slug, dataDir) {
 // is about to join somewhere, so moving from one call to another never counts their own). A call under its name from
 // before the upgrade is the same space's. spaceIdOfCall scopes this to the current environment's own calls. null when
 // LiveKit can't be asked. `listed`, when given, is LiveKit's list of calls already asked for (the host console counts
-// every environment's from one list).
+// every environment's from one list). null with no call service too: there is nothing to ask.
 async function runningCalls({ without = [], listed = null } = {}) {
+  if (!callService) return null;
   try {
     const active = listed || (await callService.listRooms());
     const running = new Set();
@@ -3122,7 +3135,7 @@ app.use(express.static(publicDir, { index: false }));
 
 app.get('/api/branding', (_req, res) => res.json(branding()));
 
-app.get('/api/config', (req, res) => res.json({ livekitUrl: livekitWsUrl(req), ...branding() }));
+app.get('/api/config', (req, res) => res.json({ livekitUrl: HAS_CALL_SERVICE ? livekitWsUrl(req) : null, ...branding() }));
 
 app.post('/api/login', (req, res) => {
   const ip = req.ip || 'unknown';
@@ -3234,7 +3247,7 @@ app.get('/api/me', requireUser, (req, res) => {
     // `owner`: this account is one of the environment's owners -- never the host admin's own cross sign-in stand-in
     // (role admin), which has an owner's rights but is not one.
     environment: { hosted: Boolean(BASE_DOMAIN), slug: currentEnvironment().slug || null, name: store.settings.environmentName, owner: user.role === 'owner', hostAdmin: Boolean(user.hostAdmin) },
-    livekitUrl: livekitWsUrl(req),
+    livekitUrl: HAS_CALL_SERVICE ? livekitWsUrl(req) : null,
     streamKey: hasOwnerRights(user) ? store.streamKey : undefined,
     // documentation/plans/plan-mfa.md: mfaEnrolled also rides along inside `user` (publicUser, for everyone
     // else's own account too); mfaRequired is this session's own -- the policy asks something of this person
@@ -3357,6 +3370,7 @@ app.delete('/api/users/:key/mfa', requireOwner, (req, res) => {
 // /api/call/join's, the only one there is (plan-realtime-optional-livekit.md, step 5): entering a space asks for none.
 app.post('/api/token', async (req, res) => {
   if (req.body?.role !== 'viewer') return res.status(400).json({ error: "only an OBS viewer's token is made here (role: 'viewer'); the call's is POST /api/call/join" });
+  if (!HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
   if (!hasStreamAccess(req)) return res.status(403).json({ error: 'stream key required' });
   const spaceId = typeof req.body?.space === 'string' && req.body.space ? req.body.space : LOBBY;
   const theSpace = store.spaceById(spaceId) || store.asideById(spaceId);
@@ -3374,8 +3388,9 @@ app.post('/api/token', async (req, res) => {
 // the guest reads do) and their guest pass as `pass`, and joins that link's space as the id on the pass. Refused
 // (403) where the person may not join the call (Conference off, or no "See and join the conference"). An aside's call
 // was checked when it was made (POST /api/asides), so joining it is never refused by the cap.
-// Answers { ok, token, livekitUrl, call }.
+// Answers { ok, token, livekitUrl, call }; 503 with no call service, before anything else.
 app.post('/api/call/join', async (req, res) => {
+  if (!HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
   const guestLink = typeof req.body?.guest === 'string' ? req.body.guest : typeof req.query.guest === 'string' ? req.query.guest : '';
   const asked = typeof req.body?.space === 'string' && req.body.space ? req.body.space : null;
   let spaceId;
@@ -3552,7 +3567,16 @@ async function whereEveryone() {
 // who is told wherever they have the app open (the notification stream) and can join or decline. It lives a couple
 // of minutes; the aside is swept away when nobody is in it, as any aside is.
 const INVITE_MS = 2 * 60 * 1000;
+// An aside is a call, so none is made without one: [status, sentence] with no call service (503) or the Conference
+// switched off (403), else null.
+function callOffRefusal() {
+  if (!HAS_CALL_SERVICE) return [503, NO_CALL_SERVICE];
+  if (store.settings.conferenceEnabled === false) return [403, 'voice and video are off'];
+  return null;
+}
 app.post('/api/asides/invite', requireUser, (req, res) => {
+  const off = callOffRefusal();
+  if (off) return res.status(off[0]).json({ error: off[1] });
   const me = currentUser(req);
   const to = store.userByKey(String(req.body?.to || ''));
   if (!to || to.key === me.key) return res.status(400).json({ error: 'pick someone else to invite' });
@@ -3612,6 +3636,8 @@ app.get('/api/presence', async (req, res) => {
 // should be able to step into together without needing the admin to broker it -- so this route allows any signed-in
 // user, but still requires admin for anything that isn't private.
 app.post('/api/asides', requireUser, async (req, res) => {
+  const off = callOffRefusal();
+  if (off) return res.status(off[0]).json({ error: off[1] });
   const initiator = currentUser(req);
   const priv = Boolean(req.body?.private);
   if (priv && store.settings.allowPrivate === false) return res.status(403).json({ error: 'private conversations are turned off' });
@@ -3924,7 +3950,7 @@ app.post('/api/users/:key/kick', requireUser, async (req, res) => {
   const key = req.params.key;
   const { space, onCall, error } = canModerate(req, key, 'canKick');
   if (error) return res.status(error[0]).json({ error: error[1] });
-  if (onCall) {
+  if (onCall && callService) {
     await callService.removeParticipant(callName(space), key).catch((err) => console.error(`Removing ${key} from the call failed: ${err.message}`));
   }
   tellLive(key, space, { type: 'removed', reason: 'kicked' });
@@ -3937,6 +3963,7 @@ app.post('/api/users/:key/kick', requireUser, async (req, res) => {
 app.post('/api/users/:key/mute', requireUser, async (req, res) => {
   const { space, onCall, error } = canModerate(req, req.params.key, 'canMute');
   if (error) return res.status(error[0]).json({ error: error[1] });
+  if (!callService) return res.status(503).json({ error: NO_CALL_SERVICE });
   if (!onCall) return res.status(404).json({ error: 'they are not in a call' });
   const call = callName(space);
   try {
@@ -3971,6 +3998,11 @@ function builtinView(b) {
   const view = { ...b, displayName: display.name, displayIcon: display.icon, ownDisplayName: display.ownName, ownDisplayIcon: display.ownIcon, templateDisplayName: display.templateName, templateDisplayIcon: display.templateIcon };
   for (const k of ['description', 'permissions', 'needs', 'turnOff', 'turnOn']) if (typeof view[k] === 'string') view[k] = fillWords(view[k]);
   if (b.setting) view.enabled = store.settings[b.setting] !== false;
+  // The conference with no call service: off, its switch can't be turned on, and the card says why (`unavailable`).
+  if (b.id === 'conference' && !HAS_CALL_SERVICE) {
+    view.enabled = false;
+    view.unavailable = NO_CALL_SERVICE_CARD;
+  }
   return view;
 }
 // Modules that ship with this deployment (the modules/ folder), and where each stands:
@@ -4843,6 +4875,7 @@ app.patch('/api/spaces/:id/presence', (req, res) => {
     patch.awayMessage = cleanAwayMessage(body.awayMessage);
   }
   if (!Object.keys(patch).length) return res.status(400).json({ error: 'say away, awayMessage or onCall' });
+  if (patch.onCall === true && !HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
   if (body.stream !== undefined && typeof body.stream !== 'string') return res.status(400).json({ error: 'stream must be the id the live stream gave' });
   let who;
   if (found.who.user) {
@@ -8587,6 +8620,9 @@ app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: owner
 // before the settings; an unknown one refuses the whole change. With it, the answer also carries `template` and `offer`.
 app.patch('/api/settings', requireOwner, async (req, res) => {
   const { template, ...rest } = req.body || {};
+  // The Conference can't be switched on without a call service (its card says so); switching it off, or sending it
+  // as it already is, goes through.
+  if (rest.conferenceEnabled === true && store.settings.conferenceEnabled === false && !HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
   if (template !== undefined) {
     const problem = templateSwitchProblem(currentEnvironment(), template);
     if (problem) return res.status(400).json({ error: problem });
@@ -8859,13 +8895,13 @@ const listener = app.listen(Number(PORT), () => {
   if (!BASE_DOMAIN) {
     envContext.run(environmentFor(DEFAULT_SLUG), () => {
       fillTwins();
-      console.log(`${store.settings.environmentName} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, data in ${DATA_DIR}`);
+      console.log(`${store.settings.environmentName} ${VERSION} listening on :${port}, ${HAS_CALL_SERVICE ? `LiveKit at ${LIVEKIT_HOST}` : 'no LiveKit'}, data in ${DATA_DIR}`);
       // A module that takes a file the operator supplies: say where it looks and what it found, once.
       for (const m of modules.list()) for (const d of m.settings || []) if (d.type === 'file' || d.type === 'files') console.log(`${m.name}: looks for "${d.label}" in ${describeModuleFiles(m, d.folder)}`);
       if (fs.existsSync(path.join(DATA_DIR, 'module-files'))) console.warn(`Note: ${path.join(DATA_DIR, 'module-files')} is no longer used. A module's files belong in its own folder, DATA_DIR/modules/<module id>/<folder>/ (see the module's settings).`);
     });
     return;
   }
-  console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at ${CONSOLE_HOST}, product pages at ${PRODUCT_HOST}`);
+  console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, ${HAS_CALL_SERVICE ? `LiveKit at ${LIVEKIT_HOST}` : 'no LiveKit'}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at ${CONSOLE_HOST}, product pages at ${PRODUCT_HOST}`);
   for (const env of environments.values()) envContext.run(env, fillTwins);
 });

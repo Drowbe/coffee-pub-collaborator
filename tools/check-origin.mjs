@@ -57,7 +57,7 @@ await test('the rule runs for every write before any body is parsed, and only PO
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-origin-'));
 const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
   cwd: ROOT,
-  env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, BASE_DOMAIN: BASE, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234' },
+  env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, BASE_DOMAIN: BASE, ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let out = '';
@@ -299,7 +299,7 @@ try {
   const two = fs.mkdtempSync(path.join(os.tmpdir(), 'check-origin-product-'));
   const srv = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: two, BASE_DOMAIN: BASE, PRODUCT_DOMAIN: PRODUCT, SIGNUP: 'on', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234' },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: two, BASE_DOMAIN: BASE, PRODUCT_DOMAIN: PRODUCT, SIGNUP: 'on', ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let srvOut = '';
@@ -419,7 +419,7 @@ try {
   const one = fs.mkdtempSync(path.join(os.tmpdir(), 'check-origin-single-'));
   const solo = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: one, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234', PRODUCT_DOMAIN: 'product.test', RESERVED_SLUGS: 'studio' },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: one, ADMIN_PASSWORD: 'testpass1234', PRODUCT_DOMAIN: 'product.test', RESERVED_SLUGS: 'studio' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let soloOut = '';

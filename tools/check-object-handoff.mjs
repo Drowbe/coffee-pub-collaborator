@@ -352,7 +352,7 @@ const dataDir = path.join(base, 'data');
 async function startServer() {
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: base,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: 'UTC', PRODUCT_NAME: PRODUCT, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: 'UTC', PRODUCT_NAME: PRODUCT, ADMIN_PASSWORD: 'testpass1234' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';

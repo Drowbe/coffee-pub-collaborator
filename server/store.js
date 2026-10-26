@@ -2033,6 +2033,8 @@ class Store {
   // Permissions enabled modules add to the Roles grid (see ModuleManager.permissionList);
   // the server sets this once modules are loaded.
   extraPermissions = () => [];
+  // Whether the server has a call service (LiveKit keys set); the server sets it. Without one nobody has the conference.
+  callService = true;
 
   // Every permission the Roles grid knows: the built-in ones, then the modules'.
   // The built-in labels and groups name levels by {space}-style placeholders, filled with this environment's words.
@@ -2043,7 +2045,7 @@ class Store {
 
   roleSet(role) {
     const set = this.roleSetRaw(role);
-    if (this.settings.conferenceEnabled === false) set.conference = false;
+    if (this.settings.conferenceEnabled === false || this.callService === false) set.conference = false;
     return set;
   }
 

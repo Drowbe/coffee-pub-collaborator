@@ -250,7 +250,7 @@ fs.rmSync(dir, { recursive: true, force: true });
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-themes-live-'));
 const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
   cwd: ROOT,
-  env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, PRODUCT_NAME: PRODUCT, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
+  env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, PRODUCT_NAME: PRODUCT, ADMIN_PASSWORD: 'testpass1234' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let out = '';

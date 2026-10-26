@@ -25,6 +25,10 @@
  * and Home, and leave, and the call service is never asked; it is asked once someone says they are on the call, and a
  * kick asks it to drop only someone on the call. The guest pass: POST /api/guest-join answers it, the stream knows a guest
  * by it, a pass changed by hand is refused, and POST /api/call/join mints the call's token, the only one a person gets.
+ * No LiveKit at all (step 6, Verify point 6), on a third server with no LiveKit keys: it starts and says so once; entering,
+ * presence, away, chat, a guest, Home's stream and a kick work; joining the call (a person's and a guest's), an OBS
+ * viewer's token, onCall, a mute, an aside and an invitation answer 503 "voice and video are not set up on this server";
+ * the call service is never asked. tools/check-startup.mjs holds the start itself and the Conference card.
  * What can't be checked here: anything that needs a real LiveKit server (the call itself, the microphone and camera merged
  * from a call, a kick or a mute on a live call, a pull moving people's calls, the calls cap counting).
  */
@@ -193,7 +197,7 @@ async function startServer(env) {
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
       // The stand-in above: nobody on any call, every request written down.
       LIVEKIT_API_URL: `http://127.0.0.1:${lk.address().port}`,
-      ...env,
+      ...env, // a key set to undefined is left out (no LiveKit keys at all)
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -871,6 +875,95 @@ if (!failed) {
     const last = (await call('POST', L, { cookie: owner, body: { text: 'still on' } })).json.message;
     await again.until((e) => e.id === last.id);
     ok(!/listener failed|access check failed/.test(serverOut), `no listener failed:\n${serverOut}`);
+  } catch (err) {
+    failed = true;
+    console.error(`FAIL ${err.stack || err}`);
+  } finally {
+    for (const s of open.splice(0)) s.close();
+    await stopServer();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+// --- no LiveKit at all (step 6, Verify point 6) -----------------------------------------------------------------------
+// A third server with no LiveKit keys (LIVEKIT_API_URL still points at the stand-in, so a request to it would show): it
+// starts and says so once; entering, presence, away, chat, a kick and Home's stream all work; everything that is the
+// call answers 503 "voice and video are not set up on this server" (joining, onCall, a mute, an aside, an invitation);
+// a guest is let in with the conference refused; and the call service is never asked.
+if (!failed) {
+  await startServer({ LIVEKIT_API_KEY: undefined, LIVEKIT_API_SECRET: undefined });
+  const NO = 'voice and video are not set up on this server';
+  const from = lkAsked.length;
+  try {
+    same((serverOut.match(/No LiveKit: voice and video are off/g) || []).length, 1, `the log says once that there is no LiveKit:\n${serverOut}`);
+    ok(/listening on :\d+, no LiveKit,/.test(serverOut), 'the start line says no LiveKit');
+    const login = async (name, password) => (await call('POST', '/api/login', { body: { login: name, password } })).json.token;
+    const owner = await login('admin', 'testpass1234');
+    same((await call('GET', '/api/branding')).json.callService, false, 'branding: callService false');
+    same((await call('GET', '/api/me', { cookie: owner })).json.livekitUrl, null, '/api/me: no LiveKit address');
+    const mk = async (loginName, displayName) => (await call('POST', '/api/users', { cookie: owner, body: { login: loginName, displayName, role: 'member', password: 'memberpass1234' } })).json.user;
+    const ivy = await mk('ivy', 'Ivy');
+    const jon = await mk('jon', 'Jon');
+    const ivyC = await login('ivy', 'memberpass1234');
+    const jonC = await login('jon', 'memberpass1234');
+    const made = await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Den', members: [ivy.key, jon.key] } });
+    same(made.status, 200, `a space is made: ${made.text}`);
+    const den = made.json.space;
+    await call('PATCH', `/api/spaces/${den.id}`, { cookie: owner, body: { members: [ivy.key, jon.key] } });
+    const D = `/api/live?space=${den.id}`;
+    const ivyS = await openStream(D, ivyC);
+    open.push(ivyS);
+    const ivyReady = await ivyS.until((e) => e.type === 'ready');
+    const jonS = await openStream(D, jonC);
+    open.push(jonS);
+    await jonS.until(hasPeople([ivy.key, jon.key]));
+    await ivyS.until(hasPeople([ivy.key, jon.key]));
+    same((await call('PATCH', `/api/spaces/${den.id}/presence`, { cookie: ivyC, body: { away: true, awayMessage: 'brb', stream: ivyReady.stream } })).status, 200, 'away is said');
+    await jonS.until((e) => e.type === 'presence' && e.people.some((p) => p.key === ivy.key && p.away && p.awayMessage === 'brb'));
+    const onCall = await call('PATCH', `/api/spaces/${den.id}/presence`, { cookie: ivyC, body: { onCall: true, stream: ivyReady.stream } });
+    same([onCall.status, onCall.json.error], [503, NO], 'onCall: true is refused');
+    const said = (await call('POST', `/api/spaces/${den.id}/chat`, { cookie: jonC, body: { text: 'no call at all' } })).json.message;
+    await ivyS.until((e) => e.type === 'chat' && e.id === said.id);
+    const pres = await call('GET', '/api/presence', { cookie: owner });
+    same(pres.status, 200, 'GET /api/presence answers');
+    ok(pres.json.callService === false, 'with callService false');
+    const ivyThere = pres.json.users.find((u) => u.key === ivy.key);
+    same([ivyThere.space, Boolean(ivyThere.inCall), Boolean(ivyThere.micOn), Boolean(ivyThere.cameraOn)], [den.id, false, false, false], 'Ivy is in the Den, on no call');
+    const streamKey = (await call('GET', '/api/me', { cookie: owner })).json.streamKey;
+    const status = await fetch(`http://127.0.0.1:${port}/api/status?s=${encodeURIComponent(streamKey)}`).then((r) => r.json());
+    ok(status.callService === false && status.users.some((u) => u.key === jon.key && u.online?.space === den.id), 'GET /api/status answers from the register');
+
+    // The call's routes: 503, in plain words.
+    const join = await call('POST', '/api/call/join', { cookie: ivyC, body: { space: den.id } });
+    same([join.status, join.json.error], [503, NO], 'POST /api/call/join: 503');
+    const viewer = await fetch(`http://127.0.0.1:${port}/api/token?s=${encodeURIComponent(streamKey)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'viewer', space: den.id }) });
+    same([viewer.status, (await viewer.json()).error], [503, NO], "an OBS viewer's POST /api/token: 503");
+    const aside = await call('POST', '/api/asides', { cookie: owner, body: { with: [ivy.key] } });
+    same([aside.status, aside.json.error], [503, NO], 'POST /api/asides: 503');
+    const invite = await call('POST', '/api/asides/invite', { cookie: ivyC, body: { to: jon.key } });
+    same([invite.status, invite.json.error], [503, NO], 'POST /api/asides/invite: 503');
+    const mute = await call('POST', `/api/users/${jon.key}/mute`, { cookie: owner, body: { muted: true } });
+    same([mute.status, mute.json.error], [503, NO], 'a mute: 503');
+
+    // A guest enters, with the conference refused; Home's stream opens.
+    const link = (await call('POST', `/api/spaces/${den.id}/guest-link`, { cookie: owner, body: {} })).json.space.guestToken;
+    const gj = await call('POST', '/api/guest-join', { body: { token: link, name: 'Kit' } });
+    same([gj.status, gj.json.permissions.conference], [200, false], 'a guest enters; no conference');
+    const kit = await openStream(`${D}&guest=${encodeURIComponent(link)}&pass=${encodeURIComponent(gj.json.guest.pass)}`, null);
+    open.push(kit);
+    await jonS.until(hasPeople([ivy.key, jon.key, gj.json.guest.id]));
+    const gjoin = await call('POST', '/api/call/join', { body: { guest: link, pass: gj.json.guest.pass } });
+    same(gjoin.status, 503, "a guest's join: 503");
+    const home = await openStream('/api/live', jonC);
+    open.push(home);
+    await home.until((e) => e.type === 'ready');
+
+    // A kick still takes them out of the space.
+    same((await call('POST', `/api/users/${jon.key}/kick`, { cookie: owner })).status, 200, 'a kick works');
+    same((await within(jonS.ended, 2000)), true, "and ends the kicked person's stream");
+    ok(jonS.events.some((e) => e.type === 'removed' && e.reason === 'kicked'), 'with removed { kicked }');
+    same(lkAsked.length, from, `the call service was never asked (asked: ${lkAsked.slice(from).join(', ')})`);
+    ok(!/listener failed|access check failed|TypeError|ReferenceError/.test(serverOut), `nothing failed:\n${serverOut}`);
   } catch (err) {
     failed = true;
     console.error(`FAIL ${err.stack || err}`);

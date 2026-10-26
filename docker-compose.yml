@@ -2,16 +2,20 @@
 # Create) or run with `docker compose up -d` anywhere. No files to edit on the
 # NAS: everything is set below. Replace the CHANGE_ME values.
 #
+# LiveKit is the part you add for voice and video. Without it (leave out the livekit service and the three LIVEKIT_
+# lines of the app) the app still starts, and spaces, chat, presence and modules all work; there is no call.
+#
 # Before starting:
-#   DNS:    collaborator.<domain> and livekit.<domain> -> your public IP (DNS only, not proxied)
+#   DNS:    collaborator.<domain> -> your public IP (DNS only, not proxied); for video, livekit.<domain> too
 #           (for several environments, also *.collaborator.<domain>, and a wildcard certificate: see the guide)
-#   Router: forward 7881/tcp, 7882/udp and 3478/udp to the NAS
+#   Router: for video, forward 7881/tcp, 7882/udp and 3478/udp to the NAS
 #   Proxy:  Nginx Proxy Manager hosts with TLS:
-#             livekit.<domain> -> NAS:7880 (Websockets Support ON)
 #             collaborator.<domain>  -> NAS:3000
+#             livekit.<domain> -> NAS:7880 (Websockets Support ON), for video
 version: "3.7"
 
 services:
+  # Optional: voice and video. The app does not wait for it; with it down, only the call is missing.
   livekit:
     image: livekit/livekit-server:latest # 1.12 or newer
     container_name: collaborator-livekit
@@ -46,6 +50,8 @@ services:
     ports:
       - "3000:3000/tcp" # behind the reverse proxy
     environment:
+      # Voice and video (optional): the LiveKit service above, and the same key and secret as its keys: line. Leave
+      # all three out for no call; set both the key and the secret, or neither.
       LIVEKIT_HOST: "livekit.CHANGE_ME_DOMAIN"
       LIVEKIT_API_KEY: "CHANGE_ME_API_KEY"
       LIVEKIT_API_SECRET: "CHANGE_ME_API_SECRET"

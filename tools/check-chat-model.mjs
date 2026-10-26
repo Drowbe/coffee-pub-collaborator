@@ -490,8 +490,7 @@ async function startServer() {
     cwd: ROOT,
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
-      LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
-      LIVEKIT_API_URL: 'http://127.0.0.1:9', // nothing there: the call service fails fast
+      ADMIN_PASSWORD: 'testpass1234',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

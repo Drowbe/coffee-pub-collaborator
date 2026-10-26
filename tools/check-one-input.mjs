@@ -80,7 +80,7 @@ async function startServer() {
     cwd: ROOT,
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
-      LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
+      ADMIN_PASSWORD: 'testpass1234',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -283,7 +283,7 @@ child2 = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
   cwd: ROOT,
   env: {
     PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: unsetDir,
-    LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
+    ADMIN_PASSWORD: 'testpass1234',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

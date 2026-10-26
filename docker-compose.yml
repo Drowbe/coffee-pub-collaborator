@@ -103,6 +103,7 @@ services:
       # CHAT_PICTURE_MAX_MB: "3"          # the most a picture in the chat may weigh (sent live, never stored)
       # CHAT_PICTURE_MB_PER_MINUTE: "20"  # MB of pictures one person (or guest link) may send a minute
       # LIVE_STREAM_BUFFER_MB: "8"        # how far a reader may fall behind before its stream is dropped (it reconnects)
+      # PRESENCE_CHANGES_PER_MINUTE: "60" # times a minute one person may say away or on the call in a space
       PORT: "3000"
     volumes:
       - /share/appdata/coffee-pub-collaborator:/app/data # users, settings and images

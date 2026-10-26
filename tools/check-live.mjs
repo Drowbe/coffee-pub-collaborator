@@ -22,7 +22,8 @@
  * link turned off or regenerated, or guests turned off, ends a guest's stream at once with `removed`; Home's chat takes no
  * pictures; signed out, a picture is refused before its body is read (401, not 413); CHAT_PICTURE_MB_PER_MINUTE holds.
  * A reader that stops reading (on its own server): 20 stalled streams under 25 pictures of 3 MB keep the server's memory
- * bounded, are dropped (LIVE_STREAM_BUFFER_MB), and a reader that reads still gets every picture.
+ * bounded, are dropped (LIVE_STREAM_BUFFER_MB), and a reader that reads still gets every picture; saying away more than
+ * PRESENCE_CHANGES_PER_MINUTE times a minute is 429.
  * Entering without LiveKit (step 5, Verify point 5), against a stand-in for the call service's API that answers nobody and
  * writes down every request: two people and a guest enter a space, say away, chat, read presence, move to another space
  * and Home, and leave, and the call service is never asked; it is asked once someone says they are on the call, and a
@@ -918,7 +919,7 @@ if (!failed) {
 // memory stays bounded (it was 2.6 GB before), the stalled streams are dropped (their places come free), and a reader
 // that reads gets every picture.
 if (!failed) {
-  await startServer({ CHAT_PICTURE_MB_PER_MINUTE: '1000', LIVE_STREAMS_PER_PERSON: '20' });
+  await startServer({ CHAT_PICTURE_MB_PER_MINUTE: '1000', LIVE_STREAMS_PER_PERSON: '20', PRESENCE_CHANGES_PER_MINUTE: '6' });
   const sockets = [];
   try {
     const login = async (name, password) => (await call('POST', '/api/login', { body: { login: name, password } })).json.token;
@@ -967,6 +968,18 @@ if (!failed) {
     const freed = await openStream('/api/live', sloC);
     open.push(freed);
     same(freed.status, 200, 'the stalled streams were dropped: their places came free');
+
+    // Saying away or on the call: PRESENCE_CHANGES_PER_MINUTE a person (6 here), then 429; nobody else is held up.
+    const reaStream = reader.events.find((e) => e.type === 'ready').stream;
+    const say = (cookie, away, stream) => call('PATCH', `/api/spaces/${keep.id}/presence`, { cookie, body: { away, stream } });
+    for (let i = 0; i < 6; i += 1) same((await say(reaC, i % 2 === 0, reaStream)).status, 200, `away and back ${i + 1} of the minute`);
+    const flood = await say(reaC, true, reaStream);
+    same([flood.status, flood.json.error], [429, 'too many away and call changes, wait a moment'], 'the 7th in a minute: 429');
+    ok(Number(flood.retryAfter) >= 1 && Number(flood.retryAfter) <= 60, `with Retry-After (${flood.retryAfter})`);
+    const boss = await openStream(`/api/live?space=${keep.id}`, owner);
+    open.push(boss);
+    const bossReady = await boss.until((e) => e.type === 'ready');
+    same((await say(owner, true, bossReady.stream)).status, 200, 'another person still says away');
     ok(!/listener failed|TypeError|ReferenceError/.test(serverOut), `nothing failed:\n${serverOut}`);
   } catch (err) {
     failed = true;

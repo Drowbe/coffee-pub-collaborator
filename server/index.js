@@ -137,6 +137,9 @@ const {
   // behind before the server drops that stream (default 8): its page reconnects and catches up, and nothing piles up in
   // the server's memory for a reader that stopped reading. Not a number above 0: the default.
   LIVE_STREAM_BUFFER_MB = '',
+  // How many times a minute one person (a guest: the id on their pass) may say away or on the call in a space
+  // (PATCH /api/spaces/:id/presence; default 60). Not a whole number above 0: the default.
+  PRESENCE_CHANGES_PER_MINUTE = '',
   // How many reverse proxies stand in front of the server (default 1, the usual one). The address a request came from
   // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
   // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
@@ -4896,11 +4899,32 @@ app.get('/api/live', (req, res) => {
   });
 });
 
+// At most PRESENCE_CHANGES_PER_MINUTE a minute a person (429), so toggling away in a loop can't flood a space.
+const presenceChangesPerMinute = wholeAbove0(PRESENCE_CHANGES_PER_MINUTE, 60);
+const presenceChanges = new Map(); // `${slug}|${who}` -> change times in the last minute
+// The seconds until `who` may say one more, or 0 when they may now (and then it is counted).
+function presenceWait(who) {
+  const key = `${chatSlug()}|${who}`;
+  const now = Date.now();
+  const recent = (presenceChanges.get(key) || []).filter((t) => now - t < 60000);
+  if (recent.length >= presenceChangesPerMinute) {
+    presenceChanges.set(key, recent);
+    return Math.max(1, Math.ceil((recent[recent.length - presenceChangesPerMinute] + 60000 - now) / 1000));
+  }
+  recent.push(now);
+  presenceChanges.set(key, recent);
+  return 0;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, times] of presenceChanges) if (!times.some((t) => now - t < 60000)) presenceChanges.delete(key);
+}, 60000).unref();
 // PATCH /api/spaces/:id/presence { away?, awayMessage?, onCall?, stream? }: the page's word about the person in a space
 // or an aside (the live stream's access). `awayMessage` is trimmed to 200 characters; turning away off clears it unless
 // one is sent. `onCall` goes on the stream named by `stream` (the id from `ready`), or on every live stream of theirs
 // there; it goes when that stream closes. A guest names their `stream` (?guest= as on the stream). Answers { ok: true }
-// and sends presence to the space when something changed; 409 when they have no live stream open there.
+// and sends presence to the space when something changed; 409 when they have no live stream open there; 429 past
+// PRESENCE_CHANGES_PER_MINUTE.
 app.patch('/api/spaces/:id/presence', (req, res) => {
   const found = liveAccess(req, req.params.id);
   if (found.error) return res.status(found.status).json({ error: found.error });
@@ -4926,6 +4950,8 @@ app.patch('/api/spaces/:id/presence', (req, res) => {
     if (!entry || !entry.guest || entry.space !== req.params.id) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
     who = entry.who;
   }
+  const wait = presenceWait(who);
+  if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: 'too many away and call changes, wait a moment' });
   const changed = live.set(who, req.params.id, patch, body.stream || null);
   if (changed === null) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
   if (changed) tellLivePresence([req.params.id]);

@@ -368,8 +368,12 @@ try {
   patK.close();
 
   // --- a guest ---------------------------------------------------------------------------------------------------
-  const G = `${K}&guest=${encodeURIComponent(guestToken)}`;
-  const guest = await watch(`${G}&name=Vic`, null);
+  // A guest enters with a name (POST /api/guest-join) and opens the stream with the pass it answers.
+  const passFor = async (token, name) => (await call('POST', '/api/guest-join', { body: { token, name } })).json.guest.pass;
+  const G0 = `${K}&guest=${encodeURIComponent(guestToken)}`;
+  same(await refused(G0, null), [403, 'that guest pass is not valid; enter again'], 'a guest with no pass: 403');
+  const G = `${G0}&pass=${encodeURIComponent(await passFor(guestToken, 'Vic'))}`;
+  const guest = await watch(G, null);
   const gReady = await guest.until((e) => e.type === 'ready');
   ok(/^guest-/.test(gReady.you), 'a guest gets an id of their own');
   await samS.until((e) => e.type === 'presence' && e.people.some((p) => p.key === gReady.you && p.name === 'Vic' && p.guest));
@@ -391,12 +395,12 @@ try {
   const claims = (jwt) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
   const gj = await call('POST', '/api/guest-join', { body: { token: guestToken, name: 'Wren' } });
   same([gj.status, gj.json.spaceId, gj.json.guest.name, /^guest-/.test(gj.json.guest.id), typeof gj.json.guest.pass], [200, keep.id, 'Wren', true, 'string'], 'guest-join answers the guest pass');
-  const passed = await watch(`${G}&pass=${encodeURIComponent(gj.json.guest.pass)}`, null);
+  const passed = await watch(`${G0}&pass=${encodeURIComponent(gj.json.guest.pass)}`, null);
   same((await passed.until((e) => e.type === 'ready')).you, gj.json.guest.id, 'the stream knows a guest by their pass');
   await samS.until((e) => e.type === 'presence' && e.people.some((p) => p.key === gj.json.guest.id && p.name === 'Wren'));
   n += 1;
   const forged = gj.json.guest.pass.replace(/^[^.]+/, Buffer.from(JSON.stringify({ id: 'guest-someone', name: 'Wren' })).toString('base64url'));
-  same(await refused(`${G}&pass=${encodeURIComponent(forged)}`, null), [403, 'that guest pass is not valid; enter again'], 'a pass changed by hand: 403');
+  same(await refused(`${G0}&pass=${encodeURIComponent(forged)}`, null), [403, 'that guest pass is not valid; enter again'], 'a pass changed by hand: 403');
   same(await refused(`${K}&guest=${encodeURIComponent(towerGuest)}&pass=${encodeURIComponent(gj.json.guest.pass)}`, null), [403, 'you are not in that space'], 'nor with another link');
   const gCall = await call('POST', '/api/call/join', { body: { guest: guestToken, pass: gj.json.guest.pass } });
   same([gCall.status, claims(gCall.json.token).sub, claims(gCall.json.token).name, typeof gCall.json.livekitUrl], [200, gj.json.guest.id, 'Wren', 'string'], 'the guest\'s call token is for the id on their pass');
@@ -568,7 +572,13 @@ if (!failed) {
     const tripToken = (await call('POST', `/api/spaces/${trip.id}/guest-link`, { cookie: owner, body: {} })).json?.space?.guestToken;
     ok(lobbyToken && tripToken, 'guest links made');
     const g = (token) => `guest=${encodeURIComponent(token)}`;
-    const LG = (token) => `/api/live?space=lobby&${g(token)}`;
+    // A guest's stream carries their pass (POST /api/guest-join), one per link, made as it is first asked for.
+    const passes = new Map();
+    const pass = async (token, name = 'Vic') => {
+      if (!passes.has(token)) passes.set(token, (await call('POST', '/api/guest-join', { body: { token, name } })).json?.guest?.pass || 'none');
+      return `pass=${encodeURIComponent(passes.get(token))}`;
+    };
+    const LG = async (token) => `/api/live?space=lobby&${g(token)}&${await pass(token)}`;
     const chatOf = (s, id) => s.events.filter((e) => e.id === id && /^chat/.test(e.type));
 
     // --- who hears which chat --------------------------------------------------------------------------------------
@@ -578,8 +588,8 @@ if (!failed) {
     const bossHome = await watch('/api/live', owner);
     const patTrip = await watch(LT, patC);
     const samTrip = await watch(LT, samC);
-    const lobbyGuest = await watch(`${LG(lobbyToken)}&name=Vic`, { ip: '10.0.0.1' });
-    const tripGuest = await watch(`${LT}&${g(tripToken)}&name=Tia`, { ip: '10.0.0.20' });
+    const lobbyGuest = await watch(await LG(lobbyToken), { ip: '10.0.0.1' });
+    const tripGuest = await watch(`${LT}&${g(tripToken)}&${await pass(tripToken, 'Tia')}`, { ip: '10.0.0.20' });
     for (const s of [patHome, bossHome, patTrip, samTrip, lobbyGuest, tripGuest]) {
       same(s.status, 200, 'an allowed reader is in');
       await s.until((e) => e.type === 'ready');
@@ -735,14 +745,14 @@ if (!failed) {
 
     // --- open streams: a guest address (40% of the link's, here 2) and the guest link (5) --------------------------------
     // The Lobby's guest at 10.0.0.1 holds one already (lobbyGuest): one more there, the third refused as the address's.
-    same((await watch(LG(lobbyToken), { ip: '10.0.0.1' })).status, 200);
-    const gFull = await watch(LG(lobbyToken), { ip: '10.0.0.1' });
+    same((await watch(await LG(lobbyToken), { ip: '10.0.0.1' })).status, 200);
+    const gFull = await watch(await LG(lobbyToken), { ip: '10.0.0.1' });
     same([gFull.status, gFull.error], [429, 'you have too many live streams open (2 at most); close one and try again'], "a guest address's own cap");
-    for (let i = 0; i < 3; i += 1) same((await watch(LG(lobbyToken), { ip: `198.51.100.${i + 1}, 10.0.0.1` })).status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not open another stream`);
-    same((await watch(LG(lobbyToken), { ip: '10.0.0.2' })).status, 200, 'another address on the link');
-    same((await watch(LG(lobbyToken), { ip: '10.0.0.2' })).status, 200, 'its second');
-    same((await watch(LG(lobbyToken), { ip: '10.0.0.4' })).status, 200, 'a third address: the fifth of the link');
-    const linkFull = await watch(LG(lobbyToken), { ip: '10.0.0.6' });
+    for (let i = 0; i < 3; i += 1) same((await watch(await LG(lobbyToken), { ip: `198.51.100.${i + 1}, 10.0.0.1` })).status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not open another stream`);
+    same((await watch(await LG(lobbyToken), { ip: '10.0.0.2' })).status, 200, 'another address on the link');
+    same((await watch(await LG(lobbyToken), { ip: '10.0.0.2' })).status, 200, 'its second');
+    same((await watch(await LG(lobbyToken), { ip: '10.0.0.4' })).status, 200, 'a third address: the fifth of the link');
+    const linkFull = await watch(await LG(lobbyToken), { ip: '10.0.0.6' });
     same([linkFull.status, linkFull.error], [429, 'this guest link has too many live streams open (5 at most); close one and try again'], "the guest link's cap");
 
     // --- an owner's delete and clear reach the guest; a guest moderates nothing ---------------------------------------
@@ -768,16 +778,16 @@ if (!failed) {
     ok(Date.now() - offAt < 1500, 'at once');
     same([lobbyGuest.events.at(-1).type, lobbyGuest.events.at(-1).reason, lobbyGuest.events.at(-1).error], ['removed', 'access', 'that guest link is off or wrong'], 'with a last event that says why');
     same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'still here?' } })).status, 401, 'and refuses its posts');
-    same((await watch(LG(lobbyToken), { ip: '10.0.0.8' })).status, 401, 'and its streams');
+    same((await watch(await LG(lobbyToken), { ip: '10.0.0.8' })).status, 401, 'and its streams');
     lobbyToken = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: {} })).json.space.guestToken;
-    const s2 = await watch(LG(lobbyToken), { ip: '10.0.0.8' });
+    const s2 = await watch(await LG(lobbyToken), { ip: '10.0.0.8' });
     await s2.until((e) => e.type === 'ready');
     const fresh = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: { regenerate: true } })).json.space.guestToken;
     ok(fresh && fresh !== lobbyToken, 'regenerated');
     same(await within(s2.ended, 1500), true, "regenerating the link ends the old token's streams");
     same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'old link' } })).status, 401, "and refuses the old token's posts");
     same((await call('POST', `${L}?${g(fresh)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'new link' } })).status, 200, 'the new token posts');
-    const s3 = await watch(LG(fresh), { ip: '10.0.0.8' });
+    const s3 = await watch(await LG(fresh), { ip: '10.0.0.8' });
     await s3.until((e) => e.type === 'ready');
     same((await call('PATCH', '/api/spaces/lobby', { cookie: owner, body: { allowGuests: false } })).status, 200);
     same(await within(s3.ended, 1500), true, "turning guests off in the space ends a guest's stream");

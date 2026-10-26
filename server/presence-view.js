@@ -5,7 +5,7 @@
 // A viewer is one of:
 //   { all: true }                     the access key (OBS, Studio): everything, as before;
 //   { key, owner }                    a signed-in person; `owner` for owners and the admin, who belong to every
-//                                     space and every aside (as `mine` and POST /api/token already treat them);
+//                                     space and every aside (as `mine` and POST /api/call/join already treat them);
 //   { guestSpace }                    a guest, by their guest link's space.
 //
 // Where a person is, to a viewer:

@@ -1186,24 +1186,18 @@ function livekitApiUrl() {
 // answer with nobody in a call. The same client serves every other call to the service.
 const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { requestTimeout: 2 });
 
-// `media` is whether they may send and receive the conference's audio and video
-// (the "See and join the conference" permission); without it they still connect,
-// for chat and the modules, and are online, but carry no media. Every player and
-// guest starts out of the conference (the "call" attribute is 'off'): entering a
-// space never joins the call, and the page sets 'on' itself when they join, so
-// until then everyone else sees them present in the space, with no tile. A token for
-// the call itself (POST /api/call/join) says 'on' from the start (`onCall`). OBS
-// viewers carry no attribute at all. `call` is the call's name at the call service (callName).
-async function mintToken({ identity, name, call, publisher, media = publisher, onCall = false }) {
+// A token for the call service. A person's (`publisher`) is minted only by POST /api/call/join, as they join the call,
+// so being at the call service is being on the call: no attribute says it. An OBS viewer's (POST /api/token) is hidden
+// and only watches. `call` is the call's name at the call service (callName).
+async function mintToken({ identity, name, call, publisher }) {
   const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity, name, ttl: publisher ? '24h' : '12h' });
-  if (publisher) token.attributes = { call: onCall ? 'on' : 'off' };
   token.addGrant({
     room: call,
     roomJoin: true,
-    canPublish: media,
-    canSubscribe: publisher ? media : true,
-    canPublishData: publisher,
-    canUpdateOwnMetadata: publisher, // to say whether they are in the conference (the "call" attribute)
+    canPublish: publisher,
+    canSubscribe: true,
+    canPublishData: publisher, // reactions
+    canUpdateOwnMetadata: false,
     hidden: !publisher, // OBS viewers do not show up in the call
   });
   return token.toJwt();
@@ -1223,8 +1217,10 @@ function spaceIdOfCall(name) {
   });
 }
 
-// Who is in a call right now, in whichever space, straight from LiveKit. `call` is the call's own name, for sending
-// to it (it may be a name from before the upgrade); it is never sent in an answer (see withoutCall).
+// Who is on a call right now, in whichever space, straight from LiveKit: everyone there but a hidden OBS viewer is on
+// the call (a person's token is minted only to join it). `call` is the call's own name, for sending to it (it may be a
+// name from before the upgrade); it is never sent in an answer (see withoutCall). Asked only while the live register has
+// someone on a call (whereEveryone).
 async function participants() {
   try {
     const active = await callService.listRooms();
@@ -1244,7 +1240,7 @@ async function participants() {
           space: spaceId,
           call: lk.name,
           joinedAt: Number(p.joinedAt || 0),
-          inCall: p.attributes?.call !== 'off',
+          inCall: true,
           micOn: !!mic && !mic.muted,
           cameraOn: !!cam && !cam.muted,
         });
@@ -1263,11 +1259,6 @@ function withoutCall(p) {
   return rest;
 }
 
-// The call a user is in right now (its real name at the call service), or null.
-async function callOf(key) {
-  const p = (await participants()).find((x) => x.key === key);
-  return p ? p.call : null;
-}
 
 // The space the stream currently hears: the first online owner's space (the
 // host admin's stand-in counts as one), or the Lobby if no owner is in a call.
@@ -2210,8 +2201,8 @@ function environmentStorageBytes(slug, dataDir) {
   hostRegistry.recordStorageUsage(slug, bytes);
   return bytes;
 }
-// The spaces (and asides) of this environment with a call running right now: at least one person there is on the
-// call (their "call" attribute is 'on'), not merely connected -- entering a space connects without joining. Asked
+// The spaces (and asides) of this environment with a call running right now: at least one person is at its call (being
+// there is being on the call: a person's token is minted only to join it; a hidden OBS viewer does not count). Asked
 // from LiveKit directly, never cached, so a call ending frees its slot at once. `without` leaves people out (whoever
 // is about to join somewhere, so moving from one call to another never counts their own). A call under its name from
 // before the upgrade is the same space's. spaceIdOfCall scopes this to the current environment's own calls. null when
@@ -2225,7 +2216,7 @@ async function runningCalls({ without = [], listed = null } = {}) {
       const spaceId = spaceIdOfCall(lk.name);
       if (!spaceId || running.has(spaceId) || !(lk.numParticipants > 0)) continue;
       const list = await callService.listParticipants(lk.name);
-      if (list.some((p) => !p.permission?.hidden && !without.includes(p.identity) && p.attributes?.call === 'on')) running.add(spaceId);
+      if (list.some((p) => !p.permission?.hidden && !without.includes(p.identity))) running.add(spaceId);
     }
     return running;
   } catch {
@@ -3360,34 +3351,30 @@ app.delete('/api/users/:key/mfa', requireOwner, (req, res) => {
   res.json({ ok: true });
 });
 
-// A token for the call service, for a space or an aside (the Lobby unless asked, as `space`): players need a session
-// and must belong to it; OBS viewers need the stream key. `call` in the answer is the call's own name there. An aside
-// is the call only: its token is the same kind, and nothing else (modules, chat) is reached through it. The token
-// starts out of the call and is never refused by the calls cap: that is asked on a join (POST /api/call/join).
+// An OBS viewer's token for the call service (`role: 'viewer'`, the stream key): hidden, watching one space's or
+// aside's call (the Lobby unless asked, as `space`; host.media.watch, the Stream module's keyed page). `call` in the
+// answer is the call's own name there. Never refused by the calls cap. A person's token for the call is POST
+// /api/call/join's, the only one there is (plan-realtime-optional-livekit.md, step 5): entering a space asks for none.
 app.post('/api/token', async (req, res) => {
+  if (req.body?.role !== 'viewer') return res.status(400).json({ error: "only an OBS viewer's token is made here (role: 'viewer'); the call's is POST /api/call/join" });
+  if (!hasStreamAccess(req)) return res.status(403).json({ error: 'stream key required' });
   const spaceId = typeof req.body?.space === 'string' && req.body.space ? req.body.space : LOBBY;
   const theSpace = store.spaceById(spaceId) || store.asideById(spaceId);
   if (!theSpace) return res.status(404).json({ error: `no such ${word('space')}` });
   const call = callName(spaceId);
-  if (req.body?.role === 'viewer') {
-    if (!hasStreamAccess(req)) return res.status(403).json({ error: 'stream key required' });
-    const identity = `obs-${Date.now().toString(36)}-${randomToken(4)}`;
-    return res.json({ token: await mintToken({ identity, name: 'OBS', call, publisher: false }), livekitUrl: livekitWsUrl(req), identity, call, spaceId });
-  }
-  const user = currentUser(req);
-  if (!user) return res.status(401).json({ error: 'sign in first' });
-  if (!theSpace.members.includes(user.key) && !isOwner(req)) return res.status(403).json({ error: `you are not in that ${word('space')}` });
-  const media = Boolean(store.spacePermissions(user.key, spaceId).conference);
-  const token = await mintToken({ identity: user.key, name: user.displayName, call, publisher: true, media });
-  res.json({ token, livekitUrl: livekitWsUrl(req), identity: user.key, call, spaceId, conference: media });
+  const identity = `obs-${Date.now().toString(36)}-${randomToken(4)}`;
+  res.json({ token: await mintToken({ identity, name: 'OBS', call, publisher: false }), livekitUrl: livekitWsUrl(req), identity, call, spaceId });
 });
 
-// Just before joining the call (a click: entering a space never joins, and its token always starts out of the call):
-// the calls cap, counted from people actually on a call. Joining a call already running is never refused; starting a
+// Joining the call (a click, or a pull that moves the call: entering a space never joins, and asks the call service
+// nothing): the calls cap, counted from people actually on a call, then the call's token, the only way a person gets
+// one, so being at the call service is being on the call. Joining a call already running is never refused; starting a
 // new one is, once the plan's limit is spent elsewhere. A person signed in asks for `space` (the Lobby unless given;
-// the same rights as /api/token); a guest sends their guest link's token as `guest` (in the body or the query, as the
-// guest reads do) and joins that link's space. An aside's call was checked when it was made (POST /api/asides), so
-// joining it is never refused here.
+// its members, owners and the admin); a guest sends their guest link's token as `guest` (in the body or the query, as
+// the guest reads do) and their guest pass as `pass`, and joins that link's space as the id on the pass. Refused
+// (403) where the person may not join the call (Conference off, or no "See and join the conference"). An aside's call
+// was checked when it was made (POST /api/asides), so joining it is never refused by the cap.
+// Answers { ok, token, livekitUrl, call }.
 app.post('/api/call/join', async (req, res) => {
   const guestLink = typeof req.body?.guest === 'string' ? req.body.guest : typeof req.query.guest === 'string' ? req.query.guest : '';
   const asked = typeof req.body?.space === 'string' && req.body.space ? req.body.space : null;
@@ -3409,18 +3396,18 @@ app.post('/api/call/join', async (req, res) => {
     spaceId = theSpace.id;
     identity = `guest-link:${guestLink}`; // names their hold
     const pass = typeof req.body?.pass === 'string' ? readGuestPass(guestLink, req.body.pass) : null;
-    if (pass) caller = { identity: pass.id, name: pass.name, media: Boolean(store.roleSet('guest').conference) };
+    if (!pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+    caller = { identity: pass.id, name: pass.name, media: Boolean(store.roleSet('guest').conference) };
   } else {
     return res.status(401).json({ error: 'sign in first' });
   }
-  if (caller && !caller.media) return res.status(403).json({ error: store.settings.conferenceEnabled === false ? 'voice and video are off' : `you can't join the call in this ${word('space')}` });
+  if (!caller.media) return res.status(403).json({ error: store.settings.conferenceEnabled === false ? 'voice and video are off' : `you can't join the call in this ${word('space')}` });
   if (!store.asideById(spaceId)) {
     const refusal = await callsCapRefusal(spaceId, identity);
     if (refusal) return res.status(403).json({ error: refusal });
   }
-  if (!caller) return res.json({ ok: true });
   const call = callName(spaceId);
-  const token = await mintToken({ identity: caller.identity, name: caller.name, call, publisher: true, media: true, onCall: true });
+  const token = await mintToken({ identity: caller.identity, name: caller.name, call, publisher: true });
   res.json({ ok: true, token, livekitUrl: livekitWsUrl(req), call });
 });
 
@@ -3460,17 +3447,16 @@ app.get('/api/guest-link/:token', (req, res) => {
   if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
   res.json({ spaceId: theSpace.id, spaceName: theSpace.name });
 });
-app.post('/api/guest-join', async (req, res) => {
+// A guest enters with a name: their pass (makeGuestPass), by which the live stream, presence and the call know them.
+// No call service is asked: the call's token comes from POST /api/call/join, with the pass.
+app.post('/api/guest-join', (req, res) => {
   const theSpace = store.spaceByGuestToken(req.body?.token);
   if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
   const name = cleanText(req.body?.name, 40);
   if (!name) return res.status(400).json({ error: 'a name is required' });
-  const call = callName(theSpace.id);
-  const identity = `guest-${randomToken(8)}`;
-  const permissions = store.roleSet('guest');
-  const token = await mintToken({ identity, name, call, publisher: true, media: Boolean(permissions.conference) });
-  const guest = { id: identity, name, pass: makeGuestPass(req.body.token, identity, name) };
-  res.json({ token, livekitUrl: livekitWsUrl(req), identity, call, spaceId: theSpace.id, spaceName: theSpace.name, guestToken: req.body.token, permissions, guest });
+  const id = `guest-${randomToken(8)}`;
+  const guest = { id, name, pass: makeGuestPass(req.body.token, id, name) };
+  res.json({ spaceId: theSpace.id, spaceName: theSpace.name, permissions: store.roleSet('guest'), guest });
 });
 
 // A user may replace or clear their own profile photo. This is separate from
@@ -3547,10 +3533,13 @@ app.post('/api/presence', requireUser, (req, res) => {
 });
 
 // Who is where, for GET /api/presence and GET /api/status: the live register (server/live.js), with the call service's
-// list merged in for who is on a call and their microphone and camera (mergeCall). key -> { key, name, space, call,
-// joinedAt, inCall, micOn, cameraOn }.
+// list merged in for who is on a call and their microphone and camera (mergeCall). The call service is asked only while
+// the register has someone on a call (their page's word), so entering, leaving and moving never reach it.
+// key -> { key, name, space, call, joinedAt, inCall, micOn, cameraOn }.
 async function whereEveryone() {
-  return mergeCall(live.places(), await participants());
+  const places = live.places();
+  const onCall = [...places.values()].some((p) => p.onCall);
+  return mergeCall(places, onCall ? await participants() : []);
 }
 
 // Asides (plan-names step 3 moved these from /api/table/*; step 8 gave them their own record, store.asides, and made
@@ -3911,38 +3900,32 @@ app.delete('/api/users/:key/spaces/:spaceId/images/:slot', requireOwner, (req, r
 });
 
 // Admin, or a member the admin gave Can Kick / Can Mute for the space both of them are in right now (never against an
-// admin) -- see Permissions on a user's profile, Spaces tab. Where each is comes from the live register (server/live.js);
-// someone it does not have (a guest, whose key at the call service is not their key on the live stream yet) is looked
-// up on the calls. Answers { space, call } (call: their call's name at the call service when it was looked up there,
-// else null) or { error: [status, sentence] }.
-async function canModerate(req, targetKey, permission) {
+// admin) -- see Permissions on a user's profile, Spaces tab. Where each is, and whether the target is on the call, comes
+// from the live register (server/live.js; a guest is there by the id on their pass, their identity on the call too).
+// Answers { space, onCall } or { error: [status, sentence] }.
+function canModerate(req, targetKey, permission) {
   const actor = currentUser(req);
-  let space = live.placeOf(targetKey)?.space || null;
-  let call = null;
-  if (!space) {
-    call = await callOf(targetKey);
-    space = call ? spaceIdOfCall(call) : null;
-  }
-  if (!space) return { error: [404, `they are not in ${word('space', { a: true })} right now`] };
-  if (hasOwnerRights(actor)) return { space, call };
+  const place = live.placeOf(targetKey);
+  if (!place) return { error: [404, `they are not in ${word('space', { a: true })} right now`] };
+  const { space, onCall } = place;
+  if (hasOwnerRights(actor)) return { space, onCall };
   const target = store.userByKey(targetKey);
   if (!target || hasOwnerRights(target) || target.key === actor.key) return { error: [403, 'not allowed'] };
   if (live.placeOf(actor.key)?.space !== space) return { error: [403, `you are not in their ${word('space')}`] };
   if (!store.spacePermissions(actor.key, space)[permission]) return { error: [403, 'not allowed'] };
-  return { space, call };
+  return { space, onCall };
 }
 
 // A kick takes the person out of the call and the space, both (plan-realtime-optional-livekit.md, decided 5): their live
 // streams there get `removed { reason: 'kicked' }` and end, they leave the register at once (no grace), and the call
-// service drops them from the call when they are on it. With no call service, or it not answering, the space part still
-// happens.
+// service drops them from the call when the register has them on it (only then is it asked). With no call service, or
+// it not answering, the space part still happens.
 app.post('/api/users/:key/kick', requireUser, async (req, res) => {
   const key = req.params.key;
-  const { space, call, error } = await canModerate(req, key, 'canKick');
+  const { space, onCall, error } = canModerate(req, key, 'canKick');
   if (error) return res.status(error[0]).json({ error: error[1] });
-  const atCall = call || await callOf(key);
-  if (atCall) {
-    await callService.removeParticipant(atCall, key).catch((err) => console.error(`Removing ${key} from the call failed: ${err.message}`));
+  if (onCall) {
+    await callService.removeParticipant(callName(space), key).catch((err) => console.error(`Removing ${key} from the call failed: ${err.message}`));
   }
   tellLive(key, space, { type: 'removed', reason: 'kicked' });
   live.leave(key, space);
@@ -3950,12 +3933,12 @@ app.post('/api/users/:key/kick', requireUser, async (req, res) => {
   res.json({ ok: true });
 });
 
-// Muting is the call's: it needs them on a call at the call service.
+// Muting is the call's: it needs them on the call (the register's word), then asks the call service.
 app.post('/api/users/:key/mute', requireUser, async (req, res) => {
-  const { call: known, error } = await canModerate(req, req.params.key, 'canMute');
+  const { space, onCall, error } = canModerate(req, req.params.key, 'canMute');
   if (error) return res.status(error[0]).json({ error: error[1] });
-  const call = known || await callOf(req.params.key);
-  if (!call) return res.status(404).json({ error: 'they are not in a call' });
+  if (!onCall) return res.status(404).json({ error: 'they are not in a call' });
+  const call = callName(space);
   try {
     const info = await callService.getParticipant(call, req.params.key);
     const mic = (info.tracks || []).find((t) => t.source === 2);
@@ -4755,11 +4738,12 @@ function tellLiveSpace(space, data) {
   for (const p of live.people(space)) tellLive(p.key, space, data);
 }
 
-// GET /api/live: the live stream (server-sent events), one per space page. ?space= is a space's or an aside's id (left
-// out on Home); a guest adds ?guest=<their link's token> and ?name=<the name they gave>. Each event is a default
-// `message` with an `id:` line and data { type, ... }:
-//   ready     { you, space, stream }: first, once listening. `you` is the person's key or, for a guest, an id made for
-//             this stream; `stream` names this stream to PATCH /api/spaces/:id/presence.
+// GET /api/live: the live stream (server-sent events), one per space page: being in a space is this being open. ?space=
+// is a space's or an aside's id (left out on Home); a guest adds ?guest=<their link's token> and ?pass=<their guest pass>
+// (POST /api/guest-join; 403 without a valid one). Each event is a default `message` with an `id:` line and data
+// { type, ... }:
+//   ready     { you, space, stream }: first, once listening. `you` is the person's key or, for a guest, the id on their
+//             pass (their identity on the call too); `stream` names this stream to PATCH /api/spaces/:id/presence.
 //   presence  { space, people: [{ key, name, guest, onCall, away, awayMessage }] }: everyone there, on connect and on
 //             every change (server/live.js).
 //   chat, chat-delete, chat-clear, chat-clear-some, chat-visibility, chat-preview, chat-kept, chat-picture: what tellChat
@@ -4780,9 +4764,9 @@ app.get('/api/live', (req, res) => {
   const guest = !found.who.user;
   // A guest is who their pass says (POST /api/guest-join), the same id on the call.
   const pass = guest && typeof req.query.pass === 'string' ? readGuestPass(req.query.guest, req.query.pass) : null;
-  if (guest && req.query.pass !== undefined && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
-  const you = guest ? pass?.id || `guest-${randomToken(8)}` : found.who.user.key;
-  const name = guest ? pass?.name || cleanText(req.query.name, 40) || word('guest') : found.who.user.displayName;
+  if (guest && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  const you = guest ? pass.id : found.who.user.key;
+  const name = guest ? pass.name : found.who.user.displayName;
   const env = currentEnvironment();
   let streamId = null;
   eventStream(req, res, {

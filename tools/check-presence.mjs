@@ -286,8 +286,13 @@ try {
   const quiet = (ms = 300) => new Promise((r) => setTimeout(r, ms));
   const startedIn = (s) => s.events.filter((e) => e.type === 'aside-started').map(({ type, spaceId, members, private: priv }) => (members ? { type, spaceId, members, private: priv } : { type, spaceId, private: priv }));
 
-  // Alice, Carol and Dana on the Keep's call, Bob on the Tower's with a hidden OBS viewer, a guest in the Keep.
+  // Alice, Carol and Dana on the Keep's call, Bob on the Tower's with a hidden OBS viewer, a guest in the Keep. Carol and
+  // Dana are in the Keep by the register and on the call by their page's word, Alice there off it by her page's word:
+  // the call service is asked only while the register has someone on a call (plan-realtime-optional-livekit.md, step 5).
   setCalls({ [spaceA]: [alice, carol, dana, 'guest-wanderer'], [spaceB]: [bob, { id: 'obs-viewer', hidden: true }] });
+  const aliceIn = await enter(aliceT, spaceA);
+  const carolIn = await enter(carolT, spaceA, { onCall: true });
+  const danaIn = await enter(danaT, spaceA, { onCall: true });
 
   await test('live: a member of the Keep asking about Bob in the Tower reads him online with no place', async () => {
     const r = await presence({ token: aliceT });
@@ -303,9 +308,6 @@ try {
 
   // Carol pulls Dana into a private conversation from the Keep's call (both on it as the register says; Alice in the Keep,
   // off the call by her page's word, hears it start); then both are on the aside's call, and in the aside.
-  const aliceIn = await enter(aliceT, spaceA);
-  const carolIn = await enter(carolT, spaceA, { onCall: true });
-  const danaIn = await enter(danaT, spaceA, { onCall: true });
   const pulled = await call('POST', '/api/asides', { token: carolT, body: { with: [dana], private: true } });
   assert.equal(pulled.status, 200, pulled.text);
   const aside = pulled.json.aside.id;

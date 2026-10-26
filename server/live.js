@@ -204,8 +204,8 @@ function cleanAwayMessage(text) {
 // micOn, cameraOn }, the shape presenceView() and GET /api/status read.
 //   - The register says where a person is. They are on the call when their page says so, or when the call service has
 //     them on that space's call; the microphone and camera come from the call service only for that call.
-//   - Someone the call service has and the register does not (a page that enters through the call service, until the
-//     space page opens the live stream) reads as the call service says.
+//   - Someone the call service has and the register does not (on the call, with their page's live stream gone past its
+//     grace) reads as the call service says.
 function mergeCall(places, call = []) {
   const byKey = new Map();
   for (const p of call) if (!byKey.has(p.key)) byKey.set(p.key, p);

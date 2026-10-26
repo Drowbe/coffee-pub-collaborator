@@ -2050,6 +2050,12 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // Where the page opens, reads and writes it.
   if (!/await liveOpened\(openLive\(spaceId\)\);/.test(fn('async function join(')) || !/await liveOpened\(openLive\(joinedId\)\);/.test(fn('async function joinAsGuest('))) fail(F, 'entering a space is opening its live stream and waiting for its answer (join(), joinAsGuest())');
   if (!/\n  closeLive\(\);/.test(fn('function leaveSpaceNow(')) || /closeLive|leaveSpaceNow/.test(spaceJs.slice(spaceJs.indexOf('.on(RoomEvent.Disconnected, () => {'), spaceJs.indexOf("// The page's own end of the call")))) fail(F, 'leaving the space (leaveSpaceNow) closes the live stream; the call ending never leaves the space');
+  // Hanging up is the call only: the call service disconnected, the space and its live stream kept (step 5).
+  const stopBody = fn('async function stopCall(');
+  if (!/const ending = disconnectCall\(\);/.test(stopBody) || /closeLive|leaveSpaceNow|forgetSpace/.test(stopBody)) fail(F, 'stopCall() (Hang up) disconnects from the call service only; the page stays in the space');
+  if (!/sayPresence\(\{ onCall: false/.test(stopBody)) fail(F, 'hanging up says off the call on the live stream');
+  const moveBody = fn('async function reconnectTo(');
+  if (!(moveBody.indexOf('leaveSpaceNow(') > -1 && moveBody.indexOf('leaveSpaceNow(') < moveBody.indexOf('await join('))) fail(F, 'moving (reconnectTo) leaves this space, then enters the next');
   if (!/if \(endingCall > 0 \|\| unloading \|\| !inCall\) return;/.test(spaceJs)) fail(F, 'the call\'s Disconnected is nothing more when this page ended the call (disconnectCall)');
   if (!/sayPresence\(\{ onCall: true,/.test(fn('async function startCall('))) fail(F, 'startCall() says onCall: true on the live stream');
   if (!/sayPresence\(\{ onCall: false, away: false, awayMessage: '' \}\)/.test(fn('async function stopCall('))) fail(F, 'stopCall() says onCall: false, and away ended, on the live stream');

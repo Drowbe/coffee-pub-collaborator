@@ -1403,16 +1403,16 @@
   },
   {
    "id": "space-workspace",
-   "family": "Space page (call stand-in)",
+   "family": "Space page",
    "as": "mia",
    "url": "/#join={trip}",
    "wait": "button.sdk-strip-fact[data-module=budget]",
-   "call": true,
+   "space": true,
    "tier": "core"
   },
   {
    "id": "space-module-phone",
-   "family": "Space page (call stand-in)",
+   "family": "Space page",
    "as": "mia",
    "url": "/#join={trip}",
    "wait": "button.sdk-strip-fact[data-module=budget]",
@@ -1423,7 +1423,7 @@
      "until": ".module-docked .mf-titlebar"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1431,7 +1431,7 @@
   },
   {
    "id": "space-calendar-tab",
-   "family": "Space page (call stand-in)",
+   "family": "Space page",
    "as": "mia",
    "url": "/#join={trip}",
    "wait": "button.sdk-strip-fact[data-module=budget]",
@@ -1440,7 +1440,7 @@
      "click": "#layout-tab-calendar"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1454,7 +1454,7 @@
      "click": "#phase-chip"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1468,7 +1468,7 @@
      "click": "button.space-switcher-button"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1482,7 +1482,7 @@
      "click": "#modules-toggle"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1496,7 +1496,7 @@
      "click": "#whoami-link"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1510,7 +1510,7 @@
      "click": "#who-here-toggle"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1525,7 +1525,7 @@
      "until": ".host-menu"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state",
    "sizes": [
     1280
@@ -1543,7 +1543,7 @@
      "text": "More"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1557,7 +1557,7 @@
      "click": "button.btn.chat-object-place-btn"
     }
    ],
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1572,7 +1572,8 @@
     }
    ],
    "call": true,
-   "tier": "state"
+   "tier": "state",
+   "space": true
   },
   {
    "id": "space-setup-space",
@@ -1588,7 +1589,7 @@
      "sleep": 2000
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],
@@ -1600,7 +1601,7 @@
    "as": "admin",
    "url": "/?setup={trip}#space",
    "wait": "#space-setup",
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1623,7 +1624,7 @@
      "click": "#setup-tab-members"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],
@@ -1635,7 +1636,7 @@
    "as": "admin",
    "url": "/?setup={trip}#members",
    "wait": "#space-setup",
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1658,7 +1659,7 @@
      "click": "#setup-tab-phases"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],
@@ -1670,7 +1671,7 @@
    "as": "admin",
    "url": "/?setup={trip}#phases",
    "wait": "#space-setup",
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1693,7 +1694,7 @@
      "click": "#setup-tab-opens-with"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],
@@ -1705,7 +1706,7 @@
    "as": "admin",
    "url": "/?setup={trip}#opens-with",
    "wait": "#space-setup",
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1728,7 +1729,7 @@
      "click": "#setup-tab-modules"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],
@@ -1740,7 +1741,7 @@
    "as": "admin",
    "url": "/?setup={trip}#modules",
    "wait": "#space-setup",
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1763,7 +1764,7 @@
      "click": "#setup-tab-phases"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],
@@ -1775,7 +1776,7 @@
    "as": "mia",
    "url": "/?setup={trip}#phases",
    "wait": "#space-setup",
-   "call": true,
+   "space": true,
    "sizes": [
     390
    ],
@@ -1787,7 +1788,7 @@
    "as": "mia",
    "url": "/#join={second}",
    "wait": "#phase-chip",
-   "call": true,
+   "space": true,
    "tier": "state"
   },
   {
@@ -1832,7 +1833,7 @@
      "wait": "dialog.layout-sheet[open]"
     }
    ],
-   "call": true,
+   "space": true,
    "sizes": [
     1280
    ],

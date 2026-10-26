@@ -20,13 +20,19 @@
  * never stored, deleted and cleared by their sender); nothing is replayed on a reconnect; the guest limits on posts and
  * open streams (LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) hold, spoofed addresses change nothing, and a guest
  * link turned off or regenerated, or guests turned off, ends a guest's stream at once with `removed`.
- * What can't be checked here: anything that needs a real LiveKit server (the microphone and camera merged from a call,
- * a kick or a mute on a live call, a pull moving people's calls).
+ * Entering without LiveKit (step 5, Verify point 5), against a stand-in for the call service's API that answers nobody and
+ * writes down every request: two people and a guest enter a space, say away, chat, read presence, move to another space
+ * and Home, and leave, and the call service is never asked; it is asked once someone says they are on the call, and a
+ * kick asks it to drop only someone on the call. The guest pass: POST /api/guest-join answers it, the stream knows a guest
+ * by it, a pass changed by hand is refused, and POST /api/call/join mints the call's token, the only one a person gets.
+ * What can't be checked here: anything that needs a real LiveKit server (the call itself, the microphone and camera merged
+ * from a call, a kick or a mute on a live call, a pull moving people's calls, the calls cap counting).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -158,6 +164,20 @@ const same = (a, b, msg) => { assert.deepEqual(a, b, msg); n += 1; };
 }
 
 // --- a started server -----------------------------------------------------------------------------------------------
+// A stand-in for the call service's API (LIVEKIT_API_URL): it answers nobody on any call and writes down every request,
+// so a check can say the server did not ask it (plan-realtime-optional-livekit.md, step 5: entering, chatting, moving
+// and leaving need no call service). Nothing here is a LiveKit server: no call can be joined.
+const lkAsked = [];
+// Every answer is an empty one (no calls, nobody on them); a request is written down by its method's name.
+const lk = http.createServer((req, res) => {
+  lkAsked.push(req.url.split('/').pop());
+  req.resume();
+  req.on('end', () => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{}');
+  });
+});
+await new Promise((resolve) => lk.listen(0, '127.0.0.1', resolve));
 let dataDir = '';
 let child = null;
 let port = 0;
@@ -171,8 +191,8 @@ async function startServer(env) {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
-      // Nothing listens here: the call service fails fast and answers nobody.
-      LIVEKIT_API_URL: 'http://127.0.0.1:9',
+      // The stand-in above: nobody on any call, every request written down.
+      LIVEKIT_API_URL: `http://127.0.0.1:${lk.address().port}`,
       ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -282,6 +302,61 @@ try {
   const towerGuest = (await call('POST', `/api/spaces/${tower.id}/guest-link`, { cookie: owner, body: {} })).json.space.guestToken;
   const watch = async (p, cookie) => { const s = await openStream(p, cookie); if (s.status === 200) open.push(s); return s; };
   const K = `/api/live?space=${keep.id}`;
+
+  // --- entering, chatting, moving and leaving ask the call service nothing (step 5) --------------------------------
+  // Two people and a guest in the Hall: each enters (opens the live stream), says away, chats, reads presence as the page
+  // polls it, one moves to the Yard and back to Home, and all leave; the call service is never asked. Once someone says
+  // they are on the call, presence asks it for the media; a kick and a mute ask it only about someone on the call.
+  {
+    const ann = await mk('ann', 'Ann');
+    const ben = await mk('ben', 'Ben');
+    const annC = await login('ann', 'memberpass1234');
+    const benC = await login('ben', 'memberpass1234');
+    const hall = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Hall', members: [ann.key, ben.key] } })).json.space;
+    const yard = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Yard', members: [ann.key, ben.key] } })).json.space;
+    await call('PATCH', `/api/spaces/${hall.id}`, { cookie: owner, body: { members: [ann.key, ben.key] } });
+    await call('PATCH', `/api/spaces/${yard.id}`, { cookie: owner, body: { members: [ann.key, ben.key] } });
+    const hallLink = (await call('POST', `/api/spaces/${hall.id}/guest-link`, { cookie: owner, body: {} })).json.space.guestToken;
+    const H = `/api/live?space=${hall.id}`;
+    const from = lkAsked.length;
+    const annS = await watch(H, annC);
+    const annReady = await annS.until((e) => e.type === 'ready');
+    const benS = await watch(H, benC);
+    await benS.until(hasPeople([ann.key, ben.key]));
+    const gPass = (await call('POST', '/api/guest-join', { body: { token: hallLink, name: 'Gil' } })).json.guest;
+    const gil = await watch(`${H}&guest=${encodeURIComponent(hallLink)}&pass=${encodeURIComponent(gPass.pass)}`, null);
+    await benS.until(hasPeople([ann.key, ben.key, gPass.id]));
+    same((await call('PATCH', `/api/spaces/${hall.id}/presence`, { cookie: annC, body: { away: true, awayMessage: 'tea', stream: annReady.stream } })).status, 200, 'away is said');
+    const said = (await call('POST', `/api/spaces/${hall.id}/chat`, { cookie: annC, body: { text: 'no call here' } })).json.message;
+    await benS.until((e) => e.type === 'chat' && e.id === said.id);
+    await gil.until((e) => e.type === 'chat' && e.id === said.id);
+    const polled = (await call('GET', '/api/presence', { cookie: benC })).json.users.find((u) => u.key === ann.key);
+    same([polled.space, polled.inCall], [hall.id, false], 'presence answers from the register');
+    same((await call('GET', `/api/status?s=${encodeURIComponent(streamKey)}`)).status, 200, 'and the access key\'s status');
+    annS.close(); // Ann moves to the Yard
+    const annY = await watch(`/api/live?space=${yard.id}`, annC);
+    await annY.until((e) => e.type === 'ready');
+    await benS.until(hasPeople([ben.key, gPass.id]));
+    annY.close(); // and back to Home
+    const annH = await watch('/api/live', annC);
+    await annH.until((e) => e.type === 'ready');
+    for (const x of [annH, benS, gil]) x.close(); // everyone leaves
+    await quiet();
+    same((await call('GET', '/api/presence', { cookie: benC })).status, 200);
+    same((await call('POST', `/api/users/${ben.key}/mute`, { cookie: owner, body: { muted: true } })).json, { error: 'they are not in a call' }, 'muting someone in the space but not on the call: 404');
+    same(lkAsked.slice(from), [], 'entering, saying away, chatting, presence, moving, leaving and a mute off the call asked the call service nothing');
+    // On the call by their page's word: now presence asks the call service for the media; a kick asks it to drop them.
+    const annB = await watch(H, annC);
+    const annB1 = await annB.until((e) => e.type === 'ready');
+    same((await call('PATCH', `/api/spaces/${hall.id}/presence`, { cookie: annC, body: { onCall: true, stream: annB1.stream } })).status, 200);
+    await call('GET', '/api/presence', { cookie: benC });
+    ok(lkAsked.length > from, 'presence asks the call service once someone is on a call');
+    const kickFrom = lkAsked.length;
+    same((await call('POST', `/api/users/${ann.key}/kick`, { cookie: owner })).json, { ok: true }, 'the owner kicks Ann, on the call');
+    ok(lkAsked.slice(kickFrom).includes('RemoveParticipant'), 'and the call service is asked to drop her from the call');
+    await annB.until((e) => e.type === 'removed');
+    n += 1;
+  }
 
   // --- who may listen ------------------------------------------------------------------------------------------
   const refused = async (p, cookie) => { const s = await watch(p, cookie); return [s.status, s.error]; };
@@ -805,6 +880,7 @@ if (!failed) {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 }
+lk.close();
 if (failed) {
   console.error(`check-live: failed after ${n} checks`);
   process.exit(1);

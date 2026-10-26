@@ -18,8 +18,8 @@
 // (a selector that must appear), steps (click, hover, wait, waitGone, scroll, type [selector, text], key, eval, sleep; a click or
 // hover may name `text` to pick the element holding it, and a click may name `until` (and `untilText`), what must then be on the
 // screen, else it is clicked again), tier, sizes and themes (override the tier), full (the whole page, up to 2600 px, not just
-// the window), hide (selectors whose text is made invisible), call (true: the space page, drawn with a stand-in for the call's
-// client library, see below). A selector may cross into a shadow root with " >>> ": the bundled modules run in the page, in a
+// the window), hide (selectors whose text is made invisible), space (true: the space page, left a moment to finish drawing), call
+// (true: a screen of the call itself, drawn with a stand-in for the call's client library, see below). A selector may cross into a shadow root with " >>> ": the bundled modules run in the page, in a
 // shadow root on #module-frame, so "#module-frame >>> button.day-add" is a button in the Planner. --dump prints the controls
 // of each screen it runs and --html=<selector> the markup of what it matches, to help write steps.
 //
@@ -39,10 +39,11 @@
 // and a picture is taken only when three in a row are identical. Chromium runs with the flags that make its drawing repeatable.
 // Run on the same machine and browser; a different Chromium or fonts will differ everywhere.
 //
-// What it cannot photograph. There is no LiveKit server here. A screen marked "call" loads tools/shots-livekit-stub.mjs in place
-// of the call's client library, so the space page (its bar, status strip, canvas, Set up, menus) is drawn as if connected to a
-// call nobody is in. That is a test double for taking pictures: a call itself (people's tiles, the controls with real state,
-// the popped-out window) is not shown, and is only checked in a real call. A hosted server's pages (the host console, the
+// What it cannot photograph. There is no LiveKit server here. The space page needs none: entering a space is its live stream
+// (plan-realtime-optional-livekit.md, step 5), so its bar, status strip, canvas, Set up and menus are drawn as they are. A screen
+// of the call (marked "call": Start call pressed) loads tools/shots-livekit-stub.mjs in place of the call's client library, so
+// the page joins a call nobody else is in. That is a test double for taking pictures: a call itself (people's tiles, the
+// controls with real state, the popped-out window) is not shown, and is only checked in a real call. A hosted server's pages (the host console, the
 // landing page, the environment banner) need a base domain and are not in the set; nor is anything that needs a person in an
 // aside (the ghost slot on Home) or a request still waiting (a loading skeleton).
 //
@@ -81,7 +82,7 @@ const SIZES = [1280, 700, 390, 260]; // 260: a narrow module window (planner-nar
 const THEMES = ['light', 'dark'];
 const HEIGHT = 900; // the window's height; a screen marked "full" grows to its page (up to MAX_FULL)
 const MAX_FULL = 2600;
-const CALL_SETTLE_MS = 2500; // how long the space page is left to finish drawing before a screen's steps
+const SPACE_SETTLE_MS = 2500; // how long the space page is left to finish drawing before a screen's steps
 const NOW = `${TODAY}T12:00:00.000Z`; // the page's clock, frozen
 const say = (...a) => console.log('shots:', ...a);
 const DEBUG = Boolean(process.env.SHOTS_DEBUG);
@@ -435,7 +436,7 @@ async function driveScreen(tab, screen, base, cookies, ctx, lap = () => {}) {
   await tab.settle();
   lap('settled');
   // The space page keeps drawing for a while after it is connected (its modules, the phase track, the chat's scroll to its end).
-  if (screen.call) await sleep(CALL_SETTLE_MS);
+  if (screen.space || screen.call) await sleep(SPACE_SETTLE_MS);
   await tab.forceMode();
   await tab.settle();
   // A chat that scrolls itself to its newest message is sometimes still on its way when the picture is taken: always at the end.

@@ -90,10 +90,11 @@ services:
       # sign-in and guest limits count by the address the nearest proxy saw, so nobody can pick their own. Two proxies
       # in a row (say Cloudflare, then Nginx Proxy Manager): 2. Reached directly, with no proxy: 0.
       # TRUST_PROXY_HOPS: "1"
-      # Live chat streams (one per open browser tab) and guests in Home's chat: the defaults are usually right.
-      # CHAT_STREAMS_PER_PERSON: "50"     # streams one signed-in person may hold open
-      # CHAT_STREAMS_PER_GUEST_LINK: "25" # streams one guest link may hold open; one address gets 40% of it
+      # Live streams (one per open browser tab: who is here and the chat) and guests in chat: the defaults are usually right.
+      # LIVE_STREAMS_PER_PERSON: "50"     # streams one signed-in person may hold open
+      # LIVE_STREAMS_PER_GUEST_LINK: "25" # streams one guest link may hold open; one address gets 40% of it
       # GUEST_CHAT_POSTS_PER_MINUTE: "20" # messages one guest link may post a minute; one address gets half
+      # CHAT_PICTURE_MAX_MB: "3"          # the most a picture in the chat may weigh (sent live, never stored)
       PORT: "3000"
     volumes:
       - /share/appdata/coffee-pub-collaborator:/app/data # users, settings and images

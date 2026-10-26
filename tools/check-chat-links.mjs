@@ -164,20 +164,35 @@ const aiServer = http.createServer((req, res) => {
 });
 await new Promise((r) => aiServer.listen(0, '127.0.0.1', r));
 
-// A stand-in LiveKit that answers SendData only, so what the server tells the call can be read.
-const sent = [];
-const liveKit = http.createServer((req, res) => {
-  let body = '';
-  req.on('data', (d) => { body += d; });
-  req.on('end', () => {
-    if (!req.url.endsWith('/SendData')) { res.writeHead(404); return res.end(); }
-    const ask = body ? JSON.parse(body) : {};
-    sent.push({ topic: ask.topic, payload: JSON.parse(Buffer.from(ask.data || '', 'base64').toString('utf8') || 'null') });
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end('{}');
-  });
-});
-await new Promise((r) => liveKit.listen(0, '127.0.0.1', r));
+// What the server tells the space's chat is read from the live stream (GET /api/live), as a page would hear it.
+const sent = []; // { payload }
+let liveCtl = null;
+async function listenLive(urlPath, cookie) {
+  liveCtl = new AbortController();
+  const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, { headers: { cookie: `app_session=${cookie}` }, signal: liveCtl.signal });
+  assert.equal(res.status, 200, 'the live stream opens');
+  let ready = null;
+  const opened = new Promise((r) => { ready = r; });
+  (async () => {
+    const decoder = new TextDecoder();
+    let buf = '';
+    try {
+      for await (const chunk of res.body) {
+        buf += decoder.decode(chunk, { stream: true });
+        let at;
+        while ((at = buf.indexOf('\n\n')) >= 0) {
+          const line = buf.slice(0, at).split('\n').find((l) => l.startsWith('data: '));
+          buf = buf.slice(at + 2);
+          if (!line) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'ready') ready();
+          else sent.push({ payload: data });
+        }
+      }
+    } catch { /* closed */ }
+  })();
+  await opened;
+}
 
 const dataDir = tmp('server');
 fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({
@@ -193,7 +208,7 @@ async function startServer() {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
-      LIVEKIT_API_URL: `http://127.0.0.1:${liveKit.address().port}`, CHECK_STUB_PORT: String(pagePort),
+      LIVEKIT_API_URL: 'http://127.0.0.1:9', CHECK_STUB_PORT: String(pagePort), // no call service there: it fails fast
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -232,7 +247,7 @@ const login = async (name, password) => {
 };
 // Lets the server finish anything it sends on its own (a notice to the call) before it is looked at.
 const settle = () => new Promise((r) => setTimeout(r, 150));
-const told = (type) => sent.filter((s) => s.topic === 'chat' && s.payload?.type === type).map((s) => s.payload);
+const told = (type) => sent.filter((s) => s.payload?.type === type).map(({ payload: { space, ...rest } }) => rest);
 
 // First start: people and a space, then stopped, so messages from before this release can be written in.
 await startServer();
@@ -257,6 +272,7 @@ try {
   const owner = await login('admin', 'testpass1234');
   const pat = await login('pat', 'memberpass1234');
   const sam = await login('sam', 'memberpass1234');
+  await listenLive(`/api/live?space=${S}`, owner);
   const guest = `?guest=${encodeURIComponent((await call('POST', `/api/spaces/${S}/guest-link`, { cookie: owner, body: {} })).json.space.guestToken)}`;
   const post = async (cookie, text, q = '') => {
     const r = await call('POST', `/api/spaces/${S}/chat${q}`, { cookie, body: { text, name: 'Visitor' } });
@@ -326,7 +342,7 @@ try {
   assert.ok(Number.isFinite(shown.at));
   assert.equal(hitsOf('/hotel'), 1, 'read once, through the reader');
   await settle();
-  assert.deepEqual(told('chat-preview'), [{ type: 'chat-preview', id: linked.id, preview: shown }], 'the call is told');
+  assert.deepEqual(told('chat-preview'), [{ type: 'chat-preview', id: linked.id, preview: shown }], 'the live stream is told');
   const again = await preview(pat, linked.id);
   assert.equal(again.status, 200);
   assert.deepEqual(again.json.message.preview, shown, 'a second ask changes nothing');
@@ -405,7 +421,7 @@ try {
   assert.equal('at' in (await preview(pat, broken.id)).json.message.preview, false);
   assert.equal(hitsOf('/broken'), 1, 'a failed read is not tried again');
   await settle();
-  assert.equal(told('chat-preview').length, 1, 'a failed read is not told to the call');
+  assert.equal(told('chat-preview').length, 1, 'a failed read is not told');
   const activity = (await call('GET', '/api/modules/activity', { cookie: owner })).json.activity;
   assert.ok(activity.some((a) => a.module === 'research' && a.what === 'could not read a link from the chat: that address is not allowed'), `the reason is in the activity log: ${JSON.stringify(activity.slice(0, 5))}`);
   ok('the guard: private and local addresses refused before any request; a failed read not retried');
@@ -451,7 +467,7 @@ try {
   assert.equal((await call('GET', `/api/spaces/${S}/action/${kept.json.id}`, { cookie: pat })).status, 404, 'nobody else does');
   assert.deepEqual(asked.input, { url: 'http://page.example.com/hotel', title: 'Hotel Example, Lisbon', excerpt: 'A quiet hotel by the river.' }, 'built from the stored message');
   await settle();
-  assert.deepEqual(told('chat-kept'), [{ type: 'chat-kept', id: linked.id, kept: kept.json.message.kept }], 'the call is told');
+  assert.deepEqual(told('chat-kept'), [{ type: 'chat-kept', id: linked.id, kept: kept.json.message.kept }], 'the live stream is told');
   const twice = await keep(pat, linked.id);
   assert.equal(twice.status, 200);
   assert.equal(twice.json.status, 'kept', 'already kept');
@@ -476,7 +492,7 @@ try {
   assert.equal(own.status, 200, own.text);
   assert.equal(own.json.message.kept.who, 'Pat');
   await settle();
-  assert.equal(told('chat-kept').length, 0, 'a private message\'s Keep is not told to the call');
+  assert.equal(told('chat-kept').length, 0, 'a private message\'s Keep is not told');
   ok('Keep: built from the stored message, asked as the caller, Kept by, once');
 
   // A guest, and a reader without write: no Keep, no preview, may false.
@@ -527,6 +543,7 @@ try {
   assert.equal(keepLimited.json.error, 'too many messages, slow down');
   ok('Keep counts toward the chat post limit');
 
+  liveCtl?.abort();
   await stopServer();
   // On disk after a stop: chat.json in its old shape with the new fields; the previous release reads it.
   const pub = readJson(path.join(dataDir, 'chat.json'));
@@ -545,7 +562,7 @@ try {
   await stopServer();
   page.close();
   aiServer.close();
-  liveKit.close();
+  liveCtl?.abort();
   fs.rmSync(dataDir, { recursive: true, force: true });
 }
 

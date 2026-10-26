@@ -9,6 +9,13 @@
  * (429); two people in one space each see the other in `presence`; away and onCall changes arrive; GET /api/presence
  * and GET /api/status answer from the register; a guest is listed and says away with their stream's id; a person
  * taken out of the space gets `removed` and the stream ends; an aside's stream is for its members only.
+ * Then chat on the live stream (step 3, Verify point 3; what check-chat-stream and check-guest-chat held), on a second
+ * server: a post reaches the other streams with its stored id and its space (a space's stream carries its own chat and
+ * the Lobby's, Home's the Lobby's, a guest's their space's); deletes, visibility, Clear... and Delete the chat arrive; a
+ * private message never does; a reader without chatRead gets none; pictures are relayed live (type and size checked,
+ * never stored, deleted and cleared by their sender); nothing is replayed on a reconnect; the guest limits on posts and
+ * open streams (LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) hold, spoofed addresses change nothing, and a guest
+ * link turned off or regenerated, or guests turned off, ends a guest's stream at once with `removed`.
  * What can't be checked here: anything that needs a real LiveKit server (the microphone and camera merged from a call).
  */
 import assert from 'node:assert/strict';
@@ -123,11 +130,14 @@ const same = (a, b, msg) => { assert.deepEqual(a, b, msg); n += 1; };
 }
 
 // --- a started server -----------------------------------------------------------------------------------------------
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-live-'));
+let dataDir = '';
 let child = null;
 let port = 0;
 let serverOut = '';
-async function startServer() {
+// A throwaway server with its own data folder; `env` adds to the settings every run has.
+async function startServer(env) {
+  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-live-'));
+  serverOut = '';
   child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
     env: {
@@ -135,7 +145,7 @@ async function startServer() {
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
       // Nothing listens here: the call service fails fast and answers nobody.
       LIVEKIT_API_URL: 'http://127.0.0.1:9',
-      CHAT_STREAMS_PER_PERSON: '4', CHAT_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '0',
+      ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -151,22 +161,29 @@ async function startServer() {
 }
 const stopServer = () => new Promise((resolve) => { if (!child || child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
 
-async function call(method, urlPath, { body, cookie } = {}) {
+// A request. `ip` is the X-Forwarded-For a proxy in front would add; `raw` is a body sent as it is, with `type`.
+async function call(method, urlPath, { body, cookie, ip, raw, type } = {}) {
   const headers = { accept: 'application/json' };
   if (cookie) headers.cookie = `app_session=${cookie}`;
+  if (ip) headers['x-forwarded-for'] = ip;
   if (body !== undefined) headers['content-type'] = 'application/json';
-  const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (raw !== undefined) headers['content-type'] = type;
+  const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, { method, headers, body: raw !== undefined ? raw : body === undefined ? undefined : JSON.stringify(body) });
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch { /* not JSON */ }
-  return { status: res.status, json, text };
+  return { status: res.status, json, text, retryAfter: res.headers.get('retry-after') };
 }
 
 // An open stream: `events` collects each event's data (with its `id:` as `_id`); `until(pred)` waits for one that
-// matches; `ended` resolves when the server ends it.
-async function openStream(urlPath, cookie) {
+// matches; `ended` resolves when the server ends it. The second argument is a session cookie, or { cookie, ip }.
+async function openStream(urlPath, who) {
+  const { cookie, ip } = who && typeof who === 'object' ? who : { cookie: who };
+  const headers = {};
+  if (cookie) headers.cookie = `app_session=${cookie}`;
+  if (ip) headers['x-forwarded-for'] = ip;
   const ctl = new AbortController();
-  const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, { headers: cookie ? { cookie: `app_session=${cookie}` } : {}, signal: ctl.signal });
+  const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, { headers, signal: ctl.signal });
   const stream = { status: res.status, type: res.headers.get('content-type') || '', events: [], text: '', close: () => ctl.abort() };
   if (res.status !== 200) {
     stream.text = await res.text();
@@ -210,7 +227,7 @@ const lastPeople = (s) => {
 };
 const hasPeople = (keys) => (e) => e.type === 'presence' && JSON.stringify(e.people.map((p) => p.key).sort()) === JSON.stringify([...keys].sort());
 
-await startServer();
+await startServer({ LIVE_STREAMS_PER_PERSON: '4', LIVE_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '0' });
 const open = [];
 let failed = false;
 try {
@@ -305,15 +322,15 @@ try {
   n += 1;
   same((await call('GET', '/api/presence', { cookie: samC })).json.users.find((u) => u.key === pat.key).space, null, 'Pat is in the Tower now, which Sam can\'t see');
 
-  // --- caps: four at most for one person (CHAT_STREAMS_PER_PERSON=4, counted with the chat stream) ---------------
+  // --- caps: four at most for one person (LIVE_STREAMS_PER_PERSON=4) ---------------------------------------------
   const home = await watch('/api/live', patC);
   same((await home.until((e) => e.type === 'ready')).space, null, 'Home: a stream in no space');
-  const chat = await watch(`/api/spaces/${keep.id}/chat/stream`, patC);
-  same(chat.status, 200, 'a chat stream counts too');
+  const fourth = await watch(K, patC);
+  same(fourth.status, 200, 'the fourth');
   same(await refused(K, patC), [429, 'you have too many live streams open (4 at most); close one and try again'], 'the fifth is refused');
-  same(await refused(`/api/spaces/${keep.id}/chat/stream`, patC), [429, 'you have too many chat streams open (4 at most); close one and try again'], 'whichever kind');
+  same((await call('GET', `/api/spaces/${keep.id}/chat/stream`, { cookie: patC })).status, 404, 'the old chat stream route is gone');
   home.close();
-  chat.close();
+  fourth.close();
   await quiet();
   const again = await watch(K, patC);
   same(again.status, 200, 'a closed stream frees its place');
@@ -332,7 +349,7 @@ try {
   same((await call('PATCH', `${P}?guest=${encodeURIComponent(guestToken)}`, { body: { away: true, stream: gReady.stream } })).json, { ok: true }, 'and says away with it');
   await samS.until((e) => e.type === 'presence' && e.people.some((p) => p.key === gReady.you && p.away));
   n += 1;
-  // CHAT_STREAMS_PER_GUEST_LINK=5: one address gets 2 of them.
+  // LIVE_STREAMS_PER_GUEST_LINK=5: one address gets 2 of them.
   const g2 = await watch(G, null);
   same(g2.status, 200, 'a second from one address');
   same(await refused(G, null), [429, 'you have too many live streams open (2 at most); close one and try again'], 'a guest address\'s cap');
@@ -366,9 +383,270 @@ try {
   failed = true;
   console.error(`FAIL ${err.stack || err}`);
 } finally {
-  for (const s of open) s.close();
+  for (const s of open.splice(0)) s.close();
   await stopServer();
   fs.rmSync(dataDir, { recursive: true, force: true });
+}
+
+// --- chat on the live stream (step 3; the Verify section, point 3) ---------------------------------------------------
+// A second server, with small guest limits so the check runs quickly (GUEST_CHAT_POSTS_PER_MINUTE=10, so 5 an address;
+// LIVE_STREAMS_PER_GUEST_LINK=5, so 2 an address; LIVE_STREAMS_PER_PERSON left at its default, 50), a 10 KB picture cap
+// (CHAT_PICTURE_MAX_MB=0.01), and TRUST_PROXY_HOPS=1: this check is the one proxy in front, so an address is told as the
+// proxy would, the rightmost X-Forwarded-For entry, and a client's own spoofed entries go to its left.
+const within = (promise, ms) => Promise.race([promise, new Promise((r) => setTimeout(() => r('timeout'), ms))]);
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40, 7)]);
+if (!failed) {
+  await startServer({ GUEST_CHAT_POSTS_PER_MINUTE: '10', LIVE_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '1', CHAT_PICTURE_MAX_MB: '0.01' });
+  try {
+    const login = async (name, password) => {
+      const r = await call('POST', '/api/login', { body: { login: name, password } });
+      assert.equal(r.status, 200, `${name} signs in: ${r.text}`);
+      return r.json.token;
+    };
+    const owner = await login('admin', 'testpass1234');
+    const mk = async (loginName, displayName) => (await call('POST', '/api/users', { cookie: owner, body: { login: loginName, displayName, role: 'member', password: 'memberpass1234' } })).json.user;
+    const pat = await mk('pat', 'Pat');
+    const sam = await mk('sam', 'Sam');
+    await mk('tab', 'Tab');
+    const patC = await login('pat', 'memberpass1234');
+    const samC = await login('sam', 'memberpass1234');
+    const tabC = await login('tab', 'memberpass1234');
+    const trip = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Trip', members: [pat.key, sam.key] } })).json.space;
+    await call('PATCH', `/api/spaces/${trip.id}`, { cookie: owner, body: { members: [pat.key, sam.key] } });
+    const L = '/api/spaces/lobby/chat';
+    const T = `/api/spaces/${trip.id}/chat`;
+    const LT = `/api/live?space=${trip.id}`;
+    const watch = async (p, who) => { const s = await openStream(p, who); if (s.status === 200) open.push(s); return s; };
+    let lobbyToken = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: {} })).json?.space?.guestToken;
+    const tripToken = (await call('POST', `/api/spaces/${trip.id}/guest-link`, { cookie: owner, body: {} })).json?.space?.guestToken;
+    ok(lobbyToken && tripToken, 'guest links made');
+    const g = (token) => `guest=${encodeURIComponent(token)}`;
+    const LG = (token) => `/api/live?space=lobby&${g(token)}`;
+    const chatOf = (s, id) => s.events.filter((e) => e.id === id && /^chat/.test(e.type));
+
+    // --- who hears which chat --------------------------------------------------------------------------------------
+    // Home's stream (no space) carries the Lobby's chat; a space's stream carries its own and the Lobby's; a guest's
+    // stream carries their space's only (the Lobby's guest: the Lobby's).
+    const patHome = await watch('/api/live', patC);
+    const bossHome = await watch('/api/live', owner);
+    const patTrip = await watch(LT, patC);
+    const samTrip = await watch(LT, samC);
+    const lobbyGuest = await watch(`${LG(lobbyToken)}&name=Vic`, { ip: '10.0.0.1' });
+    const tripGuest = await watch(`${LT}&${g(tripToken)}&name=Tia`, { ip: '10.0.0.20' });
+    for (const s of [patHome, bossHome, patTrip, samTrip, lobbyGuest, tripGuest]) {
+      same(s.status, 200, 'an allowed reader is in');
+      await s.until((e) => e.type === 'ready');
+    }
+    same((await call('GET', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.9' })).status, 200, "the Lobby's guest reads its history");
+
+    const posted = await call('POST', L, { cookie: samC, body: { text: 'hello from Home https://example.com/a' } });
+    same(posted.status, 200, posted.text);
+    const lm = posted.json.message;
+    for (const s of [patHome, bossHome, patTrip, samTrip, lobbyGuest]) {
+      const e = await s.until((x) => x.type === 'chat' && x.id === lm.id);
+      same([e.space, e.text, e.who, e.by, e.at], ['lobby', lm.text, 'Sam', sam.key, lm.at], 'a Lobby post reaches every reader of the Lobby, as stored, with its space');
+      same(e.preview, { url: 'https://example.com/a' }, 'with its link');
+    }
+    const tp = (await call('POST', T, { cookie: patC, body: { text: 'trip talk' } })).json.message;
+    for (const s of [samTrip, patTrip, tripGuest]) same((await s.until((x) => x.type === 'chat' && x.id === tp.id)).space, trip.id, "a space's post reaches its streams (the sender's own too)");
+    await quiet();
+    ok(!patHome.events.some((e) => e.id === tp.id) && !lobbyGuest.events.some((e) => e.id === tp.id), "Home's stream and the Lobby's guest hear nothing of the Trip");
+    ok(!tripGuest.events.some((e) => e.id === lm.id), "another space's guest hears nothing of the Lobby");
+
+    // --- delete, visibility, clear, a private message --------------------------------------------------------------
+    const m2 = (await call('POST', T, { cookie: samC, body: { text: 'second' } })).json.message;
+    await patTrip.until((x) => x.id === m2.id);
+    same((await call('PATCH', `${T}/${m2.id}`, { cookie: samC, body: { visibility: 'private' } })).status, 200);
+    const priv = await patTrip.until((x) => x.type === 'chat-visibility' && x.id === m2.id && x.visibility === 'private');
+    same([priv.space, priv.message], [trip.id, undefined], 'made private: only the id');
+    same((await call('PATCH', `${T}/${m2.id}`, { cookie: samC, body: { visibility: 'public' } })).status, 200);
+    same((await patTrip.until((x) => x.type === 'chat-visibility' && x.visibility === 'public' && x.id === m2.id)).message.text, 'second', 'made public again: with the message');
+    same((await call('DELETE', `${T}/${m2.id}`, { cookie: samC })).status, 200);
+    await tripGuest.until((x) => x.type === 'chat-delete' && x.id === m2.id);
+    n += 1;
+    const before = patTrip.events.length;
+    await call('POST', `/api/spaces/${trip.id}/command`, { cookie: samC, body: { name: 'zzzz', text: 'private echo' } });
+    await quiet();
+    ok(!patTrip.events.slice(before).some((e) => e.type === 'chat'), 'a private message is never sent');
+    const m3 = (await call('POST', T, { cookie: samC, body: { text: 'third' } })).json.message;
+    await patTrip.until((x) => x.id === m3.id);
+    same((await call('DELETE', `${T}/messages?type=chat&scope=everyone`, { cookie: owner })).status, 200);
+    same((await patTrip.until((x) => x.type === 'chat-clear-some' && x.ids.includes(m3.id))).scope, 'everyone', 'Clear... arrives');
+    same((await call('DELETE', T, { cookie: owner })).status, 200);
+    await samTrip.until((x) => x.type === 'chat-clear' && x.space === trip.id);
+    n += 1;
+
+    // --- a reader without chatRead gets none --------------------------------------------------------------------------
+    same((await call('PATCH', '/api/roles/member', { cookie: owner, body: { chatRead: false } })).status, 200, 'members may no longer read the chat');
+    const bossTrip = await watch(LT, owner);
+    await bossTrip.until((e) => e.type === 'ready');
+    const unseen = (await call('POST', T, { cookie: owner, body: { text: 'for readers only' } })).json.message;
+    await bossTrip.until((x) => x.type === 'chat' && x.id === unseen.id);
+    await quiet();
+    same([chatOf(samTrip, unseen.id).length, chatOf(patHome, unseen.id).length], [0, 0], 'a member without chatRead hears none of it');
+    same((await call('GET', T, { cookie: samC })).status, 403, 'nor reads the history');
+    ok(samTrip.events.at(-1).type !== 'removed', 'and stays in the space: being there is the stream\'s test');
+    same((await call('PATCH', '/api/roles/member', { cookie: owner, body: { chatRead: true } })).status, 200);
+    const seen = (await call('POST', T, { cookie: owner, body: { text: 'back' } })).json.message;
+    await samTrip.until((x) => x.type === 'chat' && x.id === seen.id);
+    ok(true, 'given back, the next message arrives');
+    bossTrip.close();
+
+    // --- pictures: relayed live, never stored ------------------------------------------------------------------------
+    const P = `${T}/pictures`;
+    const pic = await call('POST', `${P}?file=map.png`, { cookie: patC, raw: PNG, type: 'image/png' });
+    same(pic.status, 200, pic.text);
+    ok(/^[a-f0-9]{12}$/.test(pic.json.id), 'answers the picture\'s id');
+    for (const s of [samTrip, tripGuest, patTrip]) {
+      const e = await s.until((x) => x.type === 'chat-picture' && x.id === pic.json.id);
+      same([e.space, e.by, e.who, e.file, e.mime, Buffer.from(e.data, 'base64').equals(PNG)], [trip.id, pat.key, 'Pat', 'map.png', 'image/png', true], 'a picture reaches the space, as sent');
+    }
+    await quiet();
+    ok(!patHome.events.some((e) => e.type === 'chat-picture'), 'and nowhere else');
+    ok(!(await call('GET', T, { cookie: samC })).json.messages.some((m) => m.id === pic.json.id), 'never stored');
+    same((await call('POST', P, { cookie: patC, raw: Buffer.from('not a picture at all'), type: 'image/png' })).json, { error: 'that is not a PNG, JPEG, GIF or WebP picture' }, 'bytes that are not a picture: 415');
+    same((await call('POST', P, { cookie: patC, raw: PNG, type: 'image/jpeg' })).status, 415, 'nor a PNG sent as a JPEG');
+    same((await call('POST', P, { cookie: patC, raw: Buffer.from('<svg/>'), type: 'image/svg+xml' })).json, { error: 'send a PNG, JPEG, GIF or WebP picture' }, 'another type: 415');
+    const big = await call('POST', P, { cookie: patC, raw: Buffer.concat([PNG, Buffer.alloc(11 * 1024)]), type: 'image/png' });
+    same([big.status, big.json.error], [413, 'that picture is over 10 KB'], 'over the cap (CHAT_PICTURE_MAX_MB): 413');
+    const gpic = await call('POST', `${P}?${g(tripToken)}&name=Tia`, { ip: '10.0.0.20', raw: PNG, type: 'image/png' });
+    same([gpic.status, (await samTrip.until((x) => x.type === 'chat-picture' && x.id === gpic.json.id)).who], [200, 'Tia'], 'a guest sends one, by the name they gave');
+    same((await call('POST', `/api/spaces/lobby/chat/pictures?${g(tripToken)}`, { ip: '10.0.0.20', raw: PNG, type: 'image/png' })).status, 403, 'not into another space');
+    same((await call('DELETE', `${T}/${pic.json.id}`, { cookie: samC })).json, { error: 'you can only delete a message you sent' }, 'someone else\'s picture can\'t be deleted');
+    same((await call('DELETE', `${T}/${pic.json.id}`, { cookie: patC })).status, 200, 'its sender deletes it');
+    await samTrip.until((x) => x.type === 'chat-delete' && x.id === pic.json.id);
+    n += 1;
+    same((await call('DELETE', `${T}/${pic.json.id}`, { cookie: patC })).status, 404, 'once');
+    const pic2 = (await call('POST', P, { cookie: patC, raw: PNG, type: 'image/png' })).json.id;
+    await samTrip.until((x) => x.id === pic2);
+    same((await call('DELETE', `${T}/messages?type=chat&scope=mine`, { cookie: patC })).status, 200);
+    same((await samTrip.until((x) => x.type === 'chat-clear-some' && x.by === pat.key)).ids, [], 'clearing only pictures is told too (the pages take them by the rule)');
+    same((await call('DELETE', `${T}/${pic2}`, { cookie: patC })).status, 404, 'and the cleared picture is gone');
+
+    // --- a reconnect: nothing replayed, the history whole --------------------------------------------------------------
+    patHome.close();
+    const kept = (await call('POST', L, { cookie: samC, body: { text: 'while away' } })).json.message;
+    const again = await watch('/api/live', patC);
+    await again.until((e) => e.type === 'ready');
+    ok(!again.events.some((e) => e.id === kept.id), 'nothing is replayed');
+    ok((await call('GET', L, { cookie: patC })).json.messages.some((m) => m.id === kept.id), 'the history has what was missed');
+    const next = (await call('POST', L, { cookie: samC, body: { text: 'after' } })).json.message;
+    await again.until((e) => e.type === 'chat' && e.id === next.id);
+    n += 1;
+
+    // --- the Lobby's guest posts in the Lobby, and nowhere else --------------------------------------------------------
+    const guestPost = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'hello from a guest' } });
+    same([guestPost.status, guestPost.json.message.by, guestPost.json.message.who], [200, 'guest', 'Vic'], 'kept as a guest, with their name');
+    await lobbyGuest.until((e) => e.type === 'chat' && e.id === guestPost.json.message.id);
+    await again.until((e) => e.type === 'chat' && e.id === guestPost.json.message.id);
+    ok(true, "the guest's own message comes back on their stream, and reaches Home");
+    for (const [what, r] of [
+      ['history', await call('GET', `${T}?${g(lobbyToken)}`, { ip: '10.0.0.9' })],
+      ['post', await call('POST', `${T}?${g(lobbyToken)}`, { ip: '10.0.0.9', body: { name: 'Vic', text: 'sneaking in' } })],
+      ['stream', await watch(`${LT}&${g(lobbyToken)}`, { ip: '10.0.0.9' })],
+    ]) {
+      same(r.status, 403, `another space's ${what} is refused to the Lobby's guest`);
+      ok(/not in that/.test(r.error || r.json?.error), 'with one plain sentence');
+    }
+    same((await call('POST', `${L}?${g(tripToken)}`, { ip: '10.0.0.9', body: { name: 'Tia', text: 'wrong place' } })).status, 403, "another space's guest can't post in the Lobby");
+    const dead = await call('POST', `${L}?guest=nosuchtoken0000000000`, { ip: '10.0.0.9', body: { name: 'X', text: 'x' } });
+    same([dead.status, dead.json.error], [401, 'that guest link is off or wrong'], 'a token that names no space says so');
+
+    // --- the length cap (as for everyone: cut at 1000 characters; the request body is at most 64 KB) ---------------------
+    const long = await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.5', body: { name: 'V'.repeat(80), text: 'a'.repeat(5000) } });
+    same([long.status, long.json.message.text.length, long.json.message.who.length], [200, 1000, 40], "a guest's long message is cut to 1000 characters, the name to 40");
+    same((await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.5', body: { name: 'V', text: 'a'.repeat(70 * 1024) } })).status, 413, 'a body over 64 KB is refused');
+
+    // --- guest posts: per address (half the link's) and per guest link --------------------------------------------------
+    // 10.0.0.1 has posted once with the Lobby's link (above): four more, then the sixth in the minute is refused as the
+    // address's, though the link has five left.
+    for (let i = 0; i < 4; i += 1) same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: `post ${i}` } })).status, 200);
+    const limited = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'one too many' } });
+    same(limited.status, 429, 'the sixth guest post in a minute from one address is refused');
+    same(limited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 5 messages a minute from one address; try again in N seconds', 'with one plain sentence');
+    ok(Number(limited.retryAfter) >= 1 && Number(limited.retryAfter) <= 60, `with Retry-After (${limited.retryAfter})`);
+    for (let i = 0; i < 5; i += 1) {
+      const spoofed = await call('POST', `${L}?${g(lobbyToken)}`, { ip: `203.0.113.${i + 1}, 10.0.0.1`, body: { name: 'Vic', text: `spoof ${i}` } });
+      same(spoofed.status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not raise the address's limit`);
+    }
+    same((await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'other link' } })).status, 429, 'the address is limited with another guest link too');
+    for (let i = 0; i < 5; i += 1) same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.2', body: { name: 'Ann', text: `from elsewhere ${i}` } })).status, 200, 'another address on the link still posts');
+    const linkLimited = await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.3', body: { name: 'Bo', text: 'link is full' } });
+    same(linkLimited.status, 429, "the guest link's minute is spent");
+    same(linkLimited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 10 messages a minute; try again in N seconds', 'with one plain sentence');
+    same((await call('POST', `${T}?${g(tripToken)}`, { ip: '10.0.0.3', body: { name: 'Tia', text: 'fresh' } })).status, 200, 'another link from another address is not');
+    for (let i = 0; i < 6; i += 1) same((await call('POST', L, { cookie: patC, body: { text: `member ${i}` } })).status, 200, 'members are not under the guest limit');
+
+    // --- open streams: a signed-in person (one a tab, 50 at most) ---------------------------------------------------------
+    const tabs = [];
+    for (let i = 0; i < 50; i += 1) tabs.push(await watch('/api/live', tabC));
+    ok(tabs.every((t) => t.status === 200), 'a member opens up to 50');
+    same(await (async () => { const s = await watch('/api/live', tabC); return [s.status, s.error]; })(), [429, 'you have too many live streams open (50 at most); close one and try again'], 'the 51st is refused');
+    for (const t of tabs) t.close();
+    await quiet();
+    same((await watch('/api/live', tabC)).status, 200, 'a closed stream frees its place');
+
+    // --- open streams: a guest address (40% of the link's, here 2) and the guest link (5) --------------------------------
+    // The Lobby's guest at 10.0.0.1 holds one already (lobbyGuest): one more there, the third refused as the address's.
+    same((await watch(LG(lobbyToken), { ip: '10.0.0.1' })).status, 200);
+    const gFull = await watch(LG(lobbyToken), { ip: '10.0.0.1' });
+    same([gFull.status, gFull.error], [429, 'you have too many live streams open (2 at most); close one and try again'], "a guest address's own cap");
+    for (let i = 0; i < 3; i += 1) same((await watch(LG(lobbyToken), { ip: `198.51.100.${i + 1}, 10.0.0.1` })).status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not open another stream`);
+    same((await watch(LG(lobbyToken), { ip: '10.0.0.2' })).status, 200, 'another address on the link');
+    same((await watch(LG(lobbyToken), { ip: '10.0.0.2' })).status, 200, 'its second');
+    same((await watch(LG(lobbyToken), { ip: '10.0.0.4' })).status, 200, 'a third address: the fifth of the link');
+    const linkFull = await watch(LG(lobbyToken), { ip: '10.0.0.6' });
+    same([linkFull.status, linkFull.error], [429, 'this guest link has too many live streams open (5 at most); close one and try again'], "the guest link's cap");
+
+    // --- an owner's delete and clear reach the guest; a guest moderates nothing ---------------------------------------
+    same((await call('DELETE', `${L}/${lm.id}`, { cookie: owner })).status, 200);
+    await lobbyGuest.until((e) => e.type === 'chat-delete' && e.id === lm.id);
+    ok(true, "an owner's delete reaches the guest");
+    same((await call('DELETE', `${L}/messages?type=chat&scope=everyone`, { cookie: owner })).status, 200);
+    await lobbyGuest.until((e) => e.type === 'chat-clear-some' && e.ids.includes(guestPost.json.message.id));
+    ok(true, "an owner's clear reaches the guest");
+    const guestIp = { ip: '10.0.0.7' };
+    const keep = (await call('POST', L, { cookie: patC, body: { text: 'keep me' } })).json.message;
+    same((await call('DELETE', `${L}/${keep.id}?${g(lobbyToken)}`, guestIp)).status, 403, "a guest can't delete a message");
+    same((await call('DELETE', `${L}?${g(lobbyToken)}`, guestIp)).status, 403, "a guest can't delete the chat");
+    same((await call('DELETE', `${L}/messages?${g(lobbyToken)}&type=chat&scope=everyone`, guestIp)).status, 403, "a guest can't clear");
+    same((await call('PATCH', `${L}/${keep.id}?${g(lobbyToken)}`, { ...guestIp, body: { visibility: 'private' } })).status, 403, "a guest can't change who sees a message");
+    const ai = await call('POST', `/api/spaces/lobby/ai?${g(lobbyToken)}`, { ...guestIp, body: { question: 'hi' } });
+    same([ai.status, ai.json.error], [403, 'guests cannot use AI'], 'the Assistant is for members');
+
+    // --- a guest link turned off, regenerated, or guests turned off ends the stream at once ---------------------------
+    const offAt = Date.now();
+    same((await call('DELETE', '/api/spaces/lobby/guest-link', { cookie: owner })).status, 200);
+    same(await within(lobbyGuest.ended, 1500), true, 'turning the link off ends its streams');
+    ok(Date.now() - offAt < 1500, 'at once');
+    same([lobbyGuest.events.at(-1).type, lobbyGuest.events.at(-1).reason, lobbyGuest.events.at(-1).error], ['removed', 'access', 'that guest link is off or wrong'], 'with a last event that says why');
+    same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'still here?' } })).status, 401, 'and refuses its posts');
+    same((await watch(LG(lobbyToken), { ip: '10.0.0.8' })).status, 401, 'and its streams');
+    lobbyToken = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: {} })).json.space.guestToken;
+    const s2 = await watch(LG(lobbyToken), { ip: '10.0.0.8' });
+    await s2.until((e) => e.type === 'ready');
+    const fresh = (await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: { regenerate: true } })).json.space.guestToken;
+    ok(fresh && fresh !== lobbyToken, 'regenerated');
+    same(await within(s2.ended, 1500), true, "regenerating the link ends the old token's streams");
+    same((await call('POST', `${L}?${g(lobbyToken)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'old link' } })).status, 401, "and refuses the old token's posts");
+    same((await call('POST', `${L}?${g(fresh)}`, { ip: '10.0.0.8', body: { name: 'Vic', text: 'new link' } })).status, 200, 'the new token posts');
+    const s3 = await watch(LG(fresh), { ip: '10.0.0.8' });
+    await s3.until((e) => e.type === 'ready');
+    same((await call('PATCH', '/api/spaces/lobby', { cookie: owner, body: { allowGuests: false } })).status, 200);
+    same(await within(s3.ended, 1500), true, "turning guests off in the space ends a guest's stream");
+
+    // --- a member's stream still works after all of that ---------------------------------------------------------------
+    const last = (await call('POST', L, { cookie: owner, body: { text: 'still on' } })).json.message;
+    await again.until((e) => e.id === last.id);
+    ok(!/listener failed|access check failed/.test(serverOut), `no listener failed:\n${serverOut}`);
+  } catch (err) {
+    failed = true;
+    console.error(`FAIL ${err.stack || err}`);
+  } finally {
+    for (const s of open.splice(0)) s.close();
+    await stopServer();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
 }
 if (failed) {
   console.error(`check-live: failed after ${n} checks`);

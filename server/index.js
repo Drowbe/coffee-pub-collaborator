@@ -120,13 +120,16 @@ const {
   // and a restore carry the environment's folder, so it is kept well under the restore's own limit. Not a number above 0: 100.
   MAP_IMAGE_MAX_MB = '',
   // Guests in chat (GitHub #289): how many chat messages one guest link may post in a minute (default 20; one address
-  // posting as a guest gets half of it, at least 5); how many chat streams (GET /api/spaces/:id/chat/stream) one
-  // signed-in person may hold open (default 50: one a browser tab); and how many one guest link may hold open in all
-  // (default 25; one address on it gets 40% of that, at least 2, and never more than CHAT_STREAMS_PER_PERSON).
-  // Not a whole number above 0: the default.
+  // posting as a guest gets half of it, at least 5); how many live streams (GET /api/live) one signed-in person may
+  // hold open (default 50: one a browser tab); and how many one guest link may hold open in all (default 25; one address
+  // on it gets 40% of that, at least 2, and never more than LIVE_STREAMS_PER_PERSON). Not a whole number above 0: the
+  // default.
   GUEST_CHAT_POSTS_PER_MINUTE = '',
-  CHAT_STREAMS_PER_PERSON = '',
-  CHAT_STREAMS_PER_GUEST_LINK = '',
+  LIVE_STREAMS_PER_PERSON = '',
+  LIVE_STREAMS_PER_GUEST_LINK = '',
+  // The most a chat picture may weigh, in MB (POST /api/spaces/:id/chat/pictures: relayed live, never stored). Not a
+  // number above 0: 3.
+  CHAT_PICTURE_MAX_MB = '',
   // How many reverse proxies stand in front of the server (default 1, the usual one). The address a request came from
   // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
   // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
@@ -263,7 +266,7 @@ const liveEvents = proxyFor('liveEvents');
 const invites = proxyFor('invites');
 const inviteEvents = proxyFor('inviteEvents');
 const themeEvents = proxyFor('themeEvents');
-const chatEvents = proxyFor('chatEvents');
+const chatPictures = proxyFor('chatPictures');
 const iconSvgs = proxyFor('iconSvgs');
 const moduleActivity = proxyFor('moduleActivity');
 const externalCalendars = proxyFor('externalCalendars');
@@ -3742,7 +3745,7 @@ app.patch('/api/spaces/:id', requireUser, (req, res) => {
     if (!moderates(currentUser(req), space) || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
   }
   const space = store.updateSpace(req.params.id, body);
-  chatAccessChanged(); // guests turned off, say: their chat streams end now
+  liveAccessChanged(); // guests turned off, say: their live streams end now
   res.json({ space: answeredSpace(req, space) });
 });
 // The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted by the same number of
@@ -3767,7 +3770,7 @@ app.post('/api/spaces/:id/phases/cover', (req, res) => {
 });
 app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   eraseSpace(currentEnvironment(), req.params.id); // everything kept for it, then the space; throws 500 if a step fails (server/space-erase.js)
-  chatAccessChanged();
+  liveAccessChanged();
   res.json({ ok: true });
 });
 app.put('/api/spaces/:id/image', requireOwner, rawImage, checkStorageCap, (req, res) => {
@@ -3797,12 +3800,12 @@ function requireCanInvite(req, res, next) {
 }
 app.post('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   const guestToken = req.body?.regenerate ? store.regenerateGuestLink(req.params.id) : store.enableGuestLink(req.params.id);
-  chatAccessChanged(); // a regenerated link's old token ends its chat streams now
+  liveAccessChanged(); // a regenerated link's old token ends its live streams now
   res.json({ space: answeredSpace(req, store.spaceById(req.params.id)), guestUrl: `${baseUrl(req)}/guest/${guestToken}` });
 });
 app.delete('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   store.disableGuestLink(req.params.id);
-  chatAccessChanged(); // its chat streams end now
+  liveAccessChanged(); // its live streams end now
   res.json({ space: answeredSpace(req, store.spaceById(req.params.id)) });
 });
 
@@ -4484,12 +4487,12 @@ app.put('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(true));
 app.delete('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(false));
 
 // --- chat history --------------------------------------------------------------------------------
-// Chat travels live over LiveKit; the sender also posts the text here so someone who joins later reads what
-// was said (see server/chat-history.js for what is kept and for how long). Only a space has a chat: an aside is not
+// A message is posted here, kept (see server/chat-history.js for what is kept and for how long) and told live on the
+// live stream (tellChat), so whoever is in the space sees it at once and someone who comes later reads what was said. Only a space has a chat: an aside is not
 // a space (plan-names step 8), so its id answers 404 here, reading or posting. Reading needs the "open and read the chat" permission, posting "send chat messages", and the person
 // must be in the space (or an owner, or a guest of that space).
-// The rule itself, apart from answering: { who, space }, or { status, error }. The chat stream asks it again while it is
-// open (chatStreamRecheck), so a guest link turned off or regenerated, a session that no longer reads (expired, the
+// The rule itself, apart from answering: { who, space }, or { status, error }. The live stream asks it again at every
+// chat event and while it is open, so a guest link turned off or regenerated, a session that no longer reads (expired, the
 // account gone or its password or second step changed) or a person taken out of the space ends the stream. Signing
 // out does not: it only clears the cookie in the browser, and an open stream already sent its session, so the page that
 // signs out closes its own stream by leaving, and the browser's other open tabs keep theirs until they are closed.
@@ -4527,10 +4530,10 @@ function chatSpaceFor(req, res, permission) {
 // --- guests in chat: the abuse limits (GitHub #289) -------------------------------------------------------------------
 // A guest has no account, and one guest link is shared by everyone it was given to, so a guest's posts are counted by
 // their guest link, GUEST_CHAT_POSTS_PER_MINUTE a minute, and by their address, half of that (at least 5, never more
-// than the link's), so one address can't spend the whole link's minute. Open chat streams: a signed-in person
-// CHAT_STREAMS_PER_PERSON at once (default 50: one a browser tab; they are accountable, and Home opens one in every
-// tab); a guest link CHAT_STREAMS_PER_GUEST_LINK at once, and one address on it 40% of that (at least 2, never more than
-// CHAT_STREAMS_PER_PERSON), so one address can't fill the link. The address is req.ip (TRUST_PROXY_HOPS). Kept per
+// than the link's), so one address can't spend the whole link's minute. Open live streams (GET /api/live): a signed-in
+// person LIVE_STREAMS_PER_PERSON at once (default 50: one a browser tab; they are accountable, and every tab holds one);
+// a guest link LIVE_STREAMS_PER_GUEST_LINK at once, and one address on it 40% of that (at least 2, never more than
+// LIVE_STREAMS_PER_PERSON), so one address can't fill the link. The address is req.ip (TRUST_PROXY_HOPS). Kept per
 // environment (the slug is in each key).
 const wholeAbove0 = (value, fallback) => {
   const n = Number(value);
@@ -4538,11 +4541,11 @@ const wholeAbove0 = (value, fallback) => {
 };
 const guestChatPostsPerMinute = wholeAbove0(GUEST_CHAT_POSTS_PER_MINUTE, 20);
 const guestChatPostsPerAddress = Math.min(guestChatPostsPerMinute, Math.max(5, Math.floor(guestChatPostsPerMinute * 0.5)));
-const chatStreamsPerPerson = wholeAbove0(CHAT_STREAMS_PER_PERSON, 50);
-const chatStreamsPerGuestLink = wholeAbove0(CHAT_STREAMS_PER_GUEST_LINK, 25);
-const chatStreamsPerGuestAddress = Math.min(chatStreamsPerPerson, chatStreamsPerGuestLink, Math.max(2, Math.floor(chatStreamsPerGuestLink * 0.4)));
+const liveStreamsPerPerson = wholeAbove0(LIVE_STREAMS_PER_PERSON, 50);
+const liveStreamsPerGuestLink = wholeAbove0(LIVE_STREAMS_PER_GUEST_LINK, 25);
+const liveStreamsPerGuestAddress = Math.min(liveStreamsPerPerson, liveStreamsPerGuestLink, Math.max(2, Math.floor(liveStreamsPerGuestLink * 0.4)));
 const guestChatPosts = new Map(); // key -> post times in the last minute
-const chatStreamsOpen = new Map(); // key -> streams open now
+const liveStreamsOpen = new Map(); // key -> streams open now
 const chatSlug = () => currentEnvironment().slug || '';
 // [[key, most], ...] -> { wait, most }: the seconds until one more post is allowed under every key, or 0 when it is
 // allowed now (and then it is counted under each), and which key refused (its index; the one with the longest wait).
@@ -4570,12 +4573,12 @@ setInterval(() => {
   const now = Date.now();
   for (const [key, times] of guestChatPosts) if (!times.some((t) => now - t < 60000)) guestChatPosts.delete(key);
 }, 60000).unref();
-// The keys a stream counts under, each with its most: [[key, most], ...].
-function chatStreamKeys(req, who) {
+// The keys a live stream counts under, each with its most: [[key, most], ...].
+function liveStreamKeys(req, who) {
   const slug = chatSlug();
-  if (who.user) return [[`${slug}|person|${who.user.key}`, chatStreamsPerPerson]];
+  if (who.user) return [[`${slug}|person|${who.user.key}`, liveStreamsPerPerson]];
   const token = req.query.guest;
-  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, chatStreamsPerGuestAddress], [`${slug}|link|${token}`, chatStreamsPerGuestLink]];
+  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, liveStreamsPerGuestAddress], [`${slug}|link|${token}`, liveStreamsPerGuestLink]];
 }
 
 app.get('/api/spaces/:id/chat', (req, res) => {
@@ -4585,18 +4588,18 @@ app.get('/api/spaces/:id/chat', (req, res) => {
   res.json({ messages: chatHistory.list(found.space.id, found.who.user ? found.who.user.key : null), clearedAt: chatHistory.clearedAt(found.space.id) });
 });
 
-// A server-sent stream (the chat's, the live one): the caps, the headers, the ping, the access asked again, and the
-// counts given back when it ends, in one place. `keys` are what it counts under (chatStreamKeys) and `what` names it in
-// a 429's sentence ("chat streams"). `on` is [[emitter, event, fn], ...]: each fn is called as fn(stream, ...args) in
+// A server-sent stream (the live one): the caps, the headers, the ping, the access asked again, and the counts given
+// back when it ends, in one place. `keys` are what it counts under (liveStreamKeys) and `what` names it in a 429's
+// sentence ("live streams"). `on` is [[emitter, event, fn], ...]: each fn is called as fn(stream, ...args) in
 // this request's environment while the stream is open. `recheck()` answers null while the access holds, else the last
 // event to send before the stream ends. `start(stream)` runs once it is listening; `end()` once it has ended, however.
-// `numbered` puts an `id:` line on each event. Answers the stream, or null when it answered 429.
+// Each event has an `id:` line. Answers the stream, or null when it answered 429.
 //   stream.send(data): one default `message` event whose data is JSON;
 //   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends.
 const STREAM_RECHECK_MS = 2000;
 const STREAM_PING_MS = 25000;
-function eventStream(req, res, { keys, what, numbered = false, on = [], recheck, start, end }) {
-  const full = keys.find(([key, most]) => (chatStreamsOpen.get(key) || 0) >= most);
+function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
+  const full = keys.find(([key, most]) => (liveStreamsOpen.get(key) || 0) >= most);
   if (full) {
     const said = full === keys[0]
       ? `you have too many ${what} open (${full[1]} at most); close one and try again`
@@ -4604,7 +4607,7 @@ function eventStream(req, res, { keys, what, numbered = false, on = [], recheck,
     res.status(429).json({ error: said });
     return null;
   }
-  for (const [key] of keys) chatStreamsOpen.set(key, (chatStreamsOpen.get(key) || 0) + 1);
+  for (const [key] of keys) liveStreamsOpen.set(key, (liveStreamsOpen.get(key) || 0) + 1);
   const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
@@ -4619,7 +4622,7 @@ function eventStream(req, res, { keys, what, numbered = false, on = [], recheck,
       if (ended) return;
       try {
         next += 1;
-        res.write(`${numbered ? `id: ${next}\n` : ''}data: ${JSON.stringify(data)}\n\n`);
+        res.write(`id: ${next}\ndata: ${JSON.stringify(data)}\n\n`);
       } catch {
         // already gone; the close handler cleans up
       }
@@ -4646,9 +4649,9 @@ function eventStream(req, res, { keys, what, numbered = false, on = [], recheck,
     clearInterval(again);
     for (const [emitter, event, fn] of bound) emitter.off(event, fn);
     for (const [key] of keys) {
-      const left = (chatStreamsOpen.get(key) || 1) - 1;
-      if (left > 0) chatStreamsOpen.set(key, left);
-      else chatStreamsOpen.delete(key);
+      const left = (liveStreamsOpen.get(key) || 1) - 1;
+      if (left > 0) liveStreamsOpen.set(key, left);
+      else liveStreamsOpen.delete(key);
     }
     if (end) end();
   }
@@ -4660,39 +4663,7 @@ function eventStream(req, res, { keys, what, numbered = false, on = [], recheck,
   return stream;
 }
 
-// A server-sent stream of what happens to a space's public chat, so a page that is not in the space's call (Home's
-// chat, over the Lobby's) hears it live. Same rules as reading the chat. Each event is one default `message` whose
-// data is what tellChat sends, as { type, ... }: chat (a new public message, as stored), chat-delete, chat-clear,
-// chat-clear-some, chat-visibility, chat-preview, chat-kept. A private message is never sent. { type: 'ready' } comes
-// first, once the stream is listening, so a page reads the history after it (nothing is replayed on a reconnect).
-// A space's guest reads it with ?guest=<token> (GitHub #289). The access is asked again before each event, every
-// STREAM_RECHECK_MS, and at once when a guest link changes (chatAccessChanged): once it no longer holds (the guest
-// link turned off or regenerated, the session no longer reads -- see chatAccess: signing out is not that -- the person
-// taken out of the space), a last { type: 'closed', error } is sent and the stream ends. Too many open at once
-// (chatStreamKeys) answers 429.
-app.get('/api/spaces/:id/chat/stream', (req, res) => {
-  const found = chatSpaceFor(req, res, 'chatRead');
-  if (!found) return;
-  const spaceId = found.space.id;
-  eventStream(req, res, {
-    keys: chatStreamKeys(req, found.who),
-    what: 'chat streams',
-    on: [
-      [chatEvents, 'chat', (stream, id, data) => { if (id === spaceId && stream.check()) stream.send(data); }],
-      [chatEvents, 'access', (stream) => stream.check()],
-    ],
-    // Asked in this request's environment; the cached person is dropped first, so a session that no longer reads is seen.
-    recheck: () => {
-      req._user = undefined;
-      const now = chatAccess(req, spaceId, 'chatRead');
-      if (!now.error && Boolean(now.who.user) === Boolean(found.who.user)) return null;
-      return { type: 'closed', error: now.error || 'sign in first' };
-    },
-    start: (stream) => stream.send({ type: 'ready' }),
-  });
-});
-
-// --- the live stream (plan-realtime-optional-livekit.md, step 1: presence) ------------------------------------------
+// --- the live stream (plan-realtime-optional-livekit.md, steps 1 and 3: presence and chat) ---------------------------
 // Who may open GET /api/live (and say PATCH /api/spaces/:id/presence) for `spaceId`: { who, space, aside } or
 // { status, error }. A space: its members, owners and the admin, and its guests (chatAccess with no permission). An
 // aside: its members, owners and the admin; never a guest. No space (Home): anyone signed in.
@@ -4742,10 +4713,14 @@ function tellLivePresence(spaceIds) {
 //             this stream; `stream` names this stream to PATCH /api/spaces/:id/presence.
 //   presence  { space, people: [{ key, name, guest, onCall, away, awayMessage }] }: everyone there, on connect and on
 //             every change (server/live.js).
+//   chat, chat-delete, chat-clear, chat-clear-some, chat-visibility, chat-preview, chat-kept, chat-picture: what tellChat
+//             says, each with `space`, for this stream's space and for the Lobby (Home's chat), each only while the
+//             reader may read that chat (chatAccess with chatRead, asked at every event). A private message is never sent;
+//             nothing is replayed, so a page catches up from GET /api/spaces/:id/chat after a reconnect.
 //   removed   { reason: 'access', error }: the access no longer holds (asked every STREAM_RECHECK_MS and at once on
-//             chatAccessChanged); then the stream ends.
-// The person is in the space while the stream is open and for the register's grace after (server/live.js). The caps are
-// the chat stream's, counted together with it (chatStreamKeys); too many answers 429.
+//             liveAccessChanged); then the stream ends.
+// The person is in the space while the stream is open and for the register's grace after (server/live.js). Too many open
+// at once (liveStreamKeys: LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) answers 429.
 app.get('/api/live', (req, res) => {
   const spaceId = typeof req.query.space === 'string' && req.query.space ? req.query.space : null;
   const found = liveAccess(req, spaceId);
@@ -4756,14 +4731,19 @@ app.get('/api/live', (req, res) => {
   const env = currentEnvironment();
   let streamId = null;
   eventStream(req, res, {
-    keys: chatStreamKeys(req, found.who),
+    keys: liveStreamKeys(req, found.who),
     what: 'live streams',
-    numbered: true,
     on: [
       [liveEvents, 'presence', (stream, id) => {
         if (id === spaceId && stream.check()) stream.send({ type: 'presence', space: spaceId, people: livePeople(spaceId) });
       }],
-      [chatEvents, 'access', (stream) => stream.check()],
+      // The chat of this space and the Lobby's (Home's chat), to a reader of it. check() drops the cached person first.
+      [liveEvents, 'chat', (stream, id, data) => {
+        if (id !== spaceId && id !== LOBBY) return;
+        if (!stream.check() || chatAccess(req, id, 'chatRead').error) return;
+        stream.send({ ...data, space: id });
+      }],
+      [liveEvents, 'access', (stream) => stream.check()],
     ],
     recheck: () => {
       req._user = undefined;
@@ -4825,12 +4805,12 @@ app.patch('/api/spaces/:id/presence', (req, res) => {
   res.json({ ok: true });
 });
 // Something that changes who may read a chat happened (a guest link turned off or regenerated, a space changed or
-// deleted): every open stream in this environment asks again now rather than at its next recheck.
-function chatAccessChanged() {
+// deleted): every open live stream in this environment asks again now rather than at its next recheck.
+function liveAccessChanged() {
   try {
-    chatEvents.emit('access');
+    liveEvents.emit('access');
   } catch (err) {
-    console.error(`A chat stream's access check failed: ${err.stack || err.message}`);
+    console.error(`A live stream's access check failed: ${err.stack || err.message}`);
   }
 }
 
@@ -4841,20 +4821,14 @@ function chatModerator(who, space) {
   return Boolean(store.spaceFlags(who.user.key, space.id).moderator);
 }
 
-// People in the call hear about a delete at once. The stored history is what a later join reads. No call service
-// (or it does not answer) still leaves the history updated; the page sends the same notice itself.
+// What happens to a space's chat, told at once to the live streams that may read it (GET /api/live): a new public
+// message, a delete, a clear, who sees a message, a link's preview or Keep, a picture. The stored history is what a later
+// visit reads. Never told for a private message.
 function tellChat(spaceId, data) {
-  // Home's chat (and any page reading GET /api/spaces/:id/chat/stream) hears the same notice without the call.
   try {
-    chatEvents.emit('chat', spaceId, data);
+    liveEvents.emit('chat', spaceId, data);
   } catch (err) {
-    console.error(`A chat stream's listener failed: ${err.stack || err.message}`);
-  }
-  try {
-    const payload = new TextEncoder().encode(JSON.stringify(data));
-    callService.sendData(callName(spaceId), payload, DataPacket_Kind.RELIABLE, { topic: 'chat' }).catch(() => {});
-  } catch {
-    // the history is already updated
+    console.error(`A live stream's listener failed: ${err.stack || err.message}`);
   }
 }
 
@@ -4863,6 +4837,7 @@ app.delete('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   if (!chatModerator(found.who, found.space)) return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can delete the chat` });
   chatHistory.clear(found.space.id);
+  forgetChatPictures(found.space.id, () => true);
   tellChat(found.space.id, { type: 'chat-clear' });
   res.json({ ok: true });
 });
@@ -4897,9 +4872,12 @@ app.delete('/api/spaces/:id/chat/messages', (req, res) => {
   }
   const me = found.who.user.key;
   const removed = chatHistory.clearByType(found.space.id, { type, module: type === 'module' ? moduleId.trim() : undefined, scope, by: me });
-  // Only public ids are told to the call: a private message was only ever on its author's page.
+  // Only public ids are told: a private message was only ever on its author's page. Clearing chat (or all) takes the
+  // pictures too, the caller's or everyone's; the pages drop those by the same rule (clearTakesPicture), so a clear of
+  // pictures alone is told as well.
   const ids = removed.filter((m) => m.visibility !== 'private').map((m) => m.id);
-  if (ids.length) {
+  const pictures = type === 'chat' || type === 'all' ? forgetChatPictures(found.space.id, (p) => scope === 'everyone' || p.by === me) : 0;
+  if (ids.length || pictures) {
     tellChat(found.space.id, {
       type: 'chat-clear-some', ids, by: me, who: found.who.user.displayName, scope, clearType: type,
       ...(type === 'module' ? { module: moduleId.trim() } : {}),
@@ -4915,7 +4893,16 @@ app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
   if (!/^[a-f0-9]{12}$/.test(req.params.messageId)) return res.status(404).json({ error: 'no such message' });
   // Someone else's private message is "no such message", for a moderator too: they cannot see it.
   const me = found.who.user.key;
-  const gone = chatHistory.remove(found.space.id, req.params.messageId, chatModerator(found.who, found.space) ? null : me, me);
+  const moderator = chatModerator(found.who, found.space);
+  // A picture is never stored: its record says who sent it, so they (or a moderator) can take it off everyone's page.
+  const picture = chatPictureOf(found.space.id, req.params.messageId);
+  if (picture) {
+    if (!moderator && picture.by !== me) return res.status(403).json({ error: 'you can only delete a message you sent' });
+    chatPictures.delete(req.params.messageId);
+    tellChat(found.space.id, { type: 'chat-delete', id: req.params.messageId });
+    return res.json({ ok: true });
+  }
+  const gone = chatHistory.remove(found.space.id, req.params.messageId, moderator ? null : me, me);
   if (gone === false) return res.status(403).json({ error: 'you can only delete a message you sent' });
   if (!gone) return res.status(404).json({ error: 'no such message' });
   // Only a public message was ever on anyone else's page; a private one's id is not told to the call.
@@ -4978,15 +4965,87 @@ app.post('/api/spaces/:id/chat', (req, res) => {
     text: req.body?.text,
     link: findLink(typeof req.body?.text === 'string' ? req.body.text : ''),
   });
-  // Told to the stream at once. For the Lobby the call's data channel hears it too, as the sender's own page would
-  // have sent it, so a page still in the Lobby's call (a guest link, an old page) sees what was said from Home; a page
-  // that already drew this id (the sender's own) ignores the repeat.
-  if (message) {
-    const notice = { type: 'chat', ...message };
-    if (space.id === LOBBY) tellChat(space.id, notice);
-    else chatEvents.emit('chat', space.id, notice);
-  }
+  // Told to the live streams at once; the sender's page draws it from this answer, and a page that already drew this id
+  // ignores the repeat.
+  if (message) tellChat(space.id, { type: 'chat', ...message });
   res.json({ message });
+});
+
+// --- chat pictures (plan-realtime-optional-livekit.md, step 3; option 4 B) ---------------------------------------------
+// A picture in the chat is relayed live to the live streams that may read the chat, from memory, and never stored: only
+// the people there at that moment see it, as before. Its record (chatPictures: id -> { space, by, at }, never the bytes)
+// lets the sender or a moderator delete it for everyone and Clear... take it; records go after CHAT_PICTURE_KEEP_MS, and
+// at most CHAT_PICTURE_RECORDS are kept per environment (the oldest go first).
+const CHAT_PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const CHAT_PICTURE_KEEP_MS = 24 * 60 * 60 * 1000;
+const CHAT_PICTURE_RECORDS = 2000;
+const chatPictureMaxBytes = (() => {
+  const mb = Number(CHAT_PICTURE_MAX_MB);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 3) * 1024 * 1024);
+})();
+const chatPictureMaxSaid = chatPictureMaxBytes >= 1024 * 1024 ? `${Math.round((chatPictureMaxBytes / (1024 * 1024)) * 10) / 10} MB` : `${Math.round(chatPictureMaxBytes / 1024)} KB`;
+const rawChatPicture = express.raw({ type: CHAT_PICTURE_TYPES, limit: chatPictureMaxBytes });
+// What the bytes are, read from their first bytes (never the name or the header alone): one of CHAT_PICTURE_TYPES, or ''.
+function chatPictureType(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return '';
+  if (buf[0] === 0x89 && buf.toString('latin1', 1, 4) === 'PNG') return 'image/png';
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf.toString('latin1', 0, 6) === 'GIF87a' || buf.toString('latin1', 0, 6) === 'GIF89a') return 'image/gif';
+  if (buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  return '';
+}
+function chatPictureOf(spaceId, id) {
+  const p = chatPictures.get(id);
+  return p && p.space === spaceId && Date.now() - p.at < CHAT_PICTURE_KEEP_MS ? p : null;
+}
+// Forget the space's picture records that `take(record)` names: how many went.
+function forgetChatPictures(spaceId, take) {
+  let n = 0;
+  for (const [id, p] of chatPictures) {
+    if (p.space === spaceId && take(p)) {
+      chatPictures.delete(id);
+      n += 1;
+    }
+  }
+  return n;
+}
+function keepChatPicture(id, record) {
+  const now = Date.now();
+  for (const [old, p] of chatPictures) if (now - p.at >= CHAT_PICTURE_KEEP_MS) chatPictures.delete(old);
+  while (chatPictures.size >= CHAT_PICTURE_RECORDS) chatPictures.delete(chatPictures.keys().next().value);
+  chatPictures.set(id, record);
+}
+
+// POST /api/spaces/:id/chat/pictures?file=<its name>[&guest=<token>&name=<the guest's name>], the picture's bytes as the
+// body with its type (PNG, JPEG, GIF or WebP): sent at once to the live streams that may read this chat as
+// { type: 'chat-picture', space, id, by, who, file, mime, data (base64), at }, and answers { id }. Needs "send pictures";
+// counted as a chat post (the same limits, a guest's too).
+app.post('/api/spaces/:id/chat/pictures', rawChatPicture, (req, res) => {
+  const found = chatSpaceFor(req, res, 'sendPictures');
+  if (!found) return;
+  const { who, space } = found;
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(415).json({ error: 'send a PNG, JPEG, GIF or WebP picture' });
+  const mime = chatPictureType(req.body);
+  if (!mime || mime !== req.get('content-type')?.split(';')[0].trim().toLowerCase()) return res.status(415).json({ error: 'that is not a PNG, JPEG, GIF or WebP picture' });
+  if (!who.user) {
+    const slug = chatSlug();
+    const { wait } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
+    if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: `too many messages; try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}` });
+  }
+  if (chatPostLimited(who.user ? who.user.key : `guest:${space.id}`)) return res.status(429).json({ error: 'too many messages, slow down' });
+  const id = crypto.randomBytes(6).toString('hex');
+  const by = who.user ? who.user.key : 'guest';
+  const at = Date.now();
+  keepChatPicture(id, { space: space.id, by, at });
+  tellChat(space.id, {
+    type: 'chat-picture', id, by,
+    who: who.user ? who.user.displayName : cleanText(req.query.name, 40) || word('guest', { cap: true }),
+    file: cleanText(req.query.file, 120) || 'picture',
+    mime,
+    data: req.body.toString('base64'),
+    at,
+  });
+  res.json({ id });
 });
 
 // --- links in Chat (plan-chat-links.md, GitHub #158) ----------------------------------------------------------------
@@ -8701,6 +8760,7 @@ app.use((err, _req, res, _next) => {
   if (err.type === 'entity.too.large') {
     if (/^\/api\/(modules\/[^/]+|spaces\/[^/]+)\/objects\/check$/.test(_req.path)) return res.status(413).json({ error: 'that is over 256 KB; bring it in in parts' });
     if (/^\/api\/modules\/[^/]+\/uploads/.test(_req.path)) return res.status(413).json({ error: 'that file is over the size limit' });
+    if (/^\/api\/spaces\/[^/]+\/chat\/pictures$/.test(_req.path)) return res.status(413).json({ error: `that picture is over ${chatPictureMaxSaid}` });
     if (/^\/api\/(spaces\/[^/]+\/(action|command)|bus\/.+)$/.test(_req.path)) return res.status(413).json({ error: 'that request is over 64 KB' });
     // Any other JSON body (a space's PATCH, a module's settings) is a request over the JSON limit, not an image or a zip.
     if (_req.is('json')) return res.status(413).json({ error: `that request is over ${Math.round((Number(err.limit) || 65536) / 1024)} KB` });

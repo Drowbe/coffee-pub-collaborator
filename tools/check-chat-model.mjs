@@ -447,21 +447,35 @@ const aiServer = http.createServer((req, res) => {
 await new Promise((r) => aiServer.listen(0, '127.0.0.1', r));
 const aiAddress = `http://127.0.0.1:${aiServer.address().port}`;
 
-// A stand-in LiveKit that answers SendData only, so what the server tells the call can be read; everything else is
-// refused, as when no LiveKit is there.
-const sent = []; // { topic, payload }
-const liveKit = http.createServer((req, res) => {
-  let body = '';
-  req.on('data', (d) => { body += d; });
-  req.on('end', () => {
-    if (!req.url.endsWith('/SendData')) { res.writeHead(404); return res.end(); }
-    const ask = body ? JSON.parse(body) : {};
-    sent.push({ topic: ask.topic, payload: JSON.parse(Buffer.from(ask.data || '', 'base64').toString('utf8') || 'null') });
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end('{}');
-  });
-});
-await new Promise((r) => liveKit.listen(0, '127.0.0.1', r));
+// What the server tells the space's chat is read from the live stream (GET /api/live), as a page would hear it.
+const sent = []; // { payload }
+let liveCtl = null;
+async function listenLive(urlPath, cookie) {
+  liveCtl = new AbortController();
+  const res = await fetch(`http://127.0.0.1:${port}${urlPath}`, { headers: { cookie: `app_session=${cookie}` }, signal: liveCtl.signal });
+  assert.equal(res.status, 200, 'the live stream opens');
+  let ready = null;
+  const opened = new Promise((r) => { ready = r; });
+  (async () => {
+    const decoder = new TextDecoder();
+    let buf = '';
+    try {
+      for await (const chunk of res.body) {
+        buf += decoder.decode(chunk, { stream: true });
+        let at;
+        while ((at = buf.indexOf('\n\n')) >= 0) {
+          const line = buf.slice(0, at).split('\n').find((l) => l.startsWith('data: '));
+          buf = buf.slice(at + 2);
+          if (!line) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'ready') ready();
+          else sent.push({ payload: data });
+        }
+      }
+    } catch { /* closed */ }
+  })();
+  await opened;
+}
 
 const dataDir = tmp('server');
 fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({
@@ -477,7 +491,7 @@ async function startServer() {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
-      LIVEKIT_API_URL: `http://127.0.0.1:${liveKit.address().port}`,
+      LIVEKIT_API_URL: 'http://127.0.0.1:9', // nothing there: the call service fails fast
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -740,6 +754,7 @@ try {
   assert.equal((await call('PATCH', `/api/users/${max.key}/spaces/${D}`, { cookie: owner, body: { permissions: { moderator: true } } })).status, 200);
   const cookies = { admin: owner, mia: await login('mia', 'memberpass1234'), mod: await login('mod', 'memberpass1234'), max: await login('max', 'memberpass1234'), oli: await login('oli', 'memberpass1234') };
   const keys = { admin: null, mia: mia.key, mod: mod.key, max: max.key, oli: oli.key };
+  await listenLive(`/api/live?space=${C}`, owner);
   const listC = async (cookie) => {
     const r = await call('GET', `/api/spaces/${C}/chat`, { cookie });
     assert.equal(r.status, 200, r.text);
@@ -812,7 +827,7 @@ try {
     assert.deepEqual([r.status, r.json.error], [403, "Only an owner or a moderator can clear everyone's messages"], `${who}: everyone`);
   }
   assert.deepEqual((await everything()).map((m) => m.id).sort(), seeded.map((m) => m.id).sort(), 'every refusal left every message');
-  assert.equal((await clearSome(0)).length, 0, 'and told the call nothing');
+  assert.equal((await clearSome(0)).length, 0, 'and told nothing');
   n += 1;
 
   // A member clears their own AI messages: questions and answers, public and private; nobody else's.
@@ -824,9 +839,9 @@ try {
   assert.deepEqual(now.map((m) => m.id).sort(), seeded.filter((m) => !miaAi.includes(m)).map((m) => m.id).sort());
   let told = await clearSome(1);
   assert.deepEqual(told[0].payload, {
-    type: 'chat-clear-some', ids: miaAi.filter((m) => m.visibility !== 'private').map((m) => m.id), by: mia.key, who: 'Mia', scope: 'mine', clearType: 'ai',
-  }, 'only the public ids are told to the call');
-  assert.equal(told[0].topic, 'chat');
+    type: 'chat-clear-some', space: C, ids: miaAi.filter((m) => m.visibility !== 'private').map((m) => m.id), by: mia.key, who: 'Mia', scope: 'mine', clearType: 'ai',
+  }, 'only the public ids are told on the live stream');
+  assert.equal(told[0].payload.space, C);
   // A member's own polls messages, by module id.
   const miaPolls = await clear('?type=module&module=polls&scope=mine', cookies.mia);
   assert.deepEqual(miaPolls.json, { ok: true, deleted: 2 });
@@ -835,7 +850,7 @@ try {
   // Nothing left of that type: 0, and nothing told. A module that matches nothing is not an error.
   assert.deepEqual((await clear('?type=ai&scope=mine', cookies.mia)).json, { ok: true, deleted: 0 });
   assert.deepEqual((await clear('?type=module&module=nosuch&scope=everyone', cookies.mod)).json, { ok: true, deleted: 0 });
-  assert.equal((await clearSome(3)).length, 2, 'a clear of nothing tells the call nothing');
+  assert.equal((await clearSome(3)).length, 2, 'a clear of nothing tells nothing');
   n += 1;
 
   // Everyone's, for a moderator, an owner and the admin: every public message of the type and their own private ones,
@@ -986,7 +1001,7 @@ try {
 } finally {
   await stopServer();
   aiServer.close();
-  liveKit.close();
+  liveCtl?.abort();
   fs.rmSync(dataDir, { recursive: true, force: true });
 }
 

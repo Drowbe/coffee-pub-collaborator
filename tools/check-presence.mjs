@@ -10,9 +10,11 @@
  *     own members, and to owners and the admin, who belong to every space and aside;
  *   - a guest reads only their own space and its people;
  *   - the access key (OBS, Studio) reads everything, as before, and an OBS viewer is never listed.
- * First server/presence-view.js on its own, then a real single-environment server on a throwaway DATA_DIR against a
- * stand-in LiveKit (a small Twirp JSON server answering ListRooms, ListParticipants and SendData). No network
- * beyond localhost.
+ * Where people are comes from the live register (server/live.js, plan-realtime-optional-livekit.md step 1), with the
+ * call service's list merged in (mergeCall); presenceView() reads that. First server/presence-view.js on its own and fed
+ * from a register, then a real single-environment server on a throwaway DATA_DIR against a stand-in LiveKit (a small
+ * Twirp JSON server answering ListRooms, ListParticipants and SendData), with people in the register through GET
+ * /api/live as well. No network beyond localhost.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const { presenceView, placeFor, activeSpaceFor } = require('../server/presence-view.js');
+const { LiveRegister, mergeCall } = require('../server/live.js');
 let n = 0;
 let failed = 0;
 const test = async (name, fn) => {
@@ -133,6 +136,24 @@ const test = async (name, fn) => {
     assert.equal(activeSpaceFor({ guestSpace: 'spa' }, 'lobby', find), null);
     assert.equal(activeSpaceFor({ all: true }, 'asd', find), 'asd');
     assert.deepEqual(placeFor({ key: 'al' }, 'al', undefined, find), { space: null, aside: false, asidePrivate: false, elsewhere: false, inCall: false }, 'in no call: no place, not elsewhere');
+  });
+
+  await test('rules: the register is the source; the same rules apply to it', () => {
+    const reg = new LiveRegister();
+    reg.open({ who: 'al', name: 'al', space: 'spa' });
+    const s1 = reg.open({ who: 'cy', name: 'cy', space: 'asd' });
+    reg.set('cy', 'asd', { onCall: true }, s1);
+    reg.open({ who: 'bo', name: 'bo', space: null }); // Home: on the site, in no space
+    const fromRegister = presenceView({ key: 'al', owner: false }, {
+      users, spaces, asides, online: mergeCall(reg.places(), []), present: (k) => reg.onSite(k), describeUser: (u) => ({ key: u.key }), describeSpace: (s) => s, activeSpace: 'lobby',
+    });
+    assert.deepEqual(where(fromRegister).al, ['spa', false, false, false, true, true], 'in the Keep, off the call');
+    assert.deepEqual(where(fromRegister).cy, ['spa', true, false, false, true, true], 'in an aside from A, never on the call to a non-member');
+    assert.deepEqual(where(fromRegister).bo, [null, false, false, false, false, true], 'on Home: present, not online');
+    const toMember = presenceView({ key: 'di', owner: false }, {
+      users, spaces, asides, online: mergeCall(reg.places(), []), present: (k) => reg.onSite(k), describeUser: (u) => ({ key: u.key }), describeSpace: (s) => s, activeSpace: 'lobby',
+    });
+    assert.deepEqual(where(toMember).cy, ['asd', true, false, true, true, true], 'the page\'s word: on the call, to the aside\'s member');
   });
 }
 
@@ -328,6 +349,22 @@ try {
     const b = r.json.users.find((u) => u.key === bob);
     assert.deepEqual([b.online, b.present, b.space, b.elsewhere, b.aside, b.inCall], [false, true, null, false, false, false]);
     assert.equal((await call('GET', '/api/presence')).status, 401, 'nobody signed in reads nothing');
+  });
+
+  await test('live: someone in the register (GET /api/live) and on no call at LiveKit reads as in the space', async () => {
+    setCalls({});
+    const ctl = new AbortController();
+    const res = await fetch(`http://127.0.0.1:${port}/api/live?space=${spaceA}`, { headers: { authorization: `Bearer ${aliceT}` }, signal: ctl.signal });
+    assert.equal(res.status, 200);
+    const reader = res.body.getReader();
+    let got = '';
+    while (!/"type":"ready"/.test(got)) got += new TextDecoder().decode((await reader.read()).value);
+    const stream = JSON.parse(/data: (\{"type":"ready".*\})/.exec(got)[1]).stream;
+    assert.equal((await call('PATCH', `/api/spaces/${spaceA}/presence`, { token: aliceT, body: { onCall: true, stream } })).status, 200);
+    const r = await presence({ token: carolT });
+    assert.deepEqual(person(r, alice), [spaceA, false, false, true, true], 'in the Keep, on the call by the page\'s word');
+    assert.deepEqual(person(await presence({ token: bobT }), alice), [null, false, true, false, true], 'elsewhere to a non-member');
+    ctl.abort();
   });
 } catch (err) {
   failed += 1;

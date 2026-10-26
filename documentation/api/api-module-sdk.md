@@ -873,6 +873,8 @@ w.stop();
 
 With `video: false` and `audio: false` only the state is followed (the host subscribes to the microphone alone, so it still knows who is talking, and plays nothing). The host reconnects by itself when the connection drops.
 
+**With no voice and video on the server.** When the server has no call service there is no media to watch. `host.media.watch` then answers at once, once, and never loads the client library or asks for a token: `state` gets `{ online: false, cameraOn: false, micOn: false, speaking: false, name: null, unavailable: true, reason }` and `connection` gets `{ connected: false, space: null, unavailable: true, error: reason }`, where `reason` is "Voice and video are not set up on this server." The watcher it hands back is real, but `follow` and `stop` do nothing. A module that shows a person should draw from `host.presence` and `host.images` alone, and treat `unavailable` as "no video here", not as an error. The Stream module (0.1.15) does this: it draws pictures from presence.
+
 **The access key.** On the module's own page (an owner's or the host admin's), `await host.access.key()` is the key a keyed page's link carries (null for anyone else) and `await host.access.regenerate()` makes a new one, after which every link made with the old one stops working.
 
 ## Theme

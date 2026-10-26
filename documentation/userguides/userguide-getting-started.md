@@ -3,8 +3,10 @@
 **Audience:** someone setting up a Collaborator server for the first time and signing in as its
 admin.
 
-Collaborator is two services: the Collaborator web app and a LiveKit media server that carries the video and
-audio. This guide sets both up on a QNAP NAS with Container Station and Nginx Proxy Manager, then
+Collaborator is the Collaborator web app, plus a LiveKit media server if you want voice and video. The app is all you
+need for spaces, chat, who is here and the modules; LiveKit is the part you add for the call. Without it the server
+starts and says "No LiveKit: voice and video are off." in its log, and the call, the Conference and asides are left out
+of every space. This guide sets both up on a QNAP NAS with Container Station and Nginx Proxy Manager, then
 signs in. Any machine that runs Docker works the same way; only the router and proxy steps differ.
 
 ## Set it up
@@ -12,27 +14,30 @@ signs in. Any machine that runs Docker works the same way; only the router and p
 Everything the NAS needs is in `docker-compose.yml`, which you paste into Container Station. The app
 image is built by GitHub and pulled from `ghcr.io/drowbe/coffee-pub-collaborator`.
 
-1. **Make the secrets** in Terminal on your Mac and keep them in a note:
+1. **Make the secrets** in Terminal on your Mac and keep them in a note. The first two are for video only:
    ```bash
    openssl rand -hex 8    # LiveKit API key
    openssl rand -hex 32   # LiveKit API secret
    openssl rand -hex 8    # the server admin's password
    ```
-2. **DNS.** Add two records at your DNS provider pointing at your public IP, the same address your
-   Foundry hostname uses: `collaborator.<domain>` and `livekit.<domain>`. If the provider offers proxying
-   (Cloudflare's orange cloud), turn it off for these two: media has to reach the NAS directly.
-3. **Router.** Forward to the NAS's LAN address: `7881` TCP, `7882` UDP, `3478` UDP. Ports 80 and 443
+2. **DNS.** Add a record at your DNS provider pointing at your public IP, the same address your
+   Foundry hostname uses: `collaborator.<domain>`, and for video `livekit.<domain>` too. If the provider offers proxying
+   (Cloudflare's orange cloud), turn it off for these: media has to reach the NAS directly.
+3. **Router.** For video, forward to the NAS's LAN address: `7881` TCP, `7882` UDP, `3478` UDP. Ports 80 and 443
    already reach Nginx Proxy Manager.
 4. **Container Station.** Applications, Create, give it the name `collaborator`, paste the contents of
    `docker-compose.yml`, replace the `CHANGE_ME` values (domain, API key, API secret, the
-   admin's login and password), and click Create. Both containers should show green within a minute.
-5. **Nginx Proxy Manager.** Two proxy hosts, each with a Let's Encrypt certificate and Force SSL:
-   - `livekit.<domain>` to scheme http, forward host = NAS LAN address, port `7880`, **Websockets
+   admin's login and password), and click Create. Both containers should show green within a minute. To run without
+   video, delete the `livekit` service and the three `LIVEKIT_` lines of `collaborator` first (and the API key and
+   secret are not needed); add them later and recreate the app to turn video on.
+5. **Nginx Proxy Manager.** A proxy host for each address, each with a Let's Encrypt certificate and Force SSL:
+   - For video, `livekit.<domain>` to scheme http, forward host = NAS LAN address, port `7880`, **Websockets
      Support on**.
    - `collaborator.<domain>` to scheme http, NAS LAN address, port `3000`.
 
 Camera access requires HTTPS, which the proxy provides. Players need nothing but a browser. LiveKit
-1.12 or newer is required; the compose file pulls the latest release.
+1.12 or newer is required; the compose file pulls the latest release. With no LiveKit, **Manage** > **Modules** shows
+"Voice and video are not set up on this server" on the Conference card, with its switch off.
 
 ## Sign in as the admin
 
@@ -145,11 +150,13 @@ To switch environments on, with the server already running as above:
 It defaults to `1`, the Nginx Proxy Manager in the compose file. Sign-in and guest limits count by the address the
 nearest proxy saw, so nobody can choose their own with a made-up header. Two in a row (say Cloudflare, then Nginx Proxy
 Manager) is `2`; reached directly with no proxy, `0`. A value that is not a whole number logs a line and uses `1`. If
-the count is wrong, every visitor can look like the proxy's own address and share one limit. Three more switches are in
-the compose file, commented, and the defaults are usually right: `CHAT_STREAMS_PER_PERSON` (50, the live chat streams
-one signed-in person may hold open, about one a browser tab), `CHAT_STREAMS_PER_GUEST_LINK` (25, for one guest link in
+the count is wrong, every visitor can look like the proxy's own address and share one limit. Four more switches are in
+the compose file, commented, and the defaults are usually right: `LIVE_STREAMS_PER_PERSON` (50, the live streams
+one signed-in person may hold open, about one a browser tab), `LIVE_STREAMS_PER_GUEST_LINK` (25, for one guest link in
 all; one address gets 40% of it) and `GUEST_CHAT_POSTS_PER_MINUTE` (20, the messages one guest link may post a minute;
-one address gets half).
+one address gets half). The first two were `CHAT_STREAMS_PER_PERSON` and `CHAT_STREAMS_PER_GUEST_LINK`; the old names
+are no longer read. `CHAT_PICTURE_MAX_MB` (3) is the most one picture in the chat may weigh; pictures are sent live
+and never kept.
 
 **Two-step sign-in, and getting back in.** Three switches, one inside the other. `ENABLE_MFA` (in the
 compose file, `"true"` by default) says whether the server offers a second step at all; with it off nobody is

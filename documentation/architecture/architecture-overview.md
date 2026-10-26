@@ -3,7 +3,8 @@
 **Audience:** a developer changing Collaborator, who needs the shape of the whole system and
 where each part lives.
 
-Collaborator is a small Node web app plus a LiveKit media server. There is no build step and no front-end
+Collaborator is a small Node web app, plus a LiveKit media server if you want voice and video. LiveKit carries audio and video
+and nothing else; entering a space, who is here, chat and asides run through the app itself and work without it. There is no build step and no front-end
 framework: the pages are plain HTML, CSS and JavaScript served as they are.
 
 ## The pieces
@@ -22,9 +23,12 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
 
 - **LiveKit server** is open source and runs as its own container. It is a selective forwarding unit:
   each player uploads once and the server fans the stream out. It has a built-in TURN relay for players
-  behind strict routers. Collaborator calls its server API for the participant list, kick and mute.
-- **Collaborator web app** serves the pages, mints LiveKit access tokens, and keeps accounts, spaces, images and
-  settings. It never touches media.
+  behind strict routers. Collaborator calls its server API for the calls cap, the microphone and camera marks, kick and mute.
+  It is optional: with no LiveKit keys the server starts, logs "No LiveKit: voice and video are off." and the call, the
+  Conference and asides are off ([Hosting](#hosting)).
+- **Collaborator web app** serves the pages, mints LiveKit access tokens for the call, and keeps accounts, spaces,
+  images and settings. It never touches media. It also keeps who is where in memory and sends it, with chat and the
+  asides' nudges, on a server-sent stream per page (`GET /api/live`).
 - **Coffee Pub Studio** signs in as an owner and creates one OBS Browser Source per player, pointing at
   that player's view page.
 
@@ -45,7 +49,8 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
 
 | Path | What |
 | --- | --- |
-| `server/index.js` | Routes, tokens, LiveKit server API, permission checks |
+| `server/index.js` | Routes, the call's tokens, LiveKit server API, permission checks |
+| `server/live.js` | The live register: who is in which space, on the call, away; pure, in memory |
 | `server/store.js` | Users, spaces, settings, roles and images on disk |
 | `server/auth.js` | Passwords, signed session cookies, login rate limit |
 | `server/chat-history.js` | Every chat message per space (500 public, 200 private per person, 30 days): public ones in `chat.json`, private ones in `chat-private.json`; moves the old `ai-threads.json` in once |
@@ -169,8 +174,8 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   and zero-width characters (a joiner inside a combined emoji is kept); the name is cut to 40 whole characters,
   the author to 60 (`cleanThemeText()` in `server/store.js`). `tools/check-themes.mjs` holds the round trip and the
   refusals.
-- **Chat history.** Chat travels live over LiveKit's data channel. The sender also posts the text to `POST /api/spaces/:id/chat`; the server (`server/chat-history.js`) keeps the public messages in `DATA_DIR/chat.json` (under `spaces`) and the private ones in `DATA_DIR/chat-private.json`: the last 500 public messages per space and the last 200 private ones per person per space, none older than 30 days. `GET /api/spaces/:id/chat` returns the public ones and the caller's own private ones to whoever joins ([plan-chat-model](../plans/plan-chat-model.md)). A message is private or public (`visibility`), and its author flips it with `PATCH /api/spaces/:id/chat/:messageId`; the server tells the call (`chat-visibility`), and the others' pages add or remove it. The fields and routes are in [api-modules](../api/api-modules.md), "Chat routes". Reading needs the `chatRead` permission and posting `chat`, and the caller must be a member of the space (an owner or the admin, or a guest of that space, also counts). The sender's name is the account's display name as the server knows it; a guest supplies their own. An aside has no chat (its id answers 404), pictures are live only, and one person can post 30 messages in 10 seconds. Deleting a space deletes its history. Browsers that kept history locally under the old scheme still show it when the server has none for the space.
-- **Chat stream.** A page that is not in the space's call, Home's chat over the Lobby's, hears the chat live from `GET /api/spaces/:id/chat/stream`, a server-sent stream with the same access as reading the chat. The server emits on one in-process channel (`chatEvents` in `server/index.js`): `tellChat()` sends each notice both to the call's data channel and to this channel, and a post to the Lobby is also told that way, so a page still in the Lobby's call sees what was said from Home. Each event is a notice `{ type, ... }` (`ready` first, then `chat`, `chat-delete`, `chat-clear`, `chat-clear-some`, `chat-visibility`, `chat-preview`, `chat-kept`); a private message is never sent, and nothing is replayed, so a page reads the history after `ready`. The listener is removed when the connection closes, in the environment it opened in (`envContext.run`), and a ping goes out every 25 seconds so a proxy keeps the stream open. A guest reads it with its guest link's token (GitHub #289). Access is asked again while it is open (`chatAccess()`, every `CHAT_STREAM_RECHECK_MS`, 2 seconds, and at once on `chatAccessChanged()`, which turning a guest link off, replacing it or changing a space calls through the `access` event): when it no longer holds, a last `closed` notice is sent and the stream ends. Open streams are counted per signed-in person and, for a guest link, per link and per address (`chatStreamKeys()`), kept per environment in memory; posts by a guest are counted the same way (`guestPostWait()`). A page's `liveChatStream()` reconnects with a retry and, when the server will not take it back, says "Live chat is paused. Reload the page to try again." The events and statuses are in [api-modules](../api/api-modules.md), "Chat routes"; the page side is in [architecture-canvas](architecture-canvas.md), "Home".
+- **Chat history.** Chat travels live on the live stream (see "The live stream" below), not through LiveKit. The sender posts the text to `POST /api/spaces/:id/chat`; the server (`server/chat-history.js`) keeps the public messages in `DATA_DIR/chat.json` (under `spaces`) and the private ones in `DATA_DIR/chat-private.json`: the last 500 public messages per space and the last 200 private ones per person per space, none older than 30 days. `GET /api/spaces/:id/chat` returns the public ones and the caller's own private ones to whoever joins ([plan-chat-model](../plans/plan-chat-model.md)). A message is private or public (`visibility`), and its author flips it with `PATCH /api/spaces/:id/chat/:messageId`; the server tells the live stream (`chat-visibility`), and the others' pages add or remove it. The fields and routes are in [api-modules](../api/api-modules.md), "Chat routes". Reading needs the `chatRead` permission and posting `chat`, and the caller must be a member of the space (an owner or the admin, or a guest of that space, also counts). The sender's name is the account's display name as the server knows it; a guest supplies their own. An aside has no chat (its id answers 404), pictures are live only (relayed, never stored; see [api-modules](../api/api-modules.md), "Chat routes"), and one person can post 30 messages in 10 seconds. Deleting a space deletes its history. Browsers that kept history locally under the old scheme still show it when the server has none for the space.
+- **The live stream.** Each space page, and Home when the person may read the chat, holds one server-sent stream, `GET /api/live` ([plan-realtime-optional-livekit](../plans/plan-realtime-optional-livekit.md)). Being in a space is that stream being open: the page waits for its first `ready` to enter, and closing it is leaving. The server keeps who is where in one in-memory register per environment (`server/live.js`, pure, with the clock handed in): the open streams, a 15-second grace after the last one closes so a reload or a short drop does not read as leaving, who says they are on the call, who is away and with what message, and nudges held for a stream that is reconnecting (30 seconds). A person is in the space of their most recently opened stream; nothing is stored. The stream carries, as `{ type, ... }` notices (`ready` first, with the `stream` id): `presence` (everyone in the space, on connect and on every change); the chat's `chat`, `chat-delete`, `chat-clear`, `chat-clear-some`, `chat-visibility`, `chat-preview`, `chat-kept` and `chat-picture`, sent only while the reader may read the chat and never for a private message; the asides' `aside-pull`, `aside-started`, `aside-recall` and `aside-return`, only to the people they are for; and `removed` (`reason` `access` or `kicked`), after which the stream ends. Nothing is replayed, so a page reads the history after every `ready`. The page says its own state back with `PATCH /api/spaces/:id/presence` (away and its message, on the call), again after every `ready`, since a new stream starts with nothing said. Access is asked again while the stream is open (`STREAM_RECHECK_MS`, 2 seconds, and at once when a guest link is turned off or replaced or a space changes) and a ping goes out every 25 seconds so a proxy keeps it open. A guest opens it with `?guest=` and the `?pass=` that `POST /api/guest-join` gave. Open streams are counted per signed-in person (`LIVE_STREAMS_PER_PERSON`) and per guest link and address (`LIVE_STREAMS_PER_GUEST_LINK`), in memory per environment. The page side is `public/space-live.js` and `openLive()` in `public/space.js`; a page's `liveChatStream()` reconnects with a retry and, when the server will not take it back, says "Live chat is paused. Reload the page to try again." Events, statuses and limits are in [api-modules](../api/api-modules.md), "The live stream"; the page side is in [architecture-canvas](architecture-canvas.md), "Home" and "The conference and the call".
 - **Attention.** What needs a person's action in a space is kept per space, person and module in `DATA_DIR/attention.json` (`server/attention.js`; one file per environment, so an export or a backup carries it). A report is cleaned by one pure function (`cleanReport`: count 0 to 99, label 40, up to 20 items of a 120-character title and an optional object reference), a report older than 7 days is dropped when read and when the file is loaded, and `forgetSpace`, `forgetPerson` and `forgetModule` remove reports when their space or person is deleted, or their module is uninstalled with its data deleted. The routes are in [api-modules](../api/api-modules.md), "What needs action"; the strip that shows the sum is in [architecture-canvas](architecture-canvas.md), "The status strip".
 - **One input in Chat** ([plan-one-input](../plans/plan-one-input.md)). `public/chat-input.js` reads the box before it is sent: `/ai` goes to `POST /api/spaces/:id/ai` and the question and the reply are stored as the asker's private messages in `chat-private.json` (`ai-threads.json` is gone; its threads were moved in once, `server/chat-history.js`). A command's echo is the person's private message too (`kind: "command"`), stored by `POST /api/spaces/:id/command`. Each message is drawn with its module's colour and icon (`color` from `/api/modules/for-space`; gold for the AI), and a filter, **All | Private | Public** (`#chat-filter`, `data-filter` on `#messages`, `data-vis` on each message), hides the rest on the page only, remembered per space for the browser session (`chat-filter:<spaceId>`). Any other `/<name>` is looked up among the `commands` the space's modules declare (from `/api/modules/for-space`) and sent to `POST /api/spaces/:id/command`, which puts a `local` request on the module bus; Chat names no module in code. A module's question (Research's **Research this**) reaches Chat through `host.chat.ask`, which `public/module-host.js` hands to the page via the canvas's `onChatAsk`. Keeping an object from an answer, and bringing research in, use the space's `actions` and `objects/check` routes. The routes are in [api-modules](../api/api-modules.md), "Chat routes".
 - The server checks permissions on every request that matters (kick, mute, guest links, aside, images).
@@ -185,7 +190,7 @@ The server's routes and fields say space and environment since step 5a of the
 a person's settings in a space are `/api/me/spaces/:spaceId...` and `/api/users/:key/spaces/:spaceId...`; an
 account's list is `spaces` and an invite's `spaces`. The environment's name is `environmentName` (in the
 branding every page reads, `/api/me` and `/api/settings`, including `PATCH`). `POST /api/token` takes `space` and
-answers `call` (the call's name at LiveKit) and `spaceId`; a guest's join answers `spaceId` and `spaceName`. The
+is now only an OBS viewer's token (see below); a guest's join answers `spaceId`, `spaceName`, `permissions` and the guest's `guest` `{ id, name, pass }`, and no token. The
 old `/api/rooms...` paths answer 404. Saved links redirect (`server/old-links.js`). For good (301, the rest of the
 query kept): `/img/room/:id` to `/img/space/:id`, `/img/:key/:slot?room=&roomOnly=1` to `?space=&spaceOnly=1`,
 `/modules/:id?moduleRoom=` to `?space=`, and `/room.html` to `/space.html`. The pages that Set up replaced answer a
@@ -196,20 +201,22 @@ query kept): `/img/room/:id` to `/img/space/:id`, `/img/:key/:slot?room=&roomOnl
 
 Each space has one call, a LiveKit room (LiveKit's own word for a call) named from the space's id (`lobby` for the Lobby, `aside-<id>` for an
 aside, each prefixed `<slug>.` on a hosted server; see "Call names" in
-[architecture-environments](architecture-environments.md)). Nothing about the name is stored. Chat, reactions and away
-status travel over the LiveKit data channel between participants and are never stored.
+[architecture-environments](architecture-environments.md)). Nothing about the name is stored. The call carries audio,
+video and reactions only; chat, who is here, away and the asides' nudges are the live stream's. A person is never at
+LiveKit until they join the call.
 
 An aside is not a space. Since step 8 of the Names plan it is its own record, `asides` in `app.json`:
 `{ id, members, origin, private, createdAt }`, where `origin` is the space it was pulled out of (null for a
 private conversation started by invite) and `private` marks an off-the-record conversation. It holds the call
 only: no name, modules, chat, chat pictures, layout or settings of its own. The server removes it once nobody
 online is in it (`pruneAsides()` in `server/store.js`, after a short grace period). Spaces no longer carry
-`ephemeral`, `origin` or `private`. `POST /api/token` accepts an aside's id as `space`; any other route under
+`ephemeral`, `origin` or `private`. `POST /api/call/join` accepts an aside's id as `space`; any other route under
 `/api/spaces/:id` (chat, settings, modules) answers 404 "no such space" for one. In an aside the page offers the
 call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.js`).
 
 - `GET /api/presence` answers who is online and where (`users`, `spaces`, `asides`, `activeSpace`, `ownerOnline`,
-  and the environment's branding), from LiveKit's participant list and each page's own presence ping. A signed-in
+  and the environment's branding), from the live register and each page's own presence ping. LiveKit is asked only for
+  the microphone and camera marks (`micOn`, `cameraOn`), and only while the register has someone on a call. A signed-in
   person, the access key (`?s=` or `x-stream-key`) or a guest's token (`?guest=`) may ask; anyone else gets 401
   "sign in first". The answer is filtered by membership ([plan-primary-nav](../plans/plan-primary-nav.md),
   decision 6, step 3): a viewer reads where a person is only for the spaces and asides the viewer belongs to. Every
@@ -234,8 +241,8 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   - The access key (Coffee Pub Studio, OBS) reads everything, as before.
 
   `GET /api/status` is unchanged and still carries `asides` (the records), and `GET /api/spaces` lists spaces
-  only. When LiveKit does not answer within two seconds, both routes answer with
-  nobody in a call (GitHub #71; the client's timeout is in [architecture-environments](architecture-environments.md),
+  only. `online` means in a space. When LiveKit does not answer within two seconds, both routes answer with
+  the marks off (GitHub #71; the client's timeout is in [architecture-environments](architecture-environments.md),
   "Call names"). The space page does not wait on presence: joining, a reload back into a space and the join screen
   go ahead with the spaces they already know, `loadPresence()` gives up after three seconds, and the next poll tries
   again (`public/space.js`).
@@ -251,15 +258,11 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   array of strings answers 400 "Opens with must be a list of modules." and nothing in the request is saved; 401
   "sign in first", 403 "owners only", 404 "no such space". The same cleaning keeps `aiOff` (the space's **Turn AI
   off in this space**), which until 2026-09-30 was dropped every time `app.json` was loaded.
-- `POST /api/token` `{ space }` answers a token for the space's call (or an aside's), `{ token, livekitUrl,
-  identity, call, spaceId, conference }`; `POST /api/guest-join` `{ token, name }` answers a guest's. Both tokens
-  start out of the call (the LiveKit attribute `call: 'off'`): entering a space never joins the call, and the page
-  sets `on` itself when the person joins. Neither reads `call` from the request any more, and neither is ever
-  refused by the plan's calls cap. An OBS viewer's token carries no `call` attribute.
+- `POST /api/token` `{ role: 'viewer', space }` answers an OBS viewer's token, `{ token, livekitUrl, identity, call, spaceId }`, with the access key; 400 for anything else (a person's token is made only by `POST /api/call/join`), 503 with no call service. `POST /api/guest-join` `{ token, name }` answers `{ spaceId, spaceName, permissions, guest: { id, name, pass } }` and no LiveKit token; `pass` proves the guest's id and name to the live stream and to the call. No person's token is minted by entering a space, so nobody is at LiveKit until they join the call, and there is no `call` attribute any more.
 - `POST /api/call/join` is asked by the page just before it joins the call, for the plan's calls cap. A signed-in
   person sends `{ space }` (the Lobby when left out) and must belong to it, or be an owner; a guest sends
   `{ guest }`, the guest link's token, in the body or as `?guest=`, and may send `space` only as that link's own
-  space. It answers 200 `{ ok: true }`; 401 "sign in first"; 403 "you are not in that space", "that guest link is
+  space. It answers 200 `{ ok: true, token, livekitUrl, call }`, the call's token, the only one a person gets (a guest also sends its `pass`); 503 "voice and video are not set up on this server" with no call service, before anything else; 401 "sign in first"; 403 "voice and video are off" or "you can't join the call in this <space>" where the person may not, "you are not in that space", "that guest link is
   for another space", or the cap's sentence, "This <environment>'s plan allows N call(s) at once; one is running
   in <space>". The sentence names a space only to someone who belongs to it (`overCallsSentence()`); otherwise it
   reads "in an aside" (the `aside` word) or "in another <space>" (the `space` word). `POST /api/asides` uses the
@@ -269,18 +272,19 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   `{ aside }`, the aside's record. It answers 403 "asides are turned off" or "private conversations are turned off" (or the caller
   lacks the permission), 400 "pick someone to pull aside" or "you need to be in a call yourself to pull someone
   aside", 404 "`<name>` is not with you right now", 409 "`<name>` is not in the conference right now", 403 with the calls cap's sentence when the aside would
-  start a call over the plan's limit (asked before anyone is pulled), and 502 "LiveKit: ..." when the call service
-  fails.
+  start a call over the plan's limit (asked before anyone is pulled). It reads the live register, not LiveKit. With no call
+  service every aside route answers 503 "voice and video are not set up on this server"; with the Conference off they answer
+  403 "voice and video are off".
 - `POST /api/asides/invite` `{ to }` makes a private aside for two and answers `{ aside, invite: { id } }` (the aside's record);
   `POST /api/asides/invite/:id/decline` answers `{ ok: true }`.
 - `POST /api/asides/recall` (an owner) tells every private conversation pulled out of the owner's space to come
-  back, and answers `{ recalled }`, the number of them; 400 "you need to be in a call yourself to recall anyone"
+  back, and answers `{ recalled }`, the number of them; 400 "you need to be in a space yourself to recall anyone"
   or "nobody is off in a private conversation from here right now".
 - `POST /api/asides/return` takes the caller, and the aside's other members, back to the space the aside came
-  from (the Lobby when that space is gone) and answers `{ space }`; 400 "you need to be in a call" or "you are not
+  from (the Lobby when that space is gone) and answers `{ space }`; 400 "you are not
   in an aside".
 
-The server tells the other people involved over the data channel, on four topics: `aside-pull`
+The server tells the other people involved on the live stream (never LiveKit), on four topics: `aside-pull`
 `{ type, spaceId, byOwner, private, from }` to the people pulled, `aside-started` to everyone on the call the
 aside was pulled out of, the people pulled included, `aside-recall` `{ type, spaceId, spaceName }` and `aside-return` `{ type, spaceId }` (before step 5a they carried `roomId` and `roomName`). The old
 `/api/table...` routes answer 404 and the old topics are no longer sent.
@@ -295,13 +299,21 @@ someone outside the aside only which space they stepped out of.
 
 ## Hosting
 
-`docker-compose.yml` has two services, meant to be pasted into Container Station: `livekit` from the
+`docker-compose.yml` has two services, meant to be pasted into Container Station. `collaborator` is the app and is all
+that most things need; `livekit` is the part you add for voice and video. The app starts without it: leave out the
+`livekit` service and the three `LIVEKIT_` settings (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `LIVEKIT_HOST`;
+`LIVEKIT_API_URL` is optional too) and it logs "No LiveKit: voice and video are off." instead of refusing to start. If
+only one of the two keys is set it says which is missing and starts the same way. Then `branding().callService` is
+false, the call's routes (`POST /api/call/join`, a viewer's `POST /api/token`, mute, the asides) answer 503 "voice and
+video are not set up on this server", the Conference can't be switched on (`PATCH /api/settings` answers 503), and the
+pages hide the call, the Conference and asides; Manage > Modules says "Voice and video are not set up on this server"
+with the switch off. `livekit` is from the
 official image, configured entirely through an environment variable (keys, TURN, ports 7880 for
 signaling, 7881 TCP and 7882 UDP for media, 3478 for TURN), and `collaborator`, the Node app from
 `ghcr.io/drowbe/coffee-pub-collaborator`, built by GitHub Actions. A reverse proxy terminates TLS for both
 hostnames, because browsers only allow camera access over HTTPS.
 
-**The address a request came from.** `TRUST_PROXY_HOPS` (default 1; a whole number of 0 or more, else a line in the log and 1) is how many reverse proxies stand in front of the container, and is given to Express as `trust proxy`. `req.ip` is then the address the nearest trusted proxy saw, never the leftmost `X-Forwarded-For` entry, which the client writes; `X-Forwarded-Proto` and `-Host` (`req.protocol`, `req.hostname`, so `BASE_DOMAIN`'s host matching) are read only from a trusted proxy's connection. Every limit by address (sign-in among them, and guests in chat) counts by it. With `0` the connection's own address is used. It used to be `true`, which let a client choose its own address. `CHAT_STREAMS_PER_PERSON` (50), `CHAT_STREAMS_PER_GUEST_LINK` (25) and `GUEST_CHAT_POSTS_PER_MINUTE` (20) are the chat limits ([api-modules](../api/api-modules.md), "Chat routes"); a value that is not a whole number above 0 means the default. All four are commented examples in `docker-compose.yml`.
+**The address a request came from.** `TRUST_PROXY_HOPS` (default 1; a whole number of 0 or more, else a line in the log and 1) is how many reverse proxies stand in front of the container, and is given to Express as `trust proxy`. `req.ip` is then the address the nearest trusted proxy saw, never the leftmost `X-Forwarded-For` entry, which the client writes; `X-Forwarded-Proto` and `-Host` (`req.protocol`, `req.hostname`, so `BASE_DOMAIN`'s host matching) are read only from a trusted proxy's connection. Every limit by address (sign-in among them, and guests in chat) counts by it. With `0` the connection's own address is used. It used to be `true`, which let a client choose its own address. `LIVE_STREAMS_PER_PERSON` (50), `LIVE_STREAMS_PER_GUEST_LINK` (25) and `GUEST_CHAT_POSTS_PER_MINUTE` (20) are the limits on the live stream and on a guest's chat ([api-modules](../api/api-modules.md), "The live stream"); a value that is not a whole number above 0 means the default. All four are commented examples in `docker-compose.yml`. `LIVE_STREAMS_PER_PERSON` and `LIVE_STREAMS_PER_GUEST_LINK` were `CHAT_STREAMS_PER_PERSON` and `CHAT_STREAMS_PER_GUEST_LINK`; the old names are not read. `CHAT_PICTURE_MAX_MB` (default 3) is the most one chat picture may weigh.
 
 **Frames.** The app page (`/space.html` and `/`) answers `frame-ancestors 'none'` and `X-Frame-Options: DENY`. The pages our own frames hold answer `frame-ancestors 'self'` and `SAMEORIGIN`, and a framed request that would have redirected into a refusing page gets a short page and its status instead; the list and the exceptions are in [api-modules](../api/api-modules.md), "Behavior to rely on".
 

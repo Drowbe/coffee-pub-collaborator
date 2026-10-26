@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, deciding how entering a space, chat and presence stop depending on LiveKit; then server-development (the live stream, presence, the routes), experience-design (the space page) and content-manager (the documents and the compose file).
 
-**Status:** Approved by Thomas 2026-10-26. Drafted the same day from GitHub #376, which Thomas calls mission critical: "using LiveKit has to be optional." His decisions are at the end. Next plan: `plan-call-as-module`, after step 6. Every finding below was read in the code on 2026-10-26, not run against a LiveKit server.
+**Status:** Approved by Thomas 2026-10-26, from GitHub #376, which Thomas calls mission critical: "using LiveKit has to be optional." Steps 1 to 6 are built, and step 7, the documents, is done (2026-10-26). Step 8, stored chat pictures, is not built. Next plan: `plan-call-as-module`. The findings under "What it is today" were read in the code before the build, not run against a LiveKit server; the build was checked by tools with no LiveKit server, and the call itself has not been tried on a real one (see "Verify"). His decisions are at the end.
 
 This plan takes over steps 2 to 4 of [plan-optional-conference](plan-optional-conference.md) (chat and presence without LiveKit, LiveKit optional, conference on later). That plan's step 1, the Conference switch (`conferenceEnabled`, Manage > Modules), is built and stays as it is.
 
@@ -174,18 +174,18 @@ Unchanged. The stream adds no permission: being allowed in the space is the test
 
 None to migrate. Nothing stored changes: chat history, asides and settings keep their shape, and presence lives in memory. Routes and fields that go (`GET /api/spaces/:id/chat/stream`, a person's `POST /api/token`, the `call` and away attributes at LiveKit) are removed outright, with no alias.
 
-## Left to build, in order
+## Build order
 
-Each step leaves the product working with LiveKit as it is today, and is built and checked on its own.
+Steps 1 to 7 are built. Each step left the product working with LiveKit as it is today, and is built and checked on its own.
 
-1. **The register and the live stream** (M, server-development). `server/live.js`; `GET /api/live` with presence only; `PATCH /api/spaces/:id/presence`; `GET /api/presence` and `GET /api/status` answered from the register, LiveKit merged for media fields. The page still connects to LiveKit as now.
-2. **The page on the live stream** (M, experience-design). Open the live stream on entering; who is here, "Not in a call", Start or Join call and away read it and write to it. LiveKit still connected; nothing removed yet.
-3. **Chat on the live stream** (M, server-development S, experience-design M). The server sends every chat notice there and stops sending chat to LiveKit; the chat stream route goes; Home's chat and the guest's chat move to the live stream; the page drops `publishChat()` and the LiveKit chat handlers. Pictures relayed live by the server (option 4 B).
-4. **Asides and kick off LiveKit** (S, server-development; S, experience-design). The four aside nudges and `removed` on the live stream; the asides routes and `canModerate()` read the register.
-5. **Enter without LiveKit** (L, experience-design with the larger model; S, server-development). Tokens only from `POST /api/call/join`; guest-join without a token, with the guest pass; `join()`, leaving and `reconnectTo()` rebuilt as above; the `call` attribute gone. The riskiest step: the space page's leave and move paths change.
-6. **No LiveKit at all** (M, server-development; S, experience-design). Optional keys, `callService`, 503 answers, the Conference card, the space and OBS views without a call service; the Stream module's version bump.
-7. **The documents** (M, content-manager). architecture-overview (presence, chat, asides, hosting), architecture-canvas (the conference and the call), api-modules (chat routes, the live stream), api-module-sdk (`host.media.watch` with no call service), the getting-started guide and `docker-compose.yml` (LiveKit as the part you add for video), the CHANGELOG.
-8. **Stored chat pictures** (M, server-development and experience-design), if Thomas picks option 4 A.
+1. **The register and the live stream** (built) (M, server-development). `server/live.js`; `GET /api/live` with presence only; `PATCH /api/spaces/:id/presence`; `GET /api/presence` and `GET /api/status` answered from the register, LiveKit merged for media fields. The page still connects to LiveKit as now.
+2. **The page on the live stream** (built) (M, experience-design). Open the live stream on entering; who is here, "Not in a call", Start or Join call and away read it and write to it. LiveKit still connected; nothing removed yet.
+3. **Chat on the live stream** (built) (M, server-development S, experience-design M). The server sends every chat notice there and stops sending chat to LiveKit; the chat stream route goes; Home's chat and the guest's chat move to the live stream; the page drops `publishChat()` and the LiveKit chat handlers. Pictures relayed live by the server (option 4 B).
+4. **Asides and kick off LiveKit** (built) (S, server-development; S, experience-design). The four aside nudges and `removed` on the live stream; the asides routes and `canModerate()` read the register.
+5. **Enter without LiveKit** (built) (L, experience-design with the larger model; S, server-development). Tokens only from `POST /api/call/join`; guest-join without a token, with the guest pass; `join()`, leaving and `reconnectTo()` rebuilt as above; the `call` attribute gone. The riskiest step: the space page's leave and move paths change.
+6. **No LiveKit at all** (built) (M, server-development; S, experience-design). Optional keys, `callService`, 503 answers, the Conference card, the space and OBS views without a call service; the Stream module's version bump.
+7. **The documents** (built) (M, content-manager). architecture-overview (presence, chat, asides, hosting), architecture-canvas (the conference and the call), api-modules (chat routes, the live stream), api-module-sdk (`host.media.watch` with no call service), the getting-started guide and `docker-compose.yml` (LiveKit as the part you add for video), the CHANGELOG.
+8. **Stored chat pictures** (not built; M, server-development and experience-design), if Thomas picks option 4 A.
 
 ## Verify
 

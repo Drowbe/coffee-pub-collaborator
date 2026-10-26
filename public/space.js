@@ -10,6 +10,7 @@ import { createCanvas } from '/canvas.js';
 import { conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
+import { openLiveStream, liveStreamUrl, peopleFromPresence } from '/space-live.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
@@ -1115,6 +1116,87 @@ nav.register({
 }).classList.add('call-settings-link');
 topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw('primary'));
 
+// --- the live stream (space-live.js; plan-realtime-optional-livekit.md, step 2) ------------------------------------
+// Open from entering a space (or an aside) until leaving it: connectAndSetup() opens it once the call is connected, and
+// the call's Disconnected (leaving, or moving with reconnectTo()) closes it. Its `presence` is who is here, the
+// conference's "Not in a call" list, Start or Join call and the tiles' away. The page says its own state with PATCH
+// /api/spaces/:id/presence: on the call (startCall, stopCall) and away with its message (sendAway, stopCall), and all of
+// it again on every `ready` (a reconnect is a new stream, which starts with nothing said). The PATCHes go one after
+// another, so a quick Away then Back arrive in that order. The LiveKit attributes ("call", "away") are still set as
+// before: the tiles still follow "call", and a guest's tile its "away" (a guest's key on the stream is not their
+// identity at the call service).
+let liveStream = null; // openLiveStream's, while in a space
+let liveSpaceId = null; // the space or aside it is for
+let livePeopleList = []; // the last presence event's people, as the server sent them
+let liveSaying = Promise.resolve(); // the PATCHes, in order
+// My state as the server should have it.
+function presenceState() {
+  return { onCall: inCall, away: isAway, awayMessage: isAway ? awayMessage : '' };
+}
+// Say some of it (a PATCH on this stream). Before `ready` nothing is said: ready says all of it.
+function sayPresence(patch) {
+  const ready = liveStream?.ready;
+  if (!ready || !liveSpaceId) return;
+  const q = guestToken ? `?${new URLSearchParams({ guest: guestToken })}` : '';
+  const url = `/api/spaces/${encodeURIComponent(liveSpaceId)}/presence${q}`;
+  const body = { ...patch, stream: ready.stream };
+  liveSaying = liveSaying.then(() => api('PATCH', url, body)).catch((err) => console.debug('[app] presence:', err.message));
+}
+// Asked after a stream that never opened: the status of a fresh request, to tell a refusal from a drop.
+async function liveStreamStatus(url) {
+  const ctl = new AbortController();
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: { accept: 'text/event-stream' }, cache: 'no-store' });
+    ctl.abort();
+    return res.status;
+  } catch {
+    return 0;
+  }
+}
+function openLive(spaceId) {
+  closeLive();
+  liveSpaceId = spaceId;
+  livePeopleList = [];
+  liveStream = openLiveStream({
+    url: liveStreamUrl({ space: spaceId, guest: guestToken, name: guestToken ? me?.displayName || '' : '' }),
+    probe: liveStreamStatus,
+    onReady: () => {
+      const state = presenceState();
+      if (state.onCall || state.away) sayPresence(state);
+    },
+    onPresence: (people) => {
+      livePeopleList = people;
+      syncCallControl();
+      for (const [identity] of tiles) {
+        const p = call.remoteParticipants.get(identity);
+        if (p) showAway(p);
+      }
+    },
+    onEnd: ({ error }) => console.debug('[app] the live stream ended:', error || 'refused'),
+  });
+}
+function closeLive() {
+  liveStream?.close();
+  liveStream = null;
+  liveSpaceId = null;
+  livePeopleList = [];
+}
+// My key on the stream: `ready`'s, else (before it, so who is here says "Just you") my own.
+const liveYou = () => liveStream?.ready?.you || me?.key || null;
+// Who is here, you first: { key, name, you, onCall, away, awayMessage }.
+function livePeople() {
+  return peopleFromPresence(livePeopleList, { you: liveYou(), youName: me?.displayName || '', meOnCall: inCall });
+}
+// One person on the stream by key (a tile's identity), or null.
+function livePerson(key) {
+  return livePeople().find((p) => p.key === key) || null;
+}
+// Everyone else on the call now, as the stream says.
+function liveOthersOnCall() {
+  return livePeople().filter((p) => !p.you && p.onCall);
+}
+// --- end the live stream ---
+
 // Who is in the call, while I am not: the conference's "Not in a call" note lists them, with "Join the call" and the
 // microphone note under it. The space bar's call control ("N in the call · Join", plan-entering decisions 2 and 16) is
 // gone (Thomas, 2026-09-30): joining lives in the conference, which its switch shows out of the call, and in the space
@@ -1127,15 +1209,13 @@ function syncCallControl() {
   paintCallTab(); // and Online is the call item on a phone while on the call
   syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
-// The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
-// is not off (what /api/presence reports as inCall), with their picture in this space, else their first letter.
-// Kept live by the call's events; built only while the note shows.
+// The conference's "Not in a call" note lists who is in the call now: the live stream's people on the call (what
+// /api/presence reports as inCall), with their picture in this space, else their first letter. Kept live by the
+// stream's presence (openLive); built only while the note shows.
 function syncWhoIsInCall() {
   const list = $('no-call-list');
   if (!list || $('no-call').hidden) return;
-  const people = [...call.remoteParticipants.values()].filter((p) => p.attributes?.call !== 'off')
-    .map((p) => ({ key: p.identity, name: p.name || p.identity }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const people = liveOthersOnCall().map((p) => ({ key: p.key, name: p.name }));
   list.replaceChildren(...people.map(({ key, name }) => {
     const li = document.createElement('li');
     const img = document.createElement('img');
@@ -1164,11 +1244,6 @@ function initialOf(name) {
   el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
   return el;
 }
-call
-  .on(RoomEvent.ParticipantConnected, syncCallControl)
-  .on(RoomEvent.ParticipantDisconnected, syncCallControl)
-  .on(RoomEvent.ParticipantAttributesChanged, syncCallControl)
-  .on(RoomEvent.ParticipantNameChanged, syncWhoIsInCall);
 
 // --- Join the call (GitHub #165) ---------------------------------------------------------------------
 // In the space bar's left zone, after Layout and before Online: one press shows the Conference (as its Show switch
@@ -1184,10 +1259,10 @@ joinCallButton.setAttribute('aria-label', 'Start call');
 joinCallButton.title = 'Start a call from this chat';
 joinCallButton.dataset.role = 'join'; // on a phone a tab whose phone is in the call's ok colour (system.css, tabbar block)
 joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
-// "Start call" while no one is in the call, "Join call" while one is running (the call's own people whose `call`
-// attribute is not off, as the conference's note lists them).
+// "Start call" while no one is in the call, "Join call" while one is running (the live stream's people on the call, as
+// the conference's note lists them).
 function paintJoinCall() {
-  const running = [...call.remoteParticipants.values()].some((p) => p.attributes?.call !== 'off');
+  const running = liveOthersOnCall().length > 0;
   const verb = running ? 'Join' : 'Start';
   joinCallButton.querySelector('.join-call-verb').textContent = verb;
   joinCallButton.setAttribute('aria-label', `${verb} call`);
@@ -1207,7 +1282,7 @@ const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, i
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
 // Everyone in this space (or aside) now, you among them, with a mark on those on the call, and the list of them, their
-// names and who is on the call, on a press. Live from the call itself (LiveKit's Room). It belongs to the space, not to
+// names and who is on the call, on a press. Live from the live stream's presence (openLive). It belongs to the space, not to
 // the call (Thomas, 2026-10-14: "the 'in the room' widget has the context of the space, not the conf window"), so wider
 // than a phone it is the top bar's (`whoHereTop`): an element tool at the end of its left zone, after the space switcher
 // and the layout tabs, before the Workspace's tools, Layout, the bell and your picture, in a space call or no call, never
@@ -1216,15 +1291,13 @@ const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, i
 // count, portraits drop, then it shows only the icon and the short count. On a phone it is the count in the tab bar,
 // before Leave (plan-phone-space-bar.md), in an aside too; its list opens above it there.
 const whoHere = createWhoHere({
-  call,
-  meOnCall: () => inCall,
+  people: livePeople,
   where: () => (inAside() ? word('aside') : word('space')),
   portraitUrl: spacePortraitUrl,
   profileUrl: (key) => imgUrl(key, 'profile'),
   wanted: () => Boolean(currentSpace) && call.state === 'connected',
   events: {
     redraw: () => nav.draw(nav.get('who-here')?.bar || 'secondary'),
-    call: { [RoomEvent.ParticipantNameChanged]: () => whoHere.refresh(), [RoomEvent.Disconnected]: () => whoHere.refresh() },
   },
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
@@ -5146,6 +5219,7 @@ call
   .on(RoomEvent.Disconnected, () => {
     viewingHome = false; // no space left to show home over
     hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
+    closeLive(); // out of the space: the live stream goes with it (the server keeps me there for its grace)
     chatReconnecting = false;
     paintChatConn();
     closeGuestChatStream();
@@ -5467,6 +5541,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // in case a token ever says otherwise, else others would draw a tile and list this person as on the call.
     if (call.localParticipant.attributes?.call !== 'off') await call.localParticipant.setAttributes({ call: 'off' }).catch(() => {});
     await syncAwayAttributes(); // away before the call service was reached: said now
+    openLive(currentSpace.id); // who is here, and my own state, from now on (space-live.js)
     if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
     $('join').hidden = true;
     $('guest-join').hidden = true;
@@ -5537,6 +5612,7 @@ async function startCall() {
     setNoCall(false);
     canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
     // "on", with away said in the same request when joining while away (or it was lost).
+    sayPresence({ onCall: true, away: isAway, awayMessage: isAway ? awayMessage : '' });
     if (call.localParticipant.attributes?.call !== 'on' || awayAttributesChanged()) {
       await call.localParticipant.setAttributes({ call: 'on', ...awayAttributes() }).catch(() => {});
       if (stopped()) return await backOut();
@@ -5607,6 +5683,7 @@ async function stopCall() {
   if (!inCall) return;
   inCall = false;
   stopCallTime();
+  sayPresence({ onCall: false, away: false, awayMessage: '' }); // away ends with the call (below)
   if (call.state === 'connected') {
     // Away ends with the call (below), so it is cleared for everyone with it.
     await call.localParticipant.setAttributes({ call: 'off', away: 'off', awayMessage: '' }).catch(() => {});
@@ -7460,10 +7537,13 @@ async function syncCallAttributes() {
   if (call.localParticipant.attributes?.call === want && !awayAttributesChanged()) return;
   await call.localParticipant.setAttributes({ call: want, ...awayAttributes() }).catch(() => {});
 }
-// Someone's away mark on their tile, from their attributes; mine from my own state, since my attributes change only
-// once the call service has them.
+// Someone's away mark on their tile, from the live stream; mine from my own state, since the stream says it only once
+// the server has it. Someone the stream does not know by that identity (a guest: their key there is not their identity
+// at the call service) from their attributes.
 function showAway(participant) {
   if (participant.isLocal) return updateAwayOverlay(participant.identity, isAway, awayMessage);
+  const said = livePerson(participant.identity);
+  if (said) return updateAwayOverlay(participant.identity, said.away, said.awayMessage);
   updateAwayOverlay(participant.identity, participant.attributes?.away === 'on', participant.attributes?.awayMessage || '');
 }
 // A camera that came on during a wait after going away (a click just before, Back and away again) goes off again, and
@@ -7482,6 +7562,7 @@ async function keepMicOffWhileAway() {
 
 async function sendAway(on, message = '') {
   updateAwayOverlay(call.localParticipant?.identity, on, message);
+  sayPresence({ away: on, awayMessage: on ? awayMessage : '' });
   if (call.state !== 'connected') return;
   await syncAwayAttributes();
 }

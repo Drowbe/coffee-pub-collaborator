@@ -4,10 +4,10 @@
 // list under it: each person's portrait and name, "(you)", and "on the call". In an aside it shows the aside's people.
 // Its accessible name is "Who is here"; how many are here and on the call is its description (and its tooltip).
 //
-// The source is the call itself (the page's LiveKit connection, open while it is in a space: everyone in a space is
-// connected, `call: 'off'` until they join): the local participant and the remote ones, never a hidden one (an OBS
-// view). Kept live by the call's events; space.js registers it in the bar and calls refresh() when its own call state
-// changes (a join, a hang-up, entering and leaving).
+// The source is the live stream (space-live.js, GET /api/live): its `presence` event lists everyone in the space or the
+// aside, with who is on the call, and space.js hands that list in (peopleFromPresence: you first, then by name) and calls
+// refresh() when it changes, and when its own call state changes (a join, a hang-up, entering and leaving). An OBS view
+// never opens the live stream, so it is never listed.
 //
 // It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width it may take
 // (fitWidth: the bar less the right zone at its full width and the Layout button), and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
@@ -33,23 +33,6 @@ export function facesThatFit({ avail, count, base = 0, first = 0, step = 0, plus
   const width = (k) => base + first + (k - 1) * step + (k < n ? plus : 0);
   for (let k = Math.min(max, n); k > 0; k -= 1) if (width(k) <= limit + 0.5) return k;
   return 0;
-}
-
-// The people on the connection, you first, then by name: { key, name, you, onCall }. Hidden participants (OBS views)
-// are left out. `meOnCall` is the page's own say (it knows before the call echoes the attribute); anyone else is on
-// the call when their `call` attribute is not off, the same test as the conference's "Not in a call" list.
-export function peopleIn(call, { meOnCall = false } = {}) {
-  if (!call) return [];
-  const out = [];
-  const lp = call.localParticipant;
-  if (lp && lp.identity) out.push({ key: lp.identity, name: lp.name || lp.identity, you: true, onCall: Boolean(meOnCall) });
-  const others = [];
-  for (const p of call.remoteParticipants?.values?.() || []) {
-    if (!p || !p.identity || p.permissions?.hidden) continue;
-    others.push({ key: p.identity, name: p.name || p.identity, you: false, onCall: p.attributes?.call !== 'off' });
-  }
-  others.sort((a, b) => a.name.localeCompare(b.name));
-  return out.concat(others);
 }
 
 // What the button says to a screen reader and as its tooltip (`said`), and what it shows when only the count fits
@@ -83,11 +66,11 @@ export function hereLabel(people, where) {
   return { names, count };
 }
 
-// The tool. `call` is the call (the page's LiveKit Room); `meOnCall()` whether I am on the call; `where()` the
-// environment's word for where I am ("space", or "aside" in one); `portraitUrl(key)` and `profileUrl(key)` the
-// pictures to try, in order, before the first letter; `wanted()` whether it shows at all (in a space and connected);
-// `events.redraw()` draws the bar again, and `events.call` more of the call's events to refresh on.
-export function createWhoHere({ doc = document, call, events = {}, meOnCall = () => false, where = () => 'space', portraitUrl, profileUrl, wanted = () => true }) {
+// The tool. `people()` is who is here now ([{ key, name, you, onCall }], you first: space-live.js, peopleFromPresence);
+// `where()` the environment's word for where I am ("space", or "aside" in one); `portraitUrl(key)` and
+// `profileUrl(key)` the pictures to try, in order, before the first letter; `wanted()` whether it shows at all (in a
+// space and connected); `events.redraw()` draws the bar again.
+export function createWhoHere({ doc = document, people: listPeople = () => [], events = {}, where = () => 'space', portraitUrl, profileUrl, wanted = () => true }) {
   const el = doc.createElement('span');
   el.className = 'who-here';
   el.innerHTML = `
@@ -220,9 +203,9 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     }));
   }
 
-  // Read the call again and draw. The bar is drawn again only when whether it shows, or its width, may have changed.
+  // Read who is here again and draw. The bar is drawn again only when whether it shows, or its width, may have changed.
   function refresh() {
-    people = wanted() ? peopleIn(call, { meOnCall: meOnCall() }) : [];
+    people = wanted() ? listPeople() : [];
     prunePortraits();
     if (!people.length && !listEl.hidden) setOpen(false);
     drawRow();
@@ -327,6 +310,5 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     drawRow();
   }
 
-  for (const [event, fn] of Object.entries(events.call || {})) call.on(event, fn);
   return { el, refresh, fit, close: () => setOpen(false), get avail() { return lastAvail; } };
 }

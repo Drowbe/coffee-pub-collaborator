@@ -920,7 +920,9 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const at = (s) => start.indexOf(s);
   if (at("'/api/call/join'") < 0 || at("'/api/call/join'") > at('inCall = true') || at("'/api/call/join'") > at('openMic(')) fail('public/space.js', 'startCall() must ask POST /api/call/join before it joins or asks for the microphone');
   const refused = start.slice(at("'/api/call/join'"), at('inCall = true'));
-  if (!/catch \(err\) \{[^}]*setJoinProblem\(err\.status && err\.serverSaid \? err\.message :[^}]*return;/.test(refused)) fail('public/space.js', 'a refused join check must say the server\'s own sentence (or a plain one, never "HTTP 500") in the "Not in a call" note (setJoinProblem) and not join');
+  if (!/catch \(err\) \{[^}]*setJoinProblem\(err\.status && err\.serverSaid \? err\.message :[^}]*return;/.test(refused)) fail('public/space.js', 'a refused join check must say the server\'s own sentence (or a plain one, never "HTTP 500") as an error notice in Chat\'s status line (setJoinProblem) and not join');
+  const joinProblem = spaceJs.slice(spaceJs.indexOf('function setJoinProblem(text) {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function setJoinProblem(text) {')));
+  if (!/if \(text\) chatNotice\(text, true\);/.test(joinProblem)) fail('public/space.js', 'a join that did not go through is said as a notice in Chat\'s status line, never cramped above the Chat header');
   if (!/const stopped = \(\) => generation !== callGeneration/.test(start)) fail('public/space.js', 'startCall() must know when a stop came while it waited (callGeneration)');
   const stopBody = stop.split('\n');
   const bump = stopBody.findIndex((l) => /callGeneration \+= 1/.test(l));
@@ -1536,10 +1538,12 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/nav\.setBadge\('menu-home', n\);/.test(body('function paintHomeUnread() {')) || !/#brand-home-link \.brand-logo/.test(body('function paintHomeUnread() {'))) fail(F, 'the count shows on the Home link: the logo, and the phone menu\'s Home');
   if (!/\.topbar \.brand-logo \.home-unread \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/.test(css)) fail('public/style.css', 'the Home link\'s count is drawn in theme tokens');
   // Catch-up: every `ready` after the first (a reconnect) reads the history again (the retries and their backoff are
-  // space-live.js's, run below against a stand-in EventSource). A drop says Reconnecting; a refusal or `removed`, paused.
+  // space-live.js's, run below against a stand-in EventSource). A drop says Reconnecting; a refusal or `removed`, paused;
+  // for a guest, that their link was turned off (a reload can't bring it back).
   const openLiveBody = body('function openLive(spaceId) {');
   if (!/if \(!isFirst\) catchUpLiveChat\(\);/.test(openLiveBody)) fail(F, 'a reconnected stream catches up on what was missed');
-  if (!/onChat: liveChatNotice,/.test(openLiveBody) || !/chatStream = state;\s*paintChatConn\(\);/.test(openLiveBody) || !/chatStream = 'paused';\s*paintChatConn\(\);/.test(openLiveBody)) fail(F, 'the live stream feeds the chat and says its state in Chat\'s status line');
+  if (!/onChat: liveChatNotice,/.test(openLiveBody) || !/chatStream = state;\s*paintChatConn\(\);/.test(openLiveBody) || !/chatStream = guestToken \? 'link-off' : 'paused';\s*paintChatConn\(\);/.test(openLiveBody)) fail(F, 'the live stream feeds the chat and says its state in Chat\'s status line (a guest: their link was turned off)');
+  if (!/'link-off': \[`This \$\{word\('guest'\)\} link was turned off`/.test(body('function paintChatConn() {'))) fail(F, 'a guest whose link was turned off is told so plainly, not to reload');
   if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {')) || !/fetchChatHistory\(id\)/.test(body('async function catchUpLiveChat() {'))) fail(F, 'the catch-up reads Home\'s history and the space\'s');
 }
 

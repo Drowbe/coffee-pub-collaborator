@@ -3386,16 +3386,6 @@ a.crumb-here:hover {
   color: var(--text-dim);
 }
 
-/* Why the join did not go through (the calls cap, or no answer from the server), from space.js. */
-.no-call-error {
-  font-size: var(--text-13);
-  color: var(--danger-text);
-}
-
-.no-call-error[hidden] {
-  display: none;
-}
-
 .no-call-hint .install-hint:not([hidden]) {
   display: block;
 }
@@ -8138,28 +8128,7 @@ h4.setup-subheading {
 .side-column-strip .status-float,
 .side-column-strip .call-off .grid,
 .side-column-strip .call-off .video-bar,
-body:not(.in-aside) .side-column-strip .no-call > :not(.no-call-error) {
-  display: none;
-}
-
-/* Only the refusal shows here (the message why a join did not go through), as a block the column's width, clear of
-   the handle (.side-column-toggle, 28px at the top right) so its end is never covered. In an aside, which has no chat
-   and so no Start call, the whole note shows instead (below). */
 body:not(.in-aside) .side-column-strip .no-call {
-  position: static;
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 40px 0 12px;
-  font-size: var(--text-13);
-}
-
-.side-column-strip .no-call-error {
-  width: auto;
-  text-align: left;
-}
-
-body:not(.in-aside) .side-column-strip .no-call:not(:has(.no-call-error:not([hidden]))) {
   display: none;
 }
 

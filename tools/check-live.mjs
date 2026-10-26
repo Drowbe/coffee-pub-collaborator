@@ -176,11 +176,17 @@ const same = (a, b, msg) => { assert.deepEqual(a, b, msg); n += 1; };
 // so a check can say the server did not ask it (plan-realtime-optional-livekit.md, step 5: entering, chatting, moving
 // and leaving need no call service). Nothing here is a LiveKit server: no call can be joined.
 const lkAsked = [];
-// Every answer is an empty one (no calls, nobody on them); a request is written down by its method's name.
+// Every answer is an empty one (no calls, nobody on them), but GetParticipant fails (503); a request is written down by
+// its method's name.
 const lk = http.createServer((req, res) => {
   lkAsked.push(req.url.split('/').pop());
   req.resume();
   req.on('end', () => {
+    // Asked about one person (a mute), it fails as an unreachable call service would.
+    if (req.url.endsWith('/GetParticipant')) {
+      res.writeHead(503, { 'content-type': 'application/json' });
+      return res.end('{"code":"unavailable","msg":"no route to the media server"}');
+    }
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end('{}');
   });
@@ -359,6 +365,10 @@ try {
     same((await call('PATCH', `/api/spaces/${hall.id}/presence`, { cookie: annC, body: { onCall: true, stream: annB1.stream } })).status, 200);
     await call('GET', '/api/presence', { cookie: benC });
     ok(lkAsked.length > from, 'presence asks the call service once someone is on a call');
+    const muteFail = await call('POST', `/api/users/${ann.key}/mute`, { cookie: owner, body: { muted: true } });
+    same([muteFail.status, muteFail.json.error], [502, 'Could not mute them. Voice and video are not reachable.'], 'a mute the call service fails: 502, in plain words');
+    const unmuteFail = await call('POST', `/api/users/${ann.key}/mute`, { cookie: owner, body: { muted: false } });
+    same(unmuteFail.json.error, 'Could not unmute them. Voice and video are not reachable.', 'an unmute too');
     const kickFrom = lkAsked.length;
     same((await call('POST', `/api/users/${ann.key}/kick`, { cookie: owner })).json, { ok: true }, 'the owner kicks Ann, on the call');
     ok(lkAsked.slice(kickFrom).includes('RemoveParticipant'), 'and the call service is asked to drop her from the call');

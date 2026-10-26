@@ -706,12 +706,13 @@ let pipWindow = null;
 // --- Chat's status area (the line under the composer, GitHub #330) ---
 // The call on the left (In a call and its time, or empty; a problem replaces it), the latest notice on the right (an error, the
 // AI's state, what a command did). Notices that used to sit in the message list or in the call's status come here.
-let chatStream = ''; // the live stream's state ('live', 'reconnecting', 'paused', or '')
+let chatStream = ''; // the live stream's state ('live', 'reconnecting', 'paused', 'link-off' for a guest, or '')
 let chatNoteFn = null; // chat-input.js's note, once attached
 let chatNoteTimer = null;
 // The left side says only what the person needs: "In a call" with the call's time while in one, nothing otherwise, and a
 // problem in plain words with the fix.
 function chatConnState() {
+  if (chatStream === 'link-off') return 'link-off';
   if (chatStream === 'paused') return 'paused';
   if (chatStream === 'reconnecting') return 'reconnecting';
   if (inCall && call.state === 'connected') return 'call';
@@ -733,12 +734,13 @@ function paintChatConn() {
     call: ['In a call', 'phone', ''],
     reconnecting: ['Reconnecting… messages may be late', 'rotate', 'Finding its way back. Nothing to do; wait a moment.'],
     paused: ['Paused. Reload to see new messages', 'circle-pause', 'Live updates are paused. Reload the page to try again.'],
+    'link-off': [`This ${word('guest')} link was turned off`, 'link-slash', `Ask for a new ${word('guest')} link to come back in.`],
     idle: ['', '', ''],
   }[state];
   if (text.textContent !== look[0]) text.textContent = look[0];
   const item = $('chat-conn');
   item.title = look[2];
-  item.classList.toggle('error', state === 'paused');
+  item.classList.toggle('error', state === 'paused' || state === 'link-off');
   $('chat-conn-icon').className = look[1] ? `fa-solid fa-${look[1]} fa-fw` : 'fa-solid fa-fw';
   paintChatTime();
 }
@@ -1211,7 +1213,9 @@ function openLive(spaceId) {
       }
       if (reason === 'kicked') return leaveKicked();
       console.debug('[app] the live stream ended:', error || 'refused');
-      chatStream = 'paused';
+      // A guest who lost their access lost their link (turned off, made again, or guests turned off): a reload can't
+      // bring it back, so they are told so rather than to reload.
+      chatStream = guestToken ? 'link-off' : 'paused';
       paintChatConn();
     },
   });
@@ -5690,7 +5694,7 @@ async function startCall() {
       await call.connect(ticket.livekitUrl, ticket.token, { autoSubscribe: false });
     } catch (err) {
       console.warn('[app] the call service:', err.message);
-      if (!stopped()) setJoinProblem('Could not start the call. Voice and video are not available right now.');
+      if (!stopped()) setJoinProblem('Call not started: voice and video are unreachable.');
       return await backOut();
     }
     if (stopped()) return await backOut();
@@ -5752,12 +5756,10 @@ async function startCall() {
     settle();
   }
 }
-// The join check's refusal (or no answer), said plainly in the "Not in a call" note; '' clears it.
+// The join check's refusal (or no answer), said plainly as an error notice in Chat's status line (chatNotice); '' says
+// nothing (the notice clears itself).
 function setJoinProblem(text) {
-  const el = $('no-call-error');
-  if (!el) return;
-  el.textContent = text;
-  el.hidden = !text;
+  if (text) chatNotice(text, true);
 }
 
 // Leave the conference and stay in the space: disconnect from the call service (which stops sending and receiving

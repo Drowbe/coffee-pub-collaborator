@@ -4005,7 +4005,8 @@ app.post('/api/users/:key/mute', requireUser, async (req, res) => {
     await callService.mutePublishedTrack(call, req.params.key, mic.sid, req.body?.muted !== false);
     res.json({ ok: true });
   } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
+    console.error(`Muting ${req.params.key} on the call failed: ${err.message}`);
+    res.status(502).json({ error: `Could not ${req.body?.muted === false ? 'unmute' : 'mute'} them. Voice and video are not reachable.` });
   }
 });
 

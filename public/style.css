@@ -8138,13 +8138,14 @@ h4.setup-subheading {
 .side-column-strip .status-float,
 .side-column-strip .call-off .grid,
 .side-column-strip .call-off .video-bar,
-.side-column-strip .no-call > :not(.no-call-error) {
+body:not(.in-aside) .side-column-strip .no-call > :not(.no-call-error) {
   display: none;
 }
 
 /* Only the refusal shows here (the message why a join did not go through), as a block the column's width, clear of
-   the handle (.side-column-toggle, 28px at the top right) so its end is never covered. */
-.side-column-strip .no-call {
+   the handle (.side-column-toggle, 28px at the top right) so its end is never covered. In an aside, which has no chat
+   and so no Start call, the whole note shows instead (below). */
+body:not(.in-aside) .side-column-strip .no-call {
   position: static;
   display: block;
   width: 100%;
@@ -8158,7 +8159,7 @@ h4.setup-subheading {
   text-align: left;
 }
 
-.side-column-strip .no-call:not(:has(.no-call-error:not([hidden]))) {
+body:not(.in-aside) .side-column-strip .no-call:not(:has(.no-call-error:not([hidden]))) {
   display: none;
 }
 
@@ -8332,6 +8333,18 @@ body.in-aside .side-column-strip {
 body.in-aside .side-column-strip > .canvas {
   height: 100%;
   grid-template-rows: minmax(0, 1fr) auto;
+}
+
+/* Out of the aside's call: the whole "Not in a call" note fills the screen, with Join the call and, when a join did not
+   go through, why. */
+body.in-aside .side-column-strip:has(.module-video.call-off) > .canvas,
+body.in-aside .side-column-strip .call-off > .mod-content {
+  position: relative;
+  height: 100%;
+}
+
+body.in-aside .side-column-strip .no-call {
+  top: 0;
 }
 
 /* A phone: no column (the tabs stay, decision 3). */

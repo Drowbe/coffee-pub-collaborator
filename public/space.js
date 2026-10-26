@@ -5534,7 +5534,11 @@ async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) 
     placed = true;
     await liveOpened(openLive(spaceId));
     if (entry !== entries) return;
-    loadPresence();
+    // One the page does not list yet (an aside made a moment ago, an invitation's): presence first, so an aside is
+    // entered as an aside (adoptPendingSpace), never asked for a space's modules and chat.
+    if (currentSpace.pending) await loadPresence();
+    else loadPresence();
+    if (entry !== entries) return;
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id); // asides have no modules
     if (entry !== entries) return;
     spaceName = spaceDisplayName(currentSpace);
@@ -5628,6 +5632,8 @@ function enterSpace({ joinCall = false } = {}) {
   const enteredId = currentSpace.id;
   refreshLayouts().then(() => showFirstVisitTab(firstTab, enteredId)); // and its saved layouts
   syncCallControl(); // who is in the call, for the conference's "Not in a call" note
+  // An aside is the call only: its conference shows, "Not in a call" with Join the call until someone joins.
+  if (currentSpace.isAside && !joinCall) canvas.showBuiltin('conference');
   // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
   // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
   // refusal is said in the "Not in a call" note as for a click. The environment's "join the call on entering"

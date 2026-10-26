@@ -55,10 +55,11 @@ export function firstVisitLayout({ firstVisit = null, remembered = null, guest =
   return layout;
 }
 
-// Whether the conference may be opened: the environment's switch first, for everyone (an owner and the admin included),
-// then this person's own permission ("See and join the conference").
-export function conferenceAllowed({ conferenceEnabled = true, permitted = false } = {}) {
-  return conferenceEnabled !== false && Boolean(permitted);
+// Whether the conference may be opened: the server has a call service (branding.callService; with none there is no
+// conference at all), the environment's switch, for everyone (an owner and the admin included), then this person's own
+// permission ("See and join the conference").
+export function conferenceAllowed({ callService = true, conferenceEnabled = true, permitted = false } = {}) {
+  return callService !== false && conferenceEnabled !== false && Boolean(permitted);
 }
 
 // Whether entering a space joins the call by itself (GitHub #199, the environment's "join the call on entering"

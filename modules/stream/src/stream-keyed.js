@@ -12,7 +12,9 @@
 // mode=avatar|status -> character.
 //
 // The host does the connecting (host.media.watch), the roster (host.presence), the pictures (host.images)
-// and the settings (host.settings); this file decides what the box shows.
+// and the settings (host.settings); this file decides what the box shows. On a server with no call service
+// (host.media.watch says `unavailable`) there is no camera, talking or muted to show: the box draws the pictures from
+// presence alone (online in a space: the Online picture; away: Offline), and debug=1 says why.
 (async () => {
   const host = (document.currentScript && document.currentScript.host) || window.host;
   const root = host.root;
@@ -66,6 +68,7 @@
   let isPrivate = false; // in a private conversation: its own dim and tint, and never the live camera
   // What the host's viewer connection says about them right now.
   let live = { online: false, cameraOn: false, micOn: false, speaking: false, name: null };
+  let mediaOff = null; // the reason, when the server has no call service and the box draws from presence alone
   let videoEl = null;
 
   // Each kind draws its own borders: the Participant's or the Character's, both server-wide settings.
@@ -163,10 +166,11 @@
   }
 
   function render() {
-    const online = live.online;
+    const online = mediaOff ? onlineNow : live.online;
     // A private conversation: never the live camera (the one genuinely sensitive thing), and shown as muted
     // regardless of the real microphone, since Studio mutes their audio input. Everything else draws as usual.
-    const muted = (online && !live.micOn) || isPrivate;
+    // With no call service there is no microphone to read: never muted for that.
+    const muted = (online && !mediaOff && !live.micOn) || isPrivate;
     const talking = online && live.speaking && live.micOn && !isPrivate;
     let state = 'blank'; // nothing; offline: the Offline picture; image: the online picture; video: the camera
     if (kind === 'player') {
@@ -206,7 +210,7 @@
     if (tint) box.style.setProperty('--dim', tint);
     const dimLevel = prefix ? Number(settings[`${prefix}Dim`]) || 0 : 0;
     box.style.setProperty('--brightness', String(1 - Math.max(0, Math.min(100, dimLevel)) / 100));
-    msg(online ? '' : 'waiting for player');
+    msg(mediaOff ? `${mediaOff} This box shows pictures only.` : online ? '' : 'waiting for player');
   }
 
   function showReaction(id) {
@@ -228,7 +232,7 @@
   const first = await host.presence.get().catch(() => null);
   if (first) applyPresence(first);
   watcher = await host.media.watch(wanted, { video: kind === 'player', audio: withAudio, space: playerSpace }, {
-    state: (s) => { live = s; render(); },
+    state: (s) => { live = s; mediaOff = s.unavailable ? s.reason || 'Voice and video are not set up on this server.' : null; render(); },
     video: (el) => {
       if (videoEl && videoEl !== el) videoEl.remove();
       videoEl = el;
@@ -237,7 +241,7 @@
     },
     audio: (el) => { if (el) box.appendChild(el); },
     reaction: showReaction,
-    connection: (c) => msg(c.connected ? '' : c.error || 'disconnected'),
+    connection: (c) => { if (!c.unavailable) msg(c.connected ? '' : c.error || 'disconnected'); },
   });
   host.presence.onChange(applyPresence);
   setInterval(loadImages, 5 * 60000); // a replaced picture shows without a reload of the source

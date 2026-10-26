@@ -11,6 +11,8 @@
  *   3. both (dummy) keys: as before -- callService true, the card on with no such sentence, the switch turned off and on
  *      again, and POST /api/call/join minting a token (no LiveKit server is needed to mint one).
  *   4. several environments (BASE_DOMAIN) and no keys: it starts and says there is no LiveKit.
+ * The page side is read from the files: the card draws `unavailable` with its switch disabled, and the space page and the
+ * profile read branding.callService (check-canvas and check-nav run the rules themselves).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -125,5 +127,17 @@ await withServer({ LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevs
 await withServer({ BASE_DOMAIN: 'localhost', ADMIN_LOGIN: 'host' }, async ({ log }) => {
   ok(/No LiveKit: voice and video are off\./.test(log()) && /listening on :\d+, no LiveKit, base domain localhost/.test(log()), `a hosted server starts with no LiveKit:\n${log()}`);
 });
+
+// The pages, read from the files.
+const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
+ok(/on: b\.enabled && !b\.unavailable, disabled: Boolean\(b\.unavailable\)/.test(admin), 'admin.js: the card\'s switch is off and disabled when the conference is unavailable');
+ok(/b\.unavailable \? `<p><span class="sdk-status" data-tone="warn">\$\{escapeHtml\(b\.unavailable\)\}<\/span><\/p>`/.test(admin), 'admin.js: the card says why, once');
+const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+ok(/callService: branding\.callService !== false/.test(space), 'space.js reads branding.callService');
+ok(/const canInvite = features\.callService && features\.conferenceEnabled && features\.allowPrivate;/.test(space), 'space.js: Home offers no invitation to a private conversation with no call');
+const profile = fs.readFileSync(path.join(ROOT, 'public/profile.js'), 'utf8');
+ok(/conferenceOn = branding\.conferenceEnabled !== false && branding\.callService !== false;/.test(profile), 'profile.js: no Conference tab with no call service');
+const host = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
+ok(/if \(\(await brandingOnce\(\)\)\.callService === false\) \{/.test(host), 'module-host.js: host.media.watch answers unavailable with no call service, before loading LiveKit');
 
 console.log(`check-startup: ${n} checks passed`);

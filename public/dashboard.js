@@ -171,7 +171,7 @@ export async function initDashboard(presence, hooks = {}) {
   const root = section();
   if (!root) return;
   if (hooks.openInSpace) openInSpace = hooks.openInSpace;
-  if (hooks.joinSpace) joinSpace = hooks.joinSpace;
+  if ('joinSpace' in hooks) joinSpace = hooks.joinSpace || null; // null: no invitations offered (no call possible)
   lastPresence = presence;
   if (!started) {
     started = true;

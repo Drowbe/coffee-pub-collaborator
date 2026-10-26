@@ -185,7 +185,7 @@ let activeSpace = LOBBY;
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
 // Server-wide call feature toggles (Manage > Settings) -- these defaults
 // hold until init() replaces them with whatever /api/branding actually says.
-let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, conferenceEnabled: true, autoJoinCall: false };
+let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, callService: true, conferenceEnabled: true, autoJoinCall: false };
 
 // A guest link (/guest/<token>): no account, just a name and this space. The
 // token both identifies which space's guest link this is and, appended to
@@ -279,7 +279,9 @@ async function loadPresence() {
     }
     renderSpaces();
     updatePhaseChip(); // the space's dates ride on its presence record: a change by someone else reaches the chip here
-    if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: joinInvitedSpace });
+    // The invitation to a private conversation (an aside, so a call) is offered only where there can be one.
+    const canInvite = features.callService && features.conferenceEnabled && features.allowPrivate;
+    if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: canInvite ? joinInvitedSpace : null });
     reconcileGhostTiles();
     renderGuestLink();
     updateRecallButton();
@@ -1315,7 +1317,7 @@ function paintJoinCall() {
 joinCallButton.addEventListener('click', () => joinTheCall());
 // Not while Home's chat shows (GitHub #326): a call belongs to a space, and Home is only a view over it.
 const joinCallWanted = () => Boolean(currentSpace) && !homeChatSpace && entered && !inCall
-  && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
+  && conferenceAllowed({ callService: features.callService, conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
 nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted });
 // Entering joins by itself where the environment says so (GitHub #199, branding.autoJoinCall): the rule is
 // shouldAutoJoin (opens-with.js, held by check-canvas), asked once by enterSpace() on each entry, and it joins only
@@ -4843,7 +4845,7 @@ canvas.registerBuiltin({
   floatSize: { w: 560, h: 380 },
   // The environment's switch holds for owners and the admin too (canDo says yes to them whatever it is), so the
   // canvas, the Modules menu and the Open with popover agree.
-  allowed: () => conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }),
+  allowed: () => conferenceAllowed({ callService: features.callService, conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }),
   // A window of its own has its own document: idle/hover, popovers and keys need to hear it.
   onWindow: (win) => {
     win.document.title = spaceName;
@@ -7615,6 +7617,7 @@ async function init() {
     allowAsides: branding.allowAsides !== false,
     allowPrivate: branding.allowPrivate !== false,
     allowReactions: branding.allowReactions !== false,
+    callService: branding.callService !== false, // the server has LiveKit; with none, no call, Conference or asides at all
     conferenceEnabled: branding.conferenceEnabled !== false,
     autoJoinCall: branding.autoJoinCall === true, // entering a space joins the call (GitHub #199); off unless the owner turned it on
   };

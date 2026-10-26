@@ -30,6 +30,10 @@ const { facesThatFit, hereWords, MAX_FACES } = await import(pathToFileURL(people
 const liveCopy = path.join(tmp, 'space-live.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-live.js'), liveCopy);
 const { peopleFromPresence, liveRetryDelay, liveStreamUrl } = await import(pathToFileURL(liveCopy).href);
+// Whether the conference may show (the call service, the environment's switch, the permission): Join the call runs it.
+const opensCopy = path.join(tmp, 'opens-with.mjs');
+fs.copyFileSync(path.join(ROOT, 'public/opens-with.js'), opensCopy);
+const { conferenceAllowed } = await import(pathToFileURL(opensCopy).href);
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
@@ -1066,8 +1070,8 @@ test('Join the call shows only out of the call, in the space, where the conferen
     s.home ? { id: 'lobby', isLobby: true } : null,
     s.entered !== false,
     Boolean(s.inCall),
-    ({ conferenceEnabled = true, permitted = false } = {}) => conferenceEnabled !== false && Boolean(permitted),
-    { conferenceEnabled: s.enabled !== false },
+    conferenceAllowed,
+    { conferenceEnabled: s.enabled !== false, callService: s.callService !== false },
     () => s.permitted !== false,
   );
   assert.equal(wanted({}), true, 'in a space (its live stream open), out of the call: shown');
@@ -1079,6 +1083,7 @@ test('Join the call shows only out of the call, in the space, where the conferen
   assert.equal(wanted({ home: true, inCall: true }), false, 'in the call on Home: the button stays hidden, and the call bar keeps Leave and mute');
   assert.equal(wanted({ enabled: false }), false, 'the environment turned the conference off: hidden');
   assert.equal(wanted({ permitted: false }), false, 'may not see the conference: hidden');
+  assert.equal(wanted({ callService: false }), false, 'no call service on the server (no LiveKit keys): hidden, not greyed out');
   // A press shows the conference as its switch does and joins through the one join path; the bar draws again when the
   // call state changes.
   assert.match(space, /joinCallButton\.addEventListener\('click', \(\) => joinTheCall\(\)\);/);

@@ -1390,13 +1390,14 @@ function moduleCard(m, shape = 'full') {
 }
 
 // A built-in module's card (the conference, chat): not removable; the conference has a switch, chat is always on. On
-// the Configuration tab (`link`) the name of one with a tab opens it.
+// the Configuration tab (`link`) the name of one with a tab opens it. With no call service the server marks the
+// conference `unavailable` (the sentence to show): its switch is off and can't be turned on, and the card says why once.
 function builtinCard(b, { link = false } = {}) {
   const el = document.createElement('article');
   el.className = 'panel module-card';
   el.dataset.builtin = b.id;
   const name = escapeHtml(shownName(b));
-  const control = b.switchable ? enabledSwitch({ id: b.id, attr: 'data-builtin-toggle', name: shownName(b), on: b.enabled }) : '<span class="sdk-status" data-tone="ok">Always on</span>';
+  const control = b.switchable ? enabledSwitch({ id: b.id, attr: 'data-builtin-toggle', name: shownName(b), on: b.enabled && !b.unavailable, disabled: Boolean(b.unavailable) }) : '<span class="sdk-status" data-tone="ok">Always on</span>';
   el.innerHTML = `
     <div class="module-head">
       <i class="fa-solid fa-${escapeHtml(shownIcon(b))} fa-fw module-icon" aria-hidden="true"></i>
@@ -1405,8 +1406,9 @@ function builtinCard(b, { link = false } = {}) {
       ${control}
     </div>
     <p>${escapeHtml(b.description)}</p>
+    ${b.unavailable ? `<p><span class="sdk-status" data-tone="warn">${escapeHtml(b.unavailable)}</span></p>` : ''}
     ${shownAsLink(b)}
-    <p class="hint">It comes with the server and can't be removed. Its permissions are on the Roles tab: ${escapeHtml(b.permissions)}.${b.switchable && b.needs ? ` ${escapeHtml(b.needs)}` : ''}</p>`;
+    <p class="hint">It comes with the server and can't be removed. Its permissions are on the Roles tab: ${escapeHtml(b.permissions)}.${b.switchable && b.needs && !b.unavailable ? ` ${escapeHtml(b.needs)}` : ''}</p>`;
   return el;
 }
 
@@ -1670,7 +1672,7 @@ const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : modu
 // under Available while it is off.
 // The AI service's entry under each filter: All and Configurable (it has its tab); Available while set up and off.
 const aiShownFor = (filter) => filter === 'all' || filter === 'configurable' || (filter === 'available' && aiCard.saved && !aiCard.on);
-const builtinsFor = (filter) => filter === 'all' ? builtinModules : filter === 'configurable' ? builtinModules.filter(builtinHasTab) : filter === 'available' ? builtinModules.filter((b) => b.switchable && !b.enabled) : [];
+const builtinsFor = (filter) => filter === 'all' ? builtinModules : filter === 'configurable' ? builtinModules.filter(builtinHasTab) : filter === 'available' ? builtinModules.filter((b) => b.switchable && !b.enabled && !b.unavailable) : [];
 function syncModuleFilters() {
   const updates = installedModules.filter((m) => hasUpdate(m.id)).length;
   for (const b of document.querySelectorAll('[data-module-filter]')) {

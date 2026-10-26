@@ -33,6 +33,7 @@ const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
+const { mergeCall, cleanAwayMessage } = require('./live');
 const destinations = require('./destinations');
 const { fetchPreview, fetchImage, cachedImage, PreviewError, calendarUrl } = require('./link-preview');
 const { findLink, readFields, CHAT_LINK_LIMITS } = require('./chat-links');
@@ -257,7 +258,8 @@ const geocodeCache = proxyFor('geocodeCache');
 const regionCutJobs = proxyFor('regionCutJobs');
 const moduleLimits = proxyFor('moduleLimits');
 const limiter = proxyFor('limiter');
-const presence = proxyFor('presence');
+const live = proxyFor('live');
+const liveEvents = proxyFor('liveEvents');
 const invites = proxyFor('invites');
 const inviteEvents = proxyFor('inviteEvents');
 const themeEvents = proxyFor('themeEvents');
@@ -3493,14 +3495,21 @@ app.patch('/api/users/:key/call-prefs', requireOwner, (req, res) => {
 // pages, who is in a call right now and in which space, and the spaces themselves (the ones the caller may join
 // marked). GET /api/presence answers it; POST /api/presence is a page's heartbeat.
 // Who is on the site right now, in a call or not: a page tells the server it is open every half minute
-// (POST /api/presence), and a person counts as present for a little longer than that. Held in memory, so it
-// starts empty when the server does and fills within half a minute.
-const PRESENT_MS = 75 * 1000;
-const isPresent = (key) => Date.now() - (presence.get(key) || 0) < PRESENT_MS;
+// (POST /api/presence), and a person counts as present for a little longer than that (server/live.js, SITE_MS), or
+// while a live stream of theirs is open. Held in memory, so it starts empty when the server does and fills within
+// half a minute.
+const isPresent = (key) => live.onSite(key);
 app.post('/api/presence', requireUser, (req, res) => {
-  presence.set(currentUser(req).key, Date.now());
+  live.beat(currentUser(req).key);
   res.json({ ok: true });
 });
+
+// Who is where, for GET /api/presence and GET /api/status: the live register (server/live.js), with the call service's
+// list merged in for who is on a call and their microphone and camera (mergeCall). key -> { key, name, space, call,
+// joinedAt, inCall, micOn, cameraOn }.
+async function whereEveryone() {
+  return mergeCall(live.places(), await participants());
+}
 
 // Asides (plan-names step 3 moved these from /api/table/*; step 8 gave them their own record, store.asides, and made
 // them the call only: no modules, chat, layout, pictures or settings). Each nudge to a page
@@ -3549,8 +3558,7 @@ function presenceViewer(req) {
 app.get('/api/presence', async (req, res) => {
   const viewer = presenceViewer(req);
   if (!viewer) return res.status(401).json({ error: 'sign in first' });
-  const online = await participants();
-  const byKey = new Map(online.map((p) => [p.key, p]));
+  const byKey = await whereEveryone();
   store.pruneAsides(byKey);
   const view = presenceView(viewer, {
     users: store.users,
@@ -3673,8 +3681,7 @@ app.post('/api/asides/return', requireUser, async (req, res) => {
 // Stream API (OBS pages and the Studio app) ---------------------------------
 
 app.get('/api/status', requireStream, async (req, res) => {
-  const online = await participants();
-  const byKey = new Map(online.map((p) => [p.key, p]));
+  const byKey = await whereEveryone();
   store.pruneAsides(byKey);
   res.json({
     ...branding(),
@@ -4486,21 +4493,30 @@ app.delete('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(false));
 // account gone or its password or second step changed) or a person taken out of the space ends the stream. Signing
 // out does not: it only clears the cookie in the browser, and an open stream already sent its session, so the page that
 // signs out closes its own stream by leaving, and the browser's other open tabs keep theirs until they are closed.
+// `permission` left out asks only whether they are in the space (the live stream: being there is the test).
 function chatAccess(req, spaceId, permission) {
+  const found = streamViewer(req);
+  if (found.error) return found;
+  const { who } = found;
+  const space = store.spaceById(spaceId);
+  if (!space) return { status: 404, error: `no such ${word('space')}` };
+  const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
+  if (!allowed) return { status: 403, error: `you are not in that ${word('space')}` };
+  if (!permission) return { who, space };
+  const perms = who.user ? store.spacePermissions(who.user.key, space.id) : store.roleSet('guest');
+  if (!perms[permission]) return { status: 403, error: 'your role cannot do that' };
+  return { who, space };
+}
+// Who reads a stream (the chat's, the live one): { who } (moduleViewer's), or { status: 401, error }. The access key
+// is for a module's keyed page, never the chat or the live stream: it answers as signed out (layoutSpaceFor does the same).
+function streamViewer(req) {
   const who = moduleViewer(req);
-  // The access key is for a module's keyed page, never the chat: it answers as signed out (layoutSpaceFor does the same).
   if (!who || who.keyed) {
     // A guest token that names no space (turned off, regenerated, never was) says so, rather than "sign in first".
     const deadLink = !who && typeof req.query.guest === 'string' && req.query.guest !== '';
     return { status: 401, error: deadLink ? `that ${word('guest')} link is off or wrong` : 'sign in first' };
   }
-  const space = store.spaceById(spaceId);
-  if (!space) return { status: 404, error: `no such ${word('space')}` };
-  const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
-  if (!allowed) return { status: 403, error: `you are not in that ${word('space')}` };
-  const perms = who.user ? store.spacePermissions(who.user.key, space.id) : store.roleSet('guest');
-  if (!perms[permission]) return { status: 403, error: 'your role cannot do that' };
-  return { who, space };
+  return { who };
 }
 function chatSpaceFor(req, res, permission) {
   const found = chatAccess(req, req.params.id, permission);
@@ -4569,77 +4585,244 @@ app.get('/api/spaces/:id/chat', (req, res) => {
   res.json({ messages: chatHistory.list(found.space.id, found.who.user ? found.who.user.key : null), clearedAt: chatHistory.clearedAt(found.space.id) });
 });
 
+// A server-sent stream (the chat's, the live one): the caps, the headers, the ping, the access asked again, and the
+// counts given back when it ends, in one place. `keys` are what it counts under (chatStreamKeys) and `what` names it in
+// a 429's sentence ("chat streams"). `on` is [[emitter, event, fn], ...]: each fn is called as fn(stream, ...args) in
+// this request's environment while the stream is open. `recheck()` answers null while the access holds, else the last
+// event to send before the stream ends. `start(stream)` runs once it is listening; `end()` once it has ended, however.
+// `numbered` puts an `id:` line on each event. Answers the stream, or null when it answered 429.
+//   stream.send(data): one default `message` event whose data is JSON;
+//   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends.
+const STREAM_RECHECK_MS = 2000;
+const STREAM_PING_MS = 25000;
+function eventStream(req, res, { keys, what, numbered = false, on = [], recheck, start, end }) {
+  const full = keys.find(([key, most]) => (chatStreamsOpen.get(key) || 0) >= most);
+  if (full) {
+    const said = full === keys[0]
+      ? `you have too many ${what} open (${full[1]} at most); close one and try again`
+      : `this ${word('guest')} link has too many ${what} open (${full[1]} at most); close one and try again`;
+    res.status(429).json({ error: said });
+    return null;
+  }
+  for (const [key] of keys) chatStreamsOpen.set(key, (chatStreamsOpen.get(key) || 0) + 1);
+  const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  res.write('retry: 5000\n\n');
+  let ended = false;
+  let beat = null;
+  let again = null;
+  let next = 0;
+  const stream = {
+    get ended() { return ended; },
+    send(data) {
+      if (ended) return;
+      try {
+        next += 1;
+        res.write(`${numbered ? `id: ${next}\n` : ''}data: ${JSON.stringify(data)}\n\n`);
+      } catch {
+        // already gone; the close handler cleans up
+      }
+    },
+    check() {
+      if (ended) return false;
+      const last = recheck();
+      if (!last) return true;
+      stream.send(last);
+      try {
+        res.end();
+      } catch {
+        // already gone
+      }
+      cleanup();
+      return false;
+    },
+  };
+  const bound = on.map(([emitter, event, fn]) => [emitter, event, listenIn(env, (...args) => { if (!ended) fn(stream, ...args); })]);
+  function cleanup() {
+    if (ended) return;
+    ended = true;
+    clearInterval(beat);
+    clearInterval(again);
+    for (const [emitter, event, fn] of bound) emitter.off(event, fn);
+    for (const [key] of keys) {
+      const left = (chatStreamsOpen.get(key) || 1) - 1;
+      if (left > 0) chatStreamsOpen.set(key, left);
+      else chatStreamsOpen.delete(key);
+    }
+    if (end) end();
+  }
+  for (const [emitter, event, fn] of bound) emitter.on(event, fn);
+  if (start) start(stream);
+  beat = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* gone */ } }, STREAM_PING_MS);
+  again = setInterval(() => envContext.run(env, () => stream.check()), STREAM_RECHECK_MS);
+  req.on('close', () => envContext.run(env, cleanup));
+  return stream;
+}
+
 // A server-sent stream of what happens to a space's public chat, so a page that is not in the space's call (Home's
 // chat, over the Lobby's) hears it live. Same rules as reading the chat. Each event is one default `message` whose
 // data is what tellChat sends, as { type, ... }: chat (a new public message, as stored), chat-delete, chat-clear,
 // chat-clear-some, chat-visibility, chat-preview, chat-kept. A private message is never sent. { type: 'ready' } comes
 // first, once the stream is listening, so a page reads the history after it (nothing is replayed on a reconnect).
 // A space's guest reads it with ?guest=<token> (GitHub #289). The access is asked again before each event, every
-// CHAT_STREAM_RECHECK_MS, and at once when a guest link changes (chatAccessChanged): once it no longer holds (the guest
+// STREAM_RECHECK_MS, and at once when a guest link changes (chatAccessChanged): once it no longer holds (the guest
 // link turned off or regenerated, the session no longer reads -- see chatAccess: signing out is not that -- the person
 // taken out of the space), a last { type: 'closed', error } is sent and the stream ends. Too many open at once
 // (chatStreamKeys) answers 429.
-const CHAT_STREAM_RECHECK_MS = 2000;
 app.get('/api/spaces/:id/chat/stream', (req, res) => {
   const found = chatSpaceFor(req, res, 'chatRead');
   if (!found) return;
-  const keys = chatStreamKeys(req, found.who);
-  const full = keys.find(([key, most]) => (chatStreamsOpen.get(key) || 0) >= most);
-  if (full) {
-    const said = full === keys[0]
-      ? `you have too many chat streams open (${full[1]} at most); close one and try again`
-      : `this ${word('guest')} link has too many chat streams open (${full[1]} at most); close one and try again`;
-    return res.status(429).json({ error: said });
-  }
-  for (const [key] of keys) chatStreamsOpen.set(key, (chatStreamsOpen.get(key) || 0) + 1);
-  const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
   const spaceId = found.space.id;
-  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-  res.flushHeaders();
-  res.write('retry: 5000\n\n');
-  let ended = false;
-  let beat = null;
-  let recheck = null;
-  const onChat = listenIn(env, (id, data) => {
-    if (id !== spaceId || !stillAllowed()) return;
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  eventStream(req, res, {
+    keys: chatStreamKeys(req, found.who),
+    what: 'chat streams',
+    on: [
+      [chatEvents, 'chat', (stream, id, data) => { if (id === spaceId && stream.check()) stream.send(data); }],
+      [chatEvents, 'access', (stream) => stream.check()],
+    ],
+    // Asked in this request's environment; the cached person is dropped first, so a session that no longer reads is seen.
+    recheck: () => {
+      req._user = undefined;
+      const now = chatAccess(req, spaceId, 'chatRead');
+      if (!now.error && Boolean(now.who.user) === Boolean(found.who.user)) return null;
+      return { type: 'closed', error: now.error || 'sign in first' };
+    },
+    start: (stream) => stream.send({ type: 'ready' }),
   });
-  const onAccess = listenIn(env, () => stillAllowed());
-  const cleanup = () => {
-    if (ended) return;
-    ended = true;
-    clearInterval(beat);
-    clearInterval(recheck);
-    chatEvents.off('chat', onChat);
-    chatEvents.off('access', onAccess);
-    for (const [key] of keys) {
-      const left = (chatStreamsOpen.get(key) || 1) - 1;
-      if (left > 0) chatStreamsOpen.set(key, left);
-      else chatStreamsOpen.delete(key);
-    }
-  };
-  // Asked in this request's environment; the cached person is dropped first, so a session that no longer reads is seen.
-  function stillAllowed() {
-    if (ended) return false;
-    req._user = undefined;
-    const now = chatAccess(req, spaceId, 'chatRead');
-    if (!now.error && Boolean(now.who.user) === Boolean(found.who.user)) return true;
-    const error = now.error || 'sign in first';
-    try {
-      res.write(`data: ${JSON.stringify({ type: 'closed', error })}\n\n`);
-      res.end();
-    } catch {
-      // already gone
-    }
-    cleanup();
-    return false;
+});
+
+// --- the live stream (plan-realtime-optional-livekit.md, step 1: presence) ------------------------------------------
+// Who may open GET /api/live (and say PATCH /api/spaces/:id/presence) for `spaceId`: { who, space, aside } or
+// { status, error }. A space: its members, owners and the admin, and its guests (chatAccess with no permission). An
+// aside: its members, owners and the admin; never a guest. No space (Home): anyone signed in.
+function liveAccess(req, spaceId) {
+  if (!spaceId) {
+    const found = streamViewer(req);
+    if (found.error) return found;
+    if (!found.who.user) return { status: 400, error: `say which ${word('space')} the live stream is for` };
+    return { who: found.who, space: null, aside: null };
   }
-  chatEvents.on('chat', onChat);
-  chatEvents.on('access', onAccess);
-  res.write(`data: ${JSON.stringify({ type: 'ready' })}\n\n`);
-  beat = setInterval(() => res.write(': ping\n\n'), 25000);
-  recheck = setInterval(() => envContext.run(env, () => stillAllowed()), CHAT_STREAM_RECHECK_MS);
-  req.on('close', () => envContext.run(env, cleanup));
+  const aside = store.asideById(spaceId);
+  if (!aside) {
+    const found = chatAccess(req, spaceId, null);
+    return found.error ? found : { ...found, aside: null };
+  }
+  const found = streamViewer(req);
+  if (found.error) return found;
+  const user = found.who.user;
+  if (!user || !(hasOwnerRights(user) || aside.members.includes(user.key))) return { status: 403, error: `you are not in that ${word('space')}` };
+  return { who: found.who, space: null, aside };
+}
+
+// The people in a space or an aside, as the live stream's presence event lists them (server/live.js, people()): a
+// person's name is read from their account now, so a rename shows at the next change.
+function livePeople(spaceId) {
+  return live.people(spaceId).map((p) => {
+    const u = p.guest ? null : store.userByKey(p.key);
+    return u ? { ...p, name: u.displayName } : p;
+  });
+}
+// Tell the live streams of these spaces (and asides) that who is there changed. Each sends its own list.
+function tellLivePresence(spaceIds) {
+  for (const id of new Set(spaceIds)) {
+    if (!id) continue;
+    try {
+      liveEvents.emit('presence', id);
+    } catch (err) {
+      console.error(`A live stream's listener failed: ${err.stack || err.message}`);
+    }
+  }
+}
+
+// GET /api/live: the live stream (server-sent events), one per space page. ?space= is a space's or an aside's id (left
+// out on Home); a guest adds ?guest=<their link's token> and ?name=<the name they gave>. Each event is a default
+// `message` with an `id:` line and data { type, ... }:
+//   ready     { you, space, stream }: first, once listening. `you` is the person's key or, for a guest, an id made for
+//             this stream; `stream` names this stream to PATCH /api/spaces/:id/presence.
+//   presence  { space, people: [{ key, name, guest, onCall, away, awayMessage }] }: everyone there, on connect and on
+//             every change (server/live.js).
+//   removed   { reason: 'access', error }: the access no longer holds (asked every STREAM_RECHECK_MS and at once on
+//             chatAccessChanged); then the stream ends.
+// The person is in the space while the stream is open and for the register's grace after (server/live.js). The caps are
+// the chat stream's, counted together with it (chatStreamKeys); too many answers 429.
+app.get('/api/live', (req, res) => {
+  const spaceId = typeof req.query.space === 'string' && req.query.space ? req.query.space : null;
+  const found = liveAccess(req, spaceId);
+  if (found.error) return res.status(found.status).json({ error: found.error });
+  const guest = !found.who.user;
+  const you = guest ? `guest-${randomToken(8)}` : found.who.user.key;
+  const name = guest ? cleanText(req.query.name, 40) || word('guest') : found.who.user.displayName;
+  const env = currentEnvironment();
+  let streamId = null;
+  eventStream(req, res, {
+    keys: chatStreamKeys(req, found.who),
+    what: 'live streams',
+    numbered: true,
+    on: [
+      [liveEvents, 'presence', (stream, id) => {
+        if (id === spaceId && stream.check()) stream.send({ type: 'presence', space: spaceId, people: livePeople(spaceId) });
+      }],
+      [chatEvents, 'access', (stream) => stream.check()],
+    ],
+    recheck: () => {
+      req._user = undefined;
+      const now = liveAccess(req, spaceId);
+      if (!now.error && (guest ? !now.who.user : now.who.user?.key === you)) return null;
+      return { type: 'removed', reason: 'access', error: now.error || 'sign in first' };
+    },
+    start: (stream) => {
+      const before = live.placeOf(you)?.space;
+      streamId = live.open({ who: you, name, guest, space: spaceId });
+      stream.send({ type: 'ready', you, space: spaceId, stream: streamId });
+      tellLivePresence([before, spaceId]);
+    },
+    end: () => {
+      const before = live.placeOf(you)?.space;
+      const closed = live.close(streamId);
+      if (!closed) return;
+      tellLivePresence([before, closed.space, live.placeOf(you)?.space]);
+      // When the grace runs out, the person leaves the space: the streams there are told.
+      if (closed.until) {
+        setTimeout(() => envContext.run(env, () => tellLivePresence([closed.space])), Math.max(0, closed.until - Date.now()) + 50).unref();
+      }
+    },
+  });
+});
+
+// PATCH /api/spaces/:id/presence { away?, awayMessage?, onCall?, stream? }: the page's word about the person in a space
+// or an aside (the live stream's access). `awayMessage` is trimmed to 200 characters; turning away off clears it unless
+// one is sent. `onCall` goes on the stream named by `stream` (the id from `ready`), or on every live stream of theirs
+// there; it goes when that stream closes. A guest names their `stream` (?guest= as on the stream). Answers { ok: true }
+// and sends presence to the space when something changed; 409 when they have no live stream open there.
+app.patch('/api/spaces/:id/presence', (req, res) => {
+  const found = liveAccess(req, req.params.id);
+  if (found.error) return res.status(found.status).json({ error: found.error });
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const patch = {};
+  for (const field of ['away', 'onCall']) {
+    if (body[field] === undefined) continue;
+    if (typeof body[field] !== 'boolean') return res.status(400).json({ error: `${field} must be true or false` });
+    patch[field] = body[field];
+  }
+  if (body.awayMessage !== undefined) {
+    if (typeof body.awayMessage !== 'string') return res.status(400).json({ error: 'awayMessage must be text' });
+    patch.awayMessage = cleanAwayMessage(body.awayMessage);
+  }
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'say away, awayMessage or onCall' });
+  if (body.stream !== undefined && typeof body.stream !== 'string') return res.status(400).json({ error: 'stream must be the id the live stream gave' });
+  let who;
+  if (found.who.user) {
+    who = found.who.user.key;
+  } else {
+    const entry = typeof body.stream === 'string' ? live.stream(body.stream) : null;
+    if (!entry || !entry.guest || entry.space !== req.params.id) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
+    who = entry.who;
+  }
+  const changed = live.set(who, req.params.id, patch, body.stream || null);
+  if (changed === null) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
+  if (changed) tellLivePresence([req.params.id]);
+  res.json({ ok: true });
 });
 // Something that changes who may read a chat happened (a guest link turned off or regenerated, a space changed or
 // deleted): every open stream in this environment asks again now rather than at its next recheck.

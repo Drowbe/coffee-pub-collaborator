@@ -130,6 +130,13 @@ const {
   // The most a chat picture may weigh, in MB (POST /api/spaces/:id/chat/pictures: relayed live, never stored). Not a
   // number above 0: 3.
   CHAT_PICTURE_MAX_MB = '',
+  // How many MB of chat pictures one person (a guest: one guest link) may send in a minute (default 20). Not a number
+  // above 0: the default.
+  CHAT_PICTURE_MB_PER_MINUTE = '',
+  // How far, in MB, a reader of a server-sent stream (the live stream, notifications, a module's changes) may fall
+  // behind before the server drops that stream (default 8): its page reconnects and catches up, and nothing piles up in
+  // the server's memory for a reader that stopped reading. Not a number above 0: the default.
+  LIVE_STREAM_BUFFER_MB = '',
   // How many reverse proxies stand in front of the server (default 1, the usual one). The address a request came from
   // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
   // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
@@ -147,6 +154,28 @@ const REMOVED_CONFIG_NAMES = [['ADMIN_USER', 'ADMIN_LOGIN'], ['TAVERN_ADMIN_USER
 for (const [old, now] of REMOVED_CONFIG_NAMES) if (process.env[old]) console.warn(`${old} is no longer read: use ${now} instead.`);
 if (OWNER_PASSWORD) console.warn("OWNER_PASSWORD is ignored: owners are made in Manage. Use ADMIN_PASSWORD for the server's admin.");
 const adminLogin = ADMIN_LOGIN || 'admin';
+
+// --- writing to a server-sent stream ---------------------------------------------------------------------------------
+// Every stream is written through sseWrite: a reader more than LIVE_STREAM_BUFFER_MB behind (a page that stopped
+// reading, a stalled connection) is dropped rather than queued for, so a slow or hostile reader can't fill the server's
+// memory. Its page reconnects and catches up (the live stream's `ready`, then the chat's history).
+const liveStreamBufferBytes = (() => {
+  const mb = Number(LIVE_STREAM_BUFFER_MB);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 8) * 1024 * 1024);
+})();
+// Writes the chunks (text or Buffers) to `res`, or drops the stream when they would put it over the limit: true when
+// written. A Buffer handed to many streams is shared, never copied per stream.
+function sseWrite(res, ...chunks) {
+  if (res.destroyed || res.writableEnded) return false;
+  let size = 0;
+  for (const c of chunks) size += typeof c === 'string' ? Buffer.byteLength(c) : c.length;
+  if (res.writableLength + size > liveStreamBufferBytes) {
+    res.destroy();
+    return false;
+  }
+  for (const c of chunks) res.write(c);
+  return true;
+}
 const adminPassword = ADMIN_PASSWORD;
 const aiKeyFromEnv = AI_KEY || TAVERN_AI_KEY;
 // The environment a single-environment install moves into on its first start with BASE_DOMAIN (plan-names decision 15).
@@ -2629,14 +2658,14 @@ hostRouter.get('/api/host/shared/:module/:folder/region-cut/:jobId/stream', requ
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
   if (job.status !== 'running') {
-    res.write(`event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
+    sseWrite(res, `event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
     return res.end();
   }
   const { jobId } = req.params;
   const cleanup = () => { sharedRegionCutJobs.off('progress', onProgress); sharedRegionCutJobs.off('done', onDone); sharedRegionCutJobs.off('error', onErr); };
-  const onProgress = (id, p) => { if (id === jobId) res.write(`event: progress\ndata: ${JSON.stringify(p)}\n\n`); };
-  const onDone = (id, d) => { if (id !== jobId) return; res.write(`event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); };
-  const onErr = (id, error) => { if (id !== jobId) return; res.write(`event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); };
+  const onProgress = (id, p) => { if (id === jobId) sseWrite(res, `event: progress\ndata: ${JSON.stringify(p)}\n\n`); };
+  const onDone = (id, d) => { if (id !== jobId) return; sseWrite(res, `event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); };
+  const onErr = (id, error) => { if (id !== jobId) return; sseWrite(res, `event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); };
   sharedRegionCutJobs.on('progress', onProgress);
   sharedRegionCutJobs.on('done', onDone);
   sharedRegionCutJobs.on('error', onErr);
@@ -4634,12 +4663,23 @@ app.get('/api/spaces/:id/chat', (req, res) => {
 // sentence ("live streams"). `on` is [[emitter, event, fn], ...]: each fn is called as fn(stream, ...args) in
 // this request's environment while the stream is open. `recheck()` answers null while the access holds, else the last
 // event to send before the stream ends. `start(stream)` runs once it is listening; `end()` once it has ended, however.
-// Each event has an `id:` line. Answers the stream, or null when it answered 429.
-//   stream.send(data): one default `message` event whose data is JSON;
+// Each event has an `id:` line. Answers the stream, or null when it answered 429. Written through sseWrite: a reader
+// LIVE_STREAM_BUFFER_MB behind is dropped (its page reconnects), never queued for.
+//   stream.send(data): one default `message` event whose data is JSON; the same `data` object sent to many streams is
+//     made into bytes once and shared (a chat picture is never copied per reader);
 //   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends;
 //   stream.close(last): sends `last` (when given) and ends it.
 const STREAM_RECHECK_MS = 2000;
 const STREAM_PING_MS = 25000;
+const streamBytes = new WeakMap(); // an event's data object -> its `data:` lines as one Buffer
+function streamEventBytes(data) {
+  let bytes = streamBytes.get(data);
+  if (!bytes) {
+    bytes = Buffer.from(`data: ${JSON.stringify(data)}\n\n`);
+    streamBytes.set(data, bytes);
+  }
+  return bytes;
+}
 function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
   const full = keys.find(([key, most]) => (liveStreamsOpen.get(key) || 0) >= most);
   if (full) {
@@ -4653,21 +4693,22 @@ function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
   const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 5000\n\n');
+  sseWrite(res, 'retry: 5000\n\n');
   let ended = false;
   let beat = null;
   let again = null;
   let next = 0;
+  // A write that did not go: the reader fell too far behind (sseWrite dropped it) or is gone. Either way it ends now.
+  const wrote = (done) => {
+    if (!done) envContext.run(env, cleanup);
+    return done;
+  };
   const stream = {
     get ended() { return ended; },
     send(data) {
       if (ended) return;
-      try {
-        next += 1;
-        res.write(`id: ${next}\ndata: ${JSON.stringify(data)}\n\n`);
-      } catch {
-        // already gone; the close handler cleans up
-      }
+      next += 1;
+      wrote(sseWrite(res, `id: ${next}\n`, typeof data === 'object' && data ? streamEventBytes(data) : `data: ${JSON.stringify(data)}\n\n`));
     },
     check() {
       if (ended) return false;
@@ -4704,7 +4745,7 @@ function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
   for (const [emitter, event, fn] of bound) emitter.on(event, fn);
   if (start) start(stream);
   if (ended) return stream; // start() ended it (a kick kept for this person)
-  beat = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* gone */ } }, STREAM_PING_MS);
+  beat = setInterval(() => wrote(sseWrite(res, ': ping\n\n')), STREAM_PING_MS);
   again = setInterval(() => envContext.run(env, () => stream.check()), STREAM_RECHECK_MS);
   req.on('close', () => envContext.run(env, cleanup));
   return stream;
@@ -4812,7 +4853,7 @@ app.get('/api/live', (req, res) => {
       [liveEvents, 'chat', (stream, id, data) => {
         if (id !== spaceId && id !== LOBBY) return;
         if (!stream.check() || chatAccess(req, id, 'chatRead').error) return;
-        stream.send({ ...data, space: id });
+        stream.send(data); // one object for every reader (tellChat), so its bytes are made once and shared
       }],
       [liveEvents, 'access', (stream) => stream.check()],
       [liveEvents, 'nudge', (stream, who, space, data) => {
@@ -4912,7 +4953,7 @@ function chatModerator(who, space) {
 // visit reads. Never told for a private message.
 function tellChat(spaceId, data) {
   try {
-    liveEvents.emit('chat', spaceId, data);
+    liveEvents.emit('chat', spaceId, { ...data, space: spaceId });
   } catch (err) {
     console.error(`A live stream's listener failed: ${err.stack || err.message}`);
   }
@@ -5102,23 +5143,68 @@ function keepChatPicture(id, record) {
   chatPictures.set(id, record);
 }
 
+// How many bytes of pictures one sender (a person, or a guest link) may send in a minute: CHAT_PICTURE_MB_PER_MINUTE.
+const chatPictureBytesPerMinute = (() => {
+  const mb = Number(CHAT_PICTURE_MB_PER_MINUTE);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 20) * 1024 * 1024);
+})();
+const chatPictureSent = new Map(); // `${slug}|${sender}` -> [[at, bytes], ...] in the last minute
+// The seconds until `sender` may send `bytes` more, or 0 when they may now.
+function chatPictureWait(sender, bytes) {
+  const key = `${chatSlug()}|${sender}`;
+  const now = Date.now();
+  const recent = (chatPictureSent.get(key) || []).filter(([at]) => now - at < 60000);
+  if (recent.length) chatPictureSent.set(key, recent);
+  else chatPictureSent.delete(key);
+  let total = recent.reduce((sum, [, b]) => sum + b, 0) + bytes;
+  if (total <= chatPictureBytesPerMinute) return 0;
+  for (const [at, b] of recent) { // the oldest go first: wait until enough of them have
+    total -= b;
+    if (total <= chatPictureBytesPerMinute) return Math.max(1, Math.ceil((at + 60000 - now) / 1000));
+  }
+  return 60;
+}
+function countChatPicture(sender, bytes) {
+  const key = `${chatSlug()}|${sender}`;
+  chatPictureSent.set(key, [...(chatPictureSent.get(key) || []), [Date.now(), bytes]]);
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, sent] of chatPictureSent) if (!sent.some(([at]) => now - at < 60000)) chatPictureSent.delete(key);
+}, 60000).unref();
+const tooManyPictures = (res, wait) => res.status(429).set('Retry-After', String(wait)).json({ error: 'too many pictures, wait a moment' });
+
 // POST /api/spaces/:id/chat/pictures?file=<its name>[&guest=<token>&name=<the guest's name>], the picture's bytes as the
 // body with its type (PNG, JPEG, GIF or WebP): sent at once to the live streams that may read this chat as
 // { type: 'chat-picture', space, id, by, who, file, mime, data (base64), at }, and answers { id }. Needs "send pictures";
-// counted as a chat post (the same limits, a guest's too).
-app.post('/api/spaces/:id/chat/pictures', rawChatPicture, (req, res) => {
+// counted as a chat post (the same limits, a guest's too), and under CHAT_PICTURE_MB_PER_MINUTE (429). Not in Home's
+// chat (the Lobby: 403). Who may send, Home, the size the request says (Content-Length, 413) and the picture limit are
+// all asked before the body is read.
+function chatPictureFirst(req, res, next) {
   const found = chatSpaceFor(req, res, 'sendPictures');
   if (!found) return;
-  const { who, space } = found;
+  if (found.space.id === LOBBY) return res.status(403).json({ error: `pictures can only be sent in a ${word('space')}'s chat` });
+  const declared = Number(req.get('content-length'));
+  if (Number.isFinite(declared) && declared > chatPictureMaxBytes) return res.status(413).json({ error: `that picture is over ${chatPictureMaxSaid}` });
+  req.chatPicture = { ...found, sender: found.who.user ? `person|${found.who.user.key}` : `link|${req.query.guest}` };
+  const wait = chatPictureWait(req.chatPicture.sender, Number.isFinite(declared) ? declared : 0);
+  if (wait) return tooManyPictures(res, wait);
+  next();
+}
+app.post('/api/spaces/:id/chat/pictures', chatPictureFirst, rawChatPicture, (req, res) => {
+  const { who, space, sender } = req.chatPicture;
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(415).json({ error: 'send a PNG, JPEG, GIF or WebP picture' });
   const mime = chatPictureType(req.body);
   if (!mime || mime !== req.get('content-type')?.split(';')[0].trim().toLowerCase()) return res.status(415).json({ error: 'that is not a PNG, JPEG, GIF or WebP picture' });
+  const wait = chatPictureWait(sender, req.body.length);
+  if (wait) return tooManyPictures(res, wait);
   if (!who.user) {
     const slug = chatSlug();
-    const { wait } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
-    if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: `too many messages; try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}` });
+    const { wait: guestWait } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
+    if (guestWait) return res.status(429).set('Retry-After', String(guestWait)).json({ error: `too many messages; try again in ${guestWait} ${guestWait === 1 ? 'second' : 'seconds'}` });
   }
   if (chatPostLimited(who.user ? who.user.key : `guest:${space.id}`)) return res.status(429).json({ error: 'too many messages, slow down' });
+  countChatPicture(sender, req.body.length);
   const id = crypto.randomBytes(6).toString('hex');
   const by = who.user ? who.user.key : 'guest';
   const at = Date.now();
@@ -7734,18 +7820,18 @@ app.get('/api/modules/:id/region-cut/:jobId/stream', requireOwner, (req, res) =>
   if (!job) return res.status(404).json({ error: 'that cut is not running (it may have finished a while ago)' });
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 3000\n\n');
-  res.write(`event: progress\ndata: ${JSON.stringify({ percent: job.percent, message: job.message })}\n\n`);
+  sseWrite(res, 'retry: 3000\n\n');
+  sseWrite(res, `event: progress\ndata: ${JSON.stringify({ percent: job.percent, message: job.message })}\n\n`);
   if (job.status !== 'running') {
-    res.write(`event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
+    sseWrite(res, `event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
     return res.end();
   }
   const { jobId } = req.params;
   const cleanup = () => { regionCutJobs.off('progress', onProgress); regionCutJobs.off('done', onDone); regionCutJobs.off('error', onErr); };
   // Told from the cutting process, outside this request: cleanup() reads this environment's jobs (listenIn).
-  const onProgress = listenIn(env, (id, p) => { if (id === jobId) res.write(`event: progress\ndata: ${JSON.stringify(p)}\n\n`); });
-  const onDone = listenIn(env, (id, d) => { if (id !== jobId) return; res.write(`event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); });
-  const onErr = listenIn(env, (id, error) => { if (id !== jobId) return; res.write(`event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); });
+  const onProgress = listenIn(env, (id, p) => { if (id === jobId) sseWrite(res, `event: progress\ndata: ${JSON.stringify(p)}\n\n`); });
+  const onDone = listenIn(env, (id, d) => { if (id !== jobId) return; sseWrite(res, `event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); });
+  const onErr = listenIn(env, (id, error) => { if (id !== jobId) return; sseWrite(res, `event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); });
   regionCutJobs.on('progress', onProgress);
   regionCutJobs.on('done', onDone);
   regionCutJobs.on('error', onErr);
@@ -8407,24 +8493,24 @@ app.get('/api/notifications/stream', requireUser, (req, res) => {
   const key = currentUser(req).key;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 5000\n\n');
+  sseWrite(res, 'retry: 5000\n\n');
   const onNote = listenIn(env, ({ userKey, notification }) => {
     if (userKey !== key || (notification.module !== HOST_SOURCE && !modules.enabled(notification.module))) return;
-    res.write(`event: notification\ndata: ${JSON.stringify({ ...notification, ...sourceOf(notification.module) })}\n\n`);
+    sseWrite(res, `event: notification\ndata: ${JSON.stringify({ ...notification, ...sourceOf(notification.module) })}\n\n`);
   });
   moduleHooks.on('notification', onNote);
   const onInvite = listenIn(env, (invite) => {
     if (invite.to !== key || Date.now() - invite.at > INVITE_MS) return;
-    res.write(`event: invite\ndata: ${JSON.stringify({ id: invite.id, spaceId: invite.spaceId, fromName: invite.fromName })}\n\n`);
+    sseWrite(res, `event: invite\ndata: ${JSON.stringify({ id: invite.id, spaceId: invite.spaceId, fromName: invite.fromName })}\n\n`);
   });
   inviteEvents.on('invite', onInvite);
   // GitHub #62: the owner's theme changed (everyone re-fetches /theme.css), or this person picked light or dark on
   // another page or device (this page sets <html data-theme-mode> to match).
-  const onTheme = listenIn(env, (t) => res.write(`event: theme\ndata: ${JSON.stringify(t)}\n\n`));
-  const onMode = listenIn(env, ({ userKey, themeMode }) => { if (userKey === key) res.write(`event: mode\ndata: ${JSON.stringify({ themeMode })}\n\n`); });
+  const onTheme = listenIn(env, (t) => sseWrite(res, `event: theme\ndata: ${JSON.stringify(t)}\n\n`));
+  const onMode = listenIn(env, ({ userKey, themeMode }) => { if (userKey === key) sseWrite(res, `event: mode\ndata: ${JSON.stringify({ themeMode })}\n\n`); });
   themeEvents.on('theme', onTheme);
   themeEvents.on('mode', onMode);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  const beat = setInterval(() => sseWrite(res, ': ping\n\n'), 25000);
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleHooks.off('notification', onNote);
@@ -8449,7 +8535,7 @@ app.get('/api/modules/stream', (req, res) => {
   if (req.query.space && !space) return res.status(404).json({ error: `no such ${word('space')}` });
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 3000\n\n');
+  sseWrite(res, 'retry: 3000\n\n');
   // Where a change belongs for this viewer, or null if they may not see it.
   const place = (moduleId, scopeKey) => {
     const found = modules.enabled(moduleId);
@@ -8473,17 +8559,17 @@ app.get('/api/modules/stream', (req, res) => {
   };
   const onChange = listenIn(env, (change) => {
     const at = place(change.module, change.scopeKey);
-    if (at) res.write(`event: change\ndata: ${JSON.stringify({ ...change, ...at })}\n\n`);
+    if (at) sseWrite(res, `event: change\ndata: ${JSON.stringify({ ...change, ...at })}\n\n`);
   });
   const onFire = listenIn(env, (fire) => {
     const at = place(fire.module, fire.scopeKey);
-    if (at && at.scope !== 'spaces') res.write(`event: schedule\ndata: ${JSON.stringify({ module: fire.module, key: fire.key, payload: fire.payload, ...at })}\n\n`);
+    if (at && at.scope !== 'spaces') sseWrite(res, `event: schedule\ndata: ${JSON.stringify({ module: fire.module, key: fire.key, payload: fire.payload, ...at })}\n\n`);
   });
   // What points at (or from) an item changed: only the pointers go, and the module asks again for what it may see.
   const onLinks = listenIn(env, ({ refs }) => {
     for (const ref of refs) {
       const at = place(ref.module, refScopeKey(ref));
-      if (at) res.write(`event: links\ndata: ${JSON.stringify({ module: ref.module, ref, ...at })}\n\n`);
+      if (at) sseWrite(res, `event: links\ndata: ${JSON.stringify({ module: ref.module, ref, ...at })}\n\n`);
     }
   });
   // A module said something happened: sent to every module here that may hear it (the host delivers it to those frames).
@@ -8491,13 +8577,13 @@ app.get('/api/modules/stream', (req, res) => {
     const at = place(ev.module, ev.scopeKey);
     if (!at) return;
     const subscribers = modules.enabledAll().filter((m) => m.manifest.id !== ev.module && mayHear(m, ev.module, ev.name) && place(m.manifest.id, ev.scopeKey)).map((m) => m.manifest.id);
-    if (subscribers.length) res.write(`event: bus\ndata: ${JSON.stringify({ ...publicEvent(ev), scope: at.scope, subscribers })}\n\n`);
+    if (subscribers.length) sseWrite(res, `event: bus\ndata: ${JSON.stringify({ ...publicEvent(ev), scope: at.scope, subscribers })}\n\n`);
   });
   // A request for a module to do something: the providing module's frames are told; one claims it.
   const onAction = listenIn(env, (r) => {
     if (r.local && r.by !== (who.user?.key || 'guest')) return; // a view is for the person who asked
     const at = place(r.provider, r.scopeKey);
-    if (at) res.write(`event: action\ndata: ${JSON.stringify({ ...publicAction(r), provider: r.provider, scope: at.scope })}\n\n`);
+    if (at) sseWrite(res, `event: action\ndata: ${JSON.stringify({ ...publicAction(r), provider: r.provider, scope: at.scope })}\n\n`);
   });
   // A setting of a module changed: its pages here read their values again.
   // The person's other calendars changed on a read (plan-google-calendar.md, Part 2): only their own streams hear it,
@@ -8506,13 +8592,13 @@ app.get('/api/modules/stream', (req, res) => {
   const onExternal = listenIn(env, ({ userKey }) => {
     if (!who.user || userKey !== who.user.key || !store.otherCalendarsOn()) return;
     const hearing = externalModules().map(({ manifest }) => manifest.id);
-    if (hearing.length) res.write(`event: external\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
+    if (hearing.length) sseWrite(res, `event: external\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
   });
   externalCalendars.on('change', onExternal);
   const onSettings = listenIn(env, (c) => {
     if (c.scope === 'person' && c.userKey !== who.user?.key) return;
     if (c.scope === 'space' && !(space && space.id === c.spaceId) && !(who.user && store.spaceById(c.spaceId)?.members.includes(who.user.key))) return;
-    res.write(`event: settings\ndata: ${JSON.stringify({ module: c.module, scope: c.scope, spaceId: c.spaceId })}\n\n`);
+    sseWrite(res, `event: settings\ndata: ${JSON.stringify({ module: c.module, scope: c.scope, spaceId: c.spaceId })}\n\n`);
   });
   moduleSettings.on('change', onSettings);
   // An object of a marker kind was written or deleted where this viewer reads it (plan-calendar-markers.md): the
@@ -8527,7 +8613,7 @@ app.get('/api/modules/stream', (req, res) => {
     const hearing = modules.enabledAll()
       .filter((m) => m.manifest.id !== change.module && consumerMayLink(m, change.module, kind.kind) && place(m.manifest.id, change.scopeKey))
       .map((m) => m.manifest.id);
-    if (hearing.length) res.write(`event: markers\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
+    if (hearing.length) sseWrite(res, `event: markers\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
   });
   moduleData.on('change', onMarkers);
   moduleData.on('change', onChange);
@@ -8539,13 +8625,13 @@ app.get('/api/modules/stream', (req, res) => {
       const at = place(holder.module, refScopeKey(holder));
       if (at && !hearing.includes(holder.module)) hearing.push(holder.module);
     }
-    if (hearing.length) res.write(`event: refchange\ndata: ${JSON.stringify({ ref: ev.ref, change: ev.change, modules: hearing })}\n\n`);
+    if (hearing.length) sseWrite(res, `event: refchange\ndata: ${JSON.stringify({ ref: ev.ref, change: ev.change, modules: hearing })}\n\n`);
   });
   moduleLinks.on('change', onLinks);
   objectSync.on('refchange', onRefChange);
   moduleBus.on('event', onBus);
   moduleBus.on('action', onAction);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  const beat = setInterval(() => sseWrite(res, ': ping\n\n'), 25000);
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleSettings.off('change', onSettings);
@@ -8570,24 +8656,24 @@ app.get('/api/modules/:id/events', (req, res) => {
   const spaceIds = all ? new Set(all.spaces.map((r) => r.id)) : null;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 3000\n\n');
+  sseWrite(res, 'retry: 3000\n\n');
   const onChange = listenIn(env, (change) => {
     if (change.module !== ctx.manifest.id) return;
     if (spaceIds) {
       const spaceId = change.scopeKey.startsWith('space:') ? change.scopeKey.slice(6) : null;
       if (!spaceIds.has(spaceId)) return;
-      return void res.write(`event: change\ndata: ${JSON.stringify({ ...change, spaceId })}\n\n`);
+      return void sseWrite(res, `event: change\ndata: ${JSON.stringify({ ...change, spaceId })}\n\n`);
     }
     if (change.scopeKey !== ctx.scopeKey) return;
-    res.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
+    sseWrite(res, `event: change\ndata: ${JSON.stringify(change)}\n\n`);
   });
   const onFire = listenIn(env, (fire) => {
     if (spaceIds || fire.module !== ctx.manifest.id || fire.scopeKey !== ctx.scopeKey) return;
-    res.write(`event: schedule\ndata: ${JSON.stringify({ key: fire.key, payload: fire.payload })}\n\n`);
+    sseWrite(res, `event: schedule\ndata: ${JSON.stringify({ key: fire.key, payload: fire.payload })}\n\n`);
   });
   moduleData.on('change', onChange);
   moduleHooks.on('fire', onFire);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  const beat = setInterval(() => sseWrite(res, ': ping\n\n'), 25000);
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleData.off('change', onChange);

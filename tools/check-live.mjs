@@ -19,7 +19,10 @@
  * private message never does; a reader without chatRead gets none; pictures are relayed live (type and size checked,
  * never stored, deleted and cleared by their sender); nothing is replayed on a reconnect; the guest limits on posts and
  * open streams (LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) hold, spoofed addresses change nothing, and a guest
- * link turned off or regenerated, or guests turned off, ends a guest's stream at once with `removed`.
+ * link turned off or regenerated, or guests turned off, ends a guest's stream at once with `removed`; Home's chat takes no
+ * pictures; signed out, a picture is refused before its body is read (401, not 413); CHAT_PICTURE_MB_PER_MINUTE holds.
+ * A reader that stops reading (on its own server): 20 stalled streams under 25 pictures of 3 MB keep the server's memory
+ * bounded, are dropped (LIVE_STREAM_BUFFER_MB), and a reader that reads still gets every picture.
  * Entering without LiveKit (step 5, Verify point 5), against a stand-in for the call service's API that answers nobody and
  * writes down every request: two people and a guest enter a space, say away, chat, read presence, move to another space
  * and Home, and leave, and the call service is never asked; it is asked once someone says they are on the call, and a
@@ -626,7 +629,7 @@ try {
 // proxy would, the rightmost X-Forwarded-For entry, and a client's own spoofed entries go to its left.
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40, 7)]);
 if (!failed) {
-  await startServer({ GUEST_CHAT_POSTS_PER_MINUTE: '10', LIVE_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '1', CHAT_PICTURE_MAX_MB: '0.01' });
+  await startServer({ GUEST_CHAT_POSTS_PER_MINUTE: '10', LIVE_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '1', CHAT_PICTURE_MAX_MB: '0.01', CHAT_PICTURE_MB_PER_MINUTE: '0.05' });
   try {
     const login = async (name, password) => {
       const r = await call('POST', '/api/login', { body: { login: name, password } });
@@ -758,6 +761,22 @@ if (!failed) {
     same((await call('DELETE', `${T}/messages?type=chat&scope=mine`, { cookie: patC })).status, 200);
     same((await samTrip.until((x) => x.type === 'chat-clear-some' && x.by === pat.key)).ids, [], 'clearing only pictures is told too (the pages take them by the rule)');
     same((await call('DELETE', `${T}/${pic2}`, { cookie: patC })).status, 404, 'and the cleared picture is gone');
+    // Not into Home's chat: refused before anything is told.
+    const homePic = await call('POST', '/api/spaces/lobby/chat/pictures', { cookie: patC, raw: PNG, type: 'image/png' });
+    same([homePic.status, homePic.json.error], [403, "pictures can only be sent in a space's chat"], "Home's chat takes no pictures: 403");
+    await quiet();
+    ok(!patHome.events.some((e) => e.type === 'chat-picture') && !bossHome.events.some((e) => e.type === 'chat-picture'), "and Home's streams hear none");
+    // Sign-in is asked before the body is read: signed out, an oversized picture is 401, not 413.
+    const outBig = await call('POST', P, { raw: Buffer.concat([PNG, Buffer.alloc(64 * 1024)]), type: 'image/png' });
+    same([outBig.status, outBig.json.error], [401, 'sign in first'], 'signed out, an oversized picture: 401 before its size');
+    same((await call('POST', P, { raw: PNG, type: 'image/png' })).status, 401, 'signed out, any picture: 401');
+    // The picture bytes a minute (CHAT_PICTURE_MB_PER_MINUTE=0.05 here, 50 KB): five 9 KB pictures, then 429.
+    const nine = Buffer.concat([PNG, Buffer.alloc(9 * 1024)]);
+    for (let i = 0; i < 5; i += 1) same((await call('POST', P, { cookie: samC, raw: nine, type: 'image/png' })).status, 200, `picture ${i + 1} of the minute`);
+    const tooMany = await call('POST', P, { cookie: samC, raw: nine, type: 'image/png' });
+    same([tooMany.status, tooMany.json.error], [429, 'too many pictures, wait a moment'], 'over the picture bytes a minute: 429');
+    ok(Number(tooMany.retryAfter) >= 1 && Number(tooMany.retryAfter) <= 60, `with Retry-After (${tooMany.retryAfter})`);
+    same((await call('POST', `${P}?file=small.png`, { cookie: patC, raw: PNG, type: 'image/png' })).status, 200, 'another person still sends');
 
     // --- a reconnect: nothing replayed, the history whole --------------------------------------------------------------
     patHome.close();
@@ -879,6 +898,74 @@ if (!failed) {
     failed = true;
     console.error(`FAIL ${err.stack || err}`);
   } finally {
+    for (const s of open.splice(0)) s.close();
+    await stopServer();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+// --- a reader that stops reading (QA of #376: no backpressure) --------------------------------------------------------
+// A server at the defaults that matter (CHAT_PICTURE_MAX_MB 3, LIVE_STREAM_BUFFER_MB 8), with the picture limit a minute
+// raised so the flood gets through, and LIVE_STREAMS_PER_PERSON=20 so the never-reading streams fill one person's places.
+// One person opens 20 live streams over raw sockets that never read; another posts 25 pictures of 3 MB. The server's
+// memory stays bounded (it was 2.6 GB before), the stalled streams are dropped (their places come free), and a reader
+// that reads gets every picture.
+if (!failed) {
+  await startServer({ CHAT_PICTURE_MB_PER_MINUTE: '1000', LIVE_STREAMS_PER_PERSON: '20' });
+  const sockets = [];
+  try {
+    const login = async (name, password) => (await call('POST', '/api/login', { body: { login: name, password } })).json.token;
+    const owner = await login('admin', 'testpass1234');
+    const mk = async (loginName, displayName) => (await call('POST', '/api/users', { cookie: owner, body: { login: loginName, displayName, role: 'member', password: 'memberpass1234' } })).json.user;
+    const slo = await mk('slo', 'Slo');
+    const rea = await mk('rea', 'Rea');
+    const sloC = await login('slo', 'memberpass1234');
+    const reaC = await login('rea', 'memberpass1234');
+    const keep = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Keep', members: [slo.key, rea.key] } })).json.space;
+    await call('PATCH', `/api/spaces/${keep.id}`, { cookie: owner, body: { members: [slo.key, rea.key] } });
+    const rss = () => Number(fs.readFileSync(`/proc/${child.pid}/status`, 'utf8').match(/VmRSS:\s+(\d+)/)?.[1] || 0) / 1024;
+    const hasProc = fs.existsSync(`/proc/${child.pid}/status`);
+    const reader = await openStream(`/api/live?space=${keep.id}`, reaC);
+    open.push(reader);
+    await reader.until((e) => e.type === 'ready');
+    const net = await import('node:net');
+    for (let i = 0; i < 20; i += 1) {
+      const s = net.connect(port, '127.0.0.1');
+      s.on('error', () => {});
+      s.write(`GET /api/live?space=${keep.id} HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: app_session=${sloC}\r\n\r\n`);
+      s.pause(); // never reads
+      sockets.push(s);
+    }
+    await quiet(800);
+    same((await openStream('/api/live', sloC)).status, 429, 'the 20 stalled streams hold all of their places');
+    const before = hasProc ? rss() : 0;
+    const big = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024 - 200)]);
+    const ids = [];
+    let peak = before;
+    for (let i = 0; i < 25; i += 1) {
+      const r = await call('POST', `/api/spaces/${keep.id}/chat/pictures`, { cookie: reaC, raw: big, type: 'image/png' });
+      same(r.status, 200, `picture ${i + 1} of 3 MB is taken: ${r.text}`);
+      ids.push(r.json.id);
+      if (hasProc) peak = Math.max(peak, rss());
+    }
+    for (const id of ids) await reader.until((e) => e.type === 'chat-picture' && e.id === id, 15000);
+    ok(true, 'a reader that reads gets every picture');
+    ok(reader.events.filter((e) => e.type === 'chat-picture').every((e) => Buffer.from(e.data, 'base64').length === big.length), 'whole');
+    if (hasProc) {
+      await quiet(500);
+      peak = Math.max(peak, rss());
+      ok(peak - before < 250, `the server's memory stays bounded: ${Math.round(before)} MB before, ${Math.round(peak)} MB at most`);
+    }
+    await quiet(500);
+    const freed = await openStream('/api/live', sloC);
+    open.push(freed);
+    same(freed.status, 200, 'the stalled streams were dropped: their places came free');
+    ok(!/listener failed|TypeError|ReferenceError/.test(serverOut), `nothing failed:\n${serverOut}`);
+  } catch (err) {
+    failed = true;
+    console.error(`FAIL ${err.stack || err}`);
+  } finally {
+    for (const s of sockets) s.destroy();
     for (const s of open.splice(0)) s.close();
     await stopServer();
     fs.rmSync(dataDir, { recursive: true, force: true });

@@ -1073,6 +1073,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
       let call; let isAway = false; let awayRestoreMic = false; let awayRestoreCam = false; let awayMessage = ''; let awayRestartCam = false;
       let inCall = true; let camToggling = false;
       async function setCameraEnabledWithRetry(enabled) { await call.localParticipant.setCameraEnabled(enabled); }
+      function sayPresence() {} // the live stream's half, run on its own below
       ${helpers}
       return { setAway, toggleCam, restartCamera, showAway, syncCallAttributes, set call(c) { call = c; }, set inCall(v) { inCall = v; }, get isAway() { return isAway; } };
     `)(
@@ -1194,7 +1195,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     const overlays = new Map();
     const tilesMade = new Set();
     const updateAwayOverlay = (identity, on, message) => { if (tilesMade.has(identity)) overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'); };
-    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', `${fn('function showAway(')}\nreturn showAway;`)(updateAwayOverlay, false, '');
+    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', 'livePerson', `${fn('function showAway(')}\nreturn showAway;`)(updateAwayOverlay, false, '', () => null);
     const stubs = {
       RoomEvent: new Proxy({}, { get: (_t, name) => name }),
       inCall: true,
@@ -1231,6 +1232,21 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     assert.notEqual(overlays.get('old'), 'away: old build', 'the old "away" message (kept for one release) is no longer read');
   } catch (err) {
     fail('public/space.js', `a tile must show away from the "away" attributes, for late joiners and changes alike: ${err.message}`);
+  }
+  // The live stream's word wins over the attributes for someone it knows (plan-realtime-optional-livekit.md, step 2).
+  try {
+    const marks = new Map();
+    const stream = new Map([['bo', { key: 'bo', away: true, awayMessage: 'at the door' }], ['cy', { key: 'cy', away: false, awayMessage: '' }]]);
+    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', 'livePerson', `${fn('function showAway(')}\nreturn showAway;`)(
+      (identity, on, message) => marks.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'), false, '', (key) => stream.get(key) || null);
+    showAway({ identity: 'bo', isLocal: false, attributes: { away: 'off' } });
+    showAway({ identity: 'cy', isLocal: false, attributes: { away: 'on', awayMessage: 'stale' } });
+    showAway({ identity: 'guest-x', isLocal: false, attributes: { away: 'on', awayMessage: 'tea' } });
+    assert.equal(marks.get('bo'), 'away: at the door', 'away from the stream, though the attributes say off');
+    assert.equal(marks.get('cy'), 'here', 'back on the stream, though the attributes still say away');
+    assert.equal(marks.get('guest-x'), 'away: tea', 'someone the stream does not know by that identity (a guest) from the attributes');
+  } catch (err) {
+    fail('public/space.js', `a tile's away comes from the live stream first (showAway, livePerson): ${err.message}`);
   }
   // The pop-out: every remote video attached there (now or later) is kept live, and the watch goes on popping back in.
   if ((attach.match(/prepend\(video\);\n\s*keepPoppedVideoLive\(track, video\);/g) || []).length !== 2) fail('public/space.js', 'attachTrack() must keep each video it adds (camera and screen) live in the pop-out (keepPoppedVideoLive(track, video) after the prepend)');
@@ -1871,6 +1887,157 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/arrangeOnWide = isNarrow\(\);/.test(arrange)) fail(C, 'setArrangeMode() on a phone keeps the choice for when the window is wide (arrangeOnWide)');
   const box = canvasJs.slice(canvasJs.indexOf('  function openModuleFloating(m, reuse) {'), canvasJs.indexOf('  function openModuleDocked('));
   if (!/place\(floater, saved\[m\.id\]\?\.box \|\|/.test(box) || !/if \(snapping\(m\.id\)\) snapOntoGrid\(m\.id, floater\);/.test(box)) fail(C, 'a module floating again opens at its remembered box, or its cells while the grid is on');
+}
+
+// The page on the live stream (plan-realtime-optional-livekit.md, step 2): entering opens GET /api/live, and who is here,
+// the conference's "Not in a call" list and Start or Join call read its presence, not the call's participants. The
+// page's own block (space.js, "the live stream" to its end) runs here against a stand-in EventSource and a stand-in call
+// whose participants disagree with the stream, with public/space-live.js itself.
+{
+  const F = 'public/space.js';
+  const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  const fn = (name, end = '\n}\n') => { const at = spaceJs.indexOf(name); return at === -1 ? '' : spaceJs.slice(at, spaceJs.indexOf(end, at) + end.length); };
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'space-live.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/space-live.js'), copy);
+  const liveMod = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const from = spaceJs.indexOf('// --- the live stream (space-live.js');
+  const to = spaceJs.indexOf('// --- end the live stream ---');
+  try {
+    assert.ok(from > -1 && to > from, 'space.js has the live stream block');
+    const block = spaceJs.slice(spaceJs.indexOf('\n', from), to);
+    const paint = fn('function paintJoinCall(');
+    assert.ok(paint, 'paintJoinCall()');
+    // The stand-ins.
+    const sources = [];
+    class FakeES {
+      constructor(url) { this.url = url; this.h = {}; this.closed = false; sources.push(this); }
+      addEventListener(type, f) { this.h[type] = f; }
+      close() { this.closed = true; }
+      say(data) { this.h.message({ data: JSON.stringify(data) }); }
+      drop() { this.h.error({}); }
+    }
+    const timers = [];
+    const patches = [];
+    let probeStatus = 0;
+    const verb = { textContent: '' };
+    const joinCallButton = { querySelector: () => verb, setAttribute() {}, title: '' };
+    const lkRemote = new Map([['lk-only', { identity: 'lk-only', name: 'Only at LiveKit', attributes: { call: 'on' } }]]);
+    const env = {
+      openLiveStream: (o) => liveMod.openLiveStream({ ...o, EventSourceImpl: FakeES, schedule: (f, ms) => { timers.push({ f, ms }); return timers.length; }, cancel: () => {} }),
+      liveStreamUrl: liveMod.liveStreamUrl,
+      peopleFromPresence: liveMod.peopleFromPresence,
+      api: async (method, url, body) => { patches.push({ method, url, body }); return { ok: true }; },
+      guestToken: null,
+      me: { key: 'me', displayName: 'Me Myself' },
+      call: { remoteParticipants: lkRemote },
+      tiles: new Map(),
+      showAway: () => {},
+      fetchStatus: () => probeStatus,
+      joinCallButton,
+      synced: 0,
+    };
+    const run = new Function('env', `
+      const { openLiveStream, liveStreamUrl, peopleFromPresence, api, guestToken, call, tiles, showAway, joinCallButton } = env;
+      let me = env.me; let inCall = false; let isAway = false; let awayMessage = '';
+      const fetch = async () => ({ status: env.fetchStatus() });
+      const console = { debug() {} };
+      function syncCallControl() { env.synced += 1; paintJoinCall(); }
+      ${block}
+      ${paint}
+      return {
+        openLive, closeLive, sayPresence, livePeople, liveOthersOnCall, presenceState,
+        set inCall(v) { inCall = v; }, set isAway(v) { isAway = v; }, set awayMessage(v) { awayMessage = v; },
+        get saying() { return liveSaying; },
+      };
+    `)(env);
+    const settle = async () => { for (let i = 0; i < 5; i += 1) await run.saying; await new Promise((r) => setImmediate(r)); };
+    run.openLive('s1');
+    assert.equal(sources.length, 1, 'entering opens one live stream');
+    assert.equal(sources[0].url, '/api/live?space=s1', 'GET /api/live for the space');
+    assert.deepEqual(run.livePeople().map((p) => [p.key, p.you]), [['me', true]], 'before the first presence, who is here is just you (never the call\'s participants)');
+    run.sayPresence({ away: true });
+    await settle();
+    assert.equal(patches.length, 0, 'nothing is said before ready (ready says it all)');
+    sources[0].say({ type: 'ready', you: 'me', space: 's1', stream: 'st-1' });
+    await settle();
+    assert.equal(patches.length, 0, 'ready with nothing to say sends nothing');
+    sources[0].say({ type: 'presence', space: 's1', people: [
+      { key: 'me', name: 'Me Myself', onCall: false, away: false, awayMessage: '' },
+      { key: 'zed', name: 'Zed', onCall: false, away: true, awayMessage: 'lunch' },
+      { key: 'bo', name: 'Bo', onCall: true, away: false, awayMessage: '' },
+    ] });
+    assert.deepEqual(run.livePeople().map((p) => [p.key, p.you, p.onCall]), [['me', true, false], ['bo', false, true], ['zed', false, false]], 'who is here is the stream\'s people: you first, then by name, with who is on the call');
+    assert.deepEqual(run.liveOthersOnCall().map((p) => p.key), ['bo'], '"Not in a call" lists the stream\'s people on the call, not the call\'s participants');
+    assert.ok(env.synced > 0, 'a presence event redraws who is here, the note and Join call (syncCallControl)');
+    assert.equal(verb.textContent, 'Join', 'someone on the call (on the stream): Join call');
+    sources[0].say({ type: 'presence', space: 's1', people: [{ key: 'me', name: 'Me Myself', onCall: false }] });
+    assert.equal(verb.textContent, 'Start', 'nobody else on the call (whatever the call\'s participants say): Start call');
+    // Saying my state: the PATCH, on this stream, in order.
+    run.inCall = true;
+    run.sayPresence({ onCall: true });
+    run.isAway = true; run.awayMessage = 'brb';
+    run.sayPresence({ away: true, awayMessage: 'brb' });
+    await settle();
+    assert.deepEqual(patches.map((p) => [p.method, p.url, p.body]), [
+      ['PATCH', '/api/spaces/s1/presence', { onCall: true, stream: 'st-1' }],
+      ['PATCH', '/api/spaces/s1/presence', { away: true, awayMessage: 'brb', stream: 'st-1' }],
+    ], 'the page says on the call and away with PATCH /api/spaces/:id/presence, naming its stream, in order');
+    assert.deepEqual(run.livePeople()[0], { key: 'me', name: 'Me Myself', you: true, onCall: true, away: false, awayMessage: '' }, 'my own "on the call" is the page\'s say until the stream echoes it');
+    // A drop after it was live: tried again after 2 seconds; the new stream's ready says the whole state again.
+    patches.length = 0;
+    sources[0].drop();
+    await settle();
+    assert.equal(sources[0].closed, true, 'a dropped stream is closed');
+    assert.deepEqual(timers.map((t) => t.ms), [2000], 'and opened again after 2 seconds');
+    timers.shift().f();
+    assert.equal(sources.length, 2, 'a new stream');
+    sources[1].say({ type: 'ready', you: 'me', space: 's1', stream: 'st-2' });
+    await settle();
+    assert.deepEqual(patches.map((p) => p.body), [{ onCall: true, away: true, awayMessage: 'brb', stream: 'st-2' }], 'its ready says the state again, on the new stream');
+    // A drop before it ever opened: asked again; a refusal ends it, anything else backs off 4, 8 ... seconds.
+    sources[1].drop();
+    await settle();
+    timers.shift().f();
+    probeStatus = 0;
+    sources[2].drop();
+    await settle();
+    assert.deepEqual(timers.map((t) => t.ms), [4000], 'a stream that did not open waits longer each time');
+    timers.shift().f();
+    probeStatus = 403;
+    sources[3].drop();
+    await settle();
+    assert.equal(timers.length, 0, 'a refusal (403) is not tried again');
+    // Leaving closes it, and nothing is tried again.
+    run.openLive('s2');
+    assert.equal(sources[4].url, '/api/live?space=s2', 'another space: another stream');
+    run.closeLive();
+    assert.equal(sources[4].closed, true, 'leaving closes the stream');
+    assert.deepEqual(run.livePeople().map((p) => p.key), ['me'], 'and forgets who was there');
+    sources[4].drop();
+    await settle();
+    assert.equal(timers.length, 0, 'a closed stream is not opened again');
+    run.openLive('s3');
+    sources[5].say({ type: 'ready', you: 'me', space: 's3', stream: 'st-3' });
+    sources[5].say({ type: 'removed', reason: 'access', error: 'you are not in that space' });
+    assert.equal(sources[5].closed, true, '`removed` ends the stream');
+    assert.equal(timers.length, 0, 'for good');
+  } catch (err) {
+    fail(F, `the page must read who is here from the live stream and say its state there: ${err.message}`);
+  }
+  // Where the page opens, reads and writes it.
+  if (!/await syncAwayAttributes\(\);[^\n]*\n\s*openLive\(currentSpace\.id\);/.test(fn('async function connectAndSetup('))) fail(F, 'connectAndSetup() opens the live stream once in the space (openLive(currentSpace.id))');
+  if (!/\.on\(RoomEvent\.Disconnected, \(\) => \{\n(?:[^\n]*\n){2}\s*closeLive\(\);/.test(spaceJs)) fail(F, 'leaving the space (the call\'s Disconnected) closes the live stream (closeLive())');
+  if (!/sayPresence\(\{ onCall: true,/.test(fn('async function startCall('))) fail(F, 'startCall() says onCall: true on the live stream');
+  if (!/sayPresence\(\{ onCall: false, away: false, awayMessage: '' \}\)/.test(fn('async function stopCall('))) fail(F, 'stopCall() says onCall: false, and away ended, on the live stream');
+  if (!/sayPresence\(\{ away: on,/.test(fn('async function sendAway('))) fail(F, 'sendAway() says away and its message on the live stream');
+  for (const name of ['function syncWhoIsInCall(', 'function paintJoinCall(']) {
+    const body = fn(name);
+    if (!/liveOthersOnCall\(\)/.test(body) || /remoteParticipants/.test(body)) fail(F, `${name.slice(9)}...) reads the live stream (liveOthersOnCall()), never the call's participants`);
+  }
+  if (!/const whoHere = createWhoHere\(\{\n\s*people: livePeople,/.test(spaceJs)) fail(F, 'who is here reads the live stream (createWhoHere({ people: livePeople }))');
+  if (/RoomEvent\.Participant(Connected|Disconnected|AttributesChanged), syncCallControl/.test(spaceJs)) fail(F, 'who is here, the note and Join call follow the live stream, not the call\'s participant events');
 }
 
 if (problems.length) {

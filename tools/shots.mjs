@@ -181,6 +181,23 @@ function prelude(mode) {
     window.__busy++;
     return f.apply(this, arguments).finally(() => { window.__busy--; });
   };
+  // The same for the space page's live stream (GET /api/live): who is here lists only the page's own person, whatever
+  // other screens are open in that space at the same moment.
+  const ES = window.EventSource;
+  if (ES) window.EventSource = class extends ES {
+    constructor(url, opts) {
+      super(url, opts);
+      if (!/\\/api\\/live(\\?|$)/.test(String(url))) return;
+      let you = null;
+      const add = this.addEventListener.bind(this);
+      this.addEventListener = (type, fn, o) => add(type, type !== 'message' ? fn : (event) => {
+        let data = null; try { data = JSON.parse(event.data); } catch (e) { return fn(event); }
+        if (data && data.type === 'ready') you = data.you;
+        if (data && data.type === 'presence') return fn(new MessageEvent('message', { data: JSON.stringify({ ...data, people: (data.people || []).filter((p) => p.key === you) }) }));
+        return fn(event);
+      }, o);
+    }
+  };
   const send = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.send = function () { window.__busy++; this.addEventListener('loadend', () => { window.__busy--; }); return send.apply(this, arguments); };
   // A toast goes away by itself after a few seconds, which a picture taken under load may or may not beat: it stays until the

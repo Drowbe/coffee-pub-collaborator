@@ -22,10 +22,14 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
 const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, tabBarZones, phoneTabs, phoneFold, TAB_MIN, TAB_GAP, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
-// Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
+// Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the live
+// stream's presence (space-live.js) are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
-const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFileURL(peopleCopy).href);
+const { facesThatFit, hereWords, MAX_FACES } = await import(pathToFileURL(peopleCopy).href);
+const liveCopy = path.join(tmp, 'space-live.mjs');
+fs.copyFileSync(path.join(ROOT, 'public/space-live.js'), liveCopy);
+const { peopleFromPresence, liveRetryDelay, liveStreamUrl } = await import(pathToFileURL(liveCopy).href);
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
@@ -1099,19 +1103,24 @@ test('the registry has two zones: register() refuses the middle, as any unknown 
   assert.match(sdk, /`zone` is ignored/, 'the SDK says a module\'s zone is ignored');
 });
 
-test('who is here reads the call: you first, then by name, never a hidden participant, "on the call" unless off', () => {
-  const remote = new Map([
-    ['z', { identity: 'z', name: 'Zoe', attributes: { call: 'on' } }],
-    ['a', { identity: 'a', name: 'Al', attributes: { call: 'off' } }],
-    ['obs', { identity: 'obs', name: 'OBS', attributes: {}, permissions: { hidden: true } }],
-    ['n', { identity: 'n', attributes: {} }],
-  ]);
-  const call = { localParticipant: { identity: 'me', name: 'Me', attributes: { call: 'off' } }, remoteParticipants: remote };
-  const people = peopleIn(call, { meOnCall: true });
+test('who is here reads the live stream: you first, then by name, with who is on the call', () => {
+  const list = [
+    { key: 'z', name: 'Zoe', onCall: true, away: true, awayMessage: 'tea' },
+    { key: 'a', name: 'Al', onCall: false },
+    { key: 'me', name: 'Me', onCall: false },
+    { key: 'n', name: '', onCall: true },
+    { name: 'no key' },
+  ];
+  const people = peopleFromPresence(list, { you: 'me', meOnCall: true });
   assert.deepEqual(people.map((p) => [p.name, p.you, p.onCall]), [['Me', true, true], ['Al', false, false], ['n', false, true], ['Zoe', false, true]]);
-  assert.deepEqual(peopleIn(null), []);
+  assert.deepEqual(people.find((p) => p.key === 'z'), { key: 'z', name: 'Zoe', you: false, onCall: true, away: true, awayMessage: 'tea' });
+  assert.deepEqual(peopleFromPresence(null), []);
+  assert.deepEqual(peopleFromPresence([], { you: 'me', youName: 'Me' }), [{ key: 'me', name: 'Me', you: true, onCall: false, away: false, awayMessage: '' }], 'before the first presence, just you');
   assert.deepEqual(hereWords(people, 'space'), { shown: '4 here', said: '4 people in this space, 3 on the call' });
   assert.deepEqual(hereWords(people.slice(0, 1).map((p) => ({ ...p, onCall: false })), 'aside'), { shown: 'Just you', said: 'Just you in this aside' });
+  assert.deepEqual([1, 2, 3, 5, 6, 7, 40].map(liveRetryDelay), [2000, 4000, 8000, 32000, 60000, 60000, 60000], 'tried again after 2, 4, 8 ... seconds, at most a minute');
+  assert.equal(liveStreamUrl({ space: 's1' }), '/api/live?space=s1');
+  assert.equal(liveStreamUrl({ space: 's1', guest: 'tok', name: 'Ann B' }), '/api/live?space=s1&guest=tok&name=Ann+B');
 });
 
 test('the space bar\'s lists draw above the modules and under a page opened over the call', () => {

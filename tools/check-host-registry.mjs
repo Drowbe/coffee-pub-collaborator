@@ -986,7 +986,8 @@ try {
       assert.deepEqual([refused.status, refused.json], [403, OVER('The Keep')], 'starting a second call is refused');
       const refusedGuest = await guestCallJoin(guestLink);
       assert.deepEqual([refusedGuest.status, refusedGuest.json], [403, OVER('another space')], 'a guest starting one too, never told where a space they don\'t belong to has its call');
-      assert.deepEqual([(await join(keep)).status, (await join(keep)).json], [200, { ok: true }], 'joining the running call is never refused');
+      const joined = await join(keep);
+      assert.deepEqual([joined.status, joined.json.ok, joined.json.call, claims(joined.json.token).sub, claims(joined.json.token).attributes], [200, true, `acme.${keep}`, ownerKey, { call: 'on' }], 'joining the running call is never refused, and its answer is the call\'s token');
       assert.deepEqual([(await guestCallJoin(keepLink)).status, (await guestCallJoin(keepLink)).json], [200, { ok: true }]);
       assert.equal((await call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space: 'lobby' } })).status, 200, 'an OBS viewer is never asked about the cap');
       const placed = (await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey);
@@ -1047,7 +1048,7 @@ try {
       setCalls({ [`acme.${keep}`]: [ownerKey, pat] });
       const pulled = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
       assert.equal(pulled.status, 200, pulled.text);
-      assert.deepEqual([(await join(pulled.json.aside.id)).status, (await join(pulled.json.aside.id)).json], [200, { ok: true }]);
+      assert.deepEqual(await join(pulled.json.aside.id).then((r) => [r.status, r.json.ok, typeof r.json.token]), [200, true, 'string']);
       setCalls({ [`acme.${keep}`]: [ownerKey, pat, 'm1'] });
       const second = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
       assert.deepEqual([second.status, second.json], [403, OVER('The Keep')]);
@@ -1056,7 +1057,7 @@ try {
 
       // No limit: every join is allowed, however many calls are running.
       assert.equal((await call(server, 'admin', 'PATCH', '/api/host/environments/acme', { cookie: hostCookie, body: { plan: { calls: null } } })).status, 200);
-      assert.deepEqual(await join('lobby').then((r) => [r.status, r.json]), [200, { ok: true }], 'no cap: starting a third call is allowed');
+      assert.deepEqual(await join('lobby').then((r) => [r.status, r.json.ok]), [200, true], 'no cap: starting a third call is allowed');
       assert.equal((await guestCallJoin(guestLink)).status, 200);
       assert.equal((await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } })).status, 200, 'and an aside beside them');
       for (const close of leaveLive) close();

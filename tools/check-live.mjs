@@ -385,6 +385,26 @@ try {
   g2.close();
   guest.close();
 
+  // --- the guest pass and the call's token (step 5) ------------------------------------------------------------------
+  // POST /api/guest-join hands a guest their pass; the live stream knows them by it, and the call's token is minted only
+  // by POST /api/call/join, for the same id.
+  const claims = (jwt) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
+  const gj = await call('POST', '/api/guest-join', { body: { token: guestToken, name: 'Wren' } });
+  same([gj.status, gj.json.spaceId, gj.json.guest.name, /^guest-/.test(gj.json.guest.id), typeof gj.json.guest.pass], [200, keep.id, 'Wren', true, 'string'], 'guest-join answers the guest pass');
+  const passed = await watch(`${G}&pass=${encodeURIComponent(gj.json.guest.pass)}`, null);
+  same((await passed.until((e) => e.type === 'ready')).you, gj.json.guest.id, 'the stream knows a guest by their pass');
+  await samS.until((e) => e.type === 'presence' && e.people.some((p) => p.key === gj.json.guest.id && p.name === 'Wren'));
+  n += 1;
+  const forged = gj.json.guest.pass.replace(/^[^.]+/, Buffer.from(JSON.stringify({ id: 'guest-someone', name: 'Wren' })).toString('base64url'));
+  same(await refused(`${G}&pass=${encodeURIComponent(forged)}`, null), [403, 'that guest pass is not valid; enter again'], 'a pass changed by hand: 403');
+  same(await refused(`${K}&guest=${encodeURIComponent(towerGuest)}&pass=${encodeURIComponent(gj.json.guest.pass)}`, null), [403, 'you are not in that space'], 'nor with another link');
+  const gCall = await call('POST', '/api/call/join', { body: { guest: guestToken, pass: gj.json.guest.pass } });
+  same([gCall.status, claims(gCall.json.token).sub, claims(gCall.json.token).name, typeof gCall.json.livekitUrl], [200, gj.json.guest.id, 'Wren', 'string'], 'the guest\'s call token is for the id on their pass');
+  passed.close();
+  const mCall = await call('POST', '/api/call/join', { cookie: samC, body: { space: keep.id } });
+  same([mCall.status, claims(mCall.json.token).sub, claims(mCall.json.token).video.room, mCall.json.call], [200, sam.key, mCall.json.call, mCall.json.call], 'a member\'s call token, for the space\'s call');
+  same((await call('POST', '/api/call/join', { cookie: louC, body: { space: keep.id } })).status, 403, 'not a member: no token');
+
   // --- asides and the kick on the live stream (step 4; the Verify section, point 4) ------------------------------
   // No LiveKit answers here: who is in the space and on the call is the register's, and every nudge goes on the stream.
   const readyOf = async (s) => (await s.until((e) => e.type === 'ready')).stream;

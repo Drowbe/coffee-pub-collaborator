@@ -1191,11 +1191,12 @@ const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVE
 // for chat and the modules, and are online, but carry no media. Every player and
 // guest starts out of the conference (the "call" attribute is 'off'): entering a
 // space never joins the call, and the page sets 'on' itself when they join, so
-// until then everyone else sees them present in the space, with no tile. OBS
+// until then everyone else sees them present in the space, with no tile. A token for
+// the call itself (POST /api/call/join) says 'on' from the start (`onCall`). OBS
 // viewers carry no attribute at all. `call` is the call's name at the call service (callName).
-async function mintToken({ identity, name, call, publisher, media = publisher }) {
+async function mintToken({ identity, name, call, publisher, media = publisher, onCall = false }) {
   const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity, name, ttl: publisher ? '24h' : '12h' });
-  if (publisher) token.attributes = { call: 'off' };
+  if (publisher) token.attributes = { call: onCall ? 'on' : 'off' };
   token.addGrant({
     room: call,
     roomJoin: true,
@@ -3392,6 +3393,7 @@ app.post('/api/call/join', async (req, res) => {
   const asked = typeof req.body?.space === 'string' && req.body.space ? req.body.space : null;
   let spaceId;
   let identity;
+  let caller = null; // who joins, at the call service: { identity, name, media }
   const user = currentUser(req);
   if (user) {
     spaceId = asked || LOBBY;
@@ -3399,21 +3401,57 @@ app.post('/api/call/join', async (req, res) => {
     if (!theSpace) return res.status(404).json({ error: `no such ${word('space')}` });
     if (!theSpace.members.includes(user.key) && !isOwner(req)) return res.status(403).json({ error: `you are not in that ${word('space')}` });
     identity = user.key;
+    caller = { identity: user.key, name: user.displayName, media: Boolean(store.spacePermissions(user.key, spaceId).conference) };
   } else if (guestLink) {
     const theSpace = store.spaceByGuestToken(guestLink);
     if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
     if (asked && asked !== theSpace.id) return res.status(403).json({ error: `that ${word('guest')} link is for another ${word('space')}` });
     spaceId = theSpace.id;
-    identity = `guest-link:${guestLink}`; // a guest's LiveKit identity is not known here; this only names their hold
+    identity = `guest-link:${guestLink}`; // names their hold
+    const pass = typeof req.body?.pass === 'string' ? readGuestPass(guestLink, req.body.pass) : null;
+    if (pass) caller = { identity: pass.id, name: pass.name, media: Boolean(store.roleSet('guest').conference) };
   } else {
     return res.status(401).json({ error: 'sign in first' });
   }
+  if (caller && !caller.media) return res.status(403).json({ error: store.settings.conferenceEnabled === false ? 'voice and video are off' : `you can't join the call in this ${word('space')}` });
   if (!store.asideById(spaceId)) {
     const refusal = await callsCapRefusal(spaceId, identity);
     if (refusal) return res.status(403).json({ error: refusal });
   }
-  res.json({ ok: true });
+  if (!caller) return res.json({ ok: true });
+  const call = callName(spaceId);
+  const token = await mintToken({ identity: caller.identity, name: caller.name, call, publisher: true, media: true, onCall: true });
+  res.json({ ok: true, token, livekitUrl: livekitWsUrl(req), call });
 });
+
+// The guest pass (plan-realtime-optional-livekit.md, "Requests a page makes"): what POST /api/guest-join hands a guest,
+// so the live stream, presence and the call know them by one id and the name they gave. `<what>.<signature>`: `what` is
+// { id, name } as base64url JSON, signed (HMAC-SHA256, a key made from the install's secrets key) with the environment and
+// the guest link's token, so a guest cannot speak as another guest, nor use it in another environment, and it dies with
+// the link (turned off or made again).
+function guestPassKey() {
+  return crypto.createHmac('sha256', secretsKeyBuf()).update('guest pass').digest();
+}
+function guestPassSignature(link, what) {
+  return crypto.createHmac('sha256', guestPassKey()).update(`${currentEnvironment().slug || ''}\n${link}\n${what}`).digest('base64url');
+}
+function makeGuestPass(link, id, name) {
+  const what = Buffer.from(JSON.stringify({ id, name })).toString('base64url');
+  return `${what}.${guestPassSignature(link, what)}`;
+}
+// { id, name } from a pass for this guest link, or null when it is not one.
+function readGuestPass(link, pass) {
+  if (typeof link !== 'string' || !link || typeof pass !== 'string' || pass.length > 400) return null;
+  const [what, signature, extra] = pass.split('.');
+  if (!what || !signature || extra !== undefined) return null;
+  const want = Buffer.from(guestPassSignature(link, what));
+  const got = Buffer.from(signature);
+  if (want.length !== got.length || !crypto.timingSafeEqual(want, got)) return null;
+  let said = null;
+  try { said = JSON.parse(Buffer.from(what, 'base64url').toString('utf8')); } catch { return null; }
+  if (!said || typeof said.id !== 'string' || !/^guest-[A-Za-z0-9_-]{4,40}$/.test(said.id) || typeof said.name !== 'string' || !said.name) return null;
+  return { id: said.id, name: said.name };
+}
 
 // Guests: no account, just a name and a space's guest link (see the
 // guest-link routes above). Public -- there's nothing to sign in with.
@@ -3431,7 +3469,8 @@ app.post('/api/guest-join', async (req, res) => {
   const identity = `guest-${randomToken(8)}`;
   const permissions = store.roleSet('guest');
   const token = await mintToken({ identity, name, call, publisher: true, media: Boolean(permissions.conference) });
-  res.json({ token, livekitUrl: livekitWsUrl(req), identity, call, spaceId: theSpace.id, spaceName: theSpace.name, guestToken: req.body.token, permissions });
+  const guest = { id: identity, name, pass: makeGuestPass(req.body.token, identity, name) };
+  res.json({ token, livekitUrl: livekitWsUrl(req), identity, call, spaceId: theSpace.id, spaceName: theSpace.name, guestToken: req.body.token, permissions, guest });
 });
 
 // A user may replace or clear their own profile photo. This is separate from
@@ -4739,8 +4778,11 @@ app.get('/api/live', (req, res) => {
   const found = liveAccess(req, spaceId);
   if (found.error) return res.status(found.status).json({ error: found.error });
   const guest = !found.who.user;
-  const you = guest ? `guest-${randomToken(8)}` : found.who.user.key;
-  const name = guest ? cleanText(req.query.name, 40) || word('guest') : found.who.user.displayName;
+  // A guest is who their pass says (POST /api/guest-join), the same id on the call.
+  const pass = guest && typeof req.query.pass === 'string' ? readGuestPass(req.query.guest, req.query.pass) : null;
+  if (guest && req.query.pass !== undefined && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  const you = guest ? pass?.id || `guest-${randomToken(8)}` : found.who.user.key;
+  const name = guest ? pass?.name || cleanText(req.query.name, 40) || word('guest') : found.who.user.displayName;
   const env = currentEnvironment();
   let streamId = null;
   eventStream(req, res, {

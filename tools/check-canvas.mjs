@@ -1941,7 +1941,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     };
     const run = new Function('env', `
       const { openLiveStream, liveStreamUrl, peopleFromPresence, api, guestToken, call, tiles, showAway, joinCallButton } = env;
-      let me = env.me; let inCall = false; let isAway = false; let awayMessage = '';
+      let me = env.me; let inCall = false; let isAway = false; let awayMessage = ''; const guestPass = '';
       const fetch = async () => ({ status: env.fetchStatus() });
       const console = { debug() {} };
       function syncCallControl() { env.synced += 1; paintJoinCall(); }

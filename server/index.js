@@ -3430,7 +3430,7 @@ app.post('/api/call/join', async (req, res) => {
 // the guest link's token, so a guest cannot speak as another guest, nor use it in another environment, and it dies with
 // the link (turned off or made again).
 function guestPassKey() {
-  return crypto.createHmac('sha256', secretsKeyBuf()).update('guest pass').digest();
+  return crypto.createHmac('sha256', secretsKeyBuf()).update('pass').digest();
 }
 function guestPassSignature(link, what) {
   return crypto.createHmac('sha256', guestPassKey()).update(`${currentEnvironment().slug || ''}\n${link}\n${what}`).digest('base64url');

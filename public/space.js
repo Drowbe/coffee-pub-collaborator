@@ -190,6 +190,9 @@ let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, all
 // our own reads below, is this tab's only credential -- there's no session.
 const GUEST_PREFIX = 'guest-';
 const guestToken = location.pathname.startsWith('/guest/') ? decodeURIComponent(location.pathname.split('/')[2] || '') : null;
+// What POST /api/guest-join hands the guest once they give a name: their pass, signed by the server, by which the live
+// stream, presence and the call know them (as me.key, the id on it). For this page only: a reload asks the name again.
+let guestPass = '';
 
 // A picture URL for a slot, guest-aware: a guest identity (however many
 // different guests are in the call) always shows the one shared guest
@@ -680,8 +683,9 @@ $('guest-join').addEventListener('submit', async (event) => {
   const submit = $('guest-join').querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    const { token, livekitUrl, identity, spaceId: joinedId, spaceName: joinedName, permissions } = await api('POST', '/api/guest-join', { token: guestToken, name });
-    me = { key: identity, displayName: name, role: 'guest', permissions };
+    const { token, livekitUrl, spaceId: joinedId, spaceName: joinedName, permissions, guest } = await api('POST', '/api/guest-join', { token: guestToken, name });
+    me = { key: guest.id, displayName: guest.name, role: 'guest', permissions };
+    guestPass = guest.pass;
     await joinAsGuest(token, livekitUrl, joinedId, joinedName);
   } catch (err) {
     $('guest-join-error').textContent = err.message;
@@ -1163,7 +1167,7 @@ function openLive(spaceId) {
   liveSpaceId = spaceId;
   livePeopleList = [];
   liveStream = openLiveStream({
-    url: liveStreamUrl({ space: spaceId, guest: guestToken, name: guestToken ? me?.displayName || '' : '' }),
+    url: liveStreamUrl({ space: spaceId, guest: guestToken, pass: guestPass }),
     probe: liveStreamStatus,
     onReady: (_ready, first) => {
       const state = presenceState();
@@ -5584,17 +5588,20 @@ async function startCall() {
   const stopped = () => generation !== callGeneration || call.state !== 'connected' || !canvas.builtinOpen('conference');
   // Back out of a stopped join. If nothing has stopped the call yet (the call or the module went some other way),
   // stop it now, which unpublishes and releases everything; else release what this join got after the stop.
+  let connectedHere = false; // this join connected to the call service itself (with the call's token)
   const backOut = async (published) => {
     if (inCall && generation === callGeneration) { await stopCall(); return; }
     if (published && call.state === 'connected') await call.localParticipant.unpublishTrack(published, true).catch(() => {});
+    if (connectedHere) await call.disconnect().catch(() => {});
     closeMic();
   };
   let settle;
   callJoining = new Promise((resolve) => { settle = resolve; });
   try {
     setJoinProblem('');
+    let ticket = null; // the call's token, the only one there is (the server mints it only here)
     try {
-      await api('POST', '/api/call/join', guestToken ? { guest: guestToken } : { space: currentSpace?.id });
+      ticket = await api('POST', '/api/call/join', guestToken ? { guest: guestToken, pass: guestPass } : { space: currentSpace?.id });
     } catch (err) {
       // The server's own sentence when it gave one (the calls cap's refusal); anything else (no answer, a 500 page, a
       // proxy's 502) is said plainly, never as "HTTP 500".
@@ -5602,6 +5609,11 @@ async function startCall() {
       return;
     }
     if (stopped()) return;
+    if (call.state !== 'connected') {
+      connectedHere = true;
+      await call.connect(ticket.livekitUrl, ticket.token, { autoSubscribe: false });
+      if (stopped()) return await backOut();
+    }
     inCall = true;
     startCallTime();
     syncCallControl();

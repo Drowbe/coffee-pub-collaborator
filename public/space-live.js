@@ -21,13 +21,14 @@ export function liveRetryDelay(tries) {
   return Math.min(LIVE_RETRY_MAX_MS, LIVE_RETRY_FIRST_MS * 2 ** Math.min(n - 1, 16));
 }
 
-// The stream's address: the space (or aside), none on Home; a guest adds their link's token and the name they gave.
-export function liveStreamUrl({ space = null, guest = null, name = '' } = {}) {
+// The stream's address: the space (or aside), none on Home; a guest adds their link's token and their guest pass (POST
+// /api/guest-join), by which the server knows them.
+export function liveStreamUrl({ space = null, guest = null, pass = '' } = {}) {
   const q = new URLSearchParams();
   if (space) q.set('space', space);
   if (guest) {
     q.set('guest', guest);
-    if (name) q.set('name', name);
+    if (pass) q.set('pass', pass);
   }
   const query = String(q);
   return query ? `/api/live?${query}` : '/api/live';

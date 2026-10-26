@@ -1120,7 +1120,7 @@ test('who is here reads the live stream: you first, then by name, with who is on
   assert.deepEqual(hereWords(people.slice(0, 1).map((p) => ({ ...p, onCall: false })), 'aside'), { shown: 'Just you', said: 'Just you in this aside' });
   assert.deepEqual([1, 2, 3, 5, 6, 7, 40].map(liveRetryDelay), [2000, 4000, 8000, 32000, 60000, 60000, 60000], 'tried again after 2, 4, 8 ... seconds, at most a minute');
   assert.equal(liveStreamUrl({ space: 's1' }), '/api/live?space=s1');
-  assert.equal(liveStreamUrl({ space: 's1', guest: 'tok', name: 'Ann B' }), '/api/live?space=s1&guest=tok&name=Ann+B');
+  assert.equal(liveStreamUrl({ space: 's1', guest: 'tok', pass: 'p.q' }), '/api/live?space=s1&guest=tok&pass=p.q');
 });
 
 test('the space bar\'s lists draw above the modules and under a page opened over the call', () => {

@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, deciding how entering a space, chat and presence stop depending on LiveKit; then server-development (the live stream, presence, the routes), experience-design (the space page) and content-manager (the documents and the compose file).
 
-**Status:** Drafted 2026-10-26 from GitHub #376, which Thomas calls mission critical: "using LiveKit has to be optional." Nothing decided yet beyond the issue's target; the open questions are at the end. Every finding below was read in the code on 2026-10-26, not run against a LiveKit server.
+**Status:** Approved by Thomas 2026-10-26. Drafted the same day from GitHub #376, which Thomas calls mission critical: "using LiveKit has to be optional." His decisions are at the end. Next plan: `plan-call-as-module`, after step 6. Every finding below was read in the code on 2026-10-26, not run against a LiveKit server.
 
 This plan takes over steps 2 to 4 of [plan-optional-conference](plan-optional-conference.md) (chat and presence without LiveKit, LiveKit optional, conference on later). That plan's step 1, the Conference switch (`conferenceEnabled`, Manage > Modules), is built and stays as it is.
 
@@ -209,15 +209,21 @@ The checks must pass with no LiveKit server, and from step 6 with no LiveKit key
 - **One process.** The register is in memory, as presence and the chat stream are now; two server processes would each see half. No change from today.
 - **The page's word for `onCall`** can be wrong after a crash for up to the grace. The cap and moderation still ask LiveKit.
 
-## Open questions
+## Decided
 
-1. **Server-sent events, WebSockets, or both?** Recommendation: server-sent events and requests, one live stream per space page (option 1 A).
-2. **Where does "on the call" come from?** Recommendation: the page's word for presence, LiveKit's list for the cap, kick, mute and media fields (option 2 C).
-3. **Reactions on the call or on the server?** Recommendation: on the call; they only show on tiles and OBS boxes (option 3 A).
-4. **Chat pictures stored or live only?** Recommendation: live through the server in step 3, stored as step 8 (option 4 A). Blocks step 8 only.
-5. **Kick: out of the call, or out of the space too?** Today it is both. Recommendation: keep both. Blocks step 4.
-6. **With no call service, hide the Conference entirely, or show it with "Voice and video are not set up on this server"?** Recommendation: hide it in spaces, say it once on the Manage > Modules card. Blocks step 6.
-7. **Should the call become a true module now, as the issue asks?** Recommendation: not in this plan; it stays a switchable built-in, and this plan makes that possible later. Blocks nothing.
-8. **The order against the content builders (lists, cards, forms).** Recommendation: steps 1 to 6 first, since entering a space without LiveKit is what lets anyone try the product. Thomas decides.
-9. **Rename the stream caps' variables** (`CHAT_STREAMS_PER_PERSON`, `CHAT_STREAMS_PER_GUEST_LINK`) to `LIVE_STREAMS_PER_PERSON` and `LIVE_STREAMS_PER_GUEST_LINK`, since they will count the live stream? Recommendation: yes, in step 3. Blocks nothing.
-10. **Fold the notification stream into the live stream later**, to bring a space page from three streams to two? Recommendation: later, its own small plan; `brand.js` opens it on every page, not only the space page.
+Thomas decided these on 2026-10-26.
+
+1. **Server-sent events**, one live stream per space page plus ordinary requests (option 1 A). It is simpler behind proxies and needs no new dependency.
+2. **"On the call"** comes from the page's word for presence; LiveKit's list answers the calls cap, kick, mute and the media fields (option 2 C).
+3. **Reactions** stay with the call (LiveKit) and are never stored (option 3 A). They only show on tiles and OBS boxes.
+4. **Chat pictures** go live through the server in step 3 and are stored later as step 8 (option 4 A).
+5. **Kick** removes a person from the call and the space, both, as today. This unblocks step 4.
+6. **With no call service**, the Conference is hidden in spaces, and the Manage > Modules card says once: "Voice and video are not set up on this server." This unblocks step 6.
+7. **The call does not become a true module in this plan.** It is known that this is coming soon and is a critical part of the product. It is the planned next plan, `plan-call-as-module`, to be written after step 6, with critical priority. This plan makes it possible by taking LiveKit out of entering a space, chat and presence.
+8. **Order:** real-time steps 1 to 6 first, before the content builders (lists, cards, tables, forms; slices 10 to 13 of [plan-unified-layout](plan-unified-layout.md)). Entering a space without LiveKit is what lets anyone try the product.
+9. **Rename** `CHAT_STREAMS_PER_PERSON` and `CHAT_STREAMS_PER_GUEST_LINK` to `LIVE_STREAMS_PER_PERSON` and `LIVE_STREAMS_PER_GUEST_LINK` in the chat step (step 3), since they will count the live stream.
+10. **The notification stream** folds into the live stream later, in its own small plan, to bring a space page from three streams to two. `brand.js` opens it on every page, not only the space page.
+
+## Not decided
+
+Nothing blocks the build.

@@ -61,8 +61,9 @@ export function peopleFromPresence(list, { you = null, youName = '', meOnCall = 
 // space, `onChat(data)` on every chat event (`chat`, `chat-delete`, ... each with its `space`), `onAside(data)` on every
 // aside nudge (`aside-pull`, `aside-started`, `aside-recall`, `aside-return`, each with its `spaceId`), `onState('live' |
 // 'reconnecting')` as it goes, `onEnd({ reason, error })` once when it ends for good (never on close()); `reason` is the
-// server's (`access`, `kicked`) or `refused`. `probe(url)` answers the HTTP status of a fresh request (0 when the server
-// was not reached), asked after a stream that never opened, to tell a refusal from a drop. Answers { close, ready }:
+// server's (`access`, `kicked`) or `refused` (with `status`, and `error`, the server's sentence, when the probe had one).
+// `probe(url)` answers the HTTP status of a fresh request (0 when the server was not reached), or { status, error }, asked
+// after a stream that never opened, to tell a refusal from a drop. Answers { close, ready }:
 // `ready` is the last `ready`'s data while the stream is open, else null.
 export const ASIDE_NUDGES = ['aside-pull', 'aside-started', 'aside-recall', 'aside-return'];
 
@@ -90,9 +91,10 @@ export function openLiveStream({ url, onReady = () => {}, onPresence = () => {},
     ready = null;
     onState('reconnecting');
     if (!wasLive) {
-      const status = await probe(url);
+      const answer = await probe(url);
       if (stopped) return;
-      if (status === 401 || status === 403 || status === 404) return end({ reason: 'refused', status });
+      const { status = 0, error = '' } = typeof answer === 'number' ? { status: answer } : answer || {};
+      if (status === 401 || status === 403 || status === 404) return end({ reason: 'refused', status, error });
     }
     tries += 1;
     timer = schedule(open, liveRetryDelay(tries));

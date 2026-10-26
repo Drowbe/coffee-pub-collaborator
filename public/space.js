@@ -163,9 +163,11 @@ const REMEMBERED_SPACE = 'app.space';
 const rememberSpace = (id) => { try { sessionStorage.setItem(REMEMBERED_SPACE, id); } catch { /* not remembered */ } };
 const forgetSpace = () => { if (unloading) return; try { sessionStorage.removeItem(REMEMBERED_SPACE); } catch { /* nothing */ } };
 const rememberedSpace = () => { try { return sessionStorage.getItem(REMEMBERED_SPACE) || ''; } catch { return ''; } };
-// Being in the space and being in the conference are separate: the page stays connected
-// for the chat and the modules, and only sends and receives audio and video while the
-// conference module is open. Others see the difference through the "call" attribute.
+// Being in the space and being in the conference are separate (plan-realtime-optional-livekit.md, step 5). In the space
+// (`entered`) is the live stream being open: the canvas, the chat and who is here, from entering until leaving, with no
+// call service at all. On the call (`inCall`) is the only time the page is connected to the call service: from Start or
+// Join call (startCall, with the token POST /api/call/join answers) until hanging up, leaving or moving.
+let entered = false;
 let inCall = false;
 // Left the call since entering (Hang up, the conference closed): the environment's "join the call on entering" does
 // not join them again until they enter a space again (GitHub #199). A pull keeps it; join() clears it.
@@ -241,9 +243,9 @@ const asideEntry = (a) => ({ ...a, name: word('aside', { cap: true }), isAside: 
 // Whether I am in an aside right now: the call only, no modules, chat or chat pictures (plan-names decision 5).
 const inAside = () => Boolean(currentSpace?.isAside);
 
-// Who is in a call comes from LiveKit. When that does not answer, the page gives up and keeps what it
-// already has: the space list and the call do not wait on it (GitHub #71). A little longer than the
-// server's own two seconds, so a slow answer still arrives.
+// Who is where comes from GET /api/presence, which asks the call service only for who is on a call. When that does not
+// answer, the page gives up and keeps what it already has: the space list and the call do not wait on it (GitHub #71). A
+// little longer than the server's own two seconds, so a slow answer still arrives.
 const PRESENCE_GIVE_UP_MS = 3000;
 
 function adoptPendingSpace() {
@@ -496,7 +498,7 @@ function renderSpaces() {
     // button reads this environment's enter verb; an aside is a call, so its button reads Join with the phone
     // (plan-environment-templates.md, addendum 4). Still connected to this one (just browsing the space list -- see
     // showSpaceList()): offer to go back instead.
-    const back = call.state === 'connected' && currentSpace?.id === r.id;
+    const back = entered && currentSpace?.id === r.id;
     const action = r.isAside ? 'Join' : verb('enter');
     const enterLabel = back ? `Back to ${spaceDisplayName(r)}` : action;
     const enter = card.querySelector('[data-join]');
@@ -564,7 +566,7 @@ async function addSpace() {
     const { space } = await api('POST', '/api/spaces', { name: `${word('space', { cap: true })} ${count}`, description: '', members: [] });
     await loadPresence(); // the new card, and the record join() reads the name from
     await joinInvitedSpace(space.id);
-    if (call.state === 'connected' && currentSpace?.id === space.id) enterSetup();
+    if (entered && currentSpace?.id === space.id) enterSetup();
   } catch (err) {
     $('join-error').textContent = err.message;
     $('join-error').hidden = false;
@@ -671,8 +673,8 @@ $('spaces').addEventListener('keydown', (event) => {
   enterFromCard(card.dataset.space);
 });
 function enterFromCard(spaceId) {
-  if (call.state === 'connected' && currentSpace?.id === spaceId) returnToCanvas();
-  else if (call.state === 'connected') reconnectTo(spaceId);
+  if (entered && currentSpace?.id === spaceId) returnToCanvas();
+  else if (entered) reconnectTo(spaceId);
   else join(spaceId);
 }
 $('guest-join').addEventListener('submit', async (event) => {
@@ -683,10 +685,10 @@ $('guest-join').addEventListener('submit', async (event) => {
   const submit = $('guest-join').querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    const { token, livekitUrl, spaceId: joinedId, spaceName: joinedName, permissions, guest } = await api('POST', '/api/guest-join', { token: guestToken, name });
+    const { spaceId: joinedId, spaceName: joinedName, permissions, guest } = await api('POST', '/api/guest-join', { token: guestToken, name });
     me = { key: guest.id, displayName: guest.name, role: 'guest', permissions };
     guestPass = guest.pass;
-    await joinAsGuest(token, livekitUrl, joinedId, joinedName);
+    await joinAsGuest(joinedId, joinedName);
   } catch (err) {
     $('guest-join-error').textContent = err.message;
     $('guest-join-error').hidden = false;
@@ -702,7 +704,6 @@ let pipWindow = null;
 // --- Chat's status area (the line under the composer, GitHub #330) ---
 // The call on the left (In a call and its time, or empty; a problem replaces it), the latest notice on the right (an error, the
 // AI's state, what a command did). Notices that used to sit in the message list or in the call's status come here.
-let chatReconnecting = false; // the call is finding its way back
 let chatStream = ''; // the live stream's state ('live', 'reconnecting', 'paused', or '')
 let chatNoteFn = null; // chat-input.js's note, once attached
 let chatNoteTimer = null;
@@ -710,8 +711,8 @@ let chatNoteTimer = null;
 // problem in plain words with the fix.
 function chatConnState() {
   if (chatStream === 'paused') return 'paused';
-  if (chatReconnecting || chatStream === 'reconnecting') return 'reconnecting';
-  if (call && call.state === 'connected') return 'call';
+  if (chatStream === 'reconnecting') return 'reconnecting';
+  if (inCall && call.state === 'connected') return 'call';
   return 'idle';
 }
 function paintChatTime() {
@@ -875,8 +876,9 @@ function adminToolsFor(participant) {
   return tools;
 }
 
-// A tile exists only while I am in the conference and the person is too.
-const shownInCall = (participant) => inCall && (participant.isLocal || participant.attributes?.call !== 'off');
+// A tile exists only while I am in the conference and the person is too: everyone at the call service is on the call
+// (the server mints its token only for a join), and an OBS viewer there is hidden.
+const shownInCall = () => inCall;
 const subscribeAll = (participant) => { for (const pub of participant.trackPublications.values()) pub.setSubscribed(true); };
 
 function tileFor(participant) {
@@ -1119,21 +1121,22 @@ nav.register({
 topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw('primary'));
 
 // --- the live stream (space-live.js; plan-realtime-optional-livekit.md, steps 2 and 3) ------------------------------
-// One per page. In a space (or an aside) from entering it until leaving it: connectAndSetup() opens it once the call is
-// connected, and the call's Disconnected (leaving, or moving with reconnectTo()) closes it. On Home, signed in and
+// One per page. In a space (or an aside) from entering it until leaving it (step 5): entering is opening it (join() and
+// joinAsGuest() wait for its first `ready`, the server's yes, or its refusal, which is the entry's error), and leaving
+// or moving (leaveSpaceNow, reconnectTo()) closes it; the call service has no part in either. On Home, signed in and
 // allowed to read the chat, one in no space (syncHomeChatStream), for Home's chat. Its `presence` is who is here, the
 // conference's "Not in a call" list, Start or Join call and the tiles' away; its chat events are the space's chat and
 // the Lobby's (Home's chat and its unread count; liveChatNotice); its aside nudges move the page (asideNudge, step 4); a
 // kick's `removed` leaves the space (leaveKicked). The page says its own state with PATCH
 // /api/spaces/:id/presence: on the call (startCall, stopCall) and away with its message (sendAway, stopCall), and all of
 // it again on every `ready` (a reconnect is a new stream, which starts with nothing said). The PATCHes go one after
-// another, so a quick Away then Back arrive in that order. The LiveKit attributes ("call", "away") are still set as
-// before: the tiles still follow "call", and a guest's tile its "away" (a guest's key on the stream is not their
-// identity at the call service).
+// another, so a quick Away then Back arrive in that order. A person's key on the stream is their identity on the call (a
+// guest's is the id on their pass), so the tiles read away from here too.
 let liveStream = null; // openLiveStream's, while in a space or on Home
 let liveSpaceId = null; // the space or aside it is for; null on Home
 let livePeopleList = []; // the last presence event's people, as the server sent them
 let liveSaying = Promise.resolve(); // the PATCHes, in order
+let livePending = null; // the first `ready` an entry waits on (openLive's promise), until it comes or is refused
 // My state as the server should have it.
 function presenceState() {
   return { onCall: inCall, away: isAway, awayMessage: isAway ? awayMessage : '' };
@@ -1147,32 +1150,42 @@ function sayPresence(patch) {
   const body = { ...patch, stream: ready.stream };
   liveSaying = liveSaying.then(() => api('PATCH', url, body)).catch((err) => console.debug('[app] presence:', err.message));
 }
-// Asked after a stream that never opened: the status of a fresh request, to tell a refusal from a drop.
+// Asked after a stream that never opened: the status of a fresh request and the server's sentence, to tell a refusal
+// (and why) from a drop.
 async function liveStreamStatus(url) {
   const ctl = new AbortController();
   try {
     const res = await fetch(url, { signal: ctl.signal, headers: { accept: 'text/event-stream' }, cache: 'no-store' });
-    ctl.abort();
-    return res.status;
+    if (res.ok) {
+      ctl.abort();
+      return { status: res.status };
+    }
+    const said = await res.json().catch(() => null);
+    return { status: res.status, error: typeof said?.error === 'string' ? said.error : '' };
   } catch {
-    return 0;
+    return { status: 0 };
   }
 }
-// Open it for a space or an aside, or for Home (spaceId null). A drop shows "Reconnecting" in Chat's status line and
-// each `ready` after the first catches the chat up from the history (nothing is replayed); a refusal, or the server's
-// `removed`, says once that live updates are paused. Posting still works meanwhile.
+// Open it for a space or an aside, or for Home (spaceId null). Answers a promise: kept at the first `ready`, broken with
+// the server's sentence when it is refused before that (entering waits on it). A drop shows "Reconnecting" in Chat's
+// status line and each `ready` after the first catches the chat up from the history (nothing is replayed); a refusal
+// later, or the server's `removed`, says once that live updates are paused. Posting still works meanwhile.
 function openLive(spaceId) {
   closeLive();
-  if (typeof EventSource !== 'function') return;
+  if (typeof EventSource !== 'function') return Promise.resolve();
   liveSpaceId = spaceId;
   livePeopleList = [];
+  const first = new Promise((resolve, reject) => { livePending = { resolve, reject }; });
+  first.catch(() => {}); // Home's stream is not waited on
   liveStream = openLiveStream({
     url: liveStreamUrl({ space: spaceId, guest: guestToken, pass: guestPass }),
     probe: liveStreamStatus,
-    onReady: (_ready, first) => {
+    onReady: (_ready, isFirst) => {
       const state = presenceState();
       if (spaceId && (state.onCall || state.away)) sayPresence(state);
-      if (!first) catchUpLiveChat();
+      if (!isFirst) catchUpLiveChat();
+      livePending?.resolve();
+      livePending = null;
     },
     onChat: liveChatNotice,
     onAside: asideNudge,
@@ -1189,14 +1202,22 @@ function openLive(spaceId) {
       }
     },
     onEnd: ({ reason, error }) => {
+      if (livePending) { // refused before it ever opened: entering failed, with the server's own sentence when it gave one
+        livePending.reject(new Error(error || `Could not open this ${word('space')}. Try again in a moment.`));
+        livePending = null;
+        return;
+      }
       if (reason === 'kicked') return leaveKicked();
       console.debug('[app] the live stream ended:', error || 'refused');
       chatStream = 'paused';
       paintChatConn();
     },
   });
+  return first;
 }
 function closeLive() {
+  livePending?.reject(Object.assign(new Error('closed'), { closed: true })); // an entry still waiting on it gives way
+  livePending = null;
   liveStream?.close();
   liveStream = null;
   liveSpaceId = null;
@@ -1293,11 +1314,11 @@ function paintJoinCall() {
 }
 joinCallButton.addEventListener('click', () => joinTheCall());
 // Not while Home's chat shows (GitHub #326): a call belongs to a space, and Home is only a view over it.
-const joinCallWanted = () => Boolean(currentSpace) && !homeChatSpace && call.state === 'connected' && !inCall
+const joinCallWanted = () => Boolean(currentSpace) && !homeChatSpace && entered && !inCall
   && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
 nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted });
 // Entering joins by itself where the environment says so (GitHub #199, branding.autoJoinCall): the rule is
-// shouldAutoJoin (opens-with.js, held by check-canvas), asked once by connectAndSetup() on each entry, and it joins only
+// shouldAutoJoin (opens-with.js, held by check-canvas), asked once by enterSpace() on each entry, and it joins only
 // where Join the call would show (joinCallWanted), never in an aside, and not for a person who left the call since they
 // entered. The join is the same press as Join the call (joinTheCall), so the microphone, Away and a refusal behave alike.
 const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, inCall, canJoin: joinCallWanted(), aside: inAside(), left: leftCall });
@@ -1318,12 +1339,12 @@ const whoHere = createWhoHere({
   where: () => (inAside() ? word('aside') : word('space')),
   portraitUrl: spacePortraitUrl,
   profileUrl: (key) => imgUrl(key, 'profile'),
-  wanted: () => Boolean(currentSpace) && call.state === 'connected',
+  wanted: () => Boolean(currentSpace) && entered,
   events: {
     redraw: () => nav.draw(nav.get('who-here')?.bar || 'secondary'),
   },
 });
-nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
+nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && entered });
 const whoHereBar = nav.get('who-here'); // the phone's, in the tab bar
 // On a phone the conference is not a tab: the call is the tab bar's pinned call item (the Tab bar family; Thomas,
 // 2026-10-21): Join out of the call, then Online. On the call Online is the call itself: its icon in the call's ok colour
@@ -1347,7 +1368,7 @@ whoHere.el.addEventListener('click', (event) => {
   canvas.showBuiltin('conference');
   paintCallTab();
 }, true);
-const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && call.state === 'connected' && !phoneWidth();
+const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && entered && !phoneWidth();
 const whoHereTop = { id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, yieldFirst: true, visible: whoHereTopWanted };
 // --- end who is here ---
 
@@ -2566,7 +2587,7 @@ async function openSetupFor(id, tab = '') {
   const hash = tab ? `#${String(tab).replace(/^#/, '')}` : '';
   if (settingUp && currentSpace?.id === id) { if (hash) spaceSetup.select(hash.slice(1)); return; }
   await joinInvitedSpace(id);
-  if (call.state === 'connected' && currentSpace?.id === id && canSetUp()) enterSetup({ tab: hash });
+  if (entered && currentSpace?.id === id && canSetUp()) enterSetup({ tab: hash });
 }
 
 // After Save: the space the server answered goes into this page's records (the name in the bar and on the card, the
@@ -2597,7 +2618,7 @@ function setupSaved(space, said, saved = []) {
 // shows Home, and a reload does not try it again.
 function setupDeleted(space) {
   forgetSpace();
-  if (call.state !== 'disconnected') call.disconnect(); // the Disconnected handler shows Home
+  if (entered) leaveSpaceNow(); // Home shows
   else loadPresence();
   saySetup(`Deleted ${space.name || word('space')}.`);
 }
@@ -3805,7 +3826,7 @@ function storedEntry(m, { local = false } = {}) {
 async function postChatMessage(text) {
   if (!chatSpace() || chatSpace().isAside) throw new Error('');
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-  const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text, name: me?.displayName || call.localParticipant?.name });
+  const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text, name: me?.displayName });
   if (!message?.id) throw new Error('');
   return message;
 }
@@ -4627,7 +4648,7 @@ async function sendImage(file) {
     if (!CHAT_PICTURE_TYPES.includes(out.type)) out = new File([out], out.name || 'picture', { type: 'image/png' }); // never: shrinkImage answers one of them
     chatInput.setView('discussion'); // a picture is for everyone: it shows in the Discussion
     // Drawn at once; the server's id replaces this page's when it answers, so the live stream's copy is not drawn twice.
-    entry = { id: newChatId(), who: me?.displayName || call.localParticipant?.name || 'me', by: me?.key || '', blob: out, name: out.name || 'picture' };
+    entry = { id: newChatId(), who: me?.displayName || 'me', by: me?.key || '', blob: out, name: out.name || 'picture' };
     addEntry(entry, true);
     const q = new URLSearchParams({ file: entry.name });
     if (guestToken) {
@@ -4968,7 +4989,7 @@ async function openMic() {
   }
   const raw = stream.getAudioTracks()[0];
   if (!mic.ctx) await buildMicGraph();
-  // LiveKit's call.disconnect() (called on every reconnectTo(), including
+  // LiveKit's call.disconnect() (on every hang up and every reconnectTo(), including
   // every aside/private step and the return from one) stops the underlying
   // MediaStreamTrack of whatever was published -- our processed track from
   // the Web Audio graph included. A stopped track can never restart, so
@@ -5106,28 +5127,17 @@ function reflectMic() {
 // does. Someone joining the call says "on" before their microphone is published, so their tile is made with none
 // (marked muted), and no TrackMuted/TrackUnmuted ever comes for a microphone published unmuted. updateMuted does nothing
 // for someone not in the call. The camera's picture keeps to TrackMuted/TrackUnmuted and attachTrack/detachTrack.
+// The page is connected here only while on the call (startCall), so everyone it hears of is on the call too: joining is
+// ParticipantConnected, hanging up ParticipantDisconnected. Away is the live stream's (showAway, from presence).
 call
   .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => { attachTrack(participant, track); updateMuted(participant); })
   .on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => detachTrack(participant, track))
   .on(RoomEvent.LocalTrackPublished, (pub) => { if (pub.track) attachTrack(call.localParticipant, pub.track); updateMuted(call.localParticipant); })
   .on(RoomEvent.LocalTrackUnpublished, (pub) => { if (pub.track) detachTrack(call.localParticipant, pub.track); updateMuted(call.localParticipant); })
-  .on(RoomEvent.ParticipantConnected, (p) => { if (shownInCall(p)) tileFor(p); })
+  .on(RoomEvent.ParticipantConnected, (p) => { if (shownInCall(p)) { tileFor(p); subscribeAll(p); updateMuted(p); updateCamera(p); } })
   // Nothing is received until I am in the conference; then everything published is taken.
   .on(RoomEvent.TrackPublished, (pub, p) => { if (shownInCall(p)) pub.setSubscribed(true); updateMuted(p); })
   .on(RoomEvent.TrackUnpublished, (_pub, p) => updateMuted(p))
-  // Someone left or rejoined the conference without leaving the space, or went away or came back (showAway).
-  .on(RoomEvent.ParticipantAttributesChanged, (changed, p) => {
-    if (p.isLocal || !inCall) return;
-    if ('call' in changed) {
-      if (p.attributes?.call === 'off') return removeParticipant(p);
-      tileFor(p);
-      subscribeAll(p);
-      updateMuted(p);
-      updateCamera(p);
-      applyLayout();
-    }
-    if ('away' in changed || 'awayMessage' in changed) showAway(p);
-  })
   .on(RoomEvent.ParticipantDisconnected, removeParticipant)
   .on(RoomEvent.TrackMuted, (_pub, participant) => {
     updateMuted(participant);
@@ -5155,69 +5165,97 @@ call
       // not ours
     }
   })
-  .on(RoomEvent.Reconnecting, () => { setStatus('reconnecting...'); chatReconnecting = true; paintChatConn(); })
+  // The call finding its way back after a network drop: the call's own state (the chat and who is here are the live
+  // stream's, which says its own).
+  .on(RoomEvent.Reconnecting, () => setStatus('reconnecting the call...'))
   .on(RoomEvent.ConnectionStateChanged, () => paintChatConn())
-  // A full reconnect joins the call service afresh, with the token's attributes ("call" off, no away): say both again.
-  .on(RoomEvent.Reconnected, () => {
-    chatReconnecting = false; paintChatConn(); setStatus(`in ${spaceName}`);
-    syncCallAttributes();
-  })
+  .on(RoomEvent.Reconnected, () => { paintChatConn(); setStatus(`in ${spaceName}`); })
+  // Only the call ended; the page stays in the space (leaving is leaveSpaceNow). Ended by the page itself (a hang up,
+  // leaving, moving, a join backing out: disconnectCall) there is nothing more to do, nor while a join is still connecting
+  // (its connect fails, and startCall says so); ended by the call service once on it (a drop it could not recover from,
+  // a kick, the call closed) it is a hang up the person did not choose, said in the status.
   .on(RoomEvent.Disconnected, () => {
-    viewingHome = false; // no space left to show home over
-    hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
-    closeLive(); // out of the space: the live stream goes with it (the server keeps me there for its grace)
-    syncHomeChatStream(); // and Home's, in no space, takes its place
-    chatReconnecting = false;
     paintChatConn();
-    canvas.suspend(); // tearing the call down must not become its remembered layout
-    inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
-    stopCallTime();
-    syncCallControl();
-    closeMic();
-    closePopout();
-    canvas.closeBuiltin('conference');
-    setStatus('left the call');
-    forgetSpace();
-    currentSpace = null;
-    currentLayoutTab = 'workspace'; // the tab is remembered for the visit only
-    canvas.refresh(null);
-    refreshLayouts(); // no space, no layouts
-    document.body.classList.remove('in-space');
-    $('canvas').hidden = true;
-    resetRecallButton();
-    updateRecallButton(); // no room, so the tool's own `visible` hides it
-    clearInterval(recallTimer);
-    $('recall-overlay').hidden = true;
-    // A guest has no session and no room to pick from -- back to their own
-    // name-only form for the one space their link is for, not the real
-    // members' space list (which they can't do anything with anyway).
-    $('join').hidden = !!guestToken;
-    $('guest-join').hidden = !guestToken;
-    $('away').hidden = true;
-    updateCrumb();
-    asideSelection.clear();
-    updateAsideConfirm();
-    // Not setAway(false): that would try to re-enable mic/camera on a
-    // participant that's already gone. Just drop the stale state so the
-    // next space starts clean, not still marked away from the last one.
-    $('away-overlay').hidden = true;
-    isAway = false;
-    awayMessage = '';
-    awayRestartCam = false;
-    $('away-toggle').classList.remove('off');
-    $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
-    for (const [, tile] of tiles) tile.remove();
-    tiles.clear();
-    for (const [, tile] of ghostTiles) tile.remove();
-    ghostTiles.clear();
-    canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
-    $('messages').textContent = '';
-    closeHostMenu();
-    if ($('chat-views')) $('chat-views').hidden = true;
-    toggleChat(false);
-    toggleTray(false);
-    loadPresence();
+    if (endingCall > 0 || unloading || !inCall) return;
+    stopCall(); // a join still publishing its microphone backs out
+    setNoCall(true);
+    setStatus('the call dropped', true);
   });
+
+// The page's own end of the call (a hang up, leaving, moving, a join backing out): the call service only, never the
+// space. While it runs, the call's Disconnected knows it was this page's doing.
+let endingCall = 0;
+async function disconnectCall() {
+  if (call.state === 'disconnected') return;
+  endingCall += 1;
+  try {
+    await call.disconnect();
+  } catch {
+    // already gone
+  } finally {
+    endingCall -= 1;
+  }
+}
+
+// Leaving the space (Leave, a kick, the space deleted, a move to another space or an aside, an entry that failed): the
+// call ends if I am on it, the live stream closes (the server keeps me there for its grace), and the canvas, the chat,
+// who is here and the tiles are cleared; Home shows. `said` is the status line's.
+function leaveSpaceNow(said = `left the ${word('space')}`) {
+  entered = false;
+  viewingHome = false; // no space left to show home over
+  canvas.suspend(); // tearing the space down must not become its remembered layout
+  stopCall(); // on the call: off it (the call service only), its tiles and microphone gone
+  hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
+  closeLive(); // out of the space: the live stream goes with it (the server keeps me there for its grace)
+  syncHomeChatStream(); // and Home's, in no space, takes its place
+  paintChatConn();
+  stopCallTime();
+  syncCallControl();
+  closeMic();
+  closePopout();
+  canvas.closeBuiltin('conference');
+  setStatus(said);
+  forgetSpace();
+  currentSpace = null;
+  currentLayoutTab = 'workspace'; // the tab is remembered for the visit only
+  canvas.refresh(null);
+  refreshLayouts(); // no space, no layouts
+  document.body.classList.remove('in-space');
+  $('canvas').hidden = true;
+  resetRecallButton();
+  updateRecallButton(); // no room, so the tool's own `visible` hides it
+  clearInterval(recallTimer);
+  $('recall-overlay').hidden = true;
+  // A guest has no session and no room to pick from -- back to their own
+  // name-only form for the one space their link is for, not the real
+  // members' space list (which they can't do anything with anyway).
+  $('join').hidden = !!guestToken;
+  $('guest-join').hidden = !guestToken;
+  $('away').hidden = true;
+  updateCrumb();
+  asideSelection.clear();
+  updateAsideConfirm();
+  // Not setAway(false): that would try to re-enable mic/camera on a
+  // participant that's already gone. Just drop the stale state so the
+  // next space starts clean, not still marked away from the last one.
+  $('away-overlay').hidden = true;
+  isAway = false;
+  awayMessage = '';
+  awayRestartCam = false;
+  $('away-toggle').classList.remove('off');
+  $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+  for (const [, tile] of tiles) tile.remove();
+  tiles.clear();
+  for (const [, tile] of ghostTiles) tile.remove();
+  ghostTiles.clear();
+  canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
+  $('messages').textContent = '';
+  closeHostMenu();
+  if ($('chat-views')) $('chat-views').hidden = true;
+  toggleChat(false);
+  toggleTray(false);
+  loadPresence();
+}
 
 // An aside's nudge, from the live stream (openLive's onAside; the server's POST /api/asides, /recall and /return), with
 // its `spaceId`. Deferred a tick, so the stream's own event finishes first.
@@ -5267,10 +5305,10 @@ function asideNudge(data) {
   }
 }
 // Kicked (the live stream's `removed { reason: 'kicked' }`): out of the space, as leaving it. The server also takes them
-// off the call, whose Disconnected may get here first; either way the space is left once.
+// off the call, whose Disconnected may get here first (the call ends; the space is left here).
 function leaveKicked() {
   forgetSpace();
-  if (call.state !== 'disconnected') call.disconnect(); // the Disconnected handler shows Home
+  if (entered) leaveSpaceNow(`removed from the ${word('space')}`);
   else loadPresence();
 }
 
@@ -5307,8 +5345,8 @@ async function fillDevices() {
 // Into a space I was invited to (or started): the one I am in is left for it.
 async function joinInvitedSpace(spaceId) {
   if (isHomeRecord(spaceId)) return landOnHome(); // an old link or invitation to the Lobby: Home, over a space kept
-  if (call.state === 'connected' && currentSpace?.id === spaceId) return returnToCanvas();
-  if (call.state === 'connected') return reconnectTo(spaceId);
+  if (entered && currentSpace?.id === spaceId) return returnToCanvas();
+  if (entered) return reconnectTo(spaceId);
   return join(spaceId);
 }
 // An invitation accepted on this page (the toast in brand.js asks; a page that handles it says so).
@@ -5326,24 +5364,25 @@ async function openInSpace(spaceId, moduleId, ref) {
     else location.href = href;
     return;
   }
-  if (call.state === 'connected' && currentSpace?.id === spaceId) {
+  if (entered && currentSpace?.id === spaceId) {
     returnToCanvas();
     canvas.open(moduleId);
     canvas.openRef(ref);
     return;
   }
   canvas.requestOpen(moduleId, ref);
-  if (call.state === 'connected') await reconnectTo(spaceId);
+  if (entered) await reconnectTo(spaceId);
   else await join(spaceId);
 }
 // A pull (into an aside, or back: "Pull participants back", "Rejoin call", following the others back) moves the call
 // with you (Thomas, 2026-09-30, "Pull keeps you on the call"): `keepCall` says this is one, and if I was on the call I
 // am on the new one without a click, through the same join check and microphone rules as a click (startCall). Out of
 // the call, I land out of it. Going somewhere myself (an invitation, a module opened from the dashboard) never joins.
+// Moving is leaving this space (its live stream closes, the call here ends) and entering the next (its live stream opens).
 async function reconnectTo(spaceId, statusText, { keepCall = false } = {}) {
-  const stayOnCall = Boolean(keepCall) && inCall; // read before the disconnect, which ends the call here
-  if (statusText) setStatus(statusText);
-  await call.disconnect().catch(() => {});
+  const stayOnCall = Boolean(keepCall) && inCall; // read before leaving, which ends the call here
+  if (entered) leaveSpaceNow(statusText || `left the ${word('space')}`);
+  else if (statusText) setStatus(statusText);
   await join(spaceId, { joinCall: stayOnCall, pull: true });
 }
 
@@ -5419,7 +5458,7 @@ async function leaveSpace() {
   if (currentSpace?.isAside) {
     await api('POST', '/api/asides/return').catch(() => {});
   }
-  call.disconnect();
+  if (entered) leaveSpaceNow();
 }
 
 // The breadcrumb in the top bar's anchor (plan-primary-nav.md, decision 14): nothing on home; in a space, its name,
@@ -5435,7 +5474,7 @@ function crumbSegmentHtml(seg, icon) {
   return `<div class="crumb-here core-link"${seg.current ? ' aria-current="location"' : ''} title="${escapeHtml(seg.label)}">${inner}</div>`;
 }
 function updateCrumb() {
-  const connected = call.state === 'connected' && currentSpace;
+  const connected = entered && currentSpace;
   setPresentSpace(connected ? (currentSpace.isAside ? currentSpace.origin || null : currentSpace.id) : null);
   document.body.classList.toggle('in-aside', Boolean(connected) && inAside()); // an aside's column is the whole screen (style.css)
   // What the anchor shows is anchorSegments() (primary-nav.js, held by check-nav): the space's breadcrumb, nothing while
@@ -5466,133 +5505,159 @@ function updateCrumb() {
 }
 
 // `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins by itself, unless the
-// environment's "join the call on entering" is on (autoJoinOnEntry, in connectAndSetup). `pull`: this is a pull, not
+// environment's "join the call on entering" is on (autoJoinOnEntry, in enterSpace). `pull`: this is a pull, not
 // the person entering again, so having left the call still counts (leftCall stays).
+// Entering is opening the space's live stream (openLive): its first `ready` is the server's yes, its refusal the error
+// said on Home (no such space, not one of mine). The call service is never asked.
 async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) {
   if (isHomeRecord(spaceId)) return landOnHome(); // the Lobby is Home now (plan-home-lobby.md, step 2): never entered
   if (!pull) leftCall = false; // entering again: a person who left the call may be joined again
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
-  homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (connectAndSetup)
+  homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (enterSpace)
   hideHomeChat();
   currentLayoutTab = 'workspace'; // entering a space opens on the Workspace tab (plan-layout-views.md), never the last space's
   $('join-error').hidden = true;
   for (const b of document.querySelectorAll('[data-join]')) b.disabled = true;
+  const entry = ++entries;
+  let placed = false;
   try {
     setStatus('connecting...');
-    const { token, livekitUrl } = await api('POST', '/api/token', { space: spaceId });
     // Fresh permissions each join -- an admin may have changed them since
     // this page loaded.
     me = (await api('GET', '/api/me')).user;
-    // The call connects with the space already on the list. Presence, which asks LiveKit who is in a
-    // call, fills the rest in when it answers and does not hold the connection (GitHub #71).
+    if (entry !== entries) return; // another entry began meanwhile
+    // The space as the page already lists it; presence fills the rest in when it answers and does not hold the entry
+    // (GitHub #71).
     const known = presenceSpaces.find((r) => r.id === spaceId);
     currentSpace = known || { id: spaceId, name: spaceName, members: [], pending: true };
     if (!currentSpace.pending) spaceName = spaceDisplayName(currentSpace);
+    placed = true;
+    await liveOpened(openLive(spaceId));
+    if (entry !== entries) return;
     loadPresence();
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id); // asides have no modules
+    if (entry !== entries) return;
     spaceName = spaceDisplayName(currentSpace);
     applyPermissions();
     updateRecallButton();
-    await connectAndSetup(token, livekitUrl, { joinCall });
+    enterSpace({ joinCall });
   } catch (err) {
+    if (err?.closed || entry !== entries) return; // given way to another entry
+    if (placed) leaveSpaceNow(''); // back on Home, the space not kept
     setStatus('', false);
     forgetSpace(); // a space that cannot be joined is not remembered, so a reload does not try it again
     $('join-error').textContent = err.message;
     $('join-error').hidden = false;
-    await call.disconnect().catch(() => {});
   } finally {
-    for (const b of document.querySelectorAll('[data-join]')) b.disabled = false;
-    homeChatEntering = false;
-    syncHomeChat(); // in the space: nothing; refused, still on Home: Home's chat again
+    if (entry === entries) {
+      for (const b of document.querySelectorAll('[data-join]')) b.disabled = false;
+      homeChatEntering = false;
+      syncHomeChat(); // in the space: nothing; refused, still on Home: Home's chat again
+    }
+  }
+}
+// Entries counted, so one given up for another (a move while still entering) stops where it is.
+let entries = 0;
+// How long entering waits for the live stream's first answer. Past it the page goes in anyway, the stream still trying
+// (Reconnecting in Chat's status line), so a slow proxy never holds anyone at the door.
+const LIVE_ENTER_WAIT_MS = 10000;
+async function liveOpened(opened) {
+  let timer = null;
+  try {
+    await Promise.race([opened, new Promise((resolve) => { timer = setTimeout(resolve, LIVE_ENTER_WAIT_MS); })]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 // A guest link: locked to the one space the link is for, no space picker, no
-// account -- everything past "connect" is identical to a real member's join.
-async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
+// account -- everything past the live stream opening is identical to a real member's join.
+async function joinAsGuest(joinedId, joinedName) {
   $('guest-join-error').hidden = true;
   leftCall = false; // a fresh entry
+  const entry = ++entries;
+  let placed = false;
   try {
     setStatus('connecting...');
     spaceName = joinedName;
-    // Same as a member's join: connect now, and let presence fill in members when LiveKit answers.
+    // Same as a member's join: the live stream, and presence fills in the members when it answers.
     const known = presenceSpaces.find((r) => r.id === joinedId);
     currentSpace = known || { id: joinedId, name: joinedName, members: [], pending: true };
+    placed = true;
+    await liveOpened(openLive(joinedId));
+    if (entry !== entries) return;
     loadPresence();
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id);
+    if (entry !== entries) return;
     applyPermissions();
     updateRecallButton();
-    await connectAndSetup(token, livekitUrl);
+    enterSpace();
   } catch (err) {
+    if (err?.closed || entry !== entries) return;
+    if (placed) leaveSpaceNow('');
     setStatus('', false);
     $('guest-join-error').textContent = err.message;
     $('guest-join-error').hidden = false;
-    await call.disconnect().catch(() => {});
   }
 }
 
-// Shared by join() and joinAsGuest() once a LiveKit token is in hand:
-// connect, reveal the canvas, and open what this space starts with.
-// Errors propagate to whichever of those called it, to land on the right error message.
-// Nothing is received until the conference starts, so autoSubscribe is off.
-async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
-    await call.connect(livekitUrl, token, { autoSubscribe: false });
-    console.debug('[app] connected to', currentSpace.id);
-    // Everyone connects out of the call (the token's "call" attribute is off); entering never joins. Said again here
-    // in case a token ever says otherwise, else others would draw a tile and list this person as on the call.
-    if (call.localParticipant.attributes?.call !== 'off') await call.localParticipant.setAttributes({ call: 'off' }).catch(() => {});
-    await syncAwayAttributes(); // away before the call service was reached: said now
-    openLive(currentSpace.id); // who is here, and my own state, from now on (space-live.js)
-    if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
-    $('join').hidden = true;
-    $('guest-join').hidden = true;
-    $('canvas').hidden = false;
-    viewingHome = false; // every way into a space (join, a pull, an invitation, a reload) lands here
-    updateCrumb();
-    document.body.classList.add('in-space');
-    wake();
-    setStatus(`in ${spaceName}`);
-    if (!currentSpace.isAside) {
-      renderChatHistory(currentSpace.id);
-      if (chatInput) chatInput.loadThread();
-      loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
-    }
-    canvas.updateMenu();
-    // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
-    // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
-    const firstTab = canvas.restore(); // 'calendar' or 'map' when a first visit opens on that tab (plan-layout-views.md, step 5)
-    applyColumnPref(); // the always-on column, open or a rail, as this space was left
-    const enteredId = currentSpace.id;
-    refreshLayouts().then(() => showFirstVisitTab(firstTab, enteredId)); // and its saved layouts
-    syncCallControl(); // who is in the call, for the conference's "Not in a call" note
-    // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
-    // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
-    // refusal is said in the "Not in a call" note as for a click. The environment's "join the call on entering"
-    // (GitHub #199, autoJoinOnEntry) joins the same way, once per entry; blocked or refused, the Join row stays.
-    if (joinCall || autoJoinOnEntry()) joinTheCall();
+// Shared by join() and joinAsGuest() once the live stream has opened: in the space, the canvas shown, and what this
+// space starts with opened. No call: that is Start or Join call (startCall).
+function enterSpace({ joinCall = false } = {}) {
+  entered = true;
+  console.debug('[app] in', currentSpace.id);
+  if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
+  $('join').hidden = true;
+  $('guest-join').hidden = true;
+  $('canvas').hidden = false;
+  viewingHome = false; // every way into a space (join, a pull, an invitation, a reload) lands here
+  updateCrumb();
+  document.body.classList.add('in-space');
+  wake();
+  setStatus(`in ${spaceName}`);
+  if (!currentSpace.isAside) {
+    renderChatHistory(currentSpace.id);
+    if (chatInput) chatInput.loadThread();
+    loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
+  }
+  canvas.updateMenu();
+  // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
+  // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
+  const firstTab = canvas.restore(); // 'calendar' or 'map' when a first visit opens on that tab (plan-layout-views.md, step 5)
+  applyColumnPref(); // the always-on column, open or a rail, as this space was left
+  const enteredId = currentSpace.id;
+  refreshLayouts().then(() => showFirstVisitTab(firstTab, enteredId)); // and its saved layouts
+  syncCallControl(); // who is in the call, for the conference's "Not in a call" note
+  // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
+  // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
+  // refusal is said in the "Not in a call" note as for a click. The environment's "join the call on entering"
+  // (GitHub #199, autoJoinOnEntry) joins the same way, once per entry; blocked or refused, the Join row stays.
+  if (joinCall || autoJoinOnEntry()) joinTheCall();
 }
 
-// Start the conference: tiles for everyone in it, their media, and my own microphone.
+// Start the conference: connect to the call service, tiles for everyone in it, their media, and my own microphone.
 // Runs only on a join: a click (the green phone or "Join the call"), or a pull that finds me on the call, which joins
-// the new space's call from connectAndSetup() (entering a space otherwise never joins).
-// The server is asked first (POST /api/call/join, the calls cap); a refusal is said in the "Not in a call" note and
-// nothing is asked of the microphone. Every wait after that can outlast a stop (Hang up, the Conference switched off,
-// the call gone): after each one the join backs out if that happened, releasing what it got, and never publishes the
-// microphone or says "on" after a stop.
+// the new space's call from enterSpace() (entering a space otherwise never joins).
+// The server is asked first (POST /api/call/join: the calls cap, then the call's token, the only way to one); a refusal
+// is said in the "Not in a call" note and nothing is asked of the microphone. Then the call service, with that token: if
+// it can't be reached (none running, none set up), the note says the call could not start, and the space goes on as it
+// was. Every wait can outlast a stop (Hang up, the Conference switched off, leaving): after each one the join backs out
+// if that happened, releasing what it got, and never publishes the microphone or says "on" after a stop.
 let callGeneration = 0; // stopCall() counts it up, so a join still waiting sees it was stopped
 let callJoining = null; // the join under way, until it is in the call or has backed out
 async function startCall() {
   if (callJoining) await callJoining; // a join stopped part-way backs out first: the two would share the microphone
-  if (inCall || callJoining || call.state !== 'connected') return;
+  if (inCall || callJoining || !entered || !currentSpace) return;
   const generation = callGeneration;
-  const stopped = () => generation !== callGeneration || call.state !== 'connected' || !canvas.builtinOpen('conference');
+  // A stop came meanwhile (stopCall counts callGeneration up: a hang up, leaving, the call service dropping the join),
+  // or the conference closed.
+  const stopped = () => generation !== callGeneration || !entered || !canvas.builtinOpen('conference');
   // Back out of a stopped join. If nothing has stopped the call yet (the call or the module went some other way),
-  // stop it now, which unpublishes and releases everything; else release what this join got after the stop.
-  let connectedHere = false; // this join connected to the call service itself (with the call's token)
+  // stop it now, which disconnects and releases everything; else release what this join got after the stop.
   const backOut = async (published) => {
     if (inCall && generation === callGeneration) { await stopCall(); return; }
     if (published && call.state === 'connected') await call.localParticipant.unpublishTrack(published, true).catch(() => {});
-    if (connectedHere) await call.disconnect().catch(() => {});
+    await disconnectCall(); // what this join connected, if it got that far
     closeMic();
   };
   let settle;
@@ -5609,11 +5674,18 @@ async function startCall() {
       return;
     }
     if (stopped()) return;
-    if (call.state !== 'connected') {
-      connectedHere = true;
+    await disconnectCall(); // a call still closing (a hang up a moment ago, a move) finishes first
+    if (stopped()) return;
+    // Nothing is received until the tracks are asked for (subscribeAll), so autoSubscribe is off.
+    try {
       await call.connect(ticket.livekitUrl, ticket.token, { autoSubscribe: false });
-      if (stopped()) return await backOut();
+    } catch (err) {
+      console.warn('[app] the call service:', err.message);
+      if (!stopped()) setJoinProblem('Could not start the call. Voice and video are not available right now.');
+      return await backOut();
     }
+    if (stopped()) return await backOut();
+    console.debug('[app] on the call in', currentSpace.id);
     inCall = true;
     startCallTime();
     syncCallControl();
@@ -5621,10 +5693,6 @@ async function startCall() {
     canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
     // "on", with away said in the same request when joining while away (or it was lost).
     sayPresence({ onCall: true, away: isAway, awayMessage: isAway ? awayMessage : '' });
-    if (call.localParticipant.attributes?.call !== 'on' || awayAttributesChanged()) {
-      await call.localParticipant.setAttributes({ call: 'on', ...awayAttributes() }).catch(() => {});
-      if (stopped()) return await backOut();
-    }
     tileFor(call.localParticipant);
     applyMirror();
     for (const p of call.remoteParticipants.values()) {
@@ -5683,8 +5751,9 @@ function setJoinProblem(text) {
   el.hidden = !text;
 }
 
-// Leave the conference and stay in the space: stop sending and receiving media, drop the
-// tiles, and tell everyone I am not in it (the "call" attribute), so they drop mine.
+// Leave the conference and stay in the space: disconnect from the call service (which stops sending and receiving
+// media; everyone else drops my tile as I leave it there), drop the tiles, and say I am off the call on the live stream.
+// All but the disconnect happens at once, so leaving the space (leaveSpaceNow) can go on straight after.
 async function stopCall() {
   callGeneration += 1; // a join still under way backs out (it may not be in the call yet)
   setJoinProblem('');
@@ -5692,14 +5761,7 @@ async function stopCall() {
   inCall = false;
   stopCallTime();
   sayPresence({ onCall: false, away: false, awayMessage: '' }); // away ends with the call (below)
-  if (call.state === 'connected') {
-    // Away ends with the call (below), so it is cleared for everyone with it.
-    await call.localParticipant.setAttributes({ call: 'off', away: 'off', awayMessage: '' }).catch(() => {});
-    for (const pub of [...call.localParticipant.trackPublications.values()]) {
-      if (pub.track) await call.localParticipant.unpublishTrack(pub.track, true).catch(() => {});
-    }
-    for (const p of call.remoteParticipants.values()) for (const pub of p.trackPublications.values()) pub.setSubscribed(false);
-  }
+  const ending = disconnectCall(); // the call service only: the page stays in the space
   closeMic();
   // Away is a conference state: going out of the call ends it without a word to anyone.
   $('away-overlay').hidden = true;
@@ -5720,10 +5782,11 @@ async function stopCall() {
   $('screen-share').classList.remove('on');
   toggleTray(false);
   closeSettings();
-  setStatus(`in ${spaceName}`);
+  if (entered) setStatus(`in ${spaceName}`);
   syncCallControl();
   syncShareLift(); // the tiles are gone: a lifted conference goes back into the column
   canvas.updateMenu(); // and loses it
+  await ending;
 }
 
 // The hang-up button. In a pop-out window the canvas comes back to the page first, since the
@@ -5753,7 +5816,7 @@ function setNoCall(off) {
   h.querySelector('i').className = 'fa-solid fa-phone fa-fw'; // the handset, turned down to hang up (style.css)
 }
 // Join the call from outside the conference: the space bar's Join the call, and a pull that finds me on the call
-// (connectAndSetup). Shows the Conference the way its Show switch does (canvas.showBuiltin: opened if hidden, brought
+// (enterSpace). Shows the Conference the way its Show switch does (canvas.showBuiltin: opened if hidden, brought
 // into view on a phone), so its "Not in a call" note is there to say a refusal, then joins through startCall(), the
 // one join path. Nothing happens where the conference may not open.
 function joinTheCall() {
@@ -6917,7 +6980,7 @@ document.addEventListener('app:enter-space', (event) => {
   if (!id || guestToken) return;
   event.preventDefault();
   if (!$('page-overlay-frame').hidden) closeOverlay();
-  const connected = call.state === 'connected' && currentSpace;
+  const connected = entered && currentSpace;
   // The switcher's last entry, Leave (plan-one-bar.md, step 5): what the space bar's Leave button does (on a phone it
   // is still there, in the tab bar). Present nowhere, there is nothing to leave.
   if (action === 'leave') {
@@ -6991,7 +7054,7 @@ function showSpaceList() {
 // renderSpaces()) and offers "Rejoin" instead of "Join" -- no network round
 // trip needed, just the same view swap back.
 function returnToCanvas() {
-  if (call.state !== 'connected') return;
+  if (!entered) return;
   $('join').hidden = true;
   $('guest-join').hidden = true;
   $('canvas').hidden = false;
@@ -7046,9 +7109,9 @@ let homeChatEntering = false; // join() under way: the chat is the space's from 
 function homeChatWanted() {
   const allowed = Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering && !$('join').hidden;
   if (!allowed) return '';
-  if (!currentSpace && call.state !== 'connected' && !document.body.classList.contains('in-space')
+  if (!currentSpace && !entered && !document.body.classList.contains('in-space')
     && canDo('chatRead') && !canvas.builtinOpen('chat')) return 'home';
-  if (currentSpace && viewingHome && call.state === 'connected' && !inAside() && !pipWindow
+  if (currentSpace && viewingHome && entered && !inAside() && !pipWindow
     && !document.body.classList.contains('in-space') && canDo('chatRead') && !canvas.builtinWindow('chat')) return 'over';
   return '';
 }
@@ -7400,36 +7463,13 @@ function updateAwayOverlay(identity, on, message) {
   }
 }
 
-// Away as everyone reads it, kept with me at the call service so that someone who joins, reloads or reconnects later
-// sees it too: the "away" attribute, 'on' or 'off' (none, for a page before it, is 'off'), and "awayMessage", '' for a
-// plain Away. setAttributes changes only the keys it is given, so these never touch "call", nor "call" these.
-function awayAttributes() {
-  return { away: isAway ? 'on' : 'off', awayMessage: isAway ? awayMessage : '' };
-}
-function awayAttributesChanged() {
-  const said = call.localParticipant?.attributes || {};
-  const want = awayAttributes();
-  return (said.away === 'on' ? 'on' : 'off') !== want.away || (said.awayMessage || '') !== want.awayMessage;
-}
-async function syncAwayAttributes() {
-  if (call.state !== 'connected' || !awayAttributesChanged()) return;
-  await call.localParticipant.setAttributes(awayAttributes()).catch(() => {});
-}
-// "call" as inCall says, with away, after a reconnect that may have put the token's attributes back.
-async function syncCallAttributes() {
-  if (call.state !== 'connected') return;
-  const want = inCall ? 'on' : 'off';
-  if (call.localParticipant.attributes?.call === want && !awayAttributesChanged()) return;
-  await call.localParticipant.setAttributes({ call: want, ...awayAttributes() }).catch(() => {});
-}
-// Someone's away mark on their tile, from the live stream; mine from my own state, since the stream says it only once
-// the server has it. Someone the stream does not know by that identity (a guest: their key there is not their identity
-// at the call service) from their attributes.
+// Someone's away mark on their tile, from the live stream (their key there is their identity on the call, a guest's
+// too); mine from my own state, since the stream says it only once the server has it. Someone the stream does not
+// have (yet) is not marked.
 function showAway(participant) {
   if (participant.isLocal) return updateAwayOverlay(participant.identity, isAway, awayMessage);
   const said = livePerson(participant.identity);
-  if (said) return updateAwayOverlay(participant.identity, said.away, said.awayMessage);
-  updateAwayOverlay(participant.identity, participant.attributes?.away === 'on', participant.attributes?.awayMessage || '');
+  updateAwayOverlay(participant.identity, Boolean(said?.away), said?.away ? said.awayMessage : '');
 }
 // A camera that came on during a wait after going away (a click just before, Back and away again) goes off again, and
 // comes back with Back.
@@ -7445,11 +7485,11 @@ async function keepMicOffWhileAway() {
   await call.localParticipant.setMicrophoneEnabled(false).catch(() => {});
 }
 
-async function sendAway(on, message = '') {
-  updateAwayOverlay(call.localParticipant?.identity, on, message);
+// Away as everyone reads it: said on the live stream (PATCH /api/spaces/:id/presence), so someone who joins, reloads or
+// reconnects later sees it too.
+async function sendAway(on) {
+  updateAwayOverlay(me?.key, on, on ? awayMessage : '');
   sayPresence({ away: on, awayMessage: on ? awayMessage : '' });
-  if (call.state !== 'connected') return;
-  await syncAwayAttributes();
 }
 
 // Away means away: nobody should be hearing or seeing you while your tile
@@ -7490,7 +7530,7 @@ async function setAway(on, message = '') {
   updateCamera(call.localParticipant);
   $('away-toggle').classList.toggle('off', on);
   $('away-toggle').dataset.tip = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
-  await sendAway(on, message);
+  await sendAway(on);
 }
 
 // The away button asks for an optional message first; coming back is one click.

@@ -1014,7 +1014,7 @@ test('Who is here in the top bar (Thomas, 2026-10-14): the space\'s, after the l
   // Wider than a phone: an element tool at the end of the top bar's left zone, with its fit, giving way first.
   assert.match(space, /const whoHereTop = \{ id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere\.el, fit: whoHere\.fit, yieldFirst: true, visible: whoHereTopWanted \};/);
   // In a space, call or no call; not while Home shows, not in an aside, not on a phone (the tab bar has it there).
-  assert.match(space, /const whoHereTopWanted = \(\) => Boolean\(currentSpace\) && !viewingHome && !inAside\(\) && call\.state === 'connected' && !phoneWidth\(\);/);
+  assert.match(space, /const whoHereTopWanted = \(\) => Boolean\(currentSpace\) && !viewingHome && !inAside\(\) && entered && !phoneWidth\(\);/);
   assert.ok(!/inCall/.test(space.match(/const whoHereTopWanted = [^\n]*/)[0]), 'it does not wait for the call');
   // The top bar wider than a phone, the tab bar on a phone: the same element, registered where it goes.
   assert.match(space, /const people = wide \? whoHereTop : whoHereBar;\n  if \(nav\.get\('who-here'\)\?\.bar !== people\.bar\) nav\.register\(people\);/);
@@ -1056,25 +1056,25 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(own), 'its rules use theme tokens only');
 });
 
-test('Join the call shows only out of the call, connected, where the conference may show; it joins through joinTheCall()', () => {
+test('Join the call shows only out of the call, in the space, where the conference may show; it joins through joinTheCall()', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const m = space.match(/const joinCallWanted = \(\) => ([^;]+);/);
   assert.ok(m, 'space.js says when Join the call shows (joinCallWanted)');
   // Run the rule itself against each state.
-  const wanted = (s) => new Function('currentSpace', 'homeChatSpace', 'call', 'inCall', 'conferenceAllowed', 'features', 'canDo', `return (${m[1]});`)(
+  const wanted = (s) => new Function('currentSpace', 'homeChatSpace', 'entered', 'inCall', 'conferenceAllowed', 'features', 'canDo', `return (${m[1]});`)(
     s.space === undefined ? { id: 'lobby' } : s.space,
     s.home ? { id: 'lobby', isLobby: true } : null,
-    { state: s.state || 'connected' },
+    s.entered !== false,
     Boolean(s.inCall),
     ({ conferenceEnabled = true, permitted = false } = {}) => conferenceEnabled !== false && Boolean(permitted),
     { conferenceEnabled: s.enabled !== false },
     () => s.permitted !== false,
   );
-  assert.equal(wanted({}), true, 'in a space, connected, out of the call: shown');
+  assert.equal(wanted({}), true, 'in a space (its live stream open), out of the call: shown');
   assert.equal(wanted({ inCall: true }), false, 'in the call: hidden (Leave and Hang up stay as they are)');
   assert.equal(wanted({ space: { id: 'a1', isAside: true } }), true, 'in an aside out of its call: shown (the aside\'s call)');
   assert.equal(wanted({ space: null }), false, 'not in a space: hidden');
-  assert.equal(wanted({ state: 'disconnected' }), false, 'not connected: hidden');
+  assert.equal(wanted({ entered: false }), false, 'still entering, or left: hidden');
   assert.equal(wanted({ home: true }), false, 'Home\'s chat shows (Home over a space): no Start call or Join call; a call belongs to a space (GitHub #326)');
   assert.equal(wanted({ home: true, inCall: true }), false, 'in the call on Home: the button stays hidden, and the call bar keeps Leave and mute');
   assert.equal(wanted({ enabled: false }), false, 'the environment turned the conference off: hidden');
@@ -1565,13 +1565,13 @@ test('the anchor on the space page: the space\'s breadcrumb, nothing while home 
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const crumb = space.slice(space.indexOf('function updateCrumb('), space.indexOf('\n}\n', space.indexOf('function updateCrumb(')));
   assert.match(crumb, /anchorSegments\(\{ space, viewingHome,/, 'updateCrumb draws anchorSegments');
-  // Every way into a space clears "home over the space": join() itself, connectAndSetup() (every join, pull, invitation
+  // Every way into a space clears "home over the space": join() itself, enterSpace() (every join, pull, invitation
   // and reload lands there) and a dropped connection.
   const join = space.slice(space.indexOf("async function join(spaceId = 'lobby'"), space.indexOf('\n}\n', space.indexOf("async function join(spaceId = 'lobby'")));
   assert.match(join, /viewingHome = false;/, 'join() clears viewingHome');
-  const setup = space.slice(space.indexOf('async function connectAndSetup('), space.indexOf('async function startCall('));
-  assert.ok(setup.indexOf('viewingHome = false;') > -1 && setup.indexOf('viewingHome = false;') < setup.indexOf('updateCrumb();'), 'connectAndSetup() clears viewingHome before it draws the breadcrumb');
-  assert.match(space, /\.on\(RoomEvent\.Disconnected, \(\) => \{\n\s*viewingHome = false;/, 'a dropped connection clears it');
+  const setup = space.slice(space.indexOf('function enterSpace('), space.indexOf('async function startCall('));
+  assert.ok(setup.indexOf('viewingHome = false;') > -1 && setup.indexOf('viewingHome = false;') < setup.indexOf('updateCrumb();'), 'enterSpace() clears viewingHome before it draws the breadcrumb');
+  assert.match(space, /function leaveSpaceNow\(.*\) \{\n\s*entered = false;\n\s*viewingHome = false;/, 'leaving the space clears it');
   assert.match(space, /aria-label="\$\{escapeHtml\(seg\.title \|\| seg\.label\)\}"/, 'the parent segment says what it does to a screen reader');
 });
 
@@ -2337,7 +2337,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   const initFn = space.slice(space.indexOf('async function init() {'));
   assert.match(initFn, /const setupAsked = setupAddress\(location\.search, location\.hash\);[\s\S]*?if \(setupAsked\) \{\n\s*const rest = new URLSearchParams\(location\.search\);\n\s*rest\.delete\('setup'\);[^\n]*\n[^\n]*\n\s*openSetupFor\(setupAsked\.id, setupAsked\.tab\);\n\s*\} else if \(invited\) \{/, 'the address opens it once; a reload does not, and the remembered space is not entered instead');
   const openFor = space.slice(space.indexOf('async function openSetupFor('), space.indexOf('// After Save:'));
-  assert.match(openFor, /await joinInvitedSpace\(id\);\n\s*if \(call\.state === 'connected' && currentSpace\?\.id === id && canSetUp\(\)\) enterSetup\(\{ tab: hash \}\);/, 'enters the space (not the call); the panel only for whoever may set up');
+  assert.match(openFor, /await joinInvitedSpace\(id\);\n\s*if \(entered && currentSpace\?\.id === id && canSetUp\(\)\) enterSetup\(\{ tab: hash \}\);/, 'enters the space (not the call); the panel only for whoever may set up');
   assert.match(space, /else if \(action === 'setup'\) openSetupFor\(id, event\.detail\.tab \|\| ''\);/, 'Manage over a call asks the space page underneath');
   const adminJs = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.match(adminJs, /const setupHref = \(id\) => `\/\?setup=\$\{encodeURIComponent\(id\)\}`;/);
@@ -2369,7 +2369,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.ok(!/addEventListener\('change', async/.test(setup), 'nothing in the panel saves as it is clicked');
   assert.match(setup, /state\.links = \{ guestToken: answer\.space\.guestToken \|\| null, allowGuests: answer\.space\.allowGuests !== false \};/, 'the guest link reads the record the in-space controls read');
   assert.match(space, /onLinks: \(\) => loadPresence\(\)\.then\(\(\) => renderGuestLink\(\)\),/, 'and the in-space controls follow the panel');
-  assert.match(space, /function setupDeleted\(space\) \{\n\s*forgetSpace\(\);\n\s*if \(call\.state !== 'disconnected'\) call\.disconnect\(\);/, 'after Delete: Home, and a reload does not try it');
+  assert.match(space, /function setupDeleted\(space\) \{\n\s*forgetSpace\(\);\n\s*if \(entered\) leaveSpaceNow\(\);/, 'after Delete: Home, and a reload does not try it');
   assert.ok(!/conference character/i.test(setup), 'the panel never says "conference character"');
   assert.ok(!/switchRowHtml\([^)]*'module'\)|data-module-switch|\{ spaces \}/.test(setup), 'no module switches: availability per space was removed (an enabled module is on in every space)');
   // Phases inline (step 4): the sheet's rows, every edit through the rule, a draft in the one PATCH.
@@ -2641,7 +2641,7 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
   assert.match(space, /const label = `Add \$\{word\('space', \{ cap: true \}\)\}`;/, 'the button reads Add <Space> in the template\'s word');
   assert.match(space, /button\.hidden = Boolean\(guestToken\) \|\| !hasOwnerRights\(me\);/, 'owners and the admin only, never a guest');
   assert.match(space, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{count\}`, description: '', members: \[\] \}\)/, 'the request Manage\'s Add button makes');
-  assert.match(space, /await loadPresence\(\);[^\n]*\n\s*await joinInvitedSpace\(space\.id\);\n\s*if \(call\.state === 'connected' && currentSpace\?\.id === space\.id\) enterSetup\(\);/, 'then into the new space, and Set up opens once in');
+  assert.match(space, /await loadPresence\(\);[^\n]*\n\s*await joinInvitedSpace\(space\.id\);\n\s*if \(entered && currentSpace\?\.id === space\.id\) enterSetup\(\);/, 'then into the new space, and Set up opens once in');
   assert.match(space, /\$\('home-add-space'\)\?\.addEventListener\('click', addSpace\);/);
   const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.match(admin, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{spaces\.length\}`, description: '', members: \[\] \}\)/, 'Manage\'s own request is unchanged');

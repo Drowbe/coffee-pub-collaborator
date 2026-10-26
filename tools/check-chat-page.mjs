@@ -1171,7 +1171,10 @@ test('the status area: the module frame\'s status bar under the composer, always
   assert.match(bar, /id="chat-conn-time" aria-hidden="true"/, 'the ticking time is not announced');
   assert.match(fnBody(space, 'function showCallTime() {'), /paintChatConn\(\);/, 'the time repaints with the call bar');
   assert.match(fnBody(space, 'function paintChatTime() {'), /callTime\(seconds\)/, 'the same time as the call bar');
-  assert.match(space, /RoomEvent\.Reconnecting, \(\) => \{ setStatus\('reconnecting\.\.\.'\); chatReconnecting = true; paintChatConn\(\); \}/);
+  // The call finding its way back is the call's (its own status), never the chat's: the chat is on the live stream.
+  assert.match(space, /RoomEvent\.Reconnecting, \(\) => setStatus\('reconnecting the call\.\.\.'\)\)/);
+  assert.match(conn, /if \(chatStream === 'reconnecting'\) return 'reconnecting';/, 'reconnecting is the live stream\'s');
+  assert.match(conn, /if \(inCall && call\.state === 'connected'\) return 'call';/, 'In a call only while on the call');
   const note = fnBody(chat.replace(/^ {2}/gm, ''), 'function setNote(');
   assert.match(note, /el\.classList\.toggle\('error', Boolean\(text\) && error\);/, 'an error shows in the error colour');
   assert.match(fnBody(space, 'function chatNotice(text, error = false) {'), /chatNoteFn\(text, error\);/);

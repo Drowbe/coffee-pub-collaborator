@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, deciding how entering a space, chat and presence stop depending on LiveKit; then server-development (the live stream, presence, the routes), experience-design (the space page) and content-manager (the documents and the compose file).
 
-**Status:** Approved by Thomas 2026-10-26, from GitHub #376, which Thomas calls mission critical: "using LiveKit has to be optional." Steps 1 to 6 are built, and step 7, the documents, is done (2026-10-26). Step 8, stored chat pictures, is not built. Next plan: `plan-call-as-module`. The findings under "What it is today" were read in the code before the build, not run against a LiveKit server; the build was checked by tools with no LiveKit server, and the call itself has not been tried on a real one (see "Verify"). His decisions are at the end.
+**Status:** Approved by Thomas 2026-10-26, from GitHub #376, which Thomas calls mission critical: "using LiveKit has to be optional." Steps 1 to 7 are built, and the QA fixes are done, including pictures held briefly in memory and fetched by each reader (2026-10-27). Step 8, stored chat pictures, is not built. Next plan: `plan-call-as-module`. The findings under "What it is today" were read in the code before the build, not run against a LiveKit server; the build was checked by tools with no LiveKit server, and the call itself has not been tried on a real one (see "Verify"). His decisions are at the end.
 
 This plan takes over steps 2 to 4 of [plan-optional-conference](plan-optional-conference.md) (chat and presence without LiveKit, LiveKit optional, conference on later). That plan's step 1, the Conference switch (`conferenceEnabled`, Manage > Modules), is built and stays as it is.
 
@@ -28,7 +28,7 @@ LiveKit carries much more than audio and video. Entering a space connects the pa
 - The sender posts to `POST /api/spaces/:id/chat` (stored), then `publishChat()` sends it to the others over LiveKit's data channel (topic `chat`). If the post fails, the text goes out live with `sendChatMessage` and is never stored.
 - The server's notices (delete, clear, visibility, link preview, kept) go out through `tellChat()`, which sends both to LiveKit (`callService.sendData`, topic `chat`) and to the server's own channel (`chatEvents`).
 - **The server already has the live path.** `GET /api/spaces/:id/chat/stream` is a server-sent stream with the chat's access rules, guest support (`?guest=`), access rechecks, caps per person and per guest link, and a 25-second ping. A post to any space is already emitted on it. Home's chat and a guest in the Lobby use it (`liveChatStream()` in `space.js`). The space page does not.
-- **Chat pictures** are never stored: `sendImage()` sends them as a LiveKit byte stream (topic `chat-image`), and only the people connected at that moment see them.
+- **Chat pictures** (before this plan) were never stored: `sendImage()` sent them as a LiveKit byte stream (topic `chat-image`), and only the people connected at that moment see them.
 
 ### Reactions and away
 
@@ -180,7 +180,7 @@ Steps 1 to 7 are built. Each step left the product working with LiveKit as it is
 
 1. **The register and the live stream** (built) (M, server-development). `server/live.js`; `GET /api/live` with presence only; `PATCH /api/spaces/:id/presence`; `GET /api/presence` and `GET /api/status` answered from the register, LiveKit merged for media fields. The page still connects to LiveKit as now.
 2. **The page on the live stream** (built) (M, experience-design). Open the live stream on entering; who is here, "Not in a call", Start or Join call and away read it and write to it. LiveKit still connected; nothing removed yet.
-3. **Chat on the live stream** (built) (M, server-development S, experience-design M). The server sends every chat notice there and stops sending chat to LiveKit; the chat stream route goes; Home's chat and the guest's chat move to the live stream; the page drops `publishChat()` and the LiveKit chat handlers. Pictures relayed live by the server (option 4 B).
+3. **Chat on the live stream** (built) (M, server-development S, experience-design M). The server sends every chat notice there and stops sending chat to LiveKit; the chat stream route goes; Home's chat and the guest's chat move to the live stream; the page drops `publishChat()` and the LiveKit chat handlers. Pictures relayed by the server (option 4 B): a small event on the stream, the bytes held in memory for 15 minutes and fetched by each reader.
 4. **Asides and kick off LiveKit** (built) (S, server-development; S, experience-design). The four aside nudges and `removed` on the live stream; the asides routes and `canModerate()` read the register.
 5. **Enter without LiveKit** (built) (L, experience-design with the larger model; S, server-development). Tokens only from `POST /api/call/join`; guest-join without a token, with the guest pass; `join()`, leaving and `reconnectTo()` rebuilt as above; the `call` attribute gone. The riskiest step: the space page's leave and move paths change.
 6. **No LiveKit at all** (built) (M, server-development; S, experience-design). Optional keys, `callService`, 503 answers, the Conference card, the space and OBS views without a call service; the Stream module's version bump.

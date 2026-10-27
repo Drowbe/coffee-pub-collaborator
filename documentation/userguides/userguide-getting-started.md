@@ -156,10 +156,11 @@ one signed-in person may hold open, about one a browser tab), `LIVE_STREAMS_PER_
 all; one address gets 40% of it) and `GUEST_CHAT_POSTS_PER_MINUTE` (20, the messages one guest link may post a minute;
 one address gets half). The first two were `CHAT_STREAMS_PER_PERSON` and `CHAT_STREAMS_PER_GUEST_LINK`; the old names
 are no longer read. `CHAT_PICTURE_MAX_MB` (3) is the most one picture in the chat may weigh, and
-`CHAT_PICTURE_MB_PER_MINUTE` (20) the most one person, or one guest link, may send a minute; pictures are sent live
-and never kept. `LIVE_STREAM_BUFFER_MB` (8) is how far a page may fall behind on a live stream before the server drops
+`CHAT_PICTURE_MB_PER_MINUTE` (20) the most one person, or one guest link, may send a minute; pictures are not stored on disk: the server holds each in memory for `CHAT_PICTURE_KEEP_MINUTES` (15) and every
+reader fetches it, and `CHAT_PICTURE_SPACE_MB` (30), `CHAT_PICTURE_ENVIRONMENT_MB` (100) and `CHAT_PICTURE_SERVER_MB` (200)
+limit what is held, the oldest going first. `LIVE_STREAM_BUFFER_MB` (8) is how far a page may fall behind on a live stream before the server drops
 it (the page reconnects), and `PRESENCE_CHANGES_PER_MINUTE` (60) how often one person may switch away or on the call
-in a space a minute.
+in one space a minute.
 
 **Two-step sign-in, and getting back in.** Three switches, one inside the other. `ENABLE_MFA` (in the
 compose file, `"true"` by default) says whether the server offers a second step at all; with it off nobody is

@@ -101,6 +101,7 @@ The open issues labelled `priority: now` or `priority: next`:
 
 ## Verify in a real call
 
+- Real-time without LiveKit ([plan-realtime-optional-livekit](plans/plan-realtime-optional-livekit.md), built 2026-10-26, checked by tools with no LiveKit server): on a real LiveKit, join and hang up (the call's token from **Join the call**, tiles, audio, video, screen share), the calls cap, a kick of someone on the call (they leave the space and the call), mute, a pull into and out of an aside while on the call, reactions on tiles and OBS boxes, the OBS view's video and a call's reconnect after a network drop. Also two phones on a real network for the live stream (a dropped signal and the 15-second grace).
 - Calendar feeds and other calendars (#42, built 2026-10-03): subscribe from real Google Calendar, Apple Calendar on a Mac and an iPhone, and Outlook; check repeats, all-day events and times in the server's `TZ`, and that turning the address off empties it; add a real Google secret address and an Apple one, with repeats and time zones, and see them only for that person. Checked so far by `tools/check-feed.mjs` (22 groups since #179 steps 0 to 2) and `tools/check-external-calendars.mjs` (29 checks), with no real calendar app.
 - The phone space bar (#160) and chat links (#158), built 2026-10-03: the tab bar on a real phone and in a narrow pop-out (More's badge and the call's dot, Leave inside the window), and a link's preview and **Keep** with two people, one of them a guest (no Keep), and Research closed then opened. Checked so far by `check-nav`, `check-chat-links`, `check-chat-page` and `check-research`.
 - Saved layouts and Clear… ([plan-saved-layouts](plans/plan-saved-layouts.md), [plan-chat-clear](plans/plan-chat-clear.md), built 2026-10-03): loading a layout while on the call (the Conference kept), a default layout on a first visit and for a guest, and clearing everyone's messages with two people in the space (the line others see). Checked so far by `check-layouts`, `check-chat-model`, `check-chat-page` and `check-nav`.
@@ -154,6 +155,7 @@ The open issues labelled `priority: now` or `priority: next`:
 
 ## Hosting and environments
 
+- Stored chat pictures (step 8 of [plan-realtime-optional-livekit](plans/plan-realtime-optional-livekit.md), if Thomas chooses it): today a picture in the chat is relayed live and never stored, so a page that comes later does not see it.
 - #48 A one-container install that runs LiveKit itself.
 - #56 Run it on Windows and Mac.
 - #49 A billing relay for a payment provider's webhook.

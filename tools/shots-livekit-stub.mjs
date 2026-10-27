@@ -1,6 +1,6 @@
-// A stand-in for /lib/livekit-client.esm.mjs, used ONLY by tools/shots.mjs for the screens marked "call": true, so the
-// space page can be drawn without a LiveKit server. It connects at once and never holds any media: nobody else is in the
-// call, no microphone or camera is ever on. It is a test double for taking pictures of the page, not a model of LiveKit:
+// A stand-in for /lib/livekit-client.esm.mjs, used ONLY by tools/shots.mjs for the screens marked "call": true (the call
+// itself, after Start call: the space page needs no call service), so the call can be drawn without a LiveKit server. It
+// connects at once and never holds any media: nobody else is in the call, no microphone or camera is ever on. It is a test double for taking pictures of the page, not a model of LiveKit:
 // the call itself (tiles, the call controls with real state, the popped-out window) is still only checked in a real call.
 class Emitter {
   constructor() { this.h = new Map(); }
@@ -51,7 +51,7 @@ export class Room extends Emitter {
       this.emit('ParticipantConnected', p);
     }
   }
-  async disconnect() { if (this.state === 'disconnected') return; this.state = 'disconnected'; this.emit('disconnected'); }
+  async disconnect() { if (this.state === 'disconnected') return; this.state = 'disconnected'; this.emit(RoomEvent.Disconnected); }
   registerByteStreamHandler() {}
   registerTextStreamHandler() {}
   async startAudio() {}

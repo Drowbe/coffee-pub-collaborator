@@ -149,6 +149,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     ['the conference switched off: refused for an owner', conferenceAllowed({ conferenceEnabled: false, permitted: true }), false],
     ['the conference switched on: an owner may open it', conferenceAllowed({ conferenceEnabled: true, permitted: true }), true],
     ['the conference switched on: refused without the permission', conferenceAllowed({ conferenceEnabled: true, permitted: false }), false],
+    ['no call service on the server: refused for an owner, the switch on', conferenceAllowed({ callService: false, conferenceEnabled: true, permitted: true }), false],
+    ['a call service, the switch on, an owner: allowed', conferenceAllowed({ callService: true, conferenceEnabled: true, permitted: true }), true],
     ['a list with the conference, switched off, for an owner', whatOpens({ own: ['conference', 'chat'], canOpen: ownerCanOpen(false) }), ['chat']],
     ['a list with the conference, switched on, for an owner', whatOpens({ own: ['conference', 'chat'], canOpen: ownerCanOpen(true) }), ['conference', 'chat']],
     // Space settings' sentence comes from the stored list, not the ticks on screen.
@@ -200,7 +202,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const emptySentence = opensWithSummary({ list: ['gone'], modules: ['todo'], canOpen: (id) => id !== 'gone', nameOf: () => 'To-do' });
   if (/To-do|Chat/.test(emptySentence)) fail('public/opens-with.js', `a list with nothing openable must not name what would open without it (got "${emptySentence}")`);
   const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  if (!/allowed: \(\) => conferenceAllowed\(\{ conferenceEnabled: features\.conferenceEnabled/.test(spaceJs)) fail('public/space.js', 'the conference module\'s allowed() must follow the environment\'s switch (conferenceAllowed), for owners too');
+  if (!/allowed: \(\) => conferenceAllowed\(\{ callService: features\.callService, conferenceEnabled: features\.conferenceEnabled/.test(spaceJs)) fail('public/space.js', 'the conference module\'s allowed() must follow the server\'s call service and the environment\'s switch (conferenceAllowed), for owners too');
+  if (!/callService: branding\.callService !== false/.test(spaceJs)) fail('public/space.js', 'features.callService must come from branding.callService, so a server with no call service shows no conference');
   const settingsJs = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
   if (!/opensWithSummary\(\{\s*list: state\.draft\.opensWith/.test(settingsJs)) fail('public/space-setup.js', 'the Opens with sentence must come from the list being edited (opensWithSummary with list: state.draft.opensWith)');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
@@ -852,29 +855,34 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // Entering a space never joins the call, for members and guests alike (Thomas, 2026-09-30): the conference shows
   // "Not in a call", and only a click joins (the green phone or "Join the call", both through phoneButton()). The one
   // other way on (Thomas, 2026-09-30, "Pull keeps you on the call"): a pull (into an aside, or back) while on the call
-  // moves the call with you: reconnectTo(..., { keepCall: true }) reads inCall before it disconnects, and hands
-  // join() and connectAndSetup() `joinCall`, false unless so, which alone starts the call there (joinTheCall(), which
+  // moves the call with you: reconnectTo(..., { keepCall: true }) reads inCall before it leaves, and hands
+  // join() and enterSpace() `joinCall`, false unless so, which alone starts the call there (joinTheCall(), which
   // is still startCall()). The space bar's Join the call (GitHub #165) is a click too, through joinTheCall().
-  const setup = spaceJs.slice(spaceJs.indexOf('async function connectAndSetup('), spaceJs.indexOf('async function startCall('));
-  if (!setup.includes('canvas.restore()')) fail('public/space.js', 'connectAndSetup() must open what the space starts with (canvas.restore())');
-  if (!/async function connectAndSetup\(token, livekitUrl, \{ joinCall = false \} = \{\}\)/.test(setup)) fail('public/space.js', 'connectAndSetup() joins only when told to (joinCall, false unless so)');
+  // Entering connects to no call service at all (plan-realtime-optional-livekit.md, step 5): only startCall() does.
+  const setup = spaceJs.slice(spaceJs.indexOf('function enterSpace('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function enterSpace(')) + 3);
+  if (!setup.includes('canvas.restore()')) fail('public/space.js', 'enterSpace() must open what the space starts with (canvas.restore())');
+  if (!/^function enterSpace\(\{ joinCall = false \} = \{\}\)/m.test(spaceJs)) fail('public/space.js', 'enterSpace() joins only when told to (joinCall, false unless so)');
+  const connects = [...spaceJs.matchAll(/^.*\bcall\.connect\(.*$/gm)].map((m) => m[0].trim());
+  const startBody = spaceJs.slice(spaceJs.indexOf('async function startCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function startCall(')));
+  if (connects.length !== 1 || !startBody.includes(connects[0])) fail('public/space.js', `only startCall() connects to the call service (found ${JSON.stringify(connects)})`);
+  if (/api\('POST', '\/api\/token'/.test(spaceJs)) fail('public/space.js', 'entering never asks for a call token (POST /api/token is the OBS viewer\'s)');
   // GitHub #199: the one other way on is the environment's "join the call on entering" (branding.autoJoinCall), asked
   // through autoJoinOnEntry() (shouldAutoJoin, opens-with.js) in the same line, so it is the same join (joinTheCall).
   const JOIN_LINE = 'if (joinCall || autoJoinOnEntry()) joinTheCall();';
   const setupJoin = setup.slice(setup.indexOf(JOIN_LINE));
   const setupRest = setup.slice(0, setup.indexOf(JOIN_LINE));
-  if (!setup.includes(JOIN_LINE) || /startCall|joinTheCall|joinOnShow|callStarting|autoJoinOnEntry\(\)/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call by itself, only a pull that moves the call or the environment\'s setting (if (joinCall || autoJoinOnEntry()))');
+  if (!setup.includes(JOIN_LINE) || /startCall|joinTheCall|joinOnShow|callStarting|autoJoinOnEntry\(\)/.test(setupRest)) fail('public/space.js', 'entering a space (enterSpace) must never join the call by itself, only a pull that moves the call or the environment\'s setting (if (joinCall || autoJoinOnEntry()))');
   if (!/const autoJoinOnEntry = \(\) => shouldAutoJoin\(\{ setting: features\.autoJoinCall, inCall, canJoin: joinCallWanted\(\), aside: inAside\(\), left: leftCall \}\);/.test(spaceJs)) fail('public/space.js', 'autoJoinOnEntry() asks shouldAutoJoin with the environment\'s setting, inCall, Join the call\'s own rule (joinCallWanted), the aside and leftCall');
   if (!/autoJoinCall: branding\.autoJoinCall === true/.test(spaceJs)) fail('public/space.js', 'features.autoJoinCall is read from /api/branding, on only when true');
   if (!/^function hangUp\(\) \{\n  if \(pipWindow\) closePopout\(\);\n  leftCall = true;/m.test(spaceJs)) fail('public/space.js', 'Hang up marks leftCall, so the setting does not join them again');
   if (!/if \(!pull\) leftCall = false;/.test(spaceJs) || !/leftCall = false; \/\/ a fresh entry/.test(spaceJs)) fail('public/space.js', 'entering again (join() not as a pull, joinAsGuest()) clears leftCall');
-  if (!/setAttributes\(\{ call: 'off' \}\)/.test(setupRest)) fail('public/space.js', 'entering a space must tell others "off"');
+  if (/setAttributes\(/.test(spaceJs)) fail('public/space.js', 'no call attributes: being at the call service is being on the call, and away is said on the live stream');
   if (/joinOnShow/.test(spaceJs)) fail('public/space.js', 'no joinOnShow: entering a space never joins the call');
   if (!/async function join\(spaceId = 'lobby', \{ joinCall = false, pull = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so; pull says it is not the person entering again)');
   const joinCallers = [...spaceJs.matchAll(/\bjoin\([^)]*joinCall[^)]*\)/g)].map((m) => m[0]).filter((c) => !c.startsWith('join(spaceId = '));
   const reconnect = spaceJs.slice(spaceJs.indexOf('async function reconnectTo('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function reconnectTo(')));
   if (joinCallers.length !== 1 || !reconnect.includes(joinCallers[0])) fail('public/space.js', `only reconnectTo() may ask join() to join the call (found ${JSON.stringify(joinCallers)})`);
-  if (!/const stayOnCall = Boolean\(keepCall\) && inCall;/.test(reconnect) || reconnect.indexOf('stayOnCall =') > reconnect.indexOf('call.disconnect(')) fail('public/space.js', 'reconnectTo() keeps the call only for a pull, and only when I was on it (read before the disconnect)');
+  if (!/const stayOnCall = Boolean\(keepCall\) && inCall;/.test(reconnect) || reconnect.indexOf('stayOnCall =') > reconnect.indexOf('leaveSpaceNow(')) fail('public/space.js', 'reconnectTo() keeps the call only for a pull, and only when I was on it (read before leaving)');
   if (!reconnect.includes('{ joinCall: stayOnCall, pull: true }')) fail('public/space.js', 'reconnectTo() tells join() it is a pull, so a person who left the call is not joined again by the setting');
   // Which moves are pulls: in and out of an aside, never going somewhere myself (an invitation, the dashboard, a pop-out).
   const keepers = [...spaceJs.matchAll(/^.*reconnectTo\(.*\{ keepCall: true \}.*$/gm)].length;
@@ -890,11 +898,11 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const shared = spaceJs.slice(spaceJs.indexOf('function joinTheCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function joinTheCall(')));
   const byShared = callers.filter((line) => linesOf(shared).includes(line));
   if (byClick.length !== 1 || byShared.length !== 1 || callers.length !== 2) fail('public/space.js', `startCall() is called from phoneButton() (a click in the conference) and joinTheCall() alone (found ${JSON.stringify(callers)})`);
-  // joinTheCall() shows the conference as its switch does, then joins; called by connectAndSetup() (a pull's joinCall,
+  // joinTheCall() shows the conference as its switch does, then joins; called by enterSpace() (a pull's joinCall,
   // or the environment's "join the call on entering", GitHub #199) and by the space bar's Join the call, nothing else.
   if (!/^function joinTheCall\(\) \{\n  if \(!canvas\.showBuiltin\('conference'\)\) return;\n  startCall\(\)/m.test(spaceJs)) fail('public/space.js', 'joinTheCall() shows the conference (canvas.showBuiltin) and then joins (startCall)');
   const sharedCallers = [...spaceJs.matchAll(/^.*\bjoinTheCall\(\).*$/gm)].map((m) => m[0].trim()).filter((line) => !line.startsWith('//') && !line.startsWith('function joinTheCall('));
-  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => l === JOIN_LINE) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from connectAndSetup() (a pull, or the setting) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
+  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => l === JOIN_LINE) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from enterSpace() (a pull, or the setting) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
   const confDef = spaceJs.slice(spaceJs.indexOf("id: 'conference',"), spaceJs.indexOf("$('conf-close').addEventListener"));
   if (/startCall/.test(confDef)) fail('public/space.js', 'showing the conference (its onChange) must never join the call');
 }
@@ -912,7 +920,12 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const at = (s) => start.indexOf(s);
   if (at("'/api/call/join'") < 0 || at("'/api/call/join'") > at('inCall = true') || at("'/api/call/join'") > at('openMic(')) fail('public/space.js', 'startCall() must ask POST /api/call/join before it joins or asks for the microphone');
   const refused = start.slice(at("'/api/call/join'"), at('inCall = true'));
-  if (!/catch \(err\) \{[^}]*setJoinProblem\(err\.status && err\.serverSaid \? err\.message :[^}]*return;/.test(refused)) fail('public/space.js', 'a refused join check must say the server\'s own sentence (or a plain one, never "HTTP 500") in the "Not in a call" note (setJoinProblem) and not join');
+  if (!/catch \(err\) \{[^}]*setJoinProblem\(err\.status && err\.serverSaid \? err\.message :[^}]*return;/.test(refused)) fail('public/space.js', 'a refused join check must say the server\'s own sentence (or a plain one, never "HTTP 500") as an error notice in Chat\'s status line (setJoinProblem) and not join');
+  const joinProblem = spaceJs.slice(spaceJs.indexOf('function setJoinProblem(text) {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function setJoinProblem(text) {')));
+  if (!/if \(chatInSight\(\)\) chatNotice\(text, true\);\s*else noticeToast\(text, \{ kind: 'danger' \}\);/.test(joinProblem)) fail('public/space.js', 'a join that did not go through is said where the person is looking: Chat\'s status line while the chat is in sight, else a toast (QA: on a phone it landed in the hidden Chat panel)');
+  const inSight = spaceJs.slice(spaceJs.indexOf('function chatInSight() {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function chatInSight() {')));
+  if (!/canvas\.columnMode\(\) && columnCollapsed\(\)/.test(inSight) || !/canvas\.shownView\(\)/.test(inSight) || !/shown === null \|\| shown === 'chat'/.test(inSight)) fail('public/space.js', 'chatInSight() must say no for the collapsed side column and for a phone showing another view');
+  if (!/export function noticeToast\(/.test(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'))) fail('public/brand.js', 'noticeToast() is the toast a page sends its own notice to');
   if (!/const stopped = \(\) => generation !== callGeneration/.test(start)) fail('public/space.js', 'startCall() must know when a stop came while it waited (callGeneration)');
   const stopBody = stop.split('\n');
   const bump = stopBody.findIndex((l) => /callGeneration \+= 1/.test(l));
@@ -994,11 +1007,11 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     assert.equal(micMarkedMuted({ isMuted: false }), false, 'a live microphone');
     // The call's event handlers, run against a stand-in call: each step's mark is what a viewer's tile shows.
     const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
-    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
+    const chain = spaceJs.slice(chainAt, spaceJs.indexOf("\n\n// The page's own end of the call", chainAt));
     const handlers = {};
     const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
     const marks = new Map();
-    const shownInCall = (p) => p.isLocal || p.attributes?.call !== 'off';
+    const shownInCall = () => true; // on the call: everyone at the call service is on it
     const stubs = {
       RoomEvent: new Proxy({}, { get: (_t, name) => name }),
       inCall: true,
@@ -1018,8 +1031,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     fakeCall.localParticipant = local;
     const step = (what, mark, who = ann) => assert.equal(marks.get(who.identity), mark, what);
     const fire = (name, ...args) => { assert.equal(typeof handlers[name], 'function', `a ${name} handler`); handlers[name](...args); };
-    ann.attributes = { call: 'on' };
-    fire('ParticipantAttributesChanged', { call: 'on' }, ann);
+    fire('ParticipantConnected', ann);
     step('joined the call, microphone not yet published', true);
     const mic = { source: 'microphone', isMuted: false, setSubscribed() {} };
     ann.pubs.set('microphone', mic);
@@ -1059,36 +1071,36 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/isAway = on;\n\s*applyHearing\(\);/.test(away)) fail('public/space.js', 'setAway() must turn what I hear off (or back) at once (applyHearing() right after isAway = on)');
   if (!/if \(enabled && isAway\) \{[^}]*return; \}/.test(fn('async function toggleMic('))) fail('public/space.js', 'toggleMic() must not open the microphone while away');
   if (!/if \(prefs\.ptt \|\| isAway\) \{\n\s*await call\.localParticipant\.setMicrophoneEnabled\(false\);/.test(fn('async function startCall('))) fail('public/space.js', 'startCall() must leave the microphone off when joining while away');
-  // Away is said with the "away" and "awayMessage" attributes (known-issues, 2026-10-01): kept at the call service, so
-  // someone who joins, reloads or reconnects later sees it, and setAttributes changes only the keys it is given, so
-  // "call" and away never undo each other. The old 'away' data message is still read, for one release. While away the
-  // camera does not come on: not the button or its keys (toggleCam), not a device or quality change (restartCamera).
+  // Away is said on the live stream (PATCH /api/spaces/:id/presence, plan-realtime-optional-livekit.md, step 5): the
+  // server keeps it, so someone who joins, reloads or reconnects later sees it, on the call or not; nothing is said to
+  // the call service. While away the camera does not come on: not the button or its keys (toggleCam), not a device or
+  // quality change (restartCamera).
   try {
-    const helpers = ['function awayAttributes(', 'function awayAttributesChanged(', 'async function syncAwayAttributes(', 'async function syncCallAttributes(', 'function showAway(', 'async function keepCameraOffWhileAway(', 'async function keepMicOffWhileAway(', 'async function sendAway(', 'async function setAway(', 'async function toggleCam(', 'async function restartCamera('].map((name) => {
+    const helpers = ['function showAway(', 'async function keepCameraOffWhileAway(', 'async function keepMicOffWhileAway(', 'async function sendAway(', 'async function setAway(', 'async function toggleCam(', 'async function restartCamera('].map((name) => {
       const body = fn(name);
       if (!body) throw new Error(`no ${name.replace(/^(async )?function /, '')}...)`);
       return body;
     }).join('');
-    const make = () => new Function('Track', 'encoder', '$', 'applyHearing', 'reflectMic', 'updateCamera', 'updateAwayOverlay', 'setStatus', 'applyBackground', 'videoConstraints', 'prefs', `
+    const make = () => new Function('Track', '$', 'applyHearing', 'reflectMic', 'updateCamera', 'updateAwayOverlay', 'setStatus', 'applyBackground', 'videoConstraints', 'prefs', 'sayPresence', `
       let call; let isAway = false; let awayRestoreMic = false; let awayRestoreCam = false; let awayMessage = ''; let awayRestartCam = false;
-      let inCall = true; let camToggling = false;
+      let inCall = true; let camToggling = false; const me = { key: 'me' };
       async function setCameraEnabledWithRetry(enabled) { await call.localParticipant.setCameraEnabled(enabled); }
+      function livePerson() { return null; }
       ${helpers}
-      return { setAway, toggleCam, restartCamera, showAway, syncCallAttributes, set call(c) { call = c; }, set inCall(v) { inCall = v; }, get isAway() { return isAway; } };
+      return { setAway, toggleCam, restartCamera, showAway, set call(c) { call = c; }, set inCall(v) { inCall = v; }, get isAway() { return isAway; } };
     `)(
-      { Source: { Camera: 'camera' } }, { encode: (text) => text }, () => ({ classList: { toggle() {}, add() {}, remove() {} }, dataset: {} }),
+      { Source: { Camera: 'camera' } }, () => ({ classList: { toggle() {}, add() {}, remove() {} }, dataset: {} }),
       () => {}, () => {}, () => {}, (identity, on, message) => overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'),
-      (text) => { said = text; }, async () => {}, () => ({ deviceId: prefs.camId }), prefs,
+      (text) => { said = text; }, async () => {}, () => ({ deviceId: prefs.camId }), prefs, (patch) => patches.push(patch),
     );
     const prefs = { background: 'none', camId: 'first' };
     const overlays = new Map();
+    const patches = [];
     let said = '';
     const restarts = [];
     const cameraPub = { track: { restartTrack: async (constraints) => restarts.push(constraints) } };
     const me = {
-      identity: 'me', isLocal: true, attributes: { call: 'on' }, isMicrophoneEnabled: true, isCameraEnabled: true, cameraOpened: 0, sent: [], data: [],
-      async setAttributes(a) { this.sent.push(a); this.attributes = { ...this.attributes, ...a }; },
-      async publishData(payload, opts) { this.data.push([opts.topic, JSON.parse(payload)]); },
+      identity: 'me', isLocal: true, isMicrophoneEnabled: true, isCameraEnabled: true, cameraOpened: 0,
       async setMicrophoneEnabled(on) { this.isMicrophoneEnabled = on; },
       async setCameraEnabled(on) { this.isCameraEnabled = on; if (on) this.cameraOpened += 1; },
       getTrackPublication: (source) => (source === 'camera' ? cameraPub : undefined),
@@ -1096,11 +1108,9 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     const away = make();
     away.call = { state: 'connected', localParticipant: me };
     await away.setAway(true, '  back in five  ');
-    assert.equal(me.attributes.away, 'on', 'going away sets the "away" attribute to on');
-    assert.equal(me.attributes.awayMessage, 'back in five', 'and the message, trimmed, in "awayMessage"');
-    assert.equal(me.attributes.call, 'on', 'going away leaves the "call" attribute as it was');
-    assert.ok(me.sent.every((a) => !('call' in a)), 'away never sends the "call" key');
-    assert.ok(!(me.data || []).some(([topic]) => topic === 'away'), 'the old "away" message (kept for one release) is no longer sent');
+    assert.deepEqual(patches.at(-1), { away: true, awayMessage: 'back in five' }, 'going away says so on the live stream, with the message trimmed');
+    assert.equal(overlays.get('me'), 'away: back in five', 'and marks my own tile at once');
+    assert.ok(!('setAttributes' in me), 'nothing is said to the call service');
     assert.equal(me.isCameraEnabled, false, 'going away turns the camera off');
     said = '';
     await away.toggleCam();
@@ -1109,26 +1119,24 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     await away.restartCamera();
     assert.equal(restarts.length, 0, 'a camera change while away does not open the camera (restartTrack)');
     await away.setAway(false);
-    assert.equal(me.attributes.away, 'off', 'coming back sets "away" to off');
-    assert.equal(me.attributes.awayMessage, '', 'and clears the message');
-    assert.equal(me.attributes.call, 'on', 'and leaves "call" as it was');
+    assert.deepEqual(patches.at(-1), { away: false, awayMessage: '' }, 'coming back says so, and clears the message');
     assert.equal(me.isCameraEnabled, true, 'coming back turns on the camera that was on before');
     assert.equal(restarts.length, 1, 'and applies the camera change made while away');
     me.isCameraEnabled = false;
     await away.setAway(true);
-    assert.equal(me.attributes.away, 'on', 'a plain Away is "away" on');
-    assert.equal(me.attributes.awayMessage, '', 'with no message');
+    assert.deepEqual(patches.at(-1), { away: true, awayMessage: '' }, 'a plain Away, with no message');
     await away.setAway(false);
     assert.equal(me.isCameraEnabled, false, 'a camera off before going away stays off on Back');
-    // Going away before the call service is reached: said once connected (connectAndSetup, startCall, Reconnected).
-    const early = make();
-    const late = { ...me, attributes: { call: 'off' }, sent: [], data: [], isCameraEnabled: false, isMicrophoneEnabled: false };
-    early.call = { state: 'connecting', localParticipant: late };
-    await early.setAway(true, 'brb');
-    assert.equal(late.sent.length, 0, 'nothing is sent before connecting');
+    // Away off the call (nothing at the call service): said on the live stream all the same.
+    const offCall = make();
+    offCall.call = { state: 'disconnected', localParticipant: { ...me, isCameraEnabled: false, isMicrophoneEnabled: false } };
+    offCall.inCall = false;
+    patches.length = 0;
+    await offCall.setAway(true, 'brb');
+    assert.deepEqual(patches, [{ away: true, awayMessage: 'brb' }], 'away off the call is said on the live stream');
     // A camera change while away with the camera off waits for the camera to be turned on, then opens the new device.
     const offCam = make();
-    const off = { ...me, attributes: { call: 'on' }, sent: [], data: [], isCameraEnabled: false, cameraOpened: 0 };
+    const off = { ...me, isCameraEnabled: false, cameraOpened: 0 };
     offCam.call = { state: 'connected', localParticipant: off };
     restarts.length = 0;
     await offCam.setAway(true);
@@ -1147,7 +1155,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     const race = make();
     let openMic;
     const racer = {
-      ...me, attributes: { call: 'on' }, sent: [], data: [], isMicrophoneEnabled: true, isCameraEnabled: false, cameraOpened: 0,
+      ...me, isMicrophoneEnabled: true, isCameraEnabled: false, cameraOpened: 0,
       setMicrophoneEnabled(on) {
         if (!on) { this.isMicrophoneEnabled = false; return Promise.resolve(); }
         return new Promise((resolve) => { openMic = () => { this.isMicrophoneEnabled = true; resolve(); }; });
@@ -1162,75 +1170,65 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     await back;
     assert.equal(race.isAway, true, 'away again');
     assert.equal(racer.isMicrophoneEnabled, false, 'Back then away before the microphone came on leaves it off');
-    // A reconnect: "call" back to what inCall says, away with it.
-    const recon = make();
-    const rejoined = { ...me, attributes: { call: 'off' }, sent: [], data: [] };
-    recon.call = { state: 'connected', localParticipant: rejoined };
-    await recon.syncCallAttributes();
-    assert.deepEqual(rejoined.sent, [{ call: 'on', away: 'off', awayMessage: '' }], 'in the call, a reconnect that lost "call" says it on again');
-    rejoined.sent.length = 0;
-    await recon.syncCallAttributes();
-    assert.equal(rejoined.sent.length, 0, 'nothing is sent when nothing was lost');
-    recon.inCall = false;
-    await recon.syncCallAttributes();
-    assert.deepEqual(rejoined.sent, [{ call: 'off', away: 'off', awayMessage: '' }], 'out of the call, "call" is said off');
   } catch (err) {
-    fail('public/space.js', `away must be said with the "away" attributes, and the camera kept off while away: ${err.message}`);
+    fail('public/space.js', `away must be said on the live stream, and the camera kept off while away: ${err.message}`);
   }
   {
-    const setup = fn('async function connectAndSetup(');
-    if (!/setAttributes\(\{ call: 'off' \}\)[^\n]*\n\s*await syncAwayAttributes\(\);/.test(setup)) fail('public/space.js', 'connectAndSetup() must say away once connected (syncAwayAttributes()) when away before connecting');
-    if (!/setAttributes\(\{ call: 'on', \.\.\.awayAttributes\(\) \}\)/.test(fn('async function startCall('))) fail('public/space.js', 'startCall() must say away with "call" on (awayAttributes()), for a join while away');
-    if (!/setAttributes\(\{ call: 'off', away: 'off', awayMessage: '' \}\)/.test(fn('async function stopCall('))) fail('public/space.js', 'stopCall() ends away with the call, so it must clear the away attributes with "call" off');
+    if (!/sayPresence\(\{ onCall: true, away: isAway, awayMessage: isAway \? awayMessage : '' \}\);/.test(fn('async function startCall('))) fail('public/space.js', 'startCall() must say on the call with away, for a join while away');
+    if (!/sayPresence\(\{ onCall: false, away: false, awayMessage: '' \}\);/.test(fn('async function stopCall('))) fail('public/space.js', 'stopCall() ends away with the call, so it says off the call with away cleared');
     if (!/tiles\.set\(participant\.identity, tile\);\n\s*showAway\(participant\);/.test(fn('function tileFor('))) fail('public/space.js', 'tileFor() must show the away mark of someone already away (showAway) when it makes their tile');
-    if (!/RoomEvent\.Reconnected, \(\) => \{\n[^\n]*\n\s*syncCallAttributes\(\);/.test(spaceJs)) fail('public/space.js', 'a reconnect must say "call" and away again if the call service lost them (syncCallAttributes() on Reconnected)');
+    if (/awayAttributes|syncCallAttributes|attributes\?\.away/.test(spaceJs)) fail('public/space.js', 'no away attributes at the call service: away is the live stream\'s');
   }
-  // The other end: a late joiner with the attribute, a change of it, and the old message, run through the call's events.
+  // The other end: someone on the call is marked away from the live stream as they join, and only from there.
   try {
     const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
-    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
+    const chain = spaceJs.slice(chainAt, spaceJs.indexOf("\n\n// The page's own end of the call", chainAt));
     const handlers = {};
     const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
     const overlays = new Map();
     const tilesMade = new Set();
+    const stream = new Map([['bo', { key: 'bo', away: true, awayMessage: 'at the door' }]]);
     const updateAwayOverlay = (identity, on, message) => { if (tilesMade.has(identity)) overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'); };
-    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', `${fn('function showAway(')}\nreturn showAway;`)(updateAwayOverlay, false, '');
+    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', 'livePerson', `${fn('function showAway(')}\nreturn showAway;`)(updateAwayOverlay, false, '', (key) => stream.get(key) || null);
     const stubs = {
       RoomEvent: new Proxy({}, { get: (_t, name) => name }),
       inCall: true,
-      shownInCall: (p) => p.isLocal || p.attributes?.call !== 'off',
+      shownInCall: () => true,
       updateMuted: () => {}, updateCamera: () => {}, attachTrack: () => {}, detachTrack: () => {}, subscribeAll: () => {}, applyLayout: () => {},
       tileFor: (p) => { if (!tilesMade.has(p.identity)) { tilesMade.add(p.identity); showAway(p); } },
       removeParticipant: (p) => { tilesMade.delete(p.identity); overlays.delete(p.identity); },
-      showAway, updateAwayOverlay,
+      showAway, updateAwayOverlay, paintChatConn: () => {}, setStatus: () => {},
       decoder: { decode: (payload) => payload },
     };
     const names = Object.keys(stubs);
     new Function(...names, `const call = arguments[${names.length}];\n${chain};`)(...names.map((k) => stubs[k]), fakeCall);
     const fire = (name, ...args) => { assert.equal(typeof handlers[name], 'function', `a ${name} handler`); handlers[name](...args); };
-    const bo = { identity: 'bo', isLocal: false, attributes: { call: 'on', away: 'on', awayMessage: 'at the door' } };
-    fire('ParticipantConnected', bo);
-    assert.equal(overlays.get('bo'), 'away: at the door', 'someone already away when they arrive shows away, with their message');
-    const cy = { identity: 'cy', isLocal: false, attributes: { call: 'off' } };
-    fire('ParticipantConnected', cy);
-    cy.attributes = { call: 'on', away: 'on', awayMessage: '' };
-    fire('ParticipantAttributesChanged', { call: 'on', away: 'on' }, cy);
-    assert.equal(overlays.get('cy'), 'away', 'joining the call while away shows a plain Away');
-    bo.attributes = { ...bo.attributes, away: 'off', awayMessage: '' };
-    fire('ParticipantAttributesChanged', { away: 'off', awayMessage: '' }, bo);
-    assert.equal(overlays.get('bo'), 'here', 'coming back (away off) takes the mark off');
-    bo.attributes = { ...bo.attributes, away: 'on', awayMessage: 'lunch' };
-    fire('ParticipantAttributesChanged', { away: 'on', awayMessage: 'lunch' }, bo);
-    assert.equal(overlays.get('bo'), 'away: lunch', 'going away again puts it back');
-    bo.attributes = { ...bo.attributes, call: 'on' };
-    fire('ParticipantAttributesChanged', { call: 'on' }, bo);
-    assert.equal(overlays.get('bo'), 'away: lunch', 'a change of "call" alone leaves the mark as it is');
-    const old = { identity: 'old', isLocal: false, attributes: { call: 'on' } };
-    fire('ParticipantConnected', old);
-    fire('DataReceived', JSON.stringify({ type: 'away', on: true, message: 'old build' }), old, undefined, 'away');
-    assert.notEqual(overlays.get('old'), 'away: old build', 'the old "away" message (kept for one release) is no longer read');
+    fire('ParticipantConnected', { identity: 'bo', isLocal: false });
+    assert.equal(overlays.get('bo'), 'away: at the door', 'someone already away when they join shows away, with their message, from the live stream');
+    fire('ParticipantConnected', { identity: 'cy', isLocal: false });
+    assert.equal(overlays.get('cy'), 'here', 'someone the stream does not have away is not marked');
+    assert.equal(handlers.ParticipantAttributesChanged, undefined, 'no call attributes are read');
+    fire('ParticipantDisconnected', { identity: 'bo', isLocal: false });
+    assert.equal(tilesMade.has('bo'), false, 'hanging up (gone from the call service) takes their tile');
   } catch (err) {
-    fail('public/space.js', `a tile must show away from the "away" attributes, for late joiners and changes alike: ${err.message}`);
+    fail('public/space.js', `a tile must show away from the live stream, for late joiners too: ${err.message}`);
+  }
+  // The live stream's word only (plan-realtime-optional-livekit.md, step 5): a guest's key there is their identity too.
+  try {
+    const marks = new Map();
+    const stream = new Map([['bo', { key: 'bo', away: true, awayMessage: 'at the door' }], ['cy', { key: 'cy', away: false, awayMessage: '' }], ['guest-x', { key: 'guest-x', away: true, awayMessage: 'tea' }]]);
+    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', 'livePerson', `${fn('function showAway(')}\nreturn showAway;`)(
+      (identity, on, message) => marks.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'), false, '', (key) => stream.get(key) || null);
+    showAway({ identity: 'bo', isLocal: false });
+    showAway({ identity: 'cy', isLocal: false });
+    showAway({ identity: 'guest-x', isLocal: false });
+    showAway({ identity: 'nobody', isLocal: false });
+    assert.equal(marks.get('bo'), 'away: at the door', 'away from the stream');
+    assert.equal(marks.get('cy'), 'here', 'back on the stream');
+    assert.equal(marks.get('guest-x'), 'away: tea', 'a guest by the id on their pass');
+    assert.equal(marks.get('nobody'), 'here', 'someone the stream does not have is not marked');
+  } catch (err) {
+    fail('public/space.js', `a tile's away comes from the live stream (showAway, livePerson): ${err.message}`);
   }
   // The pop-out: every remote video attached there (now or later) is kept live, and the watch goes on popping back in.
   if ((attach.match(/prepend\(video\);\n\s*keepPoppedVideoLive\(track, video\);/g) || []).length !== 2) fail('public/space.js', 'attachTrack() must keep each video it adds (camera and screen) live in the pop-out (keepPoppedVideoLive(track, video) after the prepend)');
@@ -1272,7 +1270,8 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
 }
 
 // The way back from an aside: "Rejoin call" shows while I am in an aside that came from a space (its `origin`). The
-// server tells everyone on the call that an aside started (aside-started), those pulled into it too, and the page
+// server tells everyone in the space on the live stream that an aside started (aside-started, asideNudge), those pulled
+// into it too, and the page
 // lists it at once, without its origin; a join that finds that entry before presence answers must still end up with
 // presence's record (adoptPendingSpace), or Rejoin call never shows and Leave is the only way out.
 {
@@ -1287,34 +1286,31 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     assert.ok(entryLine && rejoin, 'asideEntry and the rejoin-call tool\'s visible() are where this check looks');
     // join() takes what the page already lists, else a pending stand-in; page.join below does the same.
     assert.match(fn('async function join('), /const known = presenceSpaces\.find\(\(r\) => r\.id === spaceId\);\n\s*currentSpace = known \|\| \{ id: spaceId, name: spaceName, members: \[\], pending: true \};/, 'join() looks the space up as this check does');
-    const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
-    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
-    const handlers = {};
-    const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
+    const nudge = fn('function asideNudge(');
     const noop = () => {};
     const stubs = {
-      RoomEvent: new Proxy({}, { get: (_t, name) => name }),
-      decoder: new TextDecoder(), presenceUsers: new Map(), word: () => 'Aside', reconcileGhostTiles: noop, removeParticipant: noop,
+      presenceUsers: new Map(), startedAsides: new Map(), loadPresence: noop, reconnectTo: noop, confirmDialog: noop, startRecallCountdown: noop,
+      word: () => 'Aside', reconcileGhostTiles: noop,
       setTimeout: noop, spaceDisplayName: (r) => r.name, applyPermissions: noop, updateRecallButton: noop, updateCrumb: noop,
       phoneWidth: () => true, // the bar's Rejoin call shows where the bar is the phone's tab bar; wider, the top bar's aside-rejoin is the one
     };
     const names = Object.keys(stubs);
-    const page = new Function(...names, `const call = arguments[${names.length}];
+    const page = new Function(...names, `
       let presenceSpaces = [];
       let currentSpace = null;
       let spaceName = '';
       ${entryLine}
       ${fn('function adoptPendingSpace(')}
-      ${chain};
+      ${nudge}
       return {
+        nudge: asideNudge,
         list: () => presenceSpaces,
         presence: (spaces) => { presenceSpaces = spaces.map(asideEntry); adoptPendingSpace(); },
         join: (id) => { currentSpace = presenceSpaces.find((r) => r.id === id) || { id, members: [], pending: true }; },
         rejoinShown: ${rejoin},
-      };`)(...names.map((k) => stubs[k]), fakeCall);
-    assert.equal(typeof handlers.DataReceived, 'function', 'a DataReceived handler');
-    const started = new TextEncoder().encode(JSON.stringify({ type: 'aside-started', spaceId: 'a1', members: ['me', 'ann'] }));
-    handlers.DataReceived(started, undefined, 0, 'aside-started');
+      };`)(...names.map((k) => stubs[k]));
+    assert.ok(nudge, 'asideNudge() is where this check looks');
+    page.nudge({ type: 'aside-started', spaceId: 'a1', members: ['me', 'ann'] });
     assert.ok(page.list().some((r) => r.id === 'a1' && r.isAside), 'aside-started lists the aside at once');
     page.join('a1'); // the pulled person's join, before presence has answered
     page.presence([{ id: 'a1', origin: 'lobby', members: ['me', 'ann'], private: false }]);
@@ -1482,7 +1478,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // Chat only on Home (GitHub #326, Thomas 2026-10-15): no Assistant tab, no Start call, no commands there; a space has all
   // three, and in a call on Home the call bar is the call's own (the join button is hidden in a call anyway).
   if (!/isHome: \(\) => Boolean\(homeChatSpace\),/.test(spaceJs) || !/setViewsVisible\(Boolean\(spaceId\(\)\) && !isHome\(\)\)/.test(fs.readFileSync(path.join(ROOT, 'public/chat-input.js'), 'utf8'))) fail(F, 'Home\'s chat hides the Discussion | Assistant switch (the Assistant belongs to a space)');
-  if (!/const joinCallWanted = \(\) => Boolean\(currentSpace\) && !homeChatSpace && call\.state === 'connected' && !inCall/.test(spaceJs)) fail(F, 'Start call and Join call are not offered on Home, and still are in a space');
+  if (!/const joinCallWanted = \(\) => Boolean\(currentSpace\) && !homeChatSpace && entered && !inCall/.test(spaceJs)) fail(F, 'Start call and Join call are not offered on Home, and still are in a space');
   if (!/homeChatSpace = null;\n  homeChatChanged\(\);/.test(spaceJs)) fail(F, 'leaving Home\'s chat puts the switch, Start call and the commands back');
   // The width: its own preference, the space column's limits and keys.
   if (!/homeChatWidth: 360,/.test(spaceJs)) fail(F, 'Home\'s chat column is 360px by default (DEFAULT_PREFS.homeChatWidth)');
@@ -1499,7 +1495,10 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const wanted = spaceJs.slice(spaceJs.indexOf('function homeChatWanted() {'), spaceJs.indexOf('function syncHomeChat() {'));
   for (const [re, why] of [[/!guestToken/, 'never on a guest link'], [/me\.role !== 'guest'/, 'never for a guest'], [/!currentSpace/, 'only with no space entered (Home over a space is step 4)'], [/canDo\('chatRead'\)/, 'only for whoever may read chat'], [/!homeChatEntering/, 'not while a space is being entered']]) if (!re.test(wanted)) fail(F, `Home's chat shows ${why}`);
   if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(spaceJs)) fail(F, 'Home\'s chat is the one #chat, moved, never a copy');
-  if (!/liveChatStream\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`, \{ onData: homeChatNotice, catchUp: catchUpHomeChat \}\)/.test(spaceJs) || !/const es = new EventSource\(url\);/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
+  // Home's chat rides the live stream (plan-realtime-optional-livekit.md, step 3): on Home one in no space, in a space its own.
+  const homeSync = spaceJs.slice(spaceJs.indexOf('function syncHomeChatStream() {'), spaceJs.indexOf('function liveChatNotice(data) {'));
+  if (!/if \(liveSpaceId\) return;/.test(homeSync) || !/if \(!liveStream\) openLive\(null\);/.test(homeSync)) fail(F, 'Home\'s chat hears others live from the live stream: on Home one in no space, in a space the space\'s carries it');
+  if (!/else if \(data\.space === HOME_CHAT && !guestToken\) homeChatNotice\(data\);/.test(spaceJs)) fail(F, 'the Lobby\'s chat on the live stream is Home\'s chat, never a guest\'s');
   if (!/homeChatEntering = true;[^\n]*\n\s*hideHomeChat\(\);/.test(spaceJs.slice(spaceJs.indexOf('async function join('), spaceJs.indexOf('async function joinAsGuest(')))) fail(F, 'entering a space takes the chat out of Home\'s column first');
   if (!/word\('module', \{ many: true, cap: true \}\)/.test(spaceJs.slice(spaceJs.indexOf('function renderSpaceListHead('), spaceJs.indexOf('async function addSpace(')))) fail(F, 'the Modules column is headed with the module word (the template\'s, else Modules)');
 
@@ -1520,7 +1519,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   // aside (homeChatStash) and come back where #chat was, with what the space's call said meanwhile (parkSpaceChat);
   // nothing of Home's goes on the space's call. The person stays in the space's call, Away (showSpaceList).
   const wanted2 = body('function homeChatWanted() {');
-  if (!/return 'home';/.test(wanted2) || !/currentSpace && viewingHome && call\.state === 'connected' && !inAside\(\)[^\n]*\n[^\n]*!canvas\.builtinWindow\('chat'\)\) return 'over';/.test(wanted2)) fail(F, 'Home\'s chat shows over a space this page is present in (never an aside, never with the chat in its own window)');
+  if (!/return 'home';/.test(wanted2) || !/currentSpace && viewingHome && entered && !inAside\(\)[^\n]*\n[^\n]*!canvas\.builtinWindow\('chat'\)\) return 'over';/.test(wanted2)) fail(F, 'Home\'s chat shows over a space this page is present in (never an aside, never with the chat in its own window)');
   if (!/syncHomeChat\(\);/.test(body('function showSpaceList() {')) || !/setAway\(true\);/.test(body('function showSpaceList() {'))) fail(F, 'going Home from a space sets Away and swaps in Home\'s chat');
   if (!/syncHomeChat\(\);/.test(body('function returnToCanvas() {'))) fail(F, 'Back to <space> gives the space\'s chat back');
   const show = body("function showHomeChat(mode = 'home') {");
@@ -1528,11 +1527,11 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(show)) fail(F, 'Home\'s chat over a space is the same one #chat, moved');
   const hide = body('function hideHomeChat() {');
   if (!/\$\('messages'\)\.replaceChildren\(\.\.\.stash\.nodes\);/.test(hide) || !/stash\.parent\.insertBefore\(chat,/.test(hide) || !/for \(const run of stash\.parked\) run\(\);/.test(hide)) fail(F, 'back in the space: its messages, #chat in its place, then what its call said meanwhile');
-  if (!/^\s*if \(homeChatSpace\) return;/m.test(body('function publishChat(data) {'))) fail(F, 'Home\'s chat never goes on the space\'s call');
-  if (!/if \(topic === 'chat' && parkSpaceChat\(\(\) => onCallData\(payload, participant, _kind, topic\)\)\) return;/.test(spaceJs)) fail(F, 'the space\'s call chat heard while Home\'s chat shows is kept for the space, never drawn in Home\'s');
-  if (!/if \(!parkSpaceChat\(add\)\) add\(\);/.test(spaceJs) || !/\|\| homeChatSpace\) return;/.test(body('async function sendImage(file) {'))) fail(F, 'pictures stay the space\'s: a received one waits, none is sent into Home\'s chat');
-  const disc = spaceJs.slice(spaceJs.indexOf('.on(RoomEvent.Disconnected, () => {'), spaceJs.indexOf('async function fillDevices('));
-  if (!/viewingHome = false;[^\n]*\n\s*hideHomeChat\(\);/.test(disc)) fail(F, 'a dropped connection gives the space\'s chat back before it clears');
+  if (/publishChat|topic: 'chat'|'chat-image'|sendChatMessage|RoomEvent\.ChatMessage/.test(spaceJs)) fail(F, 'nothing of the chat goes over the call: every chat event comes on the live stream');
+  if (!/if \(parkSpaceChat\(\(\) => applyChatNotice\(data\)\)\) return;/.test(body('function liveChatNotice(data) {'))) fail(F, 'the space\'s chat heard while Home\'s chat shows is kept for the space, never drawn in Home\'s');
+  if (!/\|\| homeChatSpace\) return;/.test(body('async function sendImage(file) {'))) fail(F, 'pictures stay the space\'s: none is sent into Home\'s chat');
+  const leaving = body('function leaveSpaceNow(');
+  if (!/viewingHome = false;[^\n]*\n(?:[^\n]*\n){2}\s*hideHomeChat\(\);/.test(leaving) || leaving.indexOf('hideHomeChat()') > leaving.indexOf('closeLive()')) fail(F, 'leaving the space gives the space\'s chat back before it clears');
   // Unread on the Home link (decision 8), fed by Home's chat stream while Home is out of sight; cleared when it shows.
   const notice = body('function homeChatNotice(data) {');
   if (!/if \(!homeChatSpace\) \{\s*countHomeNotice\(data\);/.test(notice)) fail(F, 'Home\'s chat out of sight: its stream counts for the Home link');
@@ -1541,18 +1540,14 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/setHomeUnread\(0\);/.test(show)) fail(F, 'Home in sight clears the count');
   if (!/nav\.setBadge\('menu-home', n\);/.test(body('function paintHomeUnread() {')) || !/#brand-home-link \.brand-logo/.test(body('function paintHomeUnread() {'))) fail(F, 'the count shows on the Home link: the logo, and the phone menu\'s Home');
   if (!/\.topbar \.brand-logo \.home-unread \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/.test(css)) fail('public/style.css', 'the Home link\'s count is drawn in theme tokens');
-  // Catch-up: every `ready` after the first (a reconnect) reads the history again; other event types are left alone.
-  const live = body('function liveChatStream(url, { onData, catchUp }) {');
-  if (!/if \(data\?\.type === 'ready'\) \{[^}]*readies \+= 1;\s*if \(readies > 1\) catchUp\(\);/.test(live)) fail(F, 'a reconnected stream catches up on what was missed');
-  // A stream is never left silently not live (QA, #289): on `error` it is closed and opened again with a backoff (2 s,
-  // doubling, 60 s at most, a limited number of tries); a refusal (401, 403, 429) or the server's `closed` stops it, and
-  // the page says so once.
-  if (!/es\.addEventListener\('error', \(\) => \{[^}]*es\.close\(\);[^}]*again\(live\);/.test(live)) fail(F, 'a stream that errs is closed and tried again');
-  if (!/Math\.min\(60000, 2000 \* 2 \*\* \(tries - 1\)\)/.test(live) || !/if \(tries > CHAT_STREAM_TRIES\) return pause\(\);/.test(live)) fail(F, 'the tries back off from 2 s to 60 s, a limited number of times');
-  if (!/status === 401 \|\| status === 403 \|\| status === 429\) return pause\(\);/.test(live) || !/data\?\.type === 'closed'\) \{\s*pause\(\);/.test(live)) fail(F, 'a refusal or the server\'s `closed` stops the tries');
-  if (!/chatStream = 'paused';\s*paintChatConn\(\);/.test(body('function sayChatPaused() {')) || !/if \(chatPausedSaid\) return;/.test(body('function sayChatPaused() {'))) fail(F, 'the page says once that live chat is paused');
-  if (!/guestChatStream = liveChatStream\(`\/api\/spaces\/\$\{LOBBY\}\/chat\/stream\?guest=/.test(spaceJs)) fail(F, 'a guest\'s Lobby stream is kept live the same way');
-  if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {'))) fail(F, 'the catch-up reads Home\'s history');
+  // Catch-up: every `ready` after the first (a reconnect) reads the history again (the retries and their backoff are
+  // space-live.js's, run below against a stand-in EventSource). A drop says Reconnecting; a refusal or `removed`, paused;
+  // for a guest, that their link was turned off (a reload can't bring it back).
+  const openLiveBody = body('function openLive(spaceId) {');
+  if (!/if \(!isFirst\) catchUpLiveChat\(\);/.test(openLiveBody)) fail(F, 'a reconnected stream catches up on what was missed');
+  if (!/onChat: liveChatNotice,/.test(openLiveBody) || !/chatStream = state;\s*paintChatConn\(\);/.test(openLiveBody) || !/chatStream = guestToken \? 'link-off' : 'paused';\s*paintChatConn\(\);/.test(openLiveBody)) fail(F, 'the live stream feeds the chat and says its state in Chat\'s status line (a guest: their link was turned off)');
+  if (!/'link-off': \[`This \$\{word\('guest'\)\} link was turned off`/.test(body('function paintChatConn() {'))) fail(F, 'a guest whose link was turned off is told so plainly, not to reload');
+  if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {')) || !/fetchChatHistory\(id\)/.test(body('async function catchUpLiveChat() {'))) fail(F, 'the catch-up reads Home\'s history and the space\'s');
 }
 
 // The call pops out again, and has a place (Thomas, 2026-10-14): a visible Pop out on the call's toolbar (the same button
@@ -1729,7 +1724,7 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
     const stamp = /<span class="call-time nav-text" data-call-time hidden>[^]*?<time aria-live="off" datetime="PT0S">00:00<\/time><\/span>/g;
     if ((page.match(stamp) || []).length !== 2) fail('public/space.html', 'the call time (<time>, aria-live="off", nav-text, hidden) sits in the column\'s titlebar and in the conference\'s own');
     if (!/function startCallTime\(\) \{[^}]*setInterval\(showCallTime, 1000\)/.test(code) || !/inCall = true;\n    startCallTime\(\);/.test(code)) fail('public/space.js', 'the call time starts when this person joins the call (startCallTime), ticking every second');
-    if (!/inCall = false;\n  stopCallTime\(\);/.test(code) || !/inCall = false; \/\/ the whole call is gone[^\n]*\n    stopCallTime\(\);/.test(code) || !/addEventListener\('pagehide', \(\) => \{ clearInterval\(callTimeTimer\); callTimeTimer = null; \}\);/.test(code)) fail('public/space.js', 'the call time stops on leaving and on a lost connection (stopCallTime clears the timer), and its tick on pagehide');
+    if (!/inCall = false;\n  stopCallTime\(\);/.test(code) || !/^function leaveSpaceNow\([^]*?\n  stopCallTime\(\);\n[^]*?\n\}\n/m.test(code) || !/addEventListener\('pagehide', \(\) => \{ clearInterval\(callTimeTimer\); callTimeTimer = null; \}\);/.test(code)) fail('public/space.js', 'the call time stops on leaving and on a lost connection (stopCallTime clears the timer), and its tick on pagehide');
     if (!/addEventListener\('pageshow', \(\) => \{\s*if \(call\.state !== 'connected'\) \{\s*if \(callTimeStart\) stopCallTime\(\);[^]*?if \(!callTimeTimer\) callTimeTimer = setInterval\(showCallTime, 1000\);/.test(code)) fail('public/space.js', 'a page brought back (pageshow) ticks again while the call is connected, and clears the time if not');
     if (!/In the call for \$\{text\}/.test(code)) fail('public/space.js', 'the call time is the titlebar\'s tooltip ("In the call for 12:34")');
     if (!/\.call-time \{[^}]*font-variant-numeric: tabular-nums;/.test(sheet)) fail('public/style.css', 'the call time uses tabular figures');
@@ -1871,6 +1866,219 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   if (!/arrangeOnWide = isNarrow\(\);/.test(arrange)) fail(C, 'setArrangeMode() on a phone keeps the choice for when the window is wide (arrangeOnWide)');
   const box = canvasJs.slice(canvasJs.indexOf('  function openModuleFloating(m, reuse) {'), canvasJs.indexOf('  function openModuleDocked('));
   if (!/place\(floater, saved\[m\.id\]\?\.box \|\|/.test(box) || !/if \(snapping\(m\.id\)\) snapOntoGrid\(m\.id, floater\);/.test(box)) fail(C, 'a module floating again opens at its remembered box, or its cells while the grid is on');
+}
+
+// The page on the live stream (plan-realtime-optional-livekit.md, step 2): entering opens GET /api/live, and who is here,
+// the conference's "Not in a call" list and Start or Join call read its presence, not the call's participants. The
+// page's own block (space.js, "the live stream" to its end) runs here against a stand-in EventSource and a stand-in call
+// whose participants disagree with the stream, with public/space-live.js itself.
+{
+  const F = 'public/space.js';
+  const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  const fn = (name, end = '\n}\n') => { const at = spaceJs.indexOf(name); return at === -1 ? '' : spaceJs.slice(at, spaceJs.indexOf(end, at) + end.length); };
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'space-live.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/space-live.js'), copy);
+  const liveMod = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const from = spaceJs.indexOf('// --- the live stream (space-live.js');
+  const to = spaceJs.indexOf('// --- end the live stream ---');
+  try {
+    assert.ok(from > -1 && to > from, 'space.js has the live stream block');
+    const block = spaceJs.slice(spaceJs.indexOf('\n', from), to);
+    const paint = fn('function paintJoinCall(');
+    assert.ok(paint, 'paintJoinCall()');
+    // The stand-ins.
+    const sources = [];
+    class FakeES {
+      constructor(url) { this.url = url; this.h = {}; this.closed = false; sources.push(this); }
+      addEventListener(type, f) { this.h[type] = f; }
+      close() { this.closed = true; }
+      say(data) { this.h.message({ data: JSON.stringify(data) }); }
+      drop() { this.h.error({}); }
+    }
+    const timers = [];
+    const patches = [];
+    let probeStatus = 0;
+    const verb = { textContent: '' };
+    const joinCallButton = { querySelector: () => verb, setAttribute() {}, title: '' };
+    const lkRemote = new Map([['lk-only', { identity: 'lk-only', name: 'Only at LiveKit', attributes: { call: 'on' } }]]);
+    const env = {
+      openLiveStream: (o) => liveMod.openLiveStream({ ...o, EventSourceImpl: FakeES, schedule: (f, ms) => { timers.push({ f, ms }); return timers.length; }, cancel: () => {} }),
+      liveStreamUrl: liveMod.liveStreamUrl,
+      peopleFromPresence: liveMod.peopleFromPresence,
+      api: async (method, url, body) => { patches.push({ method, url, body }); return { ok: true }; },
+      guestToken: null,
+      me: { key: 'me', displayName: 'Me Myself' },
+      call: { remoteParticipants: lkRemote },
+      tiles: new Map(),
+      showAway: () => {},
+      fetchStatus: () => probeStatus,
+      joinCallButton,
+      synced: 0,
+      FakeES,
+      chats: [],
+      catchUps: 0,
+      painted: [],
+      nudges: [],
+      kicked: 0,
+    };
+    const run = new Function('env', `
+      const { openLiveStream, liveStreamUrl, peopleFromPresence, api, guestToken, call, tiles, showAway, joinCallButton } = env;
+      let me = env.me; let inCall = false; let isAway = false; let awayMessage = ''; const guestPass = '';
+      const fetch = async () => { const status = env.fetchStatus(); return { status, ok: status === 200, json: async () => ({ error: 'no such space' }) }; };
+      const console = { debug() {} };
+      function syncCallControl() { env.synced += 1; paintJoinCall(); }
+      const EventSource = env.FakeES;
+      let chatStream = '';
+      function paintChatConn() { env.painted.push(chatStream); }
+      function liveChatNotice(data) { env.chats.push(data); }
+      function catchUpLiveChat() { env.catchUps += 1; }
+      function asideNudge(data) { env.nudges.push(data); }
+      function leaveKicked() { env.kicked += 1; }
+      ${block}
+      ${paint}
+      return {
+        openLive, closeLive, sayPresence, livePeople, liveOthersOnCall, presenceState,
+        set inCall(v) { inCall = v; }, set isAway(v) { isAway = v; }, set awayMessage(v) { awayMessage = v; },
+        get saying() { return liveSaying; },
+      };
+    `)(env);
+    const settle = async () => { for (let i = 0; i < 5; i += 1) await run.saying; await new Promise((r) => setImmediate(r)); };
+    run.openLive('s1');
+    assert.equal(sources.length, 1, 'entering opens one live stream');
+    assert.equal(sources[0].url, '/api/live?space=s1', 'GET /api/live for the space');
+    assert.deepEqual(run.livePeople().map((p) => [p.key, p.you]), [['me', true]], 'before the first presence, who is here is just you (never the call\'s participants)');
+    run.sayPresence({ away: true });
+    await settle();
+    assert.equal(patches.length, 0, 'nothing is said before ready (ready says it all)');
+    sources[0].say({ type: 'ready', you: 'me', space: 's1', stream: 'st-1' });
+    await settle();
+    assert.equal(patches.length, 0, 'ready with nothing to say sends nothing');
+    assert.equal(env.painted.at(-1), 'live', 'Chat\'s status line hears the stream is live');
+    assert.equal(env.catchUps, 0, 'the first ready catches nothing up');
+    // The chat (step 3): every chat event, with its space, goes to the page's chat; nothing over the call.
+    sources[0].say({ type: 'chat', space: 's1', id: 'aaaaaaaaaaaa', text: 'hi', by: 'zed', who: 'Zed' });
+    sources[0].say({ type: 'chat-delete', space: 'lobby', id: 'aaaaaaaaaaaa' });
+    sources[0].say({ type: 'chat-picture', space: 's1', id: 'bbbbbbbbbbbb', mime: 'image/png', data: '' });
+    sources[0].say({ type: 'chat', id: 'cccccccccccc' }); // no space: not one of ours
+    assert.deepEqual(env.chats.map((d) => [d.type, d.space]), [['chat', 's1'], ['chat-delete', 'lobby'], ['chat-picture', 's1']], 'the live stream\'s chat events reach the chat, each with its space');
+    sources[0].say({ type: 'presence', space: 's1', people: [
+      { key: 'me', name: 'Me Myself', onCall: false, away: false, awayMessage: '' },
+      { key: 'zed', name: 'Zed', onCall: false, away: true, awayMessage: 'lunch' },
+      { key: 'bo', name: 'Bo', onCall: true, away: false, awayMessage: '' },
+    ] });
+    assert.deepEqual(run.livePeople().map((p) => [p.key, p.you, p.onCall]), [['me', true, false], ['bo', false, true], ['zed', false, false]], 'who is here is the stream\'s people: you first, then by name, with who is on the call');
+    assert.deepEqual(run.liveOthersOnCall().map((p) => p.key), ['bo'], '"Not in a call" lists the stream\'s people on the call, not the call\'s participants');
+    assert.ok(env.synced > 0, 'a presence event redraws who is here, the note and Join call (syncCallControl)');
+    assert.equal(verb.textContent, 'Join', 'someone on the call (on the stream): Join call');
+    sources[0].say({ type: 'presence', space: 's1', people: [{ key: 'me', name: 'Me Myself', onCall: false }] });
+    assert.equal(verb.textContent, 'Start', 'nobody else on the call (whatever the call\'s participants say): Start call');
+    // Saying my state: the PATCH, on this stream, in order.
+    run.inCall = true;
+    run.sayPresence({ onCall: true });
+    run.isAway = true; run.awayMessage = 'brb';
+    run.sayPresence({ away: true, awayMessage: 'brb' });
+    await settle();
+    assert.deepEqual(patches.map((p) => [p.method, p.url, p.body]), [
+      ['PATCH', '/api/spaces/s1/presence', { onCall: true, stream: 'st-1' }],
+      ['PATCH', '/api/spaces/s1/presence', { away: true, awayMessage: 'brb', stream: 'st-1' }],
+    ], 'the page says on the call and away with PATCH /api/spaces/:id/presence, naming its stream, in order');
+    assert.deepEqual(run.livePeople()[0], { key: 'me', name: 'Me Myself', you: true, onCall: true, away: false, awayMessage: '' }, 'my own "on the call" is the page\'s say until the stream echoes it');
+    // A drop after it was live: tried again after 2 seconds; the new stream's ready says the whole state again.
+    patches.length = 0;
+    sources[0].drop();
+    await settle();
+    assert.equal(sources[0].closed, true, 'a dropped stream is closed');
+    assert.deepEqual(timers.map((t) => t.ms), [2000], 'and opened again after 2 seconds');
+    timers.shift().f();
+    assert.equal(sources.length, 2, 'a new stream');
+    sources[1].say({ type: 'ready', you: 'me', space: 's1', stream: 'st-2' });
+    await settle();
+    assert.deepEqual(patches.map((p) => p.body), [{ onCall: true, away: true, awayMessage: 'brb', stream: 'st-2' }], 'its ready says the state again, on the new stream');
+    assert.equal(env.catchUps, 1, 'and the chat catches up on what it missed (nothing is replayed)');
+    assert.ok(env.painted.includes('reconnecting'), 'the drop said Reconnecting in Chat\'s status line');
+    // A drop before it ever opened: asked again; a refusal ends it, anything else backs off 4, 8 ... seconds.
+    sources[1].drop();
+    await settle();
+    timers.shift().f();
+    probeStatus = 0;
+    sources[2].drop();
+    await settle();
+    assert.deepEqual(timers.map((t) => t.ms), [4000], 'a stream that did not open waits longer each time');
+    timers.shift().f();
+    probeStatus = 403;
+    sources[3].drop();
+    await settle();
+    assert.equal(timers.length, 0, 'a refusal (403) is not tried again');
+    // Leaving closes it, and nothing is tried again.
+    run.openLive('s2');
+    assert.equal(sources[4].url, '/api/live?space=s2', 'another space: another stream');
+    run.closeLive();
+    assert.equal(sources[4].closed, true, 'leaving closes the stream');
+    assert.deepEqual(run.livePeople().map((p) => p.key), ['me'], 'and forgets who was there');
+    sources[4].drop();
+    await settle();
+    assert.equal(timers.length, 0, 'a closed stream is not opened again');
+    run.openLive('s3');
+    sources[5].say({ type: 'ready', you: 'me', space: 's3', stream: 'st-3' });
+    sources[5].say({ type: 'removed', reason: 'access', error: 'you are not in that space' });
+    assert.equal(sources[5].closed, true, '`removed` ends the stream');
+    assert.equal(timers.length, 0, 'for good');
+    assert.equal(env.painted.at(-1), 'paused', 'and Chat\'s status line says live updates are paused');
+    assert.equal(env.kicked, 0, 'the access gone is not a kick: the space stays open');
+    // The asides' nudges (step 4) come on the stream, and a kick leaves the space.
+    run.openLive('s4');
+    sources[6].say({ type: 'aside-pull', spaceId: 'a9', byOwner: true, private: false, from: 'Boss' }); // before ready: not yet
+    sources[6].say({ type: 'ready', you: 'me', space: 's4', stream: 'st-4' });
+    for (const type of ['aside-pull', 'aside-started', 'aside-recall', 'aside-return']) sources[6].say({ type, spaceId: 'a9' });
+    sources[6].say({ type: 'aside-pull' }); // no spaceId: not one
+    assert.deepEqual(env.nudges.map((d) => [d.type, d.spaceId]), [['aside-pull', 'a9'], ['aside-started', 'a9'], ['aside-recall', 'a9'], ['aside-return', 'a9']], 'each aside nudge reaches asideNudge, once the stream is live');
+    sources[6].say({ type: 'removed', reason: 'kicked' });
+    assert.deepEqual([sources[6].closed, env.kicked, timers.length], [true, 1, 0], 'a kick ends the stream for good and leaves the space (leaveKicked)');
+    // Home: a stream in no space, for Home's chat.
+    run.openLive(null);
+    assert.equal(sources[7].url, '/api/live', 'Home opens GET /api/live with no space');
+    run.closeLive();
+    // Entering waits on the first ready (step 5): it is kept then; a refusal before it breaks it with the server's
+    // sentence, which entering says on Home, and the stream is not said paused; closing it first lets the entry give way.
+    const entering = run.openLive('s5');
+    sources[8].say({ type: 'ready', you: 'me', space: 's5', stream: 'st-5' });
+    assert.equal(await entering, undefined, 'the first ready lets the entry in');
+    const painted = env.painted.length;
+    probeStatus = 404;
+    const refusedEntry = run.openLive('s6');
+    sources[9].drop();
+    await assert.rejects(refusedEntry, /^Error: no such space$/, 'a refusal before ready is the entry\'s error, in the server\'s words');
+    assert.ok(!env.painted.slice(painted).includes('paused'), 'and is not said as paused live updates');
+    const givenWay = run.openLive('s7');
+    run.closeLive();
+    await assert.rejects(givenWay, (err) => err.closed === true, 'closed before ready: the entry gives way');
+  } catch (err) {
+    fail(F, `the page must read who is here from the live stream and say its state there: ${err.message}`);
+  }
+  // Where the page opens, reads and writes it.
+  if (!/await liveOpened\(openLive\(spaceId\)\);/.test(fn('async function join(')) || !/await liveOpened\(openLive\(joinedId\)\);/.test(fn('async function joinAsGuest('))) fail(F, 'entering a space is opening its live stream and waiting for its answer (join(), joinAsGuest())');
+  if (!/\n  closeLive\(\);/.test(fn('function leaveSpaceNow(')) || /closeLive|leaveSpaceNow/.test(spaceJs.slice(spaceJs.indexOf('.on(RoomEvent.Disconnected, () => {'), spaceJs.indexOf("// The page's own end of the call")))) fail(F, 'leaving the space (leaveSpaceNow) closes the live stream; the call ending never leaves the space');
+  // Hanging up is the call only: the call service disconnected, the space and its live stream kept (step 5).
+  const stopBody = fn('async function stopCall(');
+  if (!/const ending = disconnectCall\(\);/.test(stopBody) || /closeLive|leaveSpaceNow|forgetSpace/.test(stopBody)) fail(F, 'stopCall() (Hang up) disconnects from the call service only; the page stays in the space');
+  if (!/sayPresence\(\{ onCall: false/.test(stopBody)) fail(F, 'hanging up says off the call on the live stream');
+  const moveBody = fn('async function reconnectTo(');
+  if (!(moveBody.indexOf('leaveSpaceNow(') > -1 && moveBody.indexOf('leaveSpaceNow(') < moveBody.indexOf('await join('))) fail(F, 'moving (reconnectTo) leaves this space, then enters the next');
+  if (!/if \(endingCall > 0 \|\| unloading \|\| !inCall\) return;/.test(spaceJs)) fail(F, 'the call\'s Disconnected is nothing more when this page ended the call (disconnectCall)');
+  if (!/sayPresence\(\{ onCall: true,/.test(fn('async function startCall('))) fail(F, 'startCall() says onCall: true on the live stream');
+  if (!/sayPresence\(\{ onCall: false, away: false, awayMessage: '' \}\)/.test(fn('async function stopCall('))) fail(F, 'stopCall() says onCall: false, and away ended, on the live stream');
+  if (!/sayPresence\(\{ away: on,/.test(fn('async function sendAway('))) fail(F, 'sendAway() says away and its message on the live stream');
+  for (const name of ['function syncWhoIsInCall(', 'function paintJoinCall(']) {
+    const body = fn(name);
+    if (!/liveOthersOnCall\(\)/.test(body) || /remoteParticipants/.test(body)) fail(F, `${name.slice(9)}...) reads the live stream (liveOthersOnCall()), never the call's participants`);
+  }
+  if (!/const whoHere = createWhoHere\(\{\n\s*people: livePeople,/.test(spaceJs)) fail(F, 'who is here reads the live stream (createWhoHere({ people: livePeople }))');
+  if (/RoomEvent\.Participant(Connected|Disconnected|AttributesChanged), syncCallControl/.test(spaceJs)) fail(F, 'who is here, the note and Join call follow the live stream, not the call\'s participant events');
+  // Step 4: the asides' nudges and the kick come on the live stream, never the call's data channel.
+  if (/topic === 'aside-|'aside-(pull|started|recall|return)' &&/.test(spaceJs) || !/onAside: asideNudge,/.test(spaceJs)) fail(F, 'the asides\' nudges come on the live stream (onAside: asideNudge), not the call\'s DataReceived');
+  if (!/if \(reason === 'kicked'\) return leaveKicked\(\);/.test(spaceJs)) fail(F, 'a kick\'s `removed` on the live stream leaves the space (leaveKicked)');
 }
 
 if (problems.length) {

@@ -201,7 +201,7 @@ function appCopy(name, { page }) {
 async function startServer(root, extraEnv = {}) {
   const child = spawn(process.execPath, [path.join(root, 'server', 'index.js')], {
     cwd: root,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: path.join(root, 'data'), TZ: 'UTC', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234', ...extraEnv },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: path.join(root, 'data'), TZ: 'UTC', ADMIN_PASSWORD: 'testpass1234', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';

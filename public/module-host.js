@@ -74,12 +74,22 @@ function joinStream(space, guest, onEvent) {
 // that never publishes. The module gets the elements to place (`handlers.video`, `handlers.audio`),
 // the person's state (`handlers.state`: online, cameraOn, micOn, speaking, name) and their reactions
 // (`handlers.reaction`). The client library is loaded the first time anyone watches.
+// With no call service on the server (branding.callService false) there is no media to watch: it answers at once, once,
+// with `state` { online: false, ..., unavailable: true, reason } and `connection` { connected: false, unavailable: true,
+// error: reason }, never loads the client library nor asks for a token, and hands back a watcher whose follow and stop
+// do nothing. The module draws from host.presence and host.images alone.
+const MEDIA_UNAVAILABLE = 'Voice and video are not set up on this server.';
 let livekit = null;
 async function watchMedia({ key, audio = false, video = true, space: startSpace = 'lobby', handlers = {} }) {
   if (typeof key !== 'string' || !key) throw Object.assign(new Error('media.watch needs the person\'s key'), { status: 400 });
+  const call = (name, ...args) => { try { if (typeof handlers[name] === 'function') handlers[name](...args); } catch (err) { console.error(err); } };
+  if ((await brandingOnce()).callService === false) {
+    call('state', { online: false, cameraOn: false, micOn: false, speaking: false, name: null, unavailable: true, reason: MEDIA_UNAVAILABLE });
+    call('connection', { connected: false, space: null, unavailable: true, error: MEDIA_UNAVAILABLE });
+    return { follow() {}, stop() {} };
+  }
   if (!livekit) livekit = await import('/lib/livekit-client.esm.mjs');
   const { Room, RoomEvent, Track } = livekit;
-  const call = (name, ...args) => { try { if (typeof handlers[name] === 'function') handlers[name](...args); } catch (err) { console.error(err); } };
   const viewer = new Room({ adaptiveStream: false });
   // Everything for a video box; a box that only needs "are they talking" subscribes to the microphone
   // alone once the person is found (LiveKit reports who is talking over the subscriber link).
@@ -304,12 +314,14 @@ const cleanPointer = (r) => ({ module: r.module, kind: r.kind, id: r.id, scope: 
 
 // The environment's name, as its header shows it (GET /api/branding, public, asked once per page): a module names the
 // environment's own list by it (info.context.environment.name), as the destination's filter does (decision 19).
+// The same answer says whether the server has a call service (callService), for host.media.watch.
 let brandingAsked = null;
-function environmentName() {
-  if (!brandingAsked) {
-    brandingAsked = fetch('/api/branding').then((res) => (res.ok ? res.json() : {})).then((b) => (typeof b.environmentName === 'string' ? b.environmentName.trim() : '')).catch(() => '');
-  }
+function brandingOnce() {
+  if (!brandingAsked) brandingAsked = fetch('/api/branding').then((res) => (res.ok ? res.json() : {})).catch(() => ({}));
   return brandingAsked;
+}
+function environmentName() {
+  return brandingOnce().then((b) => (typeof b.environmentName === 'string' ? b.environmentName.trim() : ''));
 }
 
 // --- who is where, for a module (host.presence) -----------------------------------------------------

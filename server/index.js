@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const express = require('express');
 const yauzl = require('yauzl');
 const { AsyncLocalStorage } = require('async_hooks');
-const { AccessToken, RoomServiceClient, DataPacket_Kind } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 const QRCode = require('qrcode');
 const { ModuleManager, LIMITS: MODULE_LIMITS, compareVersions, oldNameIn, pendingWidensNothing } = require('./modules');
 const { buildModule, bundledModules, zipFiles } = require('./module-build');
@@ -33,6 +33,8 @@ const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
+const { mergeCall, cleanAwayMessage } = require('./live');
+const { streamWriter } = require('./stream-write');
 const destinations = require('./destinations');
 const { fetchPreview, fetchImage, cachedImage, PreviewError, calendarUrl } = require('./link-preview');
 const { findLink, readFields, CHAT_LINK_LIMITS } = require('./chat-links');
@@ -119,13 +121,35 @@ const {
   // and a restore carry the environment's folder, so it is kept well under the restore's own limit. Not a number above 0: 100.
   MAP_IMAGE_MAX_MB = '',
   // Guests in chat (GitHub #289): how many chat messages one guest link may post in a minute (default 20; one address
-  // posting as a guest gets half of it, at least 5); how many chat streams (GET /api/spaces/:id/chat/stream) one
-  // signed-in person may hold open (default 50: one a browser tab); and how many one guest link may hold open in all
-  // (default 25; one address on it gets 40% of that, at least 2, and never more than CHAT_STREAMS_PER_PERSON).
-  // Not a whole number above 0: the default.
+  // posting as a guest gets half of it, at least 5); how many live streams (GET /api/live) one signed-in person may
+  // hold open (default 50: one a browser tab); and how many one guest link may hold open in all (default 25; one address
+  // on it gets 40% of that, at least 2, and never more than LIVE_STREAMS_PER_PERSON). Not a whole number above 0: the
+  // default.
   GUEST_CHAT_POSTS_PER_MINUTE = '',
-  CHAT_STREAMS_PER_PERSON = '',
-  CHAT_STREAMS_PER_GUEST_LINK = '',
+  LIVE_STREAMS_PER_PERSON = '',
+  LIVE_STREAMS_PER_GUEST_LINK = '',
+  // The most a chat picture may weigh, in MB (POST /api/spaces/:id/chat/pictures: held in memory, never stored). Not a
+  // number above 0: 3.
+  CHAT_PICTURE_MAX_MB = '',
+  // How many minutes a chat picture is held in memory for its readers to fetch (default 15); then its url answers 404.
+  // Not a number above 0: the default.
+  CHAT_PICTURE_KEEP_MINUTES = '',
+  // The most MB of chat pictures held in memory for one space (default 30), one environment (default 100) and the whole
+  // server (default 200); past one, the oldest held there go first. Each holds at least one picture of
+  // CHAT_PICTURE_MAX_MB. Not a number above 0: the default.
+  CHAT_PICTURE_SPACE_MB = '',
+  CHAT_PICTURE_ENVIRONMENT_MB = '',
+  CHAT_PICTURE_SERVER_MB = '',
+  // How many MB of chat pictures one person (a guest: one guest link) may send in a minute (default 20). Not a number
+  // above 0: the default.
+  CHAT_PICTURE_MB_PER_MINUTE = '',
+  // How far, in MB, a reader of a server-sent stream (the live stream, notifications, a module's changes) may fall
+  // behind before the server drops that stream (default 8): its page reconnects and catches up, and nothing piles up in
+  // the server's memory for a reader that stopped reading. Not a number above 0: the default.
+  LIVE_STREAM_BUFFER_MB = '',
+  // How many times a minute one person (a guest: the id on their pass) may say away or on the call in a space
+  // (PATCH /api/spaces/:id/presence; default 60). Not a whole number above 0: the default.
+  PRESENCE_CHANGES_PER_MINUTE = '',
   // How many reverse proxies stand in front of the server (default 1, the usual one). The address a request came from
   // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
   // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
@@ -143,6 +167,17 @@ const REMOVED_CONFIG_NAMES = [['ADMIN_USER', 'ADMIN_LOGIN'], ['TAVERN_ADMIN_USER
 for (const [old, now] of REMOVED_CONFIG_NAMES) if (process.env[old]) console.warn(`${old} is no longer read: use ${now} instead.`);
 if (OWNER_PASSWORD) console.warn("OWNER_PASSWORD is ignored: owners are made in Manage. Use ADMIN_PASSWORD for the server's admin.");
 const adminLogin = ADMIN_LOGIN || 'admin';
+
+// --- writing to a server-sent stream ---------------------------------------------------------------------------------
+// Every stream is written through sseWrite: a reader more than LIVE_STREAM_BUFFER_MB behind (a page that stopped
+// reading, a stalled connection) is dropped rather than queued for, so a slow or hostile reader can't fill the server's
+// memory. Its page reconnects and catches up (the live stream's `ready`, then the chat's history).
+const liveStreamBufferBytes = (() => {
+  const mb = Number(LIVE_STREAM_BUFFER_MB);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 8) * 1024 * 1024);
+})();
+// Writes the chunks to `res`, or drops the stream when they would put it over the limit (server/stream-write.js).
+const sseWrite = streamWriter(liveStreamBufferBytes);
 const adminPassword = ADMIN_PASSWORD;
 const aiKeyFromEnv = AI_KEY || TAVERN_AI_KEY;
 // The environment a single-environment install moves into on its first start with BASE_DOMAIN (plan-names decision 15).
@@ -173,9 +208,17 @@ function checkoutUrlFor(planId) {
 
 const VERSION = `v${require('../package.json').version} (${String(APP_REVISION).slice(0, 7)})`;
 
-if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
-  console.error('LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required.');
-  process.exit(1);
+// The call service (LiveKit) is optional (plan-realtime-optional-livekit.md, step 6): with both keys set the server
+// has one and voice and video work; with either unset it starts without one, never builds a LiveKit client and never
+// asks it, and everything but the call works (spaces, chat, presence, modules). branding().callService says which.
+const HAS_CALL_SERVICE = Boolean(LIVEKIT_API_KEY && LIVEKIT_API_SECRET);
+// What a person reads wherever voice and video are refused for want of a call service: the API's answer (503), and
+// the sentence the Manage > Modules Conference card shows.
+const NO_CALL_SERVICE = 'voice and video are not set up on this server';
+const NO_CALL_SERVICE_CARD = 'Voice and video are not set up on this server.';
+if (!HAS_CALL_SERVICE) {
+  if (LIVEKIT_API_KEY || LIVEKIT_API_SECRET) console.warn(`No LiveKit: ${LIVEKIT_API_KEY ? 'LIVEKIT_API_SECRET' : 'LIVEKIT_API_KEY'} is not set, so voice and video are off.`);
+  else console.log('No LiveKit: voice and video are off.');
 }
 
 // --- environments (one host, many environments: documentation/plans/plan-environments.md, phase 1) -----------------
@@ -257,11 +300,12 @@ const geocodeCache = proxyFor('geocodeCache');
 const regionCutJobs = proxyFor('regionCutJobs');
 const moduleLimits = proxyFor('moduleLimits');
 const limiter = proxyFor('limiter');
-const presence = proxyFor('presence');
+const live = proxyFor('live');
+const liveEvents = proxyFor('liveEvents');
 const invites = proxyFor('invites');
 const inviteEvents = proxyFor('inviteEvents');
 const themeEvents = proxyFor('themeEvents');
-const chatEvents = proxyFor('chatEvents');
+const chatPictures = proxyFor('chatPictures');
 const iconSvgs = proxyFor('iconSvgs');
 const moduleActivity = proxyFor('moduleActivity');
 const externalCalendars = proxyFor('externalCalendars');
@@ -595,6 +639,8 @@ function environmentFor(slug) {
   // A display icon may also be a built-in module's own icon (store.displayIconIds), beside the installed modules' ones.
   const installedIcons = env.store.moduleIconIds;
   env.store.moduleIconIds = () => [...installedIcons(), ...BUILTIN_MODULES.map((b) => b.icon)];
+  // With no call service nobody has the conference, whatever the roles say (store.roleSet).
+  env.store.callService = HAS_CALL_SERVICE;
   // Whether a system layout (calendar, map) is on in a space, whoever asks: its destination resolves there (module on in
   // the space, map file present). A space's defaultLayout may name it only while this holds (store.updateSpace).
   env.store.systemLayoutOn = (spaceId, id) => {
@@ -1178,26 +1224,22 @@ function livekitApiUrl() {
 
 // The SDK waits 10 seconds when the call service does not answer, and /api/presence and /api/status wait
 // with it, so the call page and the space list sit still (GitHub #71). Two seconds, then those routes
-// answer with nobody in a call. The same client serves every other call to the service.
-const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { requestTimeout: 2 });
+// answer with nobody in a call. The same client serves every other call to the service. null with no call service
+// (HAS_CALL_SERVICE): every use below asks for it first.
+const callService = HAS_CALL_SERVICE ? new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { requestTimeout: 2 }) : null;
 
-// `media` is whether they may send and receive the conference's audio and video
-// (the "See and join the conference" permission); without it they still connect,
-// for chat and the modules, and are online, but carry no media. Every player and
-// guest starts out of the conference (the "call" attribute is 'off'): entering a
-// space never joins the call, and the page sets 'on' itself when they join, so
-// until then everyone else sees them present in the space, with no tile. OBS
-// viewers carry no attribute at all. `call` is the call's name at the call service (callName).
-async function mintToken({ identity, name, call, publisher, media = publisher }) {
+// A token for the call service. A person's (`publisher`) is minted only by POST /api/call/join, as they join the call,
+// so being at the call service is being on the call: no attribute says it. An OBS viewer's (POST /api/token) is hidden
+// and only watches. `call` is the call's name at the call service (callName).
+async function mintToken({ identity, name, call, publisher }) {
   const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity, name, ttl: publisher ? '24h' : '12h' });
-  if (publisher) token.attributes = { call: 'off' };
   token.addGrant({
     room: call,
     roomJoin: true,
-    canPublish: media,
-    canSubscribe: publisher ? media : true,
-    canPublishData: publisher,
-    canUpdateOwnMetadata: publisher, // to say whether they are in the conference (the "call" attribute)
+    canPublish: publisher,
+    canSubscribe: true,
+    canPublishData: publisher, // reactions
+    canUpdateOwnMetadata: false,
     hidden: !publisher, // OBS viewers do not show up in the call
   });
   return token.toJwt();
@@ -1217,9 +1259,12 @@ function spaceIdOfCall(name) {
   });
 }
 
-// Who is in a call right now, in whichever space, straight from LiveKit. `call` is the call's own name, for sending
-// to it (it may be a name from before the upgrade); it is never sent in an answer (see withoutCall).
+// Who is on a call right now, in whichever space, straight from LiveKit: everyone there but a hidden OBS viewer is on
+// the call (a person's token is minted only to join it). `call` is the call's own name, for sending to it (it may be a
+// name from before the upgrade); it is never sent in an answer (see withoutCall). Asked only while the live register has
+// someone on a call (whereEveryone).
 async function participants() {
+  if (!callService) return [];
   try {
     const active = await callService.listRooms();
     const out = [];
@@ -1238,7 +1283,7 @@ async function participants() {
           space: spaceId,
           call: lk.name,
           joinedAt: Number(p.joinedAt || 0),
-          inCall: p.attributes?.call !== 'off',
+          inCall: true,
           micOn: !!mic && !mic.muted,
           cameraOn: !!cam && !cam.muted,
         });
@@ -1257,11 +1302,6 @@ function withoutCall(p) {
   return rest;
 }
 
-// The call a user is in right now (its real name at the call service), or null.
-async function callOf(key) {
-  const p = (await participants()).find((x) => x.key === key);
-  return p ? p.call : null;
-}
 
 // The space the stream currently hears: the first online owner's space (the
 // host admin's stand-in counts as one), or the Lobby if no owner is in a call.
@@ -1563,7 +1603,7 @@ function branding() {
   const s = store.settings;
   // The template's ordered phases, for the phase chip (plan-one-bar.md, step 3); [] with no template or none in it.
   const phases = (Array.isArray(store.templatePhases) ? store.templatePhases : []).map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), ...(p.icon ? { icon: p.icon } : {}) }));
-  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), verbs: store.resolvedVerbs(), phases, homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, autoJoinCall: s.autoJoinCall === true, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
+  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), verbs: store.resolvedVerbs(), phases, homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, callService: HAS_CALL_SERVICE, autoJoinCall: s.autoJoinCall === true, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
 }
 
 function initials(name) {
@@ -1829,7 +1869,7 @@ function environmentUsage(slug) {
 async function hostCallsNow(list) {
   const out = new Map();
   const capped = list.filter((t) => t.plan?.calls != null && !refusalView(t.slug));
-  if (!capped.length) return out;
+  if (!capped.length || !callService) return out;
   let listed;
   try {
     listed = await callService.listRooms();
@@ -2204,14 +2244,15 @@ function environmentStorageBytes(slug, dataDir) {
   hostRegistry.recordStorageUsage(slug, bytes);
   return bytes;
 }
-// The spaces (and asides) of this environment with a call running right now: at least one person there is on the
-// call (their "call" attribute is 'on'), not merely connected -- entering a space connects without joining. Asked
+// The spaces (and asides) of this environment with a call running right now: at least one person is at its call (being
+// there is being on the call: a person's token is minted only to join it; a hidden OBS viewer does not count). Asked
 // from LiveKit directly, never cached, so a call ending frees its slot at once. `without` leaves people out (whoever
 // is about to join somewhere, so moving from one call to another never counts their own). A call under its name from
 // before the upgrade is the same space's. spaceIdOfCall scopes this to the current environment's own calls. null when
 // LiveKit can't be asked. `listed`, when given, is LiveKit's list of calls already asked for (the host console counts
-// every environment's from one list).
+// every environment's from one list). null with no call service too: there is nothing to ask.
 async function runningCalls({ without = [], listed = null } = {}) {
+  if (!callService) return null;
   try {
     const active = listed || (await callService.listRooms());
     const running = new Set();
@@ -2219,7 +2260,7 @@ async function runningCalls({ without = [], listed = null } = {}) {
       const spaceId = spaceIdOfCall(lk.name);
       if (!spaceId || running.has(spaceId) || !(lk.numParticipants > 0)) continue;
       const list = await callService.listParticipants(lk.name);
-      if (list.some((p) => !p.permission?.hidden && !without.includes(p.identity) && p.attributes?.call === 'on')) running.add(spaceId);
+      if (list.some((p) => !p.permission?.hidden && !without.includes(p.identity))) running.add(spaceId);
     }
     return running;
   } catch {
@@ -2619,14 +2660,14 @@ hostRouter.get('/api/host/shared/:module/:folder/region-cut/:jobId/stream', requ
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
   if (job.status !== 'running') {
-    res.write(`event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
+    sseWrite(res, `event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
     return res.end();
   }
   const { jobId } = req.params;
   const cleanup = () => { sharedRegionCutJobs.off('progress', onProgress); sharedRegionCutJobs.off('done', onDone); sharedRegionCutJobs.off('error', onErr); };
-  const onProgress = (id, p) => { if (id === jobId) res.write(`event: progress\ndata: ${JSON.stringify(p)}\n\n`); };
-  const onDone = (id, d) => { if (id !== jobId) return; res.write(`event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); };
-  const onErr = (id, error) => { if (id !== jobId) return; res.write(`event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); };
+  const onProgress = (id, p) => { if (id === jobId) sseWrite(res, `event: progress\ndata: ${JSON.stringify(p)}\n\n`); };
+  const onDone = (id, d) => { if (id !== jobId) return; sseWrite(res, `event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); };
+  const onErr = (id, error) => { if (id !== jobId) return; sseWrite(res, `event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); };
   sharedRegionCutJobs.on('progress', onProgress);
   sharedRegionCutJobs.on('done', onDone);
   sharedRegionCutJobs.on('error', onErr);
@@ -3125,7 +3166,7 @@ app.use(express.static(publicDir, { index: false }));
 
 app.get('/api/branding', (_req, res) => res.json(branding()));
 
-app.get('/api/config', (req, res) => res.json({ livekitUrl: livekitWsUrl(req), ...branding() }));
+app.get('/api/config', (req, res) => res.json({ livekitUrl: HAS_CALL_SERVICE ? livekitWsUrl(req) : null, ...branding() }));
 
 app.post('/api/login', (req, res) => {
   const ip = req.ip || 'unknown';
@@ -3237,7 +3278,7 @@ app.get('/api/me', requireUser, (req, res) => {
     // `owner`: this account is one of the environment's owners -- never the host admin's own cross sign-in stand-in
     // (role admin), which has an owner's rights but is not one.
     environment: { hosted: Boolean(BASE_DOMAIN), slug: currentEnvironment().slug || null, name: store.settings.environmentName, owner: user.role === 'owner', hostAdmin: Boolean(user.hostAdmin) },
-    livekitUrl: livekitWsUrl(req),
+    livekitUrl: HAS_CALL_SERVICE ? livekitWsUrl(req) : null,
     streamKey: hasOwnerRights(user) ? store.streamKey : undefined,
     // documentation/plans/plan-mfa.md: mfaEnrolled also rides along inside `user` (publicUser, for everyone
     // else's own account too); mfaRequired is this session's own -- the policy asks something of this person
@@ -3354,39 +3395,38 @@ app.delete('/api/users/:key/mfa', requireOwner, (req, res) => {
   res.json({ ok: true });
 });
 
-// A token for the call service, for a space or an aside (the Lobby unless asked, as `space`): players need a session
-// and must belong to it; OBS viewers need the stream key. `call` in the answer is the call's own name there. An aside
-// is the call only: its token is the same kind, and nothing else (modules, chat) is reached through it. The token
-// starts out of the call and is never refused by the calls cap: that is asked on a join (POST /api/call/join).
+// An OBS viewer's token for the call service (`role: 'viewer'`, the stream key): hidden, watching one space's or
+// aside's call (the Lobby unless asked, as `space`; host.media.watch, the Stream module's keyed page). `call` in the
+// answer is the call's own name there. Never refused by the calls cap. A person's token for the call is POST
+// /api/call/join's, the only one there is (plan-realtime-optional-livekit.md, step 5): entering a space asks for none.
 app.post('/api/token', async (req, res) => {
+  if (req.body?.role !== 'viewer') return res.status(400).json({ error: "only an OBS viewer's token is made here (role: 'viewer'); the call's is POST /api/call/join" });
+  if (!HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
+  if (!hasStreamAccess(req)) return res.status(403).json({ error: 'stream key required' });
   const spaceId = typeof req.body?.space === 'string' && req.body.space ? req.body.space : LOBBY;
   const theSpace = store.spaceById(spaceId) || store.asideById(spaceId);
   if (!theSpace) return res.status(404).json({ error: `no such ${word('space')}` });
   const call = callName(spaceId);
-  if (req.body?.role === 'viewer') {
-    if (!hasStreamAccess(req)) return res.status(403).json({ error: 'stream key required' });
-    const identity = `obs-${Date.now().toString(36)}-${randomToken(4)}`;
-    return res.json({ token: await mintToken({ identity, name: 'OBS', call, publisher: false }), livekitUrl: livekitWsUrl(req), identity, call, spaceId });
-  }
-  const user = currentUser(req);
-  if (!user) return res.status(401).json({ error: 'sign in first' });
-  if (!theSpace.members.includes(user.key) && !isOwner(req)) return res.status(403).json({ error: `you are not in that ${word('space')}` });
-  const media = Boolean(store.spacePermissions(user.key, spaceId).conference);
-  const token = await mintToken({ identity: user.key, name: user.displayName, call, publisher: true, media });
-  res.json({ token, livekitUrl: livekitWsUrl(req), identity: user.key, call, spaceId, conference: media });
+  const identity = `obs-${Date.now().toString(36)}-${randomToken(4)}`;
+  res.json({ token: await mintToken({ identity, name: 'OBS', call, publisher: false }), livekitUrl: livekitWsUrl(req), identity, call, spaceId });
 });
 
-// Just before joining the call (a click: entering a space never joins, and its token always starts out of the call):
-// the calls cap, counted from people actually on a call. Joining a call already running is never refused; starting a
+// Joining the call (a click, or a pull that moves the call: entering a space never joins, and asks the call service
+// nothing): the calls cap, counted from people actually on a call, then the call's token, the only way a person gets
+// one, so being at the call service is being on the call. Joining a call already running is never refused; starting a
 // new one is, once the plan's limit is spent elsewhere. A person signed in asks for `space` (the Lobby unless given;
-// the same rights as /api/token); a guest sends their guest link's token as `guest` (in the body or the query, as the
-// guest reads do) and joins that link's space. An aside's call was checked when it was made (POST /api/asides), so
-// joining it is never refused here.
+// its members, owners and the admin); a guest sends their guest link's token as `guest` (in the body or the query, as
+// the guest reads do) and their guest pass as `pass`, and joins that link's space as the id on the pass. Refused
+// (403) where the person may not join the call (Conference off, or no "See and join the conference"). An aside's call
+// was checked when it was made (POST /api/asides), so joining it is never refused by the cap.
+// Answers { ok, token, livekitUrl, call }; 503 with no call service, before anything else.
 app.post('/api/call/join', async (req, res) => {
+  if (!HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
   const guestLink = typeof req.body?.guest === 'string' ? req.body.guest : typeof req.query.guest === 'string' ? req.query.guest : '';
   const asked = typeof req.body?.space === 'string' && req.body.space ? req.body.space : null;
   let spaceId;
   let identity;
+  let caller = null; // who joins, at the call service: { identity, name, media }
   const user = currentUser(req);
   if (user) {
     spaceId = asked || LOBBY;
@@ -3394,21 +3434,57 @@ app.post('/api/call/join', async (req, res) => {
     if (!theSpace) return res.status(404).json({ error: `no such ${word('space')}` });
     if (!theSpace.members.includes(user.key) && !isOwner(req)) return res.status(403).json({ error: `you are not in that ${word('space')}` });
     identity = user.key;
+    caller = { identity: user.key, name: user.displayName, media: Boolean(store.spacePermissions(user.key, spaceId).conference) };
   } else if (guestLink) {
     const theSpace = store.spaceByGuestToken(guestLink);
     if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
     if (asked && asked !== theSpace.id) return res.status(403).json({ error: `that ${word('guest')} link is for another ${word('space')}` });
     spaceId = theSpace.id;
-    identity = `guest-link:${guestLink}`; // a guest's LiveKit identity is not known here; this only names their hold
+    identity = `guest-link:${guestLink}`; // names their hold
+    const pass = typeof req.body?.pass === 'string' ? readGuestPass(guestLink, req.body.pass) : null;
+    if (!pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+    caller = { identity: pass.id, name: pass.name, media: Boolean(store.roleSet('guest').conference) };
   } else {
     return res.status(401).json({ error: 'sign in first' });
   }
+  if (!caller.media) return res.status(403).json({ error: store.settings.conferenceEnabled === false ? 'voice and video are off' : `you can't join the call in this ${word('space')}` });
   if (!store.asideById(spaceId)) {
     const refusal = await callsCapRefusal(spaceId, identity);
     if (refusal) return res.status(403).json({ error: refusal });
   }
-  res.json({ ok: true });
+  const call = callName(spaceId);
+  const token = await mintToken({ identity: caller.identity, name: caller.name, call, publisher: true });
+  res.json({ ok: true, token, livekitUrl: livekitWsUrl(req), call });
 });
+
+// The guest pass (plan-realtime-optional-livekit.md, "Requests a page makes"): what POST /api/guest-join hands a guest,
+// so the live stream, presence and the call know them by one id and the name they gave. `<what>.<signature>`: `what` is
+// { id, name } as base64url JSON, signed (HMAC-SHA256, a key made from the install's secrets key) with the environment and
+// the guest link's token, so a guest cannot speak as another guest, nor use it in another environment, and it dies with
+// the link (turned off or made again).
+function guestPassKey() {
+  return crypto.createHmac('sha256', secretsKeyBuf()).update('pass').digest();
+}
+function guestPassSignature(link, what) {
+  return crypto.createHmac('sha256', guestPassKey()).update(`${currentEnvironment().slug || ''}\n${link}\n${what}`).digest('base64url');
+}
+function makeGuestPass(link, id, name) {
+  const what = Buffer.from(JSON.stringify({ id, name })).toString('base64url');
+  return `${what}.${guestPassSignature(link, what)}`;
+}
+// { id, name } from a pass for this guest link, or null when it is not one.
+function readGuestPass(link, pass) {
+  if (typeof link !== 'string' || !link || typeof pass !== 'string' || pass.length > 400) return null;
+  const [what, signature, extra] = pass.split('.');
+  if (!what || !signature || extra !== undefined) return null;
+  const want = Buffer.from(guestPassSignature(link, what));
+  const got = Buffer.from(signature);
+  if (want.length !== got.length || !crypto.timingSafeEqual(want, got)) return null;
+  let said = null;
+  try { said = JSON.parse(Buffer.from(what, 'base64url').toString('utf8')); } catch { return null; }
+  if (!said || typeof said.id !== 'string' || !/^guest-[A-Za-z0-9_-]{4,40}$/.test(said.id) || typeof said.name !== 'string' || !said.name) return null;
+  return { id: said.id, name: said.name };
+}
 
 // Guests: no account, just a name and a space's guest link (see the
 // guest-link routes above). Public -- there's nothing to sign in with.
@@ -3417,16 +3493,16 @@ app.get('/api/guest-link/:token', (req, res) => {
   if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
   res.json({ spaceId: theSpace.id, spaceName: theSpace.name });
 });
-app.post('/api/guest-join', async (req, res) => {
+// A guest enters with a name: their pass (makeGuestPass), by which the live stream, presence and the call know them.
+// No call service is asked: the call's token comes from POST /api/call/join, with the pass.
+app.post('/api/guest-join', (req, res) => {
   const theSpace = store.spaceByGuestToken(req.body?.token);
   if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
   const name = cleanText(req.body?.name, 40);
   if (!name) return res.status(400).json({ error: 'a name is required' });
-  const call = callName(theSpace.id);
-  const identity = `guest-${randomToken(8)}`;
-  const permissions = store.roleSet('guest');
-  const token = await mintToken({ identity, name, call, publisher: true, media: Boolean(permissions.conference) });
-  res.json({ token, livekitUrl: livekitWsUrl(req), identity, call, spaceId: theSpace.id, spaceName: theSpace.name, guestToken: req.body.token, permissions });
+  const id = `guest-${randomToken(8)}`;
+  const guest = { id, name, pass: makeGuestPass(req.body.token, id, name) };
+  res.json({ spaceId: theSpace.id, spaceName: theSpace.name, permissions: store.roleSet('guest'), guest });
 });
 
 // A user may replace or clear their own profile photo. This is separate from
@@ -3493,27 +3569,45 @@ app.patch('/api/users/:key/call-prefs', requireOwner, (req, res) => {
 // pages, who is in a call right now and in which space, and the spaces themselves (the ones the caller may join
 // marked). GET /api/presence answers it; POST /api/presence is a page's heartbeat.
 // Who is on the site right now, in a call or not: a page tells the server it is open every half minute
-// (POST /api/presence), and a person counts as present for a little longer than that. Held in memory, so it
-// starts empty when the server does and fills within half a minute.
-const PRESENT_MS = 75 * 1000;
-const isPresent = (key) => Date.now() - (presence.get(key) || 0) < PRESENT_MS;
+// (POST /api/presence), and a person counts as present for a little longer than that (server/live.js, SITE_MS), or
+// while a live stream of theirs is open. Held in memory, so it starts empty when the server does and fills within
+// half a minute.
+const isPresent = (key) => live.onSite(key);
 app.post('/api/presence', requireUser, (req, res) => {
-  presence.set(currentUser(req).key, Date.now());
+  live.beat(currentUser(req).key);
   res.json({ ok: true });
 });
 
+// Who is where, for GET /api/presence and GET /api/status: the live register (server/live.js), with the call service's
+// list merged in for who is on a call and their microphone and camera (mergeCall). The call service is asked only while
+// the register has someone on a call (their page's word), so entering, leaving and moving never reach it.
+// key -> { key, name, space, call, joinedAt, inCall, micOn, cameraOn }.
+async function whereEveryone() {
+  const places = live.places();
+  const onCall = [...places.values()].some((p) => p.onCall);
+  return mergeCall(places, onCall ? await participants() : []);
+}
+
 // Asides (plan-names step 3 moved these from /api/table/*; step 8 gave them their own record, store.asides, and made
-// them the call only: no modules, chat, layout, pictures or settings). Each nudge to a page
-// in a call goes over the call's data channel, on a topic that names it: aside-pull, aside-started, aside-recall and
-// aside-return. The data's `type` is the topic.
-const ASIDE_TOPICS = { pull: 'aside-pull', started: 'aside-started', recall: 'aside-recall', return: 'aside-return' };
-const asidePayload = (type, fields) => new TextEncoder().encode(JSON.stringify({ type, ...fields }));
+// them the call only: no modules, chat, layout, pictures or settings). Who is where and on the call is the live register's
+// (server/live.js), and each nudge to a page goes on its live stream (GET /api/live, tellLive), with a type that names it:
+// aside-pull, aside-started, aside-recall and aside-return (plan-realtime-optional-livekit.md, step 4). None of it asks
+// the call service, except the calls cap.
 
 // An invitation to a conversation of two: a private aside (off the record) for the inviter and the person invited,
 // who is told wherever they have the app open (the notification stream) and can join or decline. It lives a couple
 // of minutes; the aside is swept away when nobody is in it, as any aside is.
 const INVITE_MS = 2 * 60 * 1000;
+// An aside is a call, so none is made without one: [status, sentence] with no call service (503) or the Conference
+// switched off (403), else null.
+function callOffRefusal() {
+  if (!HAS_CALL_SERVICE) return [503, NO_CALL_SERVICE];
+  if (store.settings.conferenceEnabled === false) return [403, 'voice and video are off'];
+  return null;
+}
 app.post('/api/asides/invite', requireUser, (req, res) => {
+  const off = callOffRefusal();
+  if (off) return res.status(off[0]).json({ error: off[1] });
   const me = currentUser(req);
   const to = store.userByKey(String(req.body?.to || ''));
   if (!to || to.key === me.key) return res.status(400).json({ error: 'pick someone else to invite' });
@@ -3549,8 +3643,7 @@ function presenceViewer(req) {
 app.get('/api/presence', async (req, res) => {
   const viewer = presenceViewer(req);
   if (!viewer) return res.status(401).json({ error: 'sign in first' });
-  const online = await participants();
-  const byKey = new Map(online.map((p) => [p.key, p]));
+  const byKey = await whereEveryone();
   store.pruneAsides(byKey);
   const view = presenceView(viewer, {
     users: store.users,
@@ -3565,116 +3658,88 @@ app.get('/api/presence', async (req, res) => {
   res.json({ ...branding(), ...view, ownerOnline: hasOnlineOwner(byKey) });
 });
 
-// An admin pulls one or more people who are in their call into a new aside with them, for a word away from
-// everyone else. LiveKit here is a single, un-clustered node, so there is no server-side "move a live participant"
-// primitive to lean on: the admin's own browser gets the aside directly in this response and reconnects itself;
-// everyone else pulled gets a data-channel nudge (aside-pull) telling their page which aside to reconnect to.
-// An ordinary aside is a GM move -- pulling someone into an in-fiction private moment, admin only. A Private
-// Conversation is a real off-the-record word, which any two (or more) people in a call should be able to step
-// into together without needing the admin to broker it -- so this route allows any signed-in user, but still
-// requires admin for anything that isn't private.
+// An admin pulls one or more people who are on the call with them into a new aside. Nobody is moved by the server: the
+// admin's own browser gets the aside in this response and moves itself; everyone else pulled gets a nudge on their live
+// stream (aside-pull) telling their page which aside to move to, and everyone in the space the aside came from is told
+// it started (aside-started). The caller and the people pulled must be on the call as the register says (their page's
+// word, PATCH /api/spaces/:id/presence). An ordinary aside is a GM move -- pulling someone into an in-fiction private
+// moment, admin only. A Private Conversation is a real off-the-record word, which any two (or more) people in a call
+// should be able to step into together without needing the admin to broker it -- so this route allows any signed-in
+// user, but still requires admin for anything that isn't private.
 app.post('/api/asides', requireUser, async (req, res) => {
-  try {
-    const initiator = currentUser(req);
-    const priv = Boolean(req.body?.private);
-    if (priv && store.settings.allowPrivate === false) return res.status(403).json({ error: 'private conversations are turned off' });
-    if (!priv && store.settings.allowAsides === false) return res.status(403).json({ error: `${word('aside', { many: true })} are turned off` });
-    const raw = req.body?.with;
-    const keys = [...new Set(Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [])];
-    const targets = keys.filter((k) => k !== initiator.key).map((k) => store.userByKey(k)).filter(Boolean);
-    if (!targets.length) return res.status(400).json({ error: 'pick someone to pull aside' });
-    const here = new Map((await participants()).map((p) => [p.key, p]));
-    const initiatorCall = here.get(initiator.key)?.call;
-    if (!initiatorCall) return res.status(400).json({ error: 'you need to be in a call yourself to pull someone aside' });
-    const originId = spaceIdOfCall(initiatorCall);
-    const perms = store.spacePermissions(initiator.key, originId);
-    if (priv ? !perms.privateCall : !perms.startAside) return res.status(403).json({ error: priv ? 'you can\'t start a private conversation' : `you can't pull someone into ${word('aside', { a: true })}` });
-    for (const target of targets) {
-      const there = here.get(target.key);
-      if (!there || there.call !== initiatorCall) return res.status(404).json({ error: `${target.displayName} is not with you right now` });
-      if (!there.inCall) return res.status(409).json({ error: `${target.displayName} is not in the conference right now` });
-    }
-    // An aside is a call. Its members leave the call they are in for it: if nobody else stays on that call, the aside
-    // takes its slot; if others stay, the aside is a new running call and the plan's limit is asked here, before
-    // anyone is pulled (joining the aside is then never refused). The aside's slot is held until they show on its call.
-    const moving = [initiator.key, ...targets.map((t) => t.key)];
-    const refusal = await callsCapRefusal(null, initiator.key, { leaving: moving, hold: false });
-    if (refusal) return res.status(403).json({ error: refusal });
-    const aside = store.addAside(moving, originId, priv);
-    if (planCap('calls') !== null) holdCallStart(aside.id, initiator.key);
-    // byOwner tells the target's page whether to just go (an owner's call) or ask first.
-    const payload = asidePayload(ASIDE_TOPICS.pull, { spaceId: aside.id, byOwner: hasOwnerRights(initiator), private: priv, from: initiator.displayName });
-    await callService.sendData(initiatorCall, payload, DataPacket_Kind.RELIABLE, { destinationIdentities: targets.map((t) => t.key), topic: ASIDE_TOPICS.pull });
-    // Everyone left behind: a private word is private from the others, not invisible to them -- this is what lets
-    // their tiles turn into "in an aside" placeholders right away instead of just looking like they hung up until
-    // the next poll catches up. It goes only to this call, whose people just saw these members leave it. A private
-    // conversation's carries no members: who is with whom stays off the record (presence by membership gives the
-    // parent's members only `aside: true, asidePrivate: true` for each), and the page learns who stepped out from
-    // GET /api/presence.
-    const bystanderPayload = asidePayload(ASIDE_TOPICS.started, priv ? { spaceId: aside.id, private: true } : { spaceId: aside.id, members: aside.members, private: false });
-    await callService.sendData(initiatorCall, bystanderPayload, DataPacket_Kind.RELIABLE, { topic: ASIDE_TOPICS.started }).catch(() => {});
-    res.json({ aside });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
+  const off = callOffRefusal();
+  if (off) return res.status(off[0]).json({ error: off[1] });
+  const initiator = currentUser(req);
+  const priv = Boolean(req.body?.private);
+  if (priv && store.settings.allowPrivate === false) return res.status(403).json({ error: 'private conversations are turned off' });
+  if (!priv && store.settings.allowAsides === false) return res.status(403).json({ error: `${word('aside', { many: true })} are turned off` });
+  const raw = req.body?.with;
+  const keys = [...new Set(Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [])];
+  const targets = keys.filter((k) => k !== initiator.key).map((k) => store.userByKey(k)).filter(Boolean);
+  if (!targets.length) return res.status(400).json({ error: 'pick someone to pull aside' });
+  const mine = live.placeOf(initiator.key);
+  if (!mine || !mine.onCall) return res.status(400).json({ error: 'you need to be in a call yourself to pull someone aside' });
+  const originId = mine.space;
+  const perms = store.spacePermissions(initiator.key, originId);
+  if (priv ? !perms.privateCall : !perms.startAside) return res.status(403).json({ error: priv ? 'you can\'t start a private conversation' : `you can't pull someone into ${word('aside', { a: true })}` });
+  for (const target of targets) {
+    const there = live.placeOf(target.key);
+    if (!there || there.space !== originId) return res.status(404).json({ error: `${target.displayName} is not with you right now` });
+    if (!there.onCall) return res.status(409).json({ error: `${target.displayName} is not in the conference right now` });
   }
+  // An aside is a call. Its members leave the call they are in for it: if nobody else stays on that call, the aside
+  // takes its slot; if others stay, the aside is a new running call and the plan's limit is asked here, before
+  // anyone is pulled (joining the aside is then never refused). The aside's slot is held until they show on its call.
+  const moving = [initiator.key, ...targets.map((t) => t.key)];
+  const refusal = await callsCapRefusal(null, initiator.key, { leaving: moving, hold: false });
+  if (refusal) return res.status(403).json({ error: refusal });
+  const aside = store.addAside(moving, originId, priv);
+  if (planCap('calls') !== null) holdCallStart(aside.id, initiator.key);
+  // byOwner tells the target's page whether to just go (an owner's call) or ask first.
+  for (const target of targets) tellLive(target.key, originId, { type: 'aside-pull', spaceId: aside.id, byOwner: hasOwnerRights(initiator), private: priv, from: initiator.displayName });
+  // Everyone in the space it came from, those pulled too: a private word is private from the others, not invisible to
+  // them -- this is what lets their tiles turn into "in an aside" placeholders right away instead of just looking like
+  // they hung up. A private conversation's carries no members: who is with whom stays off the record (presence by
+  // membership gives the parent's members only `aside: true, asidePrivate: true` for each), and the page learns who
+  // stepped out from GET /api/presence.
+  tellLiveSpace(originId, priv ? { type: 'aside-started', spaceId: aside.id, private: true } : { type: 'aside-started', spaceId: aside.id, members: aside.members, private: false });
+  res.json({ aside });
 });
 
-// Admin-only recall: every Private Conversation pulled out of the admin's own current space gets a data-channel
-// warning (aside-recall) -- their own page runs a 10-second countdown, then reconnects them back here itself,
+// Admin-only recall: every Private Conversation pulled out of the admin's own current space gets a warning on its
+// members' live streams (aside-recall) -- their own page runs a 10-second countdown, then moves them back here itself,
 // rather than being yanked back instantly. Doesn't touch ordinary asides: the admin is always already in those, so
 // there's nothing to recall them from that returning (POST /api/asides/return) doesn't already cover.
-app.post('/api/asides/recall', requireOwner, async (req, res) => {
-  try {
-    const admin = currentUser(req);
-    const online = await participants();
-    const adminCall = online.find((p) => p.key === admin.key)?.call;
-    if (!adminCall) return res.status(400).json({ error: 'you need to be in a call yourself to recall anyone' });
-    const originId = spaceIdOfCall(adminCall);
-    const destSpace = store.spaceById(originId);
-    const privateAsides = store.asides.filter((a) => a.private && a.origin === originId);
-    if (!privateAsides.length) return res.status(400).json({ error: 'nobody is off in a private conversation from here right now' });
-    const payload = asidePayload(ASIDE_TOPICS.recall, { spaceId: originId, spaceName: destSpace?.name || 'the call' });
-    // Each private aside's call by its name, and by whatever name the people in it are really in (a call from
-    // before the upgrade, for that one release).
-    const ids = new Set(privateAsides.map((r) => r.id));
-    const calls = new Set([...privateAsides.map((r) => callName(r.id)), ...online.filter((p) => ids.has(p.space)).map((p) => p.call)]);
-    await Promise.all([...calls].map((call) => callService.sendData(call, payload, DataPacket_Kind.RELIABLE, { topic: ASIDE_TOPICS.recall }).catch(() => {})));
-    res.json({ recalled: privateAsides.length });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
-  }
+app.post('/api/asides/recall', requireOwner, (req, res) => {
+  const admin = currentUser(req);
+  const mine = live.placeOf(admin.key);
+  if (!mine) return res.status(400).json({ error: `you need to be in ${word('space', { a: true })} yourself to recall anyone` });
+  const originId = mine.space;
+  const destSpace = store.spaceById(originId);
+  const privateAsides = store.asides.filter((a) => a.private && a.origin === originId);
+  if (!privateAsides.length) return res.status(400).json({ error: 'nobody is off in a private conversation from here right now' });
+  const payload = { type: 'aside-recall', spaceId: originId, spaceName: destSpace?.name || 'the call' };
+  for (const aside of privateAsides) for (const key of aside.members) tellLive(key, aside.id, payload);
+  res.json({ recalled: privateAsides.length });
 });
 
 // Whoever leaves an aside returns to the space it was pulled from (the Lobby if that space is gone by now), and
-// takes the aside's other member(s) with them the same way a pull does: a data-channel nudge (aside-return), since
-// leaving would otherwise be as one-sided as arriving used to be.
-app.post('/api/asides/return', requireUser, async (req, res) => {
-  try {
-    const me = currentUser(req);
-    const mine = (await participants()).find((p) => p.key === me.key);
-    if (!mine) return res.status(400).json({ error: 'you need to be in a call' });
-    const current = store.asideById(mine.space);
-    if (!current) return res.status(400).json({ error: `you are not in ${word('aside', { a: true })}` });
-    const dest = (current.origin && store.spaceById(current.origin)) || store.spaceById(LOBBY);
-    const others = current.members.filter((k) => k !== me.key);
-    if (others.length) {
-      const payload = asidePayload(ASIDE_TOPICS.return, { spaceId: dest.id });
-      // Best-effort: I still get to leave even if the others cannot be nudged.
-      await callService
-        .sendData(mine.call, payload, DataPacket_Kind.RELIABLE, { destinationIdentities: others, topic: ASIDE_TOPICS.return })
-        .catch(() => {});
-    }
-    res.json({ space: shownSpace(req, dest) });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
-  }
+// takes the aside's other member(s) with them the same way a pull does: a nudge on their live stream (aside-return),
+// since leaving would otherwise be as one-sided as arriving used to be.
+app.post('/api/asides/return', requireUser, (req, res) => {
+  const me = currentUser(req);
+  const mine = live.placeOf(me.key);
+  const current = mine ? store.asideById(mine.space) : null;
+  if (!current) return res.status(400).json({ error: `you are not in ${word('aside', { a: true })}` });
+  const dest = (current.origin && store.spaceById(current.origin)) || store.spaceById(LOBBY);
+  for (const key of current.members) if (key !== me.key) tellLive(key, current.id, { type: 'aside-return', spaceId: dest.id });
+  res.json({ space: shownSpace(req, dest) });
 });
 
 // Stream API (OBS pages and the Studio app) ---------------------------------
 
 app.get('/api/status', requireStream, async (req, res) => {
-  const online = await participants();
-  const byKey = new Map(online.map((p) => [p.key, p]));
+  const byKey = await whereEveryone();
   store.pruneAsides(byKey);
   res.json({
     ...branding(),
@@ -3735,7 +3800,7 @@ app.patch('/api/spaces/:id', requireUser, (req, res) => {
     if (!moderates(currentUser(req), space) || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
   }
   const space = store.updateSpace(req.params.id, body);
-  chatAccessChanged(); // guests turned off, say: their chat streams end now
+  liveAccessChanged(); // guests turned off, say: their live streams end now
   res.json({ space: answeredSpace(req, space) });
 });
 // The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted by the same number of
@@ -3760,7 +3825,7 @@ app.post('/api/spaces/:id/phases/cover', (req, res) => {
 });
 app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   eraseSpace(currentEnvironment(), req.params.id); // everything kept for it, then the space; throws 500 if a step fails (server/space-erase.js)
-  chatAccessChanged();
+  liveAccessChanged();
   res.json({ ok: true });
 });
 app.put('/api/spaces/:id/image', requireOwner, rawImage, checkStorageCap, (req, res) => {
@@ -3790,12 +3855,12 @@ function requireCanInvite(req, res, next) {
 }
 app.post('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   const guestToken = req.body?.regenerate ? store.regenerateGuestLink(req.params.id) : store.enableGuestLink(req.params.id);
-  chatAccessChanged(); // a regenerated link's old token ends its chat streams now
+  liveAccessChanged(); // a regenerated link's old token ends its live streams now
   res.json({ space: answeredSpace(req, store.spaceById(req.params.id)), guestUrl: `${baseUrl(req)}/guest/${guestToken}` });
 });
 app.delete('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   store.disableGuestLink(req.params.id);
-  chatAccessChanged(); // its chat streams end now
+  liveAccessChanged(); // its live streams end now
   res.json({ space: answeredSpace(req, store.spaceById(req.params.id)) });
 });
 
@@ -3891,43 +3956,56 @@ app.delete('/api/users/:key/spaces/:spaceId/images/:slot', requireOwner, (req, r
   res.json({ user: publicUser(req, store.userByKey(req.params.key)) });
 });
 
-// Admin, or a member the admin gave Can Kick / Can Mute for the space both of
-// them are in right now (never against an admin) -- see Permissions on a
-// user's profile, Spaces tab.
-async function canModerate(req, targetKey, permission) {
+// Admin, or a member the admin gave Can Kick / Can Mute for the space both of them are in right now (never against an
+// admin) -- see Permissions on a user's profile, Spaces tab. Where each is, and whether the target is on the call, comes
+// from the live register (server/live.js; a guest is there by the id on their pass, their identity on the call too).
+// Answers { space, onCall } or { error: [status, sentence] }.
+function canModerate(req, targetKey, permission) {
   const actor = currentUser(req);
-  const call = await callOf(targetKey);
-  if (!call) return { error: [404, 'not in a call'] };
-  if (hasOwnerRights(actor)) return { call };
+  const place = live.placeOf(targetKey);
+  if (!place) return { error: [404, `they are not in ${word('space', { a: true })} right now`] };
+  const { space, onCall } = place;
+  if (hasOwnerRights(actor)) return { space, onCall };
   const target = store.userByKey(targetKey);
   if (!target || hasOwnerRights(target) || target.key === actor.key) return { error: [403, 'not allowed'] };
-  if ((await callOf(actor.key)) !== call) return { error: [403, 'not allowed'] };
-  if (!store.spacePermissions(actor.key, spaceIdOfCall(call))[permission]) return { error: [403, 'not allowed'] };
-  return { call };
+  if (live.placeOf(actor.key)?.space !== space) return { error: [403, `you are not in their ${word('space')}`] };
+  if (!store.spacePermissions(actor.key, space)[permission]) return { error: [403, 'not allowed'] };
+  return { space, onCall };
 }
 
+// A kick takes the person out of the call and the space, both (plan-realtime-optional-livekit.md, decided 5): their live
+// streams there get `removed { reason: 'kicked' }` and end, they leave the register at once (no grace), and the call
+// service drops them from the call when the register has them on it (only then is it asked). With no call service, or
+// it not answering, the space part still happens.
 app.post('/api/users/:key/kick', requireUser, async (req, res) => {
-  try {
-    const { call, error } = await canModerate(req, req.params.key, 'canKick');
-    if (error) return res.status(error[0]).json({ error: error[1] });
-    await callService.removeParticipant(call, req.params.key);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
+  const key = req.params.key;
+  const { space, onCall, error } = canModerate(req, key, 'canKick');
+  if (error) return res.status(error[0]).json({ error: error[1] });
+  if (onCall && callService) {
+    await callService.removeParticipant(callName(space), key).catch((err) => console.error(`Removing ${key} from the call failed: ${err.message}`));
   }
+  tellLive(key, space, { type: 'removed', reason: 'kicked' });
+  live.leave(key, space);
+  tellLivePresence([space]);
+  res.json({ ok: true });
 });
 
+// Muting is the call's: it needs them on the call (the register's word), then asks the call service.
 app.post('/api/users/:key/mute', requireUser, async (req, res) => {
+  const { space, onCall, error } = canModerate(req, req.params.key, 'canMute');
+  if (error) return res.status(error[0]).json({ error: error[1] });
+  if (!callService) return res.status(503).json({ error: NO_CALL_SERVICE });
+  if (!onCall) return res.status(404).json({ error: 'they are not in a call' });
+  const call = callName(space);
   try {
-    const { call, error } = await canModerate(req, req.params.key, 'canMute');
-    if (error) return res.status(error[0]).json({ error: error[1] });
     const info = await callService.getParticipant(call, req.params.key);
     const mic = (info.tracks || []).find((t) => t.source === 2);
     if (!mic) return res.status(404).json({ error: 'no microphone track' });
     await callService.mutePublishedTrack(call, req.params.key, mic.sid, req.body?.muted !== false);
     res.json({ ok: true });
   } catch (err) {
-    res.status(502).json({ error: `LiveKit: ${err.message}` });
+    console.error(`Muting ${req.params.key} on the call failed: ${err.message}`);
+    res.status(502).json({ error: `Could not ${req.body?.muted === false ? 'unmute' : 'mute'} them. Voice and video are not reachable.` });
   }
 });
 
@@ -3952,6 +4030,11 @@ function builtinView(b) {
   const view = { ...b, displayName: display.name, displayIcon: display.icon, ownDisplayName: display.ownName, ownDisplayIcon: display.ownIcon, templateDisplayName: display.templateName, templateDisplayIcon: display.templateIcon };
   for (const k of ['description', 'permissions', 'needs', 'turnOff', 'turnOn']) if (typeof view[k] === 'string') view[k] = fillWords(view[k]);
   if (b.setting) view.enabled = store.settings[b.setting] !== false;
+  // The conference with no call service: off, its switch can't be turned on, and the card says why (`unavailable`).
+  if (b.id === 'conference' && !HAS_CALL_SERVICE) {
+    view.enabled = false;
+    view.unavailable = NO_CALL_SERVICE_CARD;
+  }
   return view;
 }
 // Modules that ship with this deployment (the modules/ folder), and where each stands:
@@ -4477,30 +4560,39 @@ app.put('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(true));
 app.delete('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(false));
 
 // --- chat history --------------------------------------------------------------------------------
-// Chat travels live over LiveKit; the sender also posts the text here so someone who joins later reads what
-// was said (see server/chat-history.js for what is kept and for how long). Only a space has a chat: an aside is not
+// A message is posted here, kept (see server/chat-history.js for what is kept and for how long) and told live on the
+// live stream (tellChat), so whoever is in the space sees it at once and someone who comes later reads what was said. Only a space has a chat: an aside is not
 // a space (plan-names step 8), so its id answers 404 here, reading or posting. Reading needs the "open and read the chat" permission, posting "send chat messages", and the person
 // must be in the space (or an owner, or a guest of that space).
-// The rule itself, apart from answering: { who, space }, or { status, error }. The chat stream asks it again while it is
-// open (chatStreamRecheck), so a guest link turned off or regenerated, a session that no longer reads (expired, the
+// The rule itself, apart from answering: { who, space }, or { status, error }. The live stream asks it again at every
+// chat event and while it is open, so a guest link turned off or regenerated, a session that no longer reads (expired, the
 // account gone or its password or second step changed) or a person taken out of the space ends the stream. Signing
 // out does not: it only clears the cookie in the browser, and an open stream already sent its session, so the page that
 // signs out closes its own stream by leaving, and the browser's other open tabs keep theirs until they are closed.
+// `permission` left out asks only whether they are in the space (the live stream: being there is the test).
 function chatAccess(req, spaceId, permission) {
+  const found = streamViewer(req);
+  if (found.error) return found;
+  const { who } = found;
+  const space = store.spaceById(spaceId);
+  if (!space) return { status: 404, error: `no such ${word('space')}` };
+  const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
+  if (!allowed) return { status: 403, error: `you are not in that ${word('space')}` };
+  if (!permission) return { who, space };
+  const perms = who.user ? store.spacePermissions(who.user.key, space.id) : store.roleSet('guest');
+  if (!perms[permission]) return { status: 403, error: 'your role cannot do that' };
+  return { who, space };
+}
+// Who reads a stream (the chat's, the live one): { who } (moduleViewer's), or { status: 401, error }. The access key
+// is for a module's keyed page, never the chat or the live stream: it answers as signed out (layoutSpaceFor does the same).
+function streamViewer(req) {
   const who = moduleViewer(req);
-  // The access key is for a module's keyed page, never the chat: it answers as signed out (layoutSpaceFor does the same).
   if (!who || who.keyed) {
     // A guest token that names no space (turned off, regenerated, never was) says so, rather than "sign in first".
     const deadLink = !who && typeof req.query.guest === 'string' && req.query.guest !== '';
     return { status: 401, error: deadLink ? `that ${word('guest')} link is off or wrong` : 'sign in first' };
   }
-  const space = store.spaceById(spaceId);
-  if (!space) return { status: 404, error: `no such ${word('space')}` };
-  const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
-  if (!allowed) return { status: 403, error: `you are not in that ${word('space')}` };
-  const perms = who.user ? store.spacePermissions(who.user.key, space.id) : store.roleSet('guest');
-  if (!perms[permission]) return { status: 403, error: 'your role cannot do that' };
-  return { who, space };
+  return { who };
 }
 function chatSpaceFor(req, res, permission) {
   const found = chatAccess(req, req.params.id, permission);
@@ -4511,10 +4603,10 @@ function chatSpaceFor(req, res, permission) {
 // --- guests in chat: the abuse limits (GitHub #289) -------------------------------------------------------------------
 // A guest has no account, and one guest link is shared by everyone it was given to, so a guest's posts are counted by
 // their guest link, GUEST_CHAT_POSTS_PER_MINUTE a minute, and by their address, half of that (at least 5, never more
-// than the link's), so one address can't spend the whole link's minute. Open chat streams: a signed-in person
-// CHAT_STREAMS_PER_PERSON at once (default 50: one a browser tab; they are accountable, and Home opens one in every
-// tab); a guest link CHAT_STREAMS_PER_GUEST_LINK at once, and one address on it 40% of that (at least 2, never more than
-// CHAT_STREAMS_PER_PERSON), so one address can't fill the link. The address is req.ip (TRUST_PROXY_HOPS). Kept per
+// than the link's), so one address can't spend the whole link's minute. Open live streams (GET /api/live): a signed-in
+// person LIVE_STREAMS_PER_PERSON at once (default 50: one a browser tab; they are accountable, and every tab holds one);
+// a guest link LIVE_STREAMS_PER_GUEST_LINK at once, and one address on it 40% of that (at least 2, never more than
+// LIVE_STREAMS_PER_PERSON), so one address can't fill the link. The address is req.ip (TRUST_PROXY_HOPS). Kept per
 // environment (the slug is in each key).
 const wholeAbove0 = (value, fallback) => {
   const n = Number(value);
@@ -4522,11 +4614,11 @@ const wholeAbove0 = (value, fallback) => {
 };
 const guestChatPostsPerMinute = wholeAbove0(GUEST_CHAT_POSTS_PER_MINUTE, 20);
 const guestChatPostsPerAddress = Math.min(guestChatPostsPerMinute, Math.max(5, Math.floor(guestChatPostsPerMinute * 0.5)));
-const chatStreamsPerPerson = wholeAbove0(CHAT_STREAMS_PER_PERSON, 50);
-const chatStreamsPerGuestLink = wholeAbove0(CHAT_STREAMS_PER_GUEST_LINK, 25);
-const chatStreamsPerGuestAddress = Math.min(chatStreamsPerPerson, chatStreamsPerGuestLink, Math.max(2, Math.floor(chatStreamsPerGuestLink * 0.4)));
+const liveStreamsPerPerson = wholeAbove0(LIVE_STREAMS_PER_PERSON, 50);
+const liveStreamsPerGuestLink = wholeAbove0(LIVE_STREAMS_PER_GUEST_LINK, 25);
+const liveStreamsPerGuestAddress = Math.min(liveStreamsPerPerson, liveStreamsPerGuestLink, Math.max(2, Math.floor(liveStreamsPerGuestLink * 0.4)));
 const guestChatPosts = new Map(); // key -> post times in the last minute
-const chatStreamsOpen = new Map(); // key -> streams open now
+const liveStreamsOpen = new Map(); // key -> streams open now
 const chatSlug = () => currentEnvironment().slug || '';
 // [[key, most], ...] -> { wait, most }: the seconds until one more post is allowed under every key, or 0 when it is
 // allowed now (and then it is counted under each), and which key refused (its index; the one with the longest wait).
@@ -4554,12 +4646,12 @@ setInterval(() => {
   const now = Date.now();
   for (const [key, times] of guestChatPosts) if (!times.some((t) => now - t < 60000)) guestChatPosts.delete(key);
 }, 60000).unref();
-// The keys a stream counts under, each with its most: [[key, most], ...].
-function chatStreamKeys(req, who) {
+// The keys a live stream counts under, each with its most: [[key, most], ...].
+function liveStreamKeys(req, who) {
   const slug = chatSlug();
-  if (who.user) return [[`${slug}|person|${who.user.key}`, chatStreamsPerPerson]];
+  if (who.user) return [[`${slug}|person|${who.user.key}`, liveStreamsPerPerson]];
   const token = req.query.guest;
-  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, chatStreamsPerGuestAddress], [`${slug}|link|${token}`, chatStreamsPerGuestLink]];
+  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, liveStreamsPerGuestAddress], [`${slug}|link|${token}`, liveStreamsPerGuestLink]];
 }
 
 app.get('/api/spaces/:id/chat', (req, res) => {
@@ -4569,85 +4661,313 @@ app.get('/api/spaces/:id/chat', (req, res) => {
   res.json({ messages: chatHistory.list(found.space.id, found.who.user ? found.who.user.key : null), clearedAt: chatHistory.clearedAt(found.space.id) });
 });
 
-// A server-sent stream of what happens to a space's public chat, so a page that is not in the space's call (Home's
-// chat, over the Lobby's) hears it live. Same rules as reading the chat. Each event is one default `message` whose
-// data is what tellChat sends, as { type, ... }: chat (a new public message, as stored), chat-delete, chat-clear,
-// chat-clear-some, chat-visibility, chat-preview, chat-kept. A private message is never sent. { type: 'ready' } comes
-// first, once the stream is listening, so a page reads the history after it (nothing is replayed on a reconnect).
-// A space's guest reads it with ?guest=<token> (GitHub #289). The access is asked again before each event, every
-// CHAT_STREAM_RECHECK_MS, and at once when a guest link changes (chatAccessChanged): once it no longer holds (the guest
-// link turned off or regenerated, the session no longer reads -- see chatAccess: signing out is not that -- the person
-// taken out of the space), a last { type: 'closed', error } is sent and the stream ends. Too many open at once
-// (chatStreamKeys) answers 429.
-const CHAT_STREAM_RECHECK_MS = 2000;
-app.get('/api/spaces/:id/chat/stream', (req, res) => {
-  const found = chatSpaceFor(req, res, 'chatRead');
-  if (!found) return;
-  const keys = chatStreamKeys(req, found.who);
-  const full = keys.find(([key, most]) => (chatStreamsOpen.get(key) || 0) >= most);
+// A server-sent stream (the live one): the caps, the headers, the ping, the access asked again, and the counts given
+// back when it ends, in one place. `keys` are what it counts under (liveStreamKeys) and `what` names it in a 429's
+// sentence ("live streams"). `on` is [[emitter, event, fn], ...]: each fn is called as fn(stream, ...args) in
+// this request's environment while the stream is open. `recheck()` answers null while the access holds, else the last
+// event to send before the stream ends. `start(stream)` runs once it is listening; `end()` once it has ended, however.
+// Each event has an `id:` line. Answers the stream, or null when it answered 429. Written through sseWrite: a reader
+// LIVE_STREAM_BUFFER_MB behind is dropped (its page reconnects), never queued for.
+//   stream.send(data): one default `message` event whose data is JSON; the same `data` object sent to many streams is
+//     made into bytes once and shared;
+//   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends;
+//   stream.close(last): sends `last` (when given) and ends it.
+const STREAM_RECHECK_MS = 2000;
+const STREAM_PING_MS = 25000;
+const streamBytes = new WeakMap(); // an event's data object -> its `data:` lines as one Buffer
+function streamEventBytes(data) {
+  let bytes = streamBytes.get(data);
+  if (!bytes) {
+    bytes = Buffer.from(`data: ${JSON.stringify(data)}\n\n`);
+    streamBytes.set(data, bytes);
+  }
+  return bytes;
+}
+function eventStream(req, res, { keys, what, on = [], recheck, start, end }) {
+  const full = keys.find(([key, most]) => (liveStreamsOpen.get(key) || 0) >= most);
   if (full) {
     const said = full === keys[0]
-      ? `you have too many chat streams open (${full[1]} at most); close one and try again`
-      : `this ${word('guest')} link has too many chat streams open (${full[1]} at most); close one and try again`;
-    return res.status(429).json({ error: said });
+      ? `you have too many ${what} open (${full[1]} at most); close one and try again`
+      : `this ${word('guest')} link has too many ${what} open (${full[1]} at most); close one and try again`;
+    res.status(429).json({ error: said });
+    return null;
   }
-  for (const [key] of keys) chatStreamsOpen.set(key, (chatStreamsOpen.get(key) || 0) + 1);
+  for (const [key] of keys) liveStreamsOpen.set(key, (liveStreamsOpen.get(key) || 0) + 1);
   const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
-  const spaceId = found.space.id;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 5000\n\n');
+  sseWrite(res, 'retry: 5000\n\n');
   let ended = false;
   let beat = null;
-  let recheck = null;
-  const onChat = listenIn(env, (id, data) => {
-    if (id !== spaceId || !stillAllowed()) return;
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  });
-  const onAccess = listenIn(env, () => stillAllowed());
-  const cleanup = () => {
+  let again = null;
+  let next = 0;
+  // A write that did not go: the reader fell too far behind (sseWrite dropped it) or is gone. Either way it ends now.
+  const wrote = (done) => {
+    if (!done) envContext.run(env, cleanup);
+    return done;
+  };
+  const stream = {
+    get ended() { return ended; },
+    send(data) {
+      if (ended) return;
+      next += 1;
+      wrote(sseWrite(res, `id: ${next}\n`, typeof data === 'object' && data ? streamEventBytes(data) : `data: ${JSON.stringify(data)}\n\n`));
+    },
+    check() {
+      if (ended) return false;
+      const last = recheck();
+      if (!last) return true;
+      stream.close(last);
+      return false;
+    },
+    close(last) {
+      if (ended) return;
+      if (last) stream.send(last);
+      try {
+        res.end();
+      } catch {
+        // already gone
+      }
+      cleanup();
+    },
+  };
+  const bound = on.map(([emitter, event, fn]) => [emitter, event, listenIn(env, (...args) => { if (!ended) fn(stream, ...args); })]);
+  function cleanup() {
     if (ended) return;
     ended = true;
     clearInterval(beat);
-    clearInterval(recheck);
-    chatEvents.off('chat', onChat);
-    chatEvents.off('access', onAccess);
+    clearInterval(again);
+    for (const [emitter, event, fn] of bound) emitter.off(event, fn);
     for (const [key] of keys) {
-      const left = (chatStreamsOpen.get(key) || 1) - 1;
-      if (left > 0) chatStreamsOpen.set(key, left);
-      else chatStreamsOpen.delete(key);
+      const left = (liveStreamsOpen.get(key) || 1) - 1;
+      if (left > 0) liveStreamsOpen.set(key, left);
+      else liveStreamsOpen.delete(key);
     }
-  };
-  // Asked in this request's environment; the cached person is dropped first, so a session that no longer reads is seen.
-  function stillAllowed() {
-    if (ended) return false;
-    req._user = undefined;
-    const now = chatAccess(req, spaceId, 'chatRead');
-    if (!now.error && Boolean(now.who.user) === Boolean(found.who.user)) return true;
-    const error = now.error || 'sign in first';
-    try {
-      res.write(`data: ${JSON.stringify({ type: 'closed', error })}\n\n`);
-      res.end();
-    } catch {
-      // already gone
-    }
-    cleanup();
-    return false;
+    if (end) end();
   }
-  chatEvents.on('chat', onChat);
-  chatEvents.on('access', onAccess);
-  res.write(`data: ${JSON.stringify({ type: 'ready' })}\n\n`);
-  beat = setInterval(() => res.write(': ping\n\n'), 25000);
-  recheck = setInterval(() => envContext.run(env, () => stillAllowed()), CHAT_STREAM_RECHECK_MS);
+  for (const [emitter, event, fn] of bound) emitter.on(event, fn);
+  if (start) start(stream);
+  if (ended) return stream; // start() ended it (a kick kept for this person)
+  beat = setInterval(() => wrote(sseWrite(res, ': ping\n\n')), STREAM_PING_MS);
+  again = setInterval(() => envContext.run(env, () => stream.check()), STREAM_RECHECK_MS);
   req.on('close', () => envContext.run(env, cleanup));
+  return stream;
+}
+
+// --- the live stream (plan-realtime-optional-livekit.md, steps 1 and 3: presence and chat) ---------------------------
+// Who may open GET /api/live (and say PATCH /api/spaces/:id/presence) for `spaceId`: { who, space, aside } or
+// { status, error }. A space: its members, owners and the admin, and its guests (chatAccess with no permission). An
+// aside: its members, owners and the admin; never a guest. No space (Home): anyone signed in.
+function liveAccess(req, spaceId) {
+  if (!spaceId) {
+    const found = streamViewer(req);
+    if (found.error) return found;
+    if (!found.who.user) return { status: 400, error: `say which ${word('space')} the live stream is for` };
+    return { who: found.who, space: null, aside: null };
+  }
+  const aside = store.asideById(spaceId);
+  if (!aside) {
+    const found = chatAccess(req, spaceId, null);
+    return found.error ? found : { ...found, aside: null };
+  }
+  const found = streamViewer(req);
+  if (found.error) return found;
+  const user = found.who.user;
+  if (!user || !(hasOwnerRights(user) || aside.members.includes(user.key))) return { status: 403, error: `you are not in that ${word('space')}` };
+  return { who: found.who, space: null, aside };
+}
+
+// The people in a space or an aside, as the live stream's presence event lists them (server/live.js, people()): a
+// person's name is read from their account now, so a rename shows at the next change.
+function livePeople(spaceId) {
+  return live.people(spaceId).map((p) => {
+    const u = p.guest ? null : store.userByKey(p.key);
+    return u ? { ...p, name: u.displayName } : p;
+  });
+}
+// Tell the live streams of these spaces (and asides) that who is there changed. Each sends its own list.
+function tellLivePresence(spaceIds) {
+  for (const id of new Set(spaceIds)) {
+    if (!id) continue;
+    try {
+      liveEvents.emit('presence', id);
+    } catch (err) {
+      console.error(`A live stream's listener failed: ${err.stack || err.message}`);
+    }
+  }
+}
+
+// A nudge for one person in a space or an aside (an aside's aside-pull, aside-recall or aside-return, a kick's `removed`),
+// on their live streams there. Someone whose stream there is reconnecting (the register's grace) gets it when they open
+// one again, within 30 seconds (server/live.js, hold). A `removed` ends the streams it reaches.
+function tellLive(who, space, data) {
+  if (!live.openFor(who, space).length) return live.hold(who, space, data);
+  try {
+    liveEvents.emit('nudge', who, space, data);
+  } catch (err) {
+    console.error(`A live stream's listener failed: ${err.stack || err.message}`);
+  }
+  return true;
+}
+// The same for everyone the register has in `space` (an aside's aside-started).
+function tellLiveSpace(space, data) {
+  for (const p of live.people(space)) tellLive(p.key, space, data);
+}
+
+// GET /api/live: the live stream (server-sent events), one per space page: being in a space is this being open. ?space=
+// is a space's or an aside's id (left out on Home); a guest adds ?guest=<their link's token> and ?pass=<their guest pass>
+// (POST /api/guest-join; 403 without a valid one). Each event is a default `message` with an `id:` line and data
+// { type, ... }:
+//   ready     { you, space, stream }: first, once listening. `you` is the person's key or, for a guest, the id on their
+//             pass (their identity on the call too); `stream` names this stream to PATCH /api/spaces/:id/presence.
+//   presence  { space, people: [{ key, name, guest, onCall, away, awayMessage }] }: everyone there, on connect and on
+//             every change (server/live.js).
+//   chat, chat-delete, chat-clear, chat-clear-some, chat-visibility, chat-preview, chat-kept, chat-picture: what tellChat
+//             says, each with `space`, for this stream's space and for the Lobby (Home's chat), each only while the
+//             reader may read that chat (chatAccess with chatRead, asked at every event). A private message is never sent;
+//             nothing is replayed, so a page catches up from GET /api/spaces/:id/chat after a reconnect.
+//   aside-pull { spaceId, byOwner, private, from }, aside-started { spaceId, private, members? }, aside-recall { spaceId,
+//             spaceName }, aside-return { spaceId }: the asides' nudges (POST /api/asides, /recall, /return), only to the
+//             people they are for; one for a stream that was reconnecting comes when it opens again, within 30 seconds.
+//   removed   { reason: 'access', error }: the access no longer holds (asked every STREAM_RECHECK_MS and at once on
+//             liveAccessChanged); { reason: 'kicked' }: a kick (POST /api/users/:key/kick). Then the stream ends.
+// The person is in the space while the stream is open and for the register's grace after (server/live.js). Too many open
+// at once (liveStreamKeys: LIVE_STREAMS_PER_PERSON, LIVE_STREAMS_PER_GUEST_LINK) answers 429.
+app.get('/api/live', (req, res) => {
+  const spaceId = typeof req.query.space === 'string' && req.query.space ? req.query.space : null;
+  const found = liveAccess(req, spaceId);
+  if (found.error) return res.status(found.status).json({ error: found.error });
+  const guest = !found.who.user;
+  // A guest is who their pass says (POST /api/guest-join), the same id on the call.
+  const pass = guest && typeof req.query.pass === 'string' ? readGuestPass(req.query.guest, req.query.pass) : null;
+  if (guest && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  const you = guest ? pass.id : found.who.user.key;
+  const name = guest ? pass.name : found.who.user.displayName;
+  const env = currentEnvironment();
+  let streamId = null;
+  eventStream(req, res, {
+    keys: liveStreamKeys(req, found.who),
+    what: 'live streams',
+    on: [
+      [liveEvents, 'presence', (stream, id) => {
+        if (id === spaceId && stream.check()) stream.send({ type: 'presence', space: spaceId, people: livePeople(spaceId) });
+      }],
+      // The chat of this space and the Lobby's (Home's chat), to a reader of it. check() drops the cached person first.
+      [liveEvents, 'chat', (stream, id, data) => {
+        if (id !== spaceId && id !== LOBBY) return;
+        if (!stream.check() || chatAccess(req, id, 'chatRead').error) return;
+        stream.send(data); // one object for every reader (tellChat), so its bytes are made once and shared
+      }],
+      [liveEvents, 'access', (stream) => stream.check()],
+      [liveEvents, 'nudge', (stream, who, space, data) => {
+        if (who !== you || space !== spaceId) return;
+        if (data.type === 'removed') stream.close(data);
+        else stream.send(data);
+      }],
+    ],
+    recheck: () => {
+      req._user = undefined;
+      const now = liveAccess(req, spaceId);
+      if (!now.error && (guest ? !now.who.user : now.who.user?.key === you)) return null;
+      return { type: 'removed', reason: 'access', error: now.error || 'sign in first' };
+    },
+    start: (stream) => {
+      const before = live.placeOf(you)?.space;
+      streamId = live.open({ who: you, name, guest, space: spaceId });
+      stream.send({ type: 'ready', you, space: spaceId, stream: streamId });
+      tellLivePresence([before, spaceId]);
+      // What came while this person's stream was reconnecting. A kick kept for them ends this one too.
+      if (!spaceId) return;
+      for (const data of live.takeHeld(you, spaceId)) {
+        if (data.type !== 'removed') { stream.send(data); continue; }
+        stream.close(data);
+        live.leave(you, spaceId);
+        tellLivePresence([spaceId]);
+        break;
+      }
+    },
+    end: () => {
+      const before = live.placeOf(you)?.space;
+      const closed = live.close(streamId);
+      if (!closed) return;
+      tellLivePresence([before, closed.space, live.placeOf(you)?.space]);
+      // When the grace runs out, the person leaves the space: the streams there are told.
+      if (closed.until) {
+        setTimeout(() => envContext.run(env, () => tellLivePresence([closed.space])), Math.max(0, closed.until - Date.now()) + 50).unref();
+      }
+    },
+  });
+});
+
+// At most PRESENCE_CHANGES_PER_MINUTE a minute a person in a space (429), so toggling away in a loop can't flood it.
+// Only a change the register took is counted: a refused one (400, 409, 429) uses none of the minute.
+const presenceChangesPerMinute = wholeAbove0(PRESENCE_CHANGES_PER_MINUTE, 60);
+const presenceChanges = new Map(); // `${slug}|${space}|${who}` -> change times in the last minute
+const presenceKey = (who, spaceId) => `${chatSlug()}|${spaceId}|${who}`;
+// The seconds until `who` may say one more in `spaceId`, or 0 when they may now.
+function presenceWait(who, spaceId) {
+  const key = presenceKey(who, spaceId);
+  const now = Date.now();
+  const recent = (presenceChanges.get(key) || []).filter((t) => now - t < 60000);
+  if (recent.length) presenceChanges.set(key, recent);
+  else presenceChanges.delete(key);
+  if (recent.length < presenceChangesPerMinute) return 0;
+  return Math.max(1, Math.ceil((recent[recent.length - presenceChangesPerMinute] + 60000 - now) / 1000));
+}
+function countPresenceChange(who, spaceId) {
+  const key = presenceKey(who, spaceId);
+  presenceChanges.set(key, [...(presenceChanges.get(key) || []), Date.now()]);
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, times] of presenceChanges) if (!times.some((t) => now - t < 60000)) presenceChanges.delete(key);
+}, 60000).unref();
+// PATCH /api/spaces/:id/presence { away?, awayMessage?, onCall?, stream? }: the page's word about the person in a space
+// or an aside (the live stream's access). `awayMessage` is trimmed to 200 characters; turning away off clears it unless
+// one is sent. `onCall` goes on the stream named by `stream` (the id from `ready`), or on every live stream of theirs
+// there; it goes when that stream closes. A guest names their `stream` (?guest= as on the stream). Answers { ok: true }
+// and sends presence to the space when something changed; 409 when they have no live stream open there; 429 past
+// PRESENCE_CHANGES_PER_MINUTE in this space (only the changes taken count).
+app.patch('/api/spaces/:id/presence', (req, res) => {
+  const found = liveAccess(req, req.params.id);
+  if (found.error) return res.status(found.status).json({ error: found.error });
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const patch = {};
+  for (const field of ['away', 'onCall']) {
+    if (body[field] === undefined) continue;
+    if (typeof body[field] !== 'boolean') return res.status(400).json({ error: `${field} must be true or false` });
+    patch[field] = body[field];
+  }
+  if (body.awayMessage !== undefined) {
+    if (typeof body.awayMessage !== 'string') return res.status(400).json({ error: 'awayMessage must be text' });
+    patch.awayMessage = cleanAwayMessage(body.awayMessage);
+  }
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'say away, awayMessage or onCall' });
+  if (patch.onCall === true && !HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
+  if (body.stream !== undefined && typeof body.stream !== 'string') return res.status(400).json({ error: 'stream must be the id the live stream gave' });
+  let who;
+  if (found.who.user) {
+    who = found.who.user.key;
+  } else {
+    const entry = typeof body.stream === 'string' ? live.stream(body.stream) : null;
+    if (!entry || !entry.guest || entry.space !== req.params.id) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
+    who = entry.who;
+  }
+  const wait = presenceWait(who, req.params.id);
+  if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: 'too many away and call changes, wait a moment' });
+  const changed = live.set(who, req.params.id, patch, body.stream || null);
+  if (changed === null) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
+  countPresenceChange(who, req.params.id);
+  if (changed) tellLivePresence([req.params.id]);
+  res.json({ ok: true });
 });
 // Something that changes who may read a chat happened (a guest link turned off or regenerated, a space changed or
-// deleted): every open stream in this environment asks again now rather than at its next recheck.
-function chatAccessChanged() {
+// deleted): every open live stream in this environment asks again now rather than at its next recheck.
+function liveAccessChanged() {
   try {
-    chatEvents.emit('access');
+    liveEvents.emit('access');
   } catch (err) {
-    console.error(`A chat stream's access check failed: ${err.stack || err.message}`);
+    console.error(`A live stream's access check failed: ${err.stack || err.message}`);
   }
 }
 
@@ -4658,20 +4978,14 @@ function chatModerator(who, space) {
   return Boolean(store.spaceFlags(who.user.key, space.id).moderator);
 }
 
-// People in the call hear about a delete at once. The stored history is what a later join reads. No call service
-// (or it does not answer) still leaves the history updated; the page sends the same notice itself.
+// What happens to a space's chat, told at once to the live streams that may read it (GET /api/live): a new public
+// message, a delete, a clear, who sees a message, a link's preview or Keep, a picture. The stored history is what a later
+// visit reads. Never told for a private message.
 function tellChat(spaceId, data) {
-  // Home's chat (and any page reading GET /api/spaces/:id/chat/stream) hears the same notice without the call.
   try {
-    chatEvents.emit('chat', spaceId, data);
+    liveEvents.emit('chat', spaceId, { ...data, space: spaceId });
   } catch (err) {
-    console.error(`A chat stream's listener failed: ${err.stack || err.message}`);
-  }
-  try {
-    const payload = new TextEncoder().encode(JSON.stringify(data));
-    callService.sendData(callName(spaceId), payload, DataPacket_Kind.RELIABLE, { topic: 'chat' }).catch(() => {});
-  } catch {
-    // the history is already updated
+    console.error(`A live stream's listener failed: ${err.stack || err.message}`);
   }
 }
 
@@ -4680,6 +4994,7 @@ app.delete('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   if (!chatModerator(found.who, found.space)) return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can delete the chat` });
   chatHistory.clear(found.space.id);
+  forgetChatPictures(found.space.id, () => true);
   tellChat(found.space.id, { type: 'chat-clear' });
   res.json({ ok: true });
 });
@@ -4714,9 +5029,12 @@ app.delete('/api/spaces/:id/chat/messages', (req, res) => {
   }
   const me = found.who.user.key;
   const removed = chatHistory.clearByType(found.space.id, { type, module: type === 'module' ? moduleId.trim() : undefined, scope, by: me });
-  // Only public ids are told to the call: a private message was only ever on its author's page.
+  // Only public ids are told: a private message was only ever on its author's page. Clearing chat (or all) takes the
+  // pictures too, the caller's or everyone's; the pages drop those by the same rule (clearTakesPicture), so a clear of
+  // pictures alone is told as well.
   const ids = removed.filter((m) => m.visibility !== 'private').map((m) => m.id);
-  if (ids.length) {
+  const pictures = type === 'chat' || type === 'all' ? forgetChatPictures(found.space.id, (p) => scope === 'everyone' || p.by === me) : 0;
+  if (ids.length || pictures) {
     tellChat(found.space.id, {
       type: 'chat-clear-some', ids, by: me, who: found.who.user.displayName, scope, clearType: type,
       ...(type === 'module' ? { module: moduleId.trim() } : {}),
@@ -4732,7 +5050,16 @@ app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
   if (!/^[a-f0-9]{12}$/.test(req.params.messageId)) return res.status(404).json({ error: 'no such message' });
   // Someone else's private message is "no such message", for a moderator too: they cannot see it.
   const me = found.who.user.key;
-  const gone = chatHistory.remove(found.space.id, req.params.messageId, chatModerator(found.who, found.space) ? null : me, me);
+  const moderator = chatModerator(found.who, found.space);
+  // A picture is never stored: its record says who sent it, so they (or a moderator) can take it off everyone's page.
+  const picture = chatPictureOf(found.space.id, req.params.messageId);
+  if (picture) {
+    if (!moderator && picture.by !== me) return res.status(403).json({ error: 'you can only delete a message you sent' });
+    forgetChatPicture(req.params.messageId);
+    tellChat(found.space.id, { type: 'chat-delete', id: req.params.messageId });
+    return res.json({ ok: true });
+  }
+  const gone = chatHistory.remove(found.space.id, req.params.messageId, moderator ? null : me, me);
   if (gone === false) return res.status(403).json({ error: 'you can only delete a message you sent' });
   if (!gone) return res.status(404).json({ error: 'no such message' });
   // Only a public message was ever on anyone else's page; a private one's id is not told to the call.
@@ -4762,6 +5089,11 @@ app.patch('/api/spaces/:id/chat/:messageId', (req, res) => {
   res.json({ message: out.message });
 });
 
+// A guest's pass on a chat request (?guest=<token>&pass=<pass>): { id, name }, or null when there is no valid one.
+function chatGuestPass(req) {
+  return typeof req.query.pass === 'string' ? readGuestPass(req.query.guest, req.query.pass) : null;
+}
+
 // One person's chat writes in the last ten seconds (posting, and changing who sees a message): 30 at most.
 function chatPostLimited(key) {
   const now = Date.now();
@@ -4776,6 +5108,9 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   const { who, space } = found;
   const key = who.user ? who.user.key : `guest:${space.id}`;
+  // A guest posts under the name on their pass (POST /api/guest-join), never one they send.
+  const pass = who.user ? null : chatGuestPass(req);
+  if (!who.user && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
   if (!who.user) {
     const slug = chatSlug();
     const { wait, which } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
@@ -4791,19 +5126,232 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   // (plan-chat-links.md) is stored as `preview: { url }` at once; nothing is fetched here.
   const message = chatHistory.add(space.id, {
     by: who.user ? who.user.key : 'guest',
-    who: who.user ? who.user.displayName : req.body?.name,
+    who: who.user ? who.user.displayName : pass.name,
     text: req.body?.text,
     link: findLink(typeof req.body?.text === 'string' ? req.body.text : ''),
   });
-  // Told to the stream at once. For the Lobby the call's data channel hears it too, as the sender's own page would
-  // have sent it, so a page still in the Lobby's call (a guest link, an old page) sees what was said from Home; a page
-  // that already drew this id (the sender's own) ignores the repeat.
-  if (message) {
-    const notice = { type: 'chat', ...message };
-    if (space.id === LOBBY) tellChat(space.id, notice);
-    else chatEvents.emit('chat', space.id, notice);
-  }
+  // Told to the live streams at once; the sender's page draws it from this answer, and a page that already drew this id
+  // ignores the repeat.
+  if (message) tellChat(space.id, { type: 'chat', ...message });
   res.json({ message });
+});
+
+// --- chat pictures (plan-realtime-optional-livekit.md, step 3; option 4 B) ---------------------------------------------
+// A picture in the chat is never stored on disk. The live stream carries only a small chat-picture event (who, the file's
+// name, type and size, and a short url); the bytes are held in this server's memory for CHAT_PICTURE_KEEP_MINUTES and
+// each reader fetches them from the url with their own access (GET below), so a slow reader is never sent megabytes on its
+// stream and loses nothing it can still fetch. Held bytes are bounded: CHAT_PICTURE_SPACE_MB a space,
+// CHAT_PICTURE_ENVIRONMENT_MB an environment and CHAT_PICTURE_SERVER_MB in all; a new picture past one of them pushes out
+// the oldest held there (its url then answers 404, as after it expires). The record (chatPictures: id -> { space, by,
+// at }, never the bytes) lets the sender or a moderator delete it for everyone and Clear... take it; records go after
+// CHAT_PICTURE_RECORD_MS, and at most CHAT_PICTURE_RECORDS are kept per environment (the oldest go first).
+const CHAT_PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const CHAT_PICTURE_RECORD_MS = 24 * 60 * 60 * 1000;
+const CHAT_PICTURE_RECORDS = 2000;
+const megabytes = (value, fallback) => {
+  const mb = Number(value);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : fallback) * 1024 * 1024);
+};
+const chatPictureMaxBytes = megabytes(CHAT_PICTURE_MAX_MB, 3);
+const chatPictureMaxSaid = chatPictureMaxBytes >= 1024 * 1024 ? `${Math.round((chatPictureMaxBytes / (1024 * 1024)) * 10) / 10} MB` : `${Math.round(chatPictureMaxBytes / 1024)} KB`;
+const rawChatPicture = express.raw({ type: CHAT_PICTURE_TYPES, limit: chatPictureMaxBytes });
+const chatPictureKeepMs = (() => {
+  const minutes = Number(CHAT_PICTURE_KEEP_MINUTES);
+  return (Number.isFinite(minutes) && minutes > 0 ? minutes : 15) * 60 * 1000;
+})();
+// Each total holds at least one picture of the largest size.
+const chatPictureHeldMost = {
+  space: Math.max(chatPictureMaxBytes, megabytes(CHAT_PICTURE_SPACE_MB, 30)),
+  environment: Math.max(chatPictureMaxBytes, megabytes(CHAT_PICTURE_ENVIRONMENT_MB, 100)),
+  server: Math.max(chatPictureMaxBytes, megabytes(CHAT_PICTURE_SERVER_MB, 200)),
+};
+// What the bytes are, read from their first bytes (never the name or the header alone): one of CHAT_PICTURE_TYPES, or ''.
+function chatPictureType(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return '';
+  if (buf[0] === 0x89 && buf.toString('latin1', 1, 4) === 'PNG') return 'image/png';
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf.toString('latin1', 0, 6) === 'GIF87a' || buf.toString('latin1', 0, 6) === 'GIF89a') return 'image/gif';
+  if (buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  return '';
+}
+
+// The held bytes, for every environment at once (so CHAT_PICTURE_SERVER_MB is one total): `${slug}|${id}` ->
+// { slug, space, bytes, mime, at }, oldest first, and the totals held per space, per environment and in all.
+const heldChatPictures = new Map();
+const heldTotals = { all: 0, environment: new Map(), space: new Map() };
+const heldSpaceKey = (slug, space) => `${slug}|${space}`;
+function addHeld(map, key, n) {
+  const left = (map.get(key) || 0) + n;
+  if (left > 0) map.set(key, left);
+  else map.delete(key);
+}
+function dropHeldPicture(key) {
+  const held = heldChatPictures.get(key);
+  if (!held) return;
+  heldChatPictures.delete(key);
+  heldTotals.all -= held.bytes.length;
+  addHeld(heldTotals.environment, held.slug, -held.bytes.length);
+  addHeld(heldTotals.space, heldSpaceKey(held.slug, held.space), -held.bytes.length);
+}
+function dropExpiredPictures() {
+  const now = Date.now();
+  for (const [key, held] of heldChatPictures) {
+    if (now - held.at < chatPictureKeepMs) break; // oldest first: the rest are newer
+    dropHeldPicture(key);
+  }
+}
+setInterval(dropExpiredPictures, 60000).unref();
+// Holds a picture's bytes, first pushing out the oldest held in its space, then its environment, then anywhere, until
+// each total has room for it.
+function holdChatPicture(spaceId, id, bytes, mime, at) {
+  dropExpiredPictures();
+  const slug = chatSlug();
+  const size = bytes.length;
+  const spaceKey = heldSpaceKey(slug, spaceId);
+  const limits = [
+    [() => heldTotals.space.get(spaceKey) || 0, chatPictureHeldMost.space, (h) => h.slug === slug && h.space === spaceId],
+    [() => heldTotals.environment.get(slug) || 0, chatPictureHeldMost.environment, (h) => h.slug === slug],
+    [() => heldTotals.all, chatPictureHeldMost.server, () => true],
+  ];
+  for (const [held, most, here] of limits) {
+    for (const [key, h] of heldChatPictures) {
+      if (held() + size <= most) break;
+      if (here(h)) dropHeldPicture(key);
+    }
+  }
+  heldChatPictures.set(`${slug}|${id}`, { slug, space: spaceId, bytes, mime, at });
+  heldTotals.all += size;
+  addHeld(heldTotals.environment, slug, size);
+  addHeld(heldTotals.space, spaceKey, size);
+}
+// A held picture of this space, or null once it has expired, been pushed out or deleted.
+function heldChatPicture(spaceId, id) {
+  const held = heldChatPictures.get(`${chatSlug()}|${id}`);
+  return held && held.space === spaceId && Date.now() - held.at < chatPictureKeepMs ? held : null;
+}
+const chatPictureUrl = (spaceId, id) => `/api/spaces/${encodeURIComponent(spaceId)}/chat/pictures/${id}`;
+
+function chatPictureOf(spaceId, id) {
+  const p = chatPictures.get(id);
+  return p && p.space === spaceId && Date.now() - p.at < CHAT_PICTURE_RECORD_MS ? p : null;
+}
+// Forget a picture: its record and its bytes.
+function forgetChatPicture(id) {
+  chatPictures.delete(id);
+  dropHeldPicture(`${chatSlug()}|${id}`);
+}
+// Forget the space's pictures that `take(record)` names: how many went.
+function forgetChatPictures(spaceId, take) {
+  let n = 0;
+  for (const [id, p] of chatPictures) {
+    if (p.space === spaceId && take(p)) {
+      forgetChatPicture(id);
+      n += 1;
+    }
+  }
+  return n;
+}
+function keepChatPicture(id, record) {
+  const now = Date.now();
+  for (const [old, p] of chatPictures) if (now - p.at >= CHAT_PICTURE_RECORD_MS) forgetChatPicture(old);
+  while (chatPictures.size >= CHAT_PICTURE_RECORDS) forgetChatPicture(chatPictures.keys().next().value);
+  chatPictures.set(id, record);
+}
+
+// How many bytes of pictures one sender (a person, or a guest link) may send in a minute: CHAT_PICTURE_MB_PER_MINUTE.
+const chatPictureBytesPerMinute = (() => {
+  const mb = Number(CHAT_PICTURE_MB_PER_MINUTE);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 20) * 1024 * 1024);
+})();
+const chatPictureSent = new Map(); // `${slug}|${sender}` -> [[at, bytes], ...] in the last minute
+// The seconds until `sender` may send `bytes` more, or 0 when they may now.
+function chatPictureWait(sender, bytes) {
+  const key = `${chatSlug()}|${sender}`;
+  const now = Date.now();
+  const recent = (chatPictureSent.get(key) || []).filter(([at]) => now - at < 60000);
+  if (recent.length) chatPictureSent.set(key, recent);
+  else chatPictureSent.delete(key);
+  let total = recent.reduce((sum, [, b]) => sum + b, 0) + bytes;
+  if (total <= chatPictureBytesPerMinute) return 0;
+  for (const [at, b] of recent) { // the oldest go first: wait until enough of them have
+    total -= b;
+    if (total <= chatPictureBytesPerMinute) return Math.max(1, Math.ceil((at + 60000 - now) / 1000));
+  }
+  return 60;
+}
+function countChatPicture(sender, bytes) {
+  const key = `${chatSlug()}|${sender}`;
+  chatPictureSent.set(key, [...(chatPictureSent.get(key) || []), [Date.now(), bytes]]);
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, sent] of chatPictureSent) if (!sent.some(([at]) => now - at < 60000)) chatPictureSent.delete(key);
+}, 60000).unref();
+const tooManyPictures = (res, wait) => res.status(429).set('Retry-After', String(wait)).json({ error: 'too many pictures, wait a moment' });
+
+// POST /api/spaces/:id/chat/pictures?file=<its name>[&guest=<token>&pass=<the guest's pass>], the picture's bytes as the
+// body with its type (PNG, JPEG, GIF or WebP): held (see above) and told at once to the live streams that may read this
+// chat as { type: 'chat-picture', space, id, by, who, file, mime, size, url, at }, never with its bytes; answers
+// { id, url }. Needs "send pictures";
+// counted as a chat post (the same limits, a guest's too), and under CHAT_PICTURE_MB_PER_MINUTE (429). Not in Home's
+// chat (the Lobby: 403). A guest is shown by the name on their pass (403 without a valid one). Who may send, Home, the
+// pass, the size the request says (Content-Length, 413) and the picture limit are all asked before the body is read.
+function chatPictureFirst(req, res, next) {
+  const found = chatSpaceFor(req, res, 'sendPictures');
+  if (!found) return;
+  if (found.space.id === LOBBY) return res.status(403).json({ error: `pictures can only be sent in a ${word('space')}'s chat` });
+  const declared = Number(req.get('content-length'));
+  if (Number.isFinite(declared) && declared > chatPictureMaxBytes) return res.status(413).json({ error: `that picture is over ${chatPictureMaxSaid}` });
+  const pass = found.who.user ? null : chatGuestPass(req);
+  if (!found.who.user && !pass) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  req.chatPicture = { ...found, pass, sender: found.who.user ? `person|${found.who.user.key}` : `link|${req.query.guest}` };
+  const wait = chatPictureWait(req.chatPicture.sender, Number.isFinite(declared) ? declared : 0);
+  if (wait) return tooManyPictures(res, wait);
+  next();
+}
+app.post('/api/spaces/:id/chat/pictures', chatPictureFirst, rawChatPicture, (req, res) => {
+  const { who, space, sender, pass } = req.chatPicture;
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(415).json({ error: 'send a PNG, JPEG, GIF or WebP picture' });
+  const mime = chatPictureType(req.body);
+  if (!mime || mime !== req.get('content-type')?.split(';')[0].trim().toLowerCase()) return res.status(415).json({ error: 'that is not a PNG, JPEG, GIF or WebP picture' });
+  const wait = chatPictureWait(sender, req.body.length);
+  if (wait) return tooManyPictures(res, wait);
+  if (!who.user) {
+    const slug = chatSlug();
+    const { wait: guestWait } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
+    if (guestWait) return res.status(429).set('Retry-After', String(guestWait)).json({ error: `too many messages; try again in ${guestWait} ${guestWait === 1 ? 'second' : 'seconds'}` });
+  }
+  if (chatPostLimited(who.user ? who.user.key : `guest:${space.id}`)) return res.status(429).json({ error: 'too many messages, slow down' });
+  countChatPicture(sender, req.body.length);
+  const id = crypto.randomBytes(6).toString('hex');
+  const by = who.user ? who.user.key : 'guest';
+  const at = Date.now();
+  const url = chatPictureUrl(space.id, id);
+  keepChatPicture(id, { space: space.id, by, at });
+  holdChatPicture(space.id, id, req.body, mime, at);
+  tellChat(space.id, {
+    type: 'chat-picture', id, by,
+    who: who.user ? who.user.displayName : pass.name,
+    file: cleanText(req.query.file, 120) || 'picture',
+    mime,
+    size: req.body.length,
+    url,
+    at,
+  });
+  res.json({ id, url });
+});
+// GET /api/spaces/:id/chat/pictures/:pictureId[?guest=<token>&pass=<the guest's pass>]: a held picture's bytes, to
+// whoever may read this chat now (chatRead; a guest with a valid pass, else 403). 404 once it has expired
+// (CHAT_PICTURE_KEEP_MINUTES), been pushed out or deleted, or never was. Cache-Control private, for its time left.
+app.get('/api/spaces/:id/chat/pictures/:pictureId', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  if (!found.who.user && !chatGuestPass(req)) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  const held = CHAT_MESSAGE_ID.test(req.params.pictureId) ? heldChatPicture(found.space.id, req.params.pictureId) : null;
+  if (!held) return res.status(404).json({ error: 'that picture is no longer available' });
+  const left = Math.max(1, Math.floor((held.at + chatPictureKeepMs - Date.now()) / 1000));
+  res.set({ 'Content-Type': held.mime, 'Content-Length': String(held.bytes.length), 'Cache-Control': `private, max-age=${left}`, 'X-Content-Type-Options': 'nosniff' });
+  res.end(held.bytes);
 });
 
 // --- links in Chat (plan-chat-links.md, GitHub #158) ----------------------------------------------------------------
@@ -7406,18 +7954,18 @@ app.get('/api/modules/:id/region-cut/:jobId/stream', requireOwner, (req, res) =>
   if (!job) return res.status(404).json({ error: 'that cut is not running (it may have finished a while ago)' });
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 3000\n\n');
-  res.write(`event: progress\ndata: ${JSON.stringify({ percent: job.percent, message: job.message })}\n\n`);
+  sseWrite(res, 'retry: 3000\n\n');
+  sseWrite(res, `event: progress\ndata: ${JSON.stringify({ percent: job.percent, message: job.message })}\n\n`);
   if (job.status !== 'running') {
-    res.write(`event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
+    sseWrite(res, `event: ${job.status}\ndata: ${JSON.stringify(job.status === 'done' ? { name: job.name } : { error: job.error })}\n\n`);
     return res.end();
   }
   const { jobId } = req.params;
   const cleanup = () => { regionCutJobs.off('progress', onProgress); regionCutJobs.off('done', onDone); regionCutJobs.off('error', onErr); };
   // Told from the cutting process, outside this request: cleanup() reads this environment's jobs (listenIn).
-  const onProgress = listenIn(env, (id, p) => { if (id === jobId) res.write(`event: progress\ndata: ${JSON.stringify(p)}\n\n`); });
-  const onDone = listenIn(env, (id, d) => { if (id !== jobId) return; res.write(`event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); });
-  const onErr = listenIn(env, (id, error) => { if (id !== jobId) return; res.write(`event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); });
+  const onProgress = listenIn(env, (id, p) => { if (id === jobId) sseWrite(res, `event: progress\ndata: ${JSON.stringify(p)}\n\n`); });
+  const onDone = listenIn(env, (id, d) => { if (id !== jobId) return; sseWrite(res, `event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); });
+  const onErr = listenIn(env, (id, error) => { if (id !== jobId) return; sseWrite(res, `event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); });
   regionCutJobs.on('progress', onProgress);
   regionCutJobs.on('done', onDone);
   regionCutJobs.on('error', onErr);
@@ -8079,24 +8627,24 @@ app.get('/api/notifications/stream', requireUser, (req, res) => {
   const key = currentUser(req).key;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 5000\n\n');
+  sseWrite(res, 'retry: 5000\n\n');
   const onNote = listenIn(env, ({ userKey, notification }) => {
     if (userKey !== key || (notification.module !== HOST_SOURCE && !modules.enabled(notification.module))) return;
-    res.write(`event: notification\ndata: ${JSON.stringify({ ...notification, ...sourceOf(notification.module) })}\n\n`);
+    sseWrite(res, `event: notification\ndata: ${JSON.stringify({ ...notification, ...sourceOf(notification.module) })}\n\n`);
   });
   moduleHooks.on('notification', onNote);
   const onInvite = listenIn(env, (invite) => {
     if (invite.to !== key || Date.now() - invite.at > INVITE_MS) return;
-    res.write(`event: invite\ndata: ${JSON.stringify({ id: invite.id, spaceId: invite.spaceId, fromName: invite.fromName })}\n\n`);
+    sseWrite(res, `event: invite\ndata: ${JSON.stringify({ id: invite.id, spaceId: invite.spaceId, fromName: invite.fromName })}\n\n`);
   });
   inviteEvents.on('invite', onInvite);
   // GitHub #62: the owner's theme changed (everyone re-fetches /theme.css), or this person picked light or dark on
   // another page or device (this page sets <html data-theme-mode> to match).
-  const onTheme = listenIn(env, (t) => res.write(`event: theme\ndata: ${JSON.stringify(t)}\n\n`));
-  const onMode = listenIn(env, ({ userKey, themeMode }) => { if (userKey === key) res.write(`event: mode\ndata: ${JSON.stringify({ themeMode })}\n\n`); });
+  const onTheme = listenIn(env, (t) => sseWrite(res, `event: theme\ndata: ${JSON.stringify(t)}\n\n`));
+  const onMode = listenIn(env, ({ userKey, themeMode }) => { if (userKey === key) sseWrite(res, `event: mode\ndata: ${JSON.stringify({ themeMode })}\n\n`); });
   themeEvents.on('theme', onTheme);
   themeEvents.on('mode', onMode);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  const beat = setInterval(() => sseWrite(res, ': ping\n\n'), 25000);
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleHooks.off('notification', onNote);
@@ -8121,7 +8669,7 @@ app.get('/api/modules/stream', (req, res) => {
   if (req.query.space && !space) return res.status(404).json({ error: `no such ${word('space')}` });
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 3000\n\n');
+  sseWrite(res, 'retry: 3000\n\n');
   // Where a change belongs for this viewer, or null if they may not see it.
   const place = (moduleId, scopeKey) => {
     const found = modules.enabled(moduleId);
@@ -8145,17 +8693,17 @@ app.get('/api/modules/stream', (req, res) => {
   };
   const onChange = listenIn(env, (change) => {
     const at = place(change.module, change.scopeKey);
-    if (at) res.write(`event: change\ndata: ${JSON.stringify({ ...change, ...at })}\n\n`);
+    if (at) sseWrite(res, `event: change\ndata: ${JSON.stringify({ ...change, ...at })}\n\n`);
   });
   const onFire = listenIn(env, (fire) => {
     const at = place(fire.module, fire.scopeKey);
-    if (at && at.scope !== 'spaces') res.write(`event: schedule\ndata: ${JSON.stringify({ module: fire.module, key: fire.key, payload: fire.payload, ...at })}\n\n`);
+    if (at && at.scope !== 'spaces') sseWrite(res, `event: schedule\ndata: ${JSON.stringify({ module: fire.module, key: fire.key, payload: fire.payload, ...at })}\n\n`);
   });
   // What points at (or from) an item changed: only the pointers go, and the module asks again for what it may see.
   const onLinks = listenIn(env, ({ refs }) => {
     for (const ref of refs) {
       const at = place(ref.module, refScopeKey(ref));
-      if (at) res.write(`event: links\ndata: ${JSON.stringify({ module: ref.module, ref, ...at })}\n\n`);
+      if (at) sseWrite(res, `event: links\ndata: ${JSON.stringify({ module: ref.module, ref, ...at })}\n\n`);
     }
   });
   // A module said something happened: sent to every module here that may hear it (the host delivers it to those frames).
@@ -8163,13 +8711,13 @@ app.get('/api/modules/stream', (req, res) => {
     const at = place(ev.module, ev.scopeKey);
     if (!at) return;
     const subscribers = modules.enabledAll().filter((m) => m.manifest.id !== ev.module && mayHear(m, ev.module, ev.name) && place(m.manifest.id, ev.scopeKey)).map((m) => m.manifest.id);
-    if (subscribers.length) res.write(`event: bus\ndata: ${JSON.stringify({ ...publicEvent(ev), scope: at.scope, subscribers })}\n\n`);
+    if (subscribers.length) sseWrite(res, `event: bus\ndata: ${JSON.stringify({ ...publicEvent(ev), scope: at.scope, subscribers })}\n\n`);
   });
   // A request for a module to do something: the providing module's frames are told; one claims it.
   const onAction = listenIn(env, (r) => {
     if (r.local && r.by !== (who.user?.key || 'guest')) return; // a view is for the person who asked
     const at = place(r.provider, r.scopeKey);
-    if (at) res.write(`event: action\ndata: ${JSON.stringify({ ...publicAction(r), provider: r.provider, scope: at.scope })}\n\n`);
+    if (at) sseWrite(res, `event: action\ndata: ${JSON.stringify({ ...publicAction(r), provider: r.provider, scope: at.scope })}\n\n`);
   });
   // A setting of a module changed: its pages here read their values again.
   // The person's other calendars changed on a read (plan-google-calendar.md, Part 2): only their own streams hear it,
@@ -8178,13 +8726,13 @@ app.get('/api/modules/stream', (req, res) => {
   const onExternal = listenIn(env, ({ userKey }) => {
     if (!who.user || userKey !== who.user.key || !store.otherCalendarsOn()) return;
     const hearing = externalModules().map(({ manifest }) => manifest.id);
-    if (hearing.length) res.write(`event: external\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
+    if (hearing.length) sseWrite(res, `event: external\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
   });
   externalCalendars.on('change', onExternal);
   const onSettings = listenIn(env, (c) => {
     if (c.scope === 'person' && c.userKey !== who.user?.key) return;
     if (c.scope === 'space' && !(space && space.id === c.spaceId) && !(who.user && store.spaceById(c.spaceId)?.members.includes(who.user.key))) return;
-    res.write(`event: settings\ndata: ${JSON.stringify({ module: c.module, scope: c.scope, spaceId: c.spaceId })}\n\n`);
+    sseWrite(res, `event: settings\ndata: ${JSON.stringify({ module: c.module, scope: c.scope, spaceId: c.spaceId })}\n\n`);
   });
   moduleSettings.on('change', onSettings);
   // An object of a marker kind was written or deleted where this viewer reads it (plan-calendar-markers.md): the
@@ -8199,7 +8747,7 @@ app.get('/api/modules/stream', (req, res) => {
     const hearing = modules.enabledAll()
       .filter((m) => m.manifest.id !== change.module && consumerMayLink(m, change.module, kind.kind) && place(m.manifest.id, change.scopeKey))
       .map((m) => m.manifest.id);
-    if (hearing.length) res.write(`event: markers\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
+    if (hearing.length) sseWrite(res, `event: markers\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
   });
   moduleData.on('change', onMarkers);
   moduleData.on('change', onChange);
@@ -8211,13 +8759,13 @@ app.get('/api/modules/stream', (req, res) => {
       const at = place(holder.module, refScopeKey(holder));
       if (at && !hearing.includes(holder.module)) hearing.push(holder.module);
     }
-    if (hearing.length) res.write(`event: refchange\ndata: ${JSON.stringify({ ref: ev.ref, change: ev.change, modules: hearing })}\n\n`);
+    if (hearing.length) sseWrite(res, `event: refchange\ndata: ${JSON.stringify({ ref: ev.ref, change: ev.change, modules: hearing })}\n\n`);
   });
   moduleLinks.on('change', onLinks);
   objectSync.on('refchange', onRefChange);
   moduleBus.on('event', onBus);
   moduleBus.on('action', onAction);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  const beat = setInterval(() => sseWrite(res, ': ping\n\n'), 25000);
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleSettings.off('change', onSettings);
@@ -8242,24 +8790,24 @@ app.get('/api/modules/:id/events', (req, res) => {
   const spaceIds = all ? new Set(all.spaces.map((r) => r.id)) : null;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  res.write('retry: 3000\n\n');
+  sseWrite(res, 'retry: 3000\n\n');
   const onChange = listenIn(env, (change) => {
     if (change.module !== ctx.manifest.id) return;
     if (spaceIds) {
       const spaceId = change.scopeKey.startsWith('space:') ? change.scopeKey.slice(6) : null;
       if (!spaceIds.has(spaceId)) return;
-      return void res.write(`event: change\ndata: ${JSON.stringify({ ...change, spaceId })}\n\n`);
+      return void sseWrite(res, `event: change\ndata: ${JSON.stringify({ ...change, spaceId })}\n\n`);
     }
     if (change.scopeKey !== ctx.scopeKey) return;
-    res.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
+    sseWrite(res, `event: change\ndata: ${JSON.stringify(change)}\n\n`);
   });
   const onFire = listenIn(env, (fire) => {
     if (spaceIds || fire.module !== ctx.manifest.id || fire.scopeKey !== ctx.scopeKey) return;
-    res.write(`event: schedule\ndata: ${JSON.stringify({ key: fire.key, payload: fire.payload })}\n\n`);
+    sseWrite(res, `event: schedule\ndata: ${JSON.stringify({ key: fire.key, payload: fire.payload })}\n\n`);
   });
   moduleData.on('change', onChange);
   moduleHooks.on('fire', onFire);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  const beat = setInterval(() => sseWrite(res, ': ping\n\n'), 25000);
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleData.off('change', onChange);
@@ -8292,6 +8840,9 @@ app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: owner
 // before the settings; an unknown one refuses the whole change. With it, the answer also carries `template` and `offer`.
 app.patch('/api/settings', requireOwner, async (req, res) => {
   const { template, ...rest } = req.body || {};
+  // The Conference can't be switched on without a call service (its card says so); switching it off, or sending it
+  // as it already is, goes through.
+  if (rest.conferenceEnabled === true && store.settings.conferenceEnabled === false && !HAS_CALL_SERVICE) return res.status(503).json({ error: NO_CALL_SERVICE });
   if (template !== undefined) {
     const problem = templateSwitchProblem(currentEnvironment(), template);
     if (problem) return res.status(400).json({ error: problem });
@@ -8518,6 +9069,7 @@ app.use((err, _req, res, _next) => {
   if (err.type === 'entity.too.large') {
     if (/^\/api\/(modules\/[^/]+|spaces\/[^/]+)\/objects\/check$/.test(_req.path)) return res.status(413).json({ error: 'that is over 256 KB; bring it in in parts' });
     if (/^\/api\/modules\/[^/]+\/uploads/.test(_req.path)) return res.status(413).json({ error: 'that file is over the size limit' });
+    if (/^\/api\/spaces\/[^/]+\/chat\/pictures$/.test(_req.path)) return res.status(413).json({ error: `that picture is over ${chatPictureMaxSaid}` });
     if (/^\/api\/(spaces\/[^/]+\/(action|command)|bus\/.+)$/.test(_req.path)) return res.status(413).json({ error: 'that request is over 64 KB' });
     // Any other JSON body (a space's PATCH, a module's settings) is a request over the JSON limit, not an image or a zip.
     if (_req.is('json')) return res.status(413).json({ error: `that request is over ${Math.round((Number(err.limit) || 65536) / 1024)} KB` });
@@ -8563,13 +9115,13 @@ const listener = app.listen(Number(PORT), () => {
   if (!BASE_DOMAIN) {
     envContext.run(environmentFor(DEFAULT_SLUG), () => {
       fillTwins();
-      console.log(`${store.settings.environmentName} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, data in ${DATA_DIR}`);
+      console.log(`${store.settings.environmentName} ${VERSION} listening on :${port}, ${HAS_CALL_SERVICE ? `LiveKit at ${LIVEKIT_HOST}` : 'no LiveKit'}, data in ${DATA_DIR}`);
       // A module that takes a file the operator supplies: say where it looks and what it found, once.
       for (const m of modules.list()) for (const d of m.settings || []) if (d.type === 'file' || d.type === 'files') console.log(`${m.name}: looks for "${d.label}" in ${describeModuleFiles(m, d.folder)}`);
       if (fs.existsSync(path.join(DATA_DIR, 'module-files'))) console.warn(`Note: ${path.join(DATA_DIR, 'module-files')} is no longer used. A module's files belong in its own folder, DATA_DIR/modules/<module id>/<folder>/ (see the module's settings).`);
     });
     return;
   }
-  console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at ${CONSOLE_HOST}, product pages at ${PRODUCT_HOST}`);
+  console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, ${HAS_CALL_SERVICE ? `LiveKit at ${LIVEKIT_HOST}` : 'no LiveKit'}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at ${CONSOLE_HOST}, product pages at ${PRODUCT_HOST}`);
   for (const env of environments.values()) envContext.run(env, fillTwins);
 });

@@ -1,6 +1,6 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
+import { loadBranding, api, noticeToast, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
@@ -10,10 +10,11 @@ import { createCanvas } from '/canvas.js';
 import { conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
+import { openLiveStream, liveStreamUrl, peopleFromPresence } from '/space-live.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
-import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
+import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 import { confirmDialog } from '/confirm.js';
 import { foldCallToolbar, callTitle, callTime, callDuration } from '/call-toolbar.js';
@@ -137,7 +138,7 @@ nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-cho
 const call = new Room({ adaptiveStream: true, dynacast: true });
 const tiles = new Map(); // participant identity (user key) -> tile element
 const ghostTiles = new Map(); // identity -> tile element, for space members aside elsewhere
-// What the call's aside-started message said of the aside each person went to (key -> { private, members }): someone
+// What the live stream's aside-started message said of the aside each person went to (key -> { private, members }): someone
 // outside an aside learns who it is with only from that, since presence names only the space they stepped out of.
 const startedAsides = new Map();
 const STARTED_ASIDE_MS = 15000; // a presence answer older than the message can still say they are here
@@ -162,9 +163,11 @@ const REMEMBERED_SPACE = 'app.space';
 const rememberSpace = (id) => { try { sessionStorage.setItem(REMEMBERED_SPACE, id); } catch { /* not remembered */ } };
 const forgetSpace = () => { if (unloading) return; try { sessionStorage.removeItem(REMEMBERED_SPACE); } catch { /* nothing */ } };
 const rememberedSpace = () => { try { return sessionStorage.getItem(REMEMBERED_SPACE) || ''; } catch { return ''; } };
-// Being in the space and being in the conference are separate: the page stays connected
-// for the chat and the modules, and only sends and receives audio and video while the
-// conference module is open. Others see the difference through the "call" attribute.
+// Being in the space and being in the conference are separate (plan-realtime-optional-livekit.md, step 5). In the space
+// (`entered`) is the live stream being open: the canvas, the chat and who is here, from entering until leaving, with no
+// call service at all. On the call (`inCall`) is the only time the page is connected to the call service: from Start or
+// Join call (startCall, with the token POST /api/call/join answers) until hanging up, leaving or moving.
+let entered = false;
 let inCall = false;
 // Left the call since entering (Hang up, the conference closed): the environment's "join the call on entering" does
 // not join them again until they enter a space again (GitHub #199). A pull keeps it; join() clears it.
@@ -182,13 +185,16 @@ let activeSpace = LOBBY;
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
 // Server-wide call feature toggles (Manage > Settings) -- these defaults
 // hold until init() replaces them with whatever /api/branding actually says.
-let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, conferenceEnabled: true, autoJoinCall: false };
+let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, callService: true, conferenceEnabled: true, autoJoinCall: false };
 
 // A guest link (/guest/<token>): no account, just a name and this space. The
 // token both identifies which space's guest link this is and, appended to
 // our own reads below, is this tab's only credential -- there's no session.
 const GUEST_PREFIX = 'guest-';
 const guestToken = location.pathname.startsWith('/guest/') ? decodeURIComponent(location.pathname.split('/')[2] || '') : null;
+// What POST /api/guest-join hands the guest once they give a name: their pass, signed by the server, by which the live
+// stream, presence and the call know them (as me.key, the id on it). For this page only: a reload asks the name again.
+let guestPass = '';
 
 // A picture URL for a slot, guest-aware: a guest identity (however many
 // different guests are in the call) always shows the one shared guest
@@ -237,9 +243,9 @@ const asideEntry = (a) => ({ ...a, name: word('aside', { cap: true }), isAside: 
 // Whether I am in an aside right now: the call only, no modules, chat or chat pictures (plan-names decision 5).
 const inAside = () => Boolean(currentSpace?.isAside);
 
-// Who is in a call comes from LiveKit. When that does not answer, the page gives up and keeps what it
-// already has: the space list and the call do not wait on it (GitHub #71). A little longer than the
-// server's own two seconds, so a slow answer still arrives.
+// Who is where comes from GET /api/presence, which asks the call service only for who is on a call. When that does not
+// answer, the page gives up and keeps what it already has: the space list and the call do not wait on it (GitHub #71). A
+// little longer than the server's own two seconds, so a slow answer still arrives.
 const PRESENCE_GIVE_UP_MS = 3000;
 
 function adoptPendingSpace() {
@@ -273,7 +279,9 @@ async function loadPresence() {
     }
     renderSpaces();
     updatePhaseChip(); // the space's dates ride on its presence record: a change by someone else reaches the chip here
-    if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: joinInvitedSpace });
+    // The invitation to a private conversation (an aside, so a call) is offered only where there can be one.
+    const canInvite = features.callService && features.conferenceEnabled && features.allowPrivate;
+    if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: canInvite ? joinInvitedSpace : null });
     reconcileGhostTiles();
     renderGuestLink();
     updateRecallButton();
@@ -492,7 +500,7 @@ function renderSpaces() {
     // button reads this environment's enter verb; an aside is a call, so its button reads Join with the phone
     // (plan-environment-templates.md, addendum 4). Still connected to this one (just browsing the space list -- see
     // showSpaceList()): offer to go back instead.
-    const back = call.state === 'connected' && currentSpace?.id === r.id;
+    const back = entered && currentSpace?.id === r.id;
     const action = r.isAside ? 'Join' : verb('enter');
     const enterLabel = back ? `Back to ${spaceDisplayName(r)}` : action;
     const enter = card.querySelector('[data-join]');
@@ -560,7 +568,7 @@ async function addSpace() {
     const { space } = await api('POST', '/api/spaces', { name: `${word('space', { cap: true })} ${count}`, description: '', members: [] });
     await loadPresence(); // the new card, and the record join() reads the name from
     await joinInvitedSpace(space.id);
-    if (call.state === 'connected' && currentSpace?.id === space.id) enterSetup();
+    if (entered && currentSpace?.id === space.id) enterSetup();
   } catch (err) {
     $('join-error').textContent = err.message;
     $('join-error').hidden = false;
@@ -667,8 +675,8 @@ $('spaces').addEventListener('keydown', (event) => {
   enterFromCard(card.dataset.space);
 });
 function enterFromCard(spaceId) {
-  if (call.state === 'connected' && currentSpace?.id === spaceId) returnToCanvas();
-  else if (call.state === 'connected') reconnectTo(spaceId);
+  if (entered && currentSpace?.id === spaceId) returnToCanvas();
+  else if (entered) reconnectTo(spaceId);
   else join(spaceId);
 }
 $('guest-join').addEventListener('submit', async (event) => {
@@ -679,9 +687,10 @@ $('guest-join').addEventListener('submit', async (event) => {
   const submit = $('guest-join').querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    const { token, livekitUrl, identity, spaceId: joinedId, spaceName: joinedName, permissions } = await api('POST', '/api/guest-join', { token: guestToken, name });
-    me = { key: identity, displayName: name, role: 'guest', permissions };
-    await joinAsGuest(token, livekitUrl, joinedId, joinedName);
+    const { spaceId: joinedId, spaceName: joinedName, permissions, guest } = await api('POST', '/api/guest-join', { token: guestToken, name });
+    me = { key: guest.id, displayName: guest.name, role: 'guest', permissions };
+    guestPass = guest.pass;
+    await joinAsGuest(joinedId, joinedName);
   } catch (err) {
     $('guest-join-error').textContent = err.message;
     $('guest-join-error').hidden = false;
@@ -697,17 +706,16 @@ let pipWindow = null;
 // --- Chat's status area (the line under the composer, GitHub #330) ---
 // The call on the left (In a call and its time, or empty; a problem replaces it), the latest notice on the right (an error, the
 // AI's state, what a command did). Notices that used to sit in the message list or in the call's status come here.
-let chatReconnecting = false; // the call is finding its way back
-let chatStream = ''; // a kept chat stream's state ('live', 'reconnecting', 'paused', or '')
+let chatStream = ''; // the live stream's state ('live', 'reconnecting', 'paused', 'link-off' for a guest, or '')
 let chatNoteFn = null; // chat-input.js's note, once attached
 let chatNoteTimer = null;
 // The left side says only what the person needs: "In a call" with the call's time while in one, nothing otherwise, and a
-// problem in plain words with the fix. 'failed' is a chat stream that gave up because the server was not reachable.
+// problem in plain words with the fix.
 function chatConnState() {
-  if (chatStream === 'failed') return 'failed';
+  if (chatStream === 'link-off') return 'link-off';
   if (chatStream === 'paused') return 'paused';
-  if (chatReconnecting || chatStream === 'reconnecting') return 'reconnecting';
-  if (call && call.state === 'connected') return 'call';
+  if (chatStream === 'reconnecting') return 'reconnecting';
+  if (inCall && call.state === 'connected') return 'call';
   return 'idle';
 }
 function paintChatTime() {
@@ -725,14 +733,14 @@ function paintChatConn() {
   const look = {
     call: ['In a call', 'phone', ''],
     reconnecting: ['Reconnecting… messages may be late', 'rotate', 'Finding its way back. Nothing to do; wait a moment.'],
-    paused: ['Paused. Reload to see new messages', 'circle-pause', 'Live updates are paused. Reload the page to see new messages.'],
-    failed: ['Can’t reach the server', 'triangle-exclamation', 'Check your connection, then reload the page.'],
+    paused: ['Paused. Reload to see new messages', 'circle-pause', 'Live updates are paused. Reload the page to try again.'],
+    'link-off': [`This ${word('guest')} link was turned off`, 'link-slash', `Ask for a new ${word('guest')} link to come back in.`],
     idle: ['', '', ''],
   }[state];
   if (text.textContent !== look[0]) text.textContent = look[0];
   const item = $('chat-conn');
   item.title = look[2];
-  item.classList.toggle('error', state === 'paused' || state === 'failed');
+  item.classList.toggle('error', state === 'paused' || state === 'link-off');
   $('chat-conn-icon').className = look[1] ? `fa-solid fa-${look[1]} fa-fw` : 'fa-solid fa-fw';
   paintChatTime();
 }
@@ -872,8 +880,9 @@ function adminToolsFor(participant) {
   return tools;
 }
 
-// A tile exists only while I am in the conference and the person is too.
-const shownInCall = (participant) => inCall && (participant.isLocal || participant.attributes?.call !== 'off');
+// A tile exists only while I am in the conference and the person is too: everyone at the call service is on the call
+// (the server mints its token only for a join), and an OBS viewer there is hidden.
+const shownInCall = () => inCall;
 const subscribeAll = (participant) => { for (const pub of participant.trackPublications.values()) pub.setSubscribed(true); };
 
 function tileFor(participant) {
@@ -1115,6 +1124,129 @@ nav.register({
 }).classList.add('call-settings-link');
 topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw('primary'));
 
+// --- the live stream (space-live.js; plan-realtime-optional-livekit.md, steps 2 and 3) ------------------------------
+// One per page. In a space (or an aside) from entering it until leaving it (step 5): entering is opening it (join() and
+// joinAsGuest() wait for its first `ready`, the server's yes, or its refusal, which is the entry's error), and leaving
+// or moving (leaveSpaceNow, reconnectTo()) closes it; the call service has no part in either. On Home, signed in and
+// allowed to read the chat, one in no space (syncHomeChatStream), for Home's chat. Its `presence` is who is here, the
+// conference's "Not in a call" list, Start or Join call and the tiles' away; its chat events are the space's chat and
+// the Lobby's (Home's chat and its unread count; liveChatNotice); its aside nudges move the page (asideNudge, step 4); a
+// kick's `removed` leaves the space (leaveKicked). The page says its own state with PATCH
+// /api/spaces/:id/presence: on the call (startCall, stopCall) and away with its message (sendAway, stopCall), and all of
+// it again on every `ready` (a reconnect is a new stream, which starts with nothing said). The PATCHes go one after
+// another, so a quick Away then Back arrive in that order. A person's key on the stream is their identity on the call (a
+// guest's is the id on their pass), so the tiles read away from here too.
+let liveStream = null; // openLiveStream's, while in a space or on Home
+let liveSpaceId = null; // the space or aside it is for; null on Home
+let livePeopleList = []; // the last presence event's people, as the server sent them
+let liveSaying = Promise.resolve(); // the PATCHes, in order
+let livePending = null; // the first `ready` an entry waits on (openLive's promise), until it comes or is refused
+// My state as the server should have it.
+function presenceState() {
+  return { onCall: inCall, away: isAway, awayMessage: isAway ? awayMessage : '' };
+}
+// Say some of it (a PATCH on this stream). Before `ready` nothing is said: ready says all of it.
+function sayPresence(patch) {
+  const ready = liveStream?.ready;
+  if (!ready || !liveSpaceId) return;
+  const q = guestToken ? `?${new URLSearchParams({ guest: guestToken })}` : '';
+  const url = `/api/spaces/${encodeURIComponent(liveSpaceId)}/presence${q}`;
+  const body = { ...patch, stream: ready.stream };
+  liveSaying = liveSaying.then(() => api('PATCH', url, body)).catch((err) => console.debug('[app] presence:', err.message));
+}
+// Asked after a stream that never opened: the status of a fresh request and the server's sentence, to tell a refusal
+// (and why) from a drop.
+async function liveStreamStatus(url) {
+  const ctl = new AbortController();
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: { accept: 'text/event-stream' }, cache: 'no-store' });
+    if (res.ok) {
+      ctl.abort();
+      return { status: res.status };
+    }
+    const said = await res.json().catch(() => null);
+    return { status: res.status, error: typeof said?.error === 'string' ? said.error : '' };
+  } catch {
+    return { status: 0 };
+  }
+}
+// Open it for a space or an aside, or for Home (spaceId null). Answers a promise: kept at the first `ready`, broken with
+// the server's sentence when it is refused before that (entering waits on it). A drop shows "Reconnecting" in Chat's
+// status line and each `ready` after the first catches the chat up from the history (nothing is replayed); a refusal
+// later, or the server's `removed`, says once that live updates are paused. Posting still works meanwhile.
+function openLive(spaceId) {
+  closeLive();
+  if (typeof EventSource !== 'function') return Promise.resolve();
+  liveSpaceId = spaceId;
+  livePeopleList = [];
+  const first = new Promise((resolve, reject) => { livePending = { resolve, reject }; });
+  first.catch(() => {}); // Home's stream is not waited on
+  liveStream = openLiveStream({
+    url: liveStreamUrl({ space: spaceId, guest: guestToken, pass: guestPass }),
+    probe: liveStreamStatus,
+    onReady: (_ready, isFirst) => {
+      const state = presenceState();
+      if (spaceId && (state.onCall || state.away)) sayPresence(state);
+      if (!isFirst) catchUpLiveChat();
+      livePending?.resolve();
+      livePending = null;
+    },
+    onChat: liveChatNotice,
+    onAside: asideNudge,
+    onState: (state) => {
+      chatStream = state;
+      paintChatConn();
+    },
+    onPresence: (people) => {
+      livePeopleList = people;
+      syncCallControl();
+      for (const [identity] of tiles) {
+        const p = call.remoteParticipants.get(identity);
+        if (p) showAway(p);
+      }
+    },
+    onEnd: ({ reason, error }) => {
+      if (livePending) { // refused before it ever opened: entering failed, with the server's own sentence when it gave one
+        livePending.reject(new Error(error || `Could not open this ${word('space')}. Try again in a moment.`));
+        livePending = null;
+        return;
+      }
+      if (reason === 'kicked') return leaveKicked();
+      console.debug('[app] the live stream ended:', error || 'refused');
+      // A guest who lost their access lost their link (turned off, made again, or guests turned off): a reload can't
+      // bring it back, so they are told so rather than to reload.
+      chatStream = guestToken ? 'link-off' : 'paused';
+      paintChatConn();
+    },
+  });
+  return first;
+}
+function closeLive() {
+  livePending?.reject(Object.assign(new Error('closed'), { closed: true })); // an entry still waiting on it gives way
+  livePending = null;
+  liveStream?.close();
+  liveStream = null;
+  liveSpaceId = null;
+  livePeopleList = [];
+  chatStream = '';
+  paintChatConn();
+}
+// My key on the stream: `ready`'s, else (before it, so who is here says "Just you") my own.
+const liveYou = () => liveStream?.ready?.you || me?.key || null;
+// Who is here, you first: { key, name, you, onCall, away, awayMessage }.
+function livePeople() {
+  return peopleFromPresence(livePeopleList, { you: liveYou(), youName: me?.displayName || '', meOnCall: inCall });
+}
+// One person on the stream by key (a tile's identity), or null.
+function livePerson(key) {
+  return livePeople().find((p) => p.key === key) || null;
+}
+// Everyone else on the call now, as the stream says.
+function liveOthersOnCall() {
+  return livePeople().filter((p) => !p.you && p.onCall);
+}
+// --- end the live stream ---
+
 // Who is in the call, while I am not: the conference's "Not in a call" note lists them, with "Join the call" and the
 // microphone note under it. The space bar's call control ("N in the call · Join", plan-entering decisions 2 and 16) is
 // gone (Thomas, 2026-09-30): joining lives in the conference, which its switch shows out of the call, and in the space
@@ -1127,15 +1259,13 @@ function syncCallControl() {
   paintCallTab(); // and Online is the call item on a phone while on the call
   syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
-// The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
-// is not off (what /api/presence reports as inCall), with their picture in this space, else their first letter.
-// Kept live by the call's events; built only while the note shows.
+// The conference's "Not in a call" note lists who is in the call now: the live stream's people on the call (what
+// /api/presence reports as inCall), with their picture in this space, else their first letter. Kept live by the
+// stream's presence (openLive); built only while the note shows.
 function syncWhoIsInCall() {
   const list = $('no-call-list');
   if (!list || $('no-call').hidden) return;
-  const people = [...call.remoteParticipants.values()].filter((p) => p.attributes?.call !== 'off')
-    .map((p) => ({ key: p.identity, name: p.name || p.identity }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const people = liveOthersOnCall().map((p) => ({ key: p.key, name: p.name }));
   list.replaceChildren(...people.map(({ key, name }) => {
     const li = document.createElement('li');
     const img = document.createElement('img');
@@ -1164,11 +1294,6 @@ function initialOf(name) {
   el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
   return el;
 }
-call
-  .on(RoomEvent.ParticipantConnected, syncCallControl)
-  .on(RoomEvent.ParticipantDisconnected, syncCallControl)
-  .on(RoomEvent.ParticipantAttributesChanged, syncCallControl)
-  .on(RoomEvent.ParticipantNameChanged, syncWhoIsInCall);
 
 // --- Join the call (GitHub #165) ---------------------------------------------------------------------
 // In the space bar's left zone, after Layout and before Online: one press shows the Conference (as its Show switch
@@ -1184,10 +1309,10 @@ joinCallButton.setAttribute('aria-label', 'Start call');
 joinCallButton.title = 'Start a call from this chat';
 joinCallButton.dataset.role = 'join'; // on a phone a tab whose phone is in the call's ok colour (system.css, tabbar block)
 joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label sdk-tabbar-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
-// "Start call" while no one is in the call, "Join call" while one is running (the call's own people whose `call`
-// attribute is not off, as the conference's note lists them).
+// "Start call" while no one is in the call, "Join call" while one is running (the live stream's people on the call, as
+// the conference's note lists them).
 function paintJoinCall() {
-  const running = [...call.remoteParticipants.values()].some((p) => p.attributes?.call !== 'off');
+  const running = liveOthersOnCall().length > 0;
   const verb = running ? 'Join' : 'Start';
   joinCallButton.querySelector('.join-call-verb').textContent = verb;
   joinCallButton.setAttribute('aria-label', `${verb} call`);
@@ -1195,11 +1320,11 @@ function paintJoinCall() {
 }
 joinCallButton.addEventListener('click', () => joinTheCall());
 // Not while Home's chat shows (GitHub #326): a call belongs to a space, and Home is only a view over it.
-const joinCallWanted = () => Boolean(currentSpace) && !homeChatSpace && call.state === 'connected' && !inCall
-  && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
+const joinCallWanted = () => Boolean(currentSpace) && !homeChatSpace && entered && !inCall
+  && conferenceAllowed({ callService: features.callService, conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
 nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted });
 // Entering joins by itself where the environment says so (GitHub #199, branding.autoJoinCall): the rule is
-// shouldAutoJoin (opens-with.js, held by check-canvas), asked once by connectAndSetup() on each entry, and it joins only
+// shouldAutoJoin (opens-with.js, held by check-canvas), asked once by enterSpace() on each entry, and it joins only
 // where Join the call would show (joinCallWanted), never in an aside, and not for a person who left the call since they
 // entered. The join is the same press as Join the call (joinTheCall), so the microphone, Away and a refusal behave alike.
 const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, inCall, canJoin: joinCallWanted(), aside: inAside(), left: leftCall });
@@ -1207,7 +1332,7 @@ const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, i
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
 // Everyone in this space (or aside) now, you among them, with a mark on those on the call, and the list of them, their
-// names and who is on the call, on a press. Live from the call itself (LiveKit's Room). It belongs to the space, not to
+// names and who is on the call, on a press. Live from the live stream's presence (openLive). It belongs to the space, not to
 // the call (Thomas, 2026-10-14: "the 'in the room' widget has the context of the space, not the conf window"), so wider
 // than a phone it is the top bar's (`whoHereTop`): an element tool at the end of its left zone, after the space switcher
 // and the layout tabs, before the Workspace's tools, Layout, the bell and your picture, in a space call or no call, never
@@ -1216,18 +1341,16 @@ const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, i
 // count, portraits drop, then it shows only the icon and the short count. On a phone it is the count in the tab bar,
 // before Leave (plan-phone-space-bar.md), in an aside too; its list opens above it there.
 const whoHere = createWhoHere({
-  call,
-  meOnCall: () => inCall,
+  people: livePeople,
   where: () => (inAside() ? word('aside') : word('space')),
   portraitUrl: spacePortraitUrl,
   profileUrl: (key) => imgUrl(key, 'profile'),
-  wanted: () => Boolean(currentSpace) && call.state === 'connected',
+  wanted: () => Boolean(currentSpace) && entered,
   events: {
     redraw: () => nav.draw(nav.get('who-here')?.bar || 'secondary'),
-    call: { [RoomEvent.ParticipantNameChanged]: () => whoHere.refresh(), [RoomEvent.Disconnected]: () => whoHere.refresh() },
   },
 });
-nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
+nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && entered });
 const whoHereBar = nav.get('who-here'); // the phone's, in the tab bar
 // On a phone the conference is not a tab: the call is the tab bar's pinned call item (the Tab bar family; Thomas,
 // 2026-10-21): Join out of the call, then Online. On the call Online is the call itself: its icon in the call's ok colour
@@ -1251,7 +1374,7 @@ whoHere.el.addEventListener('click', (event) => {
   canvas.showBuiltin('conference');
   paintCallTab();
 }, true);
-const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && call.state === 'connected' && !phoneWidth();
+const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && entered && !phoneWidth();
 const whoHereTop = { id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, yieldFirst: true, visible: whoHereTopWanted };
 // --- end who is here ---
 
@@ -2470,7 +2593,7 @@ async function openSetupFor(id, tab = '') {
   const hash = tab ? `#${String(tab).replace(/^#/, '')}` : '';
   if (settingUp && currentSpace?.id === id) { if (hash) spaceSetup.select(hash.slice(1)); return; }
   await joinInvitedSpace(id);
-  if (call.state === 'connected' && currentSpace?.id === id && canSetUp()) enterSetup({ tab: hash });
+  if (entered && currentSpace?.id === id && canSetUp()) enterSetup({ tab: hash });
 }
 
 // After Save: the space the server answered goes into this page's records (the name in the bar and on the card, the
@@ -2501,7 +2624,7 @@ function setupSaved(space, said, saved = []) {
 // shows Home, and a reload does not try it again.
 function setupDeleted(space) {
   forgetSpace();
-  if (call.state !== 'disconnected') call.disconnect(); // the Disconnected handler shows Home
+  if (entered) leaveSpaceNow(); // Home shows
   else loadPresence();
   saySetup(`Deleted ${space.name || word('space')}.`);
 }
@@ -3630,9 +3753,9 @@ function canvasDoc() {
 
 // --- chat ---------------------------------------------------------------------
 
-// Text and pictures travel live over LiveKit's data channel. The sender also posts a text message to the server,
-// which keeps a rolling window per space (see server/chat-history.js), and everyone who joins reads it back, so a
-// late joiner or a new browser sees what was said. Pictures are live only. An aside/private space keeps nothing,
+// Text and pictures are posted to the server, which tells everyone on the live stream (GET /api/live, liveChatNotice).
+// It keeps a text message in a rolling window per space (see server/chat-history.js), and everyone who joins reads it
+// back, so a late joiner or a new browser sees what was said. Pictures are live only. An aside/private space keeps nothing,
 // staying as off-the-record as everything else about it. The log here is what Save writes out and goes when you
 // leave. Deleting the chat removes it for everyone. Deleting one message removes that message for everyone, and
 // only the person who sent it can.
@@ -3704,44 +3827,38 @@ function storedEntry(m, { local = false } = {}) {
   }
   return entry;
 }
-// Tell the server what was just said, so the space's history has it. Returns the stored message, or null when it
-// could not be kept (an aside, or the server did not answer).
+// Tell the server what was just said: it keeps it and tells everyone on the live stream. Returns the stored message;
+// throws when it was not taken (the server's sentence, or the network's).
 async function postChatMessage(text) {
-  if (!chatSpace() || chatSpace().isAside) return null;
-  const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-  try {
-    const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text, name: me?.displayName || call.localParticipant?.name });
-    return message || null;
-  } catch {
-    return null;
-  }
+  if (!chatSpace() || chatSpace().isAside) throw new Error('');
+  // A guest is shown by the name on their pass (the server reads it from there).
+  const q = guestToken ? `?${new URLSearchParams({ guest: guestToken, pass: guestPass })}` : '';
+  const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text });
+  if (!message?.id) throw new Error('');
+  return message;
 }
-function publishChat(data) {
-  // Home's chat over a space (plan-home-lobby.md, step 4) never goes on the space's call: the server tells Home's stream.
-  if (homeChatSpace) return;
-  if (!call || call.state !== 'connected' || !call.localParticipant) return;
-  call.localParticipant.publishData(encoder.encode(JSON.stringify(data)), { reliable: true, topic: 'chat' }).catch(() => {});
-}
-// Stores the message, draws it here with that id, and tells everyone else in the call. Without a stored id (the
-// server did not answer) it still goes out live, and then it cannot be deleted for everyone.
+// Stores the message and draws it here with that id; everyone else hears it from the server's live stream. Not taken:
+// said in Chat's status line, the words put back in the box when it is empty, and sent no other way.
 async function sendChatText(text) {
-  const stored = await postChatMessage(text);
-  if (stored?.id) {
-    dropChatMessage(stored.id); // a guest's stream can draw it before this answer comes back (GitHub #289): drawn as mine
-    const entry = storedEntry(stored);
-    // Its link's preview is asked for now (below): nothing is drawn under it until that answers.
-    const asking = Boolean(entry.preview && !entry.preview.at && me?.key && me.role !== 'guest' && !guestToken);
-    if (asking) entry.previewAsked = true;
-    addEntry(entry, true);
-    publishChat({ type: 'chat', id: stored.id, text: stored.text, at: stored.at, who: stored.who, by: stored.by, ...(entry.preview ? { preview: { url: entry.preview.url } } : {}) });
-    if (asking) askLinkPreview(entry);
+  let stored = null;
+  try {
+    stored = await postChatMessage(text);
+  } catch (err) {
+    chatNotice(err.serverSaid ? `Not sent: ${err.message}` : 'Not sent. Try again.', true);
+    const box = $('chat-input');
+    if (box && !box.value) {
+      box.value = text;
+      resizeChatInput();
+    }
     return;
   }
-  try {
-    if (call && call.localParticipant) await call.localParticipant.sendChatMessage(text);
-  } catch (err) {
-    chatNotice(`chat: ${err.message}`, true);
-  }
+  dropChatMessage(stored.id); // the live stream can bring it back before this answer: drawn once, as mine
+  const entry = storedEntry(stored);
+  // Its link's preview is asked for now (below): nothing is drawn under it until that answers.
+  const asking = Boolean(entry.preview && !entry.preview.at && me?.key && me.role !== 'guest' && !guestToken);
+  if (asking) entry.previewAsked = true;
+  addEntry(entry, true);
+  if (asking) askLinkPreview(entry);
 }
 function dropChatMessage(id) {
   chatMessageNode(id)?.remove();
@@ -3764,14 +3881,15 @@ function canModerateChat() {
 // 9). Pictures are never stored and a guest's command echo stays on their page, so neither is a button; guests share
 // one stored sender, so a guest never changes one.
 function canChangeVisibility(entry) {
-  if (!entry?.stored || entry.blob || !chatIdOk(entry.id)) return false;
+  if (!entry?.stored || entry.picture || !chatIdOk(entry.id)) return false;
   if (!me?.key || me.role === 'guest' || guestToken) return false;
   return entry.by === me.key;
 }
-// A shared message can be deleted by the person who sent it. A picture is live only, so its id is this page's.
+// A shared message can be deleted by the person who sent it. A picture is never stored: the server holds it a short
+// while and keeps who sent it for a day, so its sender or a moderator can still delete it for everyone.
 function canDeleteChatEntry(entry) {
   if (!entry?.chat || !chatIdOk(entry.id)) return false;
-  if (entry.blob) return Boolean(me?.key && entry.by === me.key);
+  if (entry.picture) return Boolean(me?.key && me.role !== 'guest' && !guestToken && (entry.by === me.key || canModerateChat()));
   if (entry.visibility === 'private') return Boolean(me?.key && entry.by === me.key && me.role !== 'guest'); // only ever on its author's page
   if (canModerateChat()) return true;
   return Boolean(me?.key && entry.by === me.key && me.role !== 'guest');
@@ -3824,9 +3942,7 @@ async function clearChatMessages({ type, module }, scope) {
   await api('DELETE', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/messages?${q}`);
   const by = me.key;
   const gone = chatLog.filter((e) => (ofClearType(e, type, module) && inClearScope(e, scope, by)) || clearTakesPicture(e, { type, scope, by }));
-  const ids = gone.filter((e) => e.stored && e.visibility !== 'private' && chatIdOk(e.id)).map((e) => e.id);
   dropChatEntries(gone);
-  if (ids.length) publishChat({ type: 'chat-clear-some', ids, by, who: me.displayName || '', scope, clearType: type, ...(type === 'module' ? { module } : {}) });
 }
 // Clear…'s list, then the confirm with the count (decisions 5 and 9). A member clears their own; a moderator, an owner
 // or an admin picks theirs or everyone's. Opened from Chat's "..." (#chat-more), in the same menu.
@@ -3866,25 +3982,23 @@ function confirmClearChat(button, choice, moderator) {
     ],
   });
 }
-// Someone cleared messages by type (chat-clear-some, from the server or their page): drop each listed id held here, and
-// for chat or all the matching pictures (clearNoticeTakes). A page's notice drops only its sender's own messages and
-// adds no line; a clear of everyone's, and its line, come from the server's notice (no sender), which it always sends.
-// Someone else's clear of everyone's adds one line, not stored and not counted (decision 9), once.
+// Someone cleared messages by type (chat-clear-some, the server's word on the live stream): drop each listed id held
+// here, and for chat or all the matching pictures (clearNoticeTakes). Someone else's clear of everyone's adds one line,
+// not stored and not counted (decision 9), once.
 const heardClears = new Map();
-function applyClearNotice(data, participant) {
+function applyClearNotice(data) {
   if (!canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
   const by = typeof data.by === 'string' ? data.by : '';
-  const from = participant?.identity || '';
-  if (!by || (from && from !== by)) return; // a page speaks only for itself
+  if (!by) return;
   const scope = data.scope === 'everyone' ? 'everyone' : data.scope === 'mine' ? 'mine' : '';
   const type = ['chat', 'ai', 'module', 'all'].includes(data.clearType) ? data.clearType : '';
   if (!scope || !type) return;
   const module = type === 'module' && typeof data.module === 'string' ? data.module : '';
   const ids = new Set((Array.isArray(data.ids) ? data.ids : []).filter(chatIdOk));
   const command = chatLog.find((e) => ids.has(e.id) && e.command)?.command || '';
-  const gone = chatLog.filter((e) => clearNoticeTakes(e, { ids, type, scope, by, fromPage: Boolean(from) }));
+  const gone = chatLog.filter((e) => clearNoticeTakes(e, { ids, type, scope, by }));
   dropChatEntries(gone);
-  if (from || scope !== 'everyone' || by === me?.key) return;
+  if (scope !== 'everyone' || by === me?.key) return;
   const now = Date.now();
   for (const [k, at] of heardClears) if (now - at > 10000) heardClears.delete(k);
   const key = `${by}|${type}|${module}`;
@@ -3986,8 +4100,13 @@ async function toPng(blob) {
 
 async function copyEntry(entry, btn) {
   try {
-    if (entry.blob) {
-      const png = entry.blob.type === 'image/png' ? entry.blob : await toPng(entry.blob);
+    if (entry.picture) {
+      const blob = await pictureBlob(entry);
+      if (!blob) {
+        chatNotice(PICTURE_GONE, true);
+        return;
+      }
+      const png = blob.type === 'image/png' ? blob : await toPng(blob);
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
     } else {
       await navigator.clipboard.writeText(entry.text);
@@ -4003,7 +4122,7 @@ async function copyEntry(entry, btn) {
 // being typed, cursor landing right after so the reply continues below it.
 function replyToEntry(entry) {
   const el = $('chat-input');
-  const quoted = entry.blob
+  const quoted = entry.picture
     ? `> ${entry.who} sent a picture`
     : `> ${entry.who}: ${entry.text.split('\n').join('\n> ')}`;
   const prefix = `${quoted}\n`;
@@ -4170,42 +4289,33 @@ async function deleteMessage(el, entry) {
   const space = `/api/spaces/${encodeURIComponent(chatSpace().id)}`;
   if (entry?.chat) {
     if (!canDeleteChatEntry(entry)) return;
-    if (!entry.blob) {
-      try {
-        const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-        await api('DELETE', `${space}/chat/${entry.id}${q}`);
-      } catch (err) {
-        chatNotice(err.message || 'Could not delete that.', true);
-        return;
-      }
+    // A picture too: the server keeps who sent it, and tells everyone (chat-delete) as for a message.
+    try {
+      const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+      await api('DELETE', `${space}/chat/${entry.id}${q}`);
+    } catch (err) {
+      chatNotice(err.message || 'Could not delete that.', true);
+      return;
     }
     dropChatMessage(entry.id);
-    if (entry.visibility !== 'private') publishChat({ type: 'chat-delete', id: entry.id }); // a private one was only ever here
     return;
   }
   el.remove();
 }
 
-// A message deleted (the chat-delete notice, from the server or its author's page). A page speaks only for its own
-// messages; a moderator's delete of someone else's comes from the server's notice, which has no sender.
-function applyDeleteNotice(data, participant) {
-  const from = participant?.identity || '';
-  const have = chatLog.find((e) => e.id === data.id);
-  if (from && have && have.by !== from) return;
+// A message or a picture deleted (the chat-delete notice, the server's word on the live stream).
+function applyDeleteNotice(data) {
   dropChatMessage(data.id);
 }
 
 // Make a stored message public or private (plan-chat-model.md, decision 9). True when the server took it. The others
-// in the call hear it from the server (chat-visibility) and from this page, the same notice, as with a delete.
+// hear it from the server (chat-visibility), as with a delete.
 async function setMessageVisibility(entry, visibility) {
   if (!chatSpace() || !entry?.stored || !chatIdOk(entry.id)) return false;
   try {
     const { message } = await api('PATCH', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/${entry.id}`, { visibility });
     entry.visibility = message?.visibility === 'private' ? 'private' : 'public';
     if (message?.question && entry.kind === 'ai') entry.question = { who: String(message.question.who || ''), text: String(message.question.text || '') };
-    publishChat(entry.visibility === 'public'
-      ? { type: 'chat-visibility', id: entry.id, visibility: 'public', message }
-      : { type: 'chat-visibility', id: entry.id, visibility: 'private' });
     return entry.visibility === visibility;
   } catch (err) {
     chatNotice(err.message || 'Could not change who sees that.', true);
@@ -4213,21 +4323,19 @@ async function setMessageVisibility(entry, visibility) {
   }
 }
 
-// A message someone else made public or private (the chat-visibility notice, from the server or their page). Made
+// A message someone made public or private (the chat-visibility notice, the server's word on the live stream). Made
 // public: drawn where its time places it, and it counts as unread while Chat is closed (decision 10). Made private:
-// gone from this page. Only its author may change it, so a notice from anyone else is ignored.
-function applyVisibilityNotice(data, participant) {
+// gone from this page, but for its author.
+function applyVisibilityNotice(data) {
   if (!chatIdOk(data.id) || !canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
-  const from = participant?.identity || '';
   const have = chatLog.find((e) => e.id === data.id);
   if (data.visibility === 'private') {
-    if (!have || (from && have.by !== from)) return;
+    if (!have) return;
     if (have.by === me?.key) { have.visibility = 'private'; chatMessageNode(data.id)?.repaintVis?.('private'); return; }
     dropChatMessage(data.id);
     return;
   }
   if (data.visibility !== 'public' || !data.message || data.message.id !== data.id) return;
-  if (from && data.message.by !== from) return;
   if (have) {
     have.visibility = 'public';
     chatMessageNode(data.id)?.repaintVis?.('public');
@@ -4376,8 +4484,7 @@ async function keepLink(entry, btn) {
     chatNotice(err.message || 'Could not keep that.', true);
   }
 }
-// The author's page asks for its new message's preview (decision 7) and passes the answer on to the call as well as
-// the server doing so; the first copy anyone gets is the one drawn.
+// The author's page asks for its new message's preview (decision 7); the server tells everyone else on the live stream.
 async function askLinkPreview(entry) {
   let message = null;
   try {
@@ -4387,25 +4494,21 @@ async function askLinkPreview(entry) {
   }
   entry.previewAsked = false;
   const preview = cleanPreview(message?.preview);
-  if (preview?.at && !entry.preview?.at && preview.url === entry.preview?.url) {
-    entry.preview = preview;
-    if (entry.visibility !== 'private' && message.visibility !== 'private') publishChat({ type: 'chat-preview', id: entry.id, preview: message.preview });
-  }
+  if (preview?.at && !entry.preview?.at && preview.url === entry.preview?.url) entry.preview = preview;
   paintLinkBox(entry);
 }
-// chat-preview (from the server, or the message's author's page) and chat-kept (the server's only): the first copy
-// only, and a page's notice speaks only for its own messages (previewNoticeTakes, keptNoticeTakes in chat-input.js).
-function applyLinkNotice(data, participant) {
+// chat-preview and chat-kept (the server's word on the live stream): the first copy only (previewNoticeTakes,
+// keptNoticeTakes in chat-input.js).
+function applyLinkNotice(data) {
   if (!canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
-  const from = participant?.identity || '';
-  const entry = chatLog.find((e) => e.id === data.id && !e.blob);
+  const entry = chatLog.find((e) => e.id === data.id && !e.picture);
   if (!entry) return;
   if (data.type === 'chat-preview') {
-    if (!previewNoticeTakes(entry, data, from)) return;
+    if (!previewNoticeTakes(entry, data)) return;
     entry.preview = cleanPreview(data.preview);
     entry.previewAsked = false;
   } else {
-    if (!keptNoticeTakes(entry, data, from)) return;
+    if (!keptNoticeTakes(entry, data)) return;
     entry.kept = cleanKept(data.kept);
   }
   paintLinkBox(entry);
@@ -4427,14 +4530,21 @@ function messageEl(entry, own) {
   let body;
   let name = entry.who;
   let look = null;
-  if (entry.blob) {
+  if (entry.picture) {
     body = document.createElement('div');
     body.className = 'message-body text';
     const img = document.createElement('img');
-    img.src = URL.createObjectURL(entry.blob);
     img.alt = entry.name || 'picture';
     img.title = 'Open full size';
     img.addEventListener('click', () => window.open(img.src, '_blank'));
+    // Fetched from the server, which holds it a short while: once it has gone, a plain line says so.
+    img.addEventListener('error', () => {
+      const gone = document.createElement('p');
+      gone.className = 'message-picture-gone';
+      gone.textContent = PICTURE_GONE;
+      img.replaceWith(gone);
+    }, { once: true });
+    img.src = entry.src;
     body.appendChild(img);
   } else if (entry.kind === 'ai') {
     look = chatInput.commandLook(entry);
@@ -4520,18 +4630,15 @@ function addStoredMessage(m, { local = false } = {}) {
   addEntry(entry, entry.kind !== 'ai');
 }
 
-function addMessage(message, from, own = false, by = '') {
-  addEntry({ who: from, text: message, by }, own);
-}
-
 function saveChat() {
   if (!chatLog.length) return;
-  const lines = chatLog.map((e) => `[${e.at.toLocaleTimeString()}] ${e.who}: ${e.blob ? `[picture${e.name ? ' ' + e.name : ''}]` : e.text}`);
+  const lines = chatLog.map((e) => `[${e.at.toLocaleTimeString()}] ${e.who}: ${e.picture ? `[picture${e.name ? ' ' + e.name : ''}]` : e.text}`);
   saveBlob(new Blob([lines.join('\n') + '\n'], { type: 'text/plain' }), `${(homeChatSpace ? word('home') : spaceName).replace(/[^\w-]+/g, '-').toLowerCase()}-chat-${new Date().toISOString().slice(0, 10)}.txt`);
 }
 
-// Pictures: pasted, dropped or picked, shrunk to a sensible size, then sent
-// as a LiveKit byte stream on topic "chat-image" (no server involved).
+// Pictures: pasted, dropped or picked, shrunk to a sensible size, then sent to the server
+// (POST /api/spaces/:id/chat/pictures), which holds them a short while and tells everyone on the live stream where to
+// fetch them (GET /api/spaces/:id/chat/pictures/:id); nothing is stored.
 const MAX_IMAGE_SIDE = 1600;
 async function shrinkImage(file) {
   const bmp = await createImageBitmap(file);
@@ -4550,41 +4657,65 @@ async function shrinkImage(file) {
   return new File([blob], `${(file.name || 'picture').replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' });
 }
 
+const CHAT_PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 async function sendImage(file) {
-  // Not into Home's chat (plan-home-lobby.md, step 4): a picture travels over the space's call, never Home's.
-  if (!file || !file.type.startsWith('image/') || call.state !== 'connected' || !canDo('sendPictures') || homeChatSpace) return;
+  // Not into Home's chat (plan-home-lobby.md, step 4): pictures are a space's.
+  const space = chatSpace();
+  if (!file || !file.type.startsWith('image/') || !space || space.isAside || !canDo('sendPictures') || homeChatSpace) return;
+  let entry = null;
   try {
-    const out = await shrinkImage(file);
-    const id = newChatId();
-    const named = new File([out], `cid-${id}-${out.name || 'picture'}`, { type: out.type });
+    let out = await shrinkImage(file);
+    if (!CHAT_PICTURE_TYPES.includes(out.type)) out = new File([out], out.name || 'picture', { type: 'image/png' }); // never: shrinkImage answers one of them
     chatInput.setView('discussion'); // a picture is for everyone: it shows in the Discussion
-    addEntry({ id, who: call.localParticipant.name || call.localParticipant.identity, by: me?.key || call.localParticipant.identity, blob: named, name: out.name || 'picture' }, true);
-    await call.localParticipant.sendFile(named, { topic: 'chat-image', mimeType: named.type });
+    // Drawn at once; the server's id replaces this page's when it answers, so the live stream's copy is not drawn twice.
+    entry = { id: newChatId(), who: me?.displayName || 'me', by: me?.key || '', picture: true, blob: out, src: URL.createObjectURL(out), name: out.name || 'picture' };
+    addEntry(entry, true);
+    const q = new URLSearchParams({ file: entry.name });
+    if (guestToken) {
+      q.set('guest', guestToken);
+      q.set('pass', guestPass);
+    }
+    const { id } = await api('POST', `/api/spaces/${encodeURIComponent(space.id)}/chat/pictures?${q}`, out, out.type);
+    if (chatIdOk(id)) {
+      dropChatMessage(id); // the live stream's copy, when it came first
+      const el = chatMessageNode(entry.id);
+      entry.id = id;
+      if (el) el.dataset.chatId = id;
+    }
   } catch (err) {
-    chatNotice(`picture: ${err.message}`, true);
+    if (entry) dropChatMessage(entry.id);
+    chatNotice(err.serverSaid ? `Picture not sent: ${err.message}` : 'Picture not sent. Try again.', true);
   }
 }
-
-call.registerByteStreamHandler('chat-image', async (reader, { identity }) => {
-  if (!canDo('chatRead')) return; // not in an aside, nor for a role that can't read the chat
+// A picture someone sent (chat-picture, from the live stream): where to fetch it, never its bytes. A guest's fetch
+// carries their link and pass, as their other chat requests do.
+const PICTURE_GONE = 'Picture no longer available.';
+function pictureEntry(data) {
+  if (!CHAT_PICTURE_TYPES.includes(data.mime) || typeof data.space !== 'string' || !data.space) return null;
+  const q = guestToken ? `?${new URLSearchParams({ guest: guestToken, pass: guestPass || '' })}` : '';
+  const src = `/api/spaces/${encodeURIComponent(data.space)}/chat/pictures/${data.id}${q}`;
+  return { id: data.id, who: String(data.who || 'someone'), by: String(data.by || ''), picture: true, src, name: String(data.file || 'picture'), at: data.at };
+}
+// A picture's bytes (to copy it or send it to a module): this page's own, else fetched once from the server. null once
+// the server no longer holds it.
+async function pictureBlob(entry) {
+  if (entry.blob instanceof Blob) return entry.blob;
   try {
-    const chunks = await reader.readAll();
-    const blob = new Blob(chunks, { type: reader.info.mimeType || 'image/png' });
-    const from = call.remoteParticipants.get(identity);
-    const named = /^cid-([a-f0-9]{12})-(.*)$/.exec(reader.info.name || '');
-    const add = () => addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
-    if (!parkSpaceChat(add)) add(); // Home's chat showing over the space: drawn when the space's chat is back
-  } catch (err) {
-    chatNotice(`picture: ${err.message}`, true);
+    const res = await fetch(entry.src, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    entry.blob = await res.blob();
+    return entry.blob;
+  } catch {
+    return null;
   }
-});
+}
 
 function imageFiles(list) {
   return [...(list || [])].filter((f) => f && f.type && f.type.startsWith('image/'));
 }
 
 // --- reactions ------------------------------------------------------------------
-// A reaction travels over the data channel (topic "reaction"), like chat but
+// A reaction travels over the call's data channel (topic "reaction"),
 // never stored: every call page and every OBS view page of that player
 // floats it up from their tile for a couple of seconds.
 
@@ -4740,7 +4871,7 @@ canvas.registerBuiltin({
   floatSize: { w: 560, h: 380 },
   // The environment's switch holds for owners and the admin too (canDo says yes to them whatever it is), so the
   // canvas, the Modules menu and the Open with popover agree.
-  allowed: () => conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }),
+  allowed: () => conferenceAllowed({ callService: features.callService, conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }),
   // A window of its own has its own document: idle/hover, popovers and keys need to hear it.
   onWindow: (win) => {
     win.document.title = spaceName;
@@ -4886,7 +5017,7 @@ async function openMic() {
   }
   const raw = stream.getAudioTracks()[0];
   if (!mic.ctx) await buildMicGraph();
-  // LiveKit's call.disconnect() (called on every reconnectTo(), including
+  // LiveKit's call.disconnect() (on every hang up and every reconnectTo(), including
   // every aside/private step and the return from one) stops the underlying
   // MediaStreamTrack of whatever was published -- our processed track from
   // the Web Audio graph included. A stopped track can never restart, so
@@ -5024,28 +5155,17 @@ function reflectMic() {
 // does. Someone joining the call says "on" before their microphone is published, so their tile is made with none
 // (marked muted), and no TrackMuted/TrackUnmuted ever comes for a microphone published unmuted. updateMuted does nothing
 // for someone not in the call. The camera's picture keeps to TrackMuted/TrackUnmuted and attachTrack/detachTrack.
+// The page is connected here only while on the call (startCall), so everyone it hears of is on the call too: joining is
+// ParticipantConnected, hanging up ParticipantDisconnected. Away is the live stream's (showAway, from presence).
 call
   .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => { attachTrack(participant, track); updateMuted(participant); })
   .on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => detachTrack(participant, track))
   .on(RoomEvent.LocalTrackPublished, (pub) => { if (pub.track) attachTrack(call.localParticipant, pub.track); updateMuted(call.localParticipant); })
   .on(RoomEvent.LocalTrackUnpublished, (pub) => { if (pub.track) detachTrack(call.localParticipant, pub.track); updateMuted(call.localParticipant); })
-  .on(RoomEvent.ParticipantConnected, (p) => { if (shownInCall(p)) tileFor(p); })
+  .on(RoomEvent.ParticipantConnected, (p) => { if (shownInCall(p)) { tileFor(p); subscribeAll(p); updateMuted(p); updateCamera(p); } })
   // Nothing is received until I am in the conference; then everything published is taken.
   .on(RoomEvent.TrackPublished, (pub, p) => { if (shownInCall(p)) pub.setSubscribed(true); updateMuted(p); })
   .on(RoomEvent.TrackUnpublished, (_pub, p) => updateMuted(p))
-  // Someone left or rejoined the conference without leaving the space, or went away or came back (showAway).
-  .on(RoomEvent.ParticipantAttributesChanged, (changed, p) => {
-    if (p.isLocal || !inCall) return;
-    if ('call' in changed) {
-      if (p.attributes?.call === 'off') return removeParticipant(p);
-      tileFor(p);
-      subscribeAll(p);
-      updateMuted(p);
-      updateCamera(p);
-      applyLayout();
-    }
-    if ('away' in changed || 'awayMessage' in changed) showAway(p);
-  })
   .on(RoomEvent.ParticipantDisconnected, removeParticipant)
   .on(RoomEvent.TrackMuted, (_pub, participant) => {
     updateMuted(participant);
@@ -5064,140 +5184,161 @@ call
       if (prefs.layout === 'spotlight' && !prefs.pinned && prefs.follow) applyLayout();
     }
   })
-  .on(RoomEvent.ChatMessage, (message, participant) => {
-    if (!canDo('chatRead')) return;
-    if (parkSpaceChat(() => addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity))) return;
-    addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity);
-  })
-  .on(RoomEvent.DataReceived, function onCallData(payload, participant, _kind, topic) {
-    // The space's chat, heard while Home's chat shows over the space (plan-home-lobby.md, step 4): kept, and read in
-    // order once the space's chat is back (hideHomeChat), so nothing said in the space lands in Home's chat.
-    if (topic === 'chat' && parkSpaceChat(() => onCallData(payload, participant, _kind, topic))) return;
+  .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+    // The call carries reactions only; the chat and the asides' nudges come on the live stream (liveChatNotice, asideNudge).
     try {
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
-      else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
-        if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
-        addEntry(storedEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: data.at, preview: noticePreview(data) }), false); // only the address its own text has
-      } else if (topic === 'chat' && data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, participant);
-      else if (topic === 'chat' && data.type === 'chat-visibility') applyVisibilityNotice(data, participant);
-      else if (topic === 'chat' && data.type === 'chat-clear-some') applyClearNotice(data, participant);
-      else if (topic === 'chat' && (data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, participant);
-      // Delete the chat is the server's word only (DELETE /chat always tells the call); a page's own notice is ignored.
-      else if (topic === 'chat' && data.type === 'chat-clear' && !participant) dropSharedChat();
-      // A server push (no sending participant): someone pulled me aside.
-      // An owner's word is final -- just go. A peer's "Privately" needs
-      // this end to actually agree to it first. Deferred a tick so this
-      // event's own dispatch finishes first.
-      else if (topic === 'aside-pull' && data.type === 'aside-pull' && data.spaceId) {
-        if (data.byOwner) {
-          setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
-        } else {
-          setTimeout(async () => {
-            if (await confirmDialog({ title: `${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`, action: 'Join' })) {
-              reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
-            }
-          }, 0);
-        }
-      }
-      // The other member of a pull-aside space clicked "Rejoin call";
-      // follow them there instead of being left behind.
-      else if (topic === 'aside-return' && data.type === 'aside-return' && data.spaceId) {
-        setTimeout(() => reconnectTo(data.spaceId, 'back to the call...', { keepCall: true }), 0);
-      }
-      // Someone just got pulled into a private aside: prime
-      // the local data so their tile can turn into an "in an aside"
-      // placeholder right away, without waiting for the next /api/presence poll.
-      // The server sends this to everyone on the call, those pulled too, and their join can find this entry before
-      // presence answers. It has no origin, so it is marked pending: presence replaces it (adoptPendingSpace), and
-      // with the origin "Rejoin call" shows in the aside. It says whether the aside is private: then the placeholders
-      // never name who it is with: a private one's message carries no members, and its entry keeps none even when one
-      // does (so it reads "Private", never "Private with ..."). Presence names only the space they stepped out of to
-      // those outside the aside (decision 6), so what the message said is kept for the placeholders (startedAsides).
-      else if (topic === 'aside-started' && data.type === 'aside-started' && data.spaceId) {
-        const priv = data.private !== false; // not said reads as private: never name who it is with by mistake
-        const said = Array.isArray(data.members) ? data.members.filter((k) => typeof k === 'string') : [];
-        if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: priv ? [] : said, private: priv, pending: true }));
-        for (const key of said) {
-          startedAsides.set(key, { private: priv, members: priv ? [] : said, at: Date.now() });
-          const user = presenceUsers.get(key);
-          if (user) { user.online = true; user.space = data.spaceId; user.aside = true; user.asidePrivate = priv; user.elsewhere = false; user.inCall = false; }
-        }
-        reconcileGhostTiles();
-        // A private one names nobody, so who stepped out comes from presence (asidePrivate): ask now, not at the next poll.
-        if (priv || !said.length) loadPresence();
-      }
-      // The admin clicked "Pull participants back" in the space this Private
-      // Conversation came from: warn, don't yank -- a countdown, then go.
-      else if (topic === 'aside-recall' && data.type === 'aside-recall' && data.spaceId) {
-        startRecallCountdown(data.spaceId, data.spaceName);
-      }
     } catch (err) {
       // not ours
     }
   })
-  .on(RoomEvent.Reconnecting, () => { setStatus('reconnecting...'); chatReconnecting = true; paintChatConn(); })
+  // The call finding its way back after a network drop: the call's own state (the chat and who is here are the live
+  // stream's, which says its own).
+  .on(RoomEvent.Reconnecting, () => setStatus('reconnecting the call...'))
   .on(RoomEvent.ConnectionStateChanged, () => paintChatConn())
-  // A full reconnect joins the call service afresh, with the token's attributes ("call" off, no away): say both again.
-  .on(RoomEvent.Reconnected, () => {
-    chatReconnecting = false; paintChatConn(); setStatus(`in ${spaceName}`);
-    syncCallAttributes();
-  })
+  .on(RoomEvent.Reconnected, () => { paintChatConn(); setStatus(`in ${spaceName}`); })
+  // Only the call ended; the page stays in the space (leaving is leaveSpaceNow). Ended by the page itself (a hang up,
+  // leaving, moving, a join backing out: disconnectCall) there is nothing more to do, nor while a join is still connecting
+  // (its connect fails, and startCall says so); ended by the call service once on it (a drop it could not recover from,
+  // a kick, the call closed) it is a hang up the person did not choose, said in the status.
   .on(RoomEvent.Disconnected, () => {
-    viewingHome = false; // no space left to show home over
-    hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
-    chatReconnecting = false;
     paintChatConn();
-    closeGuestChatStream();
-    canvas.suspend(); // tearing the call down must not become its remembered layout
-    inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
-    stopCallTime();
-    syncCallControl();
-    closeMic();
-    closePopout();
-    canvas.closeBuiltin('conference');
-    setStatus('left the call');
-    forgetSpace();
-    currentSpace = null;
-    currentLayoutTab = 'workspace'; // the tab is remembered for the visit only
-    canvas.refresh(null);
-    refreshLayouts(); // no space, no layouts
-    document.body.classList.remove('in-space');
-    $('canvas').hidden = true;
-    resetRecallButton();
-    updateRecallButton(); // no room, so the tool's own `visible` hides it
-    clearInterval(recallTimer);
-    $('recall-overlay').hidden = true;
-    // A guest has no session and no room to pick from -- back to their own
-    // name-only form for the one space their link is for, not the real
-    // members' space list (which they can't do anything with anyway).
-    $('join').hidden = !!guestToken;
-    $('guest-join').hidden = !guestToken;
-    $('away').hidden = true;
-    updateCrumb();
-    asideSelection.clear();
-    updateAsideConfirm();
-    // Not setAway(false): that would try to re-enable mic/camera on a
-    // participant that's already gone. Just drop the stale state so the
-    // next space starts clean, not still marked away from the last one.
-    $('away-overlay').hidden = true;
-    isAway = false;
-    awayMessage = '';
-    awayRestartCam = false;
-    $('away-toggle').classList.remove('off');
-    $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
-    for (const [, tile] of tiles) tile.remove();
-    tiles.clear();
-    for (const [, tile] of ghostTiles) tile.remove();
-    ghostTiles.clear();
-    canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
-    $('messages').textContent = '';
-    closeHostMenu();
-    if ($('chat-views')) $('chat-views').hidden = true;
-    toggleChat(false);
-    toggleTray(false);
-    loadPresence();
+    if (endingCall > 0 || unloading || !inCall) return;
+    stopCall(); // a join still publishing its microphone backs out
+    setNoCall(true);
+    setStatus('the call dropped', true);
   });
+
+// The page's own end of the call (a hang up, leaving, moving, a join backing out): the call service only, never the
+// space. While it runs, the call's Disconnected knows it was this page's doing.
+let endingCall = 0;
+async function disconnectCall() {
+  if (call.state === 'disconnected') return;
+  endingCall += 1;
+  try {
+    await call.disconnect();
+  } catch {
+    // already gone
+  } finally {
+    endingCall -= 1;
+  }
+}
+
+// Leaving the space (Leave, a kick, the space deleted, a move to another space or an aside, an entry that failed): the
+// call ends if I am on it, the live stream closes (the server keeps me there for its grace), and the canvas, the chat,
+// who is here and the tiles are cleared; Home shows. `said` is the status line's.
+function leaveSpaceNow(said = `left the ${word('space')}`) {
+  entered = false;
+  viewingHome = false; // no space left to show home over
+  canvas.suspend(); // tearing the space down must not become its remembered layout
+  stopCall(); // on the call: off it (the call service only), its tiles and microphone gone
+  hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
+  closeLive(); // out of the space: the live stream goes with it (the server keeps me there for its grace)
+  syncHomeChatStream(); // and Home's, in no space, takes its place
+  paintChatConn();
+  stopCallTime();
+  syncCallControl();
+  closeMic();
+  closePopout();
+  canvas.closeBuiltin('conference');
+  setStatus(said);
+  forgetSpace();
+  currentSpace = null;
+  currentLayoutTab = 'workspace'; // the tab is remembered for the visit only
+  canvas.refresh(null);
+  refreshLayouts(); // no space, no layouts
+  document.body.classList.remove('in-space');
+  $('canvas').hidden = true;
+  resetRecallButton();
+  updateRecallButton(); // no room, so the tool's own `visible` hides it
+  clearInterval(recallTimer);
+  $('recall-overlay').hidden = true;
+  // A guest has no session and no room to pick from -- back to their own
+  // name-only form for the one space their link is for, not the real
+  // members' space list (which they can't do anything with anyway).
+  $('join').hidden = !!guestToken;
+  $('guest-join').hidden = !guestToken;
+  $('away').hidden = true;
+  updateCrumb();
+  asideSelection.clear();
+  updateAsideConfirm();
+  // Not setAway(false): that would try to re-enable mic/camera on a
+  // participant that's already gone. Just drop the stale state so the
+  // next space starts clean, not still marked away from the last one.
+  $('away-overlay').hidden = true;
+  isAway = false;
+  awayMessage = '';
+  awayRestartCam = false;
+  $('away-toggle').classList.remove('off');
+  $('away-toggle').dataset.tip = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
+  for (const [, tile] of tiles) tile.remove();
+  tiles.clear();
+  for (const [, tile] of ghostTiles) tile.remove();
+  ghostTiles.clear();
+  canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
+  $('messages').textContent = '';
+  closeHostMenu();
+  if ($('chat-views')) $('chat-views').hidden = true;
+  toggleChat(false);
+  toggleTray(false);
+  loadPresence();
+}
+
+// An aside's nudge, from the live stream (openLive's onAside; the server's POST /api/asides, /recall and /return), with
+// its `spaceId`. Deferred a tick, so the stream's own event finishes first.
+function asideNudge(data) {
+  // Someone pulled me aside. An owner's word is final -- just go. A peer's "Privately" needs this end to actually agree
+  // to it first.
+  if (data.type === 'aside-pull') {
+    if (data.byOwner) {
+      setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
+    } else {
+      setTimeout(async () => {
+        if (await confirmDialog({ title: `${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`, action: 'Join' })) {
+          reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
+        }
+      }, 0);
+    }
+  }
+  // The other member of a pull-aside space clicked "Rejoin call"; follow them there instead of being left behind.
+  else if (data.type === 'aside-return') {
+    setTimeout(() => reconnectTo(data.spaceId, 'back to the call...', { keepCall: true }), 0);
+  }
+  // Someone just got pulled into an aside: prime the local data so their tile can turn into an "in an aside"
+  // placeholder right away, without waiting for the next /api/presence poll. The server sends this to everyone in the
+  // space, those pulled too, and their join can find this entry before presence answers. It has no origin, so it is
+  // marked pending: presence replaces it (adoptPendingSpace), and with the origin "Rejoin call" shows in the aside. It
+  // says whether the aside is private: then the placeholders never name who it is with: a private one's message carries
+  // no members, and its entry keeps none even when one does (so it reads "Private", never "Private with ..."). Presence
+  // names only the space they stepped out of to those outside the aside (decision 6), so what the message said is kept
+  // for the placeholders (startedAsides).
+  else if (data.type === 'aside-started') {
+    const priv = data.private !== false; // not said reads as private: never name who it is with by mistake
+    const said = Array.isArray(data.members) ? data.members.filter((k) => typeof k === 'string') : [];
+    if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: priv ? [] : said, private: priv, pending: true }));
+    for (const key of said) {
+      startedAsides.set(key, { private: priv, members: priv ? [] : said, at: Date.now() });
+      const user = presenceUsers.get(key);
+      if (user) { user.online = true; user.space = data.spaceId; user.aside = true; user.asidePrivate = priv; user.elsewhere = false; user.inCall = false; }
+    }
+    reconcileGhostTiles();
+    // A private one names nobody, so who stepped out comes from presence (asidePrivate): ask now, not at the next poll.
+    if (priv || !said.length) loadPresence();
+  }
+  // The admin clicked "Pull participants back" in the space this Private Conversation came from: warn, don't yank -- a
+  // countdown, then go.
+  else if (data.type === 'aside-recall') {
+    startRecallCountdown(data.spaceId, data.spaceName);
+  }
+}
+// Kicked (the live stream's `removed { reason: 'kicked' }`): out of the space, as leaving it. The server also takes them
+// off the call, whose Disconnected may get here first (the call ends; the space is left here).
+function leaveKicked() {
+  forgetSpace();
+  if (entered) leaveSpaceNow(`removed from the ${word('space')}`);
+  else loadPresence();
+}
 
 async function fillDevices() {
   // Do not let the device list ask for permissions again: a denied camera
@@ -5232,8 +5373,8 @@ async function fillDevices() {
 // Into a space I was invited to (or started): the one I am in is left for it.
 async function joinInvitedSpace(spaceId) {
   if (isHomeRecord(spaceId)) return landOnHome(); // an old link or invitation to the Lobby: Home, over a space kept
-  if (call.state === 'connected' && currentSpace?.id === spaceId) return returnToCanvas();
-  if (call.state === 'connected') return reconnectTo(spaceId);
+  if (entered && currentSpace?.id === spaceId) return returnToCanvas();
+  if (entered) return reconnectTo(spaceId);
   return join(spaceId);
 }
 // An invitation accepted on this page (the toast in brand.js asks; a page that handles it says so).
@@ -5251,24 +5392,25 @@ async function openInSpace(spaceId, moduleId, ref) {
     else location.href = href;
     return;
   }
-  if (call.state === 'connected' && currentSpace?.id === spaceId) {
+  if (entered && currentSpace?.id === spaceId) {
     returnToCanvas();
     canvas.open(moduleId);
     canvas.openRef(ref);
     return;
   }
   canvas.requestOpen(moduleId, ref);
-  if (call.state === 'connected') await reconnectTo(spaceId);
+  if (entered) await reconnectTo(spaceId);
   else await join(spaceId);
 }
 // A pull (into an aside, or back: "Pull participants back", "Rejoin call", following the others back) moves the call
 // with you (Thomas, 2026-09-30, "Pull keeps you on the call"): `keepCall` says this is one, and if I was on the call I
 // am on the new one without a click, through the same join check and microphone rules as a click (startCall). Out of
 // the call, I land out of it. Going somewhere myself (an invitation, a module opened from the dashboard) never joins.
+// Moving is leaving this space (its live stream closes, the call here ends) and entering the next (its live stream opens).
 async function reconnectTo(spaceId, statusText, { keepCall = false } = {}) {
-  const stayOnCall = Boolean(keepCall) && inCall; // read before the disconnect, which ends the call here
-  if (statusText) setStatus(statusText);
-  await call.disconnect().catch(() => {});
+  const stayOnCall = Boolean(keepCall) && inCall; // read before leaving, which ends the call here
+  if (entered) leaveSpaceNow(statusText || `left the ${word('space')}`);
+  else if (statusText) setStatus(statusText);
   await join(spaceId, { joinCall: stayOnCall, pull: true });
 }
 
@@ -5344,7 +5486,7 @@ async function leaveSpace() {
   if (currentSpace?.isAside) {
     await api('POST', '/api/asides/return').catch(() => {});
   }
-  call.disconnect();
+  if (entered) leaveSpaceNow();
 }
 
 // The breadcrumb in the top bar's anchor (plan-primary-nav.md, decision 14): nothing on home; in a space, its name,
@@ -5360,7 +5502,7 @@ function crumbSegmentHtml(seg, icon) {
   return `<div class="crumb-here core-link"${seg.current ? ' aria-current="location"' : ''} title="${escapeHtml(seg.label)}">${inner}</div>`;
 }
 function updateCrumb() {
-  const connected = call.state === 'connected' && currentSpace;
+  const connected = entered && currentSpace;
   setPresentSpace(connected ? (currentSpace.isAside ? currentSpace.origin || null : currentSpace.id) : null);
   document.body.classList.toggle('in-aside', Boolean(connected) && inAside()); // an aside's column is the whole screen (style.css)
   // What the anchor shows is anchorSegments() (primary-nav.js, held by check-nav): the space's breadcrumb, nothing while
@@ -5391,139 +5533,174 @@ function updateCrumb() {
 }
 
 // `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins by itself, unless the
-// environment's "join the call on entering" is on (autoJoinOnEntry, in connectAndSetup). `pull`: this is a pull, not
+// environment's "join the call on entering" is on (autoJoinOnEntry, in enterSpace). `pull`: this is a pull, not
 // the person entering again, so having left the call still counts (leftCall stays).
+// Entering is opening the space's live stream (openLive): its first `ready` is the server's yes, its refusal the error
+// said on Home (no such space, not one of mine). The call service is never asked.
 async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) {
   if (isHomeRecord(spaceId)) return landOnHome(); // the Lobby is Home now (plan-home-lobby.md, step 2): never entered
   if (!pull) leftCall = false; // entering again: a person who left the call may be joined again
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
-  homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (connectAndSetup)
+  homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (enterSpace)
   hideHomeChat();
   currentLayoutTab = 'workspace'; // entering a space opens on the Workspace tab (plan-layout-views.md), never the last space's
   $('join-error').hidden = true;
   for (const b of document.querySelectorAll('[data-join]')) b.disabled = true;
+  const entry = ++entries;
+  let placed = false;
   try {
     setStatus('connecting...');
-    const { token, livekitUrl } = await api('POST', '/api/token', { space: spaceId });
     // Fresh permissions each join -- an admin may have changed them since
     // this page loaded.
     me = (await api('GET', '/api/me')).user;
-    // The call connects with the space already on the list. Presence, which asks LiveKit who is in a
-    // call, fills the rest in when it answers and does not hold the connection (GitHub #71).
+    if (entry !== entries) return; // another entry began meanwhile
+    // The space as the page already lists it; presence fills the rest in when it answers and does not hold the entry
+    // (GitHub #71).
     const known = presenceSpaces.find((r) => r.id === spaceId);
     currentSpace = known || { id: spaceId, name: spaceName, members: [], pending: true };
     if (!currentSpace.pending) spaceName = spaceDisplayName(currentSpace);
-    loadPresence();
+    placed = true;
+    await liveOpened(openLive(spaceId));
+    if (entry !== entries) return;
+    // One the page does not list yet (an aside made a moment ago, an invitation's): presence first, so an aside is
+    // entered as an aside (adoptPendingSpace), never asked for a space's modules and chat.
+    if (currentSpace.pending) await loadPresence();
+    else loadPresence();
+    if (entry !== entries) return;
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id); // asides have no modules
+    if (entry !== entries) return;
     spaceName = spaceDisplayName(currentSpace);
     applyPermissions();
     updateRecallButton();
-    await connectAndSetup(token, livekitUrl, { joinCall });
+    enterSpace({ joinCall });
   } catch (err) {
+    if (err?.closed || entry !== entries) return; // given way to another entry
+    if (placed) leaveSpaceNow(''); // back on Home, the space not kept
     setStatus('', false);
     forgetSpace(); // a space that cannot be joined is not remembered, so a reload does not try it again
     $('join-error').textContent = err.message;
     $('join-error').hidden = false;
-    await call.disconnect().catch(() => {});
   } finally {
-    for (const b of document.querySelectorAll('[data-join]')) b.disabled = false;
-    homeChatEntering = false;
-    syncHomeChat(); // in the space: nothing; refused, still on Home: Home's chat again
+    if (entry === entries) {
+      for (const b of document.querySelectorAll('[data-join]')) b.disabled = false;
+      homeChatEntering = false;
+      syncHomeChat(); // in the space: nothing; refused, still on Home: Home's chat again
+    }
+  }
+}
+// Entries counted, so one given up for another (a move while still entering) stops where it is.
+let entries = 0;
+// How long entering waits for the live stream's first answer. Past it the page goes in anyway, the stream still trying
+// (Reconnecting in Chat's status line), so a slow proxy never holds anyone at the door.
+const LIVE_ENTER_WAIT_MS = 10000;
+async function liveOpened(opened) {
+  let timer = null;
+  try {
+    await Promise.race([opened, new Promise((resolve) => { timer = setTimeout(resolve, LIVE_ENTER_WAIT_MS); })]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 // A guest link: locked to the one space the link is for, no space picker, no
-// account -- everything past "connect" is identical to a real member's join.
-async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
+// account -- everything past the live stream opening is identical to a real member's join.
+async function joinAsGuest(joinedId, joinedName) {
   $('guest-join-error').hidden = true;
   leftCall = false; // a fresh entry
+  const entry = ++entries;
+  let placed = false;
   try {
     setStatus('connecting...');
     spaceName = joinedName;
-    // Same as a member's join: connect now, and let presence fill in members when LiveKit answers.
+    // Same as a member's join: the live stream, and presence fills in the members when it answers.
     const known = presenceSpaces.find((r) => r.id === joinedId);
     currentSpace = known || { id: joinedId, name: joinedName, members: [], pending: true };
+    placed = true;
+    await liveOpened(openLive(joinedId));
+    if (entry !== entries) return;
     loadPresence();
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id);
+    if (entry !== entries) return;
     applyPermissions();
     updateRecallButton();
-    await connectAndSetup(token, livekitUrl);
+    enterSpace();
   } catch (err) {
+    if (err?.closed || entry !== entries) return;
+    if (placed) leaveSpaceNow('');
     setStatus('', false);
     $('guest-join-error').textContent = err.message;
     $('guest-join-error').hidden = false;
-    await call.disconnect().catch(() => {});
   }
 }
 
-// Shared by join() and joinAsGuest() once a LiveKit token is in hand:
-// connect, reveal the canvas, and open what this space starts with.
-// Errors propagate to whichever of those called it, to land on the right error message.
-// Nothing is received until the conference starts, so autoSubscribe is off.
-async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
-    await call.connect(livekitUrl, token, { autoSubscribe: false });
-    console.debug('[app] connected to', currentSpace.id);
-    // Everyone connects out of the call (the token's "call" attribute is off); entering never joins. Said again here
-    // in case a token ever says otherwise, else others would draw a tile and list this person as on the call.
-    if (call.localParticipant.attributes?.call !== 'off') await call.localParticipant.setAttributes({ call: 'off' }).catch(() => {});
-    await syncAwayAttributes(); // away before the call service was reached: said now
-    if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
-    $('join').hidden = true;
-    $('guest-join').hidden = true;
-    $('canvas').hidden = false;
-    viewingHome = false; // every way into a space (join, a pull, an invitation, a reload) lands here
-    updateCrumb();
-    document.body.classList.add('in-space');
-    wake();
-    setStatus(`in ${spaceName}`);
-    if (!currentSpace.isAside) {
-      renderChatHistory(currentSpace.id);
-      if (chatInput) chatInput.loadThread();
-      loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
-    }
-    syncGuestChatStream(); // a guest in the Lobby reads its chat from the server too (GitHub #289)
-    canvas.updateMenu();
-    // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
-    // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
-    const firstTab = canvas.restore(); // 'calendar' or 'map' when a first visit opens on that tab (plan-layout-views.md, step 5)
-    applyColumnPref(); // the always-on column, open or a rail, as this space was left
-    const enteredId = currentSpace.id;
-    refreshLayouts().then(() => showFirstVisitTab(firstTab, enteredId)); // and its saved layouts
-    syncCallControl(); // who is in the call, for the conference's "Not in a call" note
-    // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
-    // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
-    // refusal is said in the "Not in a call" note as for a click. The environment's "join the call on entering"
-    // (GitHub #199, autoJoinOnEntry) joins the same way, once per entry; blocked or refused, the Join row stays.
-    if (joinCall || autoJoinOnEntry()) joinTheCall();
+// Shared by join() and joinAsGuest() once the live stream has opened: in the space, the canvas shown, and what this
+// space starts with opened. No call: that is Start or Join call (startCall).
+function enterSpace({ joinCall = false } = {}) {
+  entered = true;
+  console.debug('[app] in', currentSpace.id);
+  if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
+  $('join').hidden = true;
+  $('guest-join').hidden = true;
+  $('canvas').hidden = false;
+  viewingHome = false; // every way into a space (join, a pull, an invitation, a reload) lands here
+  updateCrumb();
+  document.body.classList.add('in-space');
+  wake();
+  setStatus(`in ${spaceName}`);
+  if (!currentSpace.isAside) {
+    renderChatHistory(currentSpace.id);
+    if (chatInput) chatInput.loadThread();
+    loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
+  }
+  canvas.updateMenu();
+  // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
+  // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
+  const firstTab = canvas.restore(); // 'calendar' or 'map' when a first visit opens on that tab (plan-layout-views.md, step 5)
+  applyColumnPref(); // the always-on column, open or a rail, as this space was left
+  const enteredId = currentSpace.id;
+  refreshLayouts().then(() => showFirstVisitTab(firstTab, enteredId)); // and its saved layouts
+  syncCallControl(); // who is in the call, for the conference's "Not in a call" note
+  // An aside is the call only: its conference shows, "Not in a call" with Join the call until someone joins.
+  if (currentSpace.isAside && !joinCall) canvas.showBuiltin('conference');
+  // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
+  // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
+  // refusal is said in the "Not in a call" note as for a click. The environment's "join the call on entering"
+  // (GitHub #199, autoJoinOnEntry) joins the same way, once per entry; blocked or refused, the Join row stays.
+  if (joinCall || autoJoinOnEntry()) joinTheCall();
 }
 
-// Start the conference: tiles for everyone in it, their media, and my own microphone.
+// Start the conference: connect to the call service, tiles for everyone in it, their media, and my own microphone.
 // Runs only on a join: a click (the green phone or "Join the call"), or a pull that finds me on the call, which joins
-// the new space's call from connectAndSetup() (entering a space otherwise never joins).
-// The server is asked first (POST /api/call/join, the calls cap); a refusal is said in the "Not in a call" note and
-// nothing is asked of the microphone. Every wait after that can outlast a stop (Hang up, the Conference switched off,
-// the call gone): after each one the join backs out if that happened, releasing what it got, and never publishes the
-// microphone or says "on" after a stop.
+// the new space's call from enterSpace() (entering a space otherwise never joins).
+// The server is asked first (POST /api/call/join: the calls cap, then the call's token, the only way to one); a refusal
+// is said in the "Not in a call" note and nothing is asked of the microphone. Then the call service, with that token: if
+// it can't be reached (none running, none set up), the note says the call could not start, and the space goes on as it
+// was. Every wait can outlast a stop (Hang up, the Conference switched off, leaving): after each one the join backs out
+// if that happened, releasing what it got, and never publishes the microphone or says "on" after a stop.
 let callGeneration = 0; // stopCall() counts it up, so a join still waiting sees it was stopped
 let callJoining = null; // the join under way, until it is in the call or has backed out
 async function startCall() {
   if (callJoining) await callJoining; // a join stopped part-way backs out first: the two would share the microphone
-  if (inCall || callJoining || call.state !== 'connected') return;
+  if (inCall || callJoining || !entered || !currentSpace) return;
   const generation = callGeneration;
-  const stopped = () => generation !== callGeneration || call.state !== 'connected' || !canvas.builtinOpen('conference');
+  // A stop came meanwhile (stopCall counts callGeneration up: a hang up, leaving, the call service dropping the join),
+  // or the conference closed.
+  const stopped = () => generation !== callGeneration || !entered || !canvas.builtinOpen('conference');
   // Back out of a stopped join. If nothing has stopped the call yet (the call or the module went some other way),
-  // stop it now, which unpublishes and releases everything; else release what this join got after the stop.
+  // stop it now, which disconnects and releases everything; else release what this join got after the stop.
   const backOut = async (published) => {
     if (inCall && generation === callGeneration) { await stopCall(); return; }
     if (published && call.state === 'connected') await call.localParticipant.unpublishTrack(published, true).catch(() => {});
+    await disconnectCall(); // what this join connected, if it got that far
     closeMic();
   };
   let settle;
   callJoining = new Promise((resolve) => { settle = resolve; });
   try {
     setJoinProblem('');
+    let ticket = null; // the call's token, the only one there is (the server mints it only here)
     try {
-      await api('POST', '/api/call/join', guestToken ? { guest: guestToken } : { space: currentSpace?.id });
+      ticket = await api('POST', '/api/call/join', guestToken ? { guest: guestToken, pass: guestPass } : { space: currentSpace?.id });
     } catch (err) {
       // The server's own sentence when it gave one (the calls cap's refusal); anything else (no answer, a 500 page, a
       // proxy's 502) is said plainly, never as "HTTP 500".
@@ -5531,16 +5708,25 @@ async function startCall() {
       return;
     }
     if (stopped()) return;
+    await disconnectCall(); // a call still closing (a hang up a moment ago, a move) finishes first
+    if (stopped()) return;
+    // Nothing is received until the tracks are asked for (subscribeAll), so autoSubscribe is off.
+    try {
+      await call.connect(ticket.livekitUrl, ticket.token, { autoSubscribe: false });
+    } catch (err) {
+      console.warn('[app] the call service:', err.message);
+      if (!stopped()) setJoinProblem('Call not started: voice and video are unreachable.');
+      return await backOut();
+    }
+    if (stopped()) return await backOut();
+    console.debug('[app] on the call in', currentSpace.id);
     inCall = true;
     startCallTime();
     syncCallControl();
     setNoCall(false);
     canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
     // "on", with away said in the same request when joining while away (or it was lost).
-    if (call.localParticipant.attributes?.call !== 'on' || awayAttributesChanged()) {
-      await call.localParticipant.setAttributes({ call: 'on', ...awayAttributes() }).catch(() => {});
-      if (stopped()) return await backOut();
-    }
+    sayPresence({ onCall: true, away: isAway, awayMessage: isAway ? awayMessage : '' });
     tileFor(call.localParticipant);
     applyMirror();
     for (const p of call.remoteParticipants.values()) {
@@ -5591,30 +5777,34 @@ async function startCall() {
     settle();
   }
 }
-// The join check's refusal (or no answer), said plainly in the "Not in a call" note; '' clears it.
+// The join check's refusal (or no answer), said plainly where the person is looking: an error notice in Chat's status
+// line (chatNotice) while the chat is in sight, else a toast (a phone showing the Conference or a module, the side
+// column collapsed, the chat closed). '' says nothing (the notice clears itself).
 function setJoinProblem(text) {
-  const el = $('no-call-error');
-  if (!el) return;
-  el.textContent = text;
-  el.hidden = !text;
+  if (!text) return;
+  if (chatInSight()) chatNotice(text, true);
+  else noticeToast(text, { kind: 'danger' });
+}
+// Whether the chat is where the person can read it: Home's, or the space's open, not behind the collapsed column, and on
+// a phone the view being shown.
+function chatInSight() {
+  if (homeChatSpace) return true;
+  if (!canvas.builtinOpen('chat') || (canvas.columnMode() && columnCollapsed())) return false;
+  const shown = canvas.shownView();
+  return shown === null || shown === 'chat';
 }
 
-// Leave the conference and stay in the space: stop sending and receiving media, drop the
-// tiles, and tell everyone I am not in it (the "call" attribute), so they drop mine.
+// Leave the conference and stay in the space: disconnect from the call service (which stops sending and receiving
+// media; everyone else drops my tile as I leave it there), drop the tiles, and say I am off the call on the live stream.
+// All but the disconnect happens at once, so leaving the space (leaveSpaceNow) can go on straight after.
 async function stopCall() {
   callGeneration += 1; // a join still under way backs out (it may not be in the call yet)
   setJoinProblem('');
   if (!inCall) return;
   inCall = false;
   stopCallTime();
-  if (call.state === 'connected') {
-    // Away ends with the call (below), so it is cleared for everyone with it.
-    await call.localParticipant.setAttributes({ call: 'off', away: 'off', awayMessage: '' }).catch(() => {});
-    for (const pub of [...call.localParticipant.trackPublications.values()]) {
-      if (pub.track) await call.localParticipant.unpublishTrack(pub.track, true).catch(() => {});
-    }
-    for (const p of call.remoteParticipants.values()) for (const pub of p.trackPublications.values()) pub.setSubscribed(false);
-  }
+  sayPresence({ onCall: false, away: false, awayMessage: '' }); // away ends with the call (below)
+  const ending = disconnectCall(); // the call service only: the page stays in the space
   closeMic();
   // Away is a conference state: going out of the call ends it without a word to anyone.
   $('away-overlay').hidden = true;
@@ -5635,10 +5825,11 @@ async function stopCall() {
   $('screen-share').classList.remove('on');
   toggleTray(false);
   closeSettings();
-  setStatus(`in ${spaceName}`);
+  if (entered) setStatus(`in ${spaceName}`);
   syncCallControl();
   syncShareLift(); // the tiles are gone: a lifted conference goes back into the column
   canvas.updateMenu(); // and loses it
+  await ending;
 }
 
 // The hang-up button. In a pop-out window the canvas comes back to the page first, since the
@@ -5668,7 +5859,7 @@ function setNoCall(off) {
   h.querySelector('i').className = 'fa-solid fa-phone fa-fw'; // the handset, turned down to hang up (style.css)
 }
 // Join the call from outside the conference: the space bar's Join the call, and a pull that finds me on the call
-// (connectAndSetup). Shows the Conference the way its Show switch does (canvas.showBuiltin: opened if hidden, brought
+// (enterSpace). Shows the Conference the way its Show switch does (canvas.showBuiltin: opened if hidden, brought
 // into view on a phone), so its "Not in a call" note is there to say a refusal, then joins through startCall(), the
 // one join path. Nothing happens where the conference may not open.
 function joinTheCall() {
@@ -5963,7 +6154,6 @@ $('chat-more').addEventListener('click', (event) => {
           return;
         }
         dropSharedChat();
-        publishChat({ type: 'chat-clear' });
         try {
           localStorage.removeItem(chatHistoryKey(space.id));
           localStorage.removeItem(chatClearedKey(space.id));
@@ -6017,6 +6207,7 @@ const chatInput = attachChatInput({
   frameMessage,
   addStored: (m, opts) => addStoredMessage(m, opts),
   openMenu: openHostMenu,
+  pictureBlob: (entry) => pictureBlob(entry),
   // Chat in sight: open, and not behind the column's collapsed rail.
   isShown: () => Boolean(homeChatSpace) || (canvas.builtinOpen('chat') && !(canvas.columnMode() && columnCollapsed())),
   // The Assistant's new results count on the rail and Chat's switch too (GitHub #203).
@@ -6833,7 +7024,7 @@ document.addEventListener('app:enter-space', (event) => {
   if (!id || guestToken) return;
   event.preventDefault();
   if (!$('page-overlay-frame').hidden) closeOverlay();
-  const connected = call.state === 'connected' && currentSpace;
+  const connected = entered && currentSpace;
   // The switcher's last entry, Leave (plan-one-bar.md, step 5): what the space bar's Leave button does (on a phone it
   // is still there, in the tab bar). Present nowhere, there is nothing to leave.
   if (action === 'leave') {
@@ -6907,7 +7098,7 @@ function showSpaceList() {
 // renderSpaces()) and offers "Rejoin" instead of "Join" -- no network round
 // trip needed, just the same view swap back.
 function returnToCanvas() {
-  if (call.state !== 'connected') return;
+  if (!entered) return;
   $('join').hidden = true;
   $('guest-join').hidden = true;
   $('canvas').hidden = false;
@@ -6931,11 +7122,11 @@ function goHome(event) {
 // --- Home's chat column (plan-home-lobby.md, step 3) -----------------------------------------------------------------
 // While Home shows with no space entered (signed in, never a guest, allowed to read chat), the one #chat moves into
 // Home's left column (#home-chat-slot), pointed at Home's chat: the hidden Lobby record's (`lobby`, decision 6) history,
-// sends through the same routes, Discussion and Assistant, and what others say live from the server's stream
-// (GET /api/spaces/lobby/chat/stream, step 1), since Home holds no call. Entering a space takes it back to the canvas,
-// which places it in the space's column as before. Home over a space (present in one, decision 7, step 4) moves the
-// same #chat into Home's column too, the space's messages kept aside (homeChatStash) and given back, with what its call
-// said meanwhile, on Back to <space>; Home's unread count shows on the Home link while Home is out of sight.
+// sends through the same routes, Discussion and Assistant, and what others say live from the live stream (GET
+// /api/live: the Lobby's chat rides every page's stream). Entering a space takes it back to the canvas, which places it
+// in the space's column as before. Home over a space (present in one, decision 7, step 4) moves the same #chat into
+// Home's column too, the space's messages kept aside (homeChatStash) and given back, with what its stream said
+// meanwhile, on Back to <space>; Home's unread count shows on the Home link while Home is out of sight.
 const HOME_CHAT = 'lobby';
 // The Lobby is Home now (plan-home-lobby.md, step 2; decision 6 keeps its record as Home's hidden backing): no card,
 // no switcher entry, no Set up, never entered by a signed-in person. Old ways in (/#join=lobby, a reload that remembers
@@ -6955,7 +7146,6 @@ function landOnHome() {
   syncHomeChat();
 }
 let homeChatEntering = false; // join() under way: the chat is the space's from its first moment
-let homeChatStream = null;
 // Which Home's chat is wanted now: 'home' while Home shows with no space entered (as step 3 built it), 'over' while
 // Home shows over a space this page is still present in (Home over a space, decision 7: the space's call goes on
 // underneath, Away set by showSpaceList), '' otherwise. Never for a guest. Not over an aside (it has no chat), and not
@@ -6963,9 +7153,9 @@ let homeChatStream = null;
 function homeChatWanted() {
   const allowed = Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering && !$('join').hidden;
   if (!allowed) return '';
-  if (!currentSpace && call.state !== 'connected' && !document.body.classList.contains('in-space')
+  if (!currentSpace && !entered && !document.body.classList.contains('in-space')
     && canDo('chatRead') && !canvas.builtinOpen('chat')) return 'home';
-  if (currentSpace && viewingHome && call.state === 'connected' && !inAside() && !pipWindow
+  if (currentSpace && viewingHome && entered && !inAside() && !pipWindow
     && !document.body.classList.contains('in-space') && canDo('chatRead') && !canvas.builtinWindow('chat')) return 'over';
   return '';
 }
@@ -6981,7 +7171,7 @@ function syncHomeChat() {
   if (want) showHomeChat(want);
 }
 // Home over a space: what the space's chat had (its messages as drawn, pictures included, its log, its unread number,
-// where #chat sat), kept while Home's chat shows, given back by hideHomeChat. `parked`: what the space's call said of its
+// where #chat sat), kept while Home's chat shows, given back by hideHomeChat. `parked`: what the live stream said of the space's
 // chat meanwhile (parkSpaceChat), read in order once the space's chat is back. Null with no space under Home's chat.
 let homeChatStash = null;
 const PARKED_MAX = 500;
@@ -7009,7 +7199,7 @@ function showHomeChat(mode = 'home') {
   $('messages').textContent = '';
   $('home-chat-slot').appendChild(chat);
   chat.hidden = false;
-  $('chat-pic').hidden = true; // a picture travels over the call, and Home holds none
+  $('chat-pic').hidden = true; // pictures are a space's, never Home's
   renderChatHistory(HOME_CHAT);
   chatInput.loadThread();
   loadLinkKeeper(HOME_CHAT);
@@ -7028,8 +7218,8 @@ function hideHomeChat() {
   homeChatStash = null;
   const chat = $('chat');
   if (stash) {
-    // Back to the space (Back to <space>, the switcher, leaving): its chat as it was, where it was, then what its call
-    // said meanwhile. The call never dropped (decision 7).
+    // Back to the space (Back to <space>, the switcher, leaving): its chat as it was, where it was, then what the live
+    // stream said of it meanwhile. The call never dropped (decision 7).
     chatLog.length = 0;
     $('messages').replaceChildren(...stash.nodes);
     chatLog.push(...stash.log);
@@ -7055,144 +7245,67 @@ function hideHomeChat() {
   chatInput.loadThread();
   applyPermissions(); // the picture button as the permissions say
 }
-// A chat stream kept live (Home's, a guest's in the Lobby). EventSource gives up for good on an answer that isn't 200
-// (a cap's 429, a 401) and nobody would know, so on any `error` the stream is closed here and opened again after 2, 4,
-// 8 ... seconds (60 at most), up to CHAT_STREAM_TRIES times in a row; a stream that reached `ready` starts the count
-// again. Each connection starts with `ready`, and every `ready` after the first catches up from the history
-// (`catchUp`). A connection that never got going is asked once more with a plain fetch to learn why: a refusal (401,
-// 403, 429), like the server's own last `closed` event, is not tried again, and the page says once that live chat is
-// paused. Answers { close() }; `onData(data)` gets every other event.
-const CHAT_STREAM_TRIES = 8;
-let chatPausedSaid = false;
-function sayChatPaused() {
-  if (chatPausedSaid) return;
-  chatPausedSaid = true;
-  chatStream = 'paused';
-  paintChatConn();
-}
-function sayChatFailed() {
-  if (chatPausedSaid) return;
-  chatPausedSaid = true;
-  chatStream = 'failed';
-  paintChatConn();
-}
-async function chatStreamStatus(url) {
-  const ctl = new AbortController();
-  try {
-    const res = await fetch(url, { signal: ctl.signal, headers: { accept: 'text/event-stream' }, cache: 'no-store' });
-    ctl.abort(); // a 200 is a stream: let it go at once
-    return res.status;
-  } catch {
-    return 0; // the network, or the server is not there: try again later
-  }
-}
-function liveChatStream(url, { onData, catchUp }) {
-  let source = null;
-  let timer = null;
-  let tries = 0;
-  let readies = 0;
-  let stopped = false;
-  let unreachable = false; // the last try did not reach the server at all
-  const stop = () => {
-    stopped = true;
-    clearTimeout(timer);
-    timer = null;
-    source?.close();
-    source = null;
-  };
-  const pause = () => {
-    stop();
-    if (unreachable) return sayChatFailed(); // the server never answered: say so, not "paused"
-    sayChatPaused();
-  };
-  const again = async (wasLive) => {
-    chatStream = 'reconnecting';
-    paintChatConn();
-    if (!wasLive) {
-      const status = await chatStreamStatus(url);
-      if (stopped) return;
-      unreachable = status === 0;
-      if (status === 401 || status === 403 || status === 429) return pause();
-    }
-    tries += 1;
-    if (tries > CHAT_STREAM_TRIES) return pause();
-    timer = setTimeout(open, Math.min(60000, 2000 * 2 ** (tries - 1)));
-  };
-  function open() {
-    timer = null;
-    if (stopped) return;
-    const es = new EventSource(url);
-    let live = false;
-    es.addEventListener('message', (event) => {
-      if (source !== es) return;
-      let data = null;
-      try { data = JSON.parse(event.data); } catch { return; }
-      if (data?.type === 'ready') {
-        live = true;
-        chatStream = 'live';
-        unreachable = false;
-        paintChatConn();
-        tries = 0;
-        readies += 1;
-        if (readies > 1) catchUp(); // back after a drop: what was said meanwhile
-        return;
-      }
-      if (data?.type === 'closed') {
-        pause(); // the server ended it and will not take it back (a guest link turned off, a session that no longer reads)
-        return;
-      }
-      onData(data);
-    });
-    es.addEventListener('error', () => {
-      if (source !== es) return;
-      es.close();
-      source = null;
-      again(live);
-    });
-    source = es;
-  }
-  open();
-  return { close: stop };
-}
-// Home's chat stream (GET /api/spaces/lobby/chat/stream, step 1) is open whenever this page is signed in and may read
-// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). Kept live by liveChatStream.
+// Home's chat (the Lobby's) comes on the live stream (openLive): in a space its stream carries it too; on Home, signed in
+// and allowed to read the chat, the page holds one in no space. Drawn into Home's chat while it shows, else counted for
+// the Home link (decision 8).
 function homeStreamWanted() {
   return !guestToken && Boolean(me?.key) && me.role !== 'guest' && (hasOwnerRights(me) || Boolean(me.permissions?.chatRead));
 }
 function syncHomeChatStream() {
+  if (liveSpaceId) return; // in a space or an aside: its live stream carries Home's chat too
   if (homeStreamWanted()) {
-    if (!homeChatStream) openHomeChatStream();
+    if (!liveStream) openLive(null);
   } else {
-    closeHomeChatStream();
+    closeLive();
     if (homeUnreadIds.size) setHomeUnread(0);
   }
 }
-function openHomeChatStream() {
-  closeHomeChatStream();
-  if (typeof EventSource !== 'function') return;
-  homeChatStream = liveChatStream(`/api/spaces/${HOME_CHAT}/chat/stream`, { onData: homeChatNotice, catchUp: catchUpHomeChat });
-}
-function closeHomeChatStream() {
-  homeChatStream?.close();
-  homeChatStream = null;
-}
-// What the stream says, read as the call's chat notices are (RoomEvent.DataReceived) with no sender: the server's word.
-// A message of my own is drawn from the answer to my own request, as in a space. Any other type is left alone. With
-// Home's chat out of sight, a new public message from someone else counts on the Home link instead.
-function homeChatNotice(data) {
+// A chat event from the live stream (space-live.js), each with its `space`: the chat of the space this page is in (a
+// guest's in the Lobby too), else Home's (the Lobby's, never a guest's).
+function liveChatNotice(data) {
   if (!data || typeof data.type !== 'string') return;
+  if (liveSpaceId && data.space === liveSpaceId && currentSpace?.id === liveSpaceId) {
+    // The space's chat, heard while Home's chat shows over the space (plan-home-lobby.md, step 4): kept, and read in
+    // order once the space's chat is back (hideHomeChat), so nothing said in the space lands in Home's chat.
+    if (parkSpaceChat(() => applyChatNotice(data))) return;
+    applyChatNotice(data);
+  } else if (data.space === HOME_CHAT && !guestToken) homeChatNotice(data);
+}
+// What the live stream says of the chat in sight, the server's word. A message or a picture already drawn (my own, from
+// the answer to my own request) is not drawn again; one of mine from another tab is drawn as mine.
+function applyChatNotice(data) {
+  if ((data.type === 'chat' || data.type === 'chat-picture') && chatIdOk(data.id)) {
+    if (!canDo('chatRead') || chatMessageNode(data.id)) return;
+    const entry = data.type === 'chat' ? storedEntry(data) : pictureEntry(data);
+    if (entry) addEntry(entry, Boolean(me?.key && !guestToken && entry.by === me.key));
+  } else if (data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data);
+  else if (data.type === 'chat-visibility') applyVisibilityNotice(data);
+  else if (data.type === 'chat-clear-some') applyClearNotice(data);
+  else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data);
+  else if (data.type === 'chat-clear') dropSharedChat();
+}
+// Home's chat: drawn while it shows, else a new public message from someone else counts on the Home link.
+function homeChatNotice(data) {
   if (!homeChatSpace) {
     countHomeNotice(data);
     return;
   }
-  if (data.type === 'chat' && chatIdOk(data.id)) {
-    if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
-    addEntry(storedEntry(data), false);
-  } else if (data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, null);
-  else if (data.type === 'chat-visibility') applyVisibilityNotice(data, null);
-  else if (data.type === 'chat-clear-some') applyClearNotice(data, null);
-  else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
-  else if (data.type === 'chat-clear') dropSharedChat();
+  applyChatNotice(data);
+}
+// Back after the live stream dropped (the server restarted, the network went): the history again, for Home's chat and
+// for the space's chat in sight.
+async function catchUpLiveChat() {
+  if (!guestToken) catchUpHomeChat();
+  const id = liveSpaceId;
+  if (!id || inAside() || homeChatSpace || !canDo('chatRead')) return;
+  let got = null;
+  try {
+    got = await fetchChatHistory(id);
+  } catch {
+    return; // the next reconnect tries again
+  }
+  if (liveSpaceId !== id || homeChatSpace) return;
+  mergeChatHistory(got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt));
 }
 // --- Home's unread count on the Home link (plan-home-lobby.md, decision 8, step 4) ---
 // The ids counted, so a delete, a clear or a message made private takes them off again, and a catch-up never counts one
@@ -7263,50 +7376,6 @@ function mergeChatHistory(history) {
     if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
     addEntry(entry, ownEntry(entry));
   }
-}
-// --- A guest on the Lobby's guest link (GitHub #289) -----------------------------------------------------------------
-// Home's chat is the Lobby's chat, and a guest has no Home: the guest's page is in the Lobby's call, its chat in the
-// column, posting through the same route with the guest token. What is said from Home reaches the call too (the server
-// relays it), but the guest also reads the Lobby's chat stream with their token (GET /api/spaces/lobby/chat/stream?guest=),
-// read as the call's notices are (a repeat of one already drawn is ignored), so nothing depends on the call carrying it;
-// every `ready` after the first catches up from the history. The server ends it with a last `closed` once the guest
-// link is turned off or regenerated. No Assistant and no commands for a guest: those stay as they are.
-let guestChatStream = null;
-function guestStreamWanted() {
-  return Boolean(guestToken) && currentSpace?.id === LOBBY && call.state === 'connected' && canDo('chatRead');
-}
-function syncGuestChatStream() {
-  if (!guestStreamWanted()) {
-    closeGuestChatStream();
-    return;
-  }
-  if (guestChatStream || typeof EventSource !== 'function') return;
-  // Kept live by liveChatStream; the server's last `closed` (the guest link turned off) ends it for good.
-  guestChatStream = liveChatStream(`/api/spaces/${LOBBY}/chat/stream?guest=${encodeURIComponent(guestToken)}`, { onData: guestChatNotice, catchUp: catchUpGuestChat });
-}
-function closeGuestChatStream() {
-  guestChatStream?.close();
-  guestChatStream = null;
-}
-function guestChatNotice(data) {
-  if (!data || typeof data.type !== 'string' || !guestStreamWanted()) return;
-  if (data.type === 'chat' && chatIdOk(data.id)) {
-    if (!chatMessageNode(data.id)) addEntry(storedEntry(data), false);
-  } else if (data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, null);
-  else if (data.type === 'chat-visibility') applyVisibilityNotice(data, null);
-  else if (data.type === 'chat-clear-some') applyClearNotice(data, null);
-  else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
-  else if (data.type === 'chat-clear') dropSharedChat();
-}
-async function catchUpGuestChat() {
-  let got = null;
-  try {
-    got = await fetchChatHistory(LOBBY);
-  } catch {
-    return; // the next reconnect tries again
-  }
-  if (!guestStreamWanted()) return;
-  mergeChatHistory(got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt));
 }
 // The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
 // (splitterKey); between COLUMN_MIN and the whole window, remembered in this browser (prefs.homeChatWidth). What is left
@@ -7438,33 +7507,13 @@ function updateAwayOverlay(identity, on, message) {
   }
 }
 
-// Away as everyone reads it, kept with me at the call service so that someone who joins, reloads or reconnects later
-// sees it too: the "away" attribute, 'on' or 'off' (none, for a page before it, is 'off'), and "awayMessage", '' for a
-// plain Away. setAttributes changes only the keys it is given, so these never touch "call", nor "call" these.
-function awayAttributes() {
-  return { away: isAway ? 'on' : 'off', awayMessage: isAway ? awayMessage : '' };
-}
-function awayAttributesChanged() {
-  const said = call.localParticipant?.attributes || {};
-  const want = awayAttributes();
-  return (said.away === 'on' ? 'on' : 'off') !== want.away || (said.awayMessage || '') !== want.awayMessage;
-}
-async function syncAwayAttributes() {
-  if (call.state !== 'connected' || !awayAttributesChanged()) return;
-  await call.localParticipant.setAttributes(awayAttributes()).catch(() => {});
-}
-// "call" as inCall says, with away, after a reconnect that may have put the token's attributes back.
-async function syncCallAttributes() {
-  if (call.state !== 'connected') return;
-  const want = inCall ? 'on' : 'off';
-  if (call.localParticipant.attributes?.call === want && !awayAttributesChanged()) return;
-  await call.localParticipant.setAttributes({ call: want, ...awayAttributes() }).catch(() => {});
-}
-// Someone's away mark on their tile, from their attributes; mine from my own state, since my attributes change only
-// once the call service has them.
+// Someone's away mark on their tile, from the live stream (their key there is their identity on the call, a guest's
+// too); mine from my own state, since the stream says it only once the server has it. Someone the stream does not
+// have (yet) is not marked.
 function showAway(participant) {
   if (participant.isLocal) return updateAwayOverlay(participant.identity, isAway, awayMessage);
-  updateAwayOverlay(participant.identity, participant.attributes?.away === 'on', participant.attributes?.awayMessage || '');
+  const said = livePerson(participant.identity);
+  updateAwayOverlay(participant.identity, Boolean(said?.away), said?.away ? said.awayMessage : '');
 }
 // A camera that came on during a wait after going away (a click just before, Back and away again) goes off again, and
 // comes back with Back.
@@ -7480,10 +7529,11 @@ async function keepMicOffWhileAway() {
   await call.localParticipant.setMicrophoneEnabled(false).catch(() => {});
 }
 
-async function sendAway(on, message = '') {
-  updateAwayOverlay(call.localParticipant?.identity, on, message);
-  if (call.state !== 'connected') return;
-  await syncAwayAttributes();
+// Away as everyone reads it: said on the live stream (PATCH /api/spaces/:id/presence), so someone who joins, reloads or
+// reconnects later sees it too.
+async function sendAway(on) {
+  updateAwayOverlay(me?.key, on, on ? awayMessage : '');
+  sayPresence({ away: on, awayMessage: on ? awayMessage : '' });
 }
 
 // Away means away: nobody should be hearing or seeing you while your tile
@@ -7524,7 +7574,7 @@ async function setAway(on, message = '') {
   updateCamera(call.localParticipant);
   $('away-toggle').classList.toggle('off', on);
   $('away-toggle').dataset.tip = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
-  await sendAway(on, message);
+  await sendAway(on);
 }
 
 // The away button asks for an optional message first; coming back is one click.
@@ -7603,6 +7653,7 @@ async function init() {
     allowAsides: branding.allowAsides !== false,
     allowPrivate: branding.allowPrivate !== false,
     allowReactions: branding.allowReactions !== false,
+    callService: branding.callService !== false, // the server has LiveKit; with none, no call, Conference or asides at all
     conferenceEnabled: branding.conferenceEnabled !== false,
     autoJoinCall: branding.autoJoinCall === true, // entering a space joins the call (GitHub #199); off unless the owner turned it on
   };

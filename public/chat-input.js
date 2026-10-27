@@ -457,7 +457,7 @@ export function chatDay(text, now) {
 // the content the whole text, the first link with its preview, and the day chatDay finds. Pure, for the checks.
 export function messageObjects(entry, { plain, now } = {}) {
   if (!entry || typeof entry !== 'object') return [];
-  if (entry.blob) {
+  if (entry.picture) {
     const name = oneLine(entry.name, 120) || 'picture';
     return [{ what: 'picture', objects: [{ kind: 'image', title: name, details: { name } }] }];
   }
@@ -765,7 +765,7 @@ export function marksNew(where, { view, shown, own } = {}) {
 // All takes, as on the server), or '' when there is nothing to clear: a picture (never stored), a guest's echo drawn
 // here only, an old copy kept in this browser.
 export function clearTypeOf(entry) {
-  if (!entry || !entry.stored || entry.blob) return '';
+  if (!entry || !entry.stored || entry.picture) return '';
   if (!entry.kind) return 'chat';
   if (entry.kind === 'ai' || entry.command === 'ai') return 'ai';
   if (entry.kind === 'command' && entry.module) return `module:${entry.module}`;
@@ -818,17 +818,15 @@ export function clearChoices(entries, { by, moderator = false } = {}) {
 // A clear of type chat or all also takes pictures: the person's own for 'mine', every one for 'everyone'. Pictures are
 // never stored, so this is each page's own work.
 export function clearTakesPicture(entry, { type, scope, by }) {
-  if (!entry || !entry.blob || (type !== 'chat' && type !== 'all')) return false;
+  if (!entry || !entry.picture || (type !== 'chat' && type !== 'all')) return false;
   return scope === 'everyone' || Boolean(by && entry.by === by);
 }
-// What a chat-clear-some notice takes from a page: the listed ids (never a picture by id), and pictures as
-// clearTakesPicture says. A notice from another person's page (`fromPage`) speaks only for that person: it takes only
-// `by`'s own, whatever its scope says. A clear of everyone's comes from the server's notice, which has no sender.
-export function clearNoticeTakes(entry, { ids, type, scope, by, fromPage = false }) {
+// What a chat-clear-some notice (the server's, on the live stream) takes from a page: the listed ids (never a picture by
+// id), and pictures as clearTakesPicture says.
+export function clearNoticeTakes(entry, { ids, type, scope, by }) {
   if (!entry || !by) return false;
-  if (fromPage && entry.by !== by) return false;
-  const listed = Boolean(entry.id && ids && ids.has(entry.id) && !entry.blob);
-  return listed || clearTakesPicture(entry, { type, scope: fromPage ? 'mine' : scope, by });
+  const listed = Boolean(entry.id && ids && ids.has(entry.id) && !entry.picture);
+  return listed || clearTakesPicture(entry, { type, scope, by });
 }
 
 // --- links in Chat (plan-chat-links.md, GitHub #158) ------------------------------------------------------------------
@@ -893,15 +891,6 @@ export function findLink(text) {
   }
   return '';
 }
-// What a live `chat` notice may say about its message's link: the address alone, and only the one its own text has.
-// Everything read about the page (title, description, picture, when) comes from chat-preview or the history.
-export function noticePreview(data) {
-  const p = cleanPreview(data && data.preview);
-  if (!p) return null;
-  const link = findLink(data.text);
-  return link && link === p.url ? { url: p.url } : null;
-}
-
 // The site's name, for the line under a link: its host without "www.".
 export function siteName(url) {
   try {
@@ -916,24 +905,21 @@ export function linkKeeper(actions) {
   const a = (Array.isArray(actions) ? actions : []).find((x) => x && x.name === 'saveLink' && x.input && Object.hasOwn(x.input, 'url'));
   return a ? { module: String(a.module || ''), name: String(a.moduleName || a.module || ''), may: a.may === true } : null;
 }
-// Whether a chat-preview notice may fill this message's preview: the first copy only, for a message held here that
-// has a link, never someone else's message from a page (`from`: the sending page's identity, '' for the server), and
-// only for the address the message already has.
-export function previewNoticeTakes(entry, data, from) {
+// Whether a chat-preview notice (the server's) may fill this message's preview: the first copy only, for a message held
+// here that has a link, and only for the address the message already has.
+export function previewNoticeTakes(entry, data) {
   if (!entry || !entry.id || entry.kind || !data || data.id !== entry.id) return false;
-  if (from && entry.by !== from) return false;
   if (!entry.preview || entry.preview.at) return false;
   const p = cleanPreview(data.preview);
   return Boolean(p && p.at && p.url === entry.preview.url);
 }
-// Whether a chat-kept notice may mark this message kept: the server's only (it always tells the call), and the first
-// copy only. A page's is never taken: it could name anyone.
-export function keptNoticeTakes(entry, data, from) {
-  if (from || !entry || !entry.id || !entry.preview || entry.kept || !data || data.id !== entry.id) return false;
+// Whether a chat-kept notice (the server's) may mark this message kept: the first copy only.
+export function keptNoticeTakes(entry, data) {
+  if (!entry || !entry.id || !entry.preview || entry.kept || !data || data.id !== entry.id) return false;
   return Boolean(cleanKept(data.kept));
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null, isHome = () => false }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null, isHome = () => false, pictureBlob = async (entry) => entry.blob }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // A command's own hint is left alone. In the Assistant, plain words go to the AI (routeLine), and its hint says so.
@@ -1619,9 +1605,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const { summary, target } = choice.sends[0];
     const sorry = `That picture can't be sent to ${target.moduleName}.`;
     const fail = (text) => ({ result: 'failed', text, moduleName: target.moduleName });
-    if (!(entry.blob instanceof Blob)) return fail('That picture is no longer here.');
+    let blob = await pictureBlob(entry); // the server holds a picture a short while, then it is gone
+    if (!(blob instanceof Blob)) return fail('That picture is no longer here.');
     const id = spaceId();
-    let blob = entry.blob;
     let name = summary.details.name;
     try {
       if (!/^image\/(jpeg|png|webp)$/.test(blob.type)) {

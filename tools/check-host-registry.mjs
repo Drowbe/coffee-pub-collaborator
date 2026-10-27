@@ -895,8 +895,8 @@ try {
   // --- call names against a stand-in LiveKit (plan-names decision 14; QA on step 3) ---
   // A small Twirp JSON server answering ListRooms and ListParticipants from `calls` ({ name: [person, ...] }), so
   // the calls cap and callsNow can be checked with other environments' calls running beside this one's. A person is
-  // an identity on the call (the "call" attribute 'on'), or { id, call } for one connected with another state
-  // ('off': in the space, not on the call). SendData is taken and dropped (an aside's pull sends one).
+  // an identity on the call (being at the call service is being on it: a person's token is minted only to join), or
+  // { id, hidden: true } for an OBS viewer watching it, which is no one on the call.
   const calls = {};
   const standIn = http.createServer((req, res) => {
     let body = '';
@@ -905,8 +905,7 @@ try {
       const ask = body ? JSON.parse(body) : {};
       let answer = {};
       if (req.url.endsWith('/ListRooms')) answer = { rooms: Object.entries(calls).map(([name, people]) => ({ sid: `RM_${name}`, name, numParticipants: people.length })) };
-      else if (req.url.endsWith('/ListParticipants')) answer = { participants: (calls[ask.room] || []).map((person) => { const identity = person.id || person; return { sid: `PA_${identity}`, identity, name: identity, joinedAt: '1', permission: { hidden: false }, tracks: [], attributes: { call: person.call || 'on' } }; }) };
-      else if (req.url.endsWith('/SendData')) answer = {};
+      else if (req.url.endsWith('/ListParticipants')) answer = { participants: (calls[ask.room] || []).map((person) => { const identity = person.id || person; return { sid: `PA_${identity}`, identity, name: identity, joinedAt: '1', permission: { hidden: Boolean(person.hidden) }, tracks: [] }; }) };
       else { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(answer));
@@ -930,32 +929,39 @@ try {
       const ownerKey = signIn.json.user.key;
       const keep = (await call(server, 'acme', 'POST', '/api/spaces', { cookie: owner, body: { name: 'The Keep' } })).json.space.id;
       const callsNow = async () => (await call(server, 'acme', 'GET', '/api/environment', { cookie: owner })).json.usage.callsNow;
-      const token = (space) => call(server, 'acme', 'POST', '/api/token', { cookie: owner, body: { space } });
+      const join = (space) => call(server, 'acme', 'POST', '/api/call/join', { cookie: owner, body: { space } });
+      // Whether acme's live stream opens for this person in this space (entering is that): its status, then it closes.
+      const enters = (cookie, space) => new Promise((resolve) => {
+        const req = http.request({ host: '127.0.0.1', port: server.port, path: `/api/live?space=${space}`, headers: { host: `acme.localhost:${server.port}`, cookie } }, (res) => { resolve(res.statusCode); req.destroy(); });
+        req.on('error', () => {});
+        req.end();
+      });
 
       // Other environments' calls only: new names of acme-aside and acme-table, their old shapes, and QA's acme-table-lobby.
       setCalls({ 'acme-aside.lobby': ['x1'], 'acme-table.lobby': ['x2'], 'acme-aside-table': ['x3'], 'acme-table-table': ['x4'], [`acme-table-table-${keep}`]: ['x5'], 'acme-table-lobby': ['x6'], lobby: ['x7'] });
       assert.equal(await callsNow(), 0, 'none of them is acme\'s');
-      const first = await token('lobby');
-      assert.equal(first.status, 200, `acme's owner is not refused by other environments' calls: ${first.text}`);
+      // The names, from an OBS viewer's token (a join would hold its call's slot for a moment, and the cap is asked below).
+      const streamKey = (await call(server, 'acme', 'GET', '/api/settings', { cookie: owner })).json.streamKey;
+      const watchToken = (space) => call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space } });
+      const first = await watchToken('lobby');
+      assert.equal(first.status, 200, first.text);
       assert.equal(first.json.call, 'acme.lobby', 'the new hosted name');
-      assert.equal((await token(keep)).json.call, `acme.${keep}`);
+      assert.equal((await watchToken(keep)).json.call, `acme.${keep}`);
       const presence = (await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json;
       assert.equal(presence.users.find((u) => u.key === ownerKey).online, false, 'nobody in another environment\'s call is placed here');
 
-      // Entering never joins the call: a player's and a guest's token start with the "call" attribute 'off' (the page
-      // sets 'on' on a join), asked for the call or not; an OBS viewer's carries no attribute and stays hidden.
+      // A person's token is the call's, minted only by POST /api/call/join (plan-realtime-optional-livekit.md, step 5):
+      // no "call" attribute (being there is being on the call), not hidden. POST /api/token makes only an OBS viewer's,
+      // and a guest entering gets their pass, no token.
       const claims = (jwt) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
-      assert.deepEqual(claims(first.json.token).attributes, { call: 'off' }, 'a player token starts out of the call');
-      const askedOff = await call(server, 'acme', 'POST', '/api/token', { cookie: owner, body: { space: 'lobby', call: false } });
-      assert.deepEqual([askedOff.status, claims(askedOff.json.token).attributes], [200, { call: 'off' }]);
+      const personToken = await call(server, 'acme', 'POST', '/api/token', { cookie: owner, body: { space: 'lobby' } });
+      assert.equal(personToken.status, 400, `a person's POST /api/token is gone: ${personToken.text}`);
       const guestUrl = (await call(server, 'acme', 'POST', '/api/spaces/lobby/guest-link', { cookie: owner })).json.guestUrl;
       const guestLink = guestUrl.split('/guest/')[1];
       const guestJoin = (body) => call(server, 'acme', 'POST', '/api/guest-join', { body: { token: guestLink, name: 'Wanderer', ...body } });
       const guest = await guestJoin();
       assert.equal(guest.status, 200, guest.text);
-      const guestClaims = claims(guest.json.token);
-      assert.deepEqual([guestClaims.attributes, guestClaims.video.canPublishData, guestClaims.video.canUpdateOwnMetadata], [{ call: 'off' }, true, true], 'a guest token starts out of the call, and may say when it joins');
-      const streamKey = (await call(server, 'acme', 'GET', '/api/settings', { cookie: owner })).json.streamKey;
+      assert.deepEqual([Object.keys(guest.json).sort(), guest.json.guest.name, typeof guest.json.guest.pass], [['guest', 'permissions', 'spaceId', 'spaceName'], 'Wanderer', 'string'], 'a guest entering gets their pass and no token');
       for (const viewer of [
         await call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space: keep } }),
         await call(server, 'acme', 'POST', '/api/token', { cookie: owner, body: { role: 'viewer', space: keep } }),
@@ -965,33 +971,38 @@ try {
         assert.deepEqual([v.attributes, v.video.hidden, v.video.canPublish, v.video.canPublishData, v.video.canUpdateOwnMetadata, v.name], [undefined, true, false, false, false, 'OBS'], 'an OBS viewer token is unchanged: no attribute, hidden');
       }
 
-      // The calls cap counts people on a call (the "call" attribute 'on'), never people merely in a space.
-      const join = (space) => call(server, 'acme', 'POST', '/api/call/join', { cookie: owner, body: { space } });
-      const guestCallJoin = (link, body = {}) => call(server, 'acme', 'POST', '/api/call/join', { body: { guest: link, ...body } });
+      // The calls cap counts people on a call (at the call service), never people merely in a space, nor an OBS viewer.
+      const passOf = async (link) => (await call(server, 'acme', 'POST', '/api/guest-join', { body: { token: link, name: 'Wanderer' } })).json?.guest?.pass || '';
+      const guestCallJoin = async (link, body = {}) => call(server, 'acme', 'POST', '/api/call/join', { body: { guest: link, pass: await passOf(link), ...body } });
       const keepLink = (await call(server, 'acme', 'POST', `/api/spaces/${keep}/guest-link`, { cookie: owner })).json.guestUrl.split('/guest/')[1];
       const OVER = (where) => ({ error: `This environment's plan allows 1 call at once; one is running in ${where}` });
       const consoleCallsNow = async () => Object.fromEntries((await call(server, 'admin', 'GET', '/api/host/environments', { cookie: hostCookie })).json.environments.map((e) => [e.slug, e.usage.callsNow]));
-      setCalls({ [`acme.${keep}`]: [{ id: 'm1', call: 'off' }], 'acme.lobby': [{ id: 'm2', call: 'off' }, { id: 'm3' , call: 'off' }] });
-      assert.equal(await callsNow(), 0, 'connected, in their spaces, and nobody on a call');
+      setCalls({ [`acme.${keep}`]: [{ id: 'obs-1', hidden: true }], 'acme.lobby': [{ id: 'obs-2', hidden: true }] });
+      assert.equal(await callsNow(), 0, 'only OBS viewers watching: nobody on a call');
       assert.deepEqual(await consoleCallsNow(), { acme: 0, 'acme-aside': undefined, 'acme-table': undefined }, 'the host console counts the same way; left out with no cap');
 
       // One of acme's own calls running: counted. Entering anywhere is never refused; starting a second call is, while
       // joining the running one is not.
-      setCalls({ 'acme-aside.lobby': ['x1'], [`acme.${keep}`]: [ownerKey, 'm1', { id: 'm2', call: 'off' }], 'acme.lobby': [{ id: 'm3', call: 'off' }] });
+      setCalls({ 'acme-aside.lobby': ['x1'], [`acme.${keep}`]: [ownerKey, 'm1', { id: 'obs-3', hidden: true }], 'acme.lobby': [{ id: 'obs-4', hidden: true }] });
       assert.equal(await callsNow(), 1);
       assert.equal((await consoleCallsNow()).acme, 1, 'and the host console');
-      const entered = await token('lobby');
-      assert.deepEqual([entered.status, claims(entered.json.token).attributes], [200, { call: 'off' }], 'entering over the cap is never refused');
+      assert.equal(await enters(owner, keep), 200, 'entering over the cap is never refused (the live stream opens)');
       assert.equal((await guestJoin()).status, 200, 'nor is a guest entering');
       const refused = await join('lobby');
       assert.deepEqual([refused.status, refused.json], [403, OVER('The Keep')], 'starting a second call is refused');
       const refusedGuest = await guestCallJoin(guestLink);
       assert.deepEqual([refusedGuest.status, refusedGuest.json], [403, OVER('another space')], 'a guest starting one too, never told where a space they don\'t belong to has its call');
-      assert.deepEqual([(await join(keep)).status, (await join(keep)).json], [200, { ok: true }], 'joining the running call is never refused');
-      assert.deepEqual([(await guestCallJoin(keepLink)).status, (await guestCallJoin(keepLink)).json], [200, { ok: true }]);
+      const joined = await join(keep);
+      const own = claims(joined.json.token);
+      assert.deepEqual([joined.status, joined.json.ok, joined.json.call, own.sub, own.attributes, own.video.hidden, own.video.canPublish, own.video.canUpdateOwnMetadata], [200, true, `acme.${keep}`, ownerKey, undefined, false, true, false], 'joining the running call is never refused, and its answer is the call\'s token: no attribute (being there is being on the call)');
+      assert.deepEqual(await guestCallJoin(keepLink).then((r) => [r.status, r.json.ok, typeof r.json.token]), [200, true, 'string']);
+      assert.deepEqual(await guestCallJoin(keepLink, { pass: 'not-a-pass' }).then((r) => [r.status, r.json]), [403, { error: 'that guest pass is not valid; enter again' }], 'a guest joins the call only with their pass');
       assert.equal((await call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space: 'lobby' } })).status, 200, 'an OBS viewer is never asked about the cap');
+      // Presence is the live register's: the owner is in the Keep (the stream opened above, still in its grace), and the
+      // call service is asked only while the register has someone on a call, so being at it alone puts nobody on the call
+      // (the aside below has people on the call by their page's word).
       const placed = (await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey);
-      assert.deepEqual([placed.online, placed.space, placed.inCall], [true, keep, true]);
+      assert.deepEqual([placed.online, placed.space, placed.inCall], [true, keep, false]);
 
       // The join route's own refusals.
       assert.deepEqual(await call(server, 'acme', 'POST', '/api/call/join', { body: { space: 'lobby' } }).then((r) => [r.status, r.json]), [401, { error: 'sign in first' }]);
@@ -1014,15 +1025,40 @@ try {
       assert.equal(await callsNow(), 1);
       assert.equal((await join('lobby')).status, 200, 'the Lobby\'s call is running under its old name: joining');
       assert.equal((await join(keep)).status, 403, 'a second call is refused');
-      assert.equal((await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey).space, 'lobby');
 
       // An aside is a call. Pulling everyone on a call into one moves the call (allowed); pulling some while others stay
-      // on it starts a second (refused over the cap, before anyone is pulled). Joining an aside is never refused.
+      // on it starts a second (refused over the cap, before anyone is pulled). Joining an aside is never refused. Who is
+      // in the Keep and on its call is the live register's (each opens acme's live stream there and says so).
       const pat = (await call(server, 'acme', 'POST', '/api/users', { cookie: owner, body: { login: 'pat', displayName: 'Pat', role: 'member', password: 'pat-password-1' } })).json.user.key;
+      await call(server, 'acme', 'PATCH', `/api/spaces/${keep}`, { cookie: owner, body: { members: [ownerKey, pat] } });
+      const patIn = await call(server, 'acme', 'POST', '/api/login', { body: { login: 'pat', password: 'pat-password-1' } });
+      const patCookie = [].concat(patIn.headers['set-cookie'] || []).map((c) => c.split(';')[0]).join('; ');
+      const onCallIn = (cookie, space) => new Promise((resolve, reject) => {
+        const req = http.request({ host: '127.0.0.1', port: server.port, path: `/api/live?space=${space}`, headers: { host: `acme.localhost:${server.port}`, cookie } }, (res) => {
+          assert.equal(res.statusCode, 200, 'acme\'s live stream opens');
+          let buf = '';
+          let done = false;
+          res.on('data', (d) => {
+            if (done) return;
+            buf += d;
+            const m = /data: (\{"type":"ready".*\})/.exec(buf);
+            if (!m) return;
+            done = true;
+            const stream = JSON.parse(m[1]).stream;
+            call(server, 'acme', 'PATCH', `/api/spaces/${space}/presence`, { cookie, body: { onCall: true, stream } }).then((r) => {
+              assert.equal(r.status, 200, r.text);
+              resolve(() => req.destroy());
+            }, reject);
+          });
+        });
+        req.on('error', () => {});
+        req.end();
+      });
+      const leaveLive = [await onCallIn(owner, keep), await onCallIn(patCookie, keep)];
       setCalls({ [`acme.${keep}`]: [ownerKey, pat] });
       const pulled = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
       assert.equal(pulled.status, 200, pulled.text);
-      assert.deepEqual([(await join(pulled.json.aside.id)).status, (await join(pulled.json.aside.id)).json], [200, { ok: true }]);
+      assert.deepEqual(await join(pulled.json.aside.id).then((r) => [r.status, r.json.ok, typeof r.json.token]), [200, true, 'string']);
       setCalls({ [`acme.${keep}`]: [ownerKey, pat, 'm1'] });
       const second = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
       assert.deepEqual([second.status, second.json], [403, OVER('The Keep')]);
@@ -1031,9 +1067,10 @@ try {
 
       // No limit: every join is allowed, however many calls are running.
       assert.equal((await call(server, 'admin', 'PATCH', '/api/host/environments/acme', { cookie: hostCookie, body: { plan: { calls: null } } })).status, 200);
-      assert.deepEqual(await join('lobby').then((r) => [r.status, r.json]), [200, { ok: true }], 'no cap: starting a third call is allowed');
+      assert.deepEqual(await join('lobby').then((r) => [r.status, r.json.ok]), [200, true], 'no cap: starting a third call is allowed');
       assert.equal((await guestCallJoin(guestLink)).status, 200);
       assert.equal((await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } })).status, 200, 'and an aside beside them');
+      for (const close of leaveLive) close();
       await server.stop();
       server = null;
     });

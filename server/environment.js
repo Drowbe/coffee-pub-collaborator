@@ -32,6 +32,7 @@ const { GeocodeCache } = require('./geocode');
 const { RegionCutJobs } = require('./region-cut');
 const { ModuleLimits } = require('./module-limits');
 const { ExternalCalendars } = require('./external-calendars');
+const { LiveRegister } = require('./live');
 const { fetchCalendar } = require('./link-preview');
 const auth = require('./auth');
 const { migrateEnvironment } = require('./migrate-names');
@@ -124,9 +125,13 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
     }
   }
 
-  // Who is on the site right now (POST /api/presence) and pending two-person invitations -- both in memory only,
-  // never meeting another environment's.
-  const presence = new Map(); // user key -> last time a page said it was open
+  // Who is on the site, in which space and on the call (server/live.js: the live streams and POST /api/presence), and
+  // pending two-person invitations -- both in memory only, never meeting another environment's. liveEvents tells the
+  // open live streams (GET /api/live) of a change: ('presence', spaceId); what the server tells a space's chat (tellChat
+  // in index.js): ('chat', spaceId, { type, ... }); and that who may read changed: ('access').
+  const live = new LiveRegister();
+  const liveEvents = new EventEmitter();
+  liveEvents.setMaxListeners(0);
   const invites = new Map(); // id -> { id, from, to, spaceId, at }
   const inviteEvents = new EventEmitter();
   inviteEvents.setMaxListeners(0);
@@ -135,10 +140,9 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   const themeEvents = new EventEmitter();
   themeEvents.setMaxListeners(0);
 
-  // What the server tells a space's chat (tellChat in index.js), for GET /api/spaces/:id/chat/stream: emits
-  // ('chat', spaceId, { type, ... }).
-  const chatEvents = new EventEmitter();
-  chatEvents.setMaxListeners(0);
+  // The chat pictures relayed lately (POST /api/spaces/:id/chat/pictures): never their bytes, only id -> { space, by, at },
+  // so the person who sent one (or a moderator) can delete it for everyone and Clear... can take it.
+  const chatPictures = new Map();
 
   const chatHistory = new ChatHistory(dataDir);
   // Once, on the first start after the one chat store (plan-chat-model.md): the old private AI threads move in as
@@ -239,7 +243,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   return {
     slug, dataDir,
     store, modules, moduleData, moduleHooks, chatHistory, attention, facts, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
-    geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatEvents, chatPosts, chatPreviewsAsked, iconSvgs,
+    geocodeCache, regionCutJobs, moduleLimits, limiter, live, liveEvents, invites, inviteEvents, themeEvents, chatPictures, chatPosts, chatPreviewsAsked, iconSvgs,
     moduleActivity, noteActivity, saveActivity, externalCalendars,
   };
 }

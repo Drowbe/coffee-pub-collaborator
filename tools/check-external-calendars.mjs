@@ -307,7 +307,7 @@ const slowRead = fetchCalendar('https://cal.example.com/slow.ics').then(() => nu
 async function startServer(dataDir, extraEnv = {}) {
   const child = spawn(process.execPath, ['--require', path.join(ROOT, 'tools', 'fixtures', 'calendars-net.cjs'), path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: NY, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234', CHECK_STUB_PORT: String(STUB_PORT), ...extraEnv },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: NY, ADMIN_PASSWORD: 'testpass1234', CHECK_STUB_PORT: String(STUB_PORT), ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';

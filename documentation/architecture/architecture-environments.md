@@ -850,10 +850,11 @@ Built to the contract in plan-environments.md, "Phases 2 to 5 in detail". The ow
 
 ### The calls cap
 
-Counted from real calls (Thomas, 2026-09-30). Entering a space is never refused: every player and guest token
-starts out of the call (`call: 'off'`), and `POST /api/token` and `POST /api/guest-join` never ask the cap. A space
-(or aside) counts as a running call while at least one person there, not hidden, has the `call` attribute `on`
-(`runningCalls()` in `server/index.js`: LiveKit's calls that `spaceIdOfCall()` says are this environment's, with
+Counted from real calls (Thomas, 2026-09-30). Entering a space is never refused: it needs no LiveKit, and
+`POST /api/guest-join` never asks the cap. A person is on the call when the register of who is where says so (the page
+tells the server with `PATCH /api/spaces/:id/presence`), and a person is at LiveKit only after `POST /api/call/join`,
+the one route that mints a call token. A space (or aside) counts as a running call while at least one person, not
+hidden, is at its LiveKit call (`runningCalls() in `server/index.js`: LiveKit's calls that `spaceIdOfCall()` says are this environment's, with
 their participants listed; never cached, so a call ending frees its place at once). The cap is asked just before a
 join, by `POST /api/call/join` (`callsCapRefusal()`): joining a call already running is never refused, the person
 joining is left out of the count (moving from one call to another never counts their own), and over the limit the

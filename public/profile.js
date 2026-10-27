@@ -27,7 +27,7 @@ let feedUrlFor = ''; // whose it is: 'everything', or a space's id
 let feedsAllowed = false; // an owner editing someone: whether the environment allows calendar feeds (settings.calendarFeeds)
 let external = null; // your own other calendars, from GET /api/me/external-calendars: { allowed, calendars: [{ id, name, host, readAt, error }] }
 let externalBusy = false; // a calendar is being read for Add (up to 15 seconds)
-let conferenceOn = true; // the conference is on in this environment (branding.conferenceEnabled): the Conference tab shows
+let conferenceOn = true; // the conference is on in this environment (branding.conferenceEnabled, and the server has a call service: branding.callService): the Conference tab shows
 // The modules with settings of your own, each { id, name, icon }: only modules that are on in this environment (the
 // server lists only those, GET /api/module-settings/person). Each has a tab (#263); the Calendar's is Calendars.
 let personModules = [];
@@ -1240,7 +1240,7 @@ async function init() {
   if (editingKey) $('subtabs').setAttribute('aria-label', 'Profile');
   const branding = await loadBranding();
   environmentName = branding.environmentName || '';
-  conferenceOn = branding.conferenceEnabled !== false;
+  conferenceOn = branding.conferenceEnabled !== false && branding.callService !== false;
   // The stored value is already clamped server-side (see sanitizeCallPrefs)
   // -- this just keeps the picker from offering an option that would get
   // silently rounded back down the moment it's picked.

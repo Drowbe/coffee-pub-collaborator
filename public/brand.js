@@ -985,6 +985,11 @@ function pushToast(spec) {
   if (showing >= TOAST_SHOWING) { toastWaiting.push(spec); return; }
   placeToast(spec);
 }
+// A page's own notice as a toast (a notice: 9 s), for a word the person must see wherever they are looking: `kind`
+// 'danger' for a refusal or a failure, else 'info'.
+export function noticeToast(title, { kind = 'info', icon = kind === 'danger' ? 'triangle-exclamation' : 'circle-info' } = {}) {
+  if (title) pushToast({ kind, icon, title: String(title), ms: 9000 });
+}
 
 function showToast(n) {
   pushToast({

@@ -922,7 +922,10 @@ for (const m of (css + '\n' + chromeBlock).replace(/\/\*[\s\S]*?\*\//g, '').matc
   const refused = start.slice(at("'/api/call/join'"), at('inCall = true'));
   if (!/catch \(err\) \{[^}]*setJoinProblem\(err\.status && err\.serverSaid \? err\.message :[^}]*return;/.test(refused)) fail('public/space.js', 'a refused join check must say the server\'s own sentence (or a plain one, never "HTTP 500") as an error notice in Chat\'s status line (setJoinProblem) and not join');
   const joinProblem = spaceJs.slice(spaceJs.indexOf('function setJoinProblem(text) {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function setJoinProblem(text) {')));
-  if (!/if \(text\) chatNotice\(text, true\);/.test(joinProblem)) fail('public/space.js', 'a join that did not go through is said as a notice in Chat\'s status line, never cramped above the Chat header');
+  if (!/if \(chatInSight\(\)\) chatNotice\(text, true\);\s*else noticeToast\(text, \{ kind: 'danger' \}\);/.test(joinProblem)) fail('public/space.js', 'a join that did not go through is said where the person is looking: Chat\'s status line while the chat is in sight, else a toast (QA: on a phone it landed in the hidden Chat panel)');
+  const inSight = spaceJs.slice(spaceJs.indexOf('function chatInSight() {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function chatInSight() {')));
+  if (!/canvas\.columnMode\(\) && columnCollapsed\(\)/.test(inSight) || !/canvas\.shownView\(\)/.test(inSight) || !/shown === null \|\| shown === 'chat'/.test(inSight)) fail('public/space.js', 'chatInSight() must say no for the collapsed side column and for a phone showing another view');
+  if (!/export function noticeToast\(/.test(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'))) fail('public/brand.js', 'noticeToast() is the toast a page sends its own notice to');
   if (!/const stopped = \(\) => generation !== callGeneration/.test(start)) fail('public/space.js', 'startCall() must know when a stop came while it waited (callGeneration)');
   const stopBody = stop.split('\n');
   const bump = stopBody.findIndex((l) => /callGeneration \+= 1/.test(l));

@@ -1,6 +1,6 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
+import { loadBranding, api, noticeToast, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
@@ -5777,10 +5777,21 @@ async function startCall() {
     settle();
   }
 }
-// The join check's refusal (or no answer), said plainly as an error notice in Chat's status line (chatNotice); '' says
-// nothing (the notice clears itself).
+// The join check's refusal (or no answer), said plainly where the person is looking: an error notice in Chat's status
+// line (chatNotice) while the chat is in sight, else a toast (a phone showing the Conference or a module, the side
+// column collapsed, the chat closed). '' says nothing (the notice clears itself).
 function setJoinProblem(text) {
-  if (text) chatNotice(text, true);
+  if (!text) return;
+  if (chatInSight()) chatNotice(text, true);
+  else noticeToast(text, { kind: 'danger' });
+}
+// Whether the chat is where the person can read it: Home's, or the space's open, not behind the collapsed column, and on
+// a phone the view being shown.
+function chatInSight() {
+  if (homeChatSpace) return true;
+  if (!canvas.builtinOpen('chat') || (canvas.columnMode() && columnCollapsed())) return false;
+  const shown = canvas.shownView();
+  return shown === null || shown === 'chat';
 }
 
 // Leave the conference and stay in the space: disconnect from the call service (which stops sending and receiving

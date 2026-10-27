@@ -80,7 +80,7 @@ Written for decisions 6 to 11 and the working assumptions above. Where Thomas ch
 ### Server
 
 - **The Lobby's record stays.** Its id is `lobby`, its stored keys and `isLobby` are kept, and it can't be deleted, as today. `GET /api/spaces`, `GET /api/presence` and `GET /api/status` keep listing it with `isLobby: true`, so Studio, OBS and old pages read what they read today. The pages decide not to show it.
-- **Home's chat live, without the call service:** `GET /api/spaces/lobby/chat/stream`, an event stream for signed-in people. It answers 401 "sign in first" when signed out. For a guest, an access key or any other space it answers 404 "no such <space>". Its events carry what `tellChat()` sends today, as `{ type, ... }`:
+- **Home's chat live, without the call service:** (Replaced: this route is now `GET /api/live`; see `plan-realtime-optional-livekit.md`.) `GET /api/spaces/lobby/chat/stream`, an event stream for signed-in people. It answers 401 "sign in first" when signed out. For a guest, an access key or any other space it answers 404 "no such <space>". Its events carry what `tellChat()` sends today, as `{ type, ... }`:
   - a new public message (`chat`, with the message as stored);
   - `chat-delete`, `chat-clear`, `chat-clear-some` and `chat-visibility`;
   - a link's preview and Keep once they are stored.

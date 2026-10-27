@@ -101,7 +101,7 @@ test('the badge: the author of a stored message flips it with PATCH, both ways; 
   assert.equal(can(pat, '', ok)(mine), true, 'the author, a private message');
   assert.equal(can(pat, '', ok)({ ...mine, visibility: 'public' }), true, 'and a public one');
   assert.equal(can(pat, '', ok)({ ...mine, by: 'sam' }), false, 'never someone else\'s');
-  assert.equal(can(pat, '', ok)({ ...mine, blob: {} }), false, 'a picture is never stored');
+  assert.equal(can(pat, '', ok)({ ...mine, picture: true }), false, 'a picture is never stored');
   assert.equal(can(pat, '', ok)({ ...mine, stored: false }), false, 'a guest\'s local echo, an import preview');
   assert.equal(can({ key: 'guest', role: 'guest' }, '', ok)({ ...mine, by: 'guest' }), false, 'a guest never');
   assert.equal(can(pat, 'tok', ok)(mine), false, 'nor a guest link');
@@ -168,7 +168,7 @@ const HELD = [
   held({ by: 'sam', kind: 'command', command: 't', module: 'todo' }),
   held({ by: 'pat', kind: 'command', command: 't', module: 'other-todo' }), // the same command, another module
   held({ by: 'pat', kind: 'command', command: 'x' }), // a stored command with no module: only All takes it
-  { id: 'bbbbbbbbbbbb', by: 'pat', blob: {}, visibility: 'public' }, // a picture, never stored
+  { id: 'bbbbbbbbbbbb', by: 'pat', picture: true, visibility: 'public' }, // a picture, never stored
   held({ by: 'pat', stored: false }), // an old local copy
 ];
 
@@ -214,15 +214,15 @@ test('Clear…: chat and all take pictures too, the person\'s own for mine, ever
 });
 
 test("Clear…'s notice (the server's): what it lists, and the pictures by the rule", () => {
-  const held = HELD.map((e, i) => ({ ...e, id: e.blob ? e.id : `${i}`.padStart(12, 'c') })); // each its own id
+  const held = HELD.map((e, i) => ({ ...e, id: e.picture ? e.id : `${i}`.padStart(12, 'c') })); // each its own id
   const every = new Set(held.map((e) => e.id));
   const takes = (opts) => held.filter((e) => clearNoticeTakes(e, { ids: every, ...opts }));
   // Scope mine with no ids: only Sam's pictures go (chat or all).
   const mine = held.filter((e) => clearNoticeTakes(e, { ids: new Set(), type: 'chat', scope: 'mine', by: 'sam' }));
-  assert.deepEqual(mine.map((e) => [e.by, Boolean(e.blob)]), mine.map(() => ['sam', true]), "a clear of mine takes the clearer's pictures only");
+  assert.deepEqual(mine.map((e) => [e.by, Boolean(e.picture)]), mine.map(() => ['sam', true]), "a clear of mine takes the clearer's pictures only");
   // Everyone's listed ids, and for chat or all every picture.
   const server = takes({ type: 'all', scope: 'everyone', by: 'sam' });
-  assert.ok(server.some((e) => e.by === 'pat' && !e.blob), "the server's notice takes Pat's listed messages");
+  assert.ok(server.some((e) => e.by === 'pat' && !e.picture), "the server's notice takes Pat's listed messages");
   assert.ok(server.includes(held[9]), "the server's clear of everyone's takes Pat's picture");
   assert.equal(clearNoticeTakes(HELD[0], { ids: every, type: 'all', scope: 'everyone', by: '' }), false, 'no sender named, nothing taken');
 });
@@ -953,7 +953,7 @@ test('Send to...: a day in a chat message is read strictly, so ordinary words ne
 });
 
 test('Send to...: what a message is (a picture, a link, words with a day, an AI answer\'s objects, a command\'s words)', () => {
-  const pic = objectsOf({ chat: true, blob: {}, name: 'beach.gif' });
+  const pic = objectsOf({ chat: true, picture: true, name: 'beach.gif' });
   assert.deepEqual(pic, [{ what: 'picture', objects: [{ kind: 'image', title: 'beach.gif', details: { name: 'beach.gif' } }] }]);
   const text = objectsOf({ chat: true, text: '> Pat: earlier\nBook the **ferry** on oct 12\nsecond line' });
   assert.equal(text.length, 2);
@@ -974,7 +974,7 @@ test('Send to...: what a message is (a picture, a link, words with a day, an AI 
 
 test('Send to...: only the places that can take it, labelled "<module> as <what>", a form last and one at a time', () => {
   const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls'], { needs: true });
-  assert.deepEqual(sendLabels(all, { chat: true, blob: {}, name: 'p.png' }), ['Research as an image'], 'a picture goes to Research as an image');
+  assert.deepEqual(sendLabels(all, { chat: true, picture: true, name: 'p.png' }), ['Research as an image'], 'a picture goes to Research as an image');
   assert.deepEqual(sendLabels(all, { chat: true, text: 'buy sunscreen' }), ['Research as a note', 'To-do as a task', 'Polls as a poll'], 'no day: no Calendar, no Planner');
   assert.deepEqual(sendLabels(all, { chat: true, text: 'dinner at Rosa oct 12' }), ['Research as a note', 'To-do as a task', 'Calendar as an event', 'Planner as an event', 'Polls as a poll'], 'with a day: the Calendar, and the Planner as an event');
   assert.deepEqual(sendLabels(all, { chat: true, text: 'see https://a.example/x', preview: { url: 'https://a.example/x' } }).slice(0, 2), ['Research as a link', 'Research as a note'], 'a link first, then the words');
@@ -1031,6 +1031,19 @@ test('Send to...: what Chat says once a request is known (the result route), alo
   assert.equal(outcomesWords([f({ status: 'done', ok: true }), f({ status: 'expired' })]), 'Opened in Polls. Polls isn\'t open.');
   assert.equal(outcomesWords([o({ status: 'claimed' }), o({ status: 'claimed' })]), 'Planner is adding 2.');
   assert.ok(outcomesWords([o({ status: 'done', ok: true }), f({ status: 'pending' })]).endsWith('Waiting for Polls to open it.'));
+});
+
+test('A picture someone sent: fetched from its url (never base64 on the stream), a plain line once it is gone', () => {
+  const entry = fnBody(space, 'function pictureEntry(');
+  assert.ok(!/atob|data\.data/.test(entry), 'no bytes read from the live stream');
+  assert.match(entry, /`\/api\/spaces\/\$\{encodeURIComponent\(data\.space\)\}\/chat\/pictures\/\$\{data\.id\}\$\{q\}`/, 'its url, the page builds it from the space and id');
+  assert.match(entry, /guest: guestToken, pass: guestPass/, "a guest's fetch carries their link and pass");
+  assert.match(space, /const PICTURE_GONE = 'Picture no longer available\.';/);
+  const el = fnBody(space, 'function messageEl(');
+  assert.match(el, /img\.addEventListener\('error', \(\) => \{[^}]*gone\.textContent = PICTURE_GONE;/, 'a picture that no longer loads says so');
+  const blob = fnBody(space, 'async function pictureBlob(');
+  assert.match(blob, /if \(!res\.ok\) return null;/, 'copy and Send to fetch it, and know when it is gone');
+  assert.match(chat, /let blob = await pictureBlob\(entry\);/, 'Send to... reads a fetched picture too');
 });
 
 test('Send to...: the menu entry, a picture uploaded first and taken back off when refused, plain errors', () => {

@@ -100,7 +100,11 @@ services:
       # LIVE_STREAMS_PER_PERSON: "50"     # streams one signed-in person may hold open
       # LIVE_STREAMS_PER_GUEST_LINK: "25" # streams one guest link may hold open; one address gets 40% of it
       # GUEST_CHAT_POSTS_PER_MINUTE: "20" # messages one guest link may post a minute; one address gets half
-      # CHAT_PICTURE_MAX_MB: "3"          # the most a picture in the chat may weigh (sent live, never stored)
+      # CHAT_PICTURE_MAX_MB: "3"          # the most a picture in the chat may weigh (held in memory, never stored)
+      # CHAT_PICTURE_KEEP_MINUTES: "15"   # how long a chat picture is held for its readers to fetch
+      # CHAT_PICTURE_SPACE_MB: "30"       # MB of chat pictures held a space; past it the oldest go
+      # CHAT_PICTURE_ENVIRONMENT_MB: "100" # the same an environment
+      # CHAT_PICTURE_SERVER_MB: "200"     # the same for the whole server
       # CHAT_PICTURE_MB_PER_MINUTE: "20"  # MB of pictures one person (or guest link) may send a minute
       # LIVE_STREAM_BUFFER_MB: "8"        # how far a reader may fall behind before its stream is dropped (it reconnects)
       # PRESENCE_CHANGES_PER_MINUTE: "60" # times a minute one person may say away or on the call in a space

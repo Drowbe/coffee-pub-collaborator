@@ -457,7 +457,7 @@ export function chatDay(text, now) {
 // the content the whole text, the first link with its preview, and the day chatDay finds. Pure, for the checks.
 export function messageObjects(entry, { plain, now } = {}) {
   if (!entry || typeof entry !== 'object') return [];
-  if (entry.blob) {
+  if (entry.picture) {
     const name = oneLine(entry.name, 120) || 'picture';
     return [{ what: 'picture', objects: [{ kind: 'image', title: name, details: { name } }] }];
   }
@@ -765,7 +765,7 @@ export function marksNew(where, { view, shown, own } = {}) {
 // All takes, as on the server), or '' when there is nothing to clear: a picture (never stored), a guest's echo drawn
 // here only, an old copy kept in this browser.
 export function clearTypeOf(entry) {
-  if (!entry || !entry.stored || entry.blob) return '';
+  if (!entry || !entry.stored || entry.picture) return '';
   if (!entry.kind) return 'chat';
   if (entry.kind === 'ai' || entry.command === 'ai') return 'ai';
   if (entry.kind === 'command' && entry.module) return `module:${entry.module}`;
@@ -818,14 +818,14 @@ export function clearChoices(entries, { by, moderator = false } = {}) {
 // A clear of type chat or all also takes pictures: the person's own for 'mine', every one for 'everyone'. Pictures are
 // never stored, so this is each page's own work.
 export function clearTakesPicture(entry, { type, scope, by }) {
-  if (!entry || !entry.blob || (type !== 'chat' && type !== 'all')) return false;
+  if (!entry || !entry.picture || (type !== 'chat' && type !== 'all')) return false;
   return scope === 'everyone' || Boolean(by && entry.by === by);
 }
 // What a chat-clear-some notice (the server's, on the live stream) takes from a page: the listed ids (never a picture by
 // id), and pictures as clearTakesPicture says.
 export function clearNoticeTakes(entry, { ids, type, scope, by }) {
   if (!entry || !by) return false;
-  const listed = Boolean(entry.id && ids && ids.has(entry.id) && !entry.blob);
+  const listed = Boolean(entry.id && ids && ids.has(entry.id) && !entry.picture);
   return listed || clearTakesPicture(entry, { type, scope, by });
 }
 
@@ -919,7 +919,7 @@ export function keptNoticeTakes(entry, data) {
   return Boolean(cleanKept(data.kept));
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null, isHome = () => false }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null, isHome = () => false, pictureBlob = async (entry) => entry.blob }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // A command's own hint is left alone. In the Assistant, plain words go to the AI (routeLine), and its hint says so.
@@ -1605,9 +1605,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const { summary, target } = choice.sends[0];
     const sorry = `That picture can't be sent to ${target.moduleName}.`;
     const fail = (text) => ({ result: 'failed', text, moduleName: target.moduleName });
-    if (!(entry.blob instanceof Blob)) return fail('That picture is no longer here.');
+    let blob = await pictureBlob(entry); // the server holds a picture a short while, then it is gone
+    if (!(blob instanceof Blob)) return fail('That picture is no longer here.');
     const id = spaceId();
-    let blob = entry.blob;
     let name = summary.details.name;
     try {
       if (!/^image\/(jpeg|png|webp)$/.test(blob.type)) {

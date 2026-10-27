@@ -3881,15 +3881,15 @@ function canModerateChat() {
 // 9). Pictures are never stored and a guest's command echo stays on their page, so neither is a button; guests share
 // one stored sender, so a guest never changes one.
 function canChangeVisibility(entry) {
-  if (!entry?.stored || entry.blob || !chatIdOk(entry.id)) return false;
+  if (!entry?.stored || entry.picture || !chatIdOk(entry.id)) return false;
   if (!me?.key || me.role === 'guest' || guestToken) return false;
   return entry.by === me.key;
 }
-// A shared message can be deleted by the person who sent it. A picture is live only, never stored: the server keeps who
-// sent it for a day, so its sender or a moderator can still delete it for everyone.
+// A shared message can be deleted by the person who sent it. A picture is never stored: the server holds it a short
+// while and keeps who sent it for a day, so its sender or a moderator can still delete it for everyone.
 function canDeleteChatEntry(entry) {
   if (!entry?.chat || !chatIdOk(entry.id)) return false;
-  if (entry.blob) return Boolean(me?.key && me.role !== 'guest' && !guestToken && (entry.by === me.key || canModerateChat()));
+  if (entry.picture) return Boolean(me?.key && me.role !== 'guest' && !guestToken && (entry.by === me.key || canModerateChat()));
   if (entry.visibility === 'private') return Boolean(me?.key && entry.by === me.key && me.role !== 'guest'); // only ever on its author's page
   if (canModerateChat()) return true;
   return Boolean(me?.key && entry.by === me.key && me.role !== 'guest');
@@ -4100,8 +4100,13 @@ async function toPng(blob) {
 
 async function copyEntry(entry, btn) {
   try {
-    if (entry.blob) {
-      const png = entry.blob.type === 'image/png' ? entry.blob : await toPng(entry.blob);
+    if (entry.picture) {
+      const blob = await pictureBlob(entry);
+      if (!blob) {
+        chatNotice(PICTURE_GONE, true);
+        return;
+      }
+      const png = blob.type === 'image/png' ? blob : await toPng(blob);
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
     } else {
       await navigator.clipboard.writeText(entry.text);
@@ -4117,7 +4122,7 @@ async function copyEntry(entry, btn) {
 // being typed, cursor landing right after so the reply continues below it.
 function replyToEntry(entry) {
   const el = $('chat-input');
-  const quoted = entry.blob
+  const quoted = entry.picture
     ? `> ${entry.who} sent a picture`
     : `> ${entry.who}: ${entry.text.split('\n').join('\n> ')}`;
   const prefix = `${quoted}\n`;
@@ -4496,7 +4501,7 @@ async function askLinkPreview(entry) {
 // keptNoticeTakes in chat-input.js).
 function applyLinkNotice(data) {
   if (!canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
-  const entry = chatLog.find((e) => e.id === data.id && !e.blob);
+  const entry = chatLog.find((e) => e.id === data.id && !e.picture);
   if (!entry) return;
   if (data.type === 'chat-preview') {
     if (!previewNoticeTakes(entry, data)) return;
@@ -4525,14 +4530,21 @@ function messageEl(entry, own) {
   let body;
   let name = entry.who;
   let look = null;
-  if (entry.blob) {
+  if (entry.picture) {
     body = document.createElement('div');
     body.className = 'message-body text';
     const img = document.createElement('img');
-    img.src = URL.createObjectURL(entry.blob);
     img.alt = entry.name || 'picture';
     img.title = 'Open full size';
     img.addEventListener('click', () => window.open(img.src, '_blank'));
+    // Fetched from the server, which holds it a short while: once it has gone, a plain line says so.
+    img.addEventListener('error', () => {
+      const gone = document.createElement('p');
+      gone.className = 'message-picture-gone';
+      gone.textContent = PICTURE_GONE;
+      img.replaceWith(gone);
+    }, { once: true });
+    img.src = entry.src;
     body.appendChild(img);
   } else if (entry.kind === 'ai') {
     look = chatInput.commandLook(entry);
@@ -4620,12 +4632,13 @@ function addStoredMessage(m, { local = false } = {}) {
 
 function saveChat() {
   if (!chatLog.length) return;
-  const lines = chatLog.map((e) => `[${e.at.toLocaleTimeString()}] ${e.who}: ${e.blob ? `[picture${e.name ? ' ' + e.name : ''}]` : e.text}`);
+  const lines = chatLog.map((e) => `[${e.at.toLocaleTimeString()}] ${e.who}: ${e.picture ? `[picture${e.name ? ' ' + e.name : ''}]` : e.text}`);
   saveBlob(new Blob([lines.join('\n') + '\n'], { type: 'text/plain' }), `${(homeChatSpace ? word('home') : spaceName).replace(/[^\w-]+/g, '-').toLowerCase()}-chat-${new Date().toISOString().slice(0, 10)}.txt`);
 }
 
 // Pictures: pasted, dropped or picked, shrunk to a sensible size, then sent to the server
-// (POST /api/spaces/:id/chat/pictures), which passes them on live to everyone on the live stream and keeps nothing.
+// (POST /api/spaces/:id/chat/pictures), which holds them a short while and tells everyone on the live stream where to
+// fetch them (GET /api/spaces/:id/chat/pictures/:id); nothing is stored.
 const MAX_IMAGE_SIDE = 1600;
 async function shrinkImage(file) {
   const bmp = await createImageBitmap(file);
@@ -4655,7 +4668,7 @@ async function sendImage(file) {
     if (!CHAT_PICTURE_TYPES.includes(out.type)) out = new File([out], out.name || 'picture', { type: 'image/png' }); // never: shrinkImage answers one of them
     chatInput.setView('discussion'); // a picture is for everyone: it shows in the Discussion
     // Drawn at once; the server's id replaces this page's when it answers, so the live stream's copy is not drawn twice.
-    entry = { id: newChatId(), who: me?.displayName || 'me', by: me?.key || '', blob: out, name: out.name || 'picture' };
+    entry = { id: newChatId(), who: me?.displayName || 'me', by: me?.key || '', picture: true, blob: out, src: URL.createObjectURL(out), name: out.name || 'picture' };
     addEntry(entry, true);
     const q = new URLSearchParams({ file: entry.name });
     if (guestToken) {
@@ -4674,19 +4687,27 @@ async function sendImage(file) {
     chatNotice(err.serverSaid ? `Picture not sent: ${err.message}` : 'Picture not sent. Try again.', true);
   }
 }
-// A picture someone sent (chat-picture, from the live stream): its bytes as the server passed them on.
+// A picture someone sent (chat-picture, from the live stream): where to fetch it, never its bytes. A guest's fetch
+// carries their link and pass, as their other chat requests do.
+const PICTURE_GONE = 'Picture no longer available.';
 function pictureEntry(data) {
-  const mime = CHAT_PICTURE_TYPES.includes(data.mime) ? data.mime : '';
-  if (!mime || typeof data.data !== 'string') return null;
-  let bytes;
+  if (!CHAT_PICTURE_TYPES.includes(data.mime) || typeof data.space !== 'string' || !data.space) return null;
+  const q = guestToken ? `?${new URLSearchParams({ guest: guestToken, pass: guestPass || '' })}` : '';
+  const src = `/api/spaces/${encodeURIComponent(data.space)}/chat/pictures/${data.id}${q}`;
+  return { id: data.id, who: String(data.who || 'someone'), by: String(data.by || ''), picture: true, src, name: String(data.file || 'picture'), at: data.at };
+}
+// A picture's bytes (to copy it or send it to a module): this page's own, else fetched once from the server. null once
+// the server no longer holds it.
+async function pictureBlob(entry) {
+  if (entry.blob instanceof Blob) return entry.blob;
   try {
-    const raw = atob(data.data);
-    bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+    const res = await fetch(entry.src, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    entry.blob = await res.blob();
+    return entry.blob;
   } catch {
     return null;
   }
-  return { id: data.id, who: String(data.who || 'someone'), by: String(data.by || ''), blob: new Blob([bytes], { type: mime }), name: String(data.file || 'picture'), at: data.at };
 }
 
 function imageFiles(list) {
@@ -6175,6 +6196,7 @@ const chatInput = attachChatInput({
   frameMessage,
   addStored: (m, opts) => addStoredMessage(m, opts),
   openMenu: openHostMenu,
+  pictureBlob: (entry) => pictureBlob(entry),
   // Chat in sight: open, and not behind the column's collapsed rail.
   isShown: () => Boolean(homeChatSpace) || (canvas.builtinOpen('chat') && !(canvas.columnMode() && columnCollapsed())),
   // The Assistant's new results count on the rail and Chat's switch too (GitHub #203).

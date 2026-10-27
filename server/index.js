@@ -34,6 +34,7 @@ const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require(
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
 const { mergeCall, cleanAwayMessage } = require('./live');
+const { streamWriter } = require('./stream-write');
 const destinations = require('./destinations');
 const { fetchPreview, fetchImage, cachedImage, PreviewError, calendarUrl } = require('./link-preview');
 const { findLink, readFields, CHAT_LINK_LIMITS } = require('./chat-links');
@@ -127,9 +128,18 @@ const {
   GUEST_CHAT_POSTS_PER_MINUTE = '',
   LIVE_STREAMS_PER_PERSON = '',
   LIVE_STREAMS_PER_GUEST_LINK = '',
-  // The most a chat picture may weigh, in MB (POST /api/spaces/:id/chat/pictures: relayed live, never stored). Not a
+  // The most a chat picture may weigh, in MB (POST /api/spaces/:id/chat/pictures: held in memory, never stored). Not a
   // number above 0: 3.
   CHAT_PICTURE_MAX_MB = '',
+  // How many minutes a chat picture is held in memory for its readers to fetch (default 15); then its url answers 404.
+  // Not a number above 0: the default.
+  CHAT_PICTURE_KEEP_MINUTES = '',
+  // The most MB of chat pictures held in memory for one space (default 30), one environment (default 100) and the whole
+  // server (default 200); past one, the oldest held there go first. Each holds at least one picture of
+  // CHAT_PICTURE_MAX_MB. Not a number above 0: the default.
+  CHAT_PICTURE_SPACE_MB = '',
+  CHAT_PICTURE_ENVIRONMENT_MB = '',
+  CHAT_PICTURE_SERVER_MB = '',
   // How many MB of chat pictures one person (a guest: one guest link) may send in a minute (default 20). Not a number
   // above 0: the default.
   CHAT_PICTURE_MB_PER_MINUTE = '',
@@ -166,19 +176,8 @@ const liveStreamBufferBytes = (() => {
   const mb = Number(LIVE_STREAM_BUFFER_MB);
   return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 8) * 1024 * 1024);
 })();
-// Writes the chunks (text or Buffers) to `res`, or drops the stream when they would put it over the limit: true when
-// written. A Buffer handed to many streams is shared, never copied per stream.
-function sseWrite(res, ...chunks) {
-  if (res.destroyed || res.writableEnded) return false;
-  let size = 0;
-  for (const c of chunks) size += typeof c === 'string' ? Buffer.byteLength(c) : c.length;
-  if (res.writableLength + size > liveStreamBufferBytes) {
-    res.destroy();
-    return false;
-  }
-  for (const c of chunks) res.write(c);
-  return true;
-}
+// Writes the chunks to `res`, or drops the stream when they would put it over the limit (server/stream-write.js).
+const sseWrite = streamWriter(liveStreamBufferBytes);
 const adminPassword = ADMIN_PASSWORD;
 const aiKeyFromEnv = AI_KEY || TAVERN_AI_KEY;
 // The environment a single-environment install moves into on its first start with BASE_DOMAIN (plan-names decision 15).
@@ -4670,7 +4669,7 @@ app.get('/api/spaces/:id/chat', (req, res) => {
 // Each event has an `id:` line. Answers the stream, or null when it answered 429. Written through sseWrite: a reader
 // LIVE_STREAM_BUFFER_MB behind is dropped (its page reconnects), never queued for.
 //   stream.send(data): one default `message` event whose data is JSON; the same `data` object sent to many streams is
-//     made into bytes once and shared (a chat picture is never copied per reader);
+//     made into bytes once and shared;
 //   stream.check(): asks the access again (recheck): true while it holds, else the last event goes out and it ends;
 //   stream.close(last): sends `last` (when given) and ends it.
 const STREAM_RECHECK_MS = 2000;
@@ -5052,7 +5051,7 @@ app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
   const picture = chatPictureOf(found.space.id, req.params.messageId);
   if (picture) {
     if (!moderator && picture.by !== me) return res.status(403).json({ error: 'you can only delete a message you sent' });
-    chatPictures.delete(req.params.messageId);
+    forgetChatPicture(req.params.messageId);
     tellChat(found.space.id, { type: 'chat-delete', id: req.params.messageId });
     return res.json({ ok: true });
   }
@@ -5134,19 +5133,34 @@ app.post('/api/spaces/:id/chat', (req, res) => {
 });
 
 // --- chat pictures (plan-realtime-optional-livekit.md, step 3; option 4 B) ---------------------------------------------
-// A picture in the chat is relayed live to the live streams that may read the chat, from memory, and never stored: only
-// the people there at that moment see it, as before. Its record (chatPictures: id -> { space, by, at }, never the bytes)
-// lets the sender or a moderator delete it for everyone and Clear... take it; records go after CHAT_PICTURE_KEEP_MS, and
-// at most CHAT_PICTURE_RECORDS are kept per environment (the oldest go first).
+// A picture in the chat is never stored on disk. The live stream carries only a small chat-picture event (who, the file's
+// name, type and size, and a short url); the bytes are held in this server's memory for CHAT_PICTURE_KEEP_MINUTES and
+// each reader fetches them from the url with their own access (GET below), so a slow reader is never sent megabytes on its
+// stream and loses nothing it can still fetch. Held bytes are bounded: CHAT_PICTURE_SPACE_MB a space,
+// CHAT_PICTURE_ENVIRONMENT_MB an environment and CHAT_PICTURE_SERVER_MB in all; a new picture past one of them pushes out
+// the oldest held there (its url then answers 404, as after it expires). The record (chatPictures: id -> { space, by,
+// at }, never the bytes) lets the sender or a moderator delete it for everyone and Clear... take it; records go after
+// CHAT_PICTURE_RECORD_MS, and at most CHAT_PICTURE_RECORDS are kept per environment (the oldest go first).
 const CHAT_PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-const CHAT_PICTURE_KEEP_MS = 24 * 60 * 60 * 1000;
+const CHAT_PICTURE_RECORD_MS = 24 * 60 * 60 * 1000;
 const CHAT_PICTURE_RECORDS = 2000;
-const chatPictureMaxBytes = (() => {
-  const mb = Number(CHAT_PICTURE_MAX_MB);
-  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 3) * 1024 * 1024);
-})();
+const megabytes = (value, fallback) => {
+  const mb = Number(value);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : fallback) * 1024 * 1024);
+};
+const chatPictureMaxBytes = megabytes(CHAT_PICTURE_MAX_MB, 3);
 const chatPictureMaxSaid = chatPictureMaxBytes >= 1024 * 1024 ? `${Math.round((chatPictureMaxBytes / (1024 * 1024)) * 10) / 10} MB` : `${Math.round(chatPictureMaxBytes / 1024)} KB`;
 const rawChatPicture = express.raw({ type: CHAT_PICTURE_TYPES, limit: chatPictureMaxBytes });
+const chatPictureKeepMs = (() => {
+  const minutes = Number(CHAT_PICTURE_KEEP_MINUTES);
+  return (Number.isFinite(minutes) && minutes > 0 ? minutes : 15) * 60 * 1000;
+})();
+// Each total holds at least one picture of the largest size.
+const chatPictureHeldMost = {
+  space: Math.max(chatPictureMaxBytes, megabytes(CHAT_PICTURE_SPACE_MB, 30)),
+  environment: Math.max(chatPictureMaxBytes, megabytes(CHAT_PICTURE_ENVIRONMENT_MB, 100)),
+  server: Math.max(chatPictureMaxBytes, megabytes(CHAT_PICTURE_SERVER_MB, 200)),
+};
 // What the bytes are, read from their first bytes (never the name or the header alone): one of CHAT_PICTURE_TYPES, or ''.
 function chatPictureType(buf) {
   if (!Buffer.isBuffer(buf) || buf.length < 12) return '';
@@ -5156,16 +5170,78 @@ function chatPictureType(buf) {
   if (buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
   return '';
 }
+
+// The held bytes, for every environment at once (so CHAT_PICTURE_SERVER_MB is one total): `${slug}|${id}` ->
+// { slug, space, bytes, mime, at }, oldest first, and the totals held per space, per environment and in all.
+const heldChatPictures = new Map();
+const heldTotals = { all: 0, environment: new Map(), space: new Map() };
+const heldSpaceKey = (slug, space) => `${slug}|${space}`;
+function addHeld(map, key, n) {
+  const left = (map.get(key) || 0) + n;
+  if (left > 0) map.set(key, left);
+  else map.delete(key);
+}
+function dropHeldPicture(key) {
+  const held = heldChatPictures.get(key);
+  if (!held) return;
+  heldChatPictures.delete(key);
+  heldTotals.all -= held.bytes.length;
+  addHeld(heldTotals.environment, held.slug, -held.bytes.length);
+  addHeld(heldTotals.space, heldSpaceKey(held.slug, held.space), -held.bytes.length);
+}
+function dropExpiredPictures() {
+  const now = Date.now();
+  for (const [key, held] of heldChatPictures) {
+    if (now - held.at < chatPictureKeepMs) break; // oldest first: the rest are newer
+    dropHeldPicture(key);
+  }
+}
+setInterval(dropExpiredPictures, 60000).unref();
+// Holds a picture's bytes, first pushing out the oldest held in its space, then its environment, then anywhere, until
+// each total has room for it.
+function holdChatPicture(spaceId, id, bytes, mime, at) {
+  dropExpiredPictures();
+  const slug = chatSlug();
+  const size = bytes.length;
+  const spaceKey = heldSpaceKey(slug, spaceId);
+  const limits = [
+    [() => heldTotals.space.get(spaceKey) || 0, chatPictureHeldMost.space, (h) => h.slug === slug && h.space === spaceId],
+    [() => heldTotals.environment.get(slug) || 0, chatPictureHeldMost.environment, (h) => h.slug === slug],
+    [() => heldTotals.all, chatPictureHeldMost.server, () => true],
+  ];
+  for (const [held, most, here] of limits) {
+    for (const [key, h] of heldChatPictures) {
+      if (held() + size <= most) break;
+      if (here(h)) dropHeldPicture(key);
+    }
+  }
+  heldChatPictures.set(`${slug}|${id}`, { slug, space: spaceId, bytes, mime, at });
+  heldTotals.all += size;
+  addHeld(heldTotals.environment, slug, size);
+  addHeld(heldTotals.space, spaceKey, size);
+}
+// A held picture of this space, or null once it has expired, been pushed out or deleted.
+function heldChatPicture(spaceId, id) {
+  const held = heldChatPictures.get(`${chatSlug()}|${id}`);
+  return held && held.space === spaceId && Date.now() - held.at < chatPictureKeepMs ? held : null;
+}
+const chatPictureUrl = (spaceId, id) => `/api/spaces/${encodeURIComponent(spaceId)}/chat/pictures/${id}`;
+
 function chatPictureOf(spaceId, id) {
   const p = chatPictures.get(id);
-  return p && p.space === spaceId && Date.now() - p.at < CHAT_PICTURE_KEEP_MS ? p : null;
+  return p && p.space === spaceId && Date.now() - p.at < CHAT_PICTURE_RECORD_MS ? p : null;
 }
-// Forget the space's picture records that `take(record)` names: how many went.
+// Forget a picture: its record and its bytes.
+function forgetChatPicture(id) {
+  chatPictures.delete(id);
+  dropHeldPicture(`${chatSlug()}|${id}`);
+}
+// Forget the space's pictures that `take(record)` names: how many went.
 function forgetChatPictures(spaceId, take) {
   let n = 0;
   for (const [id, p] of chatPictures) {
     if (p.space === spaceId && take(p)) {
-      chatPictures.delete(id);
+      forgetChatPicture(id);
       n += 1;
     }
   }
@@ -5173,8 +5249,8 @@ function forgetChatPictures(spaceId, take) {
 }
 function keepChatPicture(id, record) {
   const now = Date.now();
-  for (const [old, p] of chatPictures) if (now - p.at >= CHAT_PICTURE_KEEP_MS) chatPictures.delete(old);
-  while (chatPictures.size >= CHAT_PICTURE_RECORDS) chatPictures.delete(chatPictures.keys().next().value);
+  for (const [old, p] of chatPictures) if (now - p.at >= CHAT_PICTURE_RECORD_MS) forgetChatPicture(old);
+  while (chatPictures.size >= CHAT_PICTURE_RECORDS) forgetChatPicture(chatPictures.keys().next().value);
   chatPictures.set(id, record);
 }
 
@@ -5210,8 +5286,9 @@ setInterval(() => {
 const tooManyPictures = (res, wait) => res.status(429).set('Retry-After', String(wait)).json({ error: 'too many pictures, wait a moment' });
 
 // POST /api/spaces/:id/chat/pictures?file=<its name>[&guest=<token>&pass=<the guest's pass>], the picture's bytes as the
-// body with its type (PNG, JPEG, GIF or WebP): sent at once to the live streams that may read this chat as
-// { type: 'chat-picture', space, id, by, who, file, mime, data (base64), at }, and answers { id }. Needs "send pictures";
+// body with its type (PNG, JPEG, GIF or WebP): held (see above) and told at once to the live streams that may read this
+// chat as { type: 'chat-picture', space, id, by, who, file, mime, size, url, at }, never with its bytes; answers
+// { id, url }. Needs "send pictures";
 // counted as a chat post (the same limits, a guest's too), and under CHAT_PICTURE_MB_PER_MINUTE (429). Not in Home's
 // chat (the Lobby: 403). A guest is shown by the name on their pass (403 without a valid one). Who may send, Home, the
 // pass, the size the request says (Content-Length, 413) and the picture limit are all asked before the body is read.
@@ -5245,16 +5322,32 @@ app.post('/api/spaces/:id/chat/pictures', chatPictureFirst, rawChatPicture, (req
   const id = crypto.randomBytes(6).toString('hex');
   const by = who.user ? who.user.key : 'guest';
   const at = Date.now();
+  const url = chatPictureUrl(space.id, id);
   keepChatPicture(id, { space: space.id, by, at });
+  holdChatPicture(space.id, id, req.body, mime, at);
   tellChat(space.id, {
     type: 'chat-picture', id, by,
     who: who.user ? who.user.displayName : pass.name,
     file: cleanText(req.query.file, 120) || 'picture',
     mime,
-    data: req.body.toString('base64'),
+    size: req.body.length,
+    url,
     at,
   });
-  res.json({ id });
+  res.json({ id, url });
+});
+// GET /api/spaces/:id/chat/pictures/:pictureId[?guest=<token>&pass=<the guest's pass>]: a held picture's bytes, to
+// whoever may read this chat now (chatRead; a guest with a valid pass, else 403). 404 once it has expired
+// (CHAT_PICTURE_KEEP_MINUTES), been pushed out or deleted, or never was. Cache-Control private, for its time left.
+app.get('/api/spaces/:id/chat/pictures/:pictureId', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  if (!found.who.user && !chatGuestPass(req)) return res.status(403).json({ error: `that ${word('guest')} pass is not valid; enter again` });
+  const held = CHAT_MESSAGE_ID.test(req.params.pictureId) ? heldChatPicture(found.space.id, req.params.pictureId) : null;
+  if (!held) return res.status(404).json({ error: 'that picture is no longer available' });
+  const left = Math.max(1, Math.floor((held.at + chatPictureKeepMs - Date.now()) / 1000));
+  res.set({ 'Content-Type': held.mime, 'Content-Length': String(held.bytes.length), 'Cache-Control': `private, max-age=${left}`, 'X-Content-Type-Options': 'nosniff' });
+  res.end(held.bytes);
 });
 
 // --- links in Chat (plan-chat-links.md, GitHub #158) ----------------------------------------------------------------

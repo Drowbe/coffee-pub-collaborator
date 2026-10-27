@@ -3879,6 +3879,12 @@ span.message-vis {
   cursor: zoom-in;
 }
 
+/* A chat picture the server no longer holds: a plain line in its place. */
+.message .text .message-picture-gone {
+  margin: 0;
+  color: var(--text-muted);
+}
+
 .message .text code {
   padding: 0 var(--space-1);
   border-radius: var(--radius-min);

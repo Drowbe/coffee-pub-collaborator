@@ -26,7 +26,7 @@
  * The stream's drop rule (server/stream-write.js, LIVE_STREAM_BUFFER_MB) on its own; then, on its own server, a reader at
  * about 0.6 MB/s gets all of three 3 MB pictures sent close together and fetches each; 20 stalled streams under 25
  * pictures of 3 MB keep the server's memory bounded, and a reader that reads still gets every picture; saying away more
- * than PRESENCE_CHANGES_PER_MINUTE times a minute is 429.
+ * than PRESENCE_CHANGES_PER_MINUTE times a minute in a space is 429, counted per space, refused changes not counted.
  * Entering without LiveKit (step 5, Verify point 5), against a stand-in for the call service's API that answers nobody and
  * writes down every request: two people and a guest enter a space, say away, chat, read presence, move to another space
  * and Home, and leave, and the call service is never asked; it is asked once someone says they are on the call, and a
@@ -1072,17 +1072,25 @@ if (!failed) {
     same((await fetchBytes(sent[0].url, { cookie: reaC })).status, 404, 'the oldest were pushed out by the space\'s total held: 404');
     same((await fetchBytes(three[0].url, { cookie: reaC })).status, 404, 'and so were the first three');
 
-    // Saying away or on the call: PRESENCE_CHANGES_PER_MINUTE a person (6 here), then 429; nobody else is held up.
+    // Saying away or on the call: PRESENCE_CHANGES_PER_MINUTE a person in a space (6 here), then 429; a refused change
+    // uses none of it; another space, and another person, are not held up.
     const reaStream = reader.events.find((e) => e.type === 'ready').stream;
-    const say = (cookie, away, stream) => call('PATCH', `/api/spaces/${keep.id}/presence`, { cookie, body: { away, stream } });
+    const say = (cookie, away, stream, space = keep.id) => call('PATCH', `/api/spaces/${space}/presence`, { cookie, body: { away, stream } });
     for (let i = 0; i < 6; i += 1) same((await say(reaC, i % 2 === 0, reaStream)).status, 200, `away and back ${i + 1} of the minute`);
     const flood = await say(reaC, true, reaStream);
     same([flood.status, flood.json.error], [429, 'too many away and call changes, wait a moment'], 'the 7th in a minute: 429');
     ok(Number(flood.retryAfter) >= 1 && Number(flood.retryAfter) <= 60, `with Retry-After (${flood.retryAfter})`);
+    const other = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Other', members: [rea.key] } })).json.space;
+    await call('PATCH', `/api/spaces/${other.id}`, { cookie: owner, body: { members: [rea.key] } });
+    const reaOther = await openStream(`/api/live?space=${other.id}`, reaC);
+    open.push(reaOther);
+    const reaOtherReady = await reaOther.until((e) => e.type === 'ready');
+    same((await say(reaC, true, reaOtherReady.stream, other.id)).status, 200, 'the same person still says away in another space');
+    for (let i = 0; i < 7; i += 1) same((await say(owner, true, undefined)).status, 409, `refused (no stream of theirs there) ${i + 1}: 409, never 429`);
     const boss = await openStream(`/api/live?space=${keep.id}`, owner);
     open.push(boss);
     const bossReady = await boss.until((e) => e.type === 'ready');
-    same((await say(owner, true, bossReady.stream)).status, 200, 'another person still says away');
+    for (let i = 0; i < 6; i += 1) same((await say(owner, i % 2 === 0, bossReady.stream)).status, 200, `another person, whose refused ones did not count, says away ${i + 1}`);
     ok(!/listener failed|TypeError|ReferenceError/.test(serverOut), `nothing failed:\n${serverOut}`);
   } catch (err) {
     failed = true;

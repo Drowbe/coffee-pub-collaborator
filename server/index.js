@@ -4899,21 +4899,24 @@ app.get('/api/live', (req, res) => {
   });
 });
 
-// At most PRESENCE_CHANGES_PER_MINUTE a minute a person (429), so toggling away in a loop can't flood a space.
+// At most PRESENCE_CHANGES_PER_MINUTE a minute a person in a space (429), so toggling away in a loop can't flood it.
+// Only a change the register took is counted: a refused one (400, 409, 429) uses none of the minute.
 const presenceChangesPerMinute = wholeAbove0(PRESENCE_CHANGES_PER_MINUTE, 60);
-const presenceChanges = new Map(); // `${slug}|${who}` -> change times in the last minute
-// The seconds until `who` may say one more, or 0 when they may now (and then it is counted).
-function presenceWait(who) {
-  const key = `${chatSlug()}|${who}`;
+const presenceChanges = new Map(); // `${slug}|${space}|${who}` -> change times in the last minute
+const presenceKey = (who, spaceId) => `${chatSlug()}|${spaceId}|${who}`;
+// The seconds until `who` may say one more in `spaceId`, or 0 when they may now.
+function presenceWait(who, spaceId) {
+  const key = presenceKey(who, spaceId);
   const now = Date.now();
   const recent = (presenceChanges.get(key) || []).filter((t) => now - t < 60000);
-  if (recent.length >= presenceChangesPerMinute) {
-    presenceChanges.set(key, recent);
-    return Math.max(1, Math.ceil((recent[recent.length - presenceChangesPerMinute] + 60000 - now) / 1000));
-  }
-  recent.push(now);
-  presenceChanges.set(key, recent);
-  return 0;
+  if (recent.length) presenceChanges.set(key, recent);
+  else presenceChanges.delete(key);
+  if (recent.length < presenceChangesPerMinute) return 0;
+  return Math.max(1, Math.ceil((recent[recent.length - presenceChangesPerMinute] + 60000 - now) / 1000));
+}
+function countPresenceChange(who, spaceId) {
+  const key = presenceKey(who, spaceId);
+  presenceChanges.set(key, [...(presenceChanges.get(key) || []), Date.now()]);
 }
 setInterval(() => {
   const now = Date.now();
@@ -4924,7 +4927,7 @@ setInterval(() => {
 // one is sent. `onCall` goes on the stream named by `stream` (the id from `ready`), or on every live stream of theirs
 // there; it goes when that stream closes. A guest names their `stream` (?guest= as on the stream). Answers { ok: true }
 // and sends presence to the space when something changed; 409 when they have no live stream open there; 429 past
-// PRESENCE_CHANGES_PER_MINUTE.
+// PRESENCE_CHANGES_PER_MINUTE in this space (only the changes taken count).
 app.patch('/api/spaces/:id/presence', (req, res) => {
   const found = liveAccess(req, req.params.id);
   if (found.error) return res.status(found.status).json({ error: found.error });
@@ -4950,10 +4953,11 @@ app.patch('/api/spaces/:id/presence', (req, res) => {
     if (!entry || !entry.guest || entry.space !== req.params.id) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
     who = entry.who;
   }
-  const wait = presenceWait(who);
+  const wait = presenceWait(who, req.params.id);
   if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: 'too many away and call changes, wait a moment' });
   const changed = live.set(who, req.params.id, patch, body.stream || null);
   if (changed === null) return res.status(409).json({ error: `open the ${word('space')} first; there is no live stream of yours there` });
+  countPresenceChange(who, req.params.id);
   if (changed) tellLivePresence([req.params.id]);
   res.json({ ok: true });
 });

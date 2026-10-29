@@ -248,7 +248,7 @@ test('the host: no old bar; bar.set folds into the "+", add.set\'s list wins, a 
 });
 
 test('the "+" and the status bar as drawn: names, the shared menu, the live node, focus back to the "+"', () => {
-  assert.match(host, /import \{ cleanAddEntries, foldBarItems, cleanStatusItems, statusKey, statusSpoken, statusFrame, createAnnouncer, topmostAt, cleanToolbarItems, cleanHeaderItems, titlebarActions, frameToolbar, frameAdd \} from '\/module-chrome\.js';/);
+  assert.match(host, /import \{ cleanAddEntries, foldBarItems, cleanStatusItems, statusKey, statusSpoken, statusFrame, createAnnouncer, topmostAt, cleanToolbarItems, cleanHeaderItems, titlebarActions, frameToolbar, frameAdd, cleanStandardActions, cleanShareResult \} from '\/module-chrome\.js';/);
   // The plan: several open the shared menu, one runs at once (its id the event's value), none takes the "+" away.
   const picked = [];
   const several = R.frameAdd(R.cleanAddEntries([{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }]), (id) => picked.push(id));
@@ -269,7 +269,7 @@ test('the "+" and the status bar as drawn: names, the shared menu, the live node
   assert.match(host, /announcer\.update\(statusSpoken\(clean\)\);/, 'a quiet item is not read out');
   assert.match(frameJs, /const status = el\('footer', 'mf-status', \{ role: 'region' \}\);/, 'the status bar is a region');
   assert.match(frameJs, /status\.setAttribute\('aria-label', text \? `\$\{text\} status` : 'Status'\);/, 'named by the module');
-  assert.match(host, /event === 'nav' \|\| event === 'add'\)\) opener =/, 'focus goes back to the "+" when its editor closes');
+  assert.match(host, /event === 'nav' \|\| event === 'add' \|\| event === 'standard'\)\) opener =/, 'focus goes back to the "+" (or the menu) when its editor closes');
 });
 
 test('the window: a frame for every module, moved (not rebuilt) between docked and floating', () => {
@@ -483,6 +483,53 @@ test('a composite\'s editor window: the Workspace lifts the frame, as it does a 
   assert.match(canvas, /app:compositelift/, 'the canvas answers the page\'s lift');
   assert.match(dest, /liftUp: liftComposite/, 'the destination page asks for it when it is in a composite\'s frame');
   assert.match(dest, /app:compositeevent/, 'the Workspace\'s Close reaches the part as editordismiss');
+});
+
+// Settings, Share and Print: the engine's standard actions, reusable by every module (Thomas, 2026-10-29). A module hands the
+// host a handler (host.standard.set); the host draws the entry, the same everywhere, only for a handler it has.
+test('Settings, Share and Print: drawn by the host for the handlers a module gave, the same in every module', () => {
+  assert.deepEqual(R.MODULE_STANDARD, ['settings', 'share', 'print'], 'the order: Settings, Share, Print');
+  assert.deepEqual(R.cleanStandardActions({ settings: true, share: { disabled: 1, hint: '  Nothing to share yet  ', label: 'Send' }, print: false, clear: true, dock: true }),
+    { settings: {}, share: { disabled: true, hint: 'Nothing to share yet' } }, 'only the three, true or { disabled, hint }; never the module\'s words, never a window action');
+  assert.deepEqual(R.cleanStandardActions(null), {}, 'nothing given: none drawn');
+  assert.equal(R.cleanStandardActions({ print: { hint: 'x'.repeat(90) } }).print.hint.length, 40, 'a hint is cut to 40');
+  // What Share shows: a whole https address, or a path on this server made whole; nothing else.
+  const o = 'https://example.test';
+  assert.deepEqual(R.cleanShareResult({ url: '/s/abc', title: 'Share the list', message: '  Anyone  with it  can see it. ' }, o), { url: 'https://example.test/s/abc', title: 'Share the list', message: 'Anyone with it can see it.' });
+  assert.equal(R.cleanShareResult({ url: 'https://a.test/x' }, o).title, 'Share', 'the heading is Share unless given');
+  for (const bad of [null, {}, { url: '' }, { url: 'javascript:alert(1)' }, { url: '//evil.test/x' }, { url: 'data:text/html,x' }, { url: 'x'.repeat(2001) }]) assert.equal(R.cleanShareResult(bad, o), null, JSON.stringify(bad).slice(0, 40));
+  // The frame: the three are the host's entries (words, icons, order) and come only from moduleStandard, picked through onPick.
+  const frameJs = read('public/module-frame.js');
+  assert.ok(frameJs.includes("{ id: 'settings', label: 'Settings', icon: 'gear', module: true },"));
+  assert.ok(frameJs.includes("{ id: 'share', label: 'Share', icon: 'share-nodes', module: true },"));
+  assert.ok(frameJs.includes("{ id: 'print', label: 'Print', icon: 'print', module: true },"));
+  assert.ok(frameJs.indexOf("id: 'popout'") < frameJs.indexOf("id: 'settings'") && frameJs.indexOf("id: 'print'") < frameJs.indexOf("id: 'clear'"), 'after the ways to show it, before Clear');
+  assert.ok(frameJs.includes("const v = s.module ? (typeof mod.onPick === 'function' ? mod[s.id] : false) : std[s.id] === undefined ? !s.off : std[s.id];"), 'drawn only for a handler the module gave, never by the window');
+  assert.ok(frameJs.includes("label: (!s.module && o.label) || s.label"), 'the host\'s words, never the module\'s');
+  assert.ok(frameJs.includes('onPick: s.module ? () => mod.onPick(s.id, menuEl) : () => tbFire({ id: s.id, standard: true, el: menuEl }),'), 'a pick goes to the module\'s handler');
+  for (const [file, text] of [['public/module.js', read('public/module.js')], ['public/canvas.js', canvas], ['public/destination.js', read('public/destination.js')]]) {
+    assert.ok(!/settings: false|share: false|print: false/.test(text), `${file}: a window no longer lists Settings, Share or Print (the module's, not the window's)`);
+  }
+  // The host: the module's declaration drawn in the frame; Share and Print answered only within a minute of the pick.
+  assert.match(host, /standard\(spec\) \{\n\s+const clean = cleanStandardActions\(spec\);\n\s+frame\.setTitlebar\(\{ moduleStandard: \{ \.\.\.clean, onPick: \(id, el\) => \{ asked = \{ id, at: Date\.now\(\), el \}; send\('standard', \{ id \}\); \} \} \}\);/, 'createFrameBands draws them and sends the pick');
+  assert.match(host, /const answering = \(id\) => asked && asked\.id === id && Date\.now\(\) - asked\.at < 60000;/, 'never unasked');
+  assert.match(host, /shareDialog\(frame\.el\.ownerDocument, clean\);/, 'one Share dialog, the host\'s');
+  assert.match(host, /return printFrame\(frame\.el, \{ iframe, height \}\);/, 'Print prints the frame\'s content area');
+  assert.match(host, /async 'standard\.set'\(\{ actions \}\) \{\n\s+if \(!standardOut\) return false;/, 'false on a destination\'s part and a widget');
+  const sdk = read('public/sdk/host.js');
+  assert.match(sdk, /standard: \{\n\s+set: \(spec\) => setStandard\(spec\),\n\s+\},/, 'host.standard.set');
+  assert.match(sdk, /if \(!o \|\| \(o\.permission && !host\.can\(o\.permission\)\)\) continue;/, 'left out for a person without the permission it names');
+  assert.match(sdk, /if \(r\) await call\('share\.show', r\);/, 'Share: what the handler answered goes to the host\'s dialog');
+  assert.match(sdk, /if \(\(await fn\(\)\) === false\) return;/, 'Print: the handler may stop it');
+  const actions = read('public/module-actions.js');
+  assert.match(actions, /const copy = make\('button', 'btn btn-primary', 'Copy link'\);/, 'the Share dialog copies the link');
+  assert.match(actions, /win\.print\(\);/, 'Print prints the window the frame is in');
+  const sys = read('public/sdk/system.css');
+  const block = sys.slice(sys.indexOf('/* moduleframe:start */'), sys.indexOf('/* moduleframe:end */'));
+  assert.match(block, /@media print \{[\s\S]*?\.mf\.mf-printing > :not\(\.mf-content\) \{ display: none; \}/, 'printed: the content area alone');
+  // No bundled module had a Settings, Share or Print of its own to move onto the engine (checked 2026-10-29), so none
+  // registers one yet; the Prototype shows all three.
+  assert.match(read('public/design-system/prototype.js'), /moduleStandard: \{ settings: true, share: true, print: true, onPick:/, 'the Prototype shows all three');
 });
 
 if (failures.length) {

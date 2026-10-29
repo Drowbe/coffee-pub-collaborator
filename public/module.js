@@ -189,7 +189,7 @@ async function clearModuleData() {
 }
 
 // The module's own page has no ways to show it (it is not on a canvas, and it is the page); in a space it has Clear.
-const NONE = { dock: false, window: false, popout: false, settings: false, share: false, print: false, clear: false };
+const NONE = { dock: false, window: false, popout: false, clear: false };
 
 // The space page that opened this window, while it is still there (window.hostModules, set by the canvas).
 function openerCanvas() {

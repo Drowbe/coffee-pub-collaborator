@@ -5697,6 +5697,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 :root {
   --mf-hit: 44px; /* a button's tap area on a phone, top to bottom */
   --mf-hit-w: 36px; /* the least a tap area is wide on a phone */
+  --mf-print-h: 100vh; /* a module's frame on paper: set on the frame while it prints, to its own page's height */
 }
 @media (max-width: 640px), (pointer: coarse) {
   .mf:is(.mf-page, .mf-docked) { overflow: clip; overflow-clip-margin: calc(var(--mf-hit) - var(--mf-title-h)); }
@@ -5734,4 +5735,27 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
   .mf-toolbar .mf-switch-btn:last-child { --mf-hit-last: calc(1px + var(--space-0) + var(--mf-gap) / 2); }
   .mf-toolbar .mf-switch-btn:not(.mf-search *)::after { right: calc(var(--mf-hit-last, 0px) * -1); left: calc(var(--mf-hit-first, 0px) * -1); }
 }
+
+/* ---- print (the standard Print: public/module-actions.js, printFrame) ---- */
+/* The module's content area alone, on the paper's width, in the light colours (the page shows its light mode while it prints):
+   the title bar, the toolbar, the status bar and the rest of the page are left out, and every box around the module lets it run
+   on over the pages. A module in a frame is as tall as its own page (--mf-print-h, which its SDK measured). */
+@media print {
+  :root[data-mf-printing], :root[data-mf-printing] > body { height: auto; min-height: 0; overflow: visible; background: var(--surface-panel); }
+  :root[data-mf-printing] [data-mf-print-hide] { display: none !important; }
+  :root[data-mf-printing] .mf-print-path {
+    position: static !important; display: block !important; inset: auto !important; transform: none !important;
+    width: auto !important; height: auto !important; min-height: 0 !important; max-height: none !important;
+    margin: 0 !important; padding: 0 !important; overflow: visible !important; border: 0 !important; box-shadow: none !important;
+  }
+  :root[data-mf-printing] .mf.mf-printing { display: block; height: auto; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+  :root[data-mf-printing] .mf.mf-printing > :not(.mf-content) { display: none; }
+  :root[data-mf-printing] .mf.mf-printing > .mf-content { height: auto; overflow: visible; }
+  :root[data-mf-printing] .mf.mf-printing iframe { display: block; width: 100%; height: var(--mf-print-h) !important; }
+}
+/* The Share dialog (module-actions.js, shareDialog): the confirm's dialog with the link in a field across it. */
+.mf-share .mf-share-link { width: 100%; }
+/* Inside a module's frame while it prints: its page runs on at its full height, so the host can make the frame that tall. */
+:root.sdk-printing, :root.sdk-printing > body { height: auto !important; overflow: visible !important; }
+:root.sdk-printing .sdk-slot { flex: none; }
 /* moduleframe:end */

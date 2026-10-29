@@ -2944,6 +2944,24 @@
       set: (items) => call('header.set', { items }),
     },
 
+    // The standard actions a module handles itself: Settings, Share and Print, the same in every module. The host draws each
+    // one you give a handler for in the title bar's menu, after your own actions, with the host's words, icon and order
+    // (Settings, Share, Print), and leaves out the rest. set({ settings, share, print }), each a function (the handler) or
+    // { run, disabled?, hint?, permission? } (`run` the handler; `disabled` shows it greyed, `hint` up to 40 characters
+    // says why; `permission` one of your module.json permissions: it is left out for a person without it), or null to
+    // leave it out. A set replaces the last; set({}) takes them all away.
+    //   settings: run() opens your settings, wherever you keep them (an editor window, a view of your own).
+    //   share: run() answers what to share, { url, title?, message? } (or a promise of it): `url` an https address or a path
+    //     on this server, `title` the dialog's heading (else "Share"), `message` one plain line. The host shows its one
+    //     Share dialog: the link, a Copy link button and your message. Answer null to share nothing.
+    //   print: run() gets your page ready (or answers false to stop); the host then prints your content area alone, with
+    //     no title bar, toolbar or status bar, in the light colours, and you hear 'printed' when the page is back.
+    // Resolves true wherever the module has a frame (a window, popped out, its own page); false on a destination's part
+    // and a dashboard widget.
+    standard: {
+      set: (spec) => setStandard(spec),
+    },
+
     // The one row under the title bar, above the content: the tools about the module's current state -- a view switch,
     // the period's title, the way through it (back, Today, forward), a search, the filters -- not window-level actions
     // (those are the title bar's) and not the module's add actions (the title bar's "+"). The host draws it wherever the
@@ -3035,6 +3053,7 @@
     setTitle: (title) => call('setTitle', { title }),
 
     // Events: 'bar' ({ id }) when an action bar button is clicked, 'add' ({ id }) for one of the "+"'s actions, 'header' ({ id }) for a titlebar icon,
+    // 'standard' ({ id }) for Settings, Share or Print (host.standard.set runs your handler for it), 'printed' once the page is back after Print,
     // 'toolbar' ({ id, value?, x? }) for a toolbar item (x: a button's left edge across the module, for a menu under it), 'nav' ({ id }) for one of the module's nav-bar tools,
     // 'change' ({ key, value, version, deleted, scope, spaceId, by })
     // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme),
@@ -3080,6 +3099,53 @@
     if (info && info.space && e && 'budget' in e) info.space.budget = e.budget || null;
   });
   host.on('moved', () => { for (const e of openEditors.values()) e.reopen(); });
+  // The standard actions (host.standard.set): the handlers stay here, the host hears which there are. A pick arrives as
+  // 'standard' { id }; Share answers with what to share, Print says it is ready (its page measured at its full height in
+  // a frame, which the stylesheet's .sdk-printing lets run on) and puts the page back on 'printed'.
+  const STANDARD_IDS = ['settings', 'share', 'print'];
+  let standardRun = {};
+  function setStandard(spec) {
+    return readyPromise.then(() => {
+      const s = spec && typeof spec === 'object' ? spec : {};
+      const run = {};
+      const declared = {};
+      for (const id of STANDARD_IDS) {
+        const v = s[id];
+        const o = typeof v === 'function' ? { run: v } : v && typeof v === 'object' && typeof v.run === 'function' ? v : null;
+        if (!o || (o.permission && !host.can(o.permission))) continue;
+        run[id] = o.run;
+        declared[id] = { ...(o.disabled ? { disabled: true } : {}), ...(o.hint ? { hint: String(o.hint).slice(0, 40) } : {}) };
+      }
+      standardRun = run;
+      return call('standard.set', { actions: declared });
+    });
+  }
+  host.on('standard', async (e) => {
+    const id = e && e.id;
+    const fn = standardRun[id];
+    if (!fn) return;
+    try {
+      if (id === 'settings') { await fn(); return; }
+      if (id === 'share') {
+        const r = await fn();
+        if (r) await call('share.show', r);
+        return;
+      }
+      if (id === 'print') {
+        if ((await fn()) === false) return;
+        // In a frame (env.root is the frame's document) the page runs on at its full height while it prints; a module in
+        // the page (env.root a shadow root) prints with it as it is.
+        const doc = env.root && env.root.documentElement ? env.root : null;
+        if (doc) doc.documentElement.classList.add('sdk-printing');
+        const height = doc ? doc.documentElement.scrollHeight : 0;
+        const ok = await call('print.run', { height });
+        if (!ok && doc) doc.documentElement.classList.remove('sdk-printing');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+  host.on('printed', () => { if (env.root && env.root.documentElement) env.root.documentElement.classList.remove('sdk-printing'); });
   // The host put a lifted frame back itself: the topmost open editor closes as Escape does.
   host.on('editordismiss', () => { const top = [...openEditors.entries()].filter(([d]) => d.open).pop(); if (top) top[1].dismiss(); });
   // The viewport crossed the phone line while lifted: the dialog's rules follow.

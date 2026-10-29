@@ -1,7 +1,8 @@
 // The pure rules of a module window's bands: cleaning what a module sends (host.add.set, host.status.set, host.header.set,
 // host.toolbar.set), whether the "+" runs its one action or opens a menu, the menu's entries in the shared menu's shape
-// (public/host-menu.js, with categories as flyouts), the status bar's polite, debounced read-out, and how each of them
-// maps onto the module frame (public/module-frame.js: frameAdd, statusFrame, titlebarActions, frameToolbar).
+// (public/host-menu.js, with categories as flyouts), the status bar's polite, debounced read-out, the standard actions a
+// module handles (host.standard.set: cleanStandardActions, cleanShareResult), and how each of them maps onto the module
+// frame (public/module-frame.js: frameAdd, statusFrame, titlebarActions, frameToolbar).
 // No DOM and no imports: public/module-host.js draws with these, and tools/check-module-chrome.mjs tests them.
 // See documentation/plans/plan-module-titlebar-add.md, "The contract".
 
@@ -297,6 +298,45 @@ export function cleanHeaderItems(items) {
     overflow: Boolean(i?.overflow),
     danger: Boolean(i?.danger),
   })).filter((i) => i.id && i.icon);
+}
+
+// The standard actions a module handles itself (host.standard.set): Settings, Share and Print, the engine's, drawn by the
+// host the same in every module (module-frame.js, titlebar.moduleStandard) and only for the ones the module declared. Each
+// is true, or { disabled?, hint? } (`hint` up to 40 characters: why it is off, or a word beside it); anything else, or a
+// module that has no handler for it, leaves it out. The words, icons and order are the host's, never the module's.
+export const MODULE_STANDARD = ['settings', 'share', 'print'];
+export function cleanStandardActions(spec) {
+  const out = {};
+  const s = spec && typeof spec === 'object' ? spec : {};
+  for (const id of MODULE_STANDARD) {
+    const v = s[id];
+    if (v === true) out[id] = {};
+    else if (v && typeof v === 'object') {
+      const o = {};
+      if (v.disabled) o.disabled = true;
+      const hint = str(v.hint, 40);
+      if (hint) o.hint = hint;
+      out[id] = o;
+    }
+  }
+  return out;
+}
+
+// What the module's share handler answered, cleaned for the host's share dialog: { url, title, message }. `url` an https or
+// http address, or a path on this server (made whole against `origin`); `title` up to 80 characters (else "Share"),
+// `message` up to 300. Null when there is no address to share.
+export function cleanShareResult(r, origin) {
+  if (!r || typeof r !== 'object') return null;
+  const raw = String(r.url ?? '').trim();
+  if (!raw || raw.length > 2000) return null;
+  let url;
+  try {
+    url = raw.startsWith('/') && !raw.startsWith('//') ? new URL(raw, origin) : new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+  return { url: url.href, title: str(r.title, 80) || 'Share', message: String(r.message ?? '').replace(/[ \t]+/g, ' ').trim().slice(0, 300) };
 }
 
 // What the frame's title bar shows for a module (module-frame.js, titlebar.actions): its header icons (host.header.set),

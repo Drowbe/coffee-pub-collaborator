@@ -1,6 +1,7 @@
 // The Prototype page (prototype.html): the panel we are building, the one module panel, createModuleFrame (public/module-frame.js), in four states, with a
 // theme, light or dark, and the panels' width chosen at the top (also from the address: ?theme=&mode=&w=).
 import { createModuleFrame } from '/module-frame.js';
+import { shareDialog, printFrame } from '/module-actions.js';
 
 const D = document;
 const THEMES = [
@@ -98,7 +99,7 @@ const tabsGroup = { name: 'Tabs', note: 'A tab strip, for switching between diff
   }) };
 const STATES = [
   {
-    name: 'Idle', note: 'A typical panel: a view switch, then the search and Filters at the end. The "+" adds; Share, Print and Settings are in the menu.',
+    name: 'Idle', note: 'A typical panel: a view switch, then the search and Filters at the end. The "+" adds; the menu has the window\'s standard actions.',
     frame: () => ({
       title: 'Packing list', icon: 'suitcase', titlebar: titlebar(),
       toolbar: [viewSwitch(), { type: 'search', id: 'find', label: 'Search the list', placeholder: 'Search' }, filtersCtl()],
@@ -173,11 +174,11 @@ const budgetLike = () => ({
 });
 const TITLEBAR_STATES = [
   {
-    name: 'Budget-like', note: 'The "+", Clear in the menu (last, in red, after its own line) and every standard action.',
+    name: 'Budget-like', note: 'The "+", Clear in the menu (last, in red, after its own line) and the window\'s standard actions.',
     frame: budgetLike,
   },
   {
-    name: 'Calendar-like', note: 'The "+", Today and Filter as icons beside the menu, and every standard action in the menu.',
+    name: 'Calendar-like', note: 'The "+", Today and Filter as icons beside the menu, and the window\'s standard actions in the menu.',
     frame: () => ({
       title: 'Calendar', icon: 'calendar',
       titlebar: {
@@ -191,10 +192,10 @@ const TITLEBAR_STATES = [
     }),
   },
   {
-    name: 'Chat-like', note: 'No "+", Print switched off, Share on.',
+    name: 'Chat-like', note: 'No "+"; the tool handles Share only, so Settings and Print are not in the menu.',
     frame: () => ({
       title: 'Chat', icon: 'comments',
-      titlebar: { standard: { print: false, share: true }, close: true },
+      titlebar: { moduleStandard: { share: true, onPick: () => {} }, close: true },
       toolbar: [],
       content: rows(4, MESSAGES),
       status: { text: '4 messages' },
@@ -270,8 +271,32 @@ groupNote.className = 'pp-state-note';
 groupNote.textContent = 'Standard actions are the host\'s, the same in every tool; a tool adds its own, as icons beside the menu or in it. The "+" is always beside the menu.';
 group.append(groupName, groupNote);
 main.append(group);
+// The standard actions a module hands to the host (host.standard.set; Thomas, 2026-10-29): Settings, Share and Print, drawn by
+// the host in every module's menu after the module's own actions, only for the ones the module handles. Here the panel
+// registers all three: Settings is the module's own (here a line below says so), Share opens the host's one Share dialog
+// and Print prints this panel's content area alone (public/module-actions.js).
+TITLEBAR_STATES.push({
+  name: 'Settings, Share and Print', note: 'This panel handles all three, so the host draws them in its menu after the panel\'s own Pin, in the same words, icons and order as in every tool. Share opens the host\'s Share dialog; Print prints the list alone, in light colours.',
+  standard: true,
+  frame: () => ({
+    title: 'Packing list', icon: 'suitcase',
+    titlebar: { add: { label: 'Add' }, actions: [{ id: 'pin', icon: 'thumbtack', label: 'Pin', placement: 'menu', on: false }], close: true },
+    toolbar: [viewSwitch()],
+    content: rows(8, WORDS),
+    status: { text: '8 things' },
+  }),
+});
+function registerStandard(frame, log) {
+  frame.setTitlebar({ moduleStandard: { settings: true, share: true, print: true, onPick: (id) => {
+    log.textContent = `Last: titlebar ${id} (the tool's, run by the host)`;
+    if (id === 'share') shareDialog(D, { title: 'Share the packing list', url: `${location.origin}/s/packing-list-3f9a`, message: 'Anyone with the link can see the list, not change it.' });
+    else if (id === 'print') printFrame(frame.el);
+  } } });
+}
+
 for (const s of TITLEBAR_STATES) {
   const { frame, box } = drawState(s, group, 'h3');
+  if (s.standard) registerStandard(frame, box.nextElementSibling);
   if (!s.open) continue;
   const menu = staticMenu(frame.titlebarMenu());
   box.append(menu);

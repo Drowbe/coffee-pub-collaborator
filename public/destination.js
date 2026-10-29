@@ -380,7 +380,7 @@ function drawFrame(d) {
     icon: d.icon,
     variant: 'page',
     bands: { titlebar: !inComposite, status: !inComposite },
-    titlebar: { standard: { dock: false, window: false, popout: false, settings: false, share: false, print: false, clear: false } },
+    titlebar: { standard: { dock: false, window: false, popout: false, clear: false } },
     flush: true,
     content: $('dest'),
     onAction: (e) => bands.event(e),

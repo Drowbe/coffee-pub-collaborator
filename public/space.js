@@ -3537,7 +3537,6 @@ function applyLayout() {
 // Size the tiles so all of them fit the grid area at 16:9, whatever the
 // window shape. Sizes go into CSS variables the layouts read.
 const RATIO = 16 / 9;
-const GAP = 10;
 function fitTiles(grid, portrait) {
   // Ghost tiles (members stepped into an aside) are real .tile elements in
   // the grid too -- size for all of them, or the ones left out get the
@@ -3547,6 +3546,9 @@ function fitTiles(grid, portrait) {
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const W = grid.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
   const H = grid.clientHeight - padY;
+  // The grid's own gaps, so the sizes add up to exactly what the row and the column hold (a tile a pixel too wide wraps).
+  const gapX = parseFloat(style.columnGap) || 0;
+  const gapY = parseFloat(style.rowGap) || 0;
   if (n === 0 || W <= 0 || H <= 0) return;
   let w = 0;
   let h = 0;
@@ -3554,27 +3556,27 @@ function fitTiles(grid, portrait) {
   let sh = 0;
   if (prefs.layout === 'strip') {
     if (portrait) {
-      w = Math.min(W, ((H - GAP * (n - 1)) / n) * RATIO);
+      w = Math.min(W, ((H - gapY * (n - 1)) / n) * RATIO);
       h = w / RATIO;
     } else {
-      h = Math.min(H, (W - GAP * (n - 1)) / n / RATIO);
+      h = Math.min(H, (W - gapX * (n - 1)) / n / RATIO);
       w = h * RATIO;
     }
   } else if (prefs.layout === 'spotlight' && n > 1) {
     sh = Math.max(64, Math.min(160, H * 0.22));
-    sw = Math.min(sh * RATIO, (W - GAP * (n - 2)) / (n - 1));
+    sw = Math.min(sh * RATIO, (W - gapX * (n - 2)) / (n - 1));
     sh = sw / RATIO;
-    h = H - sh - GAP;
+    h = H - sh - gapY;
     w = Math.min(W, h * RATIO);
     h = w / RATIO;
   } else {
     // grid (and a spotlight of one): the column count that gives the biggest tiles
     for (let cols = 1; cols <= n; cols += 1) {
       const rows = Math.ceil(n / cols);
-      let tw = (W - GAP * (cols - 1)) / cols;
+      let tw = (W - gapX * (cols - 1)) / cols;
       let th = tw / RATIO;
-      if (th * rows + GAP * (rows - 1) > H) {
-        th = (H - GAP * (rows - 1)) / rows;
+      if (th * rows + gapY * (rows - 1) > H) {
+        th = (H - gapY * (rows - 1)) / rows;
         tw = th * RATIO;
       }
       if (tw > w) {
@@ -6704,7 +6706,9 @@ syncViewportHeight();
 
 // --- floating controls: show on movement, hide when the pointer rests --------
 
+const CHROME_IDLE_MS = 3000; // how long the pointer rests before a popped-out call's bars fade
 let idleTimer = 0;
+const lastPointer = new WeakMap(); // each document's last pointer position, for whether it rests on a bar
 // The canvases that hide their chrome when the pointer rests: the page's own, and the one the conference is wrapped in
 // when it is popped out into a window of its own (that window's document, not this page's).
 function idleCanvases() {
@@ -6727,17 +6731,32 @@ function wake(doc = null) {
     const win = canvas.builtinWindow('conference');
     const doc = win ? win.document : document;
     const shown = (id) => { const el = doc.getElementById(id); return Boolean(el && !el.hidden); };
-    const floatbar = doc.getElementById('floatbar');
-    const keepOpen = shown('settings') || shown('react-tray') || Boolean(floatbar && floatbar.matches(':hover')) || (!win && canvas.builtinOpen('chat'));
+    // The pointer on either bar, the keyboard in one, or a menu one of them opened keeps them up too.
+    const bars = [...doc.querySelectorAll('.conference-head, .video-bar')];
+    const at = lastPointer.get(doc);
+    const under = at ? doc.elementFromPoint(at.x, at.y) : null; // where the pointer rests (a faded bar ignored it while it came)
+    const inUse = bars.some((b) => b.matches(':hover') || b.contains(under) || b.matches(':has(:focus-visible)') || b.querySelector('[aria-expanded="true"]'));
+    const keepOpen = shown('settings') || shown('react-tray') || inUse || Boolean(doc.querySelector('.host-menu')) || (!win && canvas.builtinOpen('chat'));
     if (!keepOpen) for (const s of idleCanvases()) s.classList.add('idle');
     else wake();
-  }, 2500);
+  }, CHROME_IDLE_MS);
 }
 function watchPointer(doc) {
   const here = () => wake(doc);
-  doc.addEventListener('mousemove', here);
+  // Only a pointer that really moved: Chromium sends a mousemove at the same place when what is under a resting pointer
+  // changes (a bar fading out), and taking that for a movement would bring the bars straight back, again and again.
+  let last = '';
+  doc.addEventListener('mousemove', (event) => {
+    const at = `${event.screenX},${event.screenY}`;
+    if (at === last) return;
+    last = at;
+    lastPointer.set(doc, { x: event.clientX, y: event.clientY });
+    here();
+  });
+  doc.documentElement.addEventListener('mouseleave', () => lastPointer.delete(doc)); // out of the window: on no bar
   doc.addEventListener('touchstart', here, { passive: true });
   doc.addEventListener('keydown', here);
+  doc.addEventListener('focusin', here);
 }
 watchPointer(document);
 

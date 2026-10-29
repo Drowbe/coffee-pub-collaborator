@@ -466,7 +466,7 @@
 
 /* ================= Tabs and view switches (design system step 14) =================
    One component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
-   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Chat's Discussion | Assistant, Travel's
+   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Travel's
    ways to get there). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
    Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-joined (the view switch: tabs 2px apart, never scrolls, icons only
    when narrow via .tb-tabs-compact), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's "..."), + .sdk-tabs-small
@@ -521,7 +521,7 @@
   --tabs-gap: var(--space-1);
 }
 
-/* A strip in a band (the Chat's Discussion | Assistant row): the band is the module frame's toolbar (moduleframe) and the tabs
+/* A strip in a band (a toolbar row): the band is the module frame's toolbar (moduleframe) and the tabs
    are the frame's controls' height (--mf-ctl-h), the same on every width. No page sets its own. (Named twice, so it outranks
    the small strip's rule above, whose .page-bar .subtabs weighs three classes.) */
 :is(.mf-toolbar, .mf-titlebar) :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs) {
@@ -690,8 +690,14 @@
   display: none;
 }
 
-/* The count after the label: a small neutral pill. */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+/* The module frame's joined switch (.mf-switch) fitted the same way by hostSwitch (Chat's Discussion | Assistant): a part with
+   an icon drops its word while the row is too narrow for the words. */
+.mf-switch.tb-tabs-compact > .mf-switch-btn:has(> i) > .mf-word {
+  display: none;
+}
+
+/* The count after the label: a small neutral box with the small corner (no pills). */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge) {
   position: static;
   display: inline-flex;
   align-items: center;
@@ -703,7 +709,7 @@
   margin: 0;
   padding: 0 var(--space-1);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--tab-ink) 14%, transparent);
   color: var(--tab-ink);
   font-size: var(--text-11);
@@ -713,7 +719,7 @@
   text-align: center;
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count)[hidden] { display: none; }
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge)[hidden] { display: none; }
 
 /* Green count: something to act on (a module update). */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > .badge.badge-ok {
@@ -722,7 +728,7 @@
 }
 
 /* A change not saved yet (Set up) or news (Chat's Assistant): a 7px dot after the label. */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot) {
   flex: none;
   width: 7px;
   height: 7px;
@@ -732,16 +738,16 @@
   background: var(--accent-fill);
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot)[hidden] { display: none; }
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot)[hidden] { display: none; }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) > :is(.sdk-tab-dot, .setup-tab-dot) {
   background: var(--tab-sel);
 }
 
 /* On an icon-only tab the count and the dot sit on the icon's corner, so the tab stays square. The count is the micro count
    (14px, 9px numbers, 3px in, the accent fill). */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
-.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge) {
   position: absolute;
   top: var(--tab-micro-inset);
   right: var(--tab-micro-inset);
@@ -753,8 +759,8 @@
   color: var(--text-on-accent);
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot),
-.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot) {
   position: absolute;
   top: 4px;
   right: 4px;
@@ -2309,7 +2315,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
   margin: 0;
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--text-primary) 14%, var(--surface-panel));
   color: var(--text-primary);
   font-size: var(--text-12);
@@ -2952,7 +2958,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 
 /* ================= Journey bar: the status strip and its journey bar (design system step 30) =================
    The space's status strip (space.js, "the status strip"): the phase chip, the journey bar, the countdown, up to three facts and
-   the attention pill. Source: public/design-system/proposed-journey.css, without the .ds-proposed prefix, the new names only, with the
+   the attention chip. Source: public/design-system/proposed-journey.css, without the .ds-proposed prefix, the new names only, with the
    colour roles. The journey bar is a proportional day grid laid out by journeyLayout (public/journey-layout.js, the Proposed page's
    own function word for word): every day an equal slice, a band days x day width - 2px wide (--x, --w), the days no phase covers an
    empty dashed slice (.sdk-gap), a phase with no dates a dashed stub at the right end, the today pin above the bar with a 2px stem
@@ -2960,7 +2966,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    The strip is 57px wider than a phone (--status-strip-h, style.css: the row's 1px rule and the 56px grid: the pin, the 24px bar,
    the ticks, the dates) and a slim 28px line on a phone (--status-strip-slim-h), where the journey is a 2px line along its foot with
    a 7px dot at today and a long press on a band shows its name and dates. Every chip in the header is 30px (22px on the slim line) and a
-   Chips look: a neutral fill, the countdown's accent fill, the pill's warn tone. Band fills by state: past 12%, ahead 22%, current
+   Chips look: a neutral fill, the countdown's accent fill, the attention chip's warn tone. Band fills by state: past 12%, ahead 22%, current
    the selected fill with its name in the accent mix and "Now", off a dashed neutral hairline. No coloured edge, ring or bar: the
    journey line, the progress line and the pin's stem are blocks.
    Where it sits (the space bar's row, the header's line on a phone), the row's rule and fill, and the width at which the facts give
@@ -3082,7 +3088,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 .sdk-strip-fact > :is(i, .sdk-strip-fact-text) { position: relative; }
 .sdk-strip-fact-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* The attention pill: a warn tone fill (it needs action), the count the Chips count. At the strip's right end. */
+/* The attention chip: a warn tone fill (it needs action), the count the Chips count. At the strip's right end. */
 .sdk-strip-attn-slot { display: flex; flex: none; align-items: center; margin-left: auto; }
 .sdk-strip-attn-slot[hidden] { display: none; }
 .sdk-strip-attn {
@@ -3179,7 +3185,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   margin: 0;
   padding: 0 var(--jr-pin-pad);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: var(--jr-pin-fill);
   color: var(--text-on-accent);
   font-size: var(--text-11);

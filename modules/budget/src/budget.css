@@ -66,7 +66,7 @@
 .cost-main .main { display: grid; min-width: 0; gap: 1px; }
 .cost-main .title { font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-section); overflow-wrap: anywhere; }
 .cost-main .sub { color: var(--text-muted); font-size: var(--text-12); overflow-wrap: anywhere; }
-.cost-main .src { justify-self: start; margin-top: 3px; padding: 1px 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-card)); color: var(--text-muted); font-size: var(--text-11); overflow-wrap: anywhere; }
+.cost-main .src { justify-self: start; margin-top: 3px; padding: 1px 8px; border-radius: var(--radius-small); background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-card)); color: var(--text-muted); font-size: var(--text-11); overflow-wrap: anywhere; }
 .cost-row.pulled .mark { opacity: 0.8; }
 .note { grid-column: 1 / -1; padding: 0 2px; }
 .amounts { display: grid; justify-items: end; gap: 1px; }

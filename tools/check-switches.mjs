@@ -158,6 +158,9 @@ class FakeEl {
   removeEventListener(type, fn) { this.listeners[type] = (this.listeners[type] || []).filter((f) => f !== fn); }
   click() { for (const fn of this.listeners.click || []) fn({ target: this }); let p = this.parentElement; while (p) { for (const fn of p.listeners.click || []) fn({ target: this }); p = p.parentElement; } }
   matchesOne(s) {
+    const is = /^:is\((.*)\)$/.exec(s);
+    if (is) return is[1].split(',').some((x) => this.matchesOne(x.trim()));
+    if (s.includes(',')) return s.split(',').some((x) => this.matchesOne(x.trim()));
     if (s.startsWith('[data-')) return Object.prototype.hasOwnProperty.call(this.dataset, s.slice(6, -1).replace(/-([a-z])/g, (_, c) => c.toUpperCase()));
     if (s.startsWith('.')) return s.slice(1).split('.').every((c) => this.classList.contains(c));
     return this.tagName === s.toUpperCase();
@@ -173,10 +176,10 @@ class FakeEl {
   // Widths: a glyph 15, a word 7 a letter, a choice's padding and border 22, the parts' gap 5.
   naturalWidth() {
     if (this.fixedWidth !== null) return this.fixedWidth;
-    if (this.classList.contains('tb-tab')) {
+    if (this.classList.contains('tb-tab') || this.classList.contains('mf-switch-btn')) {
       const compact = this.parentElement && this.parentElement.classList.contains('tb-tabs-compact');
-      const glyph = this.querySelector(':scope > .tb-tab-glyph');
-      const word = this.querySelector(':scope > .tb-tab-word');
+      const glyph = this.querySelector(':scope > :is(.tb-tab-glyph, i)');
+      const word = this.querySelector(':scope > :is(.tb-tab-word, .mf-word)');
       const wordShows = word && !(compact && glyph);
       return 22 + (glyph ? 15 : 0) + (wordShows ? word.textContent.length * 7 : 0) + (glyph && wordShows ? 5 : 0);
     }
@@ -323,6 +326,35 @@ await test('an icon-only choice (iconOnly) always has its word as title and aria
   assert.ok(btn.classList.contains('tb-tab-icon'));
 });
 
+await test('the frame\'s joined switch (.mf-switch, Chat\'s Discussion | Assistant) fits the same way', () => {
+  const box = fakeDoc.createElement('div');
+  const g = box.appendChild(fakeDoc.createElement('span'));
+  g.className = 'mf-switch';
+  const part = (label, icon) => {
+    const b = g.appendChild(fakeDoc.createElement('button'));
+    b.className = 'mf-switch-btn';
+    const i = b.appendChild(fakeDoc.createElement('i'));
+    i.className = `fa-solid fa-${icon} fa-fw`;
+    const w = b.appendChild(fakeDoc.createElement('span'));
+    w.className = 'mf-word';
+    w.textContent = label;
+    return b;
+  };
+  const talk = part('Discussion', 'comments');
+  part('Assistant', 'wand-magic-sparkles');
+  box.boxWidth = 1000;
+  sw.fit(box);
+  assert.equal(g.classList.contains('tb-tabs-compact'), false, 'compact when the words fit');
+  box.boxWidth = 80;
+  sw.fit(box);
+  assert.equal(g.classList.contains('tb-tabs-compact'), true, 'not compact when the words do not fit');
+  assert.equal(talk.getAttribute('aria-label'), 'Discussion');
+  assert.equal(talk.dataset.tip, 'Discussion', 'no tooltip in icons only');
+  box.boxWidth = 1000;
+  sw.fit(box);
+  assert.equal(talk.dataset.tip, undefined, 'the tooltip the fit added stays once the words fit again');
+});
+
 await test('watch fits again when its container changes size', () => {
   const { box, g } = container(1000);
   choice(g, { id: 'money', label: 'Money', icon: 'coins' });
@@ -365,30 +397,40 @@ if ((destination.match(/type: 'tabs'/g) || []).length < 2 || !/bands\.toolbar\(\
 if (!/options: [a-z]+\.map\(\(p\) => \(\{ id: p\.key, label: p\.part\.label, icon:/.test(destination)) fail('public/destination.js: every panel in the panel switch needs an icon');
 const destViews = /calendar:\s*\{\s*views:\s*\[([^\]]*)\]/.exec(destination);
 if (!destViews || (destViews[1].match(/\{[^}]*\}/g) || []).some((o) => !/icon:/.test(o))) fail('public/destination.js: every view of the Calendar destination needs an icon');
-// Chat's two views, Discussion | Assistant (GitHub #203), in place of the All | Private | Public filter: the shared
-// switch's markup and fit, as a tablist (each choice a tab, the chosen one selected and the one Tab reaches), each its
-// own icon and word, the word its aria-label, the Discussion chosen to start.
+function fnBodyOf(src, head) { const at = src.indexOf(head); if (at < 0) return ''; let d = 0; for (let i = src.indexOf('{', at); i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}' && --d === 0) return src.slice(at, i + 1); } return src.slice(at); }
+// Chat's two views, Discussion | Assistant (GitHub #203), in place of the All | Private | Public filter: the module frame's
+// view switch (.mf-switch, joined, the chosen part filled; Thomas, 2026-10-29), two buttons, the chosen one pressed, each its
+// own icon and word, the word its aria-label, the Discussion chosen to start; fitted to icons only by hostSwitch when narrow.
+// Start call is a button of its own after the switch, never a part of it.
 const chatInputJs = read('public/chat-input.js');
 if (!/hostSwitch\.watch\(g\)/.test(chatInputJs)) fail('public/chat-input.js: Chat\'s Discussion | Assistant must be fitted with hostSwitch.watch');
+const hostJs = read('public/sdk/host.js');
+if (!/container\.querySelectorAll\('\.tb-tabs, \.mf-switch'\)/.test(hostJs) || !/g\.querySelectorAll\('\.tb-tab, \.mf-switch-btn'\)/.test(hostJs)) fail('public/sdk/host.js: hostSwitch.fit fits the frame\'s switch (.mf-switch) as well as the tabs');
+if (!/\.mf-switch\.tb-tabs-compact > \.mf-switch-btn:has\(> i\) > \.mf-word \{\s*display: none;/.test(read('public/sdk/system.css'))) fail('public/sdk/system.css: a fitted .mf-switch drops its words, keeping its icons');
 const spaceHtml = read('public/space.html');
 if (/chat-ai-share|chat-ai-private|chat-ai-shared|chat-filter/.test(spaceHtml + chatInputJs)) fail('public/space.html: the old switches (#chat-ai-share, the #chat-filter filter) are gone');
-if (!/<div class="mf-toolbar chat-views" id="chat-views" hidden>\s*<span class="tb-tabs" role="tablist" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views is one .tb-tabs tablist in the chat\'s toolbar (the frame\'s band), hidden until a space');
+if (!/<div class="mf-toolbar chat-views" id="chat-views" hidden>\s*<span class="mf-switch" role="group" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views holds the frame\'s view switch (.mf-switch, a group) in the chat\'s toolbar (the frame\'s band), hidden until a space');
+const chatRow = /<div class="mf-toolbar chat-views" id="chat-views" hidden>([\s\S]*?)<\/div>/.exec(spaceHtml)?.[1] || '';
+if (/tb-tab|role="tab/.test(chatRow)) fail('public/space.html: Chat\'s views are not tabs any more (no .tb-tab, no tablist)');
 for (const [id, icon, word, on] of [['chat-view-discussion', 'comments', 'Discussion', true], ['chat-view-assistant', 'wand-magic-sparkles', 'Assistant', false]]) {
   const m = new RegExp(`<button[^>]*id="${id}"[^>]*>([\\s\\S]*?)</button>`).exec(spaceHtml);
   if (!m) { fail(`public/space.html: #${id} is missing`); continue; }
-  if (!new RegExp(`class="tb-tab-glyph fa-solid fa-${icon} fa-fw"`).test(m[1])) fail(`public/space.html: #${id} needs the ${icon} icon (.tb-tab-glyph)`);
-  if (!new RegExp(`<span class="tb-tab-word">${word}</span>`).test(m[1])) fail(`public/space.html: #${id} needs its word, ${word} (.tb-tab-word)`);
+  if (!/class="mf-switch-btn"/.test(m[0])) fail(`public/space.html: #${id} is a part of the frame's switch (.mf-switch-btn)`);
+  if (!new RegExp(`<i class="fa-solid fa-${icon} fa-fw" aria-hidden="true"></i>`).test(m[1])) fail(`public/space.html: #${id} needs the ${icon} icon`);
+  if (!new RegExp(`<span class="mf-word">${word}</span>`).test(m[1])) fail(`public/space.html: #${id} needs its word, ${word} (.mf-word)`);
   if (!new RegExp(`aria-label="${word}"`).test(m[0])) fail(`public/space.html: #${id} needs its word as aria-label`);
-  if (!/role="tab"/.test(m[0]) || !/aria-controls="messages"/.test(m[0])) fail(`public/space.html: #${id} is a tab controlling #messages`);
-  if (new RegExp(`class="tb-tab${on ? ' on' : ''}"`).exec(m[0]) === null || !new RegExp(`aria-selected="${on}"`).test(m[0]) || !new RegExp(`tabindex="${on ? 0 : -1}"`).test(m[0])) fail(`public/space.html: #${id} starts ${on ? 'chosen' : 'not chosen'}`);
+  if (!/aria-controls="messages"/.test(m[0])) fail(`public/space.html: #${id} controls #messages`);
+  if (!new RegExp(`aria-pressed="${on}"`).test(m[0])) fail(`public/space.html: #${id} starts ${on ? 'chosen' : 'not chosen'}`);
 }
 if (!/<p class="visually-hidden" id="chat-view-news" role="status" aria-live="polite"><\/p>/.test(spaceHtml)) fail('public/space.html: the Assistant\'s news is read out from a polite live region');
 // Remembered per space for the browser session; the old filter's key is not read.
 if (!/export const viewKey = \(spaceId\) => `chat-view:\$\{spaceId\}`;/.test(chatInputJs) || /chat-ai-share:|filterKey/.test(chatInputJs)) fail('public/chat-input.js: the view is kept as chat-view:<spaceId>, and the old keys are not read');
 if (!/sessionStorage\.setItem\(viewKey\(id\), view\)/.test(chatInputJs) || !/readView\(sessionStorage\.getItem\(viewKey\(id\)\)\)/.test(chatInputJs)) fail('public/chat-input.js: the view is remembered in sessionStorage');
-// The tablist's keys: the arrows, Home and End, focus following the chosen tab.
-if (!/\{ ArrowRight: at \+ 1, ArrowLeft: at - 1, Home: 0, End: CHAT_VIEWS\.length - 1 \}\[e\.key\]/.test(chatInputJs) || !/setView\(CHAT_VIEWS\[\(to \+ CHAT_VIEWS\.length\) % CHAT_VIEWS\.length\], \{ focusTab: true \}\)/.test(chatInputJs)) fail('public/chat-input.js: the views\' tablist moves with the arrow keys, Home and End');
-if (!/el\.setAttribute\('aria-selected', v === view \? 'true' : 'false'\);\s*el\.tabIndex = v === view \? 0 : -1;/.test(chatInputJs)) fail('public/chat-input.js: the chosen tab is selected and the one Tab reaches');
+// The chosen part is pressed; the tablist's keys and roving focus are gone with the tabs.
+if (!/el\.setAttribute\('aria-pressed', v === view \? 'true' : 'false'\);/.test(chatInputJs)) fail('public/chat-input.js: the chosen view\'s button is pressed');
+if (/aria-selected|focusTab|ArrowRight: at \+ 1/.test(fnBodyOf(chatInputJs, 'function setView(') + chatInputJs.slice(chatInputJs.indexOf("for (const v of CHAT_VIEWS) {\n    $(`chat-view-${v}`)"), chatInputJs.indexOf("$('chat-command').addEventListener"))) ) fail('public/chat-input.js: no tab selection or tablist keys on Chat\'s switch');
+// Start call: the shared primary button, put at the end of the row (after the switch, not in it).
+if (!/\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/.test(read('public/space.js'))) fail('public/space.js: Start call goes at the end of the chat\'s view row, after the switch');
 // The page only filters: #messages carries data-view, each line data-in, and the stylesheet hides the rest.
 const styleCss = read('public/style.css');
 if (!/#messages\[data-view="discussion"\] > \[data-in="assistant"\],\s*#messages\[data-view="assistant"\] > :not\(\[data-in="assistant"\]\):not\(\[data-in="both"\]\):not\(\.chat-view-empty\) \{\s*display: none;/.test(styleCss)) fail('public/style.css: each view hides the lines it leaves out, and only those');

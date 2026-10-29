@@ -475,10 +475,11 @@
     return glyph;
   }
   // A choice with an icon and a word, in or out of icons only: its word is its accessible name either way, and its
-  // tooltip only while the word is hidden (a title the page set itself is left alone).
+  // tooltip only while the word is hidden (a title the page set itself is left alone). A choice is a tab (.tb-tab) or a
+  // part of the module frame's joined switch (.mf-switch-btn, its word .mf-word: Chat's Discussion | Assistant).
   function labelChoice(button, compact) {
-    const wordEl = button.querySelector(':scope > .tb-tab-word');
-    if (!wordEl || !button.querySelector(':scope > .tb-tab-glyph')) return;
+    const wordEl = button.querySelector(':scope > :is(.tb-tab-word, .mf-word)');
+    if (!wordEl || !button.querySelector(':scope > :is(.tb-tab-glyph, i)')) return;
     const word = wordEl.textContent.trim();
     button.setAttribute('aria-label', word);
     if (compact && ((!button.dataset.tip && !button.title) || button.dataset.fitTitle)) {
@@ -491,7 +492,7 @@
   }
   function fitSwitches(container) {
     if (!container || !container.isConnected) return;
-    const groups = [...container.querySelectorAll('.tb-tabs')];
+    const groups = [...container.querySelectorAll('.tb-tabs, .mf-switch')];
     if (!groups.length) return;
     // Measured with every word showing; a container that is not laid out (hidden) keeps the words.
     for (const g of groups) g.classList.remove(SWITCH_COMPACT);
@@ -499,7 +500,7 @@
     const narrow = width > 0 && (container.scrollWidth > width + 1 || groups.some((g) => g.getBoundingClientRect().width > width + 1));
     for (const g of groups) {
       g.classList.toggle(SWITCH_COMPACT, narrow);
-      for (const b of g.querySelectorAll('.tb-tab')) labelChoice(b, narrow);
+      for (const b of g.querySelectorAll('.tb-tab, .mf-switch-btn')) labelChoice(b, narrow);
     }
   }
   const switchWatch = new WeakMap(); // container -> the view it is watched in
@@ -3180,6 +3181,6 @@
     },
   };
   // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),
-  // Chat's Private | Shared and a destination's switches all draw and fit with these.
+  // Chat's Discussion | Assistant (fit only) and a destination's switches draw and fit with these.
   global.hostSwitch = { fill: fillChoice, fit: fitSwitches, watch: watchSwitches };
 })(window);

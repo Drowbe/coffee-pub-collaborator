@@ -80,7 +80,7 @@ async function run(browser, S, people) {
   for (const s of states) {
     say(`${name}, ${s.name}: ${s.idle ? 'idle' : 'awake'}; bars ${s.shown.head ? 'shown' : 'hidden'}/${s.shown.bar ? 'shown' : 'hidden'}; position ${s.pos.head}/${s.pos.bar}; tiles ${s.tiles.join(' | ')}`);
     if (s.tiles.join('|') !== first.tiles.join('|')) failures.push(`${name}, ${s.name}: the tiles moved or changed size (${s.tiles.join(' | ')}; first ${first.tiles.join(' | ')})`);
-    for (const k of ['head', 'bar']) if (!['absolute', 'fixed'].includes(s.pos[k])) failures.push(`${name}, ${s.name}: the call's ${k === 'head' ? 'title bar' : 'toolbar'} is in the flow (position ${s.pos[k]}), so it takes room from the tiles`);
+    for (const k of ['head', 'bar']) if (!['absolute', 'fixed'].includes(s.pos[k])) failures.push(`${name}, ${s.name}: the call's ${k === 'head' ? 'title bar' : 'toolbar'} is in the flow (position ${s.pos[k]}), so it takes height from the tiles`);
   }
   const want = { 'pointer moved': true, idle: false, 'mousemove that does not move': false, 'pointer moved again': true, 'window blur': true, 'window focus': true, 'idle again': false, 'pointer resting on the toolbar': true, 'idle, pointer resting on the tiles': false, 'keyboard on a bar (focus-within)': true, 'focus-within, after the idle wait': true, 'idle, focus gone': false, touch: true };
   for (const s of states) if (s.name in want && (s.shown.head !== want[s.name] || s.shown.bar !== want[s.name])) failures.push(`${name}, ${s.name}: the bars are ${s.shown.head ? 'shown' : 'hidden'}/${s.shown.bar ? 'shown' : 'hidden'}, wanted ${want[s.name] ? 'shown' : 'hidden'}`);

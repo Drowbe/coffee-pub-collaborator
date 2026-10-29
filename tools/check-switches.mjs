@@ -454,6 +454,16 @@ for (const rel of moduleFiles.filter((f) => f.endsWith('.js'))) {
   }
 }
 
+// A sort is an order, not a filter (Thomas, 2026-10-29): Budget's Sort is a button on the left of its row that says the order
+// now ("Sort: Date, earliest first") and opens the orders under it, one to pick; never a group in the Filters menu, where it
+// was counted as applied whenever it was not the first order.
+{
+  const budget = read('modules/budget/src/budget.js');
+  if (/type: 'chips', id: 'sort'/.test(budget)) fail('modules/budget/src/budget.js: the sort is back in the Filters menu (a chips group); it is a button on the left of the row');
+  if (!/\{ type: 'button', id: 'sort', label: `Sort: \$\{SORT_WORDS\[state\.sort\]\}`, icon: '[a-z0-9-]+' \}/.test(budget)) fail('modules/budget/src/budget.js: the Sort button says the order now ("Sort: " and its words) and has an icon');
+  if (!/else if \(e\.id === 'sort'\) chooser\(e, SORTS\.map\(\(id\) => \(\{ id, label: SORT_WORDS\[id\] \}\)\), state\.sort,/.test(budget)) fail('modules/budget/src/budget.js: the Sort button opens the orders under it, the one in use marked');
+}
+
 if (problems.length) {
   console.error(`check-switches: ${problems.length} problem(s)`);
   for (const p of problems) console.error(`  - ${p}`);

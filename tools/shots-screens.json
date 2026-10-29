@@ -1141,6 +1141,27 @@
    "tier": "state"
   },
   {
+   "id": "budget-sort-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.mf-switch-btn",
+     "text": "Costs",
+     "until": "button.mf-filters"
+    },
+    {
+     "click": "button.mf-btn",
+     "text": "Sort:",
+     "until": "#module-frame >>> .sdk-menu",
+     "untilText": "Title, A to Z"
+    }
+   ],
+   "tier": "state"
+  },
+  {
    "id": "budget-titlebar-menu",
    "family": "Menus",
    "as": "mia",

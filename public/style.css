@@ -2994,20 +2994,46 @@ a.crumb-here:hover {
   flex-direction: column;
 }
 
-/* Popped out (the whole call, body.popout, or the conference module alone in its own window,
-   body.conference-window), the conference keeps its titlebar and toolbar, but they slide away
-   when nothing has moved for a moment (the canvas gets .idle) so the window is only the tiles,
-   and slide back on the next movement. Gone, they leave the flow, so the tiles take the
-   whole window. */
-.popout .conference-head,
-.popout .video-bar,
-.conference-window .conference-head,
-.conference-window .video-bar {
-  transition: transform 0.25s ease;
+/* Popped out (the conference docked in the whole popped-out canvas, body.popout, or the conference module alone in its own
+   window, body.conference-window), the conference's titlebar and toolbar lie over the tiles: the tiles have the whole window
+   all the time, and the bars fade away when nothing has moved for a moment (the canvas gets .idle; space.js, wake) and come
+   back on the next movement, touch or key. They never take room, so the tiles never change size when they come and go. */
+.conference-window .canvas {
+  position: relative;
 }
 
-.conference-window .canvas {
-  position: relative; /* the hidden titlebar and toolbar park against the window's edges */
+.popout #canvas > .module-video > .mod-content,
+.conference-window .canvas > .module-video > .mod-content {
+  grid-row: 1 / 3; /* the content area under both bars, the toolbar's row too */
+}
+
+.popout #canvas > .module-video .conference-head,
+.conference-window .canvas > .module-video .conference-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+}
+
+.popout #canvas > .module-video > .video-bar,
+.conference-window .canvas > .module-video > .video-bar {
+  position: absolute;
+  grid-row: 1 / 3;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto; /* its own height, not the whole area's (.mod-bar) */
+  z-index: 6;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .popout .conference-head,
+  .popout .video-bar,
+  .conference-window .conference-head,
+  .conference-window .video-bar {
+    transition: opacity var(--motion-base) var(--ease-out);
+  }
 }
 
 /* The header goes with the titlebar and toolbar, so an idle popout is only tiles. */
@@ -3022,25 +3048,19 @@ a.crumb-here:hover {
   transition: transform 0.25s ease;
 }
 
-.popout .canvas.idle .conference-head,
-.conference-window .canvas.idle .conference-head {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 6;
-  transform: translateY(-100%);
+/* The note out of the call keeps clear of the toolbar over the bottom of the window. */
+.popout #canvas > .module-video .no-call,
+.conference-window .canvas > .module-video .no-call {
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
 }
 
+/* Faded, not slid: a bar moved past the window's edge would scroll the window when a key put the focus in it. */
+.popout .canvas.idle .conference-head,
 .popout .canvas.idle .video-bar,
+.conference-window .canvas.idle .conference-head,
 .conference-window .canvas.idle .video-bar {
-  position: absolute;
-  grid-row: 1 / -1;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 6;
-  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .popout .conference-head [data-popout] {
@@ -3301,12 +3321,6 @@ a.crumb-here:hover {
   gap: 12px;
   color: var(--text-dim);
   font-size: var(--text-14);
-}
-
-/* Popped out and idle, the header slides away and the note has the whole module. */
-.popout .canvas.idle .no-call,
-.conference-window .canvas.idle .no-call {
-  top: 0;
 }
 
 .no-call i {

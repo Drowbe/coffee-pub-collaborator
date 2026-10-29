@@ -24,7 +24,11 @@
 //   a tab strip or view switch (the Tabs family in a band: the Chat's Discussion | Assistant row; the frame's switch and
 //   tabs; and a row of tabs of a module's own, measured as a band of its own): centred in its band, as far from its top as
 //   from its bottom;
-//   the band under a title bar starts where the title bar ends (no room between them).
+//   the band under a title bar starts where the title bar ends (no room between them);
+//   at 390 px (a phone), every button in a title bar or a toolbar has a tap area (its ::after, public/sdk/system.css, the
+//   moduleframe block's tap areas) at least --mf-hit (44 px) tall and --mf-hit-w (36 px) wide, and no two tap areas overlap
+//   (EXCEPTION: a joined view switch's choices and a tab strip's tabs touch, each its own width, so they are held to the
+//   height and to not overlapping, not to the width).
 // Every value is the same for every module by construction, so one table of expectations holds for all of them; a module
 // may not differ. On a failure it prints, per module, every band and what it measured against what it should be.
 //
@@ -58,7 +62,7 @@ const FRAME = (() => {
     if (sp) return space(sp[1]);
     throw new Error(`the moduleframe block has no --${name} in pixels (got "${v}")`);
   };
-  return { title: tok('mf-title-h'), toolbar: tok('mf-band-h'), status: tok('mf-status-h'), ctl: tok('mf-ctl-h'), chip: tok('mf-chip-h'), inset: tok('mf-inset'), end: space(1) };
+  return { title: tok('mf-title-h'), toolbar: tok('mf-band-h'), status: tok('mf-status-h'), ctl: tok('mf-ctl-h'), chip: tok('mf-chip-h'), inset: tok('mf-inset'), end: space(1), hit: tok('mf-hit'), hitW: tok('mf-hit-w') };
 })();
 const WANT = {
   title: FRAME.title, titleFont: 14, titleLeft: FRAME.inset, titleRight: FRAME.end, toolbar: FRAME.toolbar, toolbarLeft: FRAME.inset, toolbarEnd: FRAME.inset,
@@ -123,6 +127,20 @@ const COLLECT = String.raw`(() => {
       if (b.matches('.mf-chip') && b.closest('.mf-quickset, .mf-chips')) { out.buttons.push({ h: px(R(b).height), chip: true, what: (b.textContent || '').trim().slice(0, 24) }); continue; }
       if (b.matches('.tb-tab, .mf-tab')) continue; // a tab is measured with its strip
       out.buttons.push({ h: px(R(b).height), chip: b.matches('.mf-chip, .mf-chips-menu:not(.mf-filters)'), what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24) });
+    }
+    // The tap areas of its buttons (on a phone, each button's ::after; elsewhere the button itself), in the top page's
+    // coordinates: the title bar's buttons, and the toolbar's (not the search field's own close button).
+    out.taps = [];
+    const TAPS = kind === 'title' ? ':scope .mf-titlebar-tools > button' : kind === 'toolbar' ? '.mf-btn, .mf-icon-btn, .mf-chips-menu, .mf-tabs-menu, .mf-tab, .mf-chip, .mf-switch-btn, .btn-small' : null;
+    if (TAPS) for (const b of el.querySelectorAll(TAPS)) {
+      if (!shown(b) || b.closest('.mf-search')) continue;
+      const br0 = R(b); const bs = getComputedStyle(b); const a = getComputedStyle(b, '::after'); const o = offsetOf(b);
+      const grows = a.content !== 'none' && a.position === 'absolute';
+      const n = (v) => parseFloat(v) || 0;
+      const box = grows
+        ? { x0: br0.left + n(bs.borderLeftWidth) + n(a.left), x1: br0.right - n(bs.borderRightWidth) - n(a.right), y0: br0.top + n(bs.borderTopWidth) + n(a.top), y1: br0.bottom - n(bs.borderBottomWidth) - n(a.bottom) }
+        : { x0: br0.left, x1: br0.right, y0: br0.top, y1: br0.bottom };
+      out.taps.push({ what: (b.getAttribute('aria-label') || b.textContent || b.className).trim().replace(/\s+/g, ' ').slice(0, 24), joined: b.matches('.mf-switch-btn, .mf-tab'), x0: px(box.x0 + o.x), x1: px(box.x1 + o.x), y0: px(box.y0 + o.y), y1: px(box.y1 + o.y) });
     }
     out.at = { x: Math.round(r.left + offsetOf(el).x), y: Math.round(r.top + offsetOf(el).y) };
     out.top = px(r.top + offsetOf(el).y); out.bottom = px(r.bottom + offsetOf(el).y); out.x0 = px(r.left + offsetOf(el).x); out.x1 = px(r.right + offsetOf(el).x);
@@ -491,6 +509,22 @@ function judge(context, phone, windows) {
       rows.push(`    search   h ${String(s.h).padStart(5)}  ${s.what}`);
       if (Math.abs(s.h - want.search) > 0.5) bad(`search field (${s.what})`, s.h, want.search);
     }
+    // On a phone: every button's tap area --mf-hit tall and --mf-hit-w wide (a joined choice or a tab: its own width), and
+    // no two overlapping (to the half pixel).
+    if (phone) {
+      const taps = w.bands.flatMap((b) => (b.taps || []).map((t) => ({ ...t, band: b.band })));
+      if (taps.length) rows.push(`    taps     ${taps.map((t) => `${t.what || '?'} ${Math.round((t.x1 - t.x0) * 2) / 2}x${Math.round((t.y1 - t.y0) * 2) / 2}`).join(', ')}`);
+      for (const t of taps) {
+        const tw = t.x1 - t.x0; const th = t.y1 - t.y0;
+        if (th < FRAME.hit - 0.5) bad(`tap area height in the ${t.band} (${t.what})`, th, `at least ${FRAME.hit}`);
+        if (!t.joined && tw < FRAME.hitW - 0.5) bad(`tap area width in the ${t.band} (${t.what})`, tw, `at least ${FRAME.hitW}`);
+      }
+      for (let i = 0; i < taps.length; i++) for (let j = i + 1; j < taps.length; j++) {
+        const a = taps[i]; const b = taps[j];
+        const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0); const oy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+        if (ox > 0.5 && oy > 0.5) bad(`tap areas overlap (${a.what} and ${b.what})`, `${Math.round(ox * 2) / 2}x${Math.round(oy * 2) / 2}px`, 'none');
+      }
+    }
     results.push({ context, head: `  ${w.name} (${w.kind})`, rows, failed: rows.some((r) => r.includes('!!')) });
   }
 }
@@ -665,7 +699,7 @@ async function main() {
       say(`FAIL: ${failures.length} deviations in ${new Set(failures.map((f) => f.context + f.window)).size} of ${windows} windows (${[...byWhat].map(([k, n]) => `${k} ${n}`).join(', ')}); ${Math.round((Date.now() - started) / 1000)} s`);
       return 1;
     }
-    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, tab row, status bar, search and band control is the frame's size, every toolbar's search and Filters in their fixed place and nothing cut, every tab strip in a band centred, every band under a title bar meets it, and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
+    say(`${windows} windows in ${contexts.length} views and ${screensMeasured.size} screens measured; every title bar, toolbar, tab row, status bar, search and band control is the frame's size, every toolbar's search and Filters in their fixed place and nothing cut, every tab strip in a band centred, every band under a title bar meets it, every title bar and toolbar button on a phone has a tap area ${FRAME.hit} px tall and ${FRAME.hitW} wide with none overlapping, and every box measured holds its padding symmetrical; ${Math.round((Date.now() - started) / 1000)} s`);
     return 0;
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }

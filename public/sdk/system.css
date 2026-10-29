@@ -5684,4 +5684,54 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf.mf-page { border: 0; border-radius: 0; box-shadow: none; }
 /* The page reaches the bottom of the screen: its status bar keeps clear of the home indicator. */
 .mf.mf-page > .mf-status { height: calc(var(--mf-status-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); }
+
+/* ---- the tap areas on a phone (Thomas, 2026-10-29) ---- */
+/* On a phone (640 px and narrower, or a touch screen) every button in the title bar and the toolbar keeps its look (--mf-ctl-h)
+   and gets an invisible tap area --mf-hit tall, as wide as the button and half the gap on each side, so two never overlap.
+   The line under the title bar is the border between them: a title bar button's tap area ends there and reaches 8 px above
+   the frame; a toolbar button's starts there and reaches 4 px into the content. The title bar's buttons are --mf-hit-w apart from centre to centre (the gap between
+   them grows to --space-2 here), so each tap area is at least that wide. A frame with square corners (a page, a docked
+   column) lets them reach past its edge; a floating window's rounded corners still clip, and where the page lays something
+   over the 8 px above the title bar (the top bar, the Workspace's canvas edge) that part is the page's. tools/check-conformance.mjs
+   measures them at 390 px. */
+:root {
+  --mf-hit: 44px; /* a button's tap area on a phone, top to bottom */
+  --mf-hit-w: 36px; /* the least a tap area is wide on a phone */
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .mf:is(.mf-page, .mf-docked) { overflow: clip; overflow-clip-margin: calc(var(--mf-hit) - var(--mf-title-h)); }
+  .mf-titlebar-tools { gap: var(--space-2); }
+  :where(.mf-titlebar-tools > button, .mf-toolbar button) { position: relative; }
+  /* The title bar's buttons: from the line under the bar, --mf-hit up; half the gap to each side. */
+  .mf-titlebar-tools > button::after {
+    --mf-hit-end: calc((var(--mf-title-h) - var(--mf-ctl-h) + 1px) / 2);
+    content: "";
+    position: absolute;
+    top: calc(var(--mf-hit-end) + var(--mf-ctl-h) - var(--mf-hit));
+    right: calc(var(--space-2) / -2);
+    bottom: calc(var(--mf-hit-end) * -1);
+    left: calc(var(--space-2) / -2);
+  }
+  /* The toolbar's: from its top, --mf-hit down, whatever the control's height (--mf-hit-own) and edge (--mf-hit-edge: the
+     tap area is laid from inside the edge); half the row's gap to each side. */
+  .mf-toolbar :is(.mf-btn, .mf-icon-btn, .mf-chips-menu, .mf-tabs-menu, .mf-tab, .mf-chip, .mf-switch-btn, .btn-small):not(.mf-search *)::after {
+    --mf-hit-start: calc((var(--mf-band-h) - 1px - var(--mf-hit-own, var(--mf-ctl-h))) / 2 + var(--mf-hit-edge, 0px));
+    --mf-hit-side: calc(var(--mf-hit-gap, var(--mf-gap)) / 2 + var(--mf-hit-edge, 0px));
+    content: "";
+    position: absolute;
+    top: calc(var(--mf-hit-start) * -1);
+    right: calc(var(--mf-hit-side) * -1);
+    bottom: calc(var(--mf-hit-start) + var(--mf-hit-own, var(--mf-ctl-h)) - var(--mf-hit) - 2 * var(--mf-hit-edge, 0px));
+    left: calc(var(--mf-hit-side) * -1);
+  }
+  .mf-toolbar :is(.mf-btn, .mf-chips-menu, .mf-chip) { --mf-hit-edge: 1px; }
+  .mf-toolbar .mf-chip { --mf-hit-own: var(--mf-chip-h); }
+  .mf-toolbar :is(.mf-quickset, .mf-chips) > .mf-chip { --mf-hit-gap: var(--space-1); }
+  .mf-toolbar .mf-tabs > .mf-tab { --mf-hit-gap: var(--space-0); }
+  /* A view switch's choices touch: each its own width, the switch's edge and padding (--space-0) taken in at its two ends. */
+  .mf-toolbar .mf-switch-btn { --mf-hit-own: calc(var(--mf-ctl-h) - 2px - 2 * var(--space-0)); --mf-hit-gap: 0px; }
+  .mf-toolbar .mf-switch-btn:first-child { --mf-hit-first: calc(1px + var(--space-0) + var(--mf-gap) / 2); }
+  .mf-toolbar .mf-switch-btn:last-child { --mf-hit-last: calc(1px + var(--space-0) + var(--mf-gap) / 2); }
+  .mf-toolbar .mf-switch-btn:not(.mf-search *)::after { right: calc(var(--mf-hit-last, 0px) * -1); left: calc(var(--mf-hit-first, 0px) * -1); }
+}
 /* moduleframe:end */

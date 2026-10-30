@@ -7703,6 +7703,8 @@ app.delete('/api/modules/:id/uploads/:fid', (req, res) => {
 // Uploads stream to a part file, counted as they arrive, and reserve their Content-Length against the space's, the
 // person's, the environment's (a hosted plan's storage cap) and the server's totals first; serving streams with ranges.
 const NO_SUCH_FILE = 'There is no such file.';
+// A write that failed on the server's side: the detail goes to the log, never to the person (it can name a path).
+const LIBRARY_NOT_SAVED = 'The file could not be saved. Try again, or ask the admin if it keeps happening.';
 const vaultGb = (value, fallback) => {
   const gb = Number(value);
   return Math.floor((Number.isFinite(gb) && gb > 0 ? gb : fallback) * 1024 ** 3);
@@ -7980,7 +7982,8 @@ app.post('/api/modules/:id/library', async (req, res) => {
     try {
       part = vault.newPart(ctx.spaceId);
     } catch (err) {
-      return refuse(500, `The file could not be saved: ${err.message}`);
+      console.error(`A library upload could not start: ${err.message}`);
+      return refuse(500, LIBRARY_NOT_SAVED);
     }
     let type = null;
     const got = await receiveUpload(req, part, declared, (head) => {
@@ -7994,7 +7997,7 @@ app.post('/api/modules/:id/library', async (req, res) => {
     if (got.refused) { dropPart(); return refuse(got.refused.status, got.refused.error); }
     if (got.over) { dropPart(); return refuse(413, 'That file is longer than its Content-Length.'); }
     if (got.aborted) { dropPart(); return; } // the sender went: nobody to answer
-    if (got.failed) { dropPart(); return refuse(500, `The file could not be saved: ${got.failed}`); }
+    if (got.failed) { dropPart(); console.error(`A library upload could not be written: ${got.failed}`); return refuse(500, LIBRARY_NOT_SAVED); }
     const group = vaultTypes.TYPES[type].group;
     let kept = { size: got.size, sha256: got.sha256, taken: null, camera: '' };
     if (group === 'image') {
@@ -8010,7 +8013,8 @@ app.post('/api/modules/:id/library', async (req, res) => {
       vault.commit(ctx.manifest.id, ctx.spaceId, part, record);
     } catch (err) {
       dropPart();
-      return refuse(500, `The file could not be saved: ${err.message}`);
+      console.error(`A library file could not be kept: ${err.message}`);
+      return refuse(500, LIBRARY_NOT_SAVED);
     }
     part = null;
     noteActivity(ctx.manifest.id, `added a file to ${ctx.name}`, ctx.by, `space:${ctx.spaceId}`);

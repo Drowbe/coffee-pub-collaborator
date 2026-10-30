@@ -68,7 +68,7 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="paper"] {
   --surface-page: #ebebea;
   --surface-panel: #f7f7f6;
-  --surface-card: #ffffff;
+  --surface-card:#ffffff;
   --surface-field: #ffffff;
   --surface-menu: #ffffff;
   --surface-canvas: #ebebea;
@@ -104,7 +104,7 @@ html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="pape
 html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="mist"] {
   --surface-page: #dfe5eb;
   --surface-panel: #eef2f6;
-  --surface-card: #fafcfd;
+  --surface-card:#fafcfd;
   --surface-field: #ffffff;
   --surface-menu: #fafcfd;
   --surface-canvas: #dfe5eb;
@@ -140,7 +140,7 @@ html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="mist
 html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="cream"] {
   --surface-page: #eeede8;
   --surface-panel: #f7f6f2;
-  --surface-card: #fffffd;
+  --surface-card:#fffffd;
   --surface-field: #ffffff;
   --surface-menu: #fffffd;
   --surface-canvas: #eeede8;
@@ -176,7 +176,7 @@ html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="crea
 html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="contrast"] {
   --surface-page: #c9cdd2;
   --surface-panel: #ffffff;
-  --surface-card: #ffffff;
+  --surface-card:#ffffff;
   --surface-field: #ffffff;
   --surface-menu: #ffffff;
   --surface-canvas: #c9cdd2;

@@ -2,6 +2,7 @@
 // theme, light or dark, and the panels' width chosen at the top (also from the address: ?theme=&mode=&w=).
 import { createModuleFrame } from '/module-frame.js';
 import { shareDialog, printFrame } from '/module-actions.js';
+import { createPlanner } from './prototype-planner.js';
 
 const D = document;
 const THEMES = [
@@ -16,6 +17,9 @@ const WIDTHS = [390, 500, 700, 1280].map((w) => ({ id: String(w), label: `${w}` 
 const LOOKS = [{ id: 'current', label: 'Light: current' }, { id: 'proposed', label: 'Light: proposed' }];
 // The shared card head (Thomas, 2026-10-30): Today (the title with the kind after it, one line) against Stacked (the kind above a bold title).
 const HEADS = [{ id: 'today', label: 'Head: today' }, { id: 'stacked', label: 'Head: stacked' }];
+// The card's leading icon (Thomas, 2026-10-30): open 18 (the icon alone, 18px), open large (alone, 28px), or a solid circle in the kind's colour.
+const ICONS = [{ id: 'open', label: 'Icon: open 18' }, { id: 'large', label: 'Icon: open large' }, { id: 'circle', label: 'Icon: circle' }];
+let planner = null;
 
 const q = new URLSearchParams(location.search);
 const state = {
@@ -24,6 +28,7 @@ const state = {
   w: WIDTHS.some((w) => w.id === q.get('w')) ? q.get('w') : '700',
   look: q.get('look') === 'proposed' ? 'proposed' : 'current',
   head: q.get('head') === 'today' ? 'today' : 'stacked',
+  icon: ICONS.some((i) => i.id === q.get('icon')) ? q.get('icon') : 'circle',
 };
 
 function apply() {
@@ -32,13 +37,14 @@ function apply() {
   D.documentElement.style.setProperty('--pp-w', `${state.w}px`);
   D.documentElement.dataset.ppTheme = state.theme;
   D.documentElement.dataset.ppLight = state.look;
-  if (typeof drawPlanCards === 'function') drawPlanCards();
+  if (planner) planner.set(state);
   const u = new URL(location.href);
   u.searchParams.set('theme', state.theme);
   u.searchParams.set('mode', state.mode);
   u.searchParams.set('w', state.w);
   u.searchParams.set('look', state.look);
   u.searchParams.set('head', state.head);
+  u.searchParams.set('icon', state.icon);
   history.replaceState(null, '', u);
 }
 
@@ -329,105 +335,39 @@ for (const s of TITLEBAR_STATES) {
 }
 
 
-// ---- the Planner's cards: the leading icon (Thomas chose option A, 2026-10-30) ----
-// Five cards as the Planner draws them (the banded card of system.css: a head with the icon, the title and the kind, a body under it),
-// inside the real module frame. The icon is the real .sdk-card-icon of system.css: no tile, a larger icon in the kind's colour. The kind's colour is the theme's accent turned round the wheel, as the Planner does.
-const PLAN_CARDS = [
-  { kind: 'flight', icon: 'plane', title: 'Toronto to Lisbon', sub: 'Flight', lines: ['AC 1952 \u00b7 8:40 AM to 8:15 PM', 'Seat 14A \u00b7 Checked bag'] },
-  { kind: 'stay', icon: 'bed', title: 'Hotel Avenida Palace', sub: 'Stay', lines: ['Check in 9:30 PM \u00b7 2 nights', 'Confirmation 48X2QP'] },
-  { kind: 'sight', icon: 'landmark', title: 'Belem Tower', sub: 'Sight', lines: ['10:00 AM \u00b7 1 hour', 'Tickets booked'] },
-  { kind: 'meal', icon: 'utensils', title: 'Lunch at Time Out Market', sub: 'Meal', lines: ['1:00 PM \u00b7 Four of us'] },
-  { kind: 'car', icon: 'car', title: 'Pick up the rental car', sub: 'Rental car', lines: ['4:30 PM \u00b7 Compact, automatic', 'Airport, desk 3'] },
-];
-// The cards, drawn again when the head switch changes. Today: the icon and the title in one line, the kind after it. Stacked: the icon at
-// the left spanning two lines, the kind above a bold title. Both carry the "..." menu button at the right.
-let planWrap = null;
-function drawPlanCards() {
-  if (!planWrap) return;
-  const stacked = state.head === 'stacked';
-  for (const old of planWrap.querySelectorAll('.pp-pcard')) old.remove();
-  for (const c of PLAN_CARDS) {
-    const card = D.createElement('article');
-    card.className = `sdk-card-banded pp-pcard${stacked ? ' pp-stacked' : ''}`;
-    card.dataset.kind = c.kind;
-    const hd = D.createElement('div');
-    hd.className = 'sdk-card-head';
-    const main = D.createElement('div');
-    main.className = 'sdk-card-main';
-    const ic = D.createElement('span');
-    ic.className = 'sdk-card-icon';
-    const i = D.createElement('i');
-    i.className = `fa-solid fa-${c.icon}`;
-    i.setAttribute('aria-hidden', 'true');
-    ic.append(i);
-    const t = D.createElement('span');
-    t.className = 'sdk-card-title';
-    t.textContent = c.title;
-    const sub = D.createElement('span');
-    sub.className = 'sdk-card-sub';
-    sub.textContent = c.sub;
-    if (stacked) {
-      const text = D.createElement('span');
-      text.className = 'pp-pcard-text';
-      text.append(sub, t);
-      main.append(ic, text);
-      hd.append(main);
-    } else {
-      main.append(ic, t);
-      hd.append(main, sub);
-    }
-    const more = D.createElement('button');
-    more.type = 'button';
-    more.className = 'btn btn-small sdk-icon-btn';
-    more.setAttribute('aria-label', `More for ${c.title}`);
-    const mi = D.createElement('i');
-    mi.className = 'fa-solid fa-ellipsis';
-    mi.setAttribute('aria-hidden', 'true');
-    more.append(mi);
-    hd.append(more);
-    const body = D.createElement('div');
-    body.className = 'sdk-card-body';
-    for (const l of c.lines) { const p = D.createElement('p'); p.className = 'pp-pcard-line'; p.textContent = l; body.append(p); }
-    card.append(hd, body);
-    planWrap.append(card);
-  }
-}
-function planContent() {
-  const wrap = D.createElement('div');
-  wrap.className = 'pp-plan';
-  const head = D.createElement('h3');
-  head.className = 'pp-plan-day';
-  head.textContent = 'Friday 14 June';
-  wrap.append(head);
-  planWrap = wrap;
-  drawPlanCards();
-  return wrap;
-}
+// ---- the Planner: a day as the Planner draws it (Thomas, 2026-10-30) ----
+// The real structure (public/design-system/prototype-planner.js): the day's head, the timeline with a dot per stop, the banded cards, More
+// and Less, the suggestions at the foot. Two switches try the head of each card: Head (today's or stacked) and Icon (open 18, open large, circle).
 const planSec = D.createElement('section');
 planSec.className = 'pp-group';
 planSec.setAttribute('aria-labelledby', 'pp-plan-icons');
 const planName = D.createElement('h2');
 planName.className = 'pp-group-name';
 planName.id = 'pp-plan-icons';
-planName.textContent = 'Planner: the head of each thing';
+planName.textContent = 'Planner: a day, as the Planner draws it';
 const planNote = D.createElement('p');
 planNote.className = 'pp-state-note';
-planNote.textContent = 'Flight, stay, sight, meal and rental car. The icon is the real one: no tile, 18px, in the kind\'s colour. The Head switch compares today\'s head (the kind after the title) with the stacked one (the kind above a bold title); the shared head would carry it for every tool. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
+planNote.textContent = 'The Planner\'s own markup and styles: a flight, a rental car, a sight (open, with a note), a meal, and the suggestions at the foot. Head: today\'s head against the stacked one (the kind above a bold title). Icon: open 18, open large, or a solid circle in the kind\'s colour. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
 planSec.append(planName, planNote);
 main.prepend(planSec);
+const planHost = D.createElement('div');
+planHost.className = 'pp-planner';
+planner = createPlanner(planHost);
 drawState({
-  name: 'Planner', note: 'The day\'s things in the shared frame, in the chosen theme and mode.', tall: true,
+  name: 'Planner', note: 'The day in the shared frame, in the chosen theme and mode.', tall: true,
   frame: () => ({
     title: 'Planner', icon: 'map-location-dot', titlebar: titlebar(),
     toolbar: [viewSwitch()],
-    content: planContent(),
-    status: { text: '5 things on this day' },
+    content: planHost, flush: true,
+    status: { text: '4 stops on this day' },
   }),
 }, planSec, 'h3');
+D.getElementById('pp-theme-css').addEventListener('load', () => planner.measure());
 
 pageSwitch('pp-theme', 'theme', THEMES);
 pageSwitch('pp-mode', 'mode', MODES);
 pageSwitch('pp-width', 'w', WIDTHS);
 pageSwitch('pp-look', 'look', LOOKS);
 pageSwitch('pp-head', 'head', HEADS);
+pageSwitch('pp-icon', 'icon', ICONS);
 apply();

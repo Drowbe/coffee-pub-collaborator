@@ -150,6 +150,7 @@ const ROUND_OK = [
   { file: 'public/sdk/host.css', sel: '.sdk-kind-chip', why: 'the kind\'s 26px icon disc' },
   // public/design-system/ds.css (the catalog's own pages)
   { file: 'public/design-system/ds.css', sel: '.ds-bar', why: 'an 8px bar, as the progress bar' },
+  { file: 'public/design-system/prototype.css', sel: '[data-pp-icon="circle"] .card > .sdk-card-head .sdk-card-icon', why: 'the Prototype\'s trial card icon: a solid 36px disc (square box, a true circle)' },
   // modules
   { file: 'modules/budget/src/budget.css', sel: '.mark', why: 'a 24px icon disc' },
   { file: 'modules/budget/src/budget.css', sel: '.avatar', why: 'a person\'s 26px initials' },

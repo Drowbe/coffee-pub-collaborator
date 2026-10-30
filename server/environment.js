@@ -1,5 +1,5 @@
 // One environment's own services: everything under the seam server/index.js reaches by name (store, modules,
-// moduleData, moduleHooks, chatHistory, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads, geocodeCache,
+// moduleData, moduleHooks, chatHistory, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads, vault, geocodeCache,
 // regionCutJobs, and the smaller in-memory state beside them), built once from one data directory. This is
 // phase 1 of documentation/plans/plan-environments.md: with no BASE_DOMAIN there is exactly one environment, built
 // from DATA_DIR directly -- this file is what that construction always was, factored out so index.js can build
@@ -28,6 +28,7 @@ const { ModuleBus } = require('./module-bus');
 const { ModuleSettings } = require('./module-settings');
 const { Ai } = require('./ai');
 const { ModuleUploads } = require('./module-uploads');
+const { VaultStore } = require('./vault-store');
 const { GeocodeCache } = require('./geocode');
 const { RegionCutJobs } = require('./region-cut');
 const { ModuleLimits } = require('./module-limits');
@@ -61,8 +62,9 @@ function moduleCan(manifest, perms, need) {
 // registry and the AI_* environment variables. Defaults to offering none, for a caller (a test) that does not
 // need it. `secretsKey`, when given, returns the key (a 32-byte Buffer) the environment's own AI key is encrypted
 // with at rest in ai.json -- index.js's secretsKeyBuf, the same key as every two-step secret. Without it (a test
-// that does not need it) the AI key is kept as it was given.
-function buildEnvironment(dataDir, { slug = null, admin = null, log = console.log, managed = () => null, secretsKey = null } = {}) {
+// that does not need it) the AI key is kept as it was given. `vaultDir` is the folder this environment's library files
+// (server/vault-store.js) keep their bytes in: index.js names it under VAULT_DIR; without it (a test), <dataDir>/vault.
+function buildEnvironment(dataDir, { slug = null, admin = null, log = console.log, managed = () => null, secretsKey = null, vaultDir = null } = {}) {
   // The Names migration (documentation/plans/plan-names.md, "The migration") runs before Store reads app.json, so
   // every service below reads this environment's data in its current shape. Throws a MigrationError naming the
   // file when a part cannot finish, and nothing is built.
@@ -173,6 +175,9 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   });
 
   const moduleUploads = new ModuleUploads(modules.dir);
+  // A space's library files: their bytes in the vault folder, their records beside the module's data.
+  const vault = new VaultStore({ bytesDir: vaultDir || path.join(dataDir, 'vault'), modulesDir: modules.dir });
+  if (vault.swept.parts || vault.swept.orphans) log(`Removed ${vault.swept.parts} unfinished upload${vault.swept.parts === 1 ? '' : 's'} and ${vault.swept.orphans} file${vault.swept.orphans === 1 ? '' : 's'} with no record from ${vaultDir || path.join(dataDir, 'vault')}.`);
   const geocodeCache = new GeocodeCache(modules.dir);
   const regionCutJobs = new RegionCutJobs(dataDir);
 
@@ -242,7 +247,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
 
   return {
     slug, dataDir,
-    store, modules, moduleData, moduleHooks, chatHistory, attention, facts, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
+    store, modules, moduleData, moduleHooks, chatHistory, attention, facts, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads, vault,
     geocodeCache, regionCutJobs, moduleLimits, limiter, live, liveEvents, invites, inviteEvents, themeEvents, chatPictures, chatPosts, chatPreviewsAsked, iconSvgs,
     moduleActivity, noteActivity, saveActivity, externalCalendars,
   };

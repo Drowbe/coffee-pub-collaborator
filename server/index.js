@@ -154,6 +154,17 @@ const {
   // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
   // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
   TRUST_PROXY_HOPS = '',
+  // A module's library files (documentation/plans/plan-attachments-vault.md, section 2): VAULT_DIR is the folder their
+  // bytes go in, for every environment on the server (VAULT_DIR/<environment slug>/, or VAULT_DIR/_default/ on a
+  // single-environment install); unset, DATA_DIR/vault, which no in-app backup carries. VAULT_MAX_GB is the most the
+  // whole folder may hold (20), VAULT_SPACE_MAX_GB one space's files (5), VAULT_PERSON_MAX_GB what one person has added
+  // across an environment's spaces (2), and VAULT_MB_PER_MINUTE how much one person may send in a minute (500). Not a
+  // number above 0: the default.
+  VAULT_DIR = '',
+  VAULT_MAX_GB = '',
+  VAULT_SPACE_MAX_GB = '',
+  VAULT_PERSON_MAX_GB = '',
+  VAULT_MB_PER_MINUTE = '',
 } = process.env;
 // The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
 // spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
@@ -183,6 +194,9 @@ const aiKeyFromEnv = AI_KEY || TAVERN_AI_KEY;
 // The environment a single-environment install moves into on its first start with BASE_DOMAIN (plan-names decision 15).
 const migrateEnvironmentSlug = MIGRATE_ENVIRONMENT_SLUG;
 const signupEnabled = Boolean(BASE_DOMAIN) && SIGNUP === 'on';
+// Where library files keep their bytes (see VAULT_DIR above), and one environment's folder there.
+const VAULT_ROOT = path.resolve(String(VAULT_DIR).trim() || path.join(DATA_DIR, 'vault'));
+const vaultFolderOf = (slug) => path.join(VAULT_ROOT, slug || '_default');
 // The bundled templates, checked now: an invalid one stops the start, naming the file and what is wrong.
 try {
   templates.all();
@@ -296,6 +310,7 @@ const moduleBus = proxyFor('moduleBus');
 const moduleSettings = proxyFor('moduleSettings');
 const ai = proxyFor('ai');
 const moduleUploads = proxyFor('moduleUploads');
+const vault = proxyFor('vault');
 const geocodeCache = proxyFor('geocodeCache');
 const regionCutJobs = proxyFor('regionCutJobs');
 const moduleLimits = proxyFor('moduleLimits');
@@ -410,7 +425,7 @@ function migrateIfNeeded() {
   if (fs.existsSync(dest)) throw new Error(`${dest} already exists; migration already ran`);
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(DATA_DIR)) {
-    if (['host.json', 'fontawesome-pro', 'environments', 'environments-deleted', 'pre-names-host', 'flight-schedule.json'].includes(entry)) continue; // the flight schedule is the host's
+    if (['host.json', 'fontawesome-pro', 'environments', 'environments-deleted', 'pre-names-host', 'flight-schedule.json', 'vault'].includes(entry)) continue; // the flight schedule is the host's; the vault folder holds every environment's files
     fs.renameSync(path.join(DATA_DIR, entry), path.join(dest, entry));
   }
   hostRegistry.addEnvironment({ slug, name: slug, plan: { modules: 'all' } });
@@ -628,6 +643,7 @@ function environmentFor(slug) {
       admin: slug ? null : { login: adminLogin, password: adminPassword },
       managed: managedAi,
       secretsKey: secretsKeyBuf,
+      vaultDir: vaultFolderOf(slug),
     });
   } catch (err) {
     if (err instanceof MigrationError) { noteRefusal(key, err); err.slug = key; }

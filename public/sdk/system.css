@@ -5414,7 +5414,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
    between. Every size and step is one of the tokens just below: change one there and every panel follows. The toolbar's side
    padding and the content's padding are the same token (--mf-inset); the toolbar's controls sit in the middle of its band
    (--mf-band-h, the band's height over its hairline). Controls look different by kind: a view switch is a joined, sunk track
-   with the chosen part filled; a tab is a plain fill when chosen; a filter chip is a pill; a button is a square-cornered
+   with the chosen part filled; a tab is a plain fill when chosen; a filter chip is a small outlined box; a button is a square-cornered
    block (primary filled, secondary outlined); an icon button is bare. */
 :root {
   --mf-inset: var(--space-3); /* the toolbar's sides, the content's padding, the title and status bars' start */
@@ -5554,12 +5554,12 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-search-input::-webkit-search-cancel-button { appearance: none; }
 .mf-search .mf-search-close { width: calc(var(--mf-ctl-h) - 6px); height: calc(var(--mf-ctl-h) - 6px); }
 
-/* Filter chips: pills, smaller than the buttons; off is an outline with a plus, on is the selected fill with a tick. */
+/* Filter chips: the small corner (no pills), smaller than the buttons; off is an outline with a plus, on is the selected fill with a tick. */
 .mf-chips { display: flex; flex: none; align-items: center; gap: var(--space-1); }
 .mf-chip, .mf-chips-menu {
   display: inline-flex; flex: none; align-items: center; gap: var(--space-1); box-sizing: border-box;
   height: var(--mf-chip-h); padding: 0 var(--space-2);
-  border: 1px solid var(--edge-field); border-radius: var(--radius-round); background: transparent; color: var(--text-muted);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: transparent; color: var(--text-muted);
   font-size: var(--text-12); white-space: nowrap;
 }
 .mf-chip:hover, .mf-chips-menu:hover { color: var(--text-primary); background: var(--fill-hover); }
@@ -5573,7 +5573,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 
 /* The Filters button: its count is the shared .sdk-badge; always shown, only ever moved into More. A control's height, as the
    search beside it and the buttons on the left (QA, 2026-10-25: By day stood taller than Filters). */
-.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; height: var(--mf-ctl-h); line-height: 1; border-radius: var(--radius-small); }
+.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; height: var(--mf-ctl-h); line-height: 1; }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }

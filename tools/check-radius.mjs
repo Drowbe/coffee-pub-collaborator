@@ -126,7 +126,6 @@ const ROUND_OK = [
   { file: 'public/sdk/system.css', sel: 'progress.sdk-progress::-moz-progress-bar', why: 'the progress bar\'s fill' },
   { file: 'public/sdk/system.css', sel: '.sdk-mic', why: 'the microphone\'s 40px circle and its level fill' },
   { file: 'public/sdk/system.css', sel: '.mf-empty-icon', why: 'the empty state\'s icon disc' },
-  { file: 'public/sdk/system.css', sel: '.mf-chip, .mf-chips-menu', why: 'NOT a circle: the filter chip is a pill still to change. The moduleframe block was another builder\'s on 2026-10-29; set it to --radius-small and delete this line' },
   // public/style.css
   { file: 'public/style.css', sel: '.sdk-member .call-mark', why: 'the 15px on-the-call mark on a member tile' },
   { file: 'public/style.css', sel: '.whoami img', why: 'your picture in the top bar' },

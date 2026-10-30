@@ -226,17 +226,93 @@ function picturePixels(b, type) {
   return null;
 }
 
-// What stops an MP3 that starts with an ID3v2 tag from being taken, once the file is in: null, or 'kind' when there are
-// no two MPEG audio frames one after the other in the 64 KB after the tag. `fd` is the open file.
-function mp3Refusal(fd) {
-  const head = Buffer.alloc(10);
-  fs.readSync(fd, head, 0, 10, 0);
-  const from = id3End(head);
-  if (from < 0) return head.toString('latin1', 0, 3) === 'ID3' ? 'kind' : null;
-  const b = Buffer.alloc(64 * 1024 + 4096);
-  const got = b.subarray(0, fs.readSync(fd, b, 0, b.length, from));
-  for (let i = 0; i < Math.min(got.length, 64 * 1024); i += 1) if (got[i] === 0xff && mp3Frames(got, i) && mp3Frame(got, i) + i + 4 <= got.length) return null;
+// The structure of a whole recording, once it is in (security QA round 2: a valid start followed by a page was taken).
+// Each reads with `read(position, length)` (a Buffer, shorter at the end) and walks at most a bounded number of parts.
+
+// MPEG audio: from the first frame (after an ID3v2 tag and up to 64 KB of padding, or at the start), eight frames one
+// after the other, or frames to the file's end or to a tag at its end (ID3v1, APE, Lyrics3). Answers null or 'kind'.
+const MP3_RUN = 8;
+function mp3Refusal(read, size) {
+  const head = read(0, 10);
+  const tagEnd = id3End(head);
+  if (tagEnd < 0 && head.toString('latin1', 0, 3) === 'ID3') return 'kind';
+  const from = Math.max(0, tagEnd);
+  const b = read(from, 256 * 1024);
+  const atEnd = from + b.length >= size;
+  const tail = (p) => p === b.length || (b.length - p === 128 && b.toString('latin1', p, p + 3) === 'TAG') || ['APETAGEX', 'LYRICSBE'].includes(b.toString('latin1', p, p + 8));
+  const run = (i) => {
+    let p = i;
+    for (let count = 0; count < MP3_RUN; count += 1) {
+      const len = mp3Frame(b, p);
+      if (!len) return atEnd && count > 0 && tail(p);
+      if (p + len > b.length) return atEnd && count > 0; // the last frame, cut short
+      p += len;
+    }
+    return true;
+  };
+  const last = tagEnd > 0 ? Math.min(b.length, 64 * 1024) : 1;
+  for (let i = 0; i < last; i += 1) if (b[i] === 0xff && run(i)) return null;
   return 'kind';
+}
+
+// MP4, M4A and MOV: the top-level boxes, each with a size of at least its header and a four-character type, one after
+// the other to the file's end exactly (a last box of size 0 runs to the end), at most 100,000 of them, and a movie
+// box (moov) among them. Answers null or 'damaged'.
+const ISO_BOXES_MAX = 100 * 1000;
+function isoRefusal(read, size) {
+  let pos = 0;
+  let moov = false;
+  for (let boxes = 0; pos < size; boxes += 1) {
+    if (boxes >= ISO_BOXES_MAX || size - pos < 8) return 'damaged';
+    const h = read(pos, 16);
+    let len = h.readUInt32BE(0);
+    const type = h.toString('latin1', 4, 8);
+    if (!/^[\x20-\x7e]{4}$/.test(type)) return 'damaged';
+    if (len === 1) {
+      if (h.length < 16) return 'damaged';
+      len = Number(h.readBigUInt64BE(8));
+      if (len < 16) return 'damaged';
+    } else if (len === 0) len = size - pos;
+    else if (len < 8) return 'damaged';
+    if (pos + len > size) return 'damaged';
+    if (type === 'moov') moov = true;
+    pos += len;
+  }
+  return moov ? null : 'damaged';
+}
+
+// WebM: right after its EBML header, the Segment; in it, elements a WebM has at its top level (SeekHead, Info, Tracks,
+// Cluster, Cues, Chapters, Tags, Void, CRC-32: never Attachments, which only Matroska carries), each inside the Segment,
+// at most 100,000 of them, until the Segment ends or an element of unknown size (a recording still being written)
+// starts. Answers null, 'kind' or 'damaged'.
+const WEBM_TOP = new Set([0x114d9b74, 0x1549a966, 0x1654ae6b, 0x1f43b675, 0x1c53bb6b, 0x1043a770, 0x1254c367, 0xec, 0xbf]);
+const unknownSize = (v) => v.value === 2 ** (7 * v.length) - 1;
+function webmRefusal(read, size) {
+  const head = read(0, HEAD_BYTES);
+  const hsize = ebmlVint(head, 4, false);
+  if (!hsize) return 'kind';
+  let pos = 4 + hsize.length + hsize.value;
+  const at = (p) => {
+    const b = read(p, 12);
+    const id = ebmlVint(b, 0, true);
+    const len = id && ebmlVint(b, id.length, false);
+    return id && len ? { id: id.value, len, data: p + id.length + len.length } : null;
+  };
+  const seg = at(pos);
+  if (!seg || seg.id !== 0x18538067) return 'kind';
+  const segEnd = unknownSize(seg.len) ? size : seg.data + seg.len.value;
+  if (segEnd > size) return 'damaged';
+  pos = seg.data;
+  for (let n = 0; pos < segEnd; n += 1) {
+    if (n >= 100 * 1000) return 'damaged';
+    const el = at(pos);
+    if (!el) return 'damaged';
+    if (!WEBM_TOP.has(el.id)) return 'kind';
+    if (unknownSize(el.len)) return null;
+    pos = el.data + el.len.value;
+    if (pos > segEnd) return 'damaged';
+  }
+  return null;
 }
 
 // Whether a Markdown file's bytes are text the Vault takes: UTF-8 with no NUL, and not a page or a drawing dressed as
@@ -253,14 +329,21 @@ function markdownRefusal(b) {
   return null;
 }
 
-// What stops a file that is not a picture or a PDF from being taken once it is in, from its structure: null, or 'kind'.
-// Synchronous and bounded: it runs in the scan worker (server/vault-scan.js), never on the main thread.
+// What stops a file that is not a picture or a PDF from being taken once it is in, from its structure: null, 'kind' or
+// 'damaged'. Synchronous and bounded: it runs in the scan worker (server/vault-scan.js), never on the main thread.
+const STRUCTURE = { 'audio/mpeg': mp3Refusal, 'video/mp4': isoRefusal, 'audio/mp4': isoRefusal, 'video/quicktime': isoRefusal, 'video/webm': webmRefusal };
 function structureRefusal(file, type) {
   if (type === 'text/markdown') return markdownRefusal(fs.readFileSync(file));
-  if (type !== 'audio/mpeg') return null;
+  const walk = STRUCTURE[type];
+  if (!walk) return null;
   const fd = fs.openSync(file, 'r');
   try {
-    return mp3Refusal(fd);
+    const size = fs.fstatSync(fd).size;
+    const read = (position, length) => {
+      const b = Buffer.alloc(Math.max(0, Math.min(length, size - position)));
+      return b.subarray(0, b.length ? fs.readSync(fd, b, 0, b.length, position) : 0);
+    };
+    return walk(read, size);
   } finally {
     fs.closeSync(fd);
   }

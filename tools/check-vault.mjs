@@ -18,6 +18,8 @@
  * BASE_DOMAIN: another environment's session 401, its owner 404, the product and console hosts 404, the export without
  * the bytes, a plan's storage cap. Server B, at the defaults: the server's memory (VmRSS) stays flat while 1 GB streams
  * in, and with ten stalled readers and a slow one; a range deep in it; a 1 GB upload cut off leaves nothing.
+ * Real files (tools/fixtures/vault/, made by ffmpeg, LibreOffice and ImageMagick) are taken; hostile PDFs are judged
+ * in under a second each, through a worker, with the main thread kept free.
  * What can't be checked here: a browser's players seeking, and the PDF policy in a real browser (step 3, Verify).
  */
 import assert from 'node:assert/strict';
@@ -167,7 +169,8 @@ const gifXmp = Buffer.concat([Buffer.from([0x21, 0xff, 11]), Buffer.from('XMP Da
   Buffer.from([1, ...Array.from({ length: 256 }, (_, k) => 255 - k), 0])]);
 const webpOf = () => { const b = Buffer.alloc(40); b.write('RIFF', 0, 'latin1'); b.writeUInt32LE(32, 4); b.write('WEBPVP8X', 8, 'latin1'); b.writeUInt32LE(10, 16); b.writeUIntLE(9, 24, 3); b.writeUIntLE(9, 27, 3); return b; };
 const riffOf = (kind) => { const b = Buffer.alloc(44); b.write('RIFF', 0, 'latin1'); b.writeUInt32LE(36, 4); b.write(kind, 8, 'latin1'); return b; };
-const ftypOf = (major, compat = []) => { const size = 16 + compat.length * 4; const b = Buffer.alloc(size + 16); b.writeUInt32BE(size, 0); b.write('ftyp', 4, 'latin1'); b.write(major, 8, 'latin1'); compat.forEach((c, i) => b.write(c, 16 + i * 4, 'latin1')); b.write('mdat', size + 4, 'latin1'); return b; };
+// An ISO file: its ftyp box, an (empty) movie box, then a media box that runs to the end (size 0).
+const ftypOf = (major, compat = []) => { const size = 16 + compat.length * 4; const b = Buffer.alloc(size + 24); b.writeUInt32BE(size, 0); b.write('ftyp', 4, 'latin1'); b.write(major, 8, 'latin1'); compat.forEach((c, i) => b.write(c, 16 + i * 4, 'latin1')); b.writeUInt32BE(8, size); b.write('moov', size + 4, 'latin1'); b.write('mdat', size + 12, 'latin1'); return b; };
 // A WebM's EBML header (its version, then its DocType), then the Segment.
 const ebmlOf = (doc) => { const body = Buffer.concat([Buffer.from([0x42, 0x86, 0x81, 0x01, 0x42, 0x82, 0x80 | doc.length]), Buffer.from(doc, 'latin1')]); return Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x80 | body.length]), body, Buffer.from([0x18, 0x53, 0x80, 0x67, 0x01, 0, 0, 0, 0, 0, 0, 0]), Buffer.alloc(40)]); };
 // MPEG-1 Layer III frames at 128 kbps and 44.1 kHz: 417 bytes each.
@@ -187,6 +190,9 @@ const objStm = (objects, { filter = '/FlateDecode', eol = '\n', data } = {}) => 
   return Buffer.concat([Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n5 0 obj << /Type /ObjStm /N 1 /First 4 /Filter ${filter} /Length ${packed.length} >> stream${eol}`, 'latin1'), packed, Buffer.from('\nendstream\nendobj\ntrailer << /Root 1 0 R >>\n%%EOF\n', 'latin1')]);
 };
 const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.';
+// Real files (tools/fixtures/vault/) and the type each is.
+const FIXTURES = path.join(ROOT, 'tools', 'fixtures', 'vault');
+const CORPUS = { 'photo.jpg': 'image/jpeg', 'pic.png': 'image/png', 'pic.webp': 'image/webp', 'anim.gif': 'image/gif', 'tone.mp3': 'audio/mpeg', 'tone.ogg': 'audio/ogg', 'tone.m4a': 'audio/mp4', 'clip.mp4': 'video/mp4', 'clip.webm': 'video/webm', 'clip.mov': 'video/quicktime', 'link.pdf': 'application/pdf', 'form.pdf': 'application/pdf', 'plain.pdf': 'application/pdf', 'notes.md': 'text/markdown' };
 const memoryLines = [];
 
 // --- part 2: types ------------------------------------------------------------------------------------------------------
@@ -350,6 +356,31 @@ const memoryLines = [];
   same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), mp3Frames(3)])), 'audio/mpeg'), null, 'an MP3 with a tag and frames after it passes');
   same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.alloc(20, 0), mp3Frames(3)])), 'audio/mpeg'), null, 'with padding after the tag too');
   same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.from('<html><script>alert(1)</script>'), Buffer.alloc(70000, 0x41)])), 'audio/mpeg'), 'kind', 'a tag followed by no frames is refused');
+  // Real files, made on a desktop by ffmpeg, LibreOffice and ImageMagick (tools/fixtures/vault/): each is what its
+  // bytes say, and passes its whole-file check; a real start followed by a page does not (security QA round 2).
+  {
+    const scanner = createScanner({ seconds: 10 });
+    for (const [name, type] of Object.entries(CORPUS)) {
+      const bytes = fs.readFileSync(path.join(FIXTURES, name));
+      same(types.sniff(bytes.subarray(0, types.HEAD_BYTES), name).type, type, `${name} is ${type}`);
+      const r = await scanner.scan({ file: file(bytes), type, keepPosition: false });
+      ok(r.ok, `${name} passes its check: ${JSON.stringify(r)}`);
+    }
+    const html = Buffer.from('<html><script>alert(1)</script></html>'.repeat(10));
+    const mp4 = fs.readFileSync(path.join(FIXTURES, 'clip.mp4'));
+    const webm = fs.readFileSync(path.join(FIXTURES, 'clip.webm'));
+    const mp3 = fs.readFileSync(path.join(FIXTURES, 'tone.mp3'));
+    const firstFrame = mp3.findIndex((c, i) => c === 0xff && (mp3[i + 1] & 0xe0) === 0xe0 && i > 10);
+    const structure = (bytes, type) => types.structureRefusal(file(bytes), type);
+    same(structure(Buffer.concat([mp4.subarray(0, mp4.readUInt32BE(0)), Buffer.from([0, 0, 0, 8]), Buffer.from('free'), html]), 'video/mp4'), 'damaged', 'an MP4 start, a box, then a page: refused');
+    same(structure(mp4.subarray(0, 9000), 'video/mp4'), 'damaged', 'and an MP4 cut short');
+    same(structure(Buffer.concat([mp4.subarray(0, mp4.readUInt32BE(0)), Buffer.from([0, 0, 0, 16]), Buffer.from('mdat'), Buffer.alloc(8)]), 'video/mp4'), 'damaged', 'and one with no movie box');
+    same(structure(Buffer.concat([webm.subarray(0, 64), html]), 'video/webm'), 'damaged', 'a WebM header then a page: refused');
+    const segAt = webm.indexOf(Buffer.from([0x18, 0x53, 0x80, 0x67]));
+    same(structure(Buffer.concat([webm.subarray(0, segAt), Buffer.from([0x18, 0x53, 0x80, 0x67, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x19, 0x41, 0xa4, 0x69, 0x84]), Buffer.from('file')]), 'video/webm'), 'kind', 'a WebM carrying attachments: refused');
+    same(structure(Buffer.concat([mp3.subarray(firstFrame, firstFrame + 1200), html]), 'audio/mpeg'), 'kind', 'two MP3 frames then a page: refused');
+    same(structure(mp3.subarray(0, 5000), 'audio/mpeg'), null, 'an MP3 cut short in its last frame is still taken');
+  }
   fs.rmSync(dir, { recursive: true, force: true });
 
   // How an upload must keep arriving (server/arrival.js), run on a clock of its own: `send(t)` is what the sender sends in
@@ -1124,6 +1155,18 @@ try {
       same((await send(B, 'POST', '/api/modules', { cookie: adminB, headers: { 'content-type': 'application/zip' }, body: shelfZip() })).status, 201, 'the module on a second server');
       await jsonB('PATCH', '/api/modules/shelf', adminB, { enabled: true, allSpaces: true });
       const sp = (await jsonB('POST', '/api/spaces', adminB, { name: 'Big' })).json.space;
+      // The real files are all taken, each as its type (sent by a member, so the admin's minute is left for 1 GB).
+      const cal = (await jsonB('POST', '/api/users', adminB, { login: 'cal', displayName: 'cal', role: 'member', password: 'memberpass1234' })).json.user;
+      same((await jsonB('PATCH', `/api/spaces/${sp.id}`, adminB, { members: [cal.key] })).status, 200, 'a member in the space');
+      const calB = await loginB('cal', 'memberpass1234');
+      for (const [name, type] of Object.entries(CORPUS)) {
+        const r = await send(B, 'POST', `/api/modules/shelf/library?space=${sp.id}&name=${name}`, { cookie: calB, headers: { 'content-type': 'application/octet-stream' }, body: fs.readFileSync(path.join(FIXTURES, name)) });
+        same([r.status, r.json?.file?.type], [201, type], `a real ${name} is taken: ${r.text}`);
+        same((await send(B, 'DELETE', `/api/modules/shelf/library/${r.json.file.id}?space=${sp.id}`, { cookie: calB })).status, 200, 'and removed again');
+      }
+      const mp4 = fs.readFileSync(path.join(FIXTURES, 'clip.mp4'));
+      const poly = await send(B, 'POST', `/api/modules/shelf/library?space=${sp.id}&name=poly.mp4`, { cookie: calB, headers: { 'content-type': 'video/mp4' }, body: Buffer.concat([mp4.subarray(0, mp4.readUInt32BE(0)), Buffer.from([0, 0, 0, 8]), Buffer.from('free'), Buffer.from('<html><script>alert(1)</script></html>'.repeat(10))]) });
+      same([poly.status, poly.json?.error], [400, 'That file is damaged or cut short.'], 'an MP4 start followed by a page is refused');
       // A 1 GB video, written a block at a time as the socket takes it: byte i is BLOCK[i % 1 MB].
       const SIZE = 1024 * 1024 * 1024;
       const BLOCK = Buffer.alloc(1024 * 1024);

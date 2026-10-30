@@ -8076,7 +8076,7 @@ app.post('/api/modules/:id/library', async (req, res) => {
     const group = vaultTypes.TYPES[type].group;
     let kept = { size: got.size, sha256: got.sha256, taken: null, camera: '' };
     // The whole file's check, in a worker (server/vault-scan.js): the main thread only waits for it.
-    if (group === 'image' || ['application/pdf', 'audio/mpeg', 'text/markdown'].includes(type)) {
+    if (group === 'image' || ['application/pdf', 'audio/mpeg', 'audio/mp4', 'video/mp4', 'video/quicktime', 'video/webm', 'text/markdown'].includes(type)) {
       const checked = await vaultScanner.scan({ file: part, type, keepPosition: req.query.keepPosition === '1' });
       if (checked.refuse) { dropPart(); fs.rmSync(`${part}.clean`, { force: true }); return refuse(400, scanSentence(checked.refuse, type)); }
       if (group === 'image') {

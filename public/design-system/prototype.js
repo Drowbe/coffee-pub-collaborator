@@ -384,7 +384,7 @@ planNote.textContent = 'Flight, stay, sight, meal and rental car. The icon is th
 planSec.append(planName, planNote);
 main.prepend(planSec);
 drawState({
-  name: 'Planner', note: 'The day\'s cards in the module frame, in the chosen theme and mode.', tall: true,
+  name: 'Planner', note: 'The day\'s cards in the shared frame, in the chosen theme and mode.', tall: true,
   frame: () => ({
     title: 'Planner', icon: 'map-location-dot', titlebar: titlebar(),
     toolbar: [viewSwitch()],

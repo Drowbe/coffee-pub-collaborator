@@ -7744,7 +7744,7 @@ const sizeText = (bytes) => (bytes >= 1024 ** 3 ? `${gbText(bytes)} GB` : `${Mat
 const libraryKindSentence = 'That kind of file can\'t be added here. It takes pictures (JPEG, PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown.';
 const librarySentence = (refusal) => (refusal === 'heic' ? 'HEIC pictures can\'t be added here. Save it as a JPEG.' : libraryKindSentence);
 // Why a PDF is not taken (vaultTypes.pdfRefusal), in one sentence.
-const PDF_HOLDS = { scripts: 'scripts', links: 'links that open other files or pages', form: 'a form', files: 'files of its own' };
+const PDF_HOLDS = { scripts: 'scripts', opens: 'links that open programs or files', sends: 'a form that sends what is typed in it', files: 'files of its own' };
 const pdfSentence = (r) => {
   if (r.refuse === 'damaged') return 'That PDF is damaged or cut short.';
   if (r.refuse === 'unchecked') return 'That PDF can\'t be checked for scripts, so it can\'t be added.';

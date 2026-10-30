@@ -226,15 +226,28 @@ function picturePixels(b, type) {
   return null;
 }
 
-// The names in a PDF that make it run, reach out or carry something (decision 9, with the actions and forms the security
-// review added), read as PDF names: "/JS" is the name JS and not the start of "/JSON", and "#xx" escapes are read as the
-// characters they stand for. Each says what kind of thing it is, for the sentence.
+// The names in a PDF that make it run, open something outside it, send something or carry files (decision 9, and Thomas's
+// rule of 2026-10-30: links to web pages and fillable forms are taken, scripts and launches are not), read as PDF names:
+// "/JS" is the name JS and not the start of "/JSON", and "#xx" escapes are read as the characters they stand for. Each
+// says what kind of thing it is, for the sentence. /URI and /AcroForm are not here: a link's address is looked at
+// instead (uriRefusal), and a form that does not send itself anywhere or run a script is a form.
 const ACTIVE_NAMES = new Map([
-  ['JavaScript', 'scripts'], ['JS', 'scripts'], ['AA', 'scripts'],
-  ['Launch', 'links'], ['URI', 'links'], ['GoToR', 'links'],
-  ['AcroForm', 'form'], ['SubmitForm', 'form'], ['XFA', 'form'],
+  ['JavaScript', 'scripts'], ['JS', 'scripts'], ['AA', 'scripts'], ['XFA', 'scripts'],
+  ['Launch', 'opens'], ['GoToR', 'opens'], ['GoToE', 'opens'],
+  ['SubmitForm', 'sends'],
   ['EmbeddedFile', 'files'], ['EmbeddedFiles', 'files'], ['RichMedia', 'files'],
 ]);
+// A link (a /URI string, literal or hex) to anything but a web page or an email address: a program, a file, a script.
+const URI_RE = /\/URI\s*(?:\(((?:\\.|[^\\)])*)\)|<([0-9A-Fa-f\s]*)>)/g;
+function uriRefusal(text) {
+  URI_RE.lastIndex = 0;
+  for (let m = URI_RE.exec(text); m; m = URI_RE.exec(text)) {
+    const raw = m[1] !== undefined ? m[1].replace(/\\([0-7]{1,3}|.)/g, (_, c) => (/^[0-7]+$/.test(c) ? String.fromCharCode(parseInt(c, 8)) : c)) : Buffer.from(m[2].replace(/\s+/g, ''), 'hex').toString('latin1');
+    const address = raw.replace(/[\0-\x20\x7f]+/g, '').toLowerCase();
+    if (!/^(?:https?:\/\/|mailto:)/.test(address)) return { name: 'URI', what: 'opens' };
+  }
+  return null;
+}
 const NAME_RE = /\/((?:[^\s()<>[\]{}/%#\0]|#[0-9A-Fa-f]{2})+)/g;
 const OBJ_RE = /\d+\s+\d+\s+obj\b/;
 const STREAM_RE = /\bstream(?:\r\n|\n|\r)/g;
@@ -256,7 +269,7 @@ function activeIn(text, last) {
     const name = m[1].replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
     if (ACTIVE_NAMES.has(name)) return { name, what: ACTIVE_NAMES.get(name) };
   }
-  return null;
+  return uriRefusal(text);
 }
 const unescapeNames = (dict) => dict.replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
 

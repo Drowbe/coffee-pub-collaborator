@@ -172,6 +172,9 @@ const mp3Frames = (count) => Buffer.concat(Array.from({ length: count }, () => B
 const mp3Of = () => Buffer.concat([Buffer.from('ID3\x04\0\0\0\0\0\0', 'latin1'), mp3Frames(3)]);
 const oggOf = () => Buffer.concat([Buffer.from('OggS\0\x02', 'latin1'), Buffer.alloc(60)]);
 const pdfOf = (body = '') => Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R ${body} >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n`, 'latin1');
+// A link to a web page as LibreOffice writes one, and a fillable text field with no script.
+const PDF_WEB_LINK = '/Annots [<< /Type /Annot /Subtype /Link /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://example.com/booking) >> >>]';
+const PDF_FORM = '/AcroForm << /Fields [<< /FT /Tx /T (Name) /V (Pat) /Rect [0 0 100 20] >>] /NeedAppearances true >>';
 // A plain PDF of `bytes` bytes: its header, spaces, then its object and trailer.
 const pdfSized = (bytes) => { const p = pdfOf(); return Buffer.concat([p.subarray(0, 9), Buffer.alloc(bytes - p.length, 0x20), p.subarray(9)]); };
 const zlib = require('node:zlib');
@@ -246,9 +249,17 @@ const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.'
   const file = (bytes) => { const f = path.join(dir, `p${n}-${Math.random()}`); fs.writeFileSync(f, bytes); return f; };
   const scan = async (bytes) => { const r = await types.pdfRefusal(file(bytes)); return r ? r.name || `refused:${r.refuse}` : null; };
   same(await scan(pdfOf()), null, 'a plain PDF passes');
-  for (const name of ['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'RichMedia', 'XFA', 'AA', 'URI', 'SubmitForm', 'GoToR', 'AcroForm']) same(await scan(pdfOf(`/OpenAction << /S /${name} (x) >>`)), name, `/${name} is refused`);
+  for (const name of ['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'RichMedia', 'XFA', 'AA', 'SubmitForm', 'GoToR']) same(await scan(pdfOf(`/OpenAction << /S /${name} (x) >>`)), name, `/${name} is refused`);
+  // Links to web pages and fillable forms are taken (Thomas, 2026-10-30); a link to a program or a file is not.
+  same(await scan(pdfOf(PDF_WEB_LINK)), null, 'a link to a web page, as LibreOffice writes one, passes');
+  same(await scan(pdfOf(PDF_FORM)), null, 'a fillable form with no script passes');
+  same(await scan(pdfOf('/OpenAction << /S /URI /URI (mailto:desk@example.com) >>')), null, 'and an email link, even on opening');
+  for (const [label, uri] of [['file:', '(file:///C:/Windows/System32/calc.exe)'], ['javascript:', '(javascript:alert\\(1\\))'], ['a hex file: address', '<66696C653A2F2F2F6574632F706173737764>'], ['a path with no scheme', '(\\\\server\\share\\run.exe)'], ['an address hiding its scheme behind spaces', '( \\tfile:///x)']]) same(await scan(pdfOf(`/OpenAction << /S /URI /URI ${uri} >>`)), 'URI', `a link to ${label} is refused`);
   same(await scan(pdfOf('/OpenAction << /S /J#61vaScript >>')), 'JavaScript', 'a name written with #xx escapes too');
   same(await scan(pdfOf('/JSON (fine) /JSX 1 /AAA 2 /URIs 3')), null, '/JSON is not /JS, nor /AAA /AA');
+  same(await scan(objStm('6 0 << /S /URI /URI (file:///etc/passwd) >>')), 'URI', 'a link to a file inside a compressed object stream is refused');
+  same(await scan(objStm(`6 0 ${PDF_WEB_LINK} ${PDF_FORM}`)), null, 'and a web link and a form there pass');
+  same(await scan(objStm('6 0 << /Type /Annot /Subtype /Widget /AA << /K 7 0 R >> >>')), 'AA', 'a field\'s own actions (AA) there are refused');
   const straddle = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(1024 * 1024 - 14, 0x20), Buffer.from('/JavaScript (x)\n')]);
   same(await scan(straddle), 'JavaScript', 'a name across the 1 MB window is found');
   same(await scan(Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(3 * 1024 * 1024, 0x41), Buffer.from(' /Launch')])), 'Launch', 'at the end of a larger file');
@@ -449,11 +460,13 @@ try {
     ['a WebM', 'sam', 'clip.webm', ebmlOf('webm'), 'video/webm', ['video/webm', 'video', 'clip.webm']],
     ['a MOV', 'sam', 'IMG_0001.MOV', ftypOf('qt  '), 'video/quicktime', ['video/quicktime', 'video', 'IMG_0001.MOV']],
     ['a PDF', 'pat', 'ticket', pdfOf(), 'application/pdf', ['application/pdf', 'document', 'ticket.pdf']],
+    ['a PDF with a web link', 'mo', 'booking.pdf', pdfOf(PDF_WEB_LINK), 'application/pdf', ['application/pdf', 'document', 'booking.pdf']],
+    ['a PDF with a fillable form', 'mo', 'visa.pdf', pdfOf(PDF_FORM), 'application/pdf', ['application/pdf', 'document', 'visa.pdf']],
     ['Markdown', 'pat', 'notes.md', Buffer.from('# Day one\n<script>alert(1)</script>\n'), 'text/markdown', ['text/markdown', 'document', 'notes.md']],
   ]) {
     const r = await add(who, name, bytes, { type });
     same([r.status, r.json?.file?.type, r.json?.file?.group, r.json?.file?.name], [201, ...want], `${label} is kept from its bytes: ${r.text}`);
-    kept[want[0]] = r.json.file;
+    kept[want[0]] ||= r.json.file; // the first of each type
   }
   const v = kept['application/pdf'];
   same(Object.keys(v).sort(), ['at', 'by', 'group', 'hasThumb', 'id', 'name', 'size', 'type', 'uses'], 'a file\'s view');
@@ -504,8 +517,11 @@ try {
     ['a PDF sent as a PNG', 'ticket', pdfOf(), 'image/png', 400, /doesn't match/],
     ['a JPEG named .png', 'beach.png', jpegOf(), 'image/png', 400, /doesn't match/],
     ['a PDF with JavaScript', 'evil.pdf', pdfOf('/OpenAction << /S /JavaScript /JS (app.alert(1)) >>'), 'application/pdf', 400, /^That PDF holds scripts, so it can't be added\.$/],
-    ['a PDF that launches', 'evil.pdf', pdfOf('/OpenAction << /S /Launch /F (calc.exe) >>'), 'application/pdf', 400, /^That PDF holds links that open other files or pages, so it can't be added\.$/],
-    ['a PDF with a form', 'form.pdf', pdfOf('/AcroForm << /Fields [] >>'), 'application/pdf', 400, /^That PDF holds a form, so it can't be added\.$/],
+    ['a PDF that launches', 'evil.pdf', pdfOf('/OpenAction << /S /Launch /F (calc.exe) >>'), 'application/pdf', 400, /^That PDF holds links that open programs or files, so it can't be added\.$/],
+    ['a PDF that sends its form', 'form.pdf', pdfOf(`${PDF_FORM} /OpenAction << /S /SubmitForm /F (https://example.com) >>`), 'application/pdf', 400, /^That PDF holds a form that sends what is typed in it, so it can't be added\.$/],
+    ['a PDF that links to a program', 'run.pdf', pdfOf('/OpenAction << /S /URI /URI (file:///C:/calc.exe) >>'), 'application/pdf', 400, /^That PDF holds links that open programs or files, so it can't be added\.$/],
+    ['a PDF with a file in it', 'carry.pdf', pdfOf('/Names << /EmbeddedFiles 9 0 R >>'), 'application/pdf', 400, /^That PDF holds files of its own, so it can't be added\.$/],
+    ['a PDF with JavaScript in an object stream', 'hidden.pdf', objStm('6 0 << /S /JavaScript /JS (app.alert(1)) >>'), 'application/pdf', 400, /^That PDF holds scripts, so it can't be added\.$/],
     ['a PDF that is cut short', 'cut.pdf', pdfOf().subarray(0, 40), 'application/pdf', 400, /^That PDF is damaged or cut short\.$/],
     ['a PDF whose object stream is too big to check', 'bomb.pdf', objStm('', { data: zlib.deflateSync(Buffer.alloc(17 * 1024 * 1024, 0x20)) }), 'application/pdf', 400, /^That PDF can't be checked for scripts, so it can't be added\.$/],
     ['an MP3 tag with no audio after it', 'tag.mp3', Buffer.concat([Buffer.from('ID3\x03\0\0\0\0\x02\x2c', 'latin1'), Buffer.alloc(300), Buffer.from('<script>1</script>'), Buffer.alloc(5000, 0x41)]), 'audio/mpeg', 400, /That kind of file/],

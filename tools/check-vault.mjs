@@ -616,8 +616,134 @@ try {
     await quiet(300);
     same((await send(A, 'GET', `/api/modules/shelf/library/${kept['application/pdf'].id}/content?space=${trip.id}`, { cookie: people.kit.token })).status, 200, 'closed, they free their places');
   }
+  // --- piece 6: who may do what, on every route --------------------------------------------------------------------
+  {
+    const own = await json('POST', '/api/users', admin, { login: 'ola', displayName: 'Ola', role: 'owner', password: 'ownerpass1234' });
+    same(own.status, 201, 'an owner');
+    const ownerTok = await login('ola', 'ownerpass1234');
+    // A member whose role may not view: a role of their own would need Roles; the member role is switched for the row.
+    const f = (await add('pat', 'matrix.jpg', jpegOf(), { type: 'image/jpeg' })).json.file;
+    await send(A, 'PUT', `/api/modules/shelf/library/${f.id}/thumb?space=${trip.id}`, { cookie: people.pat.token, headers: { 'content-type': 'image/png' }, body: pngOf(2, 2) });
+    const who = {
+      'signed out': {},
+      'a guest pass': { q: `&guest=${guestToken}` },
+      'the access key': { headers: { 'x-stream-key': streamKey } },
+      'not in the space': { cookie: people.lou.token },
+      member: { cookie: people.sam.token },
+      adder: { cookie: people.pat.token },
+      moderator: { cookie: people.mo.token },
+      owner: { cookie: ownerTok },
+      admin: { cookie: admin },
+    };
+    const routes = {
+      list: (o) => send(A, 'GET', `/api/modules/shelf/library?space=${trip.id}${o.q || ''}`, o),
+      content: (o) => send(A, 'GET', `/api/modules/shelf/library/${f.id}/content?space=${trip.id}${o.q || ''}`, o),
+      download: (o) => send(A, 'GET', `/api/modules/shelf/library/${f.id}/content?space=${trip.id}&download=1${o.q || ''}`, o),
+      thumb: (o) => send(A, 'GET', `/api/modules/shelf/library/${f.id}/thumb?space=${trip.id}${o.q || ''}`, o),
+      uses: (o) => send(A, 'GET', `/api/modules/shelf/library/${f.id}/uses?space=${trip.id}${o.q || ''}`, o),
+      rename: (o) => send(A, 'PATCH', `/api/modules/shelf/library/${f.id}?space=${trip.id}${o.q || ''}`, { ...o, headers: { ...(o.headers || {}), 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify({ name: 'matrix' })) }),
+      'put thumb': (o) => send(A, 'PUT', `/api/modules/shelf/library/${f.id}/thumb?space=${trip.id}${o.q || ''}`, { ...o, headers: { ...(o.headers || {}), 'content-type': 'image/png' }, body: pngOf(2, 2) }),
+    };
+    //            signed out, guest, key, outsider, member, adder, moderator, owner, admin
+    const want = {
+      list: [401, 403, 403, 403, 200, 200, 200, 200, 200],
+      content: [401, 404, 404, 404, 200, 200, 200, 200, 200],
+      download: [401, 404, 404, 404, 200, 200, 200, 200, 200],
+      thumb: [401, 404, 404, 404, 200, 200, 200, 200, 200],
+      uses: [401, 404, 404, 404, 200, 200, 200, 200, 200],
+      rename: [401, 404, 404, 404, 403, 200, 200, 200, 200],
+      'put thumb': [401, 404, 404, 404, 403, 200, 403, 403, 403],
+    };
+    for (const [route, call] of Object.entries(routes)) {
+      const got = [];
+      for (const [label, o] of Object.entries(who)) {
+        const r = await call(o);
+        got.push(r.status);
+        if (r.status === 404) ok(r.json?.error === 'There is no such file.' && !r.text.includes('matrix'), `${route}, ${label}: a refusal says nothing of the file`);
+      }
+      same(got, want[route], `${route}: ${Object.keys(who).join(', ')}`);
+    }
+    same((await routes.uses(who.member)).json, { uses: [], hidden: 0 }, 'uses: nothing links to it yet');
+    same((await routes.rename(who.adder)).json?.file?.name, 'matrix.jpg', 'a rename keeps the type\'s extension');
+    // A member whose role may not view: every route refuses, a file route with 404.
+    await json('PATCH', '/api/roles/member', admin, { 'module.shelf.view': false });
+    same([(await routes.list(who.member)).status, (await routes.content(who.member)).status, (await routes.uses(who.member)).status], [403, 404, 404], 'a member without view: 403 for the list, 404 for the file');
+    same((await routes.content(who.moderator)).status, 200, 'a moderator keeps it');
+    await json('PATCH', '/api/roles/member', admin, { 'module.shelf.view': true });
+    // The module turned off: its files are kept, and not reachable. Never in the Lobby.
+    await json('PATCH', '/api/modules/shelf', admin, { enabled: false });
+    same([(await routes.list(who.member)).status, (await routes.content(who.member)).status], [404, 404], 'the module off: 404');
+    ok(fs.existsSync(path.join(spaceDir, `${f.id}.bin`)), 'and the file is still kept');
+    await json('PATCH', '/api/modules/shelf', admin, { enabled: true, allSpaces: true });
+    same((await routes.content(who.member)).status, 200, 'on again, it is back');
+    same((await send(A, 'GET', '/api/modules/shelf/library?space=lobby', { cookie: admin })).status, 404, 'there is no library in the Lobby');
+    // A file id from another space, with that space named: 404.
+    same((await send(A, 'GET', `/api/modules/shelf/library/${f.id}/content?space=${other.id}`, { cookie: people.lou.token })).status, 404, 'another space\'s file, asked for in one\'s own: 404');
+    for (const fid of ['..%2F..%2Fapp.json', '..', '%2e%2e', 'a'.repeat(24), `${f.id}.bin`, `${f.id}%00`]) same((await send(A, 'GET', `/api/modules/shelf/library/${fid}/content?space=${trip.id}`, { cookie: people.sam.token })).status, 404, `a file id of ${fid}: 404`);
+    same((await send(A, 'GET', `/api/modules/shelf/library/${f.id}/content?space=..%2F..`, { cookie: people.sam.token })).status, 404, 'a space id that is a path: 404');
+    // Removing: the adder, a moderator (remove_any), an owner; not another member.
+    const del = (fid, o) => send(A, 'DELETE', `/api/modules/shelf/library/${fid}?space=${trip.id}${o.q || ''}`, o);
+    const g1 = (await add('pat', 'one.gif', gifOf(), { type: 'image/gif' })).json.file;
+    const g2 = (await add('pat', 'two.gif', gifOf(), { type: 'image/gif' })).json.file;
+    const r1 = await del(g1.id, who.member);
+    same([r1.status, r1.json?.error], [403, 'Only the person who added it, or someone who may remove other people\'s files, can remove it.'], 'another member may not remove it: 403');
+    same((await del(g1.id, who['a guest pass'])).status, 404, 'a guest: 404');
+    same((await del(g1.id, who.moderator)).json, { ok: true }, 'a moderator may (remove_any)');
+    same((await del(g2.id, who.adder)).json, { ok: true }, 'the adder may');
+    same((await del(f.id, who.owner)).json, { ok: true }, 'an owner may');
+    ok(![g1, g2, f].some((x) => fs.existsSync(path.join(spaceDir, `${x.id}.bin`)) || fs.existsSync(path.join(spaceDir, `${x.id}.thumb`))), 'removed: bytes and small pictures gone');
+    same((await routes.content(who.member)).status, 404, 'and it answers 404');
+    same((await del(f.id, who.owner)).status, 404, 'removing twice: 404');
+    const activity = (await send(A, 'GET', '/api/modules/activity', { cookie: admin })).json.activity.map((a) => a.what);
+    ok(activity.includes('added a file to Shelf') && activity.includes('removed a file from Shelf') && !activity.some((w) => /matrix|one\.gif|ticket/.test(w)), 'activity lines, without the files\' names');
+  }
   // --- end of server A ---
   await A.stop();
+
+  // --- a server with environments (BASE_DOMAIN): each environment's files are its own -------------------------------
+  {
+    const BASE = 'vault.test';
+    const H = await startServer('h', { BASE_DOMAIN: BASE, ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234' });
+    servers.push(H);
+    const at = (sub) => `${sub ? `${sub}.` : ''}${BASE}:${H.port}`;
+    const hsend = (method, sub, urlPath, o = {}) => send(H, method, urlPath, { ...o, host: at(sub) });
+    const hjson = (method, sub, urlPath, value, o = {}) => hsend(method, sub, urlPath, { ...o, headers: { ...(o.headers || {}), 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(value)) });
+    const hostLogin = await hjson('POST', 'admin', '/api/host/login', { login: 'host', password: 'hostpass1234' });
+    same(hostLogin.status, 200, `the host admin signs in: ${hostLogin.text}`);
+    const hostCookie = hostLogin.cookies.join('; ');
+    const envs = {};
+    for (const slug of ['aaa', 'bbb']) {
+      same((await hjson('POST', 'admin', '/api/host/environments', { slug, name: `Env ${slug}`, owner: { login: `own${slug}`, password: 'ownerpass1234' } }, { headers: { cookie: hostCookie } })).status, 201, `environment ${slug}`);
+      const asHost = (await hjson('POST', slug, '/api/login', { login: 'host', password: 'hostpass1234' })).json.token;
+      same((await hsend('POST', slug, '/api/modules', { cookie: asHost, headers: { 'content-type': 'application/zip' }, body: shelfZip() })).status, 201, `the module installs in ${slug}`);
+      same((await hjson('PATCH', slug, '/api/modules/shelf', { enabled: true, allSpaces: true }, { cookie: asHost })).status, 200, 'and turns on');
+      const owner = (await hjson('POST', slug, '/api/login', { login: `own${slug}`, password: 'ownerpass1234' })).json.token;
+      const space = (await hjson('POST', slug, '/api/spaces', { name: 'Trip' }, { cookie: owner })).json.space;
+      envs[slug] = { owner, space };
+    }
+    const a = envs.aaa;
+    const b = envs.bbb;
+    const upA = await hsend('POST', 'aaa', `/api/modules/shelf/library?space=${a.space.id}&name=ticket.pdf`, { cookie: a.owner, headers: { 'content-type': 'application/pdf' }, body: pdfOf() });
+    same(upA.status, 201, `a file in aaa: ${upA.text}`);
+    const fid = upA.json.file.id;
+    ok(fs.existsSync(path.join(H.vaultDir, 'aaa', `space-${a.space.id}`, `${fid}.bin`)) && !fs.existsSync(path.join(H.vaultDir, 'bbb')), 'its bytes are under VAULT_DIR/aaa/, and bbb has none');
+    const path1 = `/api/modules/shelf/library/${fid}/content?space=${a.space.id}`;
+    same((await hsend('GET', 'aaa', path1, { cookie: a.owner })).status, 200, 'aaa\'s owner reads it');
+    same((await hsend('GET', 'bbb', path1, { cookie: a.owner })).status, 401, 'aaa\'s session at bbb is no session: 401');
+    same((await hsend('GET', 'bbb', path1, { cookie: b.owner })).status, 404, 'bbb\'s owner, naming aaa\'s space: 404');
+    same((await hsend('GET', 'bbb', `/api/modules/shelf/library/${fid}/content?space=${b.space.id}`, { cookie: b.owner })).status, 404, 'or their own space: 404');
+    same((await hsend('GET', '', path1, { cookie: a.owner })).status, 404, 'the product host: 404');
+    same((await hsend('GET', 'admin', path1, { cookie: a.owner, headers: { cookie: `${hostCookie}; app_session=${a.owner}` } })).status, 404, 'the host console: 404');
+    same((await hsend('GET', 'nosuch', path1, { cookie: a.owner })).status, 404, 'an environment that is not there: 404');
+    // The environment's own copy of its data carries the records, never the bytes.
+    const zip = await hsend('GET', 'aaa', '/api/environment/export', { cookie: a.owner });
+    ok(zip.status === 200 && zip.bytes.includes(Buffer.from(`modules/shelf/library/space-${a.space.id}.json`)) && !zip.bytes.includes(Buffer.from(`${fid}.bin`)), 'the export carries the records and not the bytes');
+    // A hosted plan's storage cap counts the library's files (here, a cap already passed by what is kept).
+    same((await hjson('PATCH', 'admin', '/api/host/environments/bbb', { plan: { storageBytes: 1024 } }, { headers: { cookie: hostCookie } })).status, 200, 'bbb gets a tiny storage cap');
+    const capped = await hsend('POST', 'bbb', `/api/modules/shelf/library?space=${b.space.id}&name=a.pdf`, { cookie: b.owner, headers: { 'content-type': 'application/pdf' }, body: pdfOf() });
+    same([capped.status, capped.json?.error], [413, 'This environment has used its 0 GB of storage.'], 'the plan\'s cap: 413');
+    await H.stop();
+  }
 } catch (err) {
   failed = true;
   console.error(err);

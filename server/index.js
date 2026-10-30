@@ -649,7 +649,10 @@ function environmentFor(slug) {
       managed: managedAi,
       secretsKey: secretsKeyBuf,
       vaultDir: vaultFolderOf(slug),
-      onVaultBytes: (delta) => { if (vaultHost.bytes !== null) vaultHost.bytes += delta; },
+      onVaultBytes: (delta) => {
+        if (vaultHost.bytes !== null) vaultHost.bytes += delta;
+        if (hostRegistry && slug) hostRegistry.addStorageUsage(slug, delta);
+      },
     });
   } catch (err) {
     if (err instanceof MigrationError) { noteRefusal(key, err); err.slug = key; }
@@ -2265,7 +2268,7 @@ const STORAGE_MEASURE_MS = 60000;
 function environmentStorageBytes(slug, dataDir) {
   const cached = hostRegistry.findEnvironment(slug)?.usage;
   if (cached?.measuredAt && Date.now() - new Date(cached.measuredAt).getTime() < STORAGE_MEASURE_MS) return cached.storageBytes;
-  const bytes = dirSize(dataDir);
+  const bytes = dirSize(dataDir) + dirSize(vaultFolderOf(slug)); // a library's files count too, though they are kept outside
   hostRegistry.recordStorageUsage(slug, bytes);
   return bytes;
 }
@@ -8108,6 +8111,59 @@ app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
   const pixels = vaultTypes.picturePixels(clean.bytes, clean.type);
   if (pixels === null || pixels > 4 * 1000 * 1000) return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
   res.json({ file: fileView(ctx, vault.putThumb(ctx.manifest.id, ctx.spaceId, r.id, clean.bytes, clean.type)) });
+});
+
+// The file a route names, for someone who may see it, and whether they may change it (its adder, or someone with
+// remove_any); null after the 404.
+function libraryFile(req, res) {
+  const ctx = libraryAccess(req, res, 'view', { file: true });
+  if (!ctx) return null;
+  const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
+  if (!r) return void res.status(404).json({ error: NO_SUCH_FILE });
+  return { ctx, r, mayChange: r.by === ctx.by || ctx.can('remove_any') };
+}
+// PATCH /api/modules/:id/library/:fid?space= { name } -- rename it (the adder, or remove_any). The name keeps the type's
+// extension. Its small JSON body is read only once that is decided.
+app.patch('/api/modules/:id/library/:fid', (req, res, next) => {
+  const found = libraryFile(req, res);
+  if (!found) return dropUploadBody(req);
+  if (!found.mayChange) { res.status(403).json({ error: `Only the person who added it, or someone who may remove other people's files, can rename it.` }); return dropUploadBody(req); }
+  req.libraryFile = found;
+  next();
+}, express.json({ limit: '4kb' }), (req, res) => {
+  const { ctx, r } = req.libraryFile;
+  const name = cleanName(req.body?.name);
+  if (!name) return res.status(400).json({ error: 'Give the file a name.' });
+  res.json({ file: fileView(ctx, vault.rename(ctx.manifest.id, ctx.spaceId, r.id, nameForType(name, vaultTypes.TYPES[r.type].exts))) });
+});
+// DELETE /api/modules/:id/library/:fid?space= -- remove it: its record, bytes and small picture (the adder, or remove_any).
+// Links to it stay on the objects that hold them, and read "File removed".
+app.delete('/api/modules/:id/library/:fid', (req, res) => {
+  const found = libraryFile(req, res);
+  if (!found) return;
+  const { ctx, r, mayChange } = found;
+  if (!mayChange) return res.status(403).json({ error: 'Only the person who added it, or someone who may remove other people\'s files, can remove it.' });
+  vault.remove(ctx.manifest.id, ctx.spaceId, r.id);
+  noteActivity(ctx.manifest.id, `removed a file from ${ctx.name}`, ctx.by, `space:${ctx.spaceId}`);
+  res.json({ ok: true });
+});
+// GET /api/modules/:id/library/:fid/uses?space= -- where it is linked: the summaries of the objects this person may see,
+// and how many others there are.
+app.get('/api/modules/:id/library/:fid/uses', (req, res) => {
+  const found = libraryFile(req, res);
+  if (!found) return;
+  const { ctx, r } = found;
+  const uses = [];
+  let hidden = 0;
+  for (const from of moduleLinks.to(fileRef(ctx, r.id))) {
+    try {
+      uses.push(resolveRef(ctx.who, from, null, { skipConsumer: true }));
+    } catch (err) {
+      if (!err.status) throw err;
+      hidden += 1;
+    }
+  }
+  res.json({ uses, hidden });
 });
 
 // --- place search, from the server -----------------------------------------------------------------------------------------

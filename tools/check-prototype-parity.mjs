@@ -61,7 +61,7 @@ const PARTS = {
   strip: '#stripbar', undated: '#undated', undatedRow: '#undated li.sdk-row', ends: '.timeline.ends', phaseBar: '.row.marker.phase .sdk-mk-line',
   day: '.days > .sdk-day', dayHead: '.sdk-day > .sdk-day-head', dayMore: '.sdk-day-head [data-action="day-more"]', dayAdd: '.sdk-day-head .day-add',
   rowcard: '.sdk-day .row.entry .slot > article.sdk-card-banded', block: '.sdk-day .row.entry .slot > article.block', mid: '.card.stay.mid',
-  lane: '.row.marker.lane .sdk-mk-line', joint: '.joint', jointadd: '.jointadd', suggestions: '.sdk-day .suggestions:not([hidden])',
+  lane: '.row.marker.lane .sdk-mk-line', joint: '.joint', jointadd: '.jointadd', suggestions: '.sdk-day .suggestions:not([hidden]) .suggestion',
   empty: '.sdk-day-empty',
 };
 const MEASURE = `(() => {
@@ -79,12 +79,14 @@ const MEASURE = `(() => {
     const c = j.querySelector('.jointadd'); const p = j.previousElementSibling; const n = j.nextElementSibling;
     if (!c || !vis(c) || !p || !n || !vis(p) || !vis(n)) continue;
     const cb = c.getBoundingClientRect();
-    out.joints.push({ above: cb.top - p.getBoundingClientRect().bottom, below: n.getBoundingClientRect().top - cb.bottom });
+    // A timeline of markers has room of its own around its pill: measure from the pill, which is what a person sees.
+    const edge = (el, last) => { if (!el.classList.contains('timeline')) return el.getBoundingClientRect(); const rows = [...el.querySelectorAll('.sdk-mk-line')].filter(vis); const x = last ? rows[rows.length - 1] : rows[0]; return (x || el).getBoundingClientRect(); };
+    out.joints.push({ prev: p.className.toString().slice(0, 30), next: n.className.toString().slice(0, 30), above: cb.top - edge(p, true).bottom, below: edge(n, false).top - cb.bottom });
   }
   for (const e of root.querySelectorAll('button, summary, a[href], [role="button"]')) {
     if (!vis(e)) continue;
-    const b = e.getBoundingClientRect(); const af = getComputedStyle(e, '::after');
-    const hit = af.content !== 'none' && af.position === 'absolute' ? Math.max(b.height, parseFloat(af.height) || 0) : b.height;
+    const b = e.getBoundingClientRect(); let hit = b.height;
+    for (const which of ['::before', '::after']) { const ps = getComputedStyle(e, which); if (ps.content !== 'none' && ps.position === 'absolute') hit = Math.max(hit, parseFloat(ps.height) || 0); }
     out.taps.push({ cls: e.className.toString().slice(0, 40) || e.tagName.toLowerCase(), action: e.dataset.action || '', text: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 24), h: b.height, hit });
   }
   const d = root.querySelector('.sdk-day > .sdk-day-head');
@@ -187,13 +189,16 @@ async function main() {
     for (const [which, set] of [['real Planner', real], ['Prototype', protos]]) {
       for (const key of Object.keys(set)) {
         const m = set[key]; const tag = `${which} ${key}`;
-        const col = (name, list) => { for (const [what, f] of [['left edge', 'l'], ['right edge', 'r']]) if (spread(list, f) > 1) fail(`Column ${tag}: ${name} do not share one ${what}: they range over ${round(spread(list, f))}px (${[...new Set(list.map((e) => round(e[f])))].join(', ')}px from #body)`); };
+        const col = (name, list, sides = ['l', 'r']) => { for (const f of sides) { const what = f === 'l' ? 'left edge' : 'right edge'; if (spread(list, f) > 1) fail(`Column ${tag}: ${name} do not share one ${what}: they range over ${round(spread(list, f))}px (${[...new Set(list.map((e) => round(e[f])))].join(', ')}px from #body)`); } };
         const full = [...m.parts.day.map((e) => ({ ...e, n: 'day' })), ...m.parts.phaseBar.map((e) => ({ ...e, n: 'phase bar' })), ...m.parts.ends.map((e) => ({ ...e, n: 'timeline.ends' })), ...m.parts.undated.map((e) => ({ ...e, n: '#undated' })), ...m.parts.undatedRow.map((e) => ({ ...e, n: 'unscheduled row' }))];
         col('the full-width parts of .days and #undated (day cards, phase bars, timeline.ends, #undated, its rows)', full);
-        col('the cards, the suggestions and the empty box inside the days', [...m.parts.rowcard, ...m.parts.suggestions, ...m.parts.empty]);
+        // A card sits beside the time and the rail, so its left edge is its own; the boxes that stack under the cards (each suggestion, the empty-day box) share one left edge, and all of them end at one right edge.
+        col('the cards, the suggestions and the empty box inside the days', [...m.parts.rowcard, ...m.parts.suggestions, ...m.parts.empty], ['r']);
+        col('the suggestions and the empty box inside the days', [...m.parts.suggestions, ...m.parts.empty], ['l']);
+        col('the cards inside the days', m.parts.rowcard, ['l']);
         if (spread(m.more, 'cx') > 1) fail(`Column ${tag}: the more buttons do not share one centre: ${round(spread(m.more, 'cx'))}px apart (${[...new Set(m.more.map((e) => round(e.cx)))].join(', ')}px from #body)`);
         const bad = m.joints.filter((j) => Math.abs(j.above - j.below) > 2);
-        if (bad.length) fail(`Joint ${tag}: the + circle is not centred between its two days in ${bad.length} of ${m.joints.length} joints: ${[...new Set(bad.map((j) => `${round(j.above)}px above and ${round(j.below)}px below`))].join('; ')}`);
+        if (bad.length) fail(`Joint ${tag}: the + circle is not centred between its two days in ${bad.length} of ${m.joints.length} joints: ${[...new Set(bad.map((j) => `${round(j.above)}px above and ${round(j.below)}px below, between .${j.prev.trim().replace(/\\s+/g, '.')} and .${j.next.trim().replace(/\\s+/g, '.')}`))].join('; ')}`);
         if (!m.joints.length) fail(`Joint ${tag}: no joint with a + circle between two days was found`);
       }
     }

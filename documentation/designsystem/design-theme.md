@@ -176,10 +176,10 @@ The title bar and the status bar are the same, darker surface (`--mf-surface-tit
 
 `/design-system/` serves four pages with the same links at the top (the pages and how they fit are described in `public/design-system/README.md`):
 
-- **Design System**: what is in production, each family drawn from the product's own stylesheets. `tools/check-design-system-catalog.mjs` (in `npm run check`) fails when an example uses a class no stylesheet defines, when a block of `system.css` has no family, and when the moduleframe family does not link to the Prototype page.
+- **Design System**: what is in production, each family drawn from the product's own stylesheets. `tools/check-design-system-catalog.mjs` (in `npm run check`) fails when an example uses a class no stylesheet defines, when a block of `system.css` has no family, and when the moduleframe family does not link to the Prototype page. `tools/check-design-system.mjs` opens the page in headless Chromium, served and as its snapshot from disk, and fails on a console error, an example frame that does not load, a sideways scroll or a page that does not finish drawing; it runs per scenario (`--scenario=1280:light`, `1280:dark`, `390:light`, `390:dark`). `npm run check` runs 1280:light; `npm run check:design` runs all four, and so does `.github/workflows/design-check.yml`, as parallel jobs on every push to main and every pull request.
 - **Proposed**: changes staged for the design system, each with what, why and its status. Nothing is staged now.
 - **Prototype**: the module frame drawn by the real `createModuleFrame` in four states, in each shipped theme, Light or Dark, at a width chosen at the top. A tweak made here is staged on Proposed, then built into production.
-- **Legacy**: frozen records (the app's inventory before the design system, and System v1).
+- **Legacy**: frozen records (the app's inventory before the design system, and System v1). System v1 is only checked to load: no console error, every frame drawn.
 
 ## The action button
 

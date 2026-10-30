@@ -716,7 +716,7 @@ function cleanSettings(raw) {
       // only with a base domain; without one the declaration has no effect, since there is no separate host.
       if (def.scope !== 'environment') throw new ModuleError(`module.json: setting "${key}" is a file, so its scope must be "environment"`);
       const folder = r.folder === undefined ? 'files' : String(r.folder);
-      if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(folder) || folder === 'versions') throw new ModuleError(`module.json: setting "${key}" folder must be lowercase letters, digits and dashes (not "versions")`);
+      if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(folder) || folder === 'versions' || folder === 'library') throw new ModuleError(`module.json: setting "${key}" folder must be lowercase letters, digits and dashes (not "versions" or "library")`);
       def.folder = folder;
       if (r.shared === 'host') def.shared = 'host';
       // `upload`: the owner may put a file here through the page (PUT /api/modules/:id/files/:folder), checked as `accept` says.

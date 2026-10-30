@@ -35,7 +35,8 @@ class VaultError extends Error {
 }
 
 // A file's name for its record and for display: one line, at most 120 characters, without path separators, control
-// characters or the invisible ones that turn text around ("gpj.exe" shown as "exe.jpg"). Never used on disk.
+// characters or the invisible ones that turn text around ("gpj.exe" shown as "exe.jpg"), nor dots and spaces at either
+// end. Never used on disk.
 function cleanName(raw) {
   const s = String(raw == null ? '' : raw)
     .normalize('NFC')
@@ -44,7 +45,8 @@ function cleanName(raw) {
     .replace(/\s+/g, ' ')
     .replace(/^[.\s]+/, '')
     .trim();
-  return Array.from(s).slice(0, NAME_MAX).join('').trim();
+  // Trailing dots and spaces go too ("x.pdf." would become "x.pdf..pdf").
+  return Array.from(s).slice(0, NAME_MAX).join('').replace(/[.\s]+$/, '');
 }
 
 // The name's extension, lower case, without the dot ('' for none).

@@ -54,6 +54,8 @@ const OTHER = 'wxyz9876';
   same(cleanName('photo‮gpj.exe'), 'photo gpj.exe', 'the invisible characters that turn text around go');
   same(Array.from(cleanName('x'.repeat(300))).length, 120, 'at most 120 characters');
   same(nameForType('ticket', ['pdf']), 'ticket.pdf', 'a name with no extension takes the type\'s');
+  same([cleanName('x.pdf.'), cleanName('x.pdf . . '), cleanName('...')], ['x.pdf', 'x.pdf', ''], 'dots and spaces at the end go');
+  same(nameForType(cleanName('x.pdf.'), ['pdf']), 'x.pdf', 'so "x.pdf." is kept as x.pdf');
   same(nameForType('song.MP3', ['mp3']), 'song.MP3', 'one with the right extension keeps it');
   same(extensionOf('a.tar.GZ'), 'gz', 'the extension, lower case');
 
@@ -279,8 +281,8 @@ const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.'
 const base = fs.mkdtempSync(path.join(os.tmpdir(), 'check-vault-'));
 // A module that declares `library`, as the Vault will: the four permissions (guest defaults asked for, and turned off
 // by the host), and the owner's two lower quotas.
-function shelfZip() {
-  const root = path.join(base, 'mods', 'shelf');
+function shelfZip(extraSettings = []) {
+  const root = path.join(base, 'mods', `shelf${extraSettings.length ? '-x' : ''}`);
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
   fs.writeFileSync(path.join(root, 'module.json'), JSON.stringify({
     id: 'shelf', name: 'Shelf', version: '1.0.0', scope: ['space'], icon: 'circle',
@@ -297,6 +299,7 @@ function shelfZip() {
     settings: [
       { key: 'spaceMaxGb', label: 'Most for one space, in GB', type: 'number', scope: 'environment', min: 0, default: 0 },
       { key: 'personMaxGb', label: 'Most for one person, in GB', type: 'number', scope: 'environment', min: 0, default: 0 },
+      ...extraSettings,
     ],
   }));
   fs.writeFileSync(path.join(root, 'src', 'shelf.html'), '<!DOCTYPE html><html><head><style>/*__CSS__*/</style></head><body><script>/*__JS__*/</script></body></html>');
@@ -419,6 +422,8 @@ try {
   assert.equal((await json('PATCH', `/api/users/${people.mo.key}/spaces/${trip.id}`, admin, { permissions: { moderator: true } })).status, 200);
   const up = await send(A, 'POST', '/api/modules', { cookie: admin, headers: { 'content-type': 'application/zip' }, body: shelfZip() });
   same(up.status, 201, `a module that declares library installs: ${up.text}`);
+  const libFolder = await send(A, 'POST', '/api/modules', { cookie: admin, headers: { 'content-type': 'application/zip' }, body: shelfZip([{ key: 'maps', label: 'Maps', type: 'files', scope: 'environment', folder: 'library' }]) });
+  ok(libFolder.status === 400 && /not "versions" or "library"/.test(libFolder.json?.error), `a files setting may not name its folder library, where the records are: ${libFolder.text}`);
   same((await json('PATCH', '/api/modules/shelf', admin, { enabled: true, allSpaces: true })).status, 200, 'and turns on');
   const roles = (await send(A, 'GET', '/api/roles', { cookie: admin })).json.roles;
   same(['view', 'add', 'download', 'remove_any'].map((k) => roles.guest[`module.shelf.${k}`]), [false, false, false, false], 'its library permissions are off for guests, whatever the manifest asked');
@@ -622,7 +627,7 @@ try {
       const r = await add('rae', `g${i}.gif`, gifOf(), { type: 'image/gif' });
       if (r.status === 429) got = r;
     }
-    ok(got && /doing that too often/.test(got.json.error), 'the module upload limit (30 a minute) holds');
+    same(got?.json?.error, 'This module is doing that too often. Try again in a moment.', 'the module upload limit (30 a minute) holds, and says so plainly');
   }
   same(partsUnder(A.vaultDir), [], 'no part file is left after any of it');
 
@@ -632,7 +637,7 @@ try {
       ['signed out', {}, 401, 'Sign in first.'],
       ['a guest pass', { q: `&guest=${guestToken}` }, 403, 'Guests can\'t use Shelf.'],
       ['the access key', { headers: { 'x-stream-key': streamKey } }, 403, 'The access key can\'t open Shelf.'],
-      ['someone not in the space', { cookie: people.lou.token }, 403, 'You are not in this space.'],
+      ['someone not in the space', { cookie: people.lou.token }, 404, 'There is no such space.'],
       ['no such space', { cookie: people.pat.token, space: 'nosuch1' }, 404, 'There is no such space.'],
     ];
     for (const [who, o, status, error] of asks) {
@@ -647,6 +652,9 @@ try {
     same((await add('mo', 'mod.gif', gifOf(), { type: 'image/gif' })).status, 201, 'a moderator still may (the moderator role keeps add)');
     await json('PATCH', '/api/roles/member', admin, { 'module.shelf.add': true });
     same((await send(A, 'POST', '/api/modules/nosuch/library?space=x&name=a.pdf', { cookie: people.pat.token, body: pdfOf() })).status, 404, 'no such module: 404');
+    const signedOut = await Promise.all(['shelf', 'nosuch'].map((id) => send(A, 'GET', `/api/modules/${id}/library?space=${trip.id}`)));
+    same(signedOut.map((r) => [r.status, r.json?.error]), [[401, 'Sign in first.'], [401, 'Sign in first.']], 'signed out, a library module and one that is not there answer the same');
+    same((await send(A, 'GET', `/api/modules/shelf/library?space=nosuch1`, { cookie: people.lou.token })).json, (await send(A, 'GET', `/api/modules/shelf/library?space=${trip.id}`, { cookie: people.lou.token })).json, 'a space someone is not in answers as one that is not there');
     same(partsUnder(A.vaultDir), [], 'nothing written for any refusal');
   }
   // --- piece 4: serving, with ranges and the headers every file is sent with ----------------------------------------
@@ -764,7 +772,7 @@ try {
     };
     //            signed out, guest, key, outsider, member, adder, moderator, owner, admin
     const want = {
-      list: [401, 403, 403, 403, 200, 200, 200, 200, 200],
+      list: [401, 403, 403, 404, 200, 200, 200, 200, 200],
       content: [401, 404, 404, 404, 200, 200, 200, 200, 200],
       download: [401, 404, 404, 404, 200, 200, 200, 200, 200],
       thumb: [401, 404, 404, 404, 200, 200, 200, 200, 200],
@@ -777,7 +785,7 @@ try {
       for (const [label, o] of Object.entries(who)) {
         const r = await call(o);
         got.push(r.status);
-        if (r.status === 404) ok(r.json?.error === 'There is no such file.' && !r.text.includes('matrix'), `${route}, ${label}: a refusal says nothing of the file`);
+        if (r.status === 404) ok(r.json?.error === (route === 'list' ? 'There is no such space.' : 'There is no such file.') && !r.text.includes('matrix'), `${route}, ${label}: a refusal says nothing of the file or the space`);
       }
       same(got, want[route], `${route}: ${Object.keys(who).join(', ')}`);
     }

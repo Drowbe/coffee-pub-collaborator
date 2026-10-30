@@ -7290,7 +7290,7 @@ function overLimit(moduleId, by, kind) {
   if (r.first) noteActivity(moduleId, `was slowed: too many ${kind === 'write' ? 'saves' : kind + 's'} in a minute`, by, null);
   return r;
 }
-const limitMessage = () => `this ${word('module')} is doing that too often; try again in a moment`;
+const limitMessage = () => `This ${word('module')} is doing that too often. Try again in a moment.`;
 app.get('/api/modules/activity', requireOwner, (_req, res) => {
   res.json({
     activity: moduleActivity.slice(-100).reverse().map((a) => ({ ...a, moduleName: store.moduleDisplay(a.module).name || modules.enabled(a.module)?.manifest.name || a.module, byName: store.userByKey(a.by)?.displayName || (a.by === 'guest' ? word('guest', { a: true }) : a.by) })),
@@ -7754,21 +7754,22 @@ const overTypeLimit = (type) => { const l = vaultTypes.LIMITS[vaultTypes.TYPES[t
 
 // Who is asking, in which space, with which module: { manifest, entry, name, who, space, spaceId, by, can(key), owner },
 // or null after the refusal is sent. `need` is one of the module's library permissions; `file` makes every refusal but
-// 401 a 404.
+// 401 a 404. Signed out is 401 whatever the module, and a space someone is not in answers as one that is not there, so
+// neither which modules are installed nor which space ids exist is given away.
 function libraryAccess(req, res, need, { file = false } = {}) {
   const refuse = (status, error) => void res.status(file && status !== 401 ? 404 : status).json({ error: file && status !== 401 ? NO_SUCH_FILE : error });
+  const who = moduleViewer(req);
+  if (!who) return refuse(401, 'Sign in first.');
   const found = modules.enabled(req.params.id);
   if (!found || !found.manifest.library) return refuse(404, `There is no such ${word('module')}.`);
   const { manifest, entry } = found;
   const name = modules.shownName(manifest);
-  const who = moduleViewer(req);
-  if (!who) return refuse(401, 'Sign in first.');
   if (who.keyed) return refuse(403, `The access key can't open ${name}.`);
   if (!who.user) return refuse(403, `${word('guest', { many: true, cap: true })} can't use ${name}.`);
   const space = store.spaceById(String(req.query.space || ''));
   if (!space) return refuse(404, `There is no such ${word('space')}.`);
   if (refusedInLobby(manifest, space.id)) return refuse(404, lobbyRefusal(manifest));
-  if (!moduleSpaceAccess(entry, who, space)) return refuse(403, `You are not in this ${word('space')}.`);
+  if (!moduleSpaceAccess(entry, who, space)) return refuse(404, `There is no such ${word('space')}.`);
   const perms = modulePerms(who, space.id);
   const can = (key) => Boolean(perms[`module.${manifest.id}.${key}`]);
   if (need && !can(need)) return refuse(403, `Your role can't do that in ${name}.`);

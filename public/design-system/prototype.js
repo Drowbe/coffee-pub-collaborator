@@ -13,7 +13,7 @@ const MODES = [{ id: 'dark', label: 'Dark', icon: 'moon' }, { id: 'light', label
 const WIDTHS = [390, 500, 700, 1280].map((w) => ({ id: String(w), label: `${w}` }));
 
 // Design-process switches (Thomas, 2026-10-30; nothing here ships): the leading icon on a Planner card, and a reworked light mode of Strong Coffee.
-const ICONS = [{ id: 'open', label: 'A: Open icon' }, { id: 'tile', label: 'B: Dark tile' }, { id: 'today', label: 'Today' }];
+const ICONS = [{ id: 'open', label: 'A: Open icon' }, { id: 'tile', label: 'B: Tile' }, { id: 'today', label: 'Today' }];
 const LOOKS = [{ id: 'current', label: 'Light: current' }, { id: 'proposed', label: 'Light: proposed' }];
 
 const q = new URLSearchParams(location.search);
@@ -385,7 +385,7 @@ planName.id = 'pp-plan-cards';
 planName.textContent = 'Planner cards: the leading icon';
 const planNote = D.createElement('p');
 planNote.className = 'pp-state-note';
-planNote.textContent = 'Flight, stay, sight, meal and rental car. Use the Card icon switch at the top: A is the icon alone, larger, in the kind\'s colour; B is a dark tile with a light icon; Today is the tinted tile now in the product. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
+planNote.textContent = 'Flight, stay, sight, meal and rental car. Use the Card icon switch at the top: A is the icon alone, larger, in the kind\'s colour; B is a tile in the kind\'s colour with a light or dark icon, whichever holds more contrast; Today is the tinted tile now in the product. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
 planSec.append(planName, planNote);
 main.prepend(planSec);
 drawState({

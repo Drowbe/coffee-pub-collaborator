@@ -77,16 +77,22 @@ html[data-pp-icon="open"] .pp-pcard > .sdk-card-head .sdk-card-icon {
   html[data-pp-icon="open"] .pp-pcard > .sdk-card-head .sdk-card-icon { color: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h); }
 }
 
-/* B: a dark tile with a light icon. The tile is the kind's colour taken far down toward black; the icon is the same colour lifted toward white.
-   Black and white are the scrim kind of colour (rule 4 of the theme document): they darken and lighten whatever the tint is. To system.css: the .sdk-card-icon rule. */
+/* B: a tile filled with the kind's colour, the same colour option A draws its icon in, and a light or dark icon on it, whichever holds more
+   contrast: white when the tile's lightness is under 0.6 (the light mode's tiles), near-black above it (the dark mode's lighter tiles).
+   Measured on the Prototype; the numbers are in the report. To system.css: the .sdk-card-icon rule. */
 html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon {
   --card-icon: 28px;
-  background: color-mix(in srgb, var(--tint) 38%, black);
-  color: color-mix(in srgb, var(--tint) 30%, white);
+  background: color-mix(in srgb, var(--tint) 75%, var(--text-primary));
+  color: #fff;
   font-size: var(--text-14);
 }
-/* On a dark card a tile cannot get far from it (black on the card's step is at most about 1.6 to 1), so in dark mode it goes nearly to black. */
-:root:not([data-theme-mode="light"])[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon { background: color-mix(in srgb, var(--tint) 12%, black); }
+@supports (color: oklch(from red l c h)) {
+  html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon {
+    --pp-tile: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h);
+    background: var(--pp-tile);
+    color: oklch(from var(--pp-tile) clamp(0.16, calc((0.6 - l) * 1000), 0.99) 0 0);
+  }
+}
 html[data-pp-icon="today"] .pp-pcard > .sdk-card-head .sdk-card-icon { --card-icon: 24px; }
 
 /* The proposed light mode of Strong Coffee (the other two themes are untouched, and dark never changes). A surface ladder, from the

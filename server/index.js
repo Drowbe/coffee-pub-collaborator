@@ -7739,8 +7739,9 @@ function libraryAccess(req, res, need, { file = false } = {}) {
   if (who.keyed) return refuse(403, `The access key can't open ${name}.`);
   if (!who.user) return refuse(403, `${word('guest', { many: true, cap: true })} can't use ${name}.`);
   const space = store.spaceById(String(req.query.space || ''));
-  if (!space || refusedInLobby(manifest, space.id)) return refuse(404, `There is no such ${word('space')}.`);
-  if (!moduleSpaceAccess(entry, who, space)) return refuse(403, `${name} is not on in this ${word('space')} for you.`);
+  if (!space) return refuse(404, `There is no such ${word('space')}.`);
+  if (refusedInLobby(manifest, space.id)) return refuse(404, lobbyRefusal(manifest));
+  if (!moduleSpaceAccess(entry, who, space)) return refuse(403, `You are not in this ${word('space')}.`);
   const perms = modulePerms(who, space.id);
   const can = (key) => Boolean(perms[`module.${manifest.id}.${key}`]);
   if (need && !can(need)) return refuse(403, `Your role can't do that in ${name}.`);

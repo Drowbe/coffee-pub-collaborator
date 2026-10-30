@@ -559,7 +559,7 @@ try {
       ['signed out', {}, 401, 'Sign in first.'],
       ['a guest pass', { q: `&guest=${guestToken}` }, 403, 'Guests can\'t use Shelf.'],
       ['the access key', { headers: { 'x-stream-key': streamKey } }, 403, 'The access key can\'t open Shelf.'],
-      ['someone not in the space', { cookie: people.lou.token }, 403, 'Shelf is not on in this space for you.'],
+      ['someone not in the space', { cookie: people.lou.token }, 403, 'You are not in this space.'],
       ['no such space', { cookie: people.pat.token, space: 'nosuch1' }, 404, 'There is no such space.'],
     ];
     for (const [who, o, status, error] of asks) {
@@ -705,7 +705,8 @@ try {
     ok(fs.existsSync(path.join(spaceDir, `${f.id}.bin`)), 'and the file is still kept');
     await json('PATCH', '/api/modules/shelf', admin, { enabled: true, allSpaces: true });
     same((await routes.content(who.member)).status, 200, 'on again, it is back');
-    same((await send(A, 'GET', '/api/modules/shelf/library?space=lobby', { cookie: admin })).status, 404, 'there is no library in the Lobby');
+    const lobby = await send(A, 'GET', '/api/modules/shelf/library?space=lobby', { cookie: admin });
+    ok(lobby.status === 404 && /can't be turned on in/.test(lobby.json?.error), `there is no library in the Lobby, and it says so: ${lobby.text}`);
     // A file id from another space, with that space named: 404.
     same((await send(A, 'GET', `/api/modules/shelf/library/${f.id}/content?space=${other.id}`, { cookie: people.lou.token })).status, 404, 'another space\'s file, asked for in one\'s own: 404');
     for (const fid of ['..%2F..%2Fapp.json', '..', '%2e%2e', 'a'.repeat(24), `${f.id}.bin`, `${f.id}%00`]) same((await send(A, 'GET', `/api/modules/shelf/library/${fid}/content?space=${trip.id}`, { cookie: people.sam.token })).status, 404, `a file id of ${fid}: 404`);

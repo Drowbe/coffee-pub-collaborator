@@ -774,6 +774,28 @@ try {
     const activity = (await send(A, 'GET', '/api/modules/activity', { cookie: admin })).json.activity.map((a) => a.what);
     ok(activity.includes('added a file to Shelf') && activity.includes('removed a file from Shelf') && !activity.some((w) => /matrix|one\.gif|ticket/.test(w)), 'activity lines, without the files\' names');
   }
+  // --- uninstalling: kept data stays, data removed takes the files' bytes and what the server holds of them -----------
+  {
+    const reinstall = async () => {
+      same((await send(A, 'POST', '/api/modules', { cookie: admin, headers: { 'content-type': 'application/zip' }, body: shelfZip() })).status, 201, 'installed again');
+      await json('PATCH', '/api/modules/shelf', admin, { enabled: true, allSpaces: true });
+    };
+    const listOf = async () => (await send(A, 'GET', lib(), { cookie: people.sam.token })).json;
+    const before = await listOf();
+    const one = before.files[0];
+    ok(before.files.length > 5 && filesUnder(spaceDir).some((f) => f.endsWith('.bin')), 'the space has files');
+    same((await send(A, 'DELETE', '/api/modules/shelf', { cookie: admin })).status, 200, 'uninstalled, keeping its data');
+    await reinstall();
+    same((await listOf()).files.map((f) => f.id), before.files.map((f) => f.id), 'installed again, its files are all there');
+    same((await send(A, 'DELETE', '/api/modules/shelf?keepData=0', { cookie: admin })).status, 200, 'uninstalled with its data');
+    same(filesUnder(spaceDir).filter((f) => /\.(bin|thumb)$/.test(f)), [], 'its files\' bytes and small pictures are gone from VAULT_DIR');
+    ok(!fs.existsSync(path.join(A.dataDir, 'modules', 'shelf', 'library')), 'and their records');
+    await reinstall();
+    const after = await listOf();
+    same([after.files, after.usage.bytes], [[], 0], 'installed again, it has no files and uses nothing');
+    same((await send(A, 'GET', `/api/modules/shelf/library/${one.id}/content?space=${trip.id}`, { cookie: people.sam.token })).status, 404, 'an old file answers 404');
+    same((await send(A, 'DELETE', '/api/modules/nosuch?keepData=0', { cookie: admin })).status, 404, 'uninstalling a module that is not there: 404');
+  }
   // --- end of server A ---
   await A.stop();
 

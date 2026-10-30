@@ -4177,6 +4177,9 @@ app.post('/api/modules/:id/rollback', requireOwner, (req, res) => {
   res.json({ module: modules.view(req.params.id) || rolled });
 });
 app.delete('/api/modules/:id', requireOwner, (req, res) => {
+  modules.get(req.params.id); // 404 for a module that is not installed, before anything goes
+  // A library module's files go with its data: their bytes under VAULT_DIR, and what the server keeps of their records.
+  if (req.query.keepData === '0') vault.forgetModule(req.params.id);
   modules.uninstall(req.params.id, { keepData: req.query.keepData !== '0' });
   moduleData.forget(req.params.id);
   if (req.query.keepData === '0') {

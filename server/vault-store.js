@@ -223,6 +223,24 @@ class VaultStore {
     return gone;
   }
 
+  // A module uninstalled with its data takes its files: in every space, each file's bytes and small picture, then its
+  // records and what is kept of them in memory. Answers how many files went.
+  forgetModule(moduleId) {
+    if (!MODULE_RE.test(String(moduleId))) return 0;
+    let gone = 0;
+    for (const spaceId of this.spacesOf(moduleId)) {
+      const map = this.records(moduleId, spaceId);
+      for (const r of map.values()) {
+        for (const thumb of [false, true]) { const f = this.filePath(spaceId, r.id, thumb); if (f) fs.rmSync(f, { force: true }); }
+        this.count(spaceId, r.by, -this.bytesOf(r));
+        gone += 1;
+      }
+    }
+    for (const key of [...this.cache.keys()]) if (key.startsWith(`${moduleId}|`)) this.cache.delete(key);
+    fs.rmSync(path.join(this.modulesDir, moduleId, 'library'), { recursive: true, force: true });
+    return gone;
+  }
+
   bytesOf(r) {
     return (Number(r.size) || 0) + (Number(r.thumb?.size) || 0);
   }

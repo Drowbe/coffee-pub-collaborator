@@ -63,6 +63,22 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 .pp-pcard > .sdk-card-head .sdk-card-title { font-size: var(--text-13); font-weight: var(--weight-strong); }
 .pp-pcard > .sdk-card-head .sdk-card-sub { color: var(--text-muted); }
 
+/* The stacked head (Thomas, 2026-10-30; to system.css, as the banded card's head for every tool): the kind above the title in one column
+   (.pp-pcard-text), the icon at the left spanning both lines, the "..." at the right. The title is the strongest thing: 16px, bold, free
+   to wrap to a second line on a narrow card; the kind is 11px caps with tracking in the kind's colour, never cut; the detail lines
+   are 13px muted. The head grows with its text (the 30px of --card-head-h is a floor). */
+.pp-pcard.pp-stacked > .sdk-card-head { padding-block: var(--space-2); }
+.pp-pcard.pp-stacked > .sdk-card-head > .sdk-card-main { align-items: center; }
+.pp-pcard-text { display: flex; flex-direction: column; gap: var(--space-0); min-width: 0; }
+.pp-pcard.pp-stacked .sdk-card-sub { color: color-mix(in srgb, var(--tint) 70%, var(--text-primary)); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: 14px; letter-spacing: var(--tracking-caps); text-transform: uppercase; white-space: nowrap; }
+@supports (color: oklch(from red l c h)) {
+  .pp-pcard.pp-stacked .sdk-card-sub { color: oklch(from var(--tint) var(--pp-kind-l, var(--card-icon-l)) max(c, 0.12) h); }
+}
+:root[data-theme-mode="light"] { --pp-kind-l: 0.4; } /* the 11px label needs 4.5:1, the icon 3:1 */
+.pp-pcard.pp-stacked > .sdk-card-head .sdk-card-title { overflow: visible; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: 20px; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
+.pp-pcard.pp-stacked .pp-pcard-line { color: var(--text-muted); }
+.pp-pcard.pp-stacked .pp-pcard-line + .pp-pcard-line { color: var(--text-muted); }
+
 /* The card's leading icon is the real .sdk-card-icon rule in system.css (option A: no tile, 18px, the kind's colour, 3:1 on the card). */
 
 /* The proposed light mode of Strong Coffee (the other two themes are untouched, and dark never changes). A surface ladder, from the
@@ -87,4 +103,11 @@ html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="prop
   --mf-surface-row-hover: #f3ece1;
   --card-head-tint: var(--accent-fill);
   --card-head-step: 7%;
+}
+
+/* The "..." in the head: on a phone its hit area is 44px square. system.css grows a small icon button by (30 - 44) / 2 = 7px from the
+   padding box, which is 28px inside the 1px border, so the target comes out 42px; 8px makes it 44. (To system.css: the same fix for every
+   .sdk-icon-btn.btn-small, --btn-hit taken from the padding box.) */
+@media (max-width: 640px) {
+  .pp-pcard .sdk-icon-btn.btn-small::after { inset: -8px; }
 }

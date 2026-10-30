@@ -85,8 +85,9 @@
   --header-bg: var(--surface-bar-top, var(--surface-page));
   /* The five corner radii; nothing else is ever written as a radius (tools/check-radius.mjs). Min: tiny tags, scrollbar
      thumbs, kbd, checkboxes, bar ends. Small: buttons, inputs, tabs, chips, menu items, view-switch segments. Medium:
-     cards, menus, popovers, list rows that are boxes. Large: panels, windows, dialogs, sheets, kind lists. Round:
-     avatars, dots, badges, pills, the call toolbar's buttons (on a square box it is a circle). */
+     cards, menus, popovers, list rows that are boxes. Large: panels, windows, dialogs, sheets, kind lists. Round: true
+     circles only (avatars, dots, the single-digit count, round icon buttons, the toggle switch, progress bars); never a
+     rectangle (no pills: a chip, tag, label or badge with words takes Small). tools/check-radius.mjs holds the list. */
   --radius-min: 3px;
   --radius-small: 5px;
   --radius-medium: 7px;
@@ -337,7 +338,7 @@ a:hover {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: var(--accent);
   color: var(--on-accent);
   box-shadow: 0 0 0 2px var(--nav-brand-bg);
@@ -2026,11 +2027,17 @@ body.in-space .subnav {
   display: none;
 }
 
-/* In the chat: the right end of the Discussion | Assistant row, "turn this discussion into a call". */
+/* In the chat: the right end of the Discussion | Assistant row, "turn this discussion into a call": a button of its own,
+   apart from the switch. */
 #chat-views .join-call {
   flex: none;
   margin-left: auto;
 }
+
+/* The switch's marks: the Discussion's unread count (the Chips count) and the Assistant's news dot (the Chips dot), after the
+   word. On the chosen, filled part they take its text colour. */
+#chat-views .mf-switch-btn[aria-pressed="true"] > .chat-view-count { background: color-mix(in srgb, currentColor 22%, transparent); color: inherit; }
+#chat-views .mf-switch-btn[aria-pressed="true"] > .chat-view-dot { background: currentColor; }
 
 .module-chooser-list {
   position: absolute;
@@ -6168,7 +6175,7 @@ body.chat-window {
   min-width: 16px;
   margin-left: 8px;
   padding: 0 5px;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: var(--accent);
   color: var(--on-accent);
   font-size: var(--text-11);

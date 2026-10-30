@@ -1051,8 +1051,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
 
   // --- the views: Discussion | Assistant (GitHub #203) ---
   // #messages carries data-view and each line data-in (frameMessage: viewOf); style.css hides the rest, so changing the
-  // view fetches nothing and a message that arrives or changes who sees it follows at once. A tablist: the chosen tab
-  // is the one Tab reaches, the arrow keys, Home and End move between them. Remembered per space for the session.
+  // view fetches nothing and a message that arrives or changes who sees it follows at once. The module frame's view
+  // switch (.mf-switch): two buttons, the chosen one pressed, each one Tab stop. Remembered per space for the session.
   const newIn = { discussion: 0, assistant: 0 };
   function paintNew() {
     const count = $('chat-view-discussion-count');
@@ -1068,7 +1068,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if (told) told.textContent = newIn.assistant ? 'New results' : '';
     if (onAssistantNew) onAssistantNew(newIn.assistant);
   }
-  function setView(next, { focusTab = false } = {}) {
+  function setView(next) {
     view = spaceId() && !isHome() ? readView(next) : 'discussion';
     const id = spaceId();
     if (id && !isHome()) {
@@ -1077,10 +1077,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     for (const v of CHAT_VIEWS) {
       const el = $(`chat-view-${v}`);
       if (!el) continue;
-      el.classList.toggle('on', v === view);
-      el.setAttribute('aria-selected', v === view ? 'true' : 'false');
-      el.tabIndex = v === view ? 0 : -1;
-      if (v === view && focusTab) el.focus();
+      el.setAttribute('aria-pressed', v === view ? 'true' : 'false');
     }
     const list = $('messages');
     if (list) list.dataset.view = view;
@@ -2008,14 +2005,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       setView(v);
     });
   }
-  // The tablist's keys: Left and Right (wrapping), Home and End move to a view and show it.
-  $('chat-views')?.querySelector('[role="tablist"]')?.addEventListener('keydown', (e) => {
-    const at = CHAT_VIEWS.indexOf(view);
-    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: CHAT_VIEWS.length - 1 }[e.key];
-    if (to === undefined) return;
-    e.preventDefault();
-    setView(CHAT_VIEWS[(to + CHAT_VIEWS.length) % CHAT_VIEWS.length], { focusTab: true });
-  });
   $('chat-command').addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();

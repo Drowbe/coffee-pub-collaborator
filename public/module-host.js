@@ -8,7 +8,8 @@ import { api, accessKeyHeaders, word, words, withinSpacePage, showNote } from '/
 import { confirmDialog } from '/confirm.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu } from '/host-menu.js';
-import { cleanAddEntries, foldBarItems, cleanStatusItems, statusKey, statusSpoken, statusFrame, createAnnouncer, topmostAt, cleanToolbarItems, cleanHeaderItems, titlebarActions, frameToolbar, frameAdd } from '/module-chrome.js';
+import { cleanAddEntries, foldBarItems, cleanStatusItems, statusKey, statusSpoken, statusFrame, createAnnouncer, topmostAt, cleanToolbarItems, cleanHeaderItems, titlebarActions, frameToolbar, frameAdd, cleanStandardActions, cleanShareResult } from '/module-chrome.js';
+import { shareDialog, printFrame } from '/module-actions.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -980,8 +981,12 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
 // destination's parts' items, mixed into the page's one row and title bar) gets its event instead. The window keeps its
 // own title bar events (the standard actions, Close) and hands every other frame event to `event(e)`. The status bar draws
 // nothing for the same items again, and reads the non-quiet words out politely once they have been still a moment.
+// The standard actions the module handles (host.standard.set: Settings, Share, Print) are drawn in the frame's menu by the
+// host; a pick goes to the module as the 'standard' event ({ id }), and for Share and Print the module answers with what to
+// share (share) or that it is ready (print) within a minute of the pick, never unasked.
 // Used by mountModule, by canvas.js for a composite and by destination.js for its page.
-// Returns { add(entries), header(items), toolbar(items) -> the cleaned items, status(items) -> true, event(e), destroy() }.
+// Returns { add(entries), header(items), toolbar(items) -> the cleaned items, status(items) -> true, standard(spec),
+// share(result) -> true, print({ iframe, height }) -> a promise, event(e), destroy() }.
 export function createFrameBands(frame, { send, box = null }) {
   const win = frame.el.ownerDocument.defaultView || window;
   let header = [];
@@ -999,7 +1004,28 @@ export function createFrameBands(frame, { send, box = null }) {
     frame.setTitlebar({ actions });
   };
   const to = (item, event, data, el) => (item && item.send ? item.send(data, el) : send(event, data));
+  let asked = null; // { id, at, el }: the standard action picked last, which the module answers (share, print)
+  const answering = (id) => asked && asked.id === id && Date.now() - asked.at < 60000;
   return {
+    standard(spec) {
+      const clean = cleanStandardActions(spec);
+      frame.setTitlebar({ moduleStandard: { ...clean, onPick: (id, el) => { asked = { id, at: Date.now(), el }; send('standard', { id }); } } });
+    },
+    // What to share, from the module's handler: the host's one Share dialog. False when the module was not asked.
+    share(result) {
+      if (!answering('share')) return false;
+      const clean = cleanShareResult(result, win.location.origin);
+      if (!clean) throw Object.assign(new Error('there is no link to share: give `url`, an https address or a path on this server'), { status: 400 });
+      asked = null;
+      shareDialog(frame.el.ownerDocument, clean);
+      return true;
+    },
+    // The module is ready to print: the host prints its content area. Resolves once the page is put back; false when not asked.
+    print({ iframe = null, height = 0 } = {}) {
+      if (!answering('print')) return false;
+      asked = null;
+      return printFrame(frame.el, { iframe, height });
+    },
     add(entries) { frame.setTitlebar({ add: frameAdd(cleanAddEntries(entries), (id) => send('add', { id })) }); },
     header(items) { header = cleanHeaderItems(items); drawActions(); },
     toolbar(items) {
@@ -1120,6 +1146,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     ? (items) => { const clean = cleanToolbarItems(items); onToolbarItems(clean); return clean; }
     : bands ? (items) => bands.toolbar(items) : null;
   const headerOut = destination && onHeader ? (clean) => onHeader(clean) : bands ? (clean) => bands.header(clean) : null;
+  // The standard actions this module handles (host.standard.set), drawn in its frame's menu. A destination's part and a
+  // dashboard widget have none (their page's frame is the page's).
+  const standardOut = destination ? null : bands;
   // How the content fills its slot (the manifest's `content`): "flush" for content edge to edge (a map), else the slot's
   // padding. The holder carries it for the page's stylesheet; the module's own document hears it in its hello.
   const contentFit = module.content === 'flush' ? 'flush' : 'padded';
@@ -1693,6 +1722,27 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       headerOut(cleanHeaderItems(items));
       return true;
     },
+    // The standard actions the module handles itself (host.standard.set: Settings, Share, Print), drawn by the host in the
+    // frame's menu with the host's words and icons; a pick arrives as the 'standard' event. False where there is no frame.
+    async 'standard.set'({ actions }) {
+      if (!standardOut) return false;
+      standardOut.standard(actions);
+      return true;
+    },
+    // Share: what the module's handler answered, in the host's Share dialog (only after the person picked Share).
+    async 'share.show'(result) {
+      if (!standardOut) return false;
+      return standardOut.share(result);
+    },
+    // Print: the module is ready (its handler ran; in a frame, its page measured at `height`). The host prints the content
+    // area and tells the module 'printed' once the page is back.
+    async 'print.run'({ height } = {}) {
+      if (!standardOut) return false;
+      const done = standardOut.print({ iframe: pageMode ? null : frame, height: Number(height) || 0 });
+      if (!done) return false;
+      done.then(() => send('printed', {}));
+      return true;
+    },
     // The one toolbar row under the title bar (createFrameBands, above): the view switches, a title, buttons, a search,
     // the filters -- see host.toolbar.set. A destination's part hands its items to the page, which draws them in the
     // page's one row with its own.
@@ -1863,7 +1913,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   function send(event, data) {
     // The host control the module is answering (a bar button, a toolbar item, a header icon, a nav tool, the "+"): where
     // focus goes back to when the editor window this opens is put back (liftFrame).
-    if (!pageMode && (event === 'bar' || event === 'toolbar' || event === 'header' || event === 'nav' || event === 'add')) opener = { el: frame.ownerDocument.activeElement, at: Date.now() };
+    if (!pageMode && (event === 'bar' || event === 'toolbar' || event === 'header' || event === 'nav' || event === 'add' || event === 'standard')) opener = { el: frame.ownerDocument.activeElement, at: Date.now() };
     if (pageMode) {
       if (sdkEmit) sdkEmit(event, data);
       return;

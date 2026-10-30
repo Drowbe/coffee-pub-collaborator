@@ -1,380 +1,508 @@
-# Attachments and Vault Plan
+# Vault Plan
 
-**Audience:** Thomas decides what objects take files, who may see them, and what the Vault is. server-development builds
-the store, the routes, the permission rules and the checks; experience-design builds the design-system pieces, the SDK,
-each module's use of them and the Vault; quality-assurance reviews the permission step as a security change;
-content-manager documents.
+**Audience:** Thomas decides what the Vault holds, who may see and share it, and what is still open below.
+server-development builds the file store, the routes, the quotas, the share links and the checks; experience-design
+builds the Vault module, its viewers, the share page, the SDK calls and the first module that links to a file;
+quality-assurance reviews the store and the share links as security changes; content-manager documents.
 
-**Status:** partly decided 2026-10-15 (questions 1 to 4); nothing built. Questions 5 to 10 are open. From three GitHub issues:
+**Status:** approved 2026-10-30 (decisions 1 to 7 of 2026-10-29, GitHub #380, and decisions 8 to 15 of 2026-10-30);
+nothing built. Thomas calls it critical for post-trip sharing. One question is still his, the default for metadata
+removal, and it blocks only that part of step 1. This plan replaces the attachments plan of
+2026-10-15, which proposed a host attachments service with no module of its own; what stays of its four decisions is
+under Decisions.
 
+Where it came from, in Thomas's words where they exist:
+
+- #380, Thomas, 2026-10-29: the Vault "needs to be its own module", for files in general, not only a traveller's
+  documents: a linking system other modules use, sharing outside the app, a cloud service as a later option, many file
+  types, "a server setting for where files are stored, since it will not be the application folder", and in-app
+  viewers and players.
 - #252, Thomas, 2026-10-13: "We need to support attachments for our research, planner, notes, etc."
 - #253, Thomas, 2026-10-13, from user feedback: "'research' implies 'planning' and the user struggles to see its value
-  once things are booked. They suggest a wallet (for tickets, passports, etc.) (or a rename)."
-- #232, the Chrome extension that sends a page, a selection or a ticket into a trip. It may later feed attachments;
-  this plan names only the hooks it would need.
+  once things are booked. They suggest a wallet (for tickets, passports, etc.)."
+- #40, the Journal module: what happened on a trip, with images, read afterwards. Post-trip sharing is where the Vault
+  matters most.
 
-Related: Server issue #337 (deleting a space leaves its module uploads and data on disk; a dependency of the delete steps, see Left to build), #64 (integration tokens, which the extension needs), #211 (a published view of a trip, which must never show
-an attachment), #221 (Chat's name, the same naming pass as Research's), #132 (the document editor; no overlap: files
-are not prose), [plan-object-handoff](plan-object-handoff.md) (the objects format, Send to..., the upload sweep),
-[plan-object-status](plan-object-status.md) (a status of `confirmed`, approved, not built) and
-[plan-design-system](plan-design-system.md) (every piece of UI comes from the system).
+Related: #337 (deleting a space must delete its files), #211 (a published view of a trip, which must never show a file),
+#64 (integration tokens), #232 (the Chrome extension), [plan-object-handoff](plan-object-handoff.md) (pointers, Send
+to..., the upload sweep), [plan-realtime-optional-livekit](plan-realtime-optional-livekit.md) (chat pictures held in
+memory; its step 8, stored chat pictures, is unbuilt), [plan-object-status](plan-object-status.md) and
+[plan-design-system](plan-design-system.md).
 
 ## What it is today
 
-All of this is read as code only.
+Read as code only, 2026-10-29.
 
 ### Module uploads (`server/module-uploads.js`, `server/index.js` "files a module's people upload")
 
-- A module opts in with `uploads` in `module.json` (`types`, `maxBytes`, `maxFiles`). Only Research does:
-  JPEG, PNG and WebP, 10 MB a file, 500 files a place (`modules/research/module.json`).
-- Files live per module and per scope: `DATA_DIR/modules/<id>/uploads/<environment | space-<id> | person-<key>>/`,
-  each as `<fid>.bin`, an optional `<fid>.thumb` made by the page, and `<fid>.json` (name, type, size, `by`, `at`, a
-  photo's taken time, camera and position). The file id is 24 random hex characters.
-- Only pictures can be kept. `express.raw` accepts only the three image types up to 10 MB, and `cleanImage`
-  (`server/image-clean.js`) decides the type from the bytes, never from the name or header, and strips what rides along
-  (position unless asked to keep it).
-- **Reading follows the module's own `read` permission.** `uploadAccess` is `moduleAccess` plus "this module keeps
-  uploads". Research's `view` is on for guests by default (`"guest": true`), so a guest in a space can list and open
-  Research's photos today. The Planner's `view` is on for guests too.
-- Serving: `GET /api/modules/:id/uploads/:fid` sends the bytes inline with `X-Content-Type-Options: nosniff`,
-  `Content-Security-Policy: sandbox; default-src 'none'` and `Cache-Control: private, max-age=3600`. The module page
-  gets a same-origin, session-checked address (`host.uploads.url` in `public/module-host.js`), used as an `img` source.
-- Removing: the uploader or someone with owner rights. A module removes the file when it removes its object; nothing
-  sweeps an upload whose object is gone, except Send to...'s seven-day sweep of pictures that never arrived
-  (`server/environment.js`). That sweep's activity line names the file ("removed a picture sent to it that was never
-  added (<name>)").
-- **Deleting a space does not delete its module uploads or module data** (Server issue #337). `DELETE /api/spaces/:id` forgets settings,
-  chat, attention and facts, but `space-<id>` folders under each module stay on disk. For photos that is untidy; for
-  passports it would be a privacy defect. This is a defect today, tracked as #337 and separate from this plan, for bug-fixes.
-- Limits: the `upload` rate limit per module and person (`overLimit`), and on a hosted install the plan's storage cap
-  (`checkStorageCap`, `planCap('storageBytes')`). There is no per-space quota.
+- A module opts in with `uploads` in `module.json` (`types`, `maxBytes`, `maxFiles`). Only Research does: JPEG, PNG and
+  WebP, 10 MB a file, 500 files a place.
+- Files live per module and scope under `DATA_DIR`: `modules/<id>/uploads/<environment | space-<id> | person-<key>>/`,
+  as `<fid>.bin`, an optional `<fid>.thumb` made by the page, and `<fid>.json` (name, type, size, `by`, `at`, a photo's
+  taken time, camera and position). The id is 24 random hex characters.
+- **The whole file is held in memory.** `POST /api/modules/:id/uploads` uses `express.raw` with a 10 MB limit, then
+  `cleanImage` (`server/image-clean.js`) decides the type from the bytes and strips what rides along (position unless
+  asked to keep it). Serving reads the whole file and sends it (`sendUpload`): no range requests.
+- **Reading follows the module's `read` permission**, and Research's `view` is on for guests by default, so a guest in a
+  space can open Research's photos today.
+- Headers on a served upload: the stored type, `X-Content-Type-Options: nosniff`,
+  `Content-Security-Policy: sandbox; default-src 'none'`, `Cache-Control: private, max-age=3600`.
+- Removing: the uploader or someone with owner rights. The `upload` rate limit is 30 a minute per module and person
+  (`server/module-limits.js`). On a hosted install the plan's storage cap applies (`checkStorageCap`).
 
-### Other large files
+### Chat pictures (`server/index.js`, "chat pictures")
 
-- `MAP_IMAGE_MAX_MB` (default 100) bounds a picture map an owner uploads. Its comment gives the reason this plan
-  shares: a backup and a restore carry the environment's whole folder, and the restore is read into memory with a
-  500 MB limit (`rawHostZip`), so files kept in `DATA_DIR` must stay well under it.
-- Backups: the host console's backup and an owner's export (`GET /api/environment/export`) zip the environment's data
-  folder in memory. Anything stored under it is backed up, unencrypted.
+- Never stored. `POST /api/spaces/:id/chat/pictures` takes PNG, JPEG, GIF or WebP up to `CHAT_PICTURE_MAX_MB` (3), sniffed
+  from the first bytes (`chatPictureType`), held in memory for `CHAT_PICTURE_KEEP_MINUTES` (15), bounded per space,
+  environment and server (30, 100, 200 MB) and by `CHAT_PICTURE_MB_PER_MINUTE` (20) per person. Each reader fetches the
+  bytes with their own access. These bounds came from QA bringing a server to 2.6 GB with a handful of 3 MB pictures
+  (#380, the lessons).
 
-### Objects that would take files
+### What already streams
 
-- **Planner** (`modules/travel`, space scope): journeys, stays and stops, each with notes and a booking reference
-  (`confirm`). Its **Bookings** view already lists "the stays and journeys with their reference codes, in date order"
-  (`renderBookings` in `travel.js`). There is no status yet: [plan-object-status](plan-object-status.md) is approved and
-  unbuilt.
-- **Research** (space and person scope): notes, links, photos. "Notes" in Thomas's words are Research notes and the
-  Planner's notes; there is no separate notes module.
-- **To-do**, **Calendar**, **Budget** (an expense's receipt is the obvious case), **Places**.
+- `PUT /api/modules/:id/files/:folder` (a picture map, owner only) streams the body to a part file with a running count,
+  refuses on `Content-Length` before reading, checks the file from its header, then renames it into place. It is the
+  pattern the Vault's upload should follow.
+- `GET /api/modules/:id/files/:name` serves a module's file with `res.sendFile` and `acceptRanges`, answering 416 for a
+  range it cannot meet. It is the pattern the Vault's serving should follow.
 
-### Where an object's words travel
+### Deleting a space (#337)
 
-An object's summary (`objectSummary` in `server/index.js`) feeds `objects.resolve`, `objects.search`, the links, a
-dragged object, the AI's context, the published calendar and each person's calendar feed (ICS), the facts on the
-status strip, attention, notifications and the objects format's export. Anything put into a summary reaches all of
-these. Guests read summaries where the module's `view` lets them; the OBS access key reads only a module with a keyed
-page (Stream).
+`server/space-erase.js` now erases each module's data and uploads for a space (`moduleUploads.forgetSpace`), with
+`tools/check-space-erase.mjs` failing on a per-space file it does not know. Read as code only; #337 is still open on
+GitHub. The Vault adds its own step to that list.
 
-### The design system
+### Backups
 
-[plan-design-system](plan-design-system.md) is decided: pages and modules use only components in the system, and a
-missing one is added to the system first, after Thomas agrees it is needed. None of the pieces this plan needs exists
-yet as a component: a file chip, an attachment list, an upload drop zone, a preview.
+The host console's backup and an owner's export (`GET /api/environment/export`, hosted only) zip the environment's
+folder in memory, and a restore is read into memory with a 500 MB limit (`rawHostZip`). Anything large kept under
+`DATA_DIR` makes both fail.
+
+### The module frame and its sandbox
+
+A module runs in an iframe with `sandbox="allow-scripts allow-forms"`, an opaque origin and no `allow` attribute
+(`public/module-host.js`). Two things follow for viewers: an element inside the frame cannot go full screen, and
+browsers refuse their built-in PDF viewer inside a sandboxed frame. The SDK already has a safe Markdown renderer,
+`host.util.markdown` (`public/sdk/host.js`): everything is escaped first, links are `http` and `https` only, no
+pictures, no HTML.
+
+### Templates
+
+A template names modules with `moduleNames` (`templates/travel.json` shows the Planner as Itinerary;
+`templates/games.json` shows Research as Lore). The travel template already has a `post-trip` phase.
 
 ## Decisions
 
-Thomas decided these on 2026-10-15, taking the recommendation each time.
+Thomas decided these on 2026-10-29 (#380, the decisions comment).
 
-1. **One shared attachments service for every object**, not each module widening its own uploads. Reason: one permission
-   rule for every module (module uploads let guests read what the module's `view` allows), one place for the Vault to
-   read, one place to audit.
-2. **Order of objects.** Planner objects and Research notes take files first; then To-do, Calendar and Budget
-   (receipts), one at a time. Reason: the Planner holds the bookings the Vault is for, and Research notes are the other
-   place people already want files.
-3. **Visibility has two choices:** "Everyone on this trip" (`space`) and "Only me" (`me`); chosen people (`people`)
-   later. Guests, the OBS access key, published views, search, summaries and the AI never see a file or its name.
-   Reason: two choices are simple to explain and to check; a name alone can give away a passport or a booking.
-4. **An owner or admin may not open someone's "Only me" file.** They can remove it and see totals only, never the name
-   or the bytes. Reason: privacy of personal documents; removal still lets an owner deal with abuse.
+1. **Scope: per space first.** Each space has its own Vault. An environment-wide shared library can come later.
+2. **Links survive a delete.** A link to a deleted file stays on the object and reads "File removed". Deleting a file
+   first shows where it is used. A permission check runs every time a link is opened.
+3. **External sharing.** An expiring link with an optional password, made by an owner or a moderator, for one file or
+   a chosen set. View-only by default, download optional, switchable off at any time, no account needed, and nothing
+   else in the space reachable from it.
+4. **Storage.** Environment settings `VAULT_DIR` (the folder) and `VAULT_MAX_GB`, plus per-person and per-space quotas.
+   A cloud service (Google Drive) can plug in later behind the same setting.
+5. **Viewers.** The browser's own players for images, audio and video, the browser's built-in PDF viewer, and a small
+   sanitised Markdown renderer, all in the shared module frame. Thomas's condition: every player has real controls
+   (play, pause, seek, volume, full screen).
+6. **Existing pictures.** Research's uploads and Chat's pictures move into the Vault later, as their own decision.
+7. **Name: Vault.** Templates can show their own word (Documents for trips, Handouts for game groups).
 
-## Proposal
+From the 2026-10-15 attachments plan:
 
-What follows is the contract. Sections 1 to 6 follow Thomas's decisions 1 to 4 above. Where a choice is still open
-(questions 5 to 10), the text says "if decided as recommended" and the lean is a suggestion only.
+- Its decision 1 (one shared attachments service for every object) is **replaced** by decisions 1 and 2 above: files
+  live in one place, the Vault, and other modules link to them rather than holding their own.
+- Its decision 2 (the Planner and Research notes take files first, then To-do, Calendar and Budget) is kept as the
+  order in which modules learn to link.
+- Its decisions 3 and 4 (a file can be "Only me", and an owner may not open someone's "Only me" file) were made for
+  attachments on objects. Whether a space's Vault keeps "Only me" files is decision 13.
 
-### 1. One mechanism for every object (decision 1)
+## The target
 
-Attachments are a host service, like summaries and links, not a wider kind of module upload. A module opts in per kind
-of object; the server stores, checks and guards the files; one SDK component draws them. Reasons: one permission rule
-for every module (the module-uploads rule lets guests read), one place for the Vault to read, one place to audit.
+A Vault module on a space's canvas, like any other: a list or grid of the space's files, search and filters, a viewer
+for each type inside the module's window, and Share. Any module can link one of its objects to a Vault file (a Planner
+stay to its booking PDF, a Research note to a map scan), show the link, and open it in the Vault's viewer. An owner or
+moderator can send a link to people outside the environment that opens only the files chosen, for as long as chosen.
+The bytes live in `VAULT_DIR`, stream in and out, and never sit whole in the server's memory.
 
-- **Manifest:** `attachments` in `module.json`, listing the object kinds that take files:
-  `"attachments": { "kinds": ["plan"] }`. Each kind must be one of the module's `refs.produces` kinds, so the server can
-  resolve the object from the module's data (as `objectSummary` does). Install refuses an unknown kind.
-- **The object's own data holds nothing.** The attachment record names its object (`module`, `kind`, `id`); the module
-  stores no file ids. So no module data migration, and an attachment cannot be orphaned by a module forgetting to clean
-  up: the server sweeps (section 5).
-- **Research photos stay as they are.** They are Research's own uploads, shown as photos; they are not attachments.
+## The contract
 
-### 2. Files: types, sizes, checks
+Written to the decisions below. The one open question (metadata, decision 10) is marked where it applies.
 
-**Types**, decided from the bytes, never the name or the header:
+### 1. Types and limits
 
-| Type | Sniffed by | Kept as | Preview |
+The type is decided from the bytes, never from the name or the header. The extension shown is set from that type
+("ticket.exe" that is a PDF is kept as "ticket.pdf"). The limits are decision 9.
+
+| Group | Type | Extensions | Sniffed by | Per file |
+|---|---|---|---|---|
+| Images | `image/jpeg` | jpg, jpeg | `FF D8 FF` | 25 MB |
+| | `image/png` | png | `89 50 4E 47 0D 0A 1A 0A` | 25 MB |
+| | `image/webp` | webp | `RIFF` then `WEBP` at 8 | 25 MB |
+| | `image/gif` | gif | `GIF87a` or `GIF89a` | 25 MB |
+| Audio | `audio/mpeg` | mp3 | `ID3`, or an MPEG frame sync (`FF Ex`/`FF Fx`) | 200 MB |
+| | `audio/ogg` | ogg, oga | `OggS` | 200 MB |
+| | `audio/wav` | wav | `RIFF` then `WAVE` at 8 | 200 MB |
+| | `audio/mp4` | m4a | `ftyp` at 4 with brand `M4A ` or `M4B ` | 200 MB |
+| Video | `video/mp4` | mp4 | `ftyp` at 4 with an ISO brand (`isom`, `iso2`, `mp41`, `mp42`, `avc1`, `dash`) | 2 GB |
+| | `video/webm` | webm | EBML `1A 45 DF A3` with DocType `webm` in the first 4 KB | 2 GB |
+| | `video/quicktime` | mov | `ftyp` at 4 with brand `qt  ` | 2 GB |
+| Documents | `application/pdf` | pdf | `%PDF-` at the start | 100 MB |
+| | `text/markdown` | md | valid UTF-8 with no NUL byte, and a `.md` name | 1 MB |
+
+- **Refused, always:** SVG, HTML, XML, scripts, executables, archives of any kind (zip, so no zip bombs), Office files,
+  `.mkv` and HEIC. HEIC is refused with "Save it as a JPEG." Any other refusal names what is taken: "That kind of file can't go in the Vault. It takes pictures (JPEG,
+  PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown."
+- **Pictures too large to draw:** a picture whose header says more than 100 million pixels is refused ("That picture is
+  too large to show."), so a viewer is never handed a decompression bomb. The server reads the header only.
+- **PDF active content (decision 9):** refuse a PDF whose bytes hold `/JavaScript`, `/JS`, `/Launch`,
+  `/EmbeddedFile`, `/RichMedia` or `/XFA`, read as a stream in 1 MB windows with an overlap. A name hidden in a
+  compressed object stream passes, so this is a filter; the headers below are the guard.
+- **Names:** kept in the record, one line, at most 120 characters, path separators and control characters removed. On
+  disk a file is only its random id.
+
+### 2. Storage and quotas
+
+| Variable | Meaning | When unset or not a number above 0 |
+|---|---|---|
+| `VAULT_DIR` | the folder that holds the Vault's bytes, for every environment on the host | `DATA_DIR/vault`, outside the in-app backup zips (decision 14) |
+| `VAULT_MAX_GB` | the most the whole folder may hold | 20 |
+| `VAULT_SPACE_MAX_GB` | the most one space's Vault may hold | 5 |
+| `VAULT_PERSON_MAX_GB` | the most one person may have added, across the environment's spaces | 2 |
+| `VAULT_MB_PER_MINUTE` | how much one person may send in a minute | 500 |
+
+- **Layout:** `VAULT_DIR/<environment slug>/space-<id>/<fid>.bin` and `<fid>.thumb`. On a single-environment install
+  the slug is the environment's own. The **records** (name, type, size, `sha256`, `by`, `at`, taken time, thumbnail
+  flag) live in `DATA_DIR`, in the Vault module's space data, so a backup carries them.
+- **An owner may set lower quotas** for the environment on the Vault's settings (two `number` settings in GB, a space and
+  a person), never higher than the variables. A hosted plan's storage cap counts the Vault's bytes too.
+- **Counting:** bytes on disk, thumbnails included, per space and per person (the person who added the file). Each upload
+  reserves its `Content-Length` against all four totals before a byte is read, so two uploads at once cannot both pass.
+- **A file that does not fit** is refused with its own sentence and 413: "That file is over the 2 GB limit for video.",
+  "This trip's Vault is full (5 GB). Remove some files to add more.", "You have used your 2 GB in the Vault. Remove some
+  of your files to add more.", "The server's file storage is full. Ask the admin." The space and limit words come from
+  the environment's words.
+- **Status line** in the Vault: "42 files · 1.2 GB of 5 GB".
+- **Google Drive later:** the store is one small interface (`put` from a stream, `get` a range, `remove`, `size`), so a
+  Drive store can replace the folder behind the same setting. Its own plan.
+
+### 3. Server routes
+
+The Vault declares `library` in its manifest (contract section 6); the routes belong to that module, so the core names
+no module. `:id` is the module's id. Every route checks, **before the body is read**: the session or pass, the
+environment, membership of the space (or owner rights), that the module is on there, and the permission named.
+
+| Route | Does | Permission | Answers |
 |---|---|---|---|
-| PDF | `%PDF-` at the start, `%%EOF` near the end | the bytes as sent | none in the first build (open question 6) |
-| JPEG, PNG, WebP | `cleanImage`, as today | cleaned: metadata and position removed, always | the image, made smaller by the page |
+| `GET /api/modules/:id/library?space=` | the space's files | `view` | `{ files: [view] }` |
+| `POST /api/modules/:id/library?space=&name=` | add one file, the raw body | `add` | 201 `{ file: view }`; 400 a type it can't take; 411 no `Content-Length`; 413 a limit; 429 rate |
+| `GET /api/modules/:id/library/:fid/content?space=` | the bytes, inline, with ranges | `view` | 200 or 206; 404 when not allowed or gone; 416 a bad range |
+| `GET /api/modules/:id/library/:fid/content?space=&download=1` | the bytes as a download | `download` | as above, `attachment` |
+| `GET /api/modules/:id/library/:fid/thumb?space=` | the small picture | `view` | image bytes or 404 |
+| `PUT /api/modules/:id/library/:fid/thumb?space=` | the page's small picture, up to 300 KB | the adder | as Research's |
+| `PATCH /api/modules/:id/library/:fid?space=` | `{ name }` | the adder, or `remove_any` | `{ file: view }` |
+| `GET /api/modules/:id/library/:fid/uses?space=` | where it is linked, as summaries the person may see, and a count of the rest | `view` | `{ uses: [summary], hidden: n }` |
+| `DELETE /api/modules/:id/library/:fid?space=` | remove it | the adder, or `remove_any` | `{ ok: true }` |
 
-- Nothing else in the first build: no SVG, HTML, XML, Office files (macros), archives, executables, scripts. HEIC and
-  Apple Wallet passes (`.pkpass`, a signed zip) are open question 5.
-- **Active content in a PDF.** The server refuses a PDF whose bytes hold `/JavaScript`, `/JS`, `/Launch`,
-  `/EmbeddedFile`, `/RichMedia`, `/XFA` or `/AcroForm` with an action, with the words "That PDF has scripts or embedded
-  files in it, so it can't be kept here. Print it to a new PDF and add that." This is a byte scan: a name hidden inside a
-  compressed object stream passes it, so it is a filter, not a guarantee. The download headers (section 4) are the
-  real guard.
-- **The allowed list is in code; the sizes are in the environment.** An environment variable may narrow the types, never
-  add one the server cannot sniff:
+`view` is `{ id, name, type, group, size, by, at, taken?, hasThumb, uses }`; `group` is `image`, `audio`, `video` or
+`document`; `uses` is how many objects link to it.
 
-| Variable | Meaning | Default when unset or not a number above 0 |
-|---|---|---|
-| `ATTACHMENT_MAX_MB` | the most one file may weigh | 20 |
-| `ATTACHMENT_SPACE_MAX_MB` | the most all attachments in one space may weigh | 200 |
-| `ATTACHMENT_ENVIRONMENT_MAX_MB` | the most all attachments in one environment may weigh | 400, under the restore's 500 MB |
-| `ATTACHMENT_TYPES` | a comma list narrowing `pdf,jpeg,png,webp` | all four |
+- **Upload streams.** No `express.raw`. The body goes to a part file in the space's folder with a running count, as the
+  picture map's upload does: refused on `Content-Length` before reading, cut off when the count passes it, sniffed from
+  the part file's first 4 KB, checked, then renamed into place. A part left by a restart goes after an hour. At most two
+  uploads at once per person and eight per environment; a third waits with 429 "Another upload is still running."
+- **Pictures are cleaned without holding them twice:** `cleanImage` runs on the part file (at most 25 MB, one at a time
+  per environment). Audio, video, PDF and Markdown are kept as sent. Pictures lose where they were taken only when the person chose that
+  (decision 10).
+- **Serving streams.** `res.sendFile` with `acceptRanges`, never a read into memory, so a player can seek. A range it
+  cannot meet answers 416 with the size, as the module files route does.
+- **Headers on every file sent:** the stored type only (Markdown as `text/plain; charset=utf-8`, never HTML),
+  `X-Content-Type-Options: nosniff`, `Content-Disposition: inline` (or `attachment` with a cleaned ASCII `filename` and
+  `filename*=UTF-8''`), `Cache-Control: private, no-store`, `Cross-Origin-Resource-Policy: same-origin`,
+  `Referrer-Policy: no-referrer`, and `Content-Security-Policy: sandbox; default-src 'none'` on everything except a PDF,
+  which gets `default-src 'none'; frame-ancestors 'self'` because browsers will not show a PDF in a sandboxed document.
+  That one exception is checked in a real browser (Verify).
+- **A refused read is 404**, never 403, so a file's existence is not given away.
+- **Activity lines**, without the file's name: "added 3 files to the Vault", "removed a file from the Vault", "made a
+  share link", "turned off a share link".
 
-  A hosted plan's storage cap still applies on top. Each limit refuses with its own sentence and status (section 4).
-  A single-environment install with none of them set behaves as before for everything that exists today.
-- **Names.** The name a person sees is kept in the record, cleaned to one line of at most 100 characters with path
-  separators and control characters removed; the extension is set from the sniffed type ("ticket.exe" sent as a PDF is
-  kept as "ticket.pdf"). On disk a file is only its random id.
-- **Replace** keeps the attachment's id, its object and its visibility, overwrites the bytes, and keeps no old version.
-  Reason: an old passport scan is a liability, not a history. The record gains `replacedAt`.
-- **Virus and abuse.** The server never opens, renders or runs a file, so the risk is to the person who downloads it.
-  No scanner is bundled. A later variable, `ATTACHMENT_SCAN_SOCKET` (a ClamAV daemon), is noted, not planned. The
-  existing `upload` rate limit applies per person.
+### 4. Links: how a module points at a file
 
-### 3. Who may see an attachment
+Files are the Vault's objects (decision 8):
 
-**The rule:** an attachment is shown, listed or counted only to a signed-in person who can read its object, and only
-within its visibility. Everyone else gets nothing, not a count, not a name.
+- **A file is an object** of the Vault, kind `file`, declared in `refs.produces` with `open: true` and `backlinks: true`.
+  Its summary is `title` (the name) and `category` (the group). So a link is an ordinary pointer
+  `{ module, kind: 'file', id, scope: 'space', space }`, kept by the linking module with its own data, never a copy of
+  the file.
+- **Resolving** goes through `host.objects.resolve`, which checks on every call that the person can read the Vault in
+  that space. A file that is gone resolves with `state: 'gone'`; the SDK's file chip reads it as **"File removed"**, muted,
+  with **Remove link** for someone who may edit the object (decision 2). A file the person may not see reads "Not
+  available to you" and nothing else.
+- **Where it is used** is the existing backlinks (`host.objects.linksTo`), which is what `GET .../uses` answers. The
+  linking module tells the server its links with `host.objects.setLinks`, as links work today.
+- **Opening** a link (`host.objects.open`) brings the Vault forward on that file's viewer, after the same check.
+- **Guests and keyed pages** resolve a file pointer as hidden, always.
 
-- **Never:** a guest (in any role set, whatever the module's `view` says); the OBS access key or any keyed page; the
-  published calendar, the calendar feeds, the published view of #211 when it exists; the AI; the objects format's
-  export; Send to... and Chat. A guest asking gets 404, as if there were no such file.
-- **Visibility**, per attachment (decision 3), set by the person who adds it and changed only by them:
+### 5. The SDK
 
-| Stored value | Words | Who sees it |
-|---|---|---|
-| `space` | Everyone on this trip (the space's word) | members of the space (and owners) who can read the object |
-| `me` | Only me | the person who added it; not an owner, not an admin (decision 4) |
+For any module (its manifest consumes `"<vault id>:file"` or `"*"`, approved by an owner as today):
 
-  A third value, `people` (chosen members of the space), is left for later (decision 3); the stored field takes new values without
-  a migration.
-- **Default:** `space` on a Planner, Research, To-do or Calendar object; `me` for a personal document in the Vault.
-- **Reading the object** means: a member of the space or someone with owner rights, the module on in that space and
-  available to the person (`moduleSpaceAccess`), the module's `read` permission, and the object still resolving.
-- **No listing leaks.** An attachment's name, type, size and count never go into a summary (`objectSummary`), search,
-  links, facts, attention, notifications, the activity list, the AI's context, chat, or any export of objects. A module
-  page asks for the attachments of an object it is drawing, and the answer holds only what that person may see.
-- **Routes, not signed addresses.** Every read is a session-checked route on the same origin, as module uploads are.
-  No signed, short-lived address is made: such an address works for whoever holds it, and ends up in history, logs and
-  shared screenshots. A future integration token (#64) or offline copy would be its own decision.
-- **The activity list** gets a line without the file's name or the object's title: "added an attachment to a Planner
-  object", "removed an attachment". Changing visibility is noted the same way.
-- **Encryption at rest** is open question 7. Without it, a file is plain on the server's disk and in every backup, and
-  anyone with the server or a backup can read it. The Vault's personal documents should not ship until it is decided.
+```js
+const files = await host.files.pick({ multiple: true, groups: ['document', 'image'] });
+// opens the space's Vault as a chooser in a host sheet, with "Add a file" in it; resolves pointers, or [] when closed
+await host.files.link(host.objects.make('plan', stayId), files);   // adds to the object's links (setLinks underneath)
+const chips = await host.files.resolve(pointers);                 // [{ ref, name, group, size, state? }]
+host.ui.fileChips(el, { object, canEdit });                       // draws an object's files: chip, Open, Remove link
+await host.files.open(pointer);                                   // the Vault's viewer, after the check
+```
 
-### 4. The contract: routes
+`host.files` names no module: it reaches whichever enabled module in the space declares `library`, and answers "There
+is no Vault in this {space}." with the module's shown word when none is on. The task that asked for this plan called it
+`host.vault`; the rule that the core names no module is why it is `host.files` here.
 
-All under the space, so the space and membership are checked first. `<object>` is `<module>:<kind>:<id>`.
+For the Vault module itself: `host.library.list()`, `.add(file, { onProgress })`, `.rename(id, name)`, `.remove(id)`,
+`.uses(id)`, `.url(id, { download, thumb })` and `.thumb(id, blob)`, through the bridge like `host.uploads`. The address
+`url` gives works as a `src` in the frame (experience-design confirms that a media element's range requests carry the
+same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 
-| Route | Does | Answers |
-|---|---|---|
-| `POST /api/spaces/:id/attachments?object=<object>&name=<name>&visibility=space\|me` | the file as the raw body | 201 `{ attachment }`; 400 a type it can't take or an active PDF; 403 not allowed or not on this object's kind; 404 no such object (to a guest, always); 413 over `ATTACHMENT_MAX_MB`; 409 over a space or environment total; 429 the rate limit |
-| `GET /api/spaces/:id/attachments?object=<object>` | the attachments of one object the person may see | `{ attachments: [view] }` |
-| `GET /api/spaces/:id/attachments` | every attachment in the space the person may see (the Vault) | `{ attachments: [view] }`, each with its object's summary as the person may see it |
-| `GET /api/spaces/:id/attachments/:aid` | the file, as a download | the bytes, headers below; 404 when not allowed |
-| `GET /api/spaces/:id/attachments/:aid/preview` | an image's smaller copy, inline | image bytes; 404 for a PDF or not allowed |
-| `PUT /api/spaces/:id/attachments/:aid/preview` | the page's smaller copy of an image it added | as Research's thumbnail today |
-| `PATCH /api/spaces/:id/attachments/:aid` | `name`, `visibility` | the person who added it; 403 otherwise |
-| `PUT /api/spaces/:id/attachments/:aid` | replace the bytes | the person who added it; the same checks as adding |
-| `DELETE /api/spaces/:id/attachments/:aid` | remove | the person who added it, or owner rights (for a `me` file: remove without seeing its name) |
+### 6. The Vault module
 
-`view` is `{ id, object, name, type, size, pages?, by, at, replacedAt?, visibility, hasPreview }`, `by` as the
-person's display name. `pages` is a PDF's page count when it can be read cheaply, else absent.
+- **Manifest:** id `vault`, name "Vault", icon `vault`, `scope: ["space"]`, a `canvas` surface (dock and float) and a
+  `page`, `library: true`, `refs.produces` the `file` kind, `access: { read: "view", write: "add" }`.
+- **Permissions** (owners always have all):
 
-**Download headers**, on every file sent:
-`Content-Type` (the sniffed type), `Content-Disposition: attachment; filename="<ascii name>"; filename*=UTF-8''<name>`,
-`X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'`,
-`Cache-Control: private, no-store`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: no-referrer`.
-A preview is the same with `inline` and `private, max-age=300`.
+| Key | Label | Member | Moderator | Guest |
+|---|---|---|---|---|
+| `view` | See the {space}'s files | on | on | off, and cannot be turned on |
+| `add` | Add files | on | on | off, and cannot be turned on |
+| `download` | Download files | on | on | off, and cannot be turned on |
+| `remove_any` | Remove files other people added | off | on | off |
+| `share` | Make share links | off | on | off, and cannot be turned on |
 
-**Storage:** `<environment's data folder>/attachments/space-<id>/<aid>.bin`, `<aid>.preview`, `<aid>.json`
-(`{ id, module, kind, objectId, name, type, size, sha256, pages, by, at, replacedAt, visibility }`). Inside the
-environment's folder, so backups and exports carry it, and the environment total keeps them restorable.
+  The server refuses every library route to a guest pass, the OBS access key and any keyed page, whatever Roles says.
+  The `share` row's member default is off (decision 3); an owner can turn it on for the member role in Roles (decision 12).
+- **The frame:** a view switch in the toolbar (`host.ui.viewSwitch`: **List** `list`, **Grid** `grip`); the search on
+  the right ("Search files"); **Filters** with a **Type** group (Pictures, Audio, Video, Documents, each with its count),
+  an **Added by** group (Everyone, Mine) and a **Linked** group (Linked, Not linked). The **+** is **Add files**. The
+  title bar's standard **Share** opens the share sheet for the chosen files, or the list of share links when none is
+  chosen. A title bar action **Select** (`square-check`) turns on choosing several, for Share, Download and Remove.
+- **The status line:** the count and the space used ("42 files · 1.2 GB of 5 GB"), and the filter in words.
+- **Words:** the shown name comes from the template's `moduleNames` (Documents in travel, Handouts in games, decision 7);
+  every sentence uses the module's shown name and the environment's words.
 
-### 5. Deletion, orphans, retention
+### 7. Share links
 
-- **With the object.** A daily sweep removes attachments whose object no longer resolves from the module's data, and
-  those whose module is removed from the environment. A module turned off in a space keeps them (turned back on, they
-  return).
-- **Added but never attached:** none; the route needs a resolving object.
-- **With the space.** `DELETE /api/spaces/:id` removes `attachments/space-<id>/` at once. (The same gap for module
-  uploads and data is the separate defect above.)
-- **With a person.** Removing a person from the environment removes their `me` files everywhere; their `space` files
-  stay with the trip, shown as added by "someone who left".
-- **No retention period** beyond these: a file stays until removed. Owners see the totals per space on Manage, never
-  names.
+- **Made by** someone with `share` (owners and moderators by default) from the Vault's Share, for one file or a chosen
+  set. The set is fixed when made; its maker or an owner can add or take out files later.
+- **Choices on the sheet:** a name ("Rome photos"), an end (1 day, 7 days or 30 days; 7 by default; never without an end, decision 15), an
+  optional password, and **Allow download** (off by default, decision 3). **Make link** shows the address once with
+  **Copy**.
+- **Stored** in the Vault's space data as `{ id, name, files, by, at, ends, download, passwordHash?, tokenHash, opened }`.
+  The token is 32 random bytes; only its SHA-256 is kept, so a stolen data file opens no link. The password is hashed with
+  scrypt as account passwords are (`server/auth.js`).
+- **Turned off** at any time from the list of share links (**Turn off**), and by itself at its end. A space deleted, the
+  Vault turned off in the space, or every file in it removed, ends it too.
+- **The address:** `/shared/<token>`. Public routes, no session: `GET /api/shared/:token` (the share's name, its files'
+  names, types and sizes, whether download is on, when it ends), `POST /api/shared/:token/unlock` `{ password }`, and
+  `GET /api/shared/:token/files/:fid/content` (ranges; `?download=1` only when allowed) and `.../thumb`. Each checks the
+  token, the end, the password cookie and that the file is in the set, before anything else. A file outside the set,
+  another space's file, and every other route answer 404.
+- **Password:** a right password sets a signed cookie for that path only (`Path=/shared/<token>`, `HttpOnly`,
+  `SameSite=Strict`, one hour). Five wrong tries in fifteen minutes per link and address answer 429 "Too many tries. Wait a
+  few minutes."
+- **What a person outside sees:** a plain page in the environment's theme with the share's name, "Shared by <first
+  name> · Ends 12 November", and its files in a grid with the same viewers as the Vault. No space name, no people, no
+  chat, no modules, no sign-in prompt, no other link. **Download** shows only when allowed. A gone or ended link: "This
+  link has ended." A wrong token reads the same. A removed file in the set: "File removed".
+- **Headers on the page:** `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`,
+  a strict CSP with no outside sources.
+- **What view-only means, said plainly on the sheet:** "Without download, people can still save what they see on
+  screen." A browser can always keep a picture it shows or a video it plays; view-only only takes the button away.
+- **The maker sees** each link's name, files, end, whether it has a password, and how many times it was opened.
 
-### 6. The SDK and the design system
+### 8. Deleting
 
-- `host.attachments.list(object)`, `.add(object, file, { visibility })`, `.replace(id, file)`, `.set(id, { name,
-  visibility })`, `.remove(id)`, `.open(id)` (the download), `.preview(id)` (an address for an image's preview),
-  `.all()` (the Vault). Each goes through the bridge, as `host.uploads` does.
-- `host.ui.attachments(el, { object, canAdd })`: the whole attachment list for one object, drawn from the system, so a
-  module adds one line to show and add files.
+- **A file:** the Remove confirmation lists where it is used first ("Used in 2: Hotel Roma (Itinerary), Packing note
+  (Research). The links will show File removed."), then removes the bytes, the thumbnail and the record. Links stay.
+- **With the space:** `server/space-erase.js` gains a step that removes `VAULT_DIR/<slug>/space-<id>/` and the space's
+  share links; `tools/check-space-erase.mjs` covers it (#337).
+- **The Vault turned off in a space** keeps its files (turned on again, they return); share links stop answering while it
+  is off. Uninstalling the module from the environment asks first and removes every space's files.
+- **A person who leaves:** their files stay with the space, shown as added by "someone who left", and stop counting
+  against a person quota.
 
-The design system needs these, each added to the registry, after Thomas agrees, before a module uses it:
+### 9. Backups
 
-| Component or pattern | What it is | Built from |
-|---|---|---|
-| File chip | a type icon (PDF, image), the name, the size, a visibility marker (`lock` for Only me), a more button with Open, Rename, Who can see it, Replace, Remove | chip, more button, menu |
-| Attachment list | an object's file chips in a row that wraps, with **Attach** (`paperclip`) and an empty state | file chip, button, empty state |
-| Upload drop zone | a drop target and a **Choose a file** button, the allowed types and size in words, progress, and the refusal in an error line | button, error line, a progress state |
-| Preview | an image's preview in a file chip, and a sheet that shows it larger with Download | sheet, button |
-| Visibility choice | Everyone on this trip, or Only me | choice (form standard) |
+The in-app backups cannot carry gigabytes: they zip in memory and a restore takes at most 500 MB. So (decision 14):
 
-New icons for the icon list: `paperclip` (Attach), `file-pdf`, `file-image`, `file`, `lock` (Only me), `download`,
-`passport`, `shield` (insurance). Colours from the theme tokens; state and kind as fills, never a coloured edge.
+- The records are in `DATA_DIR` and travel with every backup; the bytes in `VAULT_DIR` do not.
+- A backup that carries the bytes is a later piece of work, its own plan.
+- The getting-started guide and `docker-compose.yml` give `VAULT_DIR` its own volume, and the admin backs it up with the
+  data folder.
+- A restore whose bytes are missing shows those files as "File missing" with **Remove**, never an error page.
+- On start the server lists bytes with no record (a crash between steps) and removes them after seven days.
 
-### 7. The Vault (open questions 8 to 10)
+### 10. The design
 
-**What it is:** one place for what a traveller needs once things are booked: tickets, confirmations, passports,
-insurance. It is a view, not a second store:
+- **List:** one row a file: a type icon or the thumbnail, the name, the group and size in quiet words, who added it and
+  when, a link count (`link` icon with the number) and the more button (Open, Download, Rename, Share, Where it is used,
+  Remove).
+- **Grid:** square thumbnails for pictures and video (a video shows a play mark and its length), a type tile for audio
+  and documents, the name under each. Three across on a phone, as many as fit elsewhere.
+- **Viewer**, inside the module's content area, one file at a time: a top row with **Back**, the name, previous and
+  next, **Download** where allowed, **Share** where allowed, and the more button. Below it:
+  - pictures: the `img`, fitted, with **Full screen**; a video or picture thumbnail is made in the page (decision 11), a
+    PDF has none, only its type tile;
+  - audio: the `audio` element with `controls` (play, pause, seek, volume, speed);
+  - video: the `video` element with `controls` and `playsinline` (play, pause, seek, volume, full screen,
+    picture-in-picture where the browser has it);
+  - PDF: the browser's own viewer;
+  - Markdown: the text through `host.util.markdown`, read only, in the reading width.
+- **Full screen and PDF need the host** (contract section 5 and "The module frame and its sandbox" above): the module's
+  frame gains `allow="fullscreen"` (it adds no reach outside the frame), and the PDF viewer is a host-drawn layer laid
+  exactly over the module's content area, the way the editor window is lifted, with a session-checked address. If a
+  browser still will not show a PDF there (iOS Safari shows only the first page in a frame), the viewer shows **Open**,
+  which opens the PDF in a new tab.
+- **Adding:** **Add files** opens the device's chooser (several at once; on a phone, the photo library and camera), and
+  dropping files on the module adds them. Each shows a progress row; a refusal shows its sentence on that row. Under
+  it, one line: "Everyone in this {space} can see what you add." (decision 13). Beside it, an option for the person
+  adding (decision 10): **Remove where it was taken**, for pictures, with its state remembered per person. For video
+  there is no option, only a notice: "Videos keep their details, which can include where they were taken." The default
+  of the option is the one open question.
+- **Empty states:** no files ("No files yet. Add tickets, photos and documents for this {space}." with **Add files**);
+  nothing matches ("No files match." with **Clear filters**); no permission ("You can't see the files in this
+  {space}."); a link chip whose file is gone ("File removed").
+- **Phone (640 pixels or narrower):** one column, the grid three across, the viewer full screen as a sheet, **Download**
+  as a large button.
+- **New design-system pieces**, each added to the registry after Thomas agrees, before a module uses it: the file chip
+  (icon, name, size, state), the file chooser sheet, the upload progress row, the media viewer frame, the share sheet.
+  Icons: `vault`, `file-pdf`, `file-image`, `file-audio`, `file-video`, `file-lines`, `link`, `download`,
+  `share-nodes`. Colours from the theme tokens.
 
-- **Booked:** each Planner journey, stay and stop that is booked, in date order, with its reference, its times and its
-  attachments. "Booked" is a status of `confirmed` once [plan-object-status](plan-object-status.md) is built; until
-  then, an object with a booking reference (open question 10).
-- **Documents for this trip:** every attachment in the space the person may see, on any object, grouped by module.
-- **Mine** (later step, after encryption is decided): the person's own documents (passport, insurance, a driving
-  licence), kept in person scope, across all their trips, `me` only, with a way to show one on this trip's Vault.
+### 11. Post-trip sharing
 
-It reads only through existing paths: `GET /api/spaces/:id/attachments` for files, `objects.search` with summaries for
-booked objects (the same summaries that carry `confirmed`), and a booked object's **Open** uses the object handoff's
-open, which brings the Planner forward on that object. It writes nothing of its own except personal documents.
+How a trip's photos and tickets are shared afterwards, as the plan expects it to go:
 
-**A module or a view?** If decided as recommended, a small new module, `vault` (space and person scope), with its
-shown name from the template. The alternative, a view in the Planner (its **Bookings** view already has most of the
-booked part), cannot hold personal documents (the Planner has no person scope), and puts files from Research and
-To-do into the Planner.
+1. During and after the trip, members add photos and videos from their phones to the trip's Vault (Add files, several at
+   once). Tickets and confirmations are already there, linked from the Planner's stays and journeys.
+2. In the `post-trip` phase the Vault is where people look: Filters > Type > Pictures, then Select.
+3. A moderator or the owner chooses the photos (and a ticket or two for the story), presses **Share**, names it "Rome,
+   October", picks 30 days, leaves download on for family, and copies the link.
+4. Family open the link on a phone with no account and see the photos in a grid, with the viewer and Download.
+5. **The Journal (#40), later:** a Journal entry links to Vault files with `host.files.link`, never copies them, so
+   the Vault stays the one place the bytes live. A Journal's "share the story" would make a Vault share link for the
+   files its entries link, through the same share routes and the same `share` permission; the Journal's own words would
+   be its own public page, planned with #40 and #211. Nothing in this plan stands in its way.
 
-**Phones and no signal.** The Vault is built for a phone first: one column, large file chips, **Download** on each.
-Working offline (a cached copy for an airport with no signal) is out of scope: caching passports on a device is its own
-privacy decision and its own plan. Until then the words say "Download the files you need before you travel."
+### 12. Security, in one place
 
-**Research's name.** If decided as recommended, Research keeps its id and is not renamed to Vault: they hold different
-things (what a group finds while it plans, and what a traveller carries). A shown-name change for Research belongs with
-#221's naming pass and the templates' themed names, which change no code.
-
-### 8. The Chrome extension (#232), hooks only
-
-Not planned here. It would need: an integration token (#64) with a scope that allows adding attachments to spaces its
-person may write to; the same `POST .../attachments` route accepting the token; and a target, either an object or a
-Vault "to sort" list of unattached files (which this plan does not have, so it would be a decision then). Nothing in
-this plan stands in its way.
+- **Who sees what:** members and moderators of the space with `view`, and owners and the admin. Guests, the OBS access
+  key, keyed pages, published views (#211), calendar feeds and the published calendar never see a file, a name or a
+  count; the only way in from outside is a share link. A file's name reaches summaries, search, links and the AI only for
+  people who can read the Vault (decision 8).
+- **Checks before the body:** every write route decides access, quota and rate before reading a byte; a refusal ends the
+  request and throws away what is still arriving, as the picture map's upload does.
+- **Never in memory whole:** uploads stream to disk; files stream out with ranges; the only whole read is a picture
+  of at most 25 MB in `cleanImage`, one at a time per environment.
+- **Content safety:** types from bytes; no SVG or HTML; Markdown sent as plain text and drawn escaped; `nosniff` and the
+  sandbox CSP everywhere but PDF; no archives, so no zip bombs; pictures over 100 million pixels refused.
+- **Malware:** the server never opens, decodes or runs a file. The risk is to a person who downloads one. No scanner is
+  bundled; a ClamAV socket variable is a later idea, not planned.
+- **Filenames:** never used on disk; cleaned for display; sent in `Content-Disposition` in both ASCII and UTF-8 forms.
+- **Metadata:** the person adding files chooses (decision 10, section 10 "Adding"). Taken time and camera are read into
+  the record for pictures either way. Audio and video are kept as sent, which can include where a video was taken, and
+  the notice under Add files says so.
+- **Rate limits:** the module `upload` limit, `VAULT_MB_PER_MINUTE`, two uploads at once per person, five password tries
+  per link and address in fifteen minutes, and the existing request limits on share routes.
+- **SSRF: none.** The server never fetches an address for the Vault: there is no "add from a link". The Drive store is its
+  own plan.
+- **Share tokens** hashed at rest, compared in constant time, 32 bytes, never in logs.
 
 ## Left to build, in order
 
-Each step is a try build unless marked, checked on its own. Every bundled module whose files change gets a patch bump in
-`module.json` and `tools/module-versions.json`, higher than the version installed in Thomas's environment, or Manage will
-not install the new files.
+Each step can be built and checked on its own. A new or changed module gets a version bump in `module.json` and
+`tools/module-versions.json`. Sizes are S, M, L.
 
-| # | Step | Agent | Kind |
-|---|---|---|---|
-| 1 | `server/attachments.js`: the store, the type sniffing and PDF scan, the name cleaning, the limits from the environment, the totals; no routes. `tools/check-attachments.mjs` in `npm run check` | server-development | try build |
-| 2 | The routes, the permission rule (decisions 3 and 4: an owner or admin can remove an Only me file and sees totals only), the headers, the manifest's `attachments`, delete with the object and the space and the person, the daily sweep, the activity lines; the check extended with the permission matrix. The delete-with-object/space part depends on Server issue #337 (below) | server-development | **feedback build with a QA security review** |
-| 3 | The design-system pieces (file chip, attachment list, upload drop zone, preview, visibility choice) and icons on the design system page, after Thomas agrees to each; needs that plan's page (its steps 3 to 6) | experience-design | try build |
-| 4 | `host.attachments` and `host.ui.attachments` in the SDK, through the bridge | experience-design | try build |
-| 5 | Planner: `attachments` on its plan kind, the list in the editor and on each object, on the **Bookings** view; version bump | experience-design | try build |
-| 6 | Research notes; then To-do tasks, Calendar events and Budget expenses as Thomas chooses; one bump each | experience-design | try build each |
-| 7 | The Vault module, Booked and Documents for this trip; new module at 0.1.0 | experience-design | try build |
-| 8 | Encryption at rest, if Thomas chooses it | server-development | feedback build with QA |
-| 9 | The Vault's Mine (personal documents in person scope); Vault bump | server-development, experience-design | feedback build with QA |
-| 10 | Documentation: api-modules (`attachments`, the routes), api-module-sdk, architecture-modules (storage), the Planner, Research and new Vault user guides, the environment variables, the CHANGELOG | content-manager | after each step |
+| # | Step | Size | Agent | Kind |
+|---|---|---|---|---|
+| 1 | **Store, routes, quotas.** (Nothing here waits on a question except the metadata default: build the Remove-where-it-was-taken option and the video notice, and set the default once Thomas answers.) `server/library.js`: `VAULT_DIR` and the variables, the type sniffing, the streamed upload, the streamed serving with ranges, the headers, the quotas and reservation, rate limits, the `library` manifest field and its routes, the `file` kind's records, activity lines. `tools/check-library.mjs` in `npm run check` | L | server-development | feedback build with a QA security review |
+| 2 | **The Vault module and its list.** `modules/vault` at 0.1.0: manifest and permissions, List and Grid, search, Filters, Add files with progress, Rename, Remove with "where it is used", Select, the status line, empty states, phone | M | experience-design | try build |
+| 3 | **Viewers.** Pictures, audio, video with real controls, Markdown; the frame's `allow="fullscreen"`; the host-drawn PDF layer with the Open fallback; previous and next; thumbnails made in the page | M | experience-design (S of it for server-development: the PDF headers) | try build, then a browser pass by Thomas |
+| 4 | **Linking SDK and one module.** `host.files.pick`, `.link`, `.resolve`, `.open`, `host.ui.fileChips`; "File removed"; the Planner links its stays and journeys to files (decision 2 of 2026-10-15's order) | M | experience-design | try build |
+| 5 | **External sharing.** Share records, the public routes, the password and its cookie, ends and Turn off, the `/shared/<token>` page and its viewers, the share sheet and list in the Vault | L | server-development (routes), experience-design (the page and sheet) | feedback build with a QA security review |
+| 6 | **Delete with the space, and backup.** The `space-erase.js` step and its check; uninstall removes files; "File missing"; the orphan sweep; `docker-compose.yml` and the guide's `VAULT_DIR` volume | S | server-development (content-manager for the guide) | try build |
+| 7 | **Templates' words.** `moduleNames` Documents (travel) and Handouts (games), and the Vault in both templates' module lists | S | experience-design | try build |
+| 8 | **Documentation:** api-modules (`library`, the routes, share routes), api-module-sdk (`host.files`, `host.library`), architecture-modules (storage), a Vault user guide, the environment variables, the CHANGELOG | M | content-manager | after each step |
 
-Dependency: **Server issue #337** (deleting a space leaves its module uploads and data on disk) is a dependency of the
-delete-with-object/space part of step 2. Step 2 removes `attachments/space-<id>/` itself, so it does not wait on #337 to
-build, but the "nothing of a deleted space stays on disk" claim, its check and the Vault's personal documents (step 9)
-wait until bug-fixes has closed #337. Step 2's check includes a deleted space leaving no attachment file, and a
-throwaway-server case for module uploads once #337 is fixed.
-
-Decisions 1 to 4 are made, so step 2 is no longer blocked by questions. Steps 1 to 6 can be built now. What the open
-questions block is in What is not decided.
+Then, each its own decision and plan: Research's uploads and Chat's pictures into the Vault (decision 6; chat pictures
+would make the realtime plan's step 8 unnecessary), more modules linking (Research notes, then To-do, Calendar, Budget),
+the environment-wide library, Google Drive, the Journal (#40).
 
 ## Verify
 
-- **Checked by a tool** (`tools/check-attachments.mjs`, a throwaway server with stand-in modules):
-  - step 1: each type kept from its bytes and refused under a false name; a PDF with each active-content name refused;
-    an SVG, HTML and a zip refused; a renamed `.exe` kept with the sniffed extension; each limit from its variable and
-    its default when unset or not a number; totals per space and environment;
-  - step 2: the permission matrix, every cell: a guest, the access key, a signed-in non-member, a member without the
-    module's `read`, a member with it, the adder, an owner, an admin, for `space` and `me` (an owner or admin gets 404 on
-    list, download and preview of another person's `me` file and can remove it; totals show no name), on list, download, preview, rename,
-    replace and remove; a refused read is 404 and lists nothing; every download header present; summaries, search, the
-    published calendar, a calendar feed, facts and the activity list hold no file name after an add (a planted name is
-    searched for in every answer); delete with the space and the person; the sweep after the object is removed;
-  - steps 5 to 7: the modules' checks (`check-travel`, `check-research`, `check-modules`, `check-module-versions`).
-- **Verified live in a browser on a local server, no LiveKit needed:** adding, opening, renaming, replacing and removing
-  a PDF and a photo on a Planner object in its own page; Only me hidden from a second member in another browser; a
-  guest link seeing no attachments; the Vault at 390 pixels. A module inside a space's canvas needs the call service
-  and is read as code only.
-- **Only Thomas can verify:** the bumped modules installing in his environment; a real ticket PDF and a passport photo
-  from his phone, downloaded on iOS and Android (what the phone does with `attachment` downloads); backup and restore
-  of an environment holding real files on his host; the hosted storage cap.
-- **QA's security review of step 2** reads the routes against the matrix, tries path and id tricks, a wrong content
-  type, a huge body, and the headers in a real browser (a PDF and an image never run or render as a page).
+- **Checked by a tool** (`tools/check-library.mjs`, a throwaway server with `DATA_DIR` and `VAULT_DIR` under `/tmp`):
+  - step 1: each accepted type kept from its bytes, and refused under a false name or header; SVG, HTML, a zip, a `.mov`
+    refused; a huge-pixel PNG header refused; a PDF with each active-content name refused; each limit from its variable
+    and its default; a `Content-Length` over a limit refused before any byte is written (the folder holds no part
+    file); a body longer than its `Content-Length` cut off; two uploads at once reserving against one quota; the
+    server's memory stays flat while a 1 GB body streams in (measured with `process.memoryUsage`); a range request
+    answers 206 with the right bytes, a bad one 416; every header present on every type; the permission matrix (guest
+    pass, access key, non-member, member without `view`, member, adder, moderator, owner, admin) on every route, a
+    refusal always 404 with no name in the answer.
+  - step 4: a pointer to a removed file resolves `gone`; a guest's resolve is hidden; `uses` lists the linking object.
+  - step 5: a share answers only its own files; an ended, turned-off or wrong token reads "ended"; the password tries
+    limit; the cookie works only on its own path; download refused when off; the token is not in the data file.
+  - step 6: `check-space-erase` finds no Vault file or share of a deleted space.
+  - steps 2, 3, 4 and 7: `check-modules`, `check-module-versions`, `check-module-layout`, `check-switches`,
+    `check-templates`.
+- **Verified live in a browser on a local server** (no LiveKit needed; the module's own page): adding several files,
+  the list and grid, filters, search, each viewer's controls, seeking a video, full screen, the PDF layer, Markdown with
+  planted HTML showing as text, removing a linked file and the Planner showing "File removed", a share link opened in a
+  private window with and without a password, the phone layout at 390 pixels.
+- **Read as code only:** the Vault on a space's canvas, which needs the call page; say so in the reports.
+- **Only Thomas can verify:** photos and videos from his phone (iOS and Android), what iOS does with a PDF in the layer,
+  playback of each type in Safari, Chrome and Firefox, a share opened on a relative's phone, the backup of `VAULT_DIR` on
+  his host, and the bumped modules installing in his environment.
 
 ## Risks
 
-- **Permission drift.** A later summary field, export or AI feature that walks objects could pick up attachments. The
-  step 2 check plants a name and searches every answer; new features keep it passing.
-- **Backups grow.** Files go into the in-memory backup and the 500 MB restore. The environment total keeps it under;
-  a streamed backup is its own work if Thomas wants larger totals.
-- **PDF active content.** The byte scan misses hidden names; the headers stop the browser running anything, but a
-  person's own PDF reader opens the download. The proposal adds no warning on the drop zone; the refusal sentence is
-  the only word about it.
-- **Owners cannot open Only me files** (decision 4). Good for privacy, and it means an owner cannot see what is in a file that may
-  be abusive; they can remove it.
-- **Unencrypted until step 8**, including in backups. Personal documents wait for that decision.
-- **Space deletion today leaves module uploads and data behind** (Server issue #337): fixing it is a separate defect for
-  bug-fixes, and it matters more once people trust the product with documents. Step 2's delete with the space only
-  covers `attachments/space-<id>/`; the Vault must not ship real documents before #337 is fixed.
+- **Phones record what the Vault refuses.** iPhones record `.mov` (HEVC) and take HEIC photos. Safari's chooser often
+  converts photos to JPEG, but not always videos. A `.mov` is accepted and may not play outside Safari (decision 9); HEIC is refused with "Save it as a JPEG."
+- **Codecs are not types.** An MP4 can hold a codec a browser cannot play (HEVC outside Safari). The viewer says "This
+  browser can't play this file." with **Download**; the server does not transcode.
+- **PDF in a frame** varies by browser; the Open fallback covers the worst case.
+- **View-only is not copy protection**, and the share sheet says so.
+- **Backups:** the bytes are outside the in-app backup by design; an admin who does not back up `VAULT_DIR` loses files.
+- **Metadata in video** can carry a position the Vault does not strip.
+- **Summaries carry names** (decision 8); a passport scan's name is seen by every member who can
+  read the Vault.
 
-## Assumed
+## Decided
 
-- The server can resolve an object from its module's data for any `refs.produces` kind, as `objectSummary` does;
-  server-development confirms in step 2.
-- A moderator is treated as a member for attachments.
-- Phones' photo pickers send JPEG for a HEIC photo in most cases (iOS Safari converts on upload); to be seen on Thomas's
-  phone.
+Thomas decided these on 2026-10-30, answering the open questions. Numbers continue the list above.
+
+8. **Files are the Vault's objects.** A `file` kind: links, backlinks, open, search and drag reuse what exists. File
+   names reach summaries only for people who can read the Vault. One kind of link everywhere.
+9. **Types and limits as in section 1.** 25 MB pictures, 200 MB audio, 2 GB video, 100 MB PDF, 1 MB Markdown. The PDF
+   active-content refusal is on. `.mov` is accepted as `video/quicktime`, with a note that some browsers can't play it.
+   HEIC is refused with "Save it as a JPEG."
+10. **Metadata is the choice of the person adding files**, not a fixed rule. Under Add files, an option **Remove where it
+    was taken** for pictures and a plain notice for video (section 10, "Adding").
+11. **Thumbnails** for pictures and video, made in the page; none for PDF.
+12. **Share links** are made by owners and moderators. An owner can switch `share` on for the member role in Roles; it is
+    off by default.
+13. **No "Only me" files** in a space's Vault. Everything belongs to the space; the text under Add files reads "Everyone
+    in this {space} can see what you add." Personal documents wait for the environment-wide library.
+14. **Storage default.** `VAULT_DIR` unset means `DATA_DIR/vault`, outside the in-app backup zips. A backup that carries
+    the bytes is a later piece.
+15. **Share link ends:** 1, 7 or 30 days, 7 by default, never without an end.
+
+Kept from the earlier decisions: viewers have real controls (play, pause, seek, volume, full screen). The host provides
+full screen and the PDF viewer because they don't work in the sandboxed module frame (section 10).
 
 ## What is not decided
 
-Questions 1 to 4 are decided (see Decisions). The rest, in the order they need answering, and the step each blocks:
-
-5. **File types beyond PDF, JPEG, PNG and WebP:** HEIC, Apple Wallet passes? Lean: not in the first build; a refusal
-   that says "Save it as a JPEG or PDF". Blocks: any step that adds a type after step 1; steps 1 and 2 build the four
-   types and are not blocked.
-6. **PDF preview:** a file chip with an icon and page count, or a first-page picture drawn by a PDF library kept under
-   `public/sdk/` (as #132 would keep ProseMirror)? Lean: the icon first; the library later if people ask. Blocks: the
-   PDF part of the preview piece in step 3; the icon-only build is not blocked.
-7. **Encryption at rest:** none, an optional server key in an environment variable (protects disks and backups, not a
-   person with the server), or per-person keys (lost password, lost files)? Lean: the optional server key, built before
-   personal documents (step 8). Blocks: step 8, and step 9 (Mine).
-8. **The Vault: its own module, or a view in the Planner's Bookings?** Lean: its own module (section 7). Blocks: step 7.
-9. **Its shown name, and Research's:** Vault or Wallet for the new module (the issue says VAULT, the user said wallet),
-   and does Research keep its name? Lean: id `vault`, shown name chosen per template (Wallet for travel reads as what a
-   traveller carries); Research keeps its name and is reviewed with #221. Blocks: step 7 (the module's id and shown
-   name).
-10. **What counts as booked before object status is built:** a booking reference, or wait for status? Lean: a status of
-    `confirmed`, or a booking reference while there is no status. Blocks: the Booked part of step 7.
+1. **The default for Remove where it was taken** (decision 10). Thomas said it is the user's choice; the default is
+   still open. Suggestion: on for pictures, so a position is dropped unless the person keeps it, as Research does; for
+   video, an obvious notice, because the Vault does not strip video. Blocks only the metadata part of step 1.

@@ -90,7 +90,7 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-pre { margin: 0; padding: 10px; overflow: auto; border-radius: var(--radius-small); background: var(--shade); font-size: 12px; }
 
 /* The Proposed system view: status chips (a fill and text, no edge), the family spec and the not-yet-decided rows */
-.ds-status-chip { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: var(--radius-round); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.ds-status-chip { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: var(--radius-small); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .ds-st-proposed { background: color-mix(in srgb, var(--tint-blue) 20%, transparent); color: var(--tint-blue); }
 .ds-st-approved { background: color-mix(in srgb, var(--tint-green) 20%, transparent); color: var(--tint-green); }
 .ds-st-undecided { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text-dim); }
@@ -103,7 +103,7 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-spec .ds-desc code, .ds-spec td code { font-size: 12px; }
 .ds-spec td { color: var(--text); }
 .ds-toc { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 8px; }
-.ds-toc a { padding: 3px 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); font-size: 12px; }
+.ds-toc a { padding: 3px 10px; border-radius: var(--radius-small); background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); font-size: 12px; }
 .ds-toc a:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
 .ds-table td { word-break: normal; }
 

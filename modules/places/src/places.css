@@ -88,7 +88,7 @@
 
 /* ---- type, look and visit status ---- */
 .status-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.status-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-primary); font: inherit; font-size: var(--text-13); cursor: pointer; }
+.status-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-small); background: var(--surface-panel); color: var(--text-primary); font: inherit; font-size: var(--text-13); cursor: pointer; }
 .status-btn:hover { background: color-mix(in srgb, var(--accent-fill) 18%, var(--surface-panel)); }
 .status-btn.on { background: var(--accent-fill); color: var(--text-on-accent); }
 /* the one row: the type, then the icon and the colour as small buttons. A phone gives the type its own line. */
@@ -107,7 +107,7 @@
 .pick-sep { height: 1px; margin: 3px 4px; background: var(--edge-hairline); }
 .pick-none { padding: 10px 8px; color: var(--text-muted); }
 /* the visit status on a place's row: its icon and word, a small fill */
-.visit { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 24%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); line-height: 18px; white-space: nowrap; }
+.visit { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: var(--radius-small); background: color-mix(in srgb, var(--tone) 24%, var(--bg-card)); color: var(--text-primary); font-size: var(--text-11); line-height: 18px; white-space: nowrap; }
 .visit .ic { color: var(--tone); }
 @media (max-width: 640px) {
   .status-btn { min-height: 44px; }
@@ -126,7 +126,7 @@
 .where-notes { margin: 0; color: var(--status-danger-text); font-size: var(--text-12); }
 /* a row: the viewer's spaces it is marked into, and a saved place that is not readable here */
 .marks { display: inline-flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.space-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.space-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0 7px; border-radius: var(--radius-small); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-11); line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .saved-state { color: var(--text-muted); font-size: var(--text-11); font-style: italic; }
 .place-row.saved-only { --tone: var(--text-muted); opacity: 0.85; }
 @media (max-width: 640px) { .where-more > summary { padding: 12px 0; } }

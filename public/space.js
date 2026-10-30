@@ -4266,7 +4266,7 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
       items.push({
         icon: 'users',
         label: 'Share',
-        hint: `Everyone in this ${word('space')} sees it in ${$('chat-view-discussion')?.querySelector('.tb-tab-word')?.textContent || 'Discussion'}`,
+        hint: `Everyone in this ${word('space')} sees it in ${$('chat-view-discussion')?.querySelector('.mf-word')?.textContent || 'Discussion'}`,
         onPick: async () => {
           if (!await setMessageVisibility(entry, 'public')) return;
           el.repaintVis('public');
@@ -4941,10 +4941,10 @@ canvas.registerBuiltin({
   },
 });
 
-// The Discussion's word on Chat's first tab: the environment's name for Chat, else "Discussion" (GitHub #203).
+// The Discussion's word on the first choice of Chat's view switch: the environment's name for Chat, else "Discussion" (GitHub #203).
 function setDiscussionWordFrom(name) {
   const b = $('chat-view-discussion');
-  const w = b?.querySelector('.tb-tab-word');
+  const w = b?.querySelector('.mf-word');
   if (!w) return;
   w.textContent = discussionWord(name);
   b.setAttribute('aria-label', w.textContent);

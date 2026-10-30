@@ -16,8 +16,11 @@
 //                                                    // carries `value`), { label, items } (host-menu.js entries, or a
 //                                                    // function giving them) or { label, entries: [{ id, label, icon }] }
 //       actions: [{ id, label, icon, regular?, placement: 'bar' | 'menu', danger?, on?, disabled? }],  // the module's own
-//       standard: { dock, window, popout, settings, share, print, clear }, // or a function giving it, asked as the menu opens;
+//       standard: { dock, window, popout, clear },  // the window's: or a function giving it, asked as the menu opens;
 //                                                    // each true, false or { label?, hint?, disabled?, tip? }
+//       moduleStandard: { settings, share, print, onPick(id, el) }, // the module's own handlers (host.standard.set): each
+//                                                    // true or { hint?, disabled? }; only those given are drawn, with the
+//                                                    // host's words and icons; a pick calls onPick, not onAction
 //       close,                                       // true: a close button at the end
 //       onAction(event),                             // the title bar's events; else the frame's onAction
 //     },
@@ -34,11 +37,14 @@
 //
 // The title bar, start to end: the icon, the title, the module's 'bar' actions (icon buttons), the "+", the menu button
 // (More, whenever the menu has anything in it) and the close button. The menu: the module's own actions, a line, the
-// standard actions that apply (Dock as a panel, Open as a window, Open in its own window, Settings, Share, Print), then the
-// destructive actions last, red, after a line of their own (the module's, then the host's Clear). A title bar event is
-// { area: 'titlebar', id, standard?: true, on?, value?, el }; the standard ids are dock, window, popout, settings, share,
-// print and clear; `el` is the button the person used (a confirm opens under it). Narrow, the bar icons fold into the menu
-// (the last first) before the title is cut, so nothing is clipped.
+// standard actions that apply (Dock as a panel, Open as a window, Open in its own window: the window's; Settings, Share,
+// Print: the module's, when it handles them), then the destructive actions last, red, after a line of their own (the
+// module's, then the host's Clear). A title bar event is { area: 'titlebar', id, standard?: true, on?, value?, el }; the
+// window's standard ids are dock, window, popout and clear; `el` is the button the person used (a confirm opens under it).
+// Settings, Share and Print go to moduleStandard.onPick(id, el) instead. Narrow, the bar icons fold into the menu (the
+// last first) before the title is cut, so nothing is clipped. On a phone (640 px and narrower, or a touch screen) every
+// button in the title bar and the toolbar has a tap area of 44 px by at least 36 px around it, drawn by system.css and
+// invisible: nothing moves and no two overlap.
 //
 // A toolbar entry is one of:
 //   { type: 'switch', id, label, value, options: [{ id, label, icon, regular?, iconOnly? }] }   a segmented view switch
@@ -67,16 +73,18 @@
 import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import '/tooltip.js';
 
-// The standard title bar actions, drawn by the host the same in every module, in this order; each is on unless the module
-// switches it off (titlebar.standard: { print: false }), except Dock as a panel and Clear, which are on only when given.
-// The words and icons are the canvas's own (public/canvas.js).
+// The standard title bar actions, drawn by the host the same in every module, in this order. The window's (Dock as a panel,
+// Open as a window, Open in its own window, Clear) come from titlebar.standard: Open as a window and Open in its own window
+// are on unless switched off, Dock as a panel and Clear only when given. The module's (Settings, Share, Print: `module`)
+// come from titlebar.moduleStandard and are drawn only when the module handles them (host.standard.set). The words and
+// icons are the canvas's own (public/canvas.js) and never the module's.
 const STANDARD = [
   { id: 'dock', label: 'Dock as a panel', icon: 'table-columns', tip: 'Dock beside the video', off: true },
   { id: 'window', label: 'Open as a window', icon: 'window-restore', regular: true, tip: 'Float over the call' },
   { id: 'popout', label: 'Open in its own window', icon: 'up-right-from-square', tip: 'Pop out of this page' },
-  { id: 'settings', label: 'Settings', icon: 'gear' },
-  { id: 'share', label: 'Share', icon: 'share-nodes' },
-  { id: 'print', label: 'Print', icon: 'print' },
+  { id: 'settings', label: 'Settings', icon: 'gear', module: true },
+  { id: 'share', label: 'Share', icon: 'share-nodes', module: true },
+  { id: 'print', label: 'Print', icon: 'print', module: true },
   { id: 'clear', label: 'Clear', icon: 'trash', danger: true, off: true },
 ];
 const FOLDS = ['chips', 'switch', 'secondary', 'tabs', 'search', 'primary'];
@@ -174,6 +182,7 @@ export function createModuleFrame(opts = {}) {
   function titlebarMenu() {
     const actions = Array.isArray(tbOpts.actions) ? tbOpts.actions : [];
     const std = standardNow();
+    const mod = tbOpts.moduleStandard && typeof tbOpts.moduleStandard === 'object' ? tbOpts.moduleStandard : {};
     const menuEl = tbFold ? tbFold.menu : null;
     const entry = (a) => ({
       label: a.label, icon: a.icon, ...(a.regular ? { regular: true } : {}), ...(a.danger ? { danger: true } : {}),
@@ -187,13 +196,13 @@ export function createModuleFrame(opts = {}) {
     const standard = [];
     const hostDanger = [];
     for (const s of STANDARD) {
-      const v = std[s.id] === undefined ? !s.off : std[s.id];
+      const v = s.module ? (typeof mod.onPick === 'function' ? mod[s.id] : false) : std[s.id] === undefined ? !s.off : std[s.id];
       if (!v) continue;
       const o = typeof v === 'object' ? v : {};
       const item = {
-        label: o.label || s.label, icon: s.icon, ...(s.regular ? { regular: true } : {}), ...(s.danger ? { danger: true } : {}),
+        label: (!s.module && o.label) || s.label, icon: s.icon, ...(s.regular ? { regular: true } : {}), ...(s.danger ? { danger: true } : {}),
         ...(o.tip || s.tip ? { tip: o.tip || s.tip } : {}), ...(o.hint ? { hint: o.hint } : {}), ...(o.disabled ? { disabled: true } : {}),
-        onPick: () => tbFire({ id: s.id, standard: true, el: menuEl }),
+        onPick: s.module ? () => mod.onPick(s.id, menuEl) : () => tbFire({ id: s.id, standard: true, el: menuEl }),
       };
       (s.danger ? hostDanger : standard).push(item);
     }

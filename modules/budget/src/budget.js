@@ -456,16 +456,17 @@
     }
     host.menu.show({ id: `cost-${id}`, anchor: button, items });
   }
-  // The toolbar row while Costs shows and has costs: how they are grouped (a button whose choices open under it, its
-  // `x`), find a cost, and the filters: the sort, the category and who paid, each one choice, with how many costs each
-  // would show (of what the search leaves). The view switch leads the row. Nothing of it in the other views.
+  // The toolbar row while Costs shows and has costs: how they are grouped and how they are sorted (two buttons on the left
+  // that say the current choice and open the choices under them, at their `x`), find a cost, and the filters: the category
+  // and who paid, each one choice, with how many costs each would show (of what the search leaves). The sort is not a
+  // filter, so it is never counted as one (Thomas, 2026-10-29). The view switch leads the row. Nothing of it in the other views.
   function syncToolbar(all, people) {
     if (state.view !== 'costs' || !all.length) { host.toolbar.set([]).catch(() => {}); return; }
     const count = (f) => filterCosts(all, state.cats, { category: '', payer: '', text: state.text, ...f }).length;
     host.toolbar.set([
       { type: 'button', id: 'group', label: state.groupBy === 'day' ? 'By day' : 'By category', icon: 'layer-group' },
+      { type: 'button', id: 'sort', label: `Sort: ${SORT_WORDS[state.sort]}`, icon: 'arrow-down-wide-short' },
       { type: 'search', id: 'find', value: state.text, placeholder: 'Find a cost', label: 'Find a cost' },
-      { type: 'chips', id: 'sort', label: 'Sort', single: true, value: state.sort, options: SORTS.map((id) => ({ id, label: SORT_WORDS[id] })) },
       { type: 'chips', id: 'category', label: 'Category', single: true, value: state.category || 'all', options: [
         { id: 'all', label: 'All categories', count: count({}) },
         ...state.cats.map((c) => ({ id: c.id, label: c.label, ...(c.icon ? { icon: c.icon } : {}), count: count({ category: c.id }) })),
@@ -483,7 +484,7 @@
       renderCosts();
       hydrate(root);
     } else if (e.id === 'group') chooser(e, [{ id: 'day', label: 'By day' }, { id: 'category', label: 'By category' }], state.groupBy, (v) => { state.groupBy = v; });
-    else if (e.id === 'sort' && SORTS.includes(e.value)) { state.sort = e.value; render(); }
+    else if (e.id === 'sort') chooser(e, SORTS.map((id) => ({ id, label: SORT_WORDS[id] })), state.sort, (v) => { state.sort = v; });
     else if (e.id === 'category' && typeof e.value === 'string') { state.category = e.value === 'all' ? '' : e.value; render(); }
     else if (e.id === 'payer' && typeof e.value === 'string') { state.payer = e.value === 'all' ? '' : e.value; render(); }
   });

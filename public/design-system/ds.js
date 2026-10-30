@@ -548,7 +548,7 @@ window.__dsLog = [];
     const pad = tally('padding', px); const gap = tally('gap', px);
     const sp = sub('tokens-spacing', 'Spacing', 'Padding and gap as declared: no scale exists, so every pair is its own value.');
     sp.appendChild(mk('div', 'ds-two', table(pad, 'padding') + table(gap, 'gap') + table(tally('margin', px), 'margin')));
-    const rd = sub('tokens-radius-use', 'Border radius in use', 'How the radius tokens are used, and any literal radius.');
+    const rd = sub('tokens-radius-use', 'Border radius in use', 'How the radius tokens are used, and any literal radius. --radius-round is for true circles only (avatars, dots, round icon buttons, the toggle switch, progress bars, the single-digit count): a chip, tag, label or badge with words takes --radius-small, never a pill. tools/check-radius.mjs lists every circle.');
     rd.appendChild(mk('div', 'ds-two', table(tally('border-radius', px), 'border-radius')));
     const shd = tally('box-shadow', (v) => (v === 'none' ? [] : [v]));
     const shadows = sub('tokens-shadow', 'Shadows', 'Every box-shadow value in use, rendered on a card.');

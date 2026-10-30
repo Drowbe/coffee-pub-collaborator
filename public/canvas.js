@@ -1336,7 +1336,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // docked, and Open in its own window (pop out). None on a phone, where each module is a tab. Then the host's Clear, last
   // and red (it asks first); not a composite's (Clear everything is each part's, in the page it holds).
   function standardFor(id) {
-    const out = { dock: false, window: false, popout: false, settings: false, share: false, print: false, clear: false };
+    const out = { dock: false, window: false, popout: false, clear: false };
     const mod = opened.get(id);
     if (!mod) return out;
     out.clear = !compositeOf(mod.m);

@@ -61,7 +61,7 @@
 /* the days that are the trip itself: a green badge */
 /* the days between (the Day cards block's count, on the line: its middle is the line), its words, and a + that opens what can be added there */
 .gap { margin: 0 0 14px; padding-left: calc(var(--spine-x) - 12px); }
-.gapadd { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 44px; padding: 0 12px; border: 1.5px solid var(--text-muted); border-radius: var(--radius-round); background: var(--surface-field); color: var(--text-primary); font: inherit; cursor: pointer; }
+.gapadd { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 44px; padding: 0 12px; border: 1.5px solid var(--text-muted); border-radius: var(--radius-small); background: var(--surface-field); color: var(--text-primary); font: inherit; cursor: pointer; }
 .gapadd:hover, .gapadd:focus-visible { border-color: var(--accent-fill); color: var(--accent); background: color-mix(in srgb, var(--accent-fill) 12%, var(--surface-field)); }
 .dayedge { display: flex; justify-content: center; margin: 0 0 14px; }
 .edge-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed var(--accent-fill); border-radius: var(--radius-large); background: var(--bg-card); }
@@ -88,7 +88,7 @@
 
 /* the way between two stops: walking, driving, transit, and how long */
 .row.leg-row .slot { padding: 0 0 6px; }
-.leg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
+.leg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-small); background: var(--surface-panel); color: var(--text-muted); font: inherit; font-size: var(--text-12); cursor: pointer; }
 .leg:hover { border-color: var(--accent-fill); color: var(--text-primary); }
 .leg .ic { color: var(--accent); }
 .leg .dist { opacity: 0.8; }
@@ -179,7 +179,7 @@
 .transit .tm { font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 
 /* ---- a stay: the address, check in and check out with its nights between, the chips ---- */
-.stay .nights { flex: none; padding: 2px 10px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: var(--text-11); font-weight: var(--weight-strong); white-space: nowrap; }
+.stay .nights { flex: none; padding: 2px 10px; border-radius: var(--radius-small); background: var(--tone); color: var(--tone-ink); font-size: var(--text-11); font-weight: var(--weight-strong); white-space: nowrap; }
 .stay .ins { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
 .stay .ins small { display: block; color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .stay .ins b { font-size: var(--text-14); font-variant-numeric: tabular-nums; }

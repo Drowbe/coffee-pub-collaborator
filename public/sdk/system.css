@@ -466,7 +466,7 @@
 
 /* ================= Tabs and view switches (design system step 14) =================
    One component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
-   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Chat's Discussion | Assistant, Travel's
+   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Travel's
    ways to get there). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
    Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-joined (the view switch: tabs 2px apart, never scrolls, icons only
    when narrow via .tb-tabs-compact), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's "..."), + .sdk-tabs-small
@@ -521,7 +521,7 @@
   --tabs-gap: var(--space-1);
 }
 
-/* A strip in a band (the Chat's Discussion | Assistant row): the band is the module frame's toolbar (moduleframe) and the tabs
+/* A strip in a band (a toolbar row): the band is the module frame's toolbar (moduleframe) and the tabs
    are the frame's controls' height (--mf-ctl-h), the same on every width. No page sets its own. (Named twice, so it outranks
    the small strip's rule above, whose .page-bar .subtabs weighs three classes.) */
 :is(.mf-toolbar, .mf-titlebar) :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs) {
@@ -690,8 +690,14 @@
   display: none;
 }
 
-/* The count after the label: a small neutral pill. */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+/* The module frame's joined switch (.mf-switch) fitted the same way by hostSwitch (Chat's Discussion | Assistant): a part with
+   an icon drops its word while the row is too narrow for the words. */
+.mf-switch.tb-tabs-compact > .mf-switch-btn:has(> i) > .mf-word {
+  display: none;
+}
+
+/* The count after the label: a small neutral box with the small corner (no pills). */
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge) {
   position: static;
   display: inline-flex;
   align-items: center;
@@ -703,7 +709,7 @@
   margin: 0;
   padding: 0 var(--space-1);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--tab-ink) 14%, transparent);
   color: var(--tab-ink);
   font-size: var(--text-11);
@@ -713,7 +719,7 @@
   text-align: center;
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge, .chat-view-count)[hidden] { display: none; }
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge)[hidden] { display: none; }
 
 /* Green count: something to act on (a module update). */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > .badge.badge-ok {
@@ -722,7 +728,7 @@
 }
 
 /* A change not saved yet (Set up) or news (Chat's Assistant): a 7px dot after the label. */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot) {
   flex: none;
   width: 7px;
   height: 7px;
@@ -732,16 +738,16 @@
   background: var(--accent-fill);
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot)[hidden] { display: none; }
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot)[hidden] { display: none; }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active) > :is(.sdk-tab-dot, .setup-tab-dot) {
   background: var(--tab-sel);
 }
 
 /* On an icon-only tab the count and the dot sit on the icon's corner, so the tab stays square. The count is the micro count
    (14px, 9px numbers, 3px in, the accent fill). */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
-.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge) {
   position: absolute;
   top: var(--tab-micro-inset);
   right: var(--tab-micro-inset);
@@ -753,8 +759,8 @@
   color: var(--text-on-accent);
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot),
-.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot),
+.tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot) {
   position: absolute;
   top: 4px;
   right: 4px;
@@ -2309,7 +2315,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
   margin: 0;
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--text-primary) 14%, var(--surface-panel));
   color: var(--text-primary);
   font-size: var(--text-12);
@@ -2952,7 +2958,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 
 /* ================= Journey bar: the status strip and its journey bar (design system step 30) =================
    The space's status strip (space.js, "the status strip"): the phase chip, the journey bar, the countdown, up to three facts and
-   the attention pill. Source: public/design-system/proposed-journey.css, without the .ds-proposed prefix, the new names only, with the
+   the attention chip. Source: public/design-system/proposed-journey.css, without the .ds-proposed prefix, the new names only, with the
    colour roles. The journey bar is a proportional day grid laid out by journeyLayout (public/journey-layout.js, the Proposed page's
    own function word for word): every day an equal slice, a band days x day width - 2px wide (--x, --w), the days no phase covers an
    empty dashed slice (.sdk-gap), a phase with no dates a dashed stub at the right end, the today pin above the bar with a 2px stem
@@ -2960,7 +2966,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
    The strip is 57px wider than a phone (--status-strip-h, style.css: the row's 1px rule and the 56px grid: the pin, the 24px bar,
    the ticks, the dates) and a slim 28px line on a phone (--status-strip-slim-h), where the journey is a 2px line along its foot with
    a 7px dot at today and a long press on a band shows its name and dates. Every chip in the header is 30px (22px on the slim line) and a
-   Chips look: a neutral fill, the countdown's accent fill, the pill's warn tone. Band fills by state: past 12%, ahead 22%, current
+   Chips look: a neutral fill, the countdown's accent fill, the attention chip's warn tone. Band fills by state: past 12%, ahead 22%, current
    the selected fill with its name in the accent mix and "Now", off a dashed neutral hairline. No coloured edge, ring or bar: the
    journey line, the progress line and the pin's stem are blocks.
    Where it sits (the space bar's row, the header's line on a phone), the row's rule and fill, and the width at which the facts give
@@ -3082,7 +3088,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
 .sdk-strip-fact > :is(i, .sdk-strip-fact-text) { position: relative; }
 .sdk-strip-fact-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* The attention pill: a warn tone fill (it needs action), the count the Chips count. At the strip's right end. */
+/* The attention chip: a warn tone fill (it needs action), the count the Chips count. At the strip's right end. */
 .sdk-strip-attn-slot { display: flex; flex: none; align-items: center; margin-left: auto; }
 .sdk-strip-attn-slot[hidden] { display: none; }
 .sdk-strip-attn {
@@ -3179,7 +3185,7 @@ dialog.sdk-dialog-confirm:not([open]) { display: none; }
   margin: 0;
   padding: 0 var(--jr-pin-pad);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   background: var(--jr-pin-fill);
   color: var(--text-on-accent);
   font-size: var(--text-11);
@@ -5678,4 +5684,78 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf.mf-page { border: 0; border-radius: 0; box-shadow: none; }
 /* The page reaches the bottom of the screen: its status bar keeps clear of the home indicator. */
 .mf.mf-page > .mf-status { height: calc(var(--mf-status-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); }
+
+/* ---- the tap areas on a phone (Thomas, 2026-10-29) ---- */
+/* On a phone (640 px and narrower, or a touch screen) every button in the title bar and the toolbar keeps its look (--mf-ctl-h)
+   and gets an invisible tap area --mf-hit tall, as wide as the button and half the gap on each side, so two never overlap.
+   The line under the title bar is the border between them: a title bar button's tap area ends there and reaches 8 px above
+   the frame; a toolbar button's starts there and reaches 4 px into the content. The title bar's buttons are --mf-hit-w apart from centre to centre (the gap between
+   them grows to --space-2 here), so each tap area is at least that wide. A frame with square corners (a page, a docked
+   column) lets them reach past its edge; a floating window's rounded corners still clip, and where the page lays something
+   over the 8 px above the title bar (the top bar, the Workspace's canvas edge) that part is the page's. tools/check-conformance.mjs
+   measures them at 390 px. */
+:root {
+  --mf-hit: 44px; /* a button's tap area on a phone, top to bottom */
+  --mf-hit-w: 36px; /* the least a tap area is wide on a phone */
+  --mf-print-h: 100vh; /* a module's frame on paper: set on the frame while it prints, to its own page's height */
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .mf:is(.mf-page, .mf-docked) { overflow: clip; overflow-clip-margin: calc(var(--mf-hit) - var(--mf-title-h)); }
+  .mf-titlebar-tools { gap: var(--space-2); }
+  :where(.mf-titlebar-tools > button, .mf-toolbar button) { position: relative; }
+  /* The title bar's buttons: from the line under the bar, --mf-hit up; half the gap to each side. */
+  .mf-titlebar-tools > button::after {
+    --mf-hit-end: calc((var(--mf-title-h) - var(--mf-ctl-h) + 1px) / 2);
+    content: "";
+    position: absolute;
+    top: calc(var(--mf-hit-end) + var(--mf-ctl-h) - var(--mf-hit));
+    right: calc(var(--space-2) / -2);
+    bottom: calc(var(--mf-hit-end) * -1);
+    left: calc(var(--space-2) / -2);
+  }
+  /* The toolbar's: from its top, --mf-hit down, whatever the control's height (--mf-hit-own) and edge (--mf-hit-edge: the
+     tap area is laid from inside the edge); half the row's gap to each side. */
+  .mf-toolbar :is(.mf-btn, .mf-icon-btn, .mf-chips-menu, .mf-tabs-menu, .mf-tab, .mf-chip, .mf-switch-btn, .btn-small):not(.mf-search *)::after {
+    --mf-hit-start: calc((var(--mf-band-h) - 1px - var(--mf-hit-own, var(--mf-ctl-h))) / 2 + var(--mf-hit-edge, 0px));
+    --mf-hit-side: calc(var(--mf-hit-gap, var(--mf-gap)) / 2 + var(--mf-hit-edge, 0px));
+    content: "";
+    position: absolute;
+    top: calc(var(--mf-hit-start) * -1);
+    right: calc(var(--mf-hit-side) * -1);
+    bottom: calc(var(--mf-hit-start) + var(--mf-hit-own, var(--mf-ctl-h)) - var(--mf-hit) - 2 * var(--mf-hit-edge, 0px));
+    left: calc(var(--mf-hit-side) * -1);
+  }
+  .mf-toolbar :is(.mf-btn, .mf-chips-menu, .mf-chip) { --mf-hit-edge: 1px; }
+  .mf-toolbar .mf-chip { --mf-hit-own: var(--mf-chip-h); }
+  .mf-toolbar :is(.mf-quickset, .mf-chips) > .mf-chip { --mf-hit-gap: var(--space-1); }
+  .mf-toolbar .mf-tabs > .mf-tab { --mf-hit-gap: var(--space-0); }
+  /* A view switch's choices touch: each its own width, the switch's edge and padding (--space-0) taken in at its two ends. */
+  .mf-toolbar .mf-switch-btn { --mf-hit-own: calc(var(--mf-ctl-h) - 2px - 2 * var(--space-0)); --mf-hit-gap: 0px; }
+  .mf-toolbar .mf-switch-btn:first-child { --mf-hit-first: calc(1px + var(--space-0) + var(--mf-gap) / 2); }
+  .mf-toolbar .mf-switch-btn:last-child { --mf-hit-last: calc(1px + var(--space-0) + var(--mf-gap) / 2); }
+  .mf-toolbar .mf-switch-btn:not(.mf-search *)::after { right: calc(var(--mf-hit-last, 0px) * -1); left: calc(var(--mf-hit-first, 0px) * -1); }
+}
+
+/* ---- print (the standard Print: public/module-actions.js, printFrame) ---- */
+/* The module's content area alone, on the paper's width, in the light colours (the page shows its light mode while it prints):
+   the title bar, the toolbar, the status bar and the rest of the page are left out, and every box around the module lets it run
+   on over the pages. A module in a frame is as tall as its own page (--mf-print-h, which its SDK measured). */
+@media print {
+  :root[data-mf-printing], :root[data-mf-printing] > body { height: auto; min-height: 0; overflow: visible; background: var(--surface-panel); }
+  :root[data-mf-printing] [data-mf-print-hide] { display: none !important; }
+  :root[data-mf-printing] .mf-print-path {
+    position: static !important; display: block !important; inset: auto !important; transform: none !important;
+    width: auto !important; height: auto !important; min-height: 0 !important; max-height: none !important;
+    margin: 0 !important; padding: 0 !important; overflow: visible !important; border: 0 !important; box-shadow: none !important;
+  }
+  :root[data-mf-printing] .mf.mf-printing { display: block; height: auto; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+  :root[data-mf-printing] .mf.mf-printing > :not(.mf-content) { display: none; }
+  :root[data-mf-printing] .mf.mf-printing > .mf-content { height: auto; overflow: visible; }
+  :root[data-mf-printing] .mf.mf-printing iframe { display: block; width: 100%; height: var(--mf-print-h) !important; }
+}
+/* The Share dialog (module-actions.js, shareDialog): the confirm's dialog with the link in a field across it. */
+.mf-share .mf-share-link { width: 100%; }
+/* Inside a module's frame while it prints: its page runs on at its full height, so the host can make the frame that tall. */
+:root.sdk-printing, :root.sdk-printing > body { height: auto !important; overflow: visible !important; }
+:root.sdk-printing .sdk-slot { flex: none; }
 /* moduleframe:end */

@@ -6,6 +6,9 @@
 //   2. Planner (Itinerary): in a narrow window (260 px) no word of a card's title is broken across lines (a word is only ever
 //      split when it is longer than the line).
 //   3. Budget: with no target, "Target left over time" has no empty band between its title and its words.
+//   4. Budget's Costs: the sort is a button on the left of the row that says the order ("Sort: Date, earliest first"), shown
+//      or folded into More but never cut, and not a filter: the Filters button counts nothing while nothing is filtered
+//      (Thomas, 2026-10-29), at 1280 and 390 px.
 // Usage: node tools/check-narrow.mjs. With no Chromium it says SKIPPED and exits 0 (a skip, never a pass).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -43,6 +46,15 @@ const BURN = `(() => { ${ROOTS} ${shown}
     const head = t.querySelector('.sdk-card-title').getBoundingClientRect(); const words = t.querySelector('#burn-words').getBoundingClientRect();
     return { gap: Math.round(words.top - head.bottom), words: t.querySelector('#burn-words').textContent.trim() }; }
   return null; })()`;
+
+const SORT = `(() => { ${shown}
+  const bar = document.querySelector('#module-main .mf-toolbar'); if (!bar) return null;
+  const sort = [...bar.querySelectorAll('.mf-btn')].find((b) => (b.getAttribute('aria-label') || '').startsWith('Sort: '));
+  const filters = bar.querySelector('.mf-filters');
+  const r = sort && sort.getBoundingClientRect(); const b = bar.getBoundingClientRect();
+  return { name: sort ? sort.getAttribute('aria-label') : null, shown: Boolean(sort && shown(sort) && sort.offsetParent), moved: Boolean(sort && sort.classList.contains('is-moved')),
+    inRow: Boolean(r && r.left >= b.left && r.right <= b.right), left: Boolean(r && filters && r.right <= filters.getBoundingClientRect().left),
+    count: filters && filters.querySelector('.sdk-badge') ? filters.querySelector('.sdk-badge').textContent : '' }; })()`;
 
 async function view(browser, S, size, mode, screen, expr, wait = 1500) {
   const tab = new Tab(browser.cdp, S.ctx);
@@ -88,6 +100,17 @@ async function main() {
       if (!got) { failures.push(`Budget at ${size}px: the "Target left over time" card was not found`); continue; }
       if (got.gap > 16) failures.push(`Budget at ${size}px: ${got.gap}px between "Target left over time" and its words`);
       say(`Budget ${size}px: ${got.gap}px between the title and "${got.words}"`);
+    }
+
+    // 4. Budget's Costs: Sort is a button on the left that says the order, not a counted filter.
+    const costs = { ...budget, id: 'budget-costs', steps: [{ click: 'button.mf-switch-btn', text: 'Costs', until: 'button.mf-filters' }] };
+    for (const size of [1280, 390]) {
+      const got = await view(browser, S, size, 'dark', costs, SORT);
+      if (!got || !got.name) { failures.push(`Budget's Costs at ${size}px: no Sort button in the toolbar`); continue; }
+      if (got.name !== 'Sort: Date, earliest first') failures.push(`Budget's Costs at ${size}px: the Sort button says "${got.name}", not the order ("Sort: Date, earliest first")`);
+      if (!got.moved && !(got.shown && got.inRow && got.left)) failures.push(`Budget's Costs at ${size}px: the Sort button is neither in the row's left side nor in More`);
+      if (got.count) failures.push(`Budget's Costs at ${size}px: the Filters button counts ${got.count} with nothing filtered (the sort is not a filter)`);
+      say(`Budget's Costs ${size}px: "${got.name}" ${got.moved ? 'in More' : 'on the left of the row'}, Filters count ${got.count || 'none'}`);
     }
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }

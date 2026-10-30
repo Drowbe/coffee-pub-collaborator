@@ -13,7 +13,7 @@
 .task .text small { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--text-12); }
 .task.done .text { color: var(--text-muted); text-decoration: line-through; }
 .task.done .text small { text-decoration: none; }
-.due { flex: none; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-round); font-size: var(--text-11); color: var(--text-muted); white-space: nowrap; }
+.due { flex: none; padding: 0 7px; border: 1px solid var(--edge-hairline); border-radius: var(--radius-small); font-size: var(--text-11); color: var(--text-muted); white-space: nowrap; }
 .due.soon { color: var(--accent); border-color: var(--accent-fill); }
 .due.late { color: var(--danger); border-color: var(--status-danger-fill); }
 

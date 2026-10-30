@@ -632,6 +632,8 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 
 ### What a person sees, which screens differ, and what guards it
 
+**Status of the guards, 2026-10-30.** The per-family checks named in the Guard column below (`check-design-system-<id>`, and the `check-design-system-families.json` list they read) measured the frozen System v1 and were removed. The design system check, `tools/check-design-system.mjs`, now opens the production page from the app and its snapshot in a browser and fails on a console error, an example frame that does not load, a sideways scroll, a font other than Figtree, or a Light/Dark switch that does not work. It runs four scenarios, 1280 and 390 wide, each light and dark, in about 4 minutes in all (it was 27). System v1 is a load smoke test only. `npm run check` runs 1280:light; `npm run check:design` runs all four. `.github/workflows/design-check.yml` runs one parallel job per scenario and an aggregate **Design check** status on pushes to main and on pull requests; it has not yet run on GitHub. The Guard column is kept as the plan wrote it; where it names a removed per-family check, that check no longer exists.
+
 "Screens" are the families in `tools/shots-screens.json` (the number is the count of screens). A family step that touches a screen not named here is a defect.
 
 | Step | Visible change | Screens expected to differ | Guard |
@@ -672,7 +674,7 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 
 ### (e) The checks that keep the system honest
 
-All static, in `npm run check`, built like `check-radius`: a JSON allow-list per file with a count that can only fall (decided 2026-10-21); a new raw colour fails the build, and the heuristic checks warn until the last step (step 36), when they fail too. Each also has a recorded exception (with reason and owner) for a data colour, MapLibre, the map pin, Stream's keyed page and the phase band edge. `tools/check-design-system.mjs` stays (it opens a real browser, about five minutes, so it is run for a family step, not in `npm run check`). All six are written in step 7 at today's counts, and each family step lowers them.
+All static, in `npm run check`, built like `check-radius`: a JSON allow-list per file with a count that can only fall (decided 2026-10-21); a new raw colour fails the build, and the heuristic checks warn until the last step (step 36), when they fail too. Each also has a recorded exception (with reason and owner) for a data colour, MapLibre, the map pin, Stream's keyed page and the phase band edge. `tools/check-design-system.mjs` stays, now as the browser check described under "What a person sees" (one scenario in `npm run check`, all four in `npm run check:design`). All six are written in step 7 at today's counts, and each family step lowers them.
 
 | Check | Fails on |
 |---|---|

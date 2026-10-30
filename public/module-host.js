@@ -904,7 +904,13 @@ function watchLifts(doc) {
 // Used for a sandboxed module's frame (mountModule) and for a composite's frame (canvas.js: the Map's panel and the
 // Calendar's parts run in the app's own page in a frame, where a dialog's top layer is the frame's too).
 // Returns { lift(open, size, height), release(), dismiss(byPerson), isLifted() }.
-export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener = null }) {
+//
+// `cover` (a composite's frame, whose page is the Calendar or the Map): the frame keeps its width and left edge, so the page's
+// media queries and containers answer as before, and runs the screen's full height, not shrunk to the
+// editor's size; it answers with the box it had, { top, right, bottom, left } in pixels from the screen's edges, so
+// the page can stay drawn in that box (destination.js, liftComposite) with the editor window over it. Without it the
+// window the person was working in would be left blank, as the frame (the whole page) moved out to the editor's size.
+export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener = null, cover = false }) {
   let lifted = null; // the lift record from liftRecords while lifted
   let dismissedAt = 0; // when the host last dismissed this frame's lift
   const liftPhone = () => (frame.ownerDocument.defaultView || window).innerWidth <= 640;
@@ -914,8 +920,10 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
     const was = lifted;
     lifted = null;
     liftRecords.delete(was);
-    frame.classList.remove('module-editor-lifted', 'module-editor-lifted-large');
+    frame.classList.remove('module-editor-lifted', 'module-editor-lifted-large', 'module-editor-cover');
     frame.style.removeProperty('--lift-h');
+    frame.style.removeProperty('--cover-left');
+    frame.style.removeProperty('--cover-right');
     was.backdrop.remove();
     was.close.remove();
     for (const el of was.held) dropInert(el);
@@ -963,13 +971,24 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
       lifted = { frame, doc, backdrop, close, held: new Set(), before, mount, visible: liftVisible, dismiss };
       liftRecords.add(lifted);
     }
+    let box = null; // the frame's box before it covers the screen (kept while lifted)
+    if (cover) {
+      if (lifted.box) box = lifted.box;
+      else if (typeof frame.getBoundingClientRect === 'function') {
+        const win = doc.defaultView || window;
+        const r = frame.getBoundingClientRect();
+        box = lifted.box = { top: Math.max(0, Math.round(r.top)), right: Math.max(0, Math.round(win.innerWidth - r.right)), bottom: Math.max(0, Math.round(win.innerHeight - r.bottom)), left: Math.max(0, Math.round(r.left)) };
+      }
+    }
     frame.classList.add('module-editor-lifted');
+    frame.classList.toggle('module-editor-cover', Boolean(box));
+    if (box) { frame.style.setProperty('--cover-left', `${box.left}px`); frame.style.setProperty('--cover-right', `${box.right}px`); }
     frame.classList.toggle('module-editor-lifted-large', size === 'large');
     if (Number.isFinite(height) && height > 0) frame.style.setProperty('--lift-h', `${Math.ceil(height)}px`); else frame.style.removeProperty('--lift-h');
     inertAround(lifted);
     watchLifts(doc);
     if (onLift) onLift(true, size);
-    return { lifted: true, phone: liftPhone() };
+    return box ? { lifted: true, phone: liftPhone(), cover: box } : { lifted: true, phone: liftPhone() };
   }
   return { lift, release, dismiss, isLifted: () => Boolean(lifted) };
 }

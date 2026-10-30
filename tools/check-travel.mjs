@@ -39,6 +39,33 @@ test('the Planner redraws on host.on(\'phases\'), keeps a slow fallback and does
   assert.ok(!/host\.spaces/.test(part), 'refreshPhases does not use host.spaces()');
 });
 
+test('a drag does not change the plan\'s height: the joint keeps one height, and .dragging-line only restyles it', () => {
+  // On 0.15.48 the joint was 0 high and .dragging-line grew every joint to 30px at once, so the rows below the first joint jumped
+  // down (up to 300px measured) when a drag began. Measured live on the seed: scrollHeight and scrollTop unchanged with the class on.
+  const css = read('travel-lib-cards.css');
+  assert.match(css, /^\.joint \{[^}]*\bheight: var\(--joint-h\)/m, 'the joint has its own constant height');
+  const rules = [...css.matchAll(/^([^\n{]*\.dragging-line[^\n{]*)\{([^}]*)\}/gm)].filter((m) => /\.joint\b/.test(m[1]) && !/::(before|after)/.test(m[1]) && !/\.jointadd/.test(m[1]));
+  for (const m of rules) assert.ok(!/(^|[;\s])(height|min-height|max-height|margin|margin-top|margin-bottom|padding|padding-top|padding-bottom|display|position)\s*:/.test(m[2]), `".dragging-line" must not resize the joint: ${m[1].trim()} { ${m[2].trim()} }`);
+  const main = read('travel.js');
+  assert.ok(!/dragstart[\s\S]{0,400}(scrollTop|scrollIntoView|scrollTo\()/.test(main.slice(main.indexOf("addEventListener('dragstart'"), main.indexOf("addEventListener('dragend'"))), 'dragstart does not scroll');
+});
+
+test('dragging near the top or bottom of the list scrolls it, nowhere else, and stops when the drag ends', () => {
+  const main = read('travel.js');
+  const a = main.indexOf('function edgeStep');
+  const block = main.slice(a, main.indexOf("addEventListener('pointerdown'", a));
+  assert.ok(a > 0 && /requestAnimationFrame\(edgeStep\)/.test(block), 'a frame loop scrolls');
+  assert.ok(/Math\.min\(56, r\.height \* 0\.15\)/.test(block) && /if \(!depth\) return;/.test(block), 'only inside an edge zone (56 px, or 15% of a short list)');
+  assert.ok(/max = slow \? 6 : 20/.test(block) && /prefers-reduced-motion/.test(block), 'capped, lower with reduced motion');
+  assert.ok(!/scrollTop\s*=\s*\d/.test(block) && /body\.scrollTop = before \+/.test(block), 'scrolls by a step, never to a fixed place');
+  assert.match(main, /addEventListener\('dragover', \(e\) => \{\s*if \(!dragId\) return;\s*edgeScroll\(e\.clientY\);/, 'driven by dragover, only while dragging');
+  assert.match(main, /addEventListener\('dragend', \(\) => \{\s*edgeStop\(\);/, 'stops at dragend');
+  assert.match(main, /addEventListener\('drop', \(e\) => \{[^}]*edgeStop\(\);/, 'stops at drop');
+  assert.ok(/e\.key === 'Escape'\) edgeStop/.test(main) && /'dragleave'/.test(main), 'stops on Escape and when the pointer leaves');
+  const start = main.slice(main.indexOf("addEventListener('dragstart'"), main.indexOf("addEventListener('dragend'"));
+  assert.ok(!/edgeScroll|edgeStep|scrollTop/.test(start), 'dragstart does not scroll');
+});
+
 test('cleanItem needs a title, keeps good fields and drops bad ones', () => {
   assert.equal(lib.cleanItem({ kind: 'stop', title: '' }), null);
   const i = lib.cleanItem({ id: 'a', kind: 'stop', title: ' Museum ', date: '2026-10-03', time: '09:30', minutes: 90, category: 'nope', order: 5 });
@@ -1092,11 +1119,13 @@ test('the current phase is the last band that has started, else the first; an ob
   const between = { booking: { start: '2026-09-11' }, ...dates };
   assert.equal(lib.currentBand(bandsFor(between, '2026-09-20', created), '2026-09-20').id, 'booking');
   const bands = bandsFor(dates, '2026-10-03', created);
-  assert.equal(lib.phaseOf({ phase: 'planning' }, bands, '2026-10-03'), 'planning');
-  assert.equal(lib.phaseOf({ phase: 'gone' }, bands, '2026-10-03'), 'trip');
-  assert.equal(lib.phaseOf({}, bands, '2026-10-03'), 'trip');
+  assert.equal(lib.phaseOf.length, 2, 'phaseOf takes the item and the bands, not a date');
+  assert.equal(lib.phaseOf({ phase: 'planning' }, bands), 'planning');
+  assert.equal(lib.phaseOf({ phase: 'gone' }, bands), null, 'a phase no longer listed: Unscheduled');
+  assert.equal(lib.phaseOf({}, bands), null, 'no phase of its own: Unscheduled, not the current phase');
+  assert.equal(lib.phaseOf({}, bands), null, 'and it does not move as the calendar does');
   assert.equal(lib.currentBand([], '2026-10-03'), null);
-  assert.equal(lib.phaseOf({}, [], '2026-10-03'), null);
+  assert.equal(lib.phaseOf({}, []), null);
 });
 
 test('a day wears its phase: the band it is in, its tint and name; nothing before, between or after', () => {
@@ -1674,6 +1703,13 @@ const handedIn = async () => {
 };
 await handedIn();
 
+test('Unscheduled is the default phase: the first group of the list, and the editor\'s default Phase (Thomas)', () => {
+  const js = fs.readFileSync(new URL('../modules/travel/src/travel.js', import.meta.url), 'utf8');
+  assert.ok(js.includes("[{ id: null, label: 'Unscheduled' }, ...bands]"), 'the Unscheduled group comes before the phases');
+  assert.ok(!/phaseOf\([^)]*today/.test(js), 'the list does not read today\'s phase');
+  assert.ok(js.includes("[{ id: '', label: 'Unscheduled' }, ...phases]") && js.includes("select.value = item && item.phase && phases.some((p) => p.id === item.phase) ? item.phase : '';"), 'the editor\'s Phase starts on Unscheduled');
+});
+
 test('the page: the ticket\'s arrival field, and objects dated outside the plan under Unscheduled', () => {
   const html = read('travel.html');
   const js = read('travel.js');
@@ -1825,6 +1861,8 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   assert.ok(html.includes('id="f-end-field" data-types="block car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show"') && html.includes('id="f-length-field" role="group" aria-labelledby="f-minutes-label" data-types="block flight'), 'an end time for a stop, a car, a ride or a marker; the flight time field stays for the length');
   assert.ok(js.includes('len.hidden = !tick || none;') && js.includes('end.hidden = tick || none;'), 'a flight, train, ferry or bus keeps its flight time and its ticket\'s arrival; the others show the end');
   assert.ok(js.includes("[lengthText(len), laterNote(e ? e.days : 0)].filter(Boolean).join(' · ')"), 'the length is said under the end time');
+  // The time column reads from, to, (length): the end on its own line with an arrow, the length last in brackets.
+  assert.ok(js.includes("sub = [endText(item).replace(/^– /, '→ '), item.minutes ? `(${lengthText(item.minutes)})` : ''].filter(Boolean).join('\\n')"), 'a stop\'s time column reads from, to, (length)');
   // Money is the amount with the currency as its unit; Paid by and Whose is it are chips.
   assert.ok(html.includes('<span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal"') && html.includes('<span class="sdk-unit" data-slot="currency">'), 'the amounts are text with the currency as their unit');
   assert.ok(html.includes('<div class="sdk-people" id="f-paidBy">') && html.includes('<div class="sdk-people" id="f-owners">'), 'Paid by and Whose is it are people chips');

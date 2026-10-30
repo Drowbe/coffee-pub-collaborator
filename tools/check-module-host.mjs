@@ -549,7 +549,21 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   liftFrame(true, 'medium');
   releaseLift();
   assert.equal(other.inert, true, 'what was inert before the lift stays so');
+  // A composite's frame (the Calendar's or the Map's page) is lifted over the whole screen and answers with the box it had, so the
+  // page stays drawn there behind the editor window (the window was left blank when the frame shrank to the editor's size).
+  frame.getBoundingClientRect = () => ({ top: 142, left: 497, right: 1197, bottom: 700 });
+  doc.defaultView.innerHeight = 900;
+  const cover = new Function('frame', 'MutationObserver', `${src.slice(pageStart, pageEnd).replace('export function createFrameLift', 'function createFrameLift')}\nreturn createFrameLift(frame, { mount: {}, tell() {}, cover: true });`)(frame, class { observe() {} disconnect() {} });
+  const got = cover.lift(true, 'medium', 600);
+  assert.deepEqual(got.cover, { top: 142, right: 3, bottom: 200, left: 497 }, 'a covering lift answers with the frame\'s box');
+  assert.ok(frame.classes.has('module-editor-cover'), 'and marks the frame as covering the screen');
+  frame.getBoundingClientRect = () => ({ top: 0, left: 0, right: 1200, bottom: 900 });
+  assert.deepEqual(cover.lift(true, 'medium', 900).cover, { top: 142, right: 3, bottom: 200, left: 497 }, 'lifting again keeps the first box');
+  cover.release();
+  assert.ok(!frame.classes.has('module-editor-cover') && !frame.classes.has('module-editor-lifted'), 'put back: the covering class goes');
   const canvas = fs.readFileSync(new URL('../public/canvas.js', import.meta.url), 'utf8');
+  assert.ok(/createFrameLift\(frame, \{[\s\S]*?cover: true,/.test(canvas), 'canvas.js lifts a composite\'s frame with cover');
+  assert.ok(/function coverPage\(open, result\)/.test(fs.readFileSync(new URL('../public/destination.js', import.meta.url), 'utf8')), 'the destination page keeps itself in its box while covered');
   assert.ok(/function moveModule\(id, mode\) \{[\s\S]*?mod\.mount\?\.lift\?\.\(false\);[\s\S]*?opened\.delete\(id\);/.test(canvas), 'canvas.js puts the frame back before moving a module');
   assert.ok(canvas.includes('onLift: (open) => {'), 'canvas.js hears the lift (to bring a floating box to the front)');
   const page = fs.readFileSync(new URL('../public/module.js', import.meta.url), 'utf8');

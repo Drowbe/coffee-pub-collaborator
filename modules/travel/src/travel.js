@@ -312,7 +312,7 @@
     if (item.kind === 'link') { time = tt(timeOf(summary)); sub = ''; }
     else if (item.kind === 'stay') { time = span === 'end' ? tt(item.checkOutTime) : span === 'middle' ? '' : tt(item.time); sub = span === 'end' ? 'check out' : span === 'middle' ? '' : 'check in'; }
     else if (item.kind === 'journey') sub = arrivalOf(item) ? `→ ${arriveText(item, '\n')}` : '';
-    else sub = [lengthText(item.minutes), endText(item)].filter(Boolean).join('\n'); // the end on a line of its own: the time column is narrow
+    else sub = [endText(item).replace(/^– /, '→ '), item.minutes ? `(${lengthText(item.minutes)})` : ''].filter(Boolean).join('\n'); // from, to, (length): each on a line in the wide column, one line when narrow
     if (line) { time = ''; sub = ''; }
     fill(row, { time, sub });
     row.querySelector('.slot').append(buildCard(entry, item.kind, summary));
@@ -1293,7 +1293,6 @@
     const items = undatedItems();
     if (!items.length) return null;
     const bands = plan.bands();
-    const today = ymd(new Date());
     const box = clone('tpl-undated');
     if (!bands.length) {
       const ul = document.createElement('ul');
@@ -1301,8 +1300,9 @@
       for (const item of items) undatedRow(ul, item);
       box.append(ul);
     } else {
-      for (const p of bands) {
-        const mine = items.filter((item) => phaseOf(item, bands, today) === p.id);
+      // "Unscheduled" is the default phase: first, for an object with no phase of its own. Not a phase of the plan.
+      for (const p of [{ id: null, label: 'Unscheduled' }, ...bands]) {
+        const mine = items.filter((item) => phaseOf(item, bands) === p.id);
         if (!mine.length) continue;
         const group = clone('tpl-undated-group');
         fill(group, { label: p.label });
@@ -1719,6 +1719,35 @@
     spot.el.classList.add('drop-target');
     if (spot.row && spot.row.dataset.id !== movingId) { spot.row.dataset.drop = spot.where; lastTarget = spot.row; }
   }
+  // Edge scrolling while an item is dragged: only with the pointer in a zone at the top or bottom of the list's visible area,
+  // faster the nearer (or further past) the edge. Driven by dragover (which repeats while the pointer rests); it stops when the
+  // pointer leaves the zone or the window, the list ends, or the drag ends. Dragstart never scrolls and scrollTop is never set
+  // to a fixed value.
+  const edge = { y: 0, at: 0, raf: 0 };
+  function edgeStep() {
+    edge.raf = 0;
+    const body = $('body');
+    if (!dragId || !body || performance.now() - edge.at > 250) return;
+    const r = body.getBoundingClientRect();
+    const zone = Math.min(56, r.height * 0.15);
+    const slow = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const max = slow ? 6 : 20;
+    const fromTop = r.top + zone - edge.y;
+    const fromBottom = edge.y - (r.bottom - zone);
+    const depth = fromTop > 0 ? -fromTop : fromBottom > 0 ? fromBottom : 0;
+    if (!depth) return;
+    const before = body.scrollTop;
+    body.scrollTop = before + Math.sign(depth) * Math.max(1, Math.min(max, Math.round(max * Math.min(1, Math.abs(depth) / zone))));
+    if (body.scrollTop !== before) edge.raf = requestAnimationFrame(edgeStep);
+  }
+  function edgeScroll(y) {
+    edge.y = y;
+    edge.at = performance.now();
+    if (!edge.raf) edge.raf = requestAnimationFrame(edgeStep);
+  }
+  function edgeStop() { if (edge.raf) cancelAnimationFrame(edge.raf); edge.raf = 0; edge.at = 0; }
+  root.addEventListener('dragleave', (e) => { if (!e.relatedTarget) edgeStop(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') edgeStop(); });
   // The handle is the only drag source: an item becomes draggable only while it is pressed.
   root.addEventListener('pointerdown', (e) => {
     const handle = e.target.closest('.rail');
@@ -1734,12 +1763,14 @@
     openJoints();
   });
   root.addEventListener('dragend', () => {
+    edgeStop();
     for (const li of root.querySelectorAll('.row.entry.dragging, .row.entry[draggable="true"]')) { li.classList.remove('dragging'); li.draggable = false; }
     dragId = null;
     clearDrop();
   });
   root.addEventListener('dragover', (e) => {
     if (!dragId) return;
+    edgeScroll(e.clientY);
     const spot = spotFrom(e.target, e.clientY);
     if (!spot) return;
     e.preventDefault();
@@ -1750,6 +1781,7 @@
   root.addEventListener('drop', (e) => {
     if (!dragId) return;
     e.preventDefault();
+    edgeStop();
     const spot = spotFrom(e.target, e.clientY);
     const id = dragId;
     clearDrop();
@@ -2267,15 +2299,14 @@
     if (!select) return;
     const phases = templatePhases();
     select.replaceChildren();
-    const cur = currentBand(plan.bands(), ymd(new Date()));
-    for (const p of phases) {
+    // "Unscheduled" (no phase) is the default choice, and the first.
+    for (const p of [{ id: '', label: 'Unscheduled' }, ...phases]) {
       const o = document.createElement('option');
       o.value = p.id;
       o.textContent = p.label;
       select.append(o);
     }
-    const want = item && item.phase && phases.some((p) => p.id === item.phase) ? item.phase : (cur && cur.id);
-    if (want) select.value = want;
+    select.value = item && item.phase && phases.some((p) => p.id === item.phase) ? item.phase : '';
     syncPhaseField();
   }
   function syncPhaseField() {

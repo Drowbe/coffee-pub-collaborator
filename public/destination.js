@@ -624,10 +624,22 @@ function sendChrome() {
 // itself while one is open (canvas.js, compositeMount) and says so; the answer is { lifted: true, phone } or false.
 const liftWaits = new Map();
 let liftSeq = 0;
+// The Workspace lifted this frame over the whole screen ({ lifted: true, cover: box }): the page stays drawn in the box the
+// frame had (body.dest-covered, destination.css) and the part's editor window is a plain modal dialog over the screen, so the
+// list is still there behind it. Answers false then (the dialog is not "lifted" into a frame of its size). Put back on close.
+function coverPage(open, result) {
+  const body = document.body;
+  const box = open && result && result.lifted === true && result.cover ? result.cover : null;
+  for (const side of ['top', 'bottom']) {
+    if (box) body.style.setProperty(`--cover-${side}`, `${Math.max(0, Number(box[side]) || 0)}px`); else body.style.removeProperty(`--cover-${side}`);
+  }
+  body.classList.toggle('dest-covered', Boolean(box));
+  return box ? false : result;
+}
 function liftComposite(open, size, height) {
   return new Promise((resolve) => {
     const seq = ++liftSeq;
-    liftWaits.set(seq, resolve);
+    liftWaits.set(seq, (result) => resolve(coverPage(open, result)));
     setTimeout(() => { if (liftWaits.delete(seq)) resolve(false); }, 1500);
     try {
       window.parent.postMessage({ type: 'app:compositelift', seq, open, size, height }, location.origin);
@@ -647,6 +659,7 @@ if (inComposite) {
     if (d.type === 'app:compositehello') return sendChrome();
     if (d.type === 'app:compositelifted') { const done = liftWaits.get(d.seq); liftWaits.delete(d.seq); if (done) done(d.result); return; }
     if (d.type === 'app:compositeevent') { // the Workspace put the lifted frame back, or the window crossed the phone line
+      if (d.event === 'editordismiss') coverPage(false, null);
       if (d.event === 'editordismiss' || d.event === 'editorlift') for (const p of parts) if (p.mounted) p.mounted.deliver(d.event, d.data || {});
       return;
     }

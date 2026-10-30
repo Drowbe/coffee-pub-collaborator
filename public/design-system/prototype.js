@@ -2,6 +2,7 @@
 // theme, light or dark, and the panels' width chosen at the top (also from the address: ?theme=&mode=&w=).
 import { createModuleFrame } from '/module-frame.js';
 import { shareDialog, printFrame } from '/module-actions.js';
+import { createPlanner, jumpList, PLANNER_VIEWS, PLANNER_TITLE, plannerStatus } from './prototype-planner.js';
 
 const D = document;
 const THEMES = [
@@ -12,21 +13,30 @@ const THEMES = [
 const MODES = [{ id: 'dark', label: 'Dark', icon: 'moon' }, { id: 'light', label: 'Light', icon: 'sun' }];
 const WIDTHS = [390, 500, 700, 1280].map((w) => ({ id: String(w), label: `${w}` }));
 
+// Design-process switches (Thomas, 2026-10-30; nothing here ships): a reworked light mode of Strong Coffee.
+const LOOKS = [{ id: 'current', label: 'Current' }, { id: 'paper', label: 'Paper' }, { id: 'mist', label: 'Cool mist' }, { id: 'cream', label: 'Cream' }, { id: 'contrast', label: 'Contrast' }];
+let planner = null;
+
 const q = new URLSearchParams(location.search);
 const state = {
   theme: THEMES.some((t) => t.id === q.get('theme')) ? q.get('theme') : 'strong-coffee',
   mode: q.get('mode') === 'light' ? 'light' : 'dark',
   w: WIDTHS.some((w) => w.id === q.get('w')) ? q.get('w') : '700',
+  look: LOOKS.some((l) => l.id === q.get('look')) ? q.get('look') : 'current',
 };
 
 function apply() {
   D.getElementById('pp-theme-css').href = `themes/${state.theme}.css`;
   D.documentElement.dataset.themeMode = state.mode;
   D.documentElement.style.setProperty('--pp-w', `${state.w}px`);
+  D.documentElement.dataset.ppTheme = state.theme;
+  D.documentElement.dataset.ppLight = state.look;
+  if (planner) planner.set(state);
   const u = new URL(location.href);
   u.searchParams.set('theme', state.theme);
   u.searchParams.set('mode', state.mode);
   u.searchParams.set('w', state.w);
+  u.searchParams.set('look', state.look);
   history.replaceState(null, '', u);
 }
 
@@ -152,11 +162,11 @@ function drawState(s, into, level = 'h2') {
   p.className = 'pp-state-note';
   p.textContent = s.note;
   const box = D.createElement('div');
-  box.className = `pp-frame${s.narrow ? ' pp-narrow' : ''}${s.phone ? ' pp-phone' : ''}${s.open ? ' pp-open' : ''}`;
+  box.className = `pp-frame${s.narrow ? ' pp-narrow' : ''}${s.phone ? ' pp-phone' : ''}${s.tall ? ' pp-tall' : ''}${s.open ? ' pp-open' : ''}`;
   const log = D.createElement('p');
   log.className = 'pp-log';
   log.setAttribute('aria-live', 'polite');
-  const frame = createModuleFrame({ ...s.frame(), onAction: lastAction(log) });
+  const frame = createModuleFrame({ ...s.frame(), onAction: (e) => { lastAction(log)(e); if (s.onAction) s.onAction(e); } });
   box.append(frame.el);
   sec.append(h, p, box, log);
   into.append(sec);
@@ -316,7 +326,45 @@ for (const s of TITLEBAR_STATES) {
   place();
 }
 
+
+// ---- the Planner, every part of it (Thomas, 2026-10-30) ----
+// The real structure (public/design-system/prototype-planner.js): the toolbar's views, the date strip, the phase markers, the days with their
+// stays, markers and joints, the unscheduled things. The jump list moves to each part.
+const planSec = D.createElement('section');
+planSec.className = 'pp-group';
+planSec.setAttribute('aria-labelledby', 'pp-plan-icons');
+const planName = D.createElement('h2');
+planName.className = 'pp-group-name';
+planName.id = 'pp-plan-icons';
+planName.textContent = 'Planner: the whole page, as the Planner draws it';
+const planNote = D.createElement('p');
+planNote.className = 'pp-state-note';
+planNote.textContent = 'The Planner\'s own markup and styles, with a week in Lisbon as the sample. Use the views in the toolbar, the date strip and Hide empty days as in the Planner, or jump to a part below. The Light switch (Strong Coffee, light only) tries four candidate light modes on the same screen: Paper, Cool mist, Cream and Contrast.';
+planSec.append(planName, planNote);
+main.prepend(planSec);
+const planHost = D.createElement('div');
+planHost.className = 'pp-planner';
+planner = createPlanner(planHost);
+planSec.append(jumpList(planner));
+let shownView = 'days';
+const planBar = (view) => [{ type: 'switch', id: 'view', label: 'View', value: view, options: PLANNER_VIEWS }, { type: 'title', text: PLANNER_TITLE }];
+const planned = drawState({
+  name: 'Planner', note: 'In the shared frame, in the chosen theme and mode.', tall: true,
+  onAction: (e) => {
+    if (e.area === 'toolbar' && e.id === 'view') { shownView = e.value; planner.setView(e.value); }
+    if (e.area === 'titlebar' && e.id === 'toggle-empty') planner.setHideEmpty(e.on);
+  },
+  frame: () => ({
+    title: 'Planner', icon: 'map-location-dot', titlebar: titlebar([{ id: 'toggle-empty', icon: 'eye-slash', label: 'Hide empty days', placement: 'bar', on: false }]),
+    toolbar: planBar('days'),
+    content: planHost, flush: true,
+    status: { text: plannerStatus('days') },
+  }),
+}, planSec, 'h3');
+planner.onView = (id) => { if (id !== shownView) { shownView = id; planned.frame.setToolbar(planBar(id)); } planned.frame.setStatus({ text: plannerStatus(id) }); };
+
 pageSwitch('pp-theme', 'theme', THEMES);
 pageSwitch('pp-mode', 'mode', MODES);
 pageSwitch('pp-width', 'w', WIDTHS);
+pageSwitch('pp-look', 'look', LOOKS);
 apply();

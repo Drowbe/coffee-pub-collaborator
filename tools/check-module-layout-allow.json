@@ -171,12 +171,6 @@
     },
     {
       "module": "travel",
-      "selector": ".card > .sdk-card-head .kicker",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
-      "count": 1
-    },
-    {
-      "module": "travel",
       "selector": ".card > .sdk-card-head .sdk-card-title",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 11)",
       "count": 1

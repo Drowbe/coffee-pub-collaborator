@@ -24,9 +24,8 @@
   --surface-panel: #f1e9df;
   --edge-hairline: #ded0bf;
   --text-primary: #2b2119;
-  --text-muted: #76675a;
-  --accent-fill: #a8692a;
-  /* flagged: Neither white nor near-black reaches 4.5 : 1 on the accent. */
+  --text-muted: #63564b;
+  --accent-fill: #a6682a;
   --text-on-accent: #ffffff;
   --text-accent: #945d27;
   --status-ok-mark: #61925b;

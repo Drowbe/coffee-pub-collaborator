@@ -32,12 +32,12 @@ jobs:
         scenario: ['1280:light', '1280:dark', '390:light', '390:dark']
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
@@ -54,7 +54,7 @@ jobs:
           SHOTS="artifacts/$slug/shots" node tools/check-design-system.mjs --scenario="$SCENARIO" 2>&1 | tee "artifacts/$slug/check.log"
       - name: Upload the log and screenshots
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: design-check-${{ env.SLUG }}
           path: artifacts/
@@ -64,7 +64,7 @@ jobs:
   design-check:
     name: Design check
     needs: scenario
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Every scenario passed

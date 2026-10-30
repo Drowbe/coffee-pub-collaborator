@@ -34,13 +34,11 @@ Each family has its own files in `legacy/system-v1/`, and the checks still hold 
 | `proposed-<id>.css` | One family: its rules, all under `.ds-proposed`. |
 | `fonts/` | Figtree and Fraunces, as the drawings used them, with their licences. |
 
-Each family is checked by `tools/check-design-system-<id>.mjs`, listed in `tools/check-design-system-families.json`.
-`tools/check-design-system.mjs` is the shared runner.
+`tools/check-design-system.mjs` checks the page.
 
 ## The families
 
-One entry each in `proposed-families.json`, in the order they are drawn. Each is also in
-`tools/check-design-system-families.json`; the check fails if the two lists differ.
+One entry each in `proposed-families.json`, in the order they are drawn.
 
 - `colour`: Colour
 - `buttons`: Buttons
@@ -74,8 +72,9 @@ never defines it again.
 
 ## Check it
 
-- `node tools/check-design-system.mjs` runs every check of the Design System page and System v1 (it opens a real browser; set
-  `DS_TIMING=1` to see how long each family's check takes).
+- `node tools/check-design-system.mjs` opens the production Design System page in a real browser, served from the app and its
+  snapshot, in four scenarios (1280 or 390 wide, light or dark). System v1 gets a load smoke test. `npm run check:design` runs
+  all four scenarios; `npm run check` runs 1280:light; CI runs all four on every push.
 - `node tools/design-system-themes.mjs --check` checks the Prototype's themes.
 - `node tools/check-names.mjs` checks the words.
 

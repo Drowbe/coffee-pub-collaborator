@@ -476,7 +476,7 @@
   }
   // A choice with an icon and a word, in or out of icons only: its word is its accessible name either way, and its
   // tooltip only while the word is hidden (a title the page set itself is left alone). A choice is a tab (.tb-tab) or a
-  // part of the module frame's joined switch (.mf-switch-btn, its word .mf-word: Chat's Discussion | Assistant).
+  // part of the module frame's segmented switch (.mf-switch-btn, its word .mf-word: Chat's Discussion | Assistant).
   function labelChoice(button, compact) {
     const wordEl = button.querySelector(':scope > :is(.tb-tab-word, .mf-word)');
     if (!wordEl || !button.querySelector(':scope > :is(.tb-tab-glyph, i)')) return;

@@ -1263,7 +1263,7 @@
    The surface rules are written in :where() (no weight), so a page or a module can lay a card out (a row of cards, a grid) with its own
    rule and no fight over order; the states have weight.
    Selected: aria-current="true", aria-selected="true" or .on. Disabled: aria-disabled="true". The Calendar's bar and the Planner's
-   day cards come with their own steps (32 to 34). tools/check-design-system-cards.mjs holds the drawing. */
+   day cards come with their own steps (32 to 34). the Design System page holds the drawing. */
 /* cards:start */
 :root {
   /* padding and gaps: --pad-panel, --pad-card, --pad-home, --pad-row-y/-x, --gap-in, --gap-card-rows, --gap-group (Foundations, Padding) */
@@ -1602,7 +1602,7 @@
      that turns a person on or off (.sdk-member-toggle) is on with the selected fill, off at 45% strength.
    Classes: .sdk-table-wrap .sdk-table .sdk-table-group .sdk-table-check .sdk-table-sub .sdk-table-dim .sdk-table-count .sdk-table-empty
    .sdk-sort; .sdk-members .sdk-member .sdk-member-pic .sdk-member-name .sdk-member-dot .sdk-member-toggle.
-   The loading row (the States family's skeleton bars) comes with that family. tools/check-design-system-tables.mjs holds the drawing. */
+   The loading row (the States family's skeleton bars) comes with that family. the Design System page holds the drawing. */
 /* tables:start */
 :root {
   --tbl-surface: var(--surface-panel);
@@ -1814,7 +1814,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
    - The Calendar exception (Thomas, 2026-10-18; end caps 2026-10-21): the agenda's rows and the chips of other calendars and of
      markers keep a 3px bar on the left, .sdk-bar-kept: a straight, square-ended block (::before, a real box, not a border or an inset
      shadow) the full height of the box, in --tint, and the box is square on that side. Nowhere else.
-   tools/check-design-system-calendar.mjs holds the drawing. */
+   the Design System page holds the drawing. */
 /* calendar:start */
 :root {
   --cal-cell-h: 74px;
@@ -2052,7 +2052,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
    The marker's colour is the one value --marker (set on the element from the person's setting; the muted text colour when none); it is on the icon chip and the tint
    fill, never on an edge: no coloured border, hatch or stripe. The words are always the text colour; the glyph is the marker mixed 45%
    into the text. Hover is the marker at 34%, focus the 2px outline inside; on a phone the hit area is 44px.
-   tools/check-design-system-markers.mjs holds the drawing. */
+   the Design System page holds the drawing. */
 /* markers:start */
 :root {
   --mk-tint: 22%;
@@ -2202,7 +2202,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
      match); in the trip a 7px dot in the corner (.sdk-daychip-dot) with its words in the label. No lift, shadow or coloured edge.
    - Days between (.sdk-daygap, .sdk-gapcount): a 24px neutral round count with its word. (The drawing's .sdk-gap is the Journey
      bar's empty slice in the product, so the row is .sdk-daygap.)
-   tools/check-design-system-days.mjs holds the drawing. */
+   the Design System page holds the drawing. */
 /* days:start */
 :root {
   --day-date-w: 48px;
@@ -4656,7 +4656,7 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
 }
 /* The glyph is a box of its own, 1em square, so the badge centres a box and not a line of text. FA's glyphs do not all sit in the middle of their box
    (the triangle's tip is at the top and its base 32 of 512 units above the bottom), so each badge lets the glyph down by the little that was measured
-   at its size (tools/check-design-system-align.mjs, badgeInk: within 0.5px on both axes). */
+   at its size (the Design System page holds it: within 0.5px on both axes). */
 :is(.sdk-banner-icon, .sdk-toast-icon) > i { display: block; flex: none; width: 1em; height: 1em; line-height: 1; text-align: center; }
 .sdk-banner-icon > i { transform: translateY(0.04em); }
 .sdk-banner-icon > .fa-triangle-exclamation { transform: translateY(0.083em); }

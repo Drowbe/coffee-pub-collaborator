@@ -7,6 +7,7 @@
 'use strict';
 
 const fs = require('fs');
+const zlib = require('zlib');
 
 const MB = 1024 * 1024;
 // The limit each kind of file has, and the word for it in "That file is over the 25 MB limit for pictures."
@@ -45,7 +46,7 @@ const SAYS_NOTHING = ['', 'application/octet-stream', 'binary/octet-stream'];
 const HEIC_EXTS = ['heic', 'heif', 'hif'];
 const HEIC_CLAIMS = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];
 const HEIC_BRANDS = ['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs', 'mif1', 'msf1'];
-const ISO_BRANDS = ['isom', 'iso2', 'mp41', 'mp42', 'avc1', 'dash'];
+const ISO_BRANDS = ['isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'dash', 'M4V ', 'MSNV', 'mmp4', '3gp4', '3gp5', '3gp6', '3g2a'];
 
 const ext = (name) => (/\.([A-Za-z0-9]{1,8})$/.exec(String(name || ''))?.[1] || '').toLowerCase();
 const claimOf = (contentType) => String(contentType || '').split(';')[0].trim().toLowerCase();
@@ -77,27 +78,92 @@ function mismatch(type, name, contentType) {
   return Boolean((e && !t.exts.includes(e)) || (!SAYS_NOTHING.includes(c) && !t.claims.includes(c)));
 }
 
-// The ftyp box's brands: [major, ...compatible], or null.
+// The ftyp box's brands: [major, ...compatible], or null when it is not a whole, sane box: a size of 16 to 1024 bytes in
+// whole brands, inside the head, and (when the head holds it) a next box with a size and a four-letter type.
 function ftypBrands(b) {
   if (b.length < 16 || b.toString('latin1', 4, 8) !== 'ftyp') return null;
-  const size = Math.min(b.readUInt32BE(0), b.length);
+  const size = b.readUInt32BE(0);
+  if (size < 16 || size > 1024 || size % 4 || size > b.length) return null;
+  if (b.length >= size + 8) {
+    const next = b.readUInt32BE(size);
+    if (!(next === 0 || next === 1 || next >= 8) || !/^[\x20-\x7e]{4}$/.test(b.toString('latin1', size + 4, size + 8))) return null;
+  }
   const out = [b.toString('latin1', 8, 12)];
   for (let i = 16; i + 4 <= size; i += 4) out.push(b.toString('latin1', i, i + 4));
   return out;
 }
 
-// A WebM's EBML header names its DocType: 'webm', 'matroska' (refused) or null.
+// An EBML variable-length number at `i`: { value, length } (the marker bit kept for an element id, taken off for a size),
+// or null.
+function ebmlVint(b, i, id) {
+  if (i >= b.length || !b[i]) return null;
+  const length = Math.clz32(b[i]) - 23;
+  if (length > (id ? 4 : 8) || i + length > b.length) return null;
+  let value = id ? b[i] : b[i] & (0xff >> length);
+  for (let k = 1; k < length; k += 1) value = value * 256 + b[i + k];
+  return { value, length };
+}
+// A WebM's EBML header, read as elements, names its DocType: 'webm', 'matroska' (refused), or null. The header must be
+// whole inside the head and followed by the Segment (or a Void element) when the head holds that far.
 function ebmlDocType(b) {
   const head = b.subarray(0, HEAD_BYTES);
-  for (let i = 4; i + 3 < head.length; i += 1) {
-    if (head[i] !== 0x42 || head[i + 1] !== 0x82) continue;
-    const s = head[i + 2];
-    if (!(s & 0x80)) continue;
-    const len = s & 0x7f;
-    return head.toString('latin1', i + 3, i + 3 + len);
+  const size = ebmlVint(head, 4, false);
+  if (!size || 4 + size.length + size.value > head.length) return null;
+  const end = 4 + size.length + size.value;
+  if (head.length >= end + 4 && !(head.readUInt32BE(end) === 0x18538067 || head[end] === 0xec)) return null;
+  let docType = null;
+  for (let i = 4 + size.length; i < end;) {
+    const id = ebmlVint(head, i, true);
+    const len = id && ebmlVint(head, i + id.length, false);
+    if (!id || !len) return null;
+    const at = i + id.length + len.length;
+    if (at + len.value > end) return null;
+    if (id.value === 0x4282) docType = head.toString('latin1', at, at + len.value).replace(/\0+$/, '');
+    i = at + len.value;
   }
-  return null;
+  return docType;
 }
+
+// An MPEG audio frame header at `i`: its length in bytes, or 0 when it is not one (11 bits of sync, a version and a
+// layer that are not the reserved ones -- layer 00 is AAC's ADTS, not taken -- a bitrate that is neither free nor bad,
+// a sample rate that is not the reserved one).
+const MP3_RATES = {
+  '1-1': [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
+  '1-2': [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
+  '1-3': [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320],
+  '2-1': [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256],
+  '2-2': [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+};
+MP3_RATES['2-3'] = MP3_RATES['2-2'];
+const MP3_SAMPLES = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
+function mp3Frame(b, i) {
+  if (i + 4 > b.length || b[i] !== 0xff || (b[i + 1] & 0xe0) !== 0xe0) return 0;
+  const version = (b[i + 1] >> 3) & 3;
+  const layer = 4 - ((b[i + 1] >> 1) & 3);
+  if (version === 1 || layer === 4) return 0;
+  const rate = MP3_RATES[`${version === 3 ? 1 : 2}-${layer}`][b[i + 2] >> 4];
+  const sample = MP3_SAMPLES[version][(b[i + 2] >> 2) & 3];
+  if (!rate || !sample) return 0;
+  const pad = (b[i + 2] >> 1) & 1;
+  if (layer === 1) return (Math.floor((12 * rate * 1000) / sample) + pad) * 4;
+  return Math.floor(((layer === 3 && version !== 3 ? 72 : 144) * rate * 1000) / sample) + pad;
+}
+// Two frames one after the other from `i` (or one, when the bytes end before the second could).
+function mp3Frames(b, i) {
+  const len = mp3Frame(b, i);
+  if (!len) return false;
+  return i + len + 4 > b.length || mp3Frame(b, i + len) > 0;
+}
+// An ID3v2 tag at the start: the offset its frames follow at, or -1 when it is not a sane one (version 2 to 4, a
+// syncsafe size no larger than the audio limit).
+function id3End(b) {
+  if (b.length < 10 || b.toString('latin1', 0, 3) !== 'ID3' || b[3] < 2 || b[3] > 4 || b[4] === 0xff) return -1;
+  if ([6, 7, 8, 9].some((k) => b[k] & 0x80)) return -1;
+  const size = ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]) + 10 + (b[5] & 0x10 ? 10 : 0);
+  return size > LIMITS.audio.bytes ? -1 : size;
+}
+// What a PDF's first kilobyte must not hold: a page's or a script's tags.
+const PDF_HTML_RE = /<\s*(?:!doctype|html|head|body|script|iframe|svg|object|embed|meta|img|style|link|form)\b/i;
 
 // What the first bytes are: { type } for a type the Vault takes, else { refuse: 'heic' | 'kind' }. `name` decides only
 // Markdown, which has no bytes of its own to know it by.
@@ -110,7 +176,7 @@ function sniff(b, name) {
   if (b.length >= 12 && latin(0, 4) === 'RIFF' && latin(8, 12) === 'WAVE') return { type: 'audio/wav' };
   if (b.length >= 10 && (latin(0, 6) === 'GIF87a' || latin(0, 6) === 'GIF89a')) return { type: 'image/gif' };
   if (latin(0, 4) === 'OggS') return { type: 'audio/ogg' };
-  if (b.length >= 5 && latin(0, 5) === '%PDF-') return { type: 'application/pdf' };
+  if (b.length >= 5 && latin(0, 5) === '%PDF-') return PDF_HTML_RE.test(latin(0, 1024)) ? { refuse: 'kind' } : { type: 'application/pdf' };
   const brands = ftypBrands(b);
   if (brands) {
     const [major] = brands;
@@ -122,10 +188,9 @@ function sniff(b, name) {
     return { refuse: 'kind' };
   }
   if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return ebmlDocType(b) === 'webm' ? { type: 'video/webm' } : { refuse: 'kind' };
-  if (latin(0, 3) === 'ID3') return { type: 'audio/mpeg' };
-  // An MPEG audio frame: 11 bits of sync, a version that is not the reserved one, and a layer that is not 00 (00 is AAC's
-  // ADTS, which is not taken).
-  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x18) !== 0x08 && (b[1] & 0x06) !== 0) return { type: 'audio/mpeg' };
+  // MP3: a sane ID3v2 tag (the frames after it are looked at once the file is in: mp3Refusal), or two MPEG audio frames.
+  if (latin(0, 3) === 'ID3') return id3End(b) > 0 ? { type: 'audio/mpeg' } : { refuse: 'kind' };
+  if (mp3Frames(b, 0)) return { type: 'audio/mpeg' };
   if (ext(name) === 'md' && !b.includes(0)) return { type: 'text/markdown' };
   return { refuse: 'kind' };
 }
@@ -161,32 +226,138 @@ function picturePixels(b, type) {
   return null;
 }
 
-// The names in a PDF that make it run or carry something (decision 9), read as PDF names: "/JS" is the name JS and not
-// the start of "/JSON", and "#xx" escapes are read as the characters they stand for.
-const ACTIVE_NAMES = new Set(['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'EmbeddedFiles', 'RichMedia', 'XFA']);
+// The names in a PDF that make it run, reach out or carry something (decision 9, with the actions and forms the security
+// review added), read as PDF names: "/JS" is the name JS and not the start of "/JSON", and "#xx" escapes are read as the
+// characters they stand for. Each says what kind of thing it is, for the sentence.
+const ACTIVE_NAMES = new Map([
+  ['JavaScript', 'scripts'], ['JS', 'scripts'], ['AA', 'scripts'],
+  ['Launch', 'links'], ['URI', 'links'], ['GoToR', 'links'],
+  ['AcroForm', 'form'], ['SubmitForm', 'form'], ['XFA', 'form'],
+  ['EmbeddedFile', 'files'], ['EmbeddedFiles', 'files'], ['RichMedia', 'files'],
+]);
 const NAME_RE = /\/((?:[^\s()<>[\]{}/%#\0]|#[0-9A-Fa-f]{2})+)/g;
+const OBJ_RE = /\d+\s+\d+\s+obj\b/;
+const STREAM_RE = /\bstream(?:\r\n|\n|\r)/g;
 const WINDOW = 1024 * 1024;
-const OVERLAP = 1024;
-// The first active-content name in a PDF file, read as a stream in 1 MB windows with an overlap, or null. A name in a
-// compressed object stream is not seen: this is a filter, and the headers the file is served with are the guard.
-async function pdfActiveContent(file) {
+const OVERLAP = 4096;
+// Compressed object streams: each is inflated as a stream and read the same way, at most 16 MB out of one, 64 MB out of
+// all, and at most 200 of them; a PDF over any of that, or one whose object stream can't be inflated, is not checked and
+// so not taken.
+const PDF_STREAM_MAX = 16 * 1024 * 1024;
+const PDF_STREAMS_OUT_MAX = 64 * 1024 * 1024;
+const PDF_STREAMS_MAX = 200;
+const PDF_STREAM_IN_MAX = 32 * 1024 * 1024;
+
+// The first active name in `text` ({ name, what }), leaving one that touches the end for the next window unless `last`.
+function activeIn(text, last) {
+  NAME_RE.lastIndex = 0;
+  for (let m = NAME_RE.exec(text); m; m = NAME_RE.exec(text)) {
+    if (!last && m.index + m[0].length === text.length) break; // may go on in the next window: read there
+    const name = m[1].replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    if (ACTIVE_NAMES.has(name)) return { name, what: ACTIVE_NAMES.get(name) };
+  }
+  return null;
+}
+const unescapeNames = (dict) => dict.replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+
+// Inflates the object stream whose data starts at `start` and reads it for active names: null, { name, what }, or
+// { refuse: 'unchecked' }. Never holds more than a window of what comes out.
+function inflatedActive(fh, start, fileSize, budget) {
+  return new Promise((resolve) => {
+    const inflate = zlib.createInflate();
+    let out = 0;
+    let carry = '';
+    let done = false;
+    let pos = start;
+    const end = (r) => { if (done) return; done = true; inflate.removeAllListeners('data'); inflate.on('error', () => {}); inflate.destroy(); resolve(r); };
+    inflate.on('data', (chunk) => {
+      out += chunk.length;
+      budget.out += chunk.length;
+      if (out > PDF_STREAM_MAX || budget.out > PDF_STREAMS_OUT_MAX) return end({ refuse: 'unchecked' });
+      const text = carry + chunk.toString('latin1');
+      const found = activeIn(text, false);
+      if (found) return end(found);
+      carry = text.slice(-OVERLAP);
+    });
+    inflate.on('end', () => end(activeIn(carry, true)));
+    inflate.on('error', () => end({ refuse: 'unchecked' }));
+    const buf = Buffer.alloc(64 * 1024);
+    (async () => {
+      const stop = Math.min(fileSize, start + PDF_STREAM_IN_MAX);
+      while (!done && pos < stop) {
+        const { bytesRead } = await fh.read(buf, 0, Math.min(buf.length, stop - pos), pos);
+        if (!bytesRead || done) break;
+        pos += bytesRead;
+        if (!inflate.write(Buffer.from(buf.subarray(0, bytesRead)))) await new Promise((r) => { inflate.once('drain', r); inflate.once('close', r); });
+      }
+      if (!done) inflate.end();
+    })().catch(() => end({ refuse: 'unchecked' }));
+  });
+}
+
+// What stops a PDF file from being taken, read as a stream in 1 MB windows with an overlap: null, { name, what } for
+// active content (in the file as it is, or in a Flate-compressed object stream), { refuse: 'damaged' } for one that is
+// not a whole PDF (no object, no %%EOF in its last kilobyte), or { refuse: 'unchecked' } for an object stream that
+// can't be read within the limits.
+async function pdfRefusal(file) {
   const fh = await fs.promises.open(file, 'r');
   try {
+    const { size } = await fh.stat();
     const buf = Buffer.alloc(WINDOW);
     let carry = '';
-    for (;;) {
-      const { bytesRead } = await fh.read(buf, 0, WINDOW, null);
-      const last = bytesRead < WINDOW;
+    let base = 0; // the file offset of the text's first character
+    let sawObj = false;
+    const objStreams = new Set(); // file offsets of the data of the object streams
+    for (let at = 0; ;) {
+      const { bytesRead } = await fh.read(buf, 0, WINDOW, at);
+      const last = at + bytesRead >= size || bytesRead < WINDOW;
       const text = carry + buf.toString('latin1', 0, bytesRead);
-      NAME_RE.lastIndex = 0;
-      for (let m = NAME_RE.exec(text); m; m = NAME_RE.exec(text)) {
-        if (!last && m.index + m[0].length === text.length) break; // may go on in the next window: read there
-        const name = m[1].replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-        if (ACTIVE_NAMES.has(name)) return name;
+      const found = activeIn(text, last);
+      if (found) return found;
+      if (!sawObj && OBJ_RE.test(text)) sawObj = true;
+      STREAM_RE.lastIndex = 0;
+      for (let m = STREAM_RE.exec(text); m; m = STREAM_RE.exec(text)) {
+        if (!last && m.index + m[0].length >= text.length - 1) continue; // its line end may go on: read in the next window
+        const dictStart = Math.max(text.lastIndexOf('obj', m.index), 0);
+        const dict = unescapeNames(text.slice(dictStart, m.index));
+        if (!/\/Type\s*\/ObjStm\b/.test(dict)) continue;
+        if (!/\/Filter\s*(?:\[\s*)?\/FlateDecode\s*\]?\s*(?:\/|>>)/.test(dict) || /\/DecodeParms/.test(dict)) return { refuse: 'unchecked' };
+        objStreams.add(base + m.index + m[0].length);
+        if (objStreams.size > PDF_STREAMS_MAX) return { refuse: 'unchecked' };
       }
-      if (last) return null;
+      at += bytesRead;
+      if (last) break;
       carry = text.slice(-OVERLAP);
+      base = at - carry.length;
     }
+    const tail = Buffer.alloc(Math.min(1024, size));
+    await fh.read(tail, 0, tail.length, size - tail.length);
+    if (!sawObj || !tail.includes('%%EOF')) return { refuse: 'damaged' };
+    const budget = { out: 0 };
+    for (const start of objStreams) {
+      const r = await inflatedActive(fh, start, size, budget);
+      if (r) return r;
+    }
+    return null;
+  } finally {
+    await fh.close();
+  }
+}
+
+// What stops an MP3 that starts with an ID3v2 tag from being taken, once the file is in: null, or 'kind' when there are
+// no two MPEG audio frames one after the other in the 64 KB after the tag.
+async function mp3Refusal(file) {
+  const fh = await fs.promises.open(file, 'r');
+  try {
+    const head = Buffer.alloc(10);
+    await fh.read(head, 0, 10, 0);
+    const from = id3End(head);
+    if (from < 0) return head.toString('latin1', 0, 3) === 'ID3' ? 'kind' : null;
+    const b = Buffer.alloc(64 * 1024 + 4096);
+    const { bytesRead } = await fh.read(b, 0, b.length, from);
+    const got = b.subarray(0, bytesRead);
+    for (let i = 0; i < Math.min(got.length, 64 * 1024); i += 1) if (got[i] === 0xff && mp3Frames(got, i) && mp3Frame(got, i) + i + 4 <= got.length) return null;
+    return 'kind';
   } finally {
     await fh.close();
   }
@@ -206,4 +377,4 @@ function markdownRefusal(b) {
   return null;
 }
 
-module.exports = { TYPES, LIMITS, MAX_BYTES, HEAD_BYTES, MAX_PIXELS, claimRefusal, claimedType, mismatch, sniff, picturePixels, pdfActiveContent, markdownRefusal };
+module.exports = { TYPES, LIMITS, MAX_BYTES, HEAD_BYTES, MAX_PIXELS, claimRefusal, claimedType, mismatch, sniff, picturePixels, pdfRefusal, mp3Refusal, markdownRefusal };

@@ -7743,6 +7743,13 @@ const thumbDeadlineMs = (bytes) => 10000 + Math.ceil((bytes / libraryMinRate) * 
 const sizeText = (bytes) => (bytes >= 1024 ** 3 ? `${gbText(bytes)} GB` : `${Math.round((bytes / 1048576) * 10) / 10} MB`);
 const libraryKindSentence = 'That kind of file can\'t be added here. It takes pictures (JPEG, PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown.';
 const librarySentence = (refusal) => (refusal === 'heic' ? 'HEIC pictures can\'t be added here. Save it as a JPEG.' : libraryKindSentence);
+// Why a PDF is not taken (vaultTypes.pdfRefusal), in one sentence.
+const PDF_HOLDS = { scripts: 'scripts', links: 'links that open other files or pages', form: 'a form', files: 'files of its own' };
+const pdfSentence = (r) => {
+  if (r.refuse === 'damaged') return 'That PDF is damaged or cut short.';
+  if (r.refuse === 'unchecked') return 'That PDF can\'t be checked for scripts, so it can\'t be added.';
+  return `That PDF holds ${PDF_HOLDS[r.what] || 'active content'}, so it can't be added.`;
+};
 const overTypeLimit = (type) => { const l = vaultTypes.LIMITS[vaultTypes.TYPES[type].limit]; return `That file is over the ${sizeText(l.bytes)} limit for ${l.words}.`; };
 
 // Who is asking, in which space, with which module: { manifest, entry, name, who, space, spaceId, by, can(key), owner },
@@ -8052,7 +8059,10 @@ app.post('/api/modules/:id/library', async (req, res) => {
       kept = await inPictureTurn(() => cleanPicturePart(part, type, req.query.keepPosition === '1'));
       if (kept.refused) { dropPart(); return refuse(400, kept.refused); }
     } else if (type === 'application/pdf') {
-      if (await vaultTypes.pdfActiveContent(part)) { dropPart(); return refuse(400, 'That PDF holds scripts or other active content, so it can\'t be added.'); }
+      const pdf = await vaultTypes.pdfRefusal(part);
+      if (pdf) { dropPart(); return refuse(400, pdfSentence(pdf)); }
+    } else if (type === 'audio/mpeg') {
+      if (await vaultTypes.mp3Refusal(part)) { dropPart(); return refuse(400, libraryKindSentence); }
     } else if (type === 'text/markdown') {
       if (vaultTypes.markdownRefusal(await fs.promises.readFile(part))) { dropPart(); return refuse(400, libraryKindSentence); }
     }

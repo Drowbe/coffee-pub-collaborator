@@ -163,12 +163,21 @@ const gifXmp = Buffer.concat([Buffer.from([0x21, 0xff, 11]), Buffer.from('XMP Da
 const webpOf = () => { const b = Buffer.alloc(40); b.write('RIFF', 0, 'latin1'); b.writeUInt32LE(32, 4); b.write('WEBPVP8X', 8, 'latin1'); b.writeUInt32LE(10, 16); b.writeUIntLE(9, 24, 3); b.writeUIntLE(9, 27, 3); return b; };
 const riffOf = (kind) => { const b = Buffer.alloc(44); b.write('RIFF', 0, 'latin1'); b.writeUInt32LE(36, 4); b.write(kind, 8, 'latin1'); return b; };
 const ftypOf = (major, compat = []) => { const size = 16 + compat.length * 4; const b = Buffer.alloc(size + 16); b.writeUInt32BE(size, 0); b.write('ftyp', 4, 'latin1'); b.write(major, 8, 'latin1'); compat.forEach((c, i) => b.write(c, 16 + i * 4, 'latin1')); b.write('mdat', size + 4, 'latin1'); return b; };
-const ebmlOf = (doc) => Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01, 0x42, 0x82, 0x80 | doc.length]), Buffer.from(doc, 'latin1'), Buffer.alloc(40)]);
-const mp3Of = () => Buffer.concat([Buffer.from('ID3\x04\0\0\0\0\0\0', 'latin1'), Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(200)]);
+// A WebM's EBML header (its version, then its DocType), then the Segment.
+const ebmlOf = (doc) => { const body = Buffer.concat([Buffer.from([0x42, 0x86, 0x81, 0x01, 0x42, 0x82, 0x80 | doc.length]), Buffer.from(doc, 'latin1')]); return Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x80 | body.length]), body, Buffer.from([0x18, 0x53, 0x80, 0x67, 0x01, 0, 0, 0, 0, 0, 0, 0]), Buffer.alloc(40)]); };
+// MPEG-1 Layer III frames at 128 kbps and 44.1 kHz: 417 bytes each.
+const mp3Frames = (count) => Buffer.concat(Array.from({ length: count }, () => Buffer.concat([Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(413)])));
+const mp3Of = () => Buffer.concat([Buffer.from('ID3\x04\0\0\0\0\0\0', 'latin1'), mp3Frames(3)]);
 const oggOf = () => Buffer.concat([Buffer.from('OggS\0\x02', 'latin1'), Buffer.alloc(60)]);
 const pdfOf = (body = '') => Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R ${body} >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n`, 'latin1');
 // A plain PDF of `bytes` bytes: its header, spaces, then its object and trailer.
 const pdfSized = (bytes) => { const p = pdfOf(); return Buffer.concat([p.subarray(0, 9), Buffer.alloc(bytes - p.length, 0x20), p.subarray(9)]); };
+const zlib = require('node:zlib');
+// A PDF whose one object stream holds `objects`, Flate-compressed (or `data` as it is).
+const objStm = (objects, { filter = '/FlateDecode', eol = '\n', data } = {}) => {
+  const packed = data || zlib.deflateSync(Buffer.from(objects, 'latin1'));
+  return Buffer.concat([Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n5 0 obj << /Type /ObjStm /N 1 /First 4 /Filter ${filter} /Length ${packed.length} >> stream${eol}`, 'latin1'), packed, Buffer.from('\nendstream\nendobj\ntrailer << /Root 1 0 R >>\n%%EOF\n', 'latin1')]);
+};
 const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.';
 
 // --- part 2: types ------------------------------------------------------------------------------------------------------
@@ -179,7 +188,10 @@ const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.'
   same(sniffed(webpOf()), 'image/webp', 'WebP: RIFF then WEBP');
   same(sniffed(gifOf()), 'image/gif', 'GIF89a');
   same(sniffed(mp3Of()), 'audio/mpeg', 'MP3 from ID3');
-  same(sniffed(Buffer.concat([Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(40)])), 'audio/mpeg', 'MP3 from a frame sync');
+  same(sniffed(mp3Frames(3)), 'audio/mpeg', 'MP3 from two frames one after the other');
+  same(sniffed(Buffer.concat([Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(1000)])), 'refused:kind', 'a frame sync followed by anything is not');
+  same(sniffed(Buffer.concat([Buffer.from([0xff, 0xfb, 0xf0, 0x64]), Buffer.alloc(1000)])), 'refused:kind', 'nor a frame with a bad bitrate');
+  same(sniffed(Buffer.from('ID3\x04\0\0\x80\0\0\0<html>', 'latin1')), 'refused:kind', 'an ID3 tag whose size is not syncsafe is not');
   same(sniffed(Buffer.concat([Buffer.from([0xff, 0xf1, 0x50, 0x80]), Buffer.alloc(40)])), 'refused:kind', 'AAC\'s ADTS is not MP3');
   same(sniffed(oggOf()), 'audio/ogg', 'OggS');
   same(sniffed(riffOf('WAVE')), 'audio/wav', 'WAV: RIFF then WAVE');
@@ -194,7 +206,13 @@ const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.'
   same(sniffed(ftypOf('crx ')), 'refused:kind', 'another brand is refused');
   same(sniffed(ebmlOf('webm')), 'video/webm', 'WebM by its DocType');
   same(sniffed(ebmlOf('matroska')), 'refused:kind', '.mkv is refused');
+  same(sniffed(Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x00]), Buffer.from('\x42\x82\x84webm<script>', 'latin1'), Buffer.alloc(40)])), 'refused:kind', 'an EBML start that is not a header is refused');
+  same(sniffed(Buffer.concat([ebmlOf('webm').subarray(0, 16), Buffer.from('<html><script>1</script>'), Buffer.alloc(40)])), 'refused:kind', 'and a WebM header followed by something that is not its Segment');
+  same(sniffed(Buffer.concat([Buffer.from([0, 0, 0, 0xff]), Buffer.from('ftypisom'), Buffer.alloc(60)])), 'refused:kind', 'an ftyp box with a size that is not one is refused');
+  same(sniffed((() => { const b = ftypOf('isom', ['mp42']); b.write('<ht', 24, 'latin1'); b[20] = 0; b[21] = 0; b[22] = 0; b[23] = 3; return b; })()), 'refused:kind', 'and one followed by something that is not a box');
   same(sniffed(pdfOf()), 'application/pdf', '%PDF-');
+  same(sniffed(Buffer.from('%PDF-1.7\n<html><script>alert(1)</script>', 'latin1')), 'refused:kind', 'a PDF header followed by a page is refused');
+  same(sniffed(Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj << /Length 4 >> stream\n<a1b2>\nendstream', 'latin1')), 'application/pdf', 'a hex string is not a tag');
   same(sniffed(Buffer.from('# Packing\n\n- socks\n'), 'list.md'), 'text/markdown', 'Markdown by its name and text');
   same(sniffed(Buffer.from('# Packing\n'), 'list.txt'), 'refused:kind', 'text with another name is not taken');
   for (const [what, bytes, name] of [
@@ -221,16 +239,36 @@ const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.'
   same([types.picturePixels(pngOf(20000, 6000), 'image/png'), types.picturePixels(gifOf(300, 200), 'image/gif'), types.picturePixels(jpegOf(4000, 3000), 'image/jpeg'), types.picturePixels(webpOf(), 'image/webp')], [120000000, 60000, 12000000, 100], 'pixels from PNG, GIF, JPEG and WebP headers');
   ok(types.picturePixels(pngOf(20000, 6000), 'image/png') > types.MAX_PIXELS, 'over 100 million is over the limit');
 
-  // PDF active content, read as a stream.
+  // PDF active content, read as a stream, and in its compressed object streams.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-vault-pdf-'));
-  const scan = async (bytes) => { const f = path.join(dir, `p${n}`); fs.writeFileSync(f, bytes); return types.pdfActiveContent(f); };
+  const file = (bytes) => { const f = path.join(dir, `p${n}-${Math.random()}`); fs.writeFileSync(f, bytes); return f; };
+  const scan = async (bytes) => { const r = await types.pdfRefusal(file(bytes)); return r ? r.name || `refused:${r.refuse}` : null; };
   same(await scan(pdfOf()), null, 'a plain PDF passes');
-  for (const name of ['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'RichMedia', 'XFA']) same(await scan(pdfOf(`/OpenAction << /S /${name} (x) >>`)), name, `/${name} is refused`);
+  for (const name of ['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'RichMedia', 'XFA', 'AA', 'URI', 'SubmitForm', 'GoToR', 'AcroForm']) same(await scan(pdfOf(`/OpenAction << /S /${name} (x) >>`)), name, `/${name} is refused`);
   same(await scan(pdfOf('/OpenAction << /S /J#61vaScript >>')), 'JavaScript', 'a name written with #xx escapes too');
-  same(await scan(pdfOf('/JSON (fine) /JSX 1')), null, '/JSON is not /JS');
+  same(await scan(pdfOf('/JSON (fine) /JSX 1 /AAA 2 /URIs 3')), null, '/JSON is not /JS, nor /AAA /AA');
   const straddle = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(1024 * 1024 - 14, 0x20), Buffer.from('/JavaScript (x)\n')]);
   same(await scan(straddle), 'JavaScript', 'a name across the 1 MB window is found');
   same(await scan(Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(3 * 1024 * 1024, 0x41), Buffer.from(' /Launch')])), 'Launch', 'at the end of a larger file');
+  same(await scan(Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n', 'latin1')), 'refused:damaged', 'a PDF with no %%EOF is damaged');
+  same(await scan(Buffer.from('%PDF-1.7\nhello\n%%EOF\n', 'latin1')), 'refused:damaged', 'and one with no object');
+  same(await scan(Buffer.concat([pdfOf(), Buffer.alloc(2048, 0x20)])), 'refused:damaged', 'and one whose %%EOF is not in its last kilobyte');
+  // Object streams: Flate-compressed objects, inflated and read.
+  same(await scan(objStm('6 0 << /Type /Page /Contents 7 0 R >>')), null, 'a compressed object stream with nothing active passes');
+  same(await scan(objStm('6 0 << /Type /Action /S /JavaScript /JS (app.alert(1)) >>')), 'JavaScript', 'JavaScript in a compressed object stream is found');
+  same(await scan(objStm('6 0 << /S /Launch /F (calc.exe) >>', { eol: '\r\n' })), 'Launch', 'after a CRLF too');
+  same(await scan(objStm('6 0 << /Type /Filespec /EF << /F 7 0 R >> /EmbeddedFile 1 >>', { filter: '[/FlateDecode]' })), 'EmbeddedFile', 'and with the filter in an array');
+  same(await scan(objStm(`6 0 ${'x'.repeat(2 * 1024 * 1024)} /J#53 1`)), 'JS', 'deep in a large one, escaped');
+  same(await scan(objStm('', { data: zlib.deflateSync(Buffer.alloc(17 * 1024 * 1024, 0x20)) })), 'refused:unchecked', 'one that inflates past 16 MB is not taken');
+  same(await scan(objStm('', { data: Buffer.from('not compressed at all') })), 'refused:unchecked', 'nor one that can\'t be inflated');
+  same(await scan(objStm('6 0 << >>', { filter: '/LZWDecode' })), 'refused:unchecked', 'nor one compressed another way');
+  const many = Buffer.concat([Buffer.from('%PDF-1.7\n'), ...Array.from({ length: 201 }, (_, k) => Buffer.from(`${k + 1} 0 obj << /Type /ObjStm /Filter /FlateDecode >> stream\n${zlib.deflateSync(Buffer.from('1 0 << >>')).toString('latin1')}\nendstream\nendobj\n`, 'latin1')), Buffer.from('%%EOF\n')]);
+  same(await scan(many), 'refused:unchecked', 'nor one with more than 200 object streams');
+  // MP3 after an ID3 tag, once the file is in.
+  const id3 = (size) => { const h = Buffer.from('ID3\x03\0\0\0\0\0\0', 'latin1'); h[8] = (size >> 7) & 0x7f; h[9] = size & 0x7f; return h; };
+  same(await types.mp3Refusal(file(Buffer.concat([id3(300), Buffer.alloc(300), mp3Frames(3)]))), null, 'an MP3 with a tag and frames after it passes');
+  same(await types.mp3Refusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.alloc(20, 0), mp3Frames(3)]))), null, 'with padding after the tag too');
+  same(await types.mp3Refusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.from('<html><script>alert(1)</script>'), Buffer.alloc(70000, 0x41)]))), 'kind', 'a tag followed by no frames is refused');
   fs.rmSync(dir, { recursive: true, force: true });
 
   // Markdown's text.
@@ -460,8 +498,12 @@ try {
     ['a PDF named .jpg', 'ticket.jpg', pdfOf(), 'image/jpeg', 400, /^That file's name or type doesn't match what is in it\.$/],
     ['a PDF sent as a PNG', 'ticket', pdfOf(), 'image/png', 400, /doesn't match/],
     ['a JPEG named .png', 'beach.png', jpegOf(), 'image/png', 400, /doesn't match/],
-    ['a PDF with JavaScript', 'evil.pdf', pdfOf('/OpenAction << /S /JavaScript /JS (app.alert(1)) >>'), 'application/pdf', 400, /^That PDF holds scripts or other active content, so it can't be added\.$/],
-    ['a PDF that launches', 'evil.pdf', pdfOf('/OpenAction << /S /Launch /F (calc.exe) >>'), 'application/pdf', 400, /active content/],
+    ['a PDF with JavaScript', 'evil.pdf', pdfOf('/OpenAction << /S /JavaScript /JS (app.alert(1)) >>'), 'application/pdf', 400, /^That PDF holds scripts, so it can't be added\.$/],
+    ['a PDF that launches', 'evil.pdf', pdfOf('/OpenAction << /S /Launch /F (calc.exe) >>'), 'application/pdf', 400, /^That PDF holds links that open other files or pages, so it can't be added\.$/],
+    ['a PDF with a form', 'form.pdf', pdfOf('/AcroForm << /Fields [] >>'), 'application/pdf', 400, /^That PDF holds a form, so it can't be added\.$/],
+    ['a PDF that is cut short', 'cut.pdf', pdfOf().subarray(0, 40), 'application/pdf', 400, /^That PDF is damaged or cut short\.$/],
+    ['a PDF whose object stream is too big to check', 'bomb.pdf', objStm('', { data: zlib.deflateSync(Buffer.alloc(17 * 1024 * 1024, 0x20)) }), 'application/pdf', 400, /^That PDF can't be checked for scripts, so it can't be added\.$/],
+    ['an MP3 tag with no audio after it', 'tag.mp3', Buffer.concat([Buffer.from('ID3\x03\0\0\0\0\x02\x2c', 'latin1'), Buffer.alloc(300), Buffer.from('<script>1</script>'), Buffer.alloc(5000, 0x41)]), 'audio/mpeg', 400, /That kind of file/],
     ['a picture too large to draw', 'huge.png', pngOf(20000, 6000), 'image/png', 400, /^That picture is too large to show\.$/],
     ['a JPEG cut short', 'cut.jpg', jpegOf().subarray(0, 60), 'image/jpeg', 400, /^That picture is damaged or cut short\.$/],
     ['text that is not Markdown', 'notes.txt', Buffer.from('# hi'), 'text/plain', 400, /That kind of file/],

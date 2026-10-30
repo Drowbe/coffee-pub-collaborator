@@ -77,10 +77,12 @@ function writeAtomic(file, data) {
 
 class VaultStore {
   // `bytesDir`: this environment's folder under VAULT_DIR. `modulesDir`: DATA_DIR/modules, where the records go.
-  constructor({ bytesDir, modulesDir, now = () => Date.now() }) {
+  // `onBytes(delta)` is told every change in the bytes kept, for a total across environments.
+  constructor({ bytesDir, modulesDir, now = () => Date.now(), onBytes = () => {} }) {
     this.bytesDir = bytesDir;
     this.modulesDir = modulesDir;
     this.now = now;
+    this.onBytes = onBytes;
     this.cache = new Map(); // "<module>|<space>" -> Map(file id -> record)
     this.totals = null; // { all, spaces: Map(space -> bytes), people: Map(key -> bytes), files } once counted
     this.swept = this.sweep();
@@ -260,7 +262,9 @@ class VaultStore {
   }
 
   count(spaceId, by, delta) {
-    if (!this.totals || !delta) return;
+    if (!delta) return;
+    this.onBytes(delta);
+    if (!this.totals) return;
     const add = (map, k) => { const v = (map.get(k) || 0) + delta; if (v > 0) map.set(k, v); else map.delete(k); };
     this.totals.all += delta;
     add(this.totals.spaces, spaceId);

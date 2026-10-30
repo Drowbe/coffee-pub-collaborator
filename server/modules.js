@@ -602,6 +602,20 @@ function cleanUploads(raw) {
   return { types, maxBytes: num(raw.maxBytes, 10 * 1024 * 1024, 10 * 1024 * 1024), maxFiles: num(raw.maxFiles, 5000, 500) };
 }
 
+// A module's `library: true`: it keeps a space's files (server/vault-store.js, documentation/plans/plan-attachments-vault.md),
+// served by the host's library routes. It needs the space scope and the four permissions those routes are guarded by:
+// view (see the files), add (add them), download, remove_any (remove someone else's). Guests never reach a library
+// route, whatever Roles says, so none of the four is on for them by default.
+const LIBRARY_PERMISSIONS = ['view', 'add', 'download', 'remove_any'];
+function cleanLibrary(raw, scope, permissions) {
+  if (raw === undefined || raw === null || raw === false) return false;
+  if (raw !== true) throw new ModuleError('module.json: library must be true, or left out');
+  if (!scope.includes('space')) throw new ModuleError('module.json: library needs the "space" scope');
+  const missing = LIBRARY_PERMISSIONS.filter((k) => !permissions.some((p) => p.key === k));
+  if (missing.length) throw new ModuleError(`module.json: library needs the permission${missing.length === 1 ? '' : 's'} ${missing.join(', ')}`);
+  return true;
+}
+
 // A module's own `regionSource`: cutting a region out of a larger PMTiles file into one of its own file folders (see
 // server/region-cut.js). `folder` must be a `files`-type setting's own folder (so the admin already has a way to see and
 // tick what lands there), and `address` a `url` setting naming where to cut from.
@@ -883,6 +897,8 @@ function cleanManifest(raw, files) {
   const pictureMap = cleanPictureMap(raw.pictureMap, settings);
   const uploads = cleanUploads(raw.uploads);
   const lookups = cleanLookups(raw.lookups);
+  const library = cleanLibrary(raw.library, scope, permissions);
+  if (library) for (const p of permissions) if (LIBRARY_PERMISSIONS.includes(p.key)) p.default.guest = false;
 
   // The modules this one cannot work without: the one place a manifest names another module (at run time every module still
   // reaches another only through the generic conduits). It cannot be turned on until they are on.
@@ -909,7 +925,7 @@ function cleanManifest(raw, files) {
   if (raw.content !== undefined && raw.content !== 'padded' && raw.content !== 'flush') throw new ModuleError('module.json: content must be "padded" or "flush"');
   const content = raw.content === 'flush' ? 'flush' : 'padded';
 
-  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, pictureMap, lookups, budget, content, install };
+  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, library, regionSource, pictureMap, lookups, budget, content, install };
 }
 
 // The sentence for a zip's pages that draw or restyle what the host draws (server/module-layout.js), or null when they do not.
@@ -1090,6 +1106,7 @@ class ModuleManager {
       try { manifest.regionSource = cleanRegionSource(manifest.regionSource, manifest.settings); } catch { manifest.regionSource = null; }
       try { manifest.pictureMap = cleanPictureMap(manifest.pictureMap, manifest.settings); } catch { manifest.pictureMap = null; }
       try { manifest.uploads = cleanUploads(manifest.uploads); } catch { manifest.uploads = null; }
+      try { manifest.library = cleanLibrary(manifest.library, manifest.scope || [], manifest.permissions); } catch { manifest.library = false; }
       try { manifest.lookups = cleanLookups(manifest.lookups); } catch { manifest.lookups = []; }
       manifest.budget = manifest.budget === true;
       if (hasPlaceholders(manifest)) this.withPlaceholders.add(manifest);
@@ -1168,7 +1185,8 @@ class ModuleManager {
       key: `module.${manifest.id}.${p.key}`,
       label: p.label,
       group: `${word('module', { cap: true })}: ${this.shownName(manifest)}`,
-      defaults: permissionDefaults(p.default),
+      // A library's permissions are never on for guests (the library routes refuse them whatever Roles says).
+      defaults: manifest.library && LIBRARY_PERMISSIONS.includes(p.key) ? { ...permissionDefaults(p.default), guest: false } : permissionDefaults(p.default),
     })));
   }
 

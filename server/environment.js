@@ -64,7 +64,8 @@ function moduleCan(manifest, perms, need) {
 // with at rest in ai.json -- index.js's secretsKeyBuf, the same key as every two-step secret. Without it (a test
 // that does not need it) the AI key is kept as it was given. `vaultDir` is the folder this environment's library files
 // (server/vault-store.js) keep their bytes in: index.js names it under VAULT_DIR; without it (a test), <dataDir>/vault.
-function buildEnvironment(dataDir, { slug = null, admin = null, log = console.log, managed = () => null, secretsKey = null, vaultDir = null } = {}) {
+// `onVaultBytes(delta)` is told every change in what they keep (index.js's total for VAULT_MAX_GB).
+function buildEnvironment(dataDir, { slug = null, admin = null, log = console.log, managed = () => null, secretsKey = null, vaultDir = null, onVaultBytes = () => {} } = {}) {
   // The Names migration (documentation/plans/plan-names.md, "The migration") runs before Store reads app.json, so
   // every service below reads this environment's data in its current shape. Throws a MigrationError naming the
   // file when a part cannot finish, and nothing is built.
@@ -176,7 +177,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
 
   const moduleUploads = new ModuleUploads(modules.dir);
   // A space's library files: their bytes in the vault folder, their records beside the module's data.
-  const vault = new VaultStore({ bytesDir: vaultDir || path.join(dataDir, 'vault'), modulesDir: modules.dir });
+  const vault = new VaultStore({ bytesDir: vaultDir || path.join(dataDir, 'vault'), modulesDir: modules.dir, onBytes: onVaultBytes });
   if (vault.swept.parts || vault.swept.orphans) log(`Removed ${vault.swept.parts} unfinished upload${vault.swept.parts === 1 ? '' : 's'} and ${vault.swept.orphans} file${vault.swept.orphans === 1 ? '' : 's'} with no record from ${vaultDir || path.join(dataDir, 'vault')}.`);
   const geocodeCache = new GeocodeCache(modules.dir);
   const regionCutJobs = new RegionCutJobs(dataDir);

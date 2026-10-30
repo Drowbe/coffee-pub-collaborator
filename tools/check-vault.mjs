@@ -11,9 +11,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
+const { buildModule } = require('../server/module-build.js');
 const { VaultStore, cleanName, nameForType, extensionOf } = require('../server/vault-store.js');
 const types = require('../server/vault-types.js');
 
@@ -202,5 +207,356 @@ const pdfOf = (body = '') => Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /P
   // Markdown's text.
   same([types.markdownRefusal(Buffer.from('# Day one\n*sun*')), types.markdownRefusal(Buffer.from([0x23, 0x20, 0xc3, 0x28])), types.markdownRefusal(Buffer.from('a\0b')), types.markdownRefusal(Buffer.from('  <!DOCTYPE html><p>x')), types.markdownRefusal(Buffer.from('<svg onload=1>'))], [null, 'kind', 'kind', 'kind', 'kind'], 'Markdown: UTF-8, no NUL, not a page or a drawing');
 }
+
+// --- a throwaway server -------------------------------------------------------------------------------------------------
+const base = fs.mkdtempSync(path.join(os.tmpdir(), 'check-vault-'));
+// A module that declares `library`, as the Vault will: the four permissions (guest defaults asked for, and turned off
+// by the host), and the owner's two lower quotas.
+function shelfZip() {
+  const root = path.join(base, 'mods', 'shelf');
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'module.json'), JSON.stringify({
+    id: 'shelf', name: 'Shelf', version: '1.0.0', scope: ['space'], icon: 'circle',
+    surfaces: { canvas: { entry: 'shelf.html' } },
+    library: true,
+    permissions: [
+      { key: 'view', label: 'See the files', default: { member: true, moderator: true, guest: true } },
+      { key: 'add', label: 'Add files', default: { member: true, moderator: true, guest: true } },
+      { key: 'download', label: 'Download files', default: { member: true, moderator: true, guest: true } },
+      { key: 'remove_any', label: 'Remove files other people added', default: { member: false, moderator: true } },
+    ],
+    access: { read: 'view', write: 'add' },
+    refs: { produces: [{ kind: 'file', name: 'File', key: 'file:{id}', summary: { title: 'name', category: 'group' }, open: true, backlinks: true }] },
+    settings: [
+      { key: 'spaceMaxGb', label: 'Most for one space, in GB', type: 'number', scope: 'environment', min: 0, default: 0 },
+      { key: 'personMaxGb', label: 'Most for one person, in GB', type: 'number', scope: 'environment', min: 0, default: 0 },
+    ],
+  }));
+  fs.writeFileSync(path.join(root, 'src', 'shelf.html'), '<!DOCTYPE html><html><head><style>/*__CSS__*/</style></head><body><script>/*__JS__*/</script></body></html>');
+  fs.writeFileSync(path.join(root, 'src', 'shelf.css'), '');
+  fs.writeFileSync(path.join(root, 'src', 'shelf.js'), '');
+  return buildModule(root).zip;
+}
+
+async function startServer(name, env) {
+  const dataDir = path.join(base, `${name}-data`);
+  const vaultDir = path.join(base, `${name}-vault`);
+  const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
+    cwd: ROOT,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, VAULT_DIR: vaultDir, ADMIN_PASSWORD: 'testpass1234', TRUST_PROXY_HOPS: '0', ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  child.stderr.on('data', (d) => { out += d; });
+  const port = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { child.kill(); reject(new Error(`the server did not start in time:\n${out}`)); }, 25000);
+    const onData = () => { const m = /listening on :(\d+)/.exec(out); if (m) { clearTimeout(timer); resolve(Number(m[1])); } };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
+    child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`the server stopped (${code}):\n${out}`)); });
+  });
+  const stop = () => new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
+  const rss = () => { try { return Number(fs.readFileSync(`/proc/${child.pid}/status`, 'utf8').match(/VmRSS:\s+(\d+)/)?.[1] || 0) / 1024; } catch { return 0; } };
+  return { port, dataDir, vaultDir, stop, rss, out: () => out, pid: child.pid };
+}
+
+// One request: { status, headers, bytes, json, text }. `cookie` is a session token; `host` a Host header; `body` a
+// Buffer (its Content-Length set unless `headers` names one).
+function send(server, method, urlPath, { cookie, headers = {}, body, host } = {}) {
+  return new Promise((resolve, reject) => {
+    const h = { accept: 'application/json', ...headers };
+    if (cookie) h.cookie = `app_session=${cookie}`;
+    if (host) h.host = host;
+    if (body !== undefined && h['content-length'] === undefined && h['transfer-encoding'] === undefined) h['content-length'] = String(body.length);
+    const req = http.request({ host: '127.0.0.1', port: server.port, method, path: urlPath, headers: h }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const bytes = Buffer.concat(chunks);
+        let json = null;
+        try { json = JSON.parse(bytes.toString()); } catch { /* bytes */ }
+        resolve({ status: res.statusCode, headers: res.headers, bytes, json, text: bytes.toString().slice(0, 400), cookies: (res.headers['set-cookie'] || []).map((c) => c.split(';')[0]) });
+      });
+      res.on('error', reject);
+    });
+    req.on('error', (err) => resolve({ status: 0, error: err.code || err.message, headers: {}, bytes: Buffer.alloc(0), json: null, text: '' }));
+    if (body !== undefined) req.write(body);
+    req.end();
+  });
+}
+// A request whose body the check writes itself: { req, answer } where `answer` resolves with the response (or the
+// error) as send does; nothing is written until the check writes it.
+function open(server, method, urlPath, { cookie, headers = {} } = {}) {
+  const h = { accept: 'application/json', ...headers };
+  if (cookie) h.cookie = `app_session=${cookie}`;
+  const req = http.request({ host: '127.0.0.1', port: server.port, method, path: urlPath, headers: h });
+  const answer = new Promise((resolve) => {
+    req.on('response', (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => { const bytes = Buffer.concat(chunks); let json = null; try { json = JSON.parse(bytes.toString()); } catch { /* bytes */ } resolve({ status: res.statusCode, headers: res.headers, bytes, json }); });
+      res.on('error', () => resolve({ status: res.statusCode, headers: res.headers, json: null }));
+    });
+    req.on('error', (err) => resolve({ status: 0, error: err.code || err.message }));
+  });
+  req.flushHeaders();
+  return { req, answer };
+}
+const quiet = (ms) => new Promise((r) => setTimeout(r, ms));
+// Every file under a folder (relative names), for "nothing was written" and "no part was left".
+function filesUnder(dir) {
+  const out = [];
+  const walk = (d) => { let es = []; try { es = fs.readdirSync(d, { withFileTypes: true }); } catch { return; } for (const e of es) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else out.push(path.relative(dir, p)); } };
+  walk(dir);
+  return out.sort();
+}
+const partsUnder = (dir) => filesUnder(dir).filter((f) => path.basename(f).startsWith('.part-'));
+
+let failed = false;
+const servers = [];
+try {
+  // Server A: small quotas, so they can be filled; a minute's allowance of 4 MB.
+  const A = await startServer('a', { VAULT_SPACE_MAX_GB: String(40 / 1024), VAULT_PERSON_MAX_GB: String(30 / 1024), VAULT_MAX_GB: String(60 / 1024), VAULT_MB_PER_MINUTE: '40' });
+  servers.push(A);
+  const login = async (who, password) => { const r = await send(A, 'POST', '/api/login', { headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify({ login: who, password })) }); assert.equal(r.status, 200, `${who} signs in: ${r.text}`); return r.json.token; };
+  const json = (method, urlPath, cookie, value) => send(A, method, urlPath, { cookie, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(value)) });
+  const admin = await login('admin', 'testpass1234');
+  const people = {};
+  for (const who of ['pat', 'sam', 'mo', 'lou', 'rae', 'kit']) {
+    const r = await json('POST', '/api/users', admin, { login: who, displayName: who, role: 'member', password: 'memberpass1234' });
+    assert.equal(r.status, 201, r.text);
+    people[who] = { key: r.json.user.key, token: await login(who, 'memberpass1234') };
+  }
+  const members = ['pat', 'sam', 'mo', 'rae', 'kit'].map((w) => people[w].key);
+  const trip = (await json('POST', '/api/spaces', admin, { name: 'Rome', members })).json.space;
+  const other = (await json('POST', '/api/spaces', admin, { name: 'Oslo', members: [people.lou.key] })).json.space;
+  await json('PATCH', `/api/spaces/${trip.id}`, admin, { members });
+  await json('PATCH', `/api/spaces/${other.id}`, admin, { members: [people.lou.key] });
+  assert.equal((await json('PATCH', `/api/users/${people.mo.key}/spaces/${trip.id}`, admin, { permissions: { moderator: true } })).status, 200);
+  const up = await send(A, 'POST', '/api/modules', { cookie: admin, headers: { 'content-type': 'application/zip' }, body: shelfZip() });
+  same(up.status, 201, `a module that declares library installs: ${up.text}`);
+  same((await json('PATCH', '/api/modules/shelf', admin, { enabled: true, allSpaces: true })).status, 200, 'and turns on');
+  const roles = (await send(A, 'GET', '/api/roles', { cookie: admin })).json.roles;
+  same(['view', 'add', 'download', 'remove_any'].map((k) => roles.guest[`module.shelf.${k}`]), [false, false, false, false], 'its library permissions are off for guests, whatever the manifest asked');
+  same(['view', 'add', 'download', 'remove_any'].map((k) => roles.member[`module.shelf.${k}`]), [true, true, true, false], 'and as asked for members');
+  const guestToken = (await json('POST', `/api/spaces/${trip.id}/guest-link`, admin, {})).json.space.guestToken;
+  const streamKey = (await send(A, 'GET', '/api/me', { cookie: admin })).json.streamKey;
+  const spaceDir = path.join(A.vaultDir, '_default', `space-${trip.id}`);
+  const lib = (q = '') => `/api/modules/shelf/library?space=${trip.id}${q}`;
+  const add = (who, name, body, { type, q = '' } = {}) => send(A, 'POST', lib(`&name=${encodeURIComponent(name)}${q}`), { cookie: people[who]?.token || who, headers: { 'content-type': type || 'application/octet-stream' }, body });
+
+  // --- piece 3: uploads ---------------------------------------------------------------------------------------------
+  const kept = {};
+  for (const [label, who, name, bytes, type, want] of [
+    ['a JPEG', 'pat', 'beach.jpg', jpegOf(), 'image/jpeg', ['image/jpeg', 'image', 'beach.jpg']],
+    ['a PNG', 'pat', 'map.png', pngOf(3, 2), 'image/png', ['image/png', 'image', 'map.png']],
+    ['a WebP', 'pat', 'sky.webp', webpOf(), 'image/webp', ['image/webp', 'image', 'sky.webp']],
+    ['a GIF', 'pat', 'wave.gif', gifOf(), 'image/gif', ['image/gif', 'image', 'wave.gif']],
+    ['an MP3', 'sam', 'song.mp3', mp3Of(), 'audio/mpeg', ['audio/mpeg', 'audio', 'song.mp3']],
+    ['an OGG', 'sam', 'birds.ogg', oggOf(), 'audio/ogg', ['audio/ogg', 'audio', 'birds.ogg']],
+    ['a WAV', 'sam', 'bell.wav', riffOf('WAVE'), 'audio/x-wav', ['audio/wav', 'audio', 'bell.wav']],
+    ['an M4A', 'sam', 'talk.m4a', ftypOf('M4A ', ['isom']), 'audio/x-m4a', ['audio/mp4', 'audio', 'talk.m4a']],
+    ['an MP4', 'sam', 'walk.mp4', ftypOf('isom', ['mp42']), 'video/mp4', ['video/mp4', 'video', 'walk.mp4']],
+    ['a WebM', 'sam', 'clip.webm', ebmlOf('webm'), 'video/webm', ['video/webm', 'video', 'clip.webm']],
+    ['a MOV', 'sam', 'IMG_0001.MOV', ftypOf('qt  '), 'video/quicktime', ['video/quicktime', 'video', 'IMG_0001.MOV']],
+    ['a PDF', 'pat', 'ticket', pdfOf(), 'application/pdf', ['application/pdf', 'document', 'ticket.pdf']],
+    ['Markdown', 'pat', 'notes.md', Buffer.from('# Day one\n<script>alert(1)</script>\n'), 'text/markdown', ['text/markdown', 'document', 'notes.md']],
+  ]) {
+    const r = await add(who, name, bytes, { type });
+    same([r.status, r.json?.file?.type, r.json?.file?.group, r.json?.file?.name], [201, ...want], `${label} is kept from its bytes: ${r.text}`);
+    kept[want[0]] = r.json.file;
+  }
+  const v = kept['application/pdf'];
+  same(Object.keys(v).sort(), ['at', 'by', 'group', 'hasThumb', 'id', 'name', 'size', 'type', 'uses'], 'a file\'s view');
+  same([v.by, v.size, v.hasThumb, v.uses], [people.pat.key, pdfOf().length, false, 0], 'who added it, its size, no thumbnail, no links');
+  ok(/^[a-f0-9]{24}$/.test(v.id) && fs.existsSync(path.join(spaceDir, `${v.id}.bin`)), 'its bytes are VAULT_DIR/_default/space-<id>/<id>.bin on a single install');
+  same(fs.readFileSync(path.join(spaceDir, `${v.id}.bin`)), pdfOf(), 'kept as sent');
+  const recs = JSON.parse(fs.readFileSync(path.join(A.dataDir, 'modules', 'shelf', 'library', `space-${trip.id}.json`), 'utf8'));
+  same([recs[v.id].sha256, recs[v.id].name], [require('node:crypto').createHash('sha256').update(pdfOf()).digest('hex'), 'ticket.pdf'], 'its record, with its SHA-256, in DATA_DIR');
+  ok(!filesUnder(A.dataDir).some((f) => f.endsWith('.bin')), 'no bytes under DATA_DIR');
+
+  // Pictures: where it was taken goes unless the person keeps it; what rides along goes either way.
+  const jpg = fs.readFileSync(path.join(spaceDir, `${kept['image/jpeg'].id}.bin`));
+  ok(!jpg.includes(Buffer.from('Acme')) && !jpg.includes(Buffer.from('2026:09')), 'a JPEG loses its EXIF by default, so where it was taken');
+  same(kept['image/jpeg'].taken, '2026-09-21T14:30:05', 'and its taken time is in the record');
+  const keptPos = await add('pat', 'pos.jpg', jpegOf(), { type: 'image/jpeg', q: '&keepPosition=1' });
+  same(keptPos.status, 201, 'keepPosition=1 keeps it');
+  ok(fs.readFileSync(path.join(spaceDir, `${keptPos.json.file.id}.bin`)).includes(Buffer.from('Acme')), 'with its EXIF');
+  ok(!fs.readFileSync(path.join(spaceDir, `${kept['image/png'].id}.bin`)).includes(Buffer.from('hidden words')), 'a PNG loses its text');
+
+  // Refused, with the sentence that says why, and nothing kept.
+  const before = filesUnder(spaceDir);
+  for (const [label, name, bytes, type, status, sentence] of [
+    ['SVG', 'x.svg', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>'), 'image/svg+xml', 400, /That kind of file can't be added here\. It takes pictures/],
+    ['SVG under a .png name', 'x.png', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>'), 'image/png', 400, /That kind of file/],
+    ['HTML as Markdown', 'x.md', Buffer.from('<!doctype html><script>1</script>'), 'text/markdown', 400, /That kind of file/],
+    ['HTML', 'x.html', Buffer.from('<html><script>1</script></html>'), 'text/html', 400, /That kind of file/],
+    ['a zip', 'x.zip', Buffer.from('PK\x03\x04\x14\0\0\0\0\0', 'latin1'), 'application/zip', 400, /That kind of file/],
+    ['a zip with no name', 'x', Buffer.from('PK\x03\x04\x14\0\0\0\0\0', 'latin1'), 'application/octet-stream', 400, /That kind of file/],
+    ['HEIC by name', 'IMG_2.HEIC', ftypOf('heic', ['mif1']), 'image/heic', 400, /^HEIC pictures can't be added here\. Save it as a JPEG\.$/],
+    ['HEIC under a .jpg name', 'IMG_2.jpg', ftypOf('heic', ['mif1']), 'image/jpeg', 400, /Save it as a JPEG/],
+    ['Matroska', 'film.mkv', ebmlOf('matroska'), 'video/x-matroska', 400, /That kind of file/],
+    ['a PDF named .exe', 'ticket.exe', pdfOf(), 'application/octet-stream', 400, /That kind of file/],
+    ['a PDF named .jpg', 'ticket.jpg', pdfOf(), 'image/jpeg', 400, /^That file's name or type doesn't match what is in it\.$/],
+    ['a PDF sent as a PNG', 'ticket', pdfOf(), 'image/png', 400, /doesn't match/],
+    ['a JPEG named .png', 'beach.png', jpegOf(), 'image/png', 400, /doesn't match/],
+    ['a PDF with JavaScript', 'evil.pdf', pdfOf('/OpenAction << /S /JavaScript /JS (app.alert(1)) >>'), 'application/pdf', 400, /^That PDF holds scripts or other active content, so it can't be added\.$/],
+    ['a PDF that launches', 'evil.pdf', pdfOf('/OpenAction << /S /Launch /F (calc.exe) >>'), 'application/pdf', 400, /active content/],
+    ['a picture too large to draw', 'huge.png', pngOf(20000, 6000), 'image/png', 400, /^That picture is too large to show\.$/],
+    ['a JPEG cut short', 'cut.jpg', jpegOf().subarray(0, 60), 'image/jpeg', 400, /^That picture is damaged or cut short\.$/],
+    ['text that is not Markdown', 'notes.txt', Buffer.from('# hi'), 'text/plain', 400, /That kind of file/],
+    ['Markdown that is not UTF-8', 'bad.md', Buffer.from([0x23, 0x20, 0xc3, 0x28]), 'text/markdown', 400, /That kind of file/],
+  ]) {
+    const r = await add('rae', name, bytes, { type });
+    ok(r.status === status && sentence.test(r.json?.error || ''), `${label} is refused (${status}): ${r.status} ${r.text}`);
+  }
+  same(filesUnder(spaceDir), before, 'nothing was kept for any of them, and no part was left');
+  same((await add('rae', '', pdfOf())).json?.error, 'Name the file in ?name=.', 'no name: 400');
+  same((await add('rae', 'empty.pdf', Buffer.alloc(0))).status, 400, 'an empty body: 400');
+  const chunked = await send(A, 'POST', lib('&name=a.pdf'), { cookie: people.rae.token, headers: { 'content-type': 'application/pdf', 'transfer-encoding': 'chunked' }, body: pdfOf() });
+  same([chunked.status, chunked.json?.error], [411, 'Send the file with its size (Content-Length).'], 'no Content-Length: 411');
+
+  // Sizes from Content-Length, before the body: a picture over 25 MB is refused at once and nothing is written.
+  const MB = 1024 * 1024;
+  const mp4Of = (bytes) => Buffer.concat([ftypOf('isom', ['mp42']), Buffer.alloc(bytes - ftypOf('isom', ['mp42']).length, 7)]);
+  {
+    const big = open(A, 'POST', lib('&name=big.png'), { cookie: people.pat.token, headers: { 'content-type': 'image/png', 'content-length': String(26 * MB) } });
+    const r = await big.answer;
+    same([r.status, r.json?.error], [413, 'That file is over the 25 MB limit for pictures.'], 'a 26 MB picture is refused from its Content-Length');
+    big.req.destroy();
+    same(partsUnder(A.vaultDir), [], 'before any byte was written: no part file');
+    const huge = open(A, 'POST', lib('&name=film'), { cookie: people.pat.token, headers: { 'content-type': 'application/octet-stream', 'content-length': String(3 * 1024 * MB) } });
+    same((await huge.answer).json?.error, 'That file is over the 2 GB limit for video.', 'over 2 GB with no type said: refused at once');
+    huge.req.destroy();
+    const pdf = open(A, 'POST', lib('&name=a.pdf'), { cookie: people.pat.token, headers: { 'content-type': 'application/pdf', 'content-length': String(101 * MB) } });
+    same((await pdf.answer).json?.error, 'That file is over the 100 MB limit for PDFs.', 'a PDF over 100 MB');
+    pdf.req.destroy();
+    const md = open(A, 'POST', lib('&name=a.md'), { cookie: people.pat.token, headers: { 'content-type': 'text/markdown', 'content-length': String(2 * MB) } });
+    same((await md.answer).json?.error, 'That file is over the 1 MB limit for Markdown.', 'Markdown over 1 MB');
+    md.req.destroy();
+  }
+  // A body that says nothing of its type is refused once its first bytes say it is a picture over 25 MB, without the rest.
+  {
+    const sneaky = open(A, 'POST', lib('&name=photo'), { cookie: people.kit.token, headers: { 'content-type': 'application/octet-stream', 'content-length': String(26 * MB) } });
+    sneaky.req.write(Buffer.concat([pngOf(2, 2), Buffer.alloc(8192)]));
+    const r = await sneaky.answer;
+    same([r.status, r.json?.error], [413, 'That file is over the 25 MB limit for pictures.'], 'a 26 MB PNG with no name or type said is refused from its first bytes');
+    sneaky.req.destroy();
+    await quiet(200);
+    same(partsUnder(A.vaultDir), [], 'and its part is gone');
+  }
+  // A body longer than its Content-Length: only what it declared is read as the file.
+  {
+    const r = await send(A, 'POST', lib('&name=short.pdf'), { cookie: people.pat.token, headers: { 'content-type': 'application/pdf', 'content-length': String(pdfOf().length) }, body: Buffer.concat([pdfOf(), Buffer.from('GARBAGE AFTER THE END'.repeat(10))]) });
+    await quiet(300);
+    const listed = (await send(A, 'GET', lib(), { cookie: people.pat.token })).json.files.find((f) => f.name === 'short.pdf');
+    same([r.status === 201 || r.status === 400, listed?.size], [true, pdfOf().length], 'a body longer than its Content-Length is cut off at it (what follows is not a request, so the server answers 400 to it)');
+  }
+  // An upload cut off part way: its part goes, and what it reserved is free again.
+  {
+    const cut = open(A, 'POST', lib('&name=cut.mp4'), { cookie: people.mo.token, headers: { 'content-type': 'video/mp4', 'content-length': String(10 * MB) } });
+    cut.req.write(mp4Of(1 * MB));
+    await quiet(300);
+    same(partsUnder(A.vaultDir).length, 1, 'an upload arriving has a part file');
+    cut.req.destroy();
+    await cut.answer;
+    await quiet(400);
+    same(partsUnder(A.vaultDir), [], 'cut off, its part is removed');
+  }
+  // Two uploads at once reserve against one quota: the second is refused while the first is still arriving.
+  {
+    const first = open(A, 'POST', lib('&name=first.mp4'), { cookie: people.sam.token, headers: { 'content-type': 'video/mp4', 'content-length': String(20 * MB) } });
+    const body = mp4Of(20 * MB);
+    first.req.write(body.subarray(0, MB));
+    await quiet(200);
+    const second = await add('sam', 'second.mp4', mp4Of(12 * MB), { type: 'video/mp4' });
+    same([second.status, second.json?.error], [413, 'You have used your 30 MB in Shelf. Remove some of your files to add more.'], 'a second upload that would pass the person\'s quota with the first: 413');
+    first.req.end(body.subarray(MB));
+    same((await first.answer).status, 201, 'the first is kept');
+    same((await add('sam', 'third.mp4', mp4Of(12 * MB), { type: 'video/mp4' })).status, 413, 'and then counts on disk');
+  }
+  // Two uploads at once for one person; a third waits.
+  {
+    const a1 = open(A, 'POST', lib('&name=a1.mp4'), { cookie: people.pat.token, headers: { 'content-type': 'video/mp4', 'content-length': String(MB) } });
+    const a2 = open(A, 'POST', lib('&name=a2.mp4'), { cookie: people.pat.token, headers: { 'content-type': 'video/mp4', 'content-length': String(MB) } });
+    const body = mp4Of(MB);
+    a1.req.write(body.subarray(0, 8192));
+    a2.req.write(body.subarray(0, 8192));
+    await quiet(300);
+    const a3 = await add('pat', 'a3.mp4', mp4Of(MB), { type: 'video/mp4' });
+    same([a3.status, a3.json?.error, a3.headers['retry-after']], [429, 'Another upload is still running. Wait for it to finish.', '5'], 'a third upload at once: 429');
+    a1.req.end(body.subarray(8192));
+    a2.req.end(body.subarray(8192));
+    same([(await a1.answer).status, (await a2.answer).status], [201, 201], 'the two finish');
+    same((await add('pat', 'a3.mp4', mp4Of(MB), { type: 'video/mp4' })).status, 201, 'then another may start');
+  }
+  // The space's quota (40 MB here), the owner's lower person quota, the server's total (60 MB).
+  {
+    same((await add('pat', 'big.mp4', mp4Of(14 * MB), { type: 'video/mp4' })).status, 201, 'the space fills up');
+    const full = await add('mo', 'more.mp4', mp4Of(5 * MB), { type: 'video/mp4' });
+    same([full.status, full.json?.error], [413, 'This space\'s Shelf is full (40 MB). Remove some files to add more.'], 'a space that is full: 413');
+    const set = await json('PUT', '/api/modules/shelf/settings/environment', admin, { values: { personMaxGb: 0.01 } });
+    same(set.status, 200, `the owner sets a lower person quota: ${set.text}`);
+    const lower = await add('rae', 'tiny.gif', gifOf(), { type: 'image/gif' });
+    same(lower.status, 201, 'someone under it still adds');
+    const overLower = await send(A, 'POST', `/api/modules/shelf/library?space=${other.id}&name=x.mp4`, { cookie: people.lou.token, headers: { 'content-type': 'video/mp4' }, body: mp4Of(11 * MB) });
+    same([overLower.status, overLower.json?.error], [413, 'You have used your 10.2 MB in Shelf. Remove some of your files to add more.'], 'the owner\'s lower quota holds');
+    await json('PUT', '/api/modules/shelf/settings/environment', admin, { values: { personMaxGb: 0 } });
+    const inOther = (who, name, bytes) => send(A, 'POST', `/api/modules/shelf/library?space=${other.id}&name=${name}`, { cookie: people[who].token, headers: { 'content-type': 'video/mp4' }, body: bytes });
+    same((await inOther('lou', 'x.mp4', mp4Of(20 * MB))).status, 201, 'another space still takes files');
+    const total = await inOther('lou', 'y.mp4', mp4Of(5 * MB));
+    same([total.status, total.json?.error], [413, 'The server\'s file storage is full. Ask the admin.'], 'the server\'s total (VAULT_MAX_GB): 413');
+  }
+  // The minute's allowance (40 MB here), counted from Content-Length when an upload starts.
+  {
+    const r = await send(A, 'POST', `/api/modules/shelf/library?space=${trip.id}&name=late.mp4`, { cookie: people.kit.token, headers: { 'content-type': 'video/mp4' }, body: mp4Of(15 * MB) });
+    ok(r.status === 429 && /^You have sent a lot in the last minute\. Wait \d+ seconds and try again\.$/.test(r.json?.error) && Number(r.headers['retry-after']) > 0, `over VAULT_MB_PER_MINUTE: 429 with Retry-After (${r.status} ${r.text})`);
+  }
+  // The module's own upload limit: 30 a minute for one person.
+  {
+    let got = null;
+    for (let i = 0; i < 32 && !got; i += 1) {
+      const r = await add('rae', `g${i}.gif`, gifOf(), { type: 'image/gif' });
+      if (r.status === 429) got = r;
+    }
+    ok(got && /doing that too often/.test(got.json.error), 'the module upload limit (30 a minute) holds');
+  }
+  same(partsUnder(A.vaultDir), [], 'no part file is left after any of it');
+
+  // Who may add, decided before the body: nothing is read or written for a refusal.
+  {
+    const asks = [
+      ['signed out', {}, 401, 'Sign in first.'],
+      ['a guest pass', { q: `&guest=${guestToken}` }, 403, 'Guests can\'t use Shelf.'],
+      ['the access key', { headers: { 'x-stream-key': streamKey } }, 403, 'The access key can\'t open Shelf.'],
+      ['someone not in the space', { cookie: people.lou.token }, 403, 'Shelf is not on in this space for you.'],
+      ['no such space', { cookie: people.pat.token, space: 'nosuch1' }, 404, 'There is no such space.'],
+    ];
+    for (const [who, o, status, error] of asks) {
+      const u = open(A, 'POST', `/api/modules/shelf/library?space=${o.space || trip.id}&name=x.mp4${o.q || ''}`, { cookie: o.cookie, headers: { 'content-type': 'video/mp4', 'content-length': String(5 * MB), ...(o.headers || {}) } });
+      const r = await u.answer;
+      same([r.status, r.json?.error], [status, error], `${who}: ${status} before the body`);
+      u.req.destroy();
+    }
+    await json('PATCH', '/api/roles/member', admin, { 'module.shelf.add': false });
+    const noAdd = await add('rae', 'x.gif', gifOf(), { type: 'image/gif' });
+    same([noAdd.status, noAdd.json?.error], [403, 'Your role can\'t do that in Shelf.'], 'a member whose role may not add: 403');
+    same((await add('mo', 'mod.gif', gifOf(), { type: 'image/gif' })).status, 201, 'a moderator still may (the moderator role keeps add)');
+    await json('PATCH', '/api/roles/member', admin, { 'module.shelf.add': true });
+    same((await send(A, 'POST', '/api/modules/nosuch/library?space=x&name=a.pdf', { cookie: people.pat.token, body: pdfOf() })).status, 404, 'no such module: 404');
+    same(partsUnder(A.vaultDir), [], 'nothing written for any refusal');
+  }
+  // --- end of server A ---
+  await A.stop();
+} catch (err) {
+  failed = true;
+  console.error(err);
+  for (const s of servers) console.error(`--- server output ---\n${s.out().slice(-3000)}`);
+} finally {
+  for (const s of servers) await s.stop();
+  fs.rmSync(base, { recursive: true, force: true });
+}
+if (failed) process.exit(1);
 
 console.log(`check-vault: ${n} checks OK`);

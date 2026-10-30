@@ -429,7 +429,7 @@ const THEME_OPTIONAL = [
 const DEFAULT_THEME = {
   name: 'Strong Coffee',
   dark: { 'surface-page': '#1a1410', 'surface-panel': '#241c16', 'edge-hairline': '#3b2e24', 'text-primary': '#f1e6d8', 'text-muted': '#a8998a', 'accent-fill': '#c8873a', 'text-on-accent': '#1a1206' },
-  light: { 'surface-page': '#faf6f1', 'surface-panel': '#f1e9df', 'edge-hairline': '#ded0bf', 'text-primary': '#2b2119', 'text-muted': '#76675a', 'accent-fill': '#a8692a', 'text-on-accent': '#ffffff' },
+  light: { 'surface-page': '#faf6f1', 'surface-panel': '#f1e9df', 'edge-hairline': '#ded0bf', 'text-primary': '#2b2119', 'text-muted': '#63564b', 'accent-fill': '#a6682a', 'text-on-accent': '#ffffff' },
 };
 // Shipped pre-made (see the seeding in load()), fixed ids so seeding is idempotent -- colors read straight off each real site's
 // own computed styles (button/link accent, body text, page background), not eyeballed.

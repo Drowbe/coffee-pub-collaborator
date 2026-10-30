@@ -212,7 +212,7 @@ test('the colours the server picks are written with the set, and reach their con
 });
 
 test('when neither white nor near-black reaches 4.5 : 1 on the accent, the better one is written and the set says so', () => {
-  const css = themeCss({ light: DEFAULT_THEME.light, dark: null }, 'light'); // Strong Coffee light: white on #a8692a is 4.45
+  const css = themeCss({ light: { ...DEFAULT_THEME.light, 'accent-fill': '#a8692a' }, dark: null }, 'light'); // an accent neither white nor near-black reaches 4.5 : 1 on (Strong Coffee's own old accent: white on #a8692a is 4.45)
   const body = blockOf(css, ':root:not([data-theme-mode="dark"])');
   assert.equal(prop(body, '--text-on-accent'), '#ffffff');
   assert.match(body, /\/\* flagged: Neither white nor near-black reaches 4\.5 : 1 on the accent\. \*\//);

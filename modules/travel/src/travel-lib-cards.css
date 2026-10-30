@@ -113,6 +113,10 @@
 .card-roundtrip .roundtrip-warn { color: var(--danger); font-weight: var(--weight-strong); }
 .card-more summary { display: flex; align-items: center; gap: 6px; padding: 5px 0; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; list-style: none; }
 .card-more summary::-webkit-details-marker { display: none; }
+@media (max-width: 640px) { /* tap targets on a phone */
+  .card-more summary { min-height: 44px; }
+  .btn.btn-small.sdk-day-add::after { inset: var(--btn-hit); } /* the day's Add, its word hidden: 44px each way */
+}
 .card-more summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 0.12s ease; }
 .card-more[open] summary::before { transform: rotate(-135deg); }
 .card-more .more-close, .card-more[open] .more-open { display: none; }
@@ -236,11 +240,10 @@
 .app.tiny .stay .ins .sep { justify-content: flex-start; }
 .app.tiny .stay .ins > div:last-child { text-align: left; }
 /* A card under 300px wide (a very narrow window): the band's title goes onto as many lines as its words need (never cut to
-   nothing), and the kicker gives way (the icon chip still says the kind). The slot is the container measured. */
+   nothing); the kicker stays above it (the band grows). The slot is the container measured. */
 .slot { container-type: inline-size; }
 @container (max-width: 299px) {
   .card > .sdk-card-head .sdk-card-title, .stay.mid .sdk-row-title { white-space: normal; overflow-wrap: break-word; }
-  .card > .sdk-card-head .kicker { display: none; }
 }
 /* on a phone the time moves above its card so the card gets the whole width */
 .app.narrow .row { grid-template-columns: 14px minmax(0, 1fr); column-gap: 8px; grid-template-areas: "rail when" "rail slot"; }

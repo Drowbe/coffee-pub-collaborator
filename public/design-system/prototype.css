@@ -43,8 +43,8 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
   .pp-top { position: static; } /* six switches wrap to five rows on a phone: they scroll away */
 }
 
-/* ---- Design-process work (Thomas, 2026-10-30): nothing below ships. What would move into public/sdk/system.css if he picks it is
-   marked "to system.css". ---- */
+/* ---- Design-process work (Thomas, 2026-10-30): nothing below ships. The stacked head, the circle icon and the 44px taps are the
+   product's now (public/sdk/system.css, the Cards block), so the Planner here shows them as built. ---- */
 
 /* The Planner's day: the frame is taller. The day itself is drawn in a shadow root (prototype-planner.js), with the Planner's own stylesheets
    and then this file, so the two switches' rules below apply inside it. */
@@ -52,33 +52,6 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 /* The module's place in the frame, as the product gives it: the frame's content does not scroll, the Planner's own .body does (so the day's head can stick). */
 .pp-frame .mf-content.mf-content-flush:has(> .pp-planner) { display: flex; flex-direction: column; overflow: hidden; }
 .pp-planner { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
-
-/* Head: stacked (Thomas, 2026-10-30; to system.css, as the banded card's head for every tool). The kind above the title in one column
-   (.pp-pcard-text), the icon at the left spanning both lines, the "..." at the right. The title is the strongest thing: 16px, bold, free
-   to wrap to a second line on a narrow card; the kind is 11px caps with tracking in the kind's colour, never cut (the Planner hides the kind
-   in a card under 300px; here it stays); the detail lines are 13px muted. The head grows with its text (the 30px of --card-head-h is a floor). */
-[data-pp-head="stacked"] .card > .sdk-card-head { padding-block: var(--space-2); }
-.pp-pcard-text { display: flex; flex-direction: column; gap: var(--space-0); min-width: 0; }
-[data-pp-head="stacked"] .card > .sdk-card-head .kicker { display: block; color: color-mix(in srgb, var(--tint) 70%, var(--text-primary)); font-size: var(--text-11); font-weight: var(--weight-strong); line-height: 14px; letter-spacing: var(--tracking-caps); text-transform: uppercase; white-space: nowrap; }
-@supports (color: oklch(from red l c h)) {
-  [data-pp-head="stacked"] .card > .sdk-card-head .kicker { color: oklch(from var(--tint) var(--pp-kind-l, var(--card-icon-l)) max(c, 0.12) h); }
-}
-[data-pp-mode="light"] { --pp-kind-l: 0.4; --pp-disc-l: 0.5; } /* the 11px label needs 4.5:1, the icon 3:1; the disc: light enough for a dark icon on a dark card, dark enough for a light icon on a light one (4.5:1 both ways) */
-[data-pp-head="stacked"] .card > .sdk-card-head .sdk-card-title { overflow: visible; font-size: var(--text-16); font-weight: var(--weight-strong); line-height: 20px; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
-
-/* Icon (Thomas, 2026-10-30; to system.css as the banded card's leading icon, in place of the rule in the Cards block). "Open 18" is the
-   Planner's own icon (no rule here). "Open large": no tile, 28px, the kind's colour as it is. "Circle": a solid round disc, 36px, in the
-   kind's colour with a light or dark icon, whichever reads better (prototype-planner.js measures it and sets data-ink on the card:
-   "page" is the theme's page colour, "text" its text colour). The disc is a true circle, so --radius-round. The head grows to hold it. */
-[data-pp-icon="large"] .card > .sdk-card-head .sdk-card-icon { --card-icon: 32px; font-size: var(--text-28); }
-[data-pp-icon="circle"] .card > .sdk-card-head .sdk-card-icon { --card-icon: 36px; border-radius: var(--radius-round); background: var(--tint, var(--text-muted)); font-size: var(--text-18); }
-@supports (color: oklch(from red l c h)) {
-  [data-pp-icon="circle"] .card > .sdk-card-head .sdk-card-icon { background: oklch(from var(--tint, var(--text-muted)) var(--pp-disc-l, 0.74) max(c, 0.12) h); }
-}
-[data-pp-icon="circle"] .card[data-ink="page"] > .sdk-card-head .sdk-card-icon { color: var(--surface-page); }
-[data-pp-icon="circle"] .card[data-ink="text"] > .sdk-card-head .sdk-card-icon { color: var(--text-primary); }
-:is([data-pp-icon="large"], [data-pp-icon="circle"]) .card > .sdk-card-head { padding-block: var(--space-1); }
-:is([data-pp-icon="large"], [data-pp-icon="circle"])[data-pp-head="stacked"] .card > .sdk-card-head { padding-block: var(--space-2); }
 
 /* The proposed light mode of Strong Coffee (the other two themes are untouched, and dark never changes). A surface ladder, from the
    page to the card: page one warm tone, the panel a step lighter, the card white; the title and status bars a distinct, darker tone;
@@ -104,13 +77,10 @@ html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="prop
   --card-head-step: 7%;
 }
 
-/* Tap targets on a phone (44px). The "..." (a small icon button): system.css grows it by (30 - 44) / 2 = 7px from the padding box, which is 28px
-   inside the 1px border, so the target comes out 42px; 8px makes it 44 (the same for the day's "..." and every small icon button; to system.css, with
-   --btn-hit taken from the padding box). More/Less is a line 26px tall in the Planner today: here it is 44px. The day's Add is 44px wide
-   with its word hidden. (To modules/travel/src/travel-lib-cards.css and system.css.) */
+/* The Planner's jump list (prototype-planner.js), and the outline a part wears when it is jumped to (inside the Planner's shadow root, which reads this file too). */
+.pp-jump { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
+.pp-jump-label { color: var(--text-muted); font-size: var(--text-13); }
+.pp-flash { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (max-width: 640px) {
-  .sdk-icon-btn.btn-small::after { inset: -8px; }
-  .card-more summary { min-height: 44px; }
-  .btn.btn-small::after { inset: -8px 0; } /* a small text button: 28px inside its border + 16 = 44 */
-  .btn.btn-small.sdk-day-add::after { inset: -8px; } /* the day's Add, a word-less 40px button: 44px each way and more */
+  .pp-jump { padding-inline: var(--space-4); }
 }

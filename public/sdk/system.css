@@ -138,7 +138,7 @@
   --btn-pad-x: var(--space-4);
   --btn-font: var(--text-14);
   --btn-icon: var(--icon-16);
-  --btn-hit: calc((var(--btn-h-small) - 44px) / 2); /* how far a small button's hit area grows past its box on a phone */
+  --btn-hit: calc((var(--btn-h-small) - 2px - 44px) / 2); /* how far a small button's hit area grows past its box on a phone */
 
   /* ---- Breakpoints, documented (see the comment at the top: not usable in @media) ---- */
   --bp-narrow: 640px;
@@ -1390,11 +1390,38 @@
 }
 /* A banded card with nothing shown under its band (its body hidden) is the band alone: no hairline under it, every corner round. */
 .sdk-card-banded > .sdk-card-head:not(:has(~ :not([hidden]))) { border-bottom: 0; border-radius: var(--radius-medium); }
-/* The head's parts in a banded object box: the icon (24px), the title in one line, the meta, then the "..." at the right. */
+/* The head's parts in a banded object box: the icon (a 36px circle) at the left, the text beside it, the "..." at the right. The title is
+   the strongest thing (16px, bold, free to wrap on a narrow card). A kind label (.sdk-card-sub with .sdk-tint-text: "Flight", "Museum")
+   stacks above the title, in the kind's colour; without one, a sub stays small after the title. The head grows with its text
+   (--card-head-h is a floor). */
+.sdk-card-banded > .sdk-card-head { padding-block: var(--space-2); }
 .sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: var(--text-12); line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: visible; font-size: var(--text-16); line-height: 20px; overflow-wrap: anywhere; }
 .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: var(--text-11); }
-.sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 28px; }
+.sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 36px; }
+.sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-sub.sdk-tint-text) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--space-0);
+  align-items: center;
+}
+.sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-sub.sdk-tint-text):has(> .sdk-card-icon) { grid-template-columns: auto minmax(0, 1fr); }
+.sdk-card-banded > .sdk-card-head > .sdk-card-main > .sdk-card-icon { grid-column: 1; grid-row: 1 / span 2; }
+.sdk-card-banded > .sdk-card-head > .sdk-card-main > .sdk-card-sub.sdk-tint-text { grid-column: -2; grid-row: 1; min-width: 0; }
+.sdk-card-banded > .sdk-card-head > .sdk-card-main > .sdk-card-sub.sdk-tint-text ~ .sdk-card-title,
+.sdk-card-banded > .sdk-card-head > .sdk-card-main > .sdk-card-title:has(~ .sdk-card-sub.sdk-tint-text) { grid-column: -2; grid-row: 2; min-width: 0; }
+.sdk-card-banded > .sdk-card-head .sdk-card-sub.sdk-tint-text {
+  color: color-mix(in srgb, var(--tint, var(--text-muted)) 70%, var(--text-primary));
+  font-weight: var(--weight-strong);
+  line-height: 14px;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  white-space: nowrap; /* the kind is never cut */
+}
+@supports (color: oklch(from red l c h)) {
+  .sdk-card-banded > .sdk-card-head .sdk-card-sub.sdk-tint-text { color: oklch(from var(--tint, var(--text-muted)) var(--card-kind-l) max(c, 0.12) h); }
+}
 /* A button in the band (the "..." or one small action) is the band's 30px and sits on its line. */
 .sdk-card-banded > .sdk-card-head > :is(.sdk-icon-btn, .btn-small) { flex: none; }
 /* The banded card's states: the same fills as a card, made on the box's own surface (--s), so the band, a step of it, follows. */
@@ -1445,7 +1472,7 @@
 .sdk-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); }
 .sdk-row-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--text-12); line-height: 16px; }
 .sdk-row-meta { flex: none; color: var(--text-muted); font-size: var(--text-12); white-space: nowrap; }
-.sdk-row .sdk-card-icon { --card-icon: 28px; }
+.sdk-row .sdk-card-icon { --card-icon: 28px; font-size: var(--text-14); }
 /* The tick: a 16px box (the Fields family) in a hit area that is 28px, and 44px on a phone. */
 .sdk-row-tick {
   flex: none;
@@ -1528,11 +1555,12 @@
 .sdk-card:has(> .sdk-card-menu) > :is(.sdk-card-head, .sdk-card-title, .sdk-card-sub) { padding-right: var(--btn-h-small); }
 .sdk-card-home:has(> .sdk-card-menu) { padding-right: var(--pad-home); }
 
-/* The card's leading icon: no tile, the icon alone in the kind's colour (--tint; none, and it is neutral), 1.5 times the old size
-   (18px, was 12px in a banded head and 14px elsewhere). The colour is the tint at a lightness that holds 3:1 on the card: --card-icon-l, 0.78 on a
-   dark card, 0.5 on a light one. The box (--card-icon) only keeps the title and the icon lined up and the tap area; it draws nothing. */
-:root { --card-icon-l: 0.78; }
-:root[data-theme-mode="light"] { --card-icon-l: 0.5; }
+/* The card's leading icon: a solid circle in the kind's colour (--tint; none, and it is neutral), the icon on it in the page colour (dark in
+   dark mode, light in light mode). The disc is the tint at a lightness that holds the icon against it, 4.5:1: --card-disc-l, 0.74 in dark
+   mode, 0.5 in light. The kind label beside it uses --card-kind-l, 0.78 in dark mode and 0.4 in light (11px text needs 4.5:1 on the card).
+   The box (--card-icon) is the circle: 36px in a banded head, 28px in a row. */
+:root { --card-kind-l: 0.78; --card-disc-l: 0.74; }
+:root[data-theme-mode="light"] { --card-kind-l: 0.4; --card-disc-l: 0.5; }
 .sdk-card-icon {
   flex: none;
   display: inline-flex;
@@ -1540,13 +1568,14 @@
   justify-content: center;
   width: var(--card-icon);
   height: var(--card-icon);
-  background: none;
-  color: color-mix(in srgb, var(--tint, var(--text-muted)) 70%, var(--text-primary));
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--tint, var(--text-muted)) 70%, var(--text-primary));
+  color: var(--surface-page);
   font-size: var(--text-18);
   line-height: 1;
 }
 @supports (color: oklch(from red l c h)) {
-  .sdk-card-icon { color: oklch(from var(--tint, var(--text-muted)) var(--card-icon-l) max(c, 0.12) h); }
+  .sdk-card-icon { background: oklch(from var(--tint, var(--text-muted)) var(--card-disc-l) max(c, 0.12) h); }
 }
 .sdk-tint-text { color: color-mix(in srgb, var(--tint, var(--text-muted)) 62%, var(--text-primary)); font-weight: var(--weight-strong); }
 

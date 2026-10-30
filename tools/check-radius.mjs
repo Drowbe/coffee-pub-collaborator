@@ -97,6 +97,7 @@ const ROUND_OK = [
   { file: 'public/sdk/system.css', sel: '.sdk-chip-dot', why: 'a 7px dot in a chip' },
   { file: 'public/sdk/system.css', sel: '.sdk-badge-micro', why: 'the corner count: the count\'s 14px circle on an icon' },
   { file: 'public/sdk/system.css', sel: '.sdk-dot', why: 'a 7px dot' },
+  { file: 'public/sdk/system.css', sel: '.sdk-card-icon', why: 'the card\'s icon: a solid 36px disc (a square box, a true circle)' },
   { file: 'public/sdk/system.css', sel: '.sdk-avatar', why: 'an avatar' },
   { file: 'public/sdk/system.css', sel: '.sdk-avatar > img', why: 'an avatar\'s picture' },
   { file: 'public/sdk/system.css', sel: '.sdk-member-dot', why: 'the online dot on a member tile' },
@@ -150,7 +151,6 @@ const ROUND_OK = [
   { file: 'public/sdk/host.css', sel: '.sdk-kind-chip', why: 'the kind\'s 26px icon disc' },
   // public/design-system/ds.css (the catalog's own pages)
   { file: 'public/design-system/ds.css', sel: '.ds-bar', why: 'an 8px bar, as the progress bar' },
-  { file: 'public/design-system/prototype.css', sel: '[data-pp-icon="circle"] .card > .sdk-card-head .sdk-card-icon', why: 'the Prototype\'s trial card icon: a solid 36px disc (square box, a true circle)' },
   // modules
   { file: 'modules/budget/src/budget.css', sel: '.mark', why: 'a 24px icon disc' },
   { file: 'modules/budget/src/budget.css', sel: '.avatar', why: 'a person\'s 26px initials' },

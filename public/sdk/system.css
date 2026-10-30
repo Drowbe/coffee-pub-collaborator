@@ -1396,6 +1396,10 @@
    (--card-head-h is a floor). */
 .sdk-card-banded > .sdk-card-head:has(> .sdk-card-main > :is(.sdk-card-icon, .sdk-card-sub.sdk-tint-text)) { padding-block: var(--space-2); } /* a plain title head stays the 30px band; padding is only for the stacked or icon head */
 .sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+/* A plain head (no icon, no kind label) keeps the 30px band for one line; when its title wraps, the text keeps 4px from the band's edges. */
+.sdk-card-banded > .sdk-card-head > .sdk-card-main:not(:has(> :is(.sdk-card-icon, .sdk-card-sub.sdk-tint-text))) { padding-block: var(--space-1); }
+/* The head is the container the narrow rules below measure (the card's width less its hairline), so every module's banded card answers alike. */
+.sdk-card-banded > .sdk-card-head { container-type: inline-size; }
 .sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: visible; font-size: var(--text-16); line-height: 20px; overflow-wrap: anywhere; }
 .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: var(--text-11); }
 /* In a container under 300px wide (a very narrow window) the icon goes above the text, so the title has the card's width: beside a 36px
@@ -1404,8 +1408,10 @@
   .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-0); align-items: start; justify-items: start; }
   .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > :is(.sdk-card-icon, .sdk-card-title, .sdk-card-sub),
   .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > .sdk-card-sub.sdk-tint-text ~ .sdk-card-title,
-  .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > .sdk-card-title:has(~ .sdk-card-sub.sdk-tint-text),
-  .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > .sdk-card-sub.sdk-tint-text { grid-column: 1; grid-row: auto; }
+  .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > .sdk-card-title:has(~ .sdk-card-sub.sdk-tint-text) { grid-column: 1; grid-row: auto; }
+  /* icon, then the kind label, then the title: the label stays above the title at every width */
+  .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > .sdk-card-icon { grid-row: 1; }
+  .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-icon) > .sdk-card-sub.sdk-tint-text { grid-column: 1; grid-row: 2; }
 }
 .sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 36px; }
 .sdk-card-banded > .sdk-card-head > .sdk-card-main:has(> .sdk-card-sub.sdk-tint-text) {

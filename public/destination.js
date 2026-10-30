@@ -630,7 +630,7 @@ let liftSeq = 0;
 function coverPage(open, result) {
   const body = document.body;
   const box = open && result && result.lifted === true && result.cover ? result.cover : null;
-  for (const side of ['top', 'right', 'bottom', 'left']) {
+  for (const side of ['top', 'bottom']) {
     if (box) body.style.setProperty(`--cover-${side}`, `${Math.max(0, Number(box[side]) || 0)}px`); else body.style.removeProperty(`--cover-${side}`);
   }
   body.classList.toggle('dest-covered', Boolean(box));

@@ -1119,12 +1119,13 @@ test('the current phase is the last band that has started, else the first; an ob
   const between = { booking: { start: '2026-09-11' }, ...dates };
   assert.equal(lib.currentBand(bandsFor(between, '2026-09-20', created), '2026-09-20').id, 'booking');
   const bands = bandsFor(dates, '2026-10-03', created);
-  assert.equal(lib.phaseOf({ phase: 'planning' }, bands, '2026-10-03'), 'planning');
-  assert.equal(lib.phaseOf({ phase: 'gone' }, bands, '2026-10-03'), null, 'a phase no longer listed: Unscheduled');
-  assert.equal(lib.phaseOf({}, bands, '2026-10-03'), null, 'no phase of its own: Unscheduled, not the current phase');
-  assert.equal(lib.phaseOf({}, bands, '2026-10-15'), null, 'and it does not move as the calendar does');
+  assert.equal(lib.phaseOf.length, 2, 'phaseOf takes the item and the bands, not a date');
+  assert.equal(lib.phaseOf({ phase: 'planning' }, bands), 'planning');
+  assert.equal(lib.phaseOf({ phase: 'gone' }, bands), null, 'a phase no longer listed: Unscheduled');
+  assert.equal(lib.phaseOf({}, bands), null, 'no phase of its own: Unscheduled, not the current phase');
+  assert.equal(lib.phaseOf({}, bands), null, 'and it does not move as the calendar does');
   assert.equal(lib.currentBand([], '2026-10-03'), null);
-  assert.equal(lib.phaseOf({}, [], '2026-10-03'), null);
+  assert.equal(lib.phaseOf({}, []), null);
 });
 
 test('a day wears its phase: the band it is in, its tint and name; nothing before, between or after', () => {

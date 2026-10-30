@@ -10,7 +10,7 @@ body.destination-page {
 }
 
 /* The Workspace lifted this composite's frame over the whole screen for a part's editor window (destination.js, coverPage): the
-   page stays in the box the frame had, on a clear ground, so the window shows the list behind the dialog. */
+   page stays in the box the frame had (the frame keeps its width, so the page's layout does not change), on a clear ground, so the window shows the list behind the dialog. */
 html:has(body.dest-covered),
 body.dest-covered {
   background: transparent;
@@ -18,7 +18,7 @@ body.dest-covered {
 
 body.dest-covered {
   box-sizing: border-box;
-  padding: var(--cover-top, 0) var(--cover-right, 0) var(--cover-bottom, 0) var(--cover-left, 0);
+  padding: var(--cover-top, 0) 0 var(--cover-bottom, 0);
 }
 
 /* A view of one space in the space page's frame (destination.js, `withoutTopbar`), or a composite's page on the Workspace:

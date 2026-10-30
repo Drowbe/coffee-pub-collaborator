@@ -905,8 +905,9 @@ function watchLifts(doc) {
 // Calendar's parts run in the app's own page in a frame, where a dialog's top layer is the frame's too).
 // Returns { lift(open, size, height), release(), dismiss(byPerson), isLifted() }.
 //
-// `cover` (a composite's frame, whose page is the Calendar or the Map): the frame is lifted over the whole screen, not shrunk to the
-// editor's size, and it answers with the box it had, { top, right, bottom, left } in pixels from the screen's edges, so
+// `cover` (a composite's frame, whose page is the Calendar or the Map): the frame keeps its width and left edge, so the page's
+// media queries and containers answer as before, and runs the screen's full height, not shrunk to the
+// editor's size; it answers with the box it had, { top, right, bottom, left } in pixels from the screen's edges, so
 // the page can stay drawn in that box (destination.js, liftComposite) with the editor window over it. Without it the
 // window the person was working in would be left blank, as the frame (the whole page) moved out to the editor's size.
 export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener = null, cover = false }) {
@@ -921,6 +922,8 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
     liftRecords.delete(was);
     frame.classList.remove('module-editor-lifted', 'module-editor-lifted-large', 'module-editor-cover');
     frame.style.removeProperty('--lift-h');
+    frame.style.removeProperty('--cover-left');
+    frame.style.removeProperty('--cover-right');
     was.backdrop.remove();
     was.close.remove();
     for (const el of was.held) dropInert(el);
@@ -979,6 +982,7 @@ export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener 
     }
     frame.classList.add('module-editor-lifted');
     frame.classList.toggle('module-editor-cover', Boolean(box));
+    if (box) { frame.style.setProperty('--cover-left', `${box.left}px`); frame.style.setProperty('--cover-right', `${box.right}px`); }
     frame.classList.toggle('module-editor-lifted-large', size === 'large');
     if (Number.isFinite(height) && height > 0) frame.style.setProperty('--lift-h', `${Math.ceil(height)}px`); else frame.style.removeProperty('--lift-h');
     inertAround(lifted);

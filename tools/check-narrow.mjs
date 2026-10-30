@@ -11,7 +11,11 @@
 //      (Thomas, 2026-10-29), at 1280 and 390 px.
 //   5. Calendar: clicking an event in its window on the Workspace opens the editor window over the screen and leaves the
 //      Calendar drawn in its window behind it (the window was left blank: the frame holding the page shrank to the
-//      editor's size), at 1280 and 390 px.
+//      editor's size), at 1280 and 390 px; and the page keeps the layout it had: the frame keeps its width, so the page's
+//      media queries answer as before (a 758 px window at 1280, a 600 px window at 1280, 390 px).
+//   6. Banded cards (every module's, the shared head in public/sdk/system.css): in a card under 300px wide (Itinerary at 260
+//      px) the kind label is above the title and the icon above both; a plain head (Polls at 260 px) whose title wraps keeps
+//      4px between its text and the band's edges.
 // Usage: node tools/check-narrow.mjs. With no Chromium it says SKIPPED and exits 0 (a skip, never a pass).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -59,6 +63,14 @@ const SORT = `(() => { ${shown}
     inRow: Boolean(r && r.left >= b.left && r.right <= b.right), left: Boolean(r && filters && r.right <= filters.getBoundingClientRect().left),
     count: filters && filters.querySelector('.sdk-badge') ? filters.querySelector('.sdk-badge').textContent : '' }; })()`;
 
+const BANDED = `(() => { ${ROOTS}
+  const out = [];
+  for (const r of roots) for (const c of r.querySelectorAll('.sdk-card-banded')) {
+    const t = c.querySelector('.sdk-card-title'); const hd = c.querySelector('.sdk-card-head'); if (!t || !hd || !t.getClientRects().length) continue;
+    const i = c.querySelector('.sdk-card-icon'); const k = c.querySelector('.sdk-card-sub.sdk-tint-text'); const tr = t.getBoundingClientRect(); const hr = hd.getBoundingClientRect();
+    out.push({ title: t.textContent.trim(), width: Math.round(hr.width), lines: Math.round(tr.height / 20), iconAbove: i ? i.getBoundingClientRect().bottom <= tr.top + 1 : null, kindAbove: k ? k.getBoundingClientRect().top < tr.top : null, top: Math.round(tr.top - hr.top), bottom: Math.round(hr.bottom - tr.bottom) }); }
+  return out; })()`;
+
 async function view(browser, S, size, mode, screen, expr, wait = 1500) {
   const tab = new Tab(browser.cdp, S.ctx);
   await tab.open(size, mode, screen.call === true);
@@ -75,7 +87,8 @@ const CAL = (pick) => `(() => { const f = document.querySelector('iframe.composi
   if (${pick}) for (const r of roots) { const e = r.querySelector('#body [data-open]'); if (e && e.getClientRects().length) { const b = e.getBoundingClientRect(); pos = { x: fr.left + b.left + Math.min(b.width / 2, 40), y: fr.top + b.top + b.height / 2 }; break; } }
   const drawn = roots.reduce((n, r) => n + [...r.querySelectorAll('#body *')].filter((x) => x.getClientRects().length).length, 0);
   const m = mf.getBoundingClientRect();
-  return { pos, frame: { w: Math.round(fr.width), h: Math.round(fr.height), lifted: f.classList.contains('module-editor-lifted') }, page: { x: Math.round(m.left + fr.left), y: Math.round(m.top + fr.top), w: Math.round(m.width), h: Math.round(m.height) },
+  const cw = f.contentWindow;
+  return { pos, mq: { m900: cw.matchMedia('(max-width: 900px)').matches, m640: cw.matchMedia('(max-width: 640px)').matches, iw: cw.innerWidth }, frame: { w: Math.round(fr.width), h: Math.round(fr.height), lifted: f.classList.contains('module-editor-lifted') }, page: { x: Math.round(m.left + fr.left), y: Math.round(m.top + fr.top), w: Math.round(m.width), h: Math.round(m.height) },
     drawn, open: roots.some((r) => { const e = r.querySelector('#editor'); return Boolean(e && e.open); }), win: { w: innerWidth, h: innerHeight } }; })()`;
 
 async function main() {
@@ -129,7 +142,7 @@ async function main() {
     }
 
     // 5. Calendar: the editor window opens over the screen and the Calendar stays drawn in its window behind it.
-    for (const [size, phone] of [[1280, false], [390, true]]) {
+    for (const [size, phone, win] of [[1280, false, 0], [390, true, 0], [1280, false, 758], [1280, false, 600]]) {
       const cal = { id: 'workspace', as: 'mia', url: '/#join={trip}', wait: 'button.sdk-strip-fact[data-module=budget]', call: true, space: true };
       const tab = new Tab(browser.cdp, S.ctx);
       await tab.open(size, 'light', true);
@@ -137,6 +150,7 @@ async function main() {
       try {
         await driveScreen(tab, cal, S.base, S.cookies, S.ctx);
         if (phone) { await tab.eval(`document.querySelector('#layout-tab-calendar').click()`); await sleep(1000); } // a phone shows one module at a time
+        if (win) { await tab.eval(`(() => { for (const w of document.querySelectorAll('.module-floating')) if (w.querySelector('iframe.composite-frame')) { w.style.width = '${win}px'; w.style.left = '20px'; } window.dispatchEvent(new Event('resize')); })()`); await sleep(1000); }
         await sleep(2500);
         const before = await tab.eval(CAL(true));
         if (!before || !before.pos) { failures.push(`Calendar at ${size}px: no event to click in its window, so nothing was measured`); continue; }
@@ -145,15 +159,29 @@ async function main() {
         const after = await tab.eval(CAL(false));
         const same = (a, b) => Math.abs(a - b) <= 1;
         if (!after.open) failures.push(`Calendar at ${size}px: clicking an event did not open the editor window`);
-        if (!after.frame.lifted || after.frame.w !== after.win.w || after.frame.h !== after.win.h) failures.push(`Calendar at ${size}px: the editor window is not over the whole screen (the frame is ${after.frame.w}x${after.frame.h} of ${after.win.w}x${after.win.h})`);
+        if (!after.frame.lifted || after.frame.h !== after.win.h || Math.abs(after.frame.w - before.frame.w) > 1) failures.push(`Calendar at ${size}px${win ? ` (window ${win}px)` : ''}: the editor window does not cover the screen's height with the window's width (the frame is ${after.frame.w}x${after.frame.h} of ${after.win.w}x${after.win.h}, it was ${before.frame.w} wide)`);
+        if (after.mq.m900 !== before.mq.m900 || after.mq.m640 !== before.mq.m640 || Math.abs(after.mq.iw - before.mq.iw) > 1) failures.push(`Calendar at ${size}px${win ? ` (window ${win}px)` : ''}: the page's media queries changed while the editor was open (max-width 900px ${before.mq.m900} -> ${after.mq.m900}, 640px ${before.mq.m640} -> ${after.mq.m640}, width ${before.mq.iw} -> ${after.mq.iw})`);
         if (!same(after.page.x, before.page.x) || !same(after.page.y, before.page.y) || !same(after.page.w, before.page.w) || !same(after.page.h, before.page.h)) failures.push(`Calendar at ${size}px: the Calendar moved from ${JSON.stringify(before.page)} to ${JSON.stringify(after.page)} when the editor opened (its window went blank)`);
         if (after.drawn < 1 || after.drawn < before.drawn * 0.8) failures.push(`Calendar at ${size}px: ${before.drawn} of its nodes were drawn before the editor opened and ${after.drawn} after (its list went blank)`);
         await tab.key('Escape'); await sleep(1200);
         const closed = await tab.eval(CAL(false));
-        if (closed.open || closed.frame.lifted || closed.frame.w === after.win.w && size > 640 || !same(closed.page.x, before.page.x) || !same(closed.page.w, before.page.w) || !same(closed.page.h, before.page.h)) failures.push(`Calendar at ${size}px: after Escape the editor is ${closed.open ? 'still open' : 'closed'} and the Calendar is ${JSON.stringify(closed.page)}, not back in its window ${JSON.stringify(before.page)}`);
-        say(`Calendar ${size}px: editor ${after.open ? 'open' : 'closed'}; frame ${after.frame.w}x${after.frame.h}; page box ${JSON.stringify(before.page)} -> ${JSON.stringify(after.page)}; ${before.drawn} -> ${after.drawn} nodes drawn`);
+        if (closed.open || closed.frame.lifted || !same(closed.page.x, before.page.x) || !same(closed.page.w, before.page.w) || !same(closed.page.h, before.page.h)) failures.push(`Calendar at ${size}px: after Escape the editor is ${closed.open ? 'still open' : 'closed'} and the Calendar is ${JSON.stringify(closed.page)}, not back in its window ${JSON.stringify(before.page)}`);
+        say(`Calendar ${size}px${win ? ` (window ${win}px)` : ''}: media 900/640 ${before.mq.m900}/${before.mq.m640} -> ${after.mq.m900}/${after.mq.m640}; editor ${after.open ? 'open' : 'closed'}; frame ${after.frame.w}x${after.frame.h}; page box ${JSON.stringify(before.page)} -> ${JSON.stringify(after.page)}; ${before.drawn} -> ${after.drawn} nodes drawn`);
       } finally { await tab.close(); }
     }
+
+    // 6. Banded cards under 300px: the kind label above the title, the icon above both; a wrapped plain head keeps 4px.
+    const got6 = await view(browser, S, 260, 'light', planner, BANDED);
+    const kinds = (got6 || []).filter((x) => x.kindAbove !== null);
+    if (!kinds.length) failures.push('Banded cards at 260px: Itinerary showed no card with a kind label, so nothing was measured');
+    for (const x of kinds) { if (!x.kindAbove) failures.push(`Banded card "${x.title}" (${x.width}px): the kind label is below the title`); if (x.iconAbove === false) failures.push(`Banded card "${x.title}" (${x.width}px): the icon is beside the title under 300px`); }
+    say(`Banded cards 260px: ${kinds.length} with a kind label, ${kinds.filter((x) => x.kindAbove && x.iconAbove !== false).length} in order`);
+    const polls = { id: 'polls', as: 'mia', url: '/modules/polls?space={trip}', wait: '#module-frame >>> .poll' };
+    const got6b = (await view(browser, S, 260, 'light', polls, BANDED)) || [];
+    const wrapped = got6b.filter((x) => x.lines >= 2 && x.kindAbove === null && x.iconAbove === null);
+    if (!wrapped.length) failures.push('Banded cards at 260px: no poll question wrapped to two lines, so nothing was measured');
+    for (const x of wrapped) if (x.top < 4 || x.bottom < 4) failures.push(`Poll "${x.title}" (${x.width}px): ${x.top}px above and ${x.bottom}px below its two-line title, under 4px`);
+    say(`Polls 260px: ${wrapped.map((x) => `${x.top}/${x.bottom}px`).join(', ') || 'none wrapped'} between a wrapped title and the band's edges`);
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }
     if (server) await stopServer(server);

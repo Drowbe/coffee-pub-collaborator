@@ -79,7 +79,7 @@ const MEASURE = `(() => {
     const c = j.querySelector('.jointadd'); const p = j.previousElementSibling; const n = j.nextElementSibling;
     if (!c || !vis(c) || !p || !n || !vis(p) || !vis(n)) continue;
     const cb = c.getBoundingClientRect();
-    // A timeline of markers has room of its own around its pill: measure from the pill, which is what a person sees.
+    // A timeline of markers has its own padding around its pill: measure from the pill, which is what a person sees.
     const edge = (el, last) => { if (!el.classList.contains('timeline')) return el.getBoundingClientRect(); const rows = [...el.querySelectorAll('.sdk-mk-line')].filter(vis); const x = last ? rows[rows.length - 1] : rows[0]; return (x || el).getBoundingClientRect(); };
     out.joints.push({ prev: p.className.toString().slice(0, 30), next: n.className.toString().slice(0, 30), above: cb.top - edge(p, true).bottom, below: edge(n, false).top - cb.bottom });
   }

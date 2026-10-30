@@ -632,6 +632,22 @@ try {
     same((await thumbOf(kept['application/pdf'], 'pat', pngOf(4, 4))).status, 400, 'a PDF has none');
     same((await thumbOf(kept['image/png'], 'pat', Buffer.from('<svg/>'), 'image/svg+xml')).status, 400, 'an SVG is not one');
     same((await thumbOf(kept['image/png'], 'pat', pngOf(4, 4, Buffer.alloc(310 * 1024)))).status, 413, 'over 300 KB: 413');
+    // A small picture that stalls: two at once for one person, a third waits; each is cut off within ten seconds and
+    // what its size gives at the floor, so nothing is held open.
+    {
+      const thumbUrl = `/api/modules/shelf/library/${kept['image/png'].id}/thumb?space=${trip.id}`;
+      const stalled = [0, 1].map(() => open(A, 'PUT', thumbUrl, { cookie: people.pat.token, headers: { 'content-type': 'image/png', 'content-length': '1000' } }));
+      const started = Date.now();
+      const closedAt = [];
+      for (const s of stalled) { s.req.on('close', () => closedAt.push(Date.now() - started)); s.req.write(Buffer.alloc(10)); }
+      await quiet(300);
+      const third = await thumbOf(kept['image/png'], 'pat', pngOf(4, 4));
+      same([third.status, third.json?.error, third.headers['retry-after']], [429, 'Another small picture is still being sent. Wait for it to finish.', '5'], 'a third small picture at once: 429');
+      same((await thumbOf(kept['image/jpeg'], 'pat', pngOf(4, 4))).status === 429, true, 'still, while the two are held');
+      while (closedAt.length < 2 && Date.now() - started < 20000) await quiet(200);
+      ok(closedAt.length === 2 && Math.max(...closedAt) < 12000, `a stalled small picture is cut off (after ${closedAt.map((t) => Math.round(t / 100) / 10).join(' and ')} s)`);
+      same((await thumbOf(kept['image/png'], 'pat', pngOf(4, 4))).status, 200, 'then the next one goes');
+    }
 
     // Open file streams: twelve at once for one person; the thirteenth waits.
     const held = [];

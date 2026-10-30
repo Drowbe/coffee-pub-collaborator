@@ -7733,6 +7733,10 @@ const libraryMinRate = (() => { const kb = Number(VAULT_MIN_KB_PER_SECOND); retu
 const LIBRARY_RESERVE = { person: vaultTypes.MAX_BYTES, environment: Math.min(vaultLimits.total, Math.max(Math.floor(vaultLimits.total / 4), vaultTypes.MAX_BYTES)) };
 const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.';
 const LIBRARY_THUMB_BYTES = 300 * 1024;
+// A small picture is sent at most two at a time by one person and eight in one environment, and must arrive whole within
+// ten seconds and the time the floor (VAULT_MIN_KB_PER_SECOND) gives its size, or it is cut off.
+const LIBRARY_THUMBS = { person: 2, environment: 8 };
+const thumbDeadlineMs = (bytes) => 10000 + Math.ceil((bytes / libraryMinRate) * 1000);
 const sizeText = (bytes) => (bytes >= 1024 ** 3 ? `${gbText(bytes)} GB` : `${Math.round((bytes / 1048576) * 10) / 10} MB`);
 const libraryKindSentence = 'That kind of file can\'t be added here. It takes pictures (JPEG, PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown.';
 const librarySentence = (refusal) => (refusal === 'heic' ? 'HEIC pictures can\'t be added here. Save it as a JPEG.' : libraryKindSentence);
@@ -7838,8 +7842,9 @@ setInterval(() => {
   for (const [key, sent] of vaultSent) if (!sent.some(([at]) => now - at < 60000)) vaultSent.delete(key);
 }, 60000).unref();
 
-// Counts of what is running, across environments: uploads and open file streams, per person and per environment.
-const libraryRunning = { uploads: new Map(), streams: new Map() };
+// Counts of what is running, across environments: uploads, open file streams and small pictures arriving, per person
+// and per environment.
+const libraryRunning = { uploads: new Map(), streams: new Map(), thumbs: new Map() };
 function takeSlot(map, keys, most) {
   if ((map.get(keys.person) || 0) >= most.person) return 'person';
   if ((map.get(keys.environment) || 0) >= most.environment) return 'environment';
@@ -8124,7 +8129,7 @@ app.get('/api/modules/:id/library/:fid/thumb', (req, res) => sendLibraryFile(req
 // PUT /api/modules/:id/library/:fid/thumb?space= -- the small picture the page made for a picture or a video it added:
 // a JPEG, PNG or WebP of at most 300 KB, from the person who added the file. Checked and cleaned like a picture.
 app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
-  const refuse = (status, error) => { if (!res.headersSent) res.status(status).json({ error }); dropUploadBody(req); };
+  const refuse = (status, error, headers = {}) => { if (!res.headersSent) res.set(headers).status(status).json({ error }); dropUploadBody(req); };
   const ctx = libraryAccess(req, res, 'add', { file: true });
   if (!ctx) return dropUploadBody(req);
   const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
@@ -8137,16 +8142,34 @@ app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
   if (declared > LIBRARY_THUMB_BYTES) return refuse(413, 'That small picture is over 300 KB.');
   const limited = overLimit(ctx.manifest.id, ctx.by, 'upload');
   if (limited) return refuse(429, limitMessage());
-  const full = vaultFullRefusal(ctx, libraryKeys(ctx), declared);
-  if (full) return refuse(full.status, full.error);
-  const bytes = await new Promise((resolve) => {
-    const chunks = [];
-    let size = 0;
-    req.on('data', (c) => { size += c.length; if (size <= declared) chunks.push(c); });
-    req.on('end', () => resolve(size === declared ? Buffer.concat(chunks) : null));
-    req.on('error', () => resolve(null));
-    req.on('close', () => { if (!req.complete) resolve(null); });
-  });
+  const keys = libraryKeys(ctx);
+  const full = vaultFullRefusal(ctx, keys, declared);
+  if (full) return refuse(full.status, full.error, full.retry ? { 'Retry-After': String(full.retry) } : {});
+  const slot = takeSlot(libraryRunning.thumbs, keys, LIBRARY_THUMBS);
+  if (typeof slot === 'string') return refuse(429, 'Another small picture is still being sent. Wait for it to finish.', { 'Retry-After': '5' });
+  let bytes;
+  try {
+    // Read as it arrives, never past its Content-Length, and cut off when it is too slow.
+    bytes = await new Promise((resolve) => {
+      const chunks = [];
+      let size = 0;
+      let done = false;
+      const end = (value) => { if (done) return; done = true; clearTimeout(deadline); req.removeListener('data', onData); resolve(value); };
+      const deadline = setTimeout(() => { end(null); req.destroy(); }, thumbDeadlineMs(declared));
+      function onData(c) {
+        size += c.length;
+        if (size > declared) return end('over');
+        chunks.push(c);
+      }
+      req.on('data', onData);
+      req.on('end', () => end(size === declared ? Buffer.concat(chunks) : null));
+      req.on('error', () => end(null));
+      req.on('close', () => { if (!req.complete) end(null); });
+    });
+  } finally {
+    slot();
+  }
+  if (bytes === 'over') return refuse(413, 'That small picture is longer than its Content-Length.');
   if (!bytes) return;
   let clean;
   try {

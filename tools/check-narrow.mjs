@@ -9,6 +9,9 @@
 //   4. Budget's Costs: the sort is a button on the left of the row that says the order ("Sort: Date, earliest first"), shown
 //      or folded into More but never cut, and not a filter: the Filters button counts nothing while nothing is filtered
 //      (Thomas, 2026-10-29), at 1280 and 390 px.
+//   5. Calendar: clicking an event in its window on the Workspace opens the editor window over the screen and leaves the
+//      Calendar drawn in its window behind it (the window was left blank: the frame holding the page shrank to the
+//      editor's size), at 1280 and 390 px.
 // Usage: node tools/check-narrow.mjs. With no Chromium it says SKIPPED and exits 0 (a skip, never a pass).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -63,6 +66,18 @@ async function view(browser, S, size, mode, screen, expr, wait = 1500) {
   try { await driveScreen(tab, screen, S.base, S.cookies, S.ctx); await sleep(wait); return await tab.eval(expr); } finally { await tab.close(); }
 }
 
+// In the Calendar's frame on the Workspace: where the first event is (screen pixels), the frame and the page's box, and what
+// of the Calendar is still drawn (its lists' visible nodes) and whether its editor is open.
+const CAL = (pick) => `(() => { const f = document.querySelector('iframe.composite-frame'); if (!f || !f.contentDocument) return null;
+  const fr = f.getBoundingClientRect(); const d = f.contentDocument; const mf = d.querySelector('body > .mf'); if (!mf) return null;
+  const roots = [...d.querySelectorAll('*')].filter((x) => x.shadowRoot).map((x) => x.shadowRoot).filter((r) => r.querySelector('#body'));
+  let pos = null;
+  if (${pick}) for (const r of roots) { const e = r.querySelector('#body [data-open]'); if (e && e.getClientRects().length) { const b = e.getBoundingClientRect(); pos = { x: fr.left + b.left + Math.min(b.width / 2, 40), y: fr.top + b.top + b.height / 2 }; break; } }
+  const drawn = roots.reduce((n, r) => n + [...r.querySelectorAll('#body *')].filter((x) => x.getClientRects().length).length, 0);
+  const m = mf.getBoundingClientRect();
+  return { pos, frame: { w: Math.round(fr.width), h: Math.round(fr.height), lifted: f.classList.contains('module-editor-lifted') }, page: { x: Math.round(m.left + fr.left), y: Math.round(m.top + fr.top), w: Math.round(m.width), h: Math.round(m.height) },
+    drawn, open: roots.some((r) => { const e = r.querySelector('#editor'); return Boolean(e && e.open); }), win: { w: innerWidth, h: innerHeight } }; })()`;
+
 async function main() {
   const bin = findBrowser();
   if (!bin) { say('SKIPPED. No Chromium found (set CHROME_PATH). This is not a pass; nothing was measured.'); return 0; }
@@ -111,6 +126,33 @@ async function main() {
       if (!got.moved && !(got.shown && got.inRow && got.left)) failures.push(`Budget's Costs at ${size}px: the Sort button is neither in the row's left side nor in More`);
       if (got.count) failures.push(`Budget's Costs at ${size}px: the Filters button counts ${got.count} with nothing filtered (the sort is not a filter)`);
       say(`Budget's Costs ${size}px: "${got.name}" ${got.moved ? 'in More' : 'on the left of the row'}, Filters count ${got.count || 'none'}`);
+    }
+
+    // 5. Calendar: the editor window opens over the screen and the Calendar stays drawn in its window behind it.
+    for (const [size, phone] of [[1280, false], [390, true]]) {
+      const cal = { id: 'workspace', as: 'mia', url: '/#join={trip}', wait: 'button.sdk-strip-fact[data-module=budget]', call: true, space: true };
+      const tab = new Tab(browser.cdp, S.ctx);
+      await tab.open(size, 'light', true);
+      const settle = tab.settle.bind(tab); tab.settle = () => Promise.race([settle(), sleep(3000)]);
+      try {
+        await driveScreen(tab, cal, S.base, S.cookies, S.ctx);
+        if (phone) { await tab.eval(`document.querySelector('#layout-tab-calendar').click()`); await sleep(1000); } // a phone shows one module at a time
+        await sleep(2500);
+        const before = await tab.eval(CAL(true));
+        if (!before || !before.pos) { failures.push(`Calendar at ${size}px: no event to click in its window, so nothing was measured`); continue; }
+        await tab.mouse('mouseMoved', before.pos.x, before.pos.y); await tab.mouse('mousePressed', before.pos.x, before.pos.y); await tab.mouse('mouseReleased', before.pos.x, before.pos.y);
+        await sleep(1500);
+        const after = await tab.eval(CAL(false));
+        const same = (a, b) => Math.abs(a - b) <= 1;
+        if (!after.open) failures.push(`Calendar at ${size}px: clicking an event did not open the editor window`);
+        if (!after.frame.lifted || after.frame.w !== after.win.w || after.frame.h !== after.win.h) failures.push(`Calendar at ${size}px: the editor window is not over the whole screen (the frame is ${after.frame.w}x${after.frame.h} of ${after.win.w}x${after.win.h})`);
+        if (!same(after.page.x, before.page.x) || !same(after.page.y, before.page.y) || !same(after.page.w, before.page.w) || !same(after.page.h, before.page.h)) failures.push(`Calendar at ${size}px: the Calendar moved from ${JSON.stringify(before.page)} to ${JSON.stringify(after.page)} when the editor opened (its window went blank)`);
+        if (after.drawn < 1 || after.drawn < before.drawn * 0.8) failures.push(`Calendar at ${size}px: ${before.drawn} of its nodes were drawn before the editor opened and ${after.drawn} after (its list went blank)`);
+        await tab.key('Escape'); await sleep(1200);
+        const closed = await tab.eval(CAL(false));
+        if (closed.open || closed.frame.lifted || closed.frame.w === after.win.w && size > 640 || !same(closed.page.x, before.page.x) || !same(closed.page.w, before.page.w) || !same(closed.page.h, before.page.h)) failures.push(`Calendar at ${size}px: after Escape the editor is ${closed.open ? 'still open' : 'closed'} and the Calendar is ${JSON.stringify(closed.page)}, not back in its window ${JSON.stringify(before.page)}`);
+        say(`Calendar ${size}px: editor ${after.open ? 'open' : 'closed'}; frame ${after.frame.w}x${after.frame.h}; page box ${JSON.stringify(before.page)} -> ${JSON.stringify(after.page)}; ${before.drawn} -> ${after.drawn} nodes drawn`);
+      } finally { await tab.close(); }
     }
   } finally {
     try { if (browser) { browser.cdp.ws.close(); browser.child.kill(); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } } catch { /* best effort */ }

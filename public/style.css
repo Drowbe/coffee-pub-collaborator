@@ -5381,6 +5381,31 @@ iframe.module-editor-lifted.module-editor-lifted-large {
   width: min(var(--dlg-w-browse), 100vw - 32px);
 }
 
+/* A composite's frame (the Calendar's or the Map's page): over the whole screen, transparent; the page inside stays drawn in the
+   box the frame had (destination.js, liftComposite) and the editor window is its dialog, so the list stays in view behind it. */
+iframe.module-editor-lifted.module-editor-cover {
+  top: 0;
+  left: 0;
+  transform: none;
+  width: 100vw;
+  height: 100dvh;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.module-editor-backdrop:has(+ iframe.module-editor-cover) {
+  background: transparent;
+}
+
+/* The editor window in it has its own Close (and Escape), as a page's own dialog has. */
+iframe.module-editor-cover + .module-editor-close {
+  display: none;
+}
+
 .module-editor-close {
   position: fixed;
   top: 12px;

@@ -842,6 +842,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       mount: { send: (event, data) => post({ type: 'app:compositeevent', event, data }) },
       tell: () => post({ type: 'app:compositeevent', event: 'editordismiss', data: {} }),
       takeOpener: () => { const o = opener; opener = null; return o; },
+      cover: true, // the window keeps showing the Calendar or the Map behind the editor window
     });
     frame.addEventListener('load', () => lift.release()); // the page started over: no editor is open in it
     const onChrome = (event) => {

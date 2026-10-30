@@ -29,7 +29,7 @@ const airportList = require('./airports');
 const { RegionCutJobs, RegionCutError } = require('./region-cut');
 const { pmtilesInfo, pmtilesWhyNot } = require('./pmtiles-header');
 const { ModuleUploads } = require('./module-uploads');
-const { inspectHead, cleanImage } = require('./image-clean');
+const { inspectHead } = require('./image-clean');
 const { cleanName, nameForType, folderBytes } = require('./vault-store');
 const vaultTypes = require('./vault-types');
 const { createScanner } = require('./vault-scan');
@@ -7649,6 +7649,17 @@ app.post('/api/modules/:id/ai', async (req, res) => {
 });
 
 // --- files a module's people upload ---------------------------------------------------------------------------------------
+// A picture held in memory, checked and cleaned in the scan worker (server/vault-scan.js) so the main thread never walks
+// its bytes: { clean, pixels } or { error } (a sentence).
+async function cleanPictureOffThread(bytes, allowed, keepPosition) {
+  // Only the picture's own bytes go to the worker, never the rest of a shared buffer it sits in.
+  const picture = bytes.byteOffset === 0 && bytes.buffer.byteLength === bytes.length ? bytes : new Uint8Array(bytes);
+  const r = await vaultScanner.scan({ picture, allowed, keepPosition });
+  if (r.ok) return { clean: { ...r.clean, bytes: Buffer.from(r.clean.bytes.buffer, r.clean.bytes.byteOffset, r.clean.bytes.byteLength) }, pixels: r.pixels };
+  if (r.refuse.code === 'picture') return { error: r.refuse.message };
+  console.error(`A picture could not be checked: ${r.refuse.reason}`);
+  return { error: 'We could not check that picture safely. Try saving it again from the program that made it.' };
+}
 // A module that declares `uploads` keeps pictures per scope (server, room, person), with the same read and write permissions as
 // its data. The server checks what arrives from the bytes themselves and takes out what rides along (see image-clean.js).
 const rawUpload = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: 10 * 1024 * 1024 + 1024 });
@@ -7664,12 +7675,15 @@ app.get('/api/modules/:id/uploads', (req, res) => {
   if (!ctx) return;
   res.json({ files: moduleUploads.list(ctx.manifest.id, ctx.scopeKey).map(uploadView) });
 });
-app.post('/api/modules/:id/uploads', rawUpload, checkStorageCap, (req, res) => {
+app.post('/api/modules/:id/uploads', rawUpload, checkStorageCap, async (req, res) => {
   const ctx = uploadAccess(req, res, 'write');
   if (!ctx) return;
   if (overLimit(ctx.manifest.id, ctx.by, 'upload')) return res.status(429).json({ error: limitMessage() });
   if (!Buffer.isBuffer(req.body)) return res.status(415).json({ error: 'send the picture itself, as a JPEG, PNG or WebP' });
-  const file = moduleUploads.put(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, { bytes: req.body, name: req.query.name, by: ctx.by, keepPosition: req.query.keepPosition === '1' });
+  const keepPosition = req.query.keepPosition === '1';
+  const cleaned = req.body.length ? await cleanPictureOffThread(req.body, ctx.manifest.uploads.types, keepPosition) : null;
+  if (cleaned && cleaned.error) return res.status(400).json({ error: cleaned.error });
+  const file = moduleUploads.put(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, { bytes: req.body, name: req.query.name, by: ctx.by, keepPosition, cleaned: cleaned && cleaned.clean });
   res.status(201).json({ file: uploadView(file) });
 });
 // What the start of a picture says about itself, for a page that will resize it (a resize loses the picture's own facts): send its
@@ -7681,14 +7695,16 @@ app.post('/api/modules/:id/uploads/inspect', express.raw({ type: ['image/jpeg', 
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(415).json({ error: 'send the start of the picture' });
   res.json(inspectHead(req.body));
 });
-app.put('/api/modules/:id/uploads/:fid/thumb', rawUpload, checkStorageCap, (req, res) => {
+app.put('/api/modules/:id/uploads/:fid/thumb', rawUpload, checkStorageCap, async (req, res) => {
   const ctx = uploadAccess(req, res, 'write');
   if (!ctx) return;
   const meta = moduleUploads.meta(ctx.manifest.id, ctx.scopeKey, req.params.fid);
   if (!meta) return res.status(404).json({ error: 'no such file' });
   if (meta.by !== ctx.by && !hasOwnerRights(ctx.who.user)) return res.status(403).json({ error: 'only the person who added it can do that' });
   if (!Buffer.isBuffer(req.body)) return res.status(415).json({ error: 'send the thumbnail itself, as a JPEG, PNG or WebP' });
-  res.json({ file: uploadView(moduleUploads.putThumb(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, req.params.fid, req.body)) });
+  const cleaned = req.body.length && req.body.length <= 400 * 1024 ? await cleanPictureOffThread(req.body, ctx.manifest.uploads.types, false) : null;
+  if (cleaned && cleaned.error) return res.status(400).json({ error: cleaned.error });
+  res.json({ file: uploadView(moduleUploads.putThumb(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, req.params.fid, req.body, cleaned && cleaned.clean)) });
 });
 function sendUpload(req, res, thumb) {
   const ctx = uploadAccess(req, res, 'read');
@@ -8078,7 +8094,12 @@ app.post('/api/modules/:id/library', async (req, res) => {
     // The whole file's check, in a worker (server/vault-scan.js): the main thread only waits for it.
     if (group === 'image' || ['application/pdf', 'audio/mpeg', 'audio/mp4', 'video/mp4', 'video/quicktime', 'video/webm', 'text/markdown'].includes(type)) {
       const checked = await vaultScanner.scan({ file: part, type, keepPosition: req.query.keepPosition === '1' });
-      if (checked.refuse) { dropPart(); fs.rmSync(`${part}.clean`, { force: true }); return refuse(400, scanSentence(checked.refuse, type)); }
+      if (checked.refuse) {
+        dropPart();
+        fs.rmSync(`${part}.clean`, { force: true });
+        if (checked.refuse.code === 'unsafe') console.error(`A library file could not be checked: ${checked.refuse.reason}`);
+        return refuse(400, scanSentence(checked.refuse, type));
+      }
       if (group === 'image') {
         try {
           await fs.promises.rename(`${part}.clean`, part);
@@ -8216,14 +8237,9 @@ app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
   }
   if (bytes === 'over') return refuse(413, 'That small picture is longer than its Content-Length.');
   if (!bytes) return;
-  let clean;
-  try {
-    clean = cleanImage(bytes, ['image/jpeg', 'image/png', 'image/webp'], false);
-  } catch {
-    return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
-  }
-  const pixels = vaultTypes.picturePixels(clean.bytes, clean.type);
-  if (pixels === null || pixels > 4 * 1000 * 1000) return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
+  const cleaned = await cleanPictureOffThread(bytes, ['image/jpeg', 'image/png', 'image/webp'], false);
+  if (cleaned.error || cleaned.pixels === null || cleaned.pixels > 4 * 1000 * 1000) return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
+  const { clean } = cleaned;
   res.json({ file: fileView(ctx, vault.putThumb(ctx.manifest.id, ctx.spaceId, r.id, clean.bytes, clean.type)) });
 });
 

@@ -15,11 +15,11 @@ const WORKER = path.join(__dirname, 'vault-scan-worker.js');
 const MEMORY_MB = 256;
 
 // A scanner: scan({ file, type, keepPosition }) answers what the worker found (see vault-scan-worker.js), or
-// { refuse: { code: 'unsafe' } } when it ran out of time or memory or stopped.
+// { refuse: { code: 'unsafe', reason } } when it ran out of time or memory or stopped (`reason` is for the log).
 function createScanner({ seconds = 5, atOnce = Math.max(1, Math.min(4, (os.availableParallelism ? os.availableParallelism() : os.cpus().length) - 1)) } = {}) {
   const queue = [];
   let running = 0;
-  const unsafe = { refuse: { code: 'unsafe' } };
+  const unsafe = (reason) => ({ refuse: { code: 'unsafe', reason } });
   function runOne(job) {
     return new Promise((resolve) => {
       let done = false;
@@ -31,15 +31,15 @@ function createScanner({ seconds = 5, atOnce = Math.max(1, Math.min(4, (os.avail
         if (worker) worker.terminate().catch(() => {});
         resolve(r);
       };
-      const timer = setTimeout(() => end(unsafe), seconds * 1000);
+      const timer = setTimeout(() => end(unsafe(`it took more than ${seconds} seconds`)), seconds * 1000);
       try {
         worker = new Worker(WORKER, { workerData: job, resourceLimits: { maxOldGenerationSizeMb: MEMORY_MB, maxYoungGenerationSizeMb: 32, stackSizeMb: 4 } });
-      } catch {
-        return end(unsafe);
+      } catch (err) {
+        return end(unsafe(err.message));
       }
-      worker.once('message', (m) => end(m && typeof m === 'object' ? m : unsafe));
-      worker.once('error', () => end(unsafe));
-      worker.once('exit', () => end(unsafe));
+      worker.once('message', (m) => end(m && typeof m === 'object' ? m : unsafe('it answered nothing')));
+      worker.once('error', (err) => end(unsafe(err.code === 'ERR_WORKER_OUT_OF_MEMORY' ? 'it ran out of memory' : err.message)));
+      worker.once('exit', (code) => end(unsafe(`it stopped (${code})`)));
     });
   }
   function pump() {

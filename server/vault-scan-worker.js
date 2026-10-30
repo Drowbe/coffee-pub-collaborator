@@ -1,5 +1,7 @@
 // The worker behind server/vault-scan.js: one check of one library file, then it ends. workerData is
-// { file, type, keepPosition }. It answers (postMessage) one of:
+// { file, type, keepPosition }, or { picture, allowed, keepPosition } for a picture held in memory (a module's upload,
+// a small picture), which answers { ok: true, clean: { type, bytes, taken, camera, hasPosition, position }, pixels } or
+// { refuse: { code: 'picture', message } }. For a file it answers (postMessage) one of:
 //   { ok: true }                                         nothing stops the file
 //   { ok: true, size, sha256, taken, camera }            a picture, checked and cleaned into <file>.clean
 //   { refuse: { code } }                                 'picture-damaged', 'picture-large', 'kind', 'damaged',
@@ -15,7 +17,17 @@ const vaultTypes = require('./vault-types');
 const { cleanImage } = require('./image-clean');
 const { pdfScan } = require('./pdf-scan');
 
-function check({ file, type, keepPosition }) {
+function check({ file, type, keepPosition, picture, allowed }) {
+  if (picture) {
+    const bytes = Buffer.from(picture.buffer, picture.byteOffset, picture.byteLength);
+    let clean;
+    try {
+      clean = cleanImage(bytes, allowed, Boolean(keepPosition));
+    } catch (err) {
+      return { refuse: { code: 'picture', message: err.message } };
+    }
+    return { ok: true, clean, pixels: vaultTypes.picturePixels(clean.bytes, clean.type) };
+  }
   const group = vaultTypes.TYPES[type] && vaultTypes.TYPES[type].group;
   if (group === 'image') {
     const bytes = fs.readFileSync(file);

@@ -32,6 +32,7 @@ const { ModuleUploads } = require('./module-uploads');
 const { inspectHead, cleanImage } = require('./image-clean');
 const { cleanName, nameForType, folderBytes } = require('./vault-store');
 const vaultTypes = require('./vault-types');
+const { createScanner } = require('./vault-scan');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
@@ -163,6 +164,10 @@ const {
   // across an environment's spaces (2), and VAULT_MB_PER_MINUTE how much one person may send in a minute (500). Not a
   // number above 0: the default. VAULT_MIN_KB_PER_SECOND is how slowly an upload may arrive (16): after its first
   // minute, one that sends less than that in any minute is cut off, and what it reserved is free again.
+  // VAULT_SCAN_SECONDS is how long the check of one file that is in may take (5): a picture cleaned, a PDF scanned, a
+  // recording's structure read, each in a worker thread with a memory limit; one that takes longer is stopped and the
+  // file refused as one that could not be checked safely.
+  VAULT_SCAN_SECONDS = '',
   VAULT_DIR = '',
   VAULT_MAX_GB = '',
   VAULT_SPACE_MAX_GB = '',
@@ -7743,12 +7748,24 @@ const thumbDeadlineMs = (bytes) => 10000 + Math.ceil((bytes / libraryMinRate) * 
 const sizeText = (bytes) => (bytes >= 1024 ** 3 ? `${gbText(bytes)} GB` : `${Math.round((bytes / 1048576) * 10) / 10} MB`);
 const libraryKindSentence = 'That kind of file can\'t be added here. It takes pictures (JPEG, PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown.';
 const librarySentence = (refusal) => (refusal === 'heic' ? 'HEIC pictures can\'t be added here. Save it as a JPEG.' : libraryKindSentence);
-// Why a PDF is not taken (vaultTypes.pdfRefusal), in one sentence.
+// Why a PDF is not taken (server/pdf-scan.js), in one sentence.
 const PDF_HOLDS = { scripts: 'scripts', opens: 'links that open programs or files', sends: 'a form that sends what is typed in it', files: 'files of its own' };
 const pdfSentence = (r) => {
   if (r.refuse === 'damaged') return 'That PDF is damaged or cut short.';
   if (r.refuse === 'unchecked') return 'That PDF can\'t be checked for scripts, so it can\'t be added.';
   return `That PDF holds ${PDF_HOLDS[r.what] || 'active content'}, so it can't be added.`;
+};
+// The check of a file that is in (vault-scan-worker.js), its refusal in one sentence.
+const vaultScanner = createScanner({ seconds: (() => { const v = Number(VAULT_SCAN_SECONDS); return Number.isFinite(v) && v > 0 ? v : 5; })() });
+const scanSentence = (r, type) => {
+  if (r.code === 'unsafe') return type === 'application/pdf' ? 'We could not check that PDF safely. Try saving it again from the program that made it.' : 'We could not check that file safely. Try saving it again from the program that made it.';
+  if (r.code === 'picture-damaged') return 'That picture is damaged or cut short.';
+  if (r.code === 'picture-large') return 'That picture is too large to show.';
+  if (r.code === 'pdf-damaged') return pdfSentence({ refuse: 'damaged' });
+  if (r.code === 'pdf-unchecked') return pdfSentence({ refuse: 'unchecked' });
+  if (r.code === 'pdf-active') return pdfSentence({ what: r.what });
+  if (r.code === 'damaged') return 'That file is damaged or cut short.';
+  return libraryKindSentence;
 };
 const overTypeLimit = (type) => { const l = vaultTypes.LIMITS[vaultTypes.TYPES[type].limit]; return `That file is over the ${sizeText(l.bytes)} limit for ${l.words}.`; };
 
@@ -7872,18 +7889,6 @@ const libraryKeys = (ctx) => {
   return { space: `${slug}|${ctx.spaceId}`, person: `${slug}|${ctx.by}`, environment: slug };
 };
 
-// One picture read whole and cleaned at a time per environment (at most 25 MB in memory, the only whole read).
-const pictureTurns = new Map(); // slug -> the promise of the last turn
-function inPictureTurn(fn) {
-  const slug = currentEnvironment().slug || '';
-  const before = pictureTurns.get(slug) || Promise.resolve();
-  const mine = before.then(fn, fn);
-  const settled = mine.then(() => {}, () => {});
-  pictureTurns.set(slug, settled);
-  settled.then(() => { if (pictureTurns.get(slug) === settled) pictureTurns.delete(slug); });
-  return mine;
-}
-
 // Throws away what is still arriving after a refusal (so the sender reads the answer rather than a broken connection),
 // and drops the connection if it goes on for more than 20 seconds.
 function dropUploadBody(req) {
@@ -7977,24 +7982,6 @@ function receiveUpload(req, part, declared, onHead) {
   });
 }
 
-// What a kept picture is once it is checked and cleaned in its part file: { size, sha256, taken, camera }, or { refused }.
-async function cleanPicturePart(part, type, keepPosition) {
-  const bytes = await fs.promises.readFile(part);
-  const pixels = vaultTypes.picturePixels(bytes, type);
-  if (pixels === null) return { refused: 'That picture is damaged or cut short.' };
-  if (pixels > vaultTypes.MAX_PIXELS) return { refused: 'That picture is too large to show.' };
-  let clean;
-  try {
-    clean = cleanImage(bytes, [type], keepPosition);
-  } catch {
-    return { refused: 'That picture is damaged or cut short.' };
-  }
-  const tmp = `${part}.clean`;
-  await fs.promises.writeFile(tmp, clean.bytes, { mode: 0o600 });
-  await fs.promises.rename(tmp, part);
-  return { size: clean.bytes.length, sha256: crypto.createHash('sha256').update(clean.bytes).digest('hex'), taken: clean.taken, camera: clean.camera };
-}
-
 // GET /api/modules/:id/library?space= -- the space's files, and what they use of the space's quota.
 app.get('/api/modules/:id/library', (req, res) => {
   const ctx = libraryAccess(req, res, 'view');
@@ -8056,16 +8043,20 @@ app.post('/api/modules/:id/library', async (req, res) => {
     if (got.failed) { dropPart(); console.error(`A library upload could not be written: ${got.failed}`); return refuse(500, LIBRARY_NOT_SAVED); }
     const group = vaultTypes.TYPES[type].group;
     let kept = { size: got.size, sha256: got.sha256, taken: null, camera: '' };
-    if (group === 'image') {
-      kept = await inPictureTurn(() => cleanPicturePart(part, type, req.query.keepPosition === '1'));
-      if (kept.refused) { dropPart(); return refuse(400, kept.refused); }
-    } else if (type === 'application/pdf') {
-      const pdf = await vaultTypes.pdfRefusal(part);
-      if (pdf) { dropPart(); return refuse(400, pdfSentence(pdf)); }
-    } else if (type === 'audio/mpeg') {
-      if (await vaultTypes.mp3Refusal(part)) { dropPart(); return refuse(400, libraryKindSentence); }
-    } else if (type === 'text/markdown') {
-      if (vaultTypes.markdownRefusal(await fs.promises.readFile(part))) { dropPart(); return refuse(400, libraryKindSentence); }
+    // The whole file's check, in a worker (server/vault-scan.js): the main thread only waits for it.
+    if (group === 'image' || ['application/pdf', 'audio/mpeg', 'text/markdown'].includes(type)) {
+      const checked = await vaultScanner.scan({ file: part, type, keepPosition: req.query.keepPosition === '1' });
+      if (checked.refuse) { dropPart(); fs.rmSync(`${part}.clean`, { force: true }); return refuse(400, scanSentence(checked.refuse, type)); }
+      if (group === 'image') {
+        try {
+          await fs.promises.rename(`${part}.clean`, part);
+        } catch (err) {
+          dropPart();
+          console.error(`A library picture could not be kept: ${err.message}`);
+          return refuse(500, LIBRARY_NOT_SAVED);
+        }
+        kept = { size: checked.size, sha256: checked.sha256, taken: checked.taken || null, camera: checked.camera || '' };
+      }
     }
     // Uploads still arriving in other environments were not counted when this one started, so the server's real total is
     // checked again now that the file is in (Thomas, 2026-10-30: that overshoot is accepted).

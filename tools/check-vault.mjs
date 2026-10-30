@@ -34,6 +34,8 @@ const require = createRequire(import.meta.url);
 const { buildModule } = require('../server/module-build.js');
 const { VaultStore, cleanName, nameForType, extensionOf } = require('../server/vault-store.js');
 const types = require('../server/vault-types.js');
+const { pdfScan } = require('../server/pdf-scan.js');
+const { createScanner } = require('../server/vault-scan.js');
 
 let n = 0;
 const ok = (cond, msg) => { assert.ok(cond, msg); n += 1; };
@@ -184,6 +186,7 @@ const objStm = (objects, { filter = '/FlateDecode', eol = '\n', data } = {}) => 
   return Buffer.concat([Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n5 0 obj << /Type /ObjStm /N 1 /First 4 /Filter ${filter} /Length ${packed.length} >> stream${eol}`, 'latin1'), packed, Buffer.from('\nendstream\nendobj\ntrailer << /Root 1 0 R >>\n%%EOF\n', 'latin1')]);
 };
 const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.';
+const memoryLines = [];
 
 // --- part 2: types ------------------------------------------------------------------------------------------------------
 {
@@ -244,44 +247,108 @@ const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.'
   same([types.picturePixels(pngOf(20000, 6000), 'image/png'), types.picturePixels(gifOf(300, 200), 'image/gif'), types.picturePixels(jpegOf(4000, 3000), 'image/jpeg'), types.picturePixels(webpOf(), 'image/webp')], [120000000, 60000, 12000000, 100], 'pixels from PNG, GIF, JPEG and WebP headers');
   ok(types.picturePixels(pngOf(20000, 6000), 'image/png') > types.MAX_PIXELS, 'over 100 million is over the limit');
 
-  // PDF active content, read as a stream, and in its compressed object streams.
+  // PDF active content (server/pdf-scan.js): read token by token, and in every stream objects can be taken out of.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-vault-pdf-'));
   const file = (bytes) => { const f = path.join(dir, `p${n}-${Math.random()}`); fs.writeFileSync(f, bytes); return f; };
-  const scan = async (bytes) => { const r = await types.pdfRefusal(file(bytes)); return r ? r.name || `refused:${r.refuse}` : null; };
+  const scan = async (bytes) => { const r = pdfScan(Buffer.from(bytes)); return r ? r.name || `refused:${r.refuse}` : null; };
   same(await scan(pdfOf()), null, 'a plain PDF passes');
   for (const name of ['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'RichMedia', 'XFA', 'AA', 'SubmitForm', 'GoToR']) same(await scan(pdfOf(`/OpenAction << /S /${name} (x) >>`)), name, `/${name} is refused`);
   // Links to web pages and fillable forms are taken (Thomas, 2026-10-30); a link to a program or a file is not.
   same(await scan(pdfOf(PDF_WEB_LINK)), null, 'a link to a web page, as LibreOffice writes one, passes');
   same(await scan(pdfOf(PDF_FORM)), null, 'a fillable form with no script passes');
   same(await scan(pdfOf('/OpenAction << /S /URI /URI (mailto:desk@example.com) >>')), null, 'and an email link, even on opening');
-  for (const [label, uri] of [['file:', '(file:///C:/Windows/System32/calc.exe)'], ['javascript:', '(javascript:alert\\(1\\))'], ['a hex file: address', '<66696C653A2F2F2F6574632F706173737764>'], ['a path with no scheme', '(\\\\server\\share\\run.exe)'], ['an address hiding its scheme behind spaces', '( \\tfile:///x)']]) same(await scan(pdfOf(`/OpenAction << /S /URI /URI ${uri} >>`)), 'URI', `a link to ${label} is refused`);
+  same(await scan(pdfOf('/OpenAction << /S /URI /URI (\\376\\377\\000h\\000t\\000t\\000p\\000s\\000:\\000/\\000/\\000x) >>')), null, 'and a web link written in UTF-16');
+  for (const [label, uri] of [['file:', '(file:///C:/Windows/System32/calc.exe)'], ['javascript:', '(javascript:alert\\(1\\))'], ['a hex file: address', '<66696C653A2F2F2F6574632F706173737764>'], ['a path with no scheme', '(\\\\server\\share\\run.exe)'], ['an address hiding its scheme behind spaces', '( \\tfile:///x)'], ['an address split over lines', '(java\\\nscript:alert\\(1\\))'], ['an address by reference', '9 0 R']]) same(await scan(pdfOf(`/OpenAction << /S /URI /URI ${uri} >>`)), label === 'an address by reference' ? 'refused:unchecked' : 'URI', `a link to ${label} is refused`);
   same(await scan(pdfOf('/OpenAction << /S /J#61vaScript >>')), 'JavaScript', 'a name written with #xx escapes too');
   same(await scan(pdfOf('/JSON (fine) /JSX 1 /AAA 2 /URIs 3')), null, '/JSON is not /JS, nor /AAA /AA');
+  same(await scan(pdfOf('/Title (about /JS and /Launch) % a comment /JavaScript\n')), null, 'names inside a string or a comment are not names');
   same(await scan(objStm('6 0 << /S /URI /URI (file:///etc/passwd) >>')), 'URI', 'a link to a file inside a compressed object stream is refused');
   same(await scan(objStm(`6 0 ${PDF_WEB_LINK} ${PDF_FORM}`)), null, 'and a web link and a form there pass');
   same(await scan(objStm('6 0 << /Type /Annot /Subtype /Widget /AA << /K 7 0 R >> >>')), 'AA', 'a field\'s own actions (AA) there are refused');
   const straddle = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(1024 * 1024 - 14, 0x20), Buffer.from('/JavaScript (x)\n')]);
-  same(await scan(straddle), 'JavaScript', 'a name across the 1 MB window is found');
-  same(await scan(Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(3 * 1024 * 1024, 0x41), Buffer.from(' /Launch')])), 'Launch', 'at the end of a larger file');
+  same(await scan(straddle), 'JavaScript', 'a name past the first megabyte is found');
+  same(await scan(Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(3 * 1024 * 1024, 0x20), Buffer.from(' /Launch')])), 'Launch', 'at the end of a larger file');
   same(await scan(Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n', 'latin1')), 'refused:damaged', 'a PDF with no %%EOF is damaged');
   same(await scan(Buffer.from('%PDF-1.7\nhello\n%%EOF\n', 'latin1')), 'refused:damaged', 'and one with no object');
   same(await scan(Buffer.concat([pdfOf(), Buffer.alloc(2048, 0x20)])), 'refused:damaged', 'and one whose %%EOF is not in its last kilobyte');
-  // Object streams: Flate-compressed objects, inflated and read.
+  same(await scan(Buffer.from('%PDF-1.7\n1 0 obj << >> endobj\n%%EOF\n', 'latin1')), 'refused:damaged', 'and one with no startxref or trailer before its %%EOF');
+  // Object streams: found by what a reader needs to take objects out of one (/N, /First), whatever else the dictionary
+  // holds or leaves out (security QA round 2: a later key holding "obj", or no /Type, hid them), and decoded.
   same(await scan(objStm('6 0 << /Type /Page /Contents 7 0 R >>')), null, 'a compressed object stream with nothing active passes');
   same(await scan(objStm('6 0 << /Type /Action /S /JavaScript /JS (app.alert(1)) >>')), 'JavaScript', 'JavaScript in a compressed object stream is found');
   same(await scan(objStm('6 0 << /S /Launch /F (calc.exe) >>', { eol: '\r\n' })), 'Launch', 'after a CRLF too');
   same(await scan(objStm('6 0 << /Type /Filespec /EF << /F 7 0 R >> /EmbeddedFile 1 >>', { filter: '[/FlateDecode]' })), 'EmbeddedFile', 'and with the filter in an array');
   same(await scan(objStm(`6 0 ${'x'.repeat(2 * 1024 * 1024)} /J#53 1`)), 'JS', 'deep in a large one, escaped');
+  const hidden = (dict) => Buffer.concat([Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R /OpenAction 4 0 R >> endobj\n6 0 obj\n<< ${dict} >>\nstream\n`, 'latin1'), zlib.deflateSync(Buffer.from('4 0 << /S /JavaScript /JS (app.alert\\(1\\)) >>', 'latin1')), Buffer.from('\nendstream\nendobj\nstartxref\n9\n%%EOF\n', 'latin1')]);
+  same(await scan(hidden('/Type /ObjStm /N 1 /First 4 /Filter /FlateDecode /Xobj 1')), 'JavaScript', 'with a later key named like "obj" (/Xobj)');
+  same(await scan(hidden('/Type /ObjStm /N 1 /First 4 /Filter /FlateDecode /Foo (obj)')), 'JavaScript', 'with a later string holding "obj"');
+  same(await scan(hidden('/N 1 /First 4 /Filter /FlateDecode')), 'JavaScript', 'with no /Type at all');
+  same(await scan(hidden('/N 1 /First 4 /Filter /Fl /Length 99999')), 'JavaScript', 'with a short filter name and a /Length that is wrong');
+  const chain = (filters, data, parms = '') => Buffer.concat([Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n6 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Filter [${filters}] ${parms} /Length ${data.length} >>\nstream\n`, 'latin1'), data, Buffer.from('\nendstream\nendobj\ntrailer << /Root 1 0 R >>\n%%EOF\n', 'latin1')]);
+  const inner = Buffer.from('4 0 << /S /JavaScript /JS (x) >>', 'latin1');
+  same(await scan(chain('/ASCIIHexDecode /FlateDecode', Buffer.from(`${zlib.deflateSync(inner).toString('hex')}>`))), 'JavaScript', 'through a chain of two filters (ASCIIHex, then Flate)');
+  const a85 = (buf) => { let out = ''; for (let k = 0; k < buf.length; k += 4) { const g = Buffer.alloc(4); buf.copy(g, 0, k, k + 4); let v = g.readUInt32BE(0); const c = []; for (let m = 0; m < 5; m += 1) { c.unshift(String.fromCharCode(33 + (v % 85))); v = Math.floor(v / 85); } out += c.join('').slice(0, Math.min(5, buf.length - k + 1)); } return `${out}~>`; };
+  same(await scan(chain('/A85 /Fl', Buffer.from(a85(zlib.deflateSync(inner)), 'latin1'))), 'JavaScript', 'through ASCII85 and Flate');
+  same(await scan(chain('/RunLengthDecode', Buffer.concat([Buffer.from([inner.length - 1]), inner, Buffer.from([128])]))), 'JavaScript', 'through RunLength');
+  const lzwOf = (buf) => { const out = []; let acc = 0; let bits = 0; const put = (code) => { acc = (acc << 9) | code; bits += 9; while (bits >= 8) { out.push((acc >> (bits - 8)) & 255); bits -= 8; } }; put(256); for (const c of buf) put(c); put(257); if (bits) out.push((acc << (8 - bits)) & 255); return Buffer.from(out); };
+  same(await scan(chain('/LZWDecode', lzwOf(inner))), 'JavaScript', 'through LZW');
+  const pngRows = Buffer.concat(Array.from({ length: Math.ceil(inner.length / 4) }, (_, r) => Buffer.concat([Buffer.from([2]), Buffer.from(Array.from({ length: 4 }, (__, k) => ((inner[r * 4 + k] || 0) - (r ? inner[(r - 1) * 4 + k] || 0 : 0)) & 255))])));
+  same(await scan(chain('/FlateDecode', zlib.deflateSync(pngRows), '/DecodeParms << /Predictor 12 /Columns 4 >>')), 'JavaScript', 'and through a PNG predictor');
+  same(await scan(chain('/FlateDecode', zlib.deflateSync(inner), '/DecodeParms << /Predictor 9 0 R >>')), 'refused:unchecked', 'a predictor given by reference is not checked');
+  same(await scan(chain('/DCTDecode', inner)), 'refused:unchecked', 'nor a picture filter on an object stream');
+  same(await scan(chain('/FlateDecode', zlib.deflateSync(inner)).toString('latin1').replace('/Filter [/FlateDecode]', '/Filter 7 0 R')), 'refused:unchecked', 'nor filters named by reference');
+  same(await scan(chain('/FlateDecode', zlib.deflateSync(inner)).toString('latin1').replace('/Filter [/FlateDecode]', '/Filter /DCTDecode /Filter /FlateDecode')), 'refused:unchecked', 'nor a filter named twice');
   same(await scan(objStm('', { data: zlib.deflateSync(Buffer.alloc(17 * 1024 * 1024, 0x20)) })), 'refused:unchecked', 'one that inflates past 16 MB is not taken');
   same(await scan(objStm('', { data: Buffer.from('not compressed at all') })), 'refused:unchecked', 'nor one that can\'t be inflated');
-  same(await scan(objStm('6 0 << >>', { filter: '/LZWDecode' })), 'refused:unchecked', 'nor one compressed another way');
-  const many = Buffer.concat([Buffer.from('%PDF-1.7\n'), ...Array.from({ length: 201 }, (_, k) => Buffer.from(`${k + 1} 0 obj << /Type /ObjStm /Filter /FlateDecode >> stream\n${zlib.deflateSync(Buffer.from('1 0 << >>')).toString('latin1')}\nendstream\nendobj\n`, 'latin1')), Buffer.from('%%EOF\n')]);
-  same(await scan(many), 'refused:unchecked', 'nor one with more than 200 object streams');
+  // Other streams are not read as names (compressed bytes would match by chance), unless they hold an object's start.
+  const picture = (data) => Buffer.concat([Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n3 0 obj << /Type /XObject /Subtype /Image /Width 9 /Height 9 /Filter /DCTDecode /Length ${data.length} >>\nstream\n`, 'latin1'), data, Buffer.from('\nendstream\nendobj\ntrailer << /Root 1 0 R >>\n%%EOF\n', 'latin1')]);
+  same(await scan(picture(Buffer.from('\xff\xd8 /JS /AA /Launch ( \xff\xd9', 'latin1'))), null, 'a picture\'s bytes that happen to spell names are not read as names');
+  same(await scan(picture(Buffer.from('\xff\xd8 endobj 9 0 obj << /S /Launch /F (calc) >> endobj \xff\xd9', 'latin1'))), 'Launch', 'but a picture that holds an object\'s start is read');
+  // Hostile shapes (security QA round 2): each judged at once, never on the main thread.
+  const tail = Buffer.from('\ntrailer << >>\n%%EOF\n', 'latin1');
+  const hostile = {
+    'a megabyte of "/URI ("': Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from('/URI ('.repeat(174763)), tail]),
+    'a megabyte of "stream\\n"': Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from('stream\n'.repeat(149796)), tail]),
+    'a megabyte of "<< >>stream"': Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from('<</N 1>>stream\n'.repeat(69905)), tail]),
+    'a megabyte of "obj"': Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('1 0 obj '.repeat(131072)), tail]),
+    'a megabyte of "/JS ("': Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from('/JS ('.repeat(209715)), tail]),
+    'a megabyte of "<<"': Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from('<<'.repeat(524288)), tail]),
+    'a megabyte of "["': Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n'), Buffer.from('['.repeat(1048576)), tail]),
+    'a million objects': Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from(Array.from({ length: 1000000 }, (_, k) => `${k} 0 obj<<>>endobj\n`).join('')), tail]),
+    'a gigabyte Flate bomb': objStm('', { data: zlib.deflateSync(Buffer.alloc(1024 * 1024 * 1024), { level: 9 }) }),
+  };
+  for (const [label, bytes] of Object.entries(hostile)) {
+    const t0 = Date.now();
+    const r = pdfScan(bytes);
+    const ms = Date.now() - t0;
+    ok(ms < 1000, `${label} (${Math.round(bytes.length / 1024)} KB) is judged in under a second: ${ms} ms, ${JSON.stringify(r)}`);
+  }
+  // Through the worker (server/vault-scan.js): the main thread's longest pause while it scans stays small, a file that
+  // takes too long is refused as unsafe, and so is one the worker can't finish.
+  {
+    const scanner = createScanner({ seconds: 5 });
+    const files = Object.values(hostile).map((bytes) => file(bytes));
+    let worst = 0;
+    let last = performance.now();
+    let watching = true;
+    const tick = () => { const now = performance.now(); worst = Math.max(worst, now - last); last = now; if (watching) setImmediate(tick); };
+    setImmediate(tick);
+    const t0 = Date.now();
+    const answers = await Promise.all(files.map((f) => scanner.scan({ file: f, type: 'application/pdf' })));
+    watching = false;
+    ok(answers.every((a) => a.ok || a.refuse), `the worker judges every hostile PDF (${answers.map((a) => (a.ok ? 'ok' : a.refuse.code)).join(', ')}) in ${Date.now() - t0} ms`);
+    ok(worst < 100, `and the main thread is never held up for long while it does: the longest pause was ${Math.round(worst)} ms`);
+    memoryLines.push(`hostile PDFs through the scan worker: ${Date.now() - t0} ms for ${files.length}, the main thread's longest pause ${Math.round(worst)} ms`);
+    const slow = createScanner({ seconds: 0.001 });
+    same((await slow.scan({ file: files[0], type: 'application/pdf' })).refuse?.code, 'unsafe', 'a scan that runs out of time is refused as unsafe');
+    same((await scanner.scan({ file: path.join(dir, 'not-there'), type: 'application/pdf' })).refuse?.code, 'unsafe', 'and so is one that fails');
+    same(await scanner.scan({ file: file(pdfOf(PDF_WEB_LINK)), type: 'application/pdf' }), { ok: true }, 'a plain PDF passes through the worker');
+  }
   // MP3 after an ID3 tag, once the file is in.
   const id3 = (size) => { const h = Buffer.from('ID3\x03\0\0\0\0\0\0', 'latin1'); h[8] = (size >> 7) & 0x7f; h[9] = size & 0x7f; return h; };
-  same(await types.mp3Refusal(file(Buffer.concat([id3(300), Buffer.alloc(300), mp3Frames(3)]))), null, 'an MP3 with a tag and frames after it passes');
-  same(await types.mp3Refusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.alloc(20, 0), mp3Frames(3)]))), null, 'with padding after the tag too');
-  same(await types.mp3Refusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.from('<html><script>alert(1)</script>'), Buffer.alloc(70000, 0x41)]))), 'kind', 'a tag followed by no frames is refused');
+  same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), mp3Frames(3)])), 'audio/mpeg'), null, 'an MP3 with a tag and frames after it passes');
+  same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.alloc(20, 0), mp3Frames(3)])), 'audio/mpeg'), null, 'with padding after the tag too');
+  same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.from('<html><script>alert(1)</script>'), Buffer.alloc(70000, 0x41)])), 'audio/mpeg'), 'kind', 'a tag followed by no frames is refused');
   fs.rmSync(dir, { recursive: true, force: true });
 
   // Markdown's text.
@@ -411,7 +478,6 @@ const partsUnder = (dir) => filesUnder(dir).filter((f) => path.basename(f).start
 
 let failed = false;
 const servers = [];
-const memoryLines = [];
 try {
   // Server A: small quotas, so they can be filled; a minute's allowance of 4 MB.
   const A = await startServer('a', { VAULT_SPACE_MAX_GB: String(40 / 1024), VAULT_PERSON_MAX_GB: String(30 / 1024), VAULT_MAX_GB: String(60 / 1024), VAULT_MB_PER_MINUTE: '40' });

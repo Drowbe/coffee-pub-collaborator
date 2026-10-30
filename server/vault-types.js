@@ -2,12 +2,12 @@
 // bytes, never from its name or the type it was sent with, then compared with both. A file whose name or type says
 // something else is refused, and so is anything not in the table: SVG, HTML, XML, scripts, programs, archives, Office
 // files, Matroska and HEIC. The server never opens, decodes or runs a file; it reads a few header bytes, a picture's
-// size from its header, a PDF's names as a stream, and a Markdown file's text. Sentences are the caller's (they need the
+// size from its header and a Markdown file's text; a PDF is scanned by server/pdf-scan.js, and every check of a whole
+// file runs in the scan worker (server/vault-scan.js). Sentences are the caller's (they need the
 // environment's words); this file answers what was found.
 'use strict';
 
 const fs = require('fs');
-const zlib = require('zlib');
 
 const MB = 1024 * 1024;
 // The limit each kind of file has, and the word for it in "That file is over the 25 MB limit for pictures."
@@ -226,154 +226,17 @@ function picturePixels(b, type) {
   return null;
 }
 
-// The names in a PDF that make it run, open something outside it, send something or carry files (decision 9, and Thomas's
-// rule of 2026-10-30: links to web pages and fillable forms are taken, scripts and launches are not), read as PDF names:
-// "/JS" is the name JS and not the start of "/JSON", and "#xx" escapes are read as the characters they stand for. Each
-// says what kind of thing it is, for the sentence. /URI and /AcroForm are not here: a link's address is looked at
-// instead (uriRefusal), and a form that does not send itself anywhere or run a script is a form.
-const ACTIVE_NAMES = new Map([
-  ['JavaScript', 'scripts'], ['JS', 'scripts'], ['AA', 'scripts'], ['XFA', 'scripts'],
-  ['Launch', 'opens'], ['GoToR', 'opens'], ['GoToE', 'opens'],
-  ['SubmitForm', 'sends'],
-  ['EmbeddedFile', 'files'], ['EmbeddedFiles', 'files'], ['RichMedia', 'files'],
-]);
-// A link (a /URI string, literal or hex) to anything but a web page or an email address: a program, a file, a script.
-const URI_RE = /\/URI\s*(?:\(((?:\\.|[^\\)])*)\)|<([0-9A-Fa-f\s]*)>)/g;
-function uriRefusal(text) {
-  URI_RE.lastIndex = 0;
-  for (let m = URI_RE.exec(text); m; m = URI_RE.exec(text)) {
-    const raw = m[1] !== undefined ? m[1].replace(/\\([0-7]{1,3}|.)/g, (_, c) => (/^[0-7]+$/.test(c) ? String.fromCharCode(parseInt(c, 8)) : c)) : Buffer.from(m[2].replace(/\s+/g, ''), 'hex').toString('latin1');
-    const address = raw.replace(/[\0-\x20\x7f]+/g, '').toLowerCase();
-    if (!/^(?:https?:\/\/|mailto:)/.test(address)) return { name: 'URI', what: 'opens' };
-  }
-  return null;
-}
-const NAME_RE = /\/((?:[^\s()<>[\]{}/%#\0]|#[0-9A-Fa-f]{2})+)/g;
-const OBJ_RE = /\d+\s+\d+\s+obj\b/;
-const STREAM_RE = /\bstream(?:\r\n|\n|\r)/g;
-const WINDOW = 1024 * 1024;
-const OVERLAP = 4096;
-// Compressed object streams: each is inflated as a stream and read the same way, at most 16 MB out of one, 64 MB out of
-// all, and at most 200 of them; a PDF over any of that, or one whose object stream can't be inflated, is not checked and
-// so not taken.
-const PDF_STREAM_MAX = 16 * 1024 * 1024;
-const PDF_STREAMS_OUT_MAX = 64 * 1024 * 1024;
-const PDF_STREAMS_MAX = 200;
-const PDF_STREAM_IN_MAX = 32 * 1024 * 1024;
-
-// The first active name in `text` ({ name, what }), leaving one that touches the end for the next window unless `last`.
-function activeIn(text, last) {
-  NAME_RE.lastIndex = 0;
-  for (let m = NAME_RE.exec(text); m; m = NAME_RE.exec(text)) {
-    if (!last && m.index + m[0].length === text.length) break; // may go on in the next window: read there
-    const name = m[1].replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-    if (ACTIVE_NAMES.has(name)) return { name, what: ACTIVE_NAMES.get(name) };
-  }
-  return uriRefusal(text);
-}
-const unescapeNames = (dict) => dict.replace(/#([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-
-// Inflates the object stream whose data starts at `start` and reads it for active names: null, { name, what }, or
-// { refuse: 'unchecked' }. Never holds more than a window of what comes out.
-function inflatedActive(fh, start, fileSize, budget) {
-  return new Promise((resolve) => {
-    const inflate = zlib.createInflate();
-    let out = 0;
-    let carry = '';
-    let done = false;
-    let pos = start;
-    const end = (r) => { if (done) return; done = true; inflate.removeAllListeners('data'); inflate.on('error', () => {}); inflate.destroy(); resolve(r); };
-    inflate.on('data', (chunk) => {
-      out += chunk.length;
-      budget.out += chunk.length;
-      if (out > PDF_STREAM_MAX || budget.out > PDF_STREAMS_OUT_MAX) return end({ refuse: 'unchecked' });
-      const text = carry + chunk.toString('latin1');
-      const found = activeIn(text, false);
-      if (found) return end(found);
-      carry = text.slice(-OVERLAP);
-    });
-    inflate.on('end', () => end(activeIn(carry, true)));
-    inflate.on('error', () => end({ refuse: 'unchecked' }));
-    const buf = Buffer.alloc(64 * 1024);
-    (async () => {
-      const stop = Math.min(fileSize, start + PDF_STREAM_IN_MAX);
-      while (!done && pos < stop) {
-        const { bytesRead } = await fh.read(buf, 0, Math.min(buf.length, stop - pos), pos);
-        if (!bytesRead || done) break;
-        pos += bytesRead;
-        if (!inflate.write(Buffer.from(buf.subarray(0, bytesRead)))) await new Promise((r) => { inflate.once('drain', r); inflate.once('close', r); });
-      }
-      if (!done) inflate.end();
-    })().catch(() => end({ refuse: 'unchecked' }));
-  });
-}
-
-// What stops a PDF file from being taken, read as a stream in 1 MB windows with an overlap: null, { name, what } for
-// active content (in the file as it is, or in a Flate-compressed object stream), { refuse: 'damaged' } for one that is
-// not a whole PDF (no object, no %%EOF in its last kilobyte), or { refuse: 'unchecked' } for an object stream that
-// can't be read within the limits.
-async function pdfRefusal(file) {
-  const fh = await fs.promises.open(file, 'r');
-  try {
-    const { size } = await fh.stat();
-    const buf = Buffer.alloc(WINDOW);
-    let carry = '';
-    let base = 0; // the file offset of the text's first character
-    let sawObj = false;
-    const objStreams = new Set(); // file offsets of the data of the object streams
-    for (let at = 0; ;) {
-      const { bytesRead } = await fh.read(buf, 0, WINDOW, at);
-      const last = at + bytesRead >= size || bytesRead < WINDOW;
-      const text = carry + buf.toString('latin1', 0, bytesRead);
-      const found = activeIn(text, last);
-      if (found) return found;
-      if (!sawObj && OBJ_RE.test(text)) sawObj = true;
-      STREAM_RE.lastIndex = 0;
-      for (let m = STREAM_RE.exec(text); m; m = STREAM_RE.exec(text)) {
-        if (!last && m.index + m[0].length >= text.length - 1) continue; // its line end may go on: read in the next window
-        const dictStart = Math.max(text.lastIndexOf('obj', m.index), 0);
-        const dict = unescapeNames(text.slice(dictStart, m.index));
-        if (!/\/Type\s*\/ObjStm\b/.test(dict)) continue;
-        if (!/\/Filter\s*(?:\[\s*)?\/FlateDecode\s*\]?\s*(?:\/|>>)/.test(dict) || /\/DecodeParms/.test(dict)) return { refuse: 'unchecked' };
-        objStreams.add(base + m.index + m[0].length);
-        if (objStreams.size > PDF_STREAMS_MAX) return { refuse: 'unchecked' };
-      }
-      at += bytesRead;
-      if (last) break;
-      carry = text.slice(-OVERLAP);
-      base = at - carry.length;
-    }
-    const tail = Buffer.alloc(Math.min(1024, size));
-    await fh.read(tail, 0, tail.length, size - tail.length);
-    if (!sawObj || !tail.includes('%%EOF')) return { refuse: 'damaged' };
-    const budget = { out: 0 };
-    for (const start of objStreams) {
-      const r = await inflatedActive(fh, start, size, budget);
-      if (r) return r;
-    }
-    return null;
-  } finally {
-    await fh.close();
-  }
-}
-
 // What stops an MP3 that starts with an ID3v2 tag from being taken, once the file is in: null, or 'kind' when there are
-// no two MPEG audio frames one after the other in the 64 KB after the tag.
-async function mp3Refusal(file) {
-  const fh = await fs.promises.open(file, 'r');
-  try {
-    const head = Buffer.alloc(10);
-    await fh.read(head, 0, 10, 0);
-    const from = id3End(head);
-    if (from < 0) return head.toString('latin1', 0, 3) === 'ID3' ? 'kind' : null;
-    const b = Buffer.alloc(64 * 1024 + 4096);
-    const { bytesRead } = await fh.read(b, 0, b.length, from);
-    const got = b.subarray(0, bytesRead);
-    for (let i = 0; i < Math.min(got.length, 64 * 1024); i += 1) if (got[i] === 0xff && mp3Frames(got, i) && mp3Frame(got, i) + i + 4 <= got.length) return null;
-    return 'kind';
-  } finally {
-    await fh.close();
-  }
+// no two MPEG audio frames one after the other in the 64 KB after the tag. `fd` is the open file.
+function mp3Refusal(fd) {
+  const head = Buffer.alloc(10);
+  fs.readSync(fd, head, 0, 10, 0);
+  const from = id3End(head);
+  if (from < 0) return head.toString('latin1', 0, 3) === 'ID3' ? 'kind' : null;
+  const b = Buffer.alloc(64 * 1024 + 4096);
+  const got = b.subarray(0, fs.readSync(fd, b, 0, b.length, from));
+  for (let i = 0; i < Math.min(got.length, 64 * 1024); i += 1) if (got[i] === 0xff && mp3Frames(got, i) && mp3Frame(got, i) + i + 4 <= got.length) return null;
+  return 'kind';
 }
 
 // Whether a Markdown file's bytes are text the Vault takes: UTF-8 with no NUL, and not a page or a drawing dressed as
@@ -390,4 +253,17 @@ function markdownRefusal(b) {
   return null;
 }
 
-module.exports = { TYPES, LIMITS, MAX_BYTES, HEAD_BYTES, MAX_PIXELS, claimRefusal, claimedType, mismatch, sniff, picturePixels, pdfRefusal, mp3Refusal, markdownRefusal };
+// What stops a file that is not a picture or a PDF from being taken once it is in, from its structure: null, or 'kind'.
+// Synchronous and bounded: it runs in the scan worker (server/vault-scan.js), never on the main thread.
+function structureRefusal(file, type) {
+  if (type === 'text/markdown') return markdownRefusal(fs.readFileSync(file));
+  if (type !== 'audio/mpeg') return null;
+  const fd = fs.openSync(file, 'r');
+  try {
+    return mp3Refusal(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+module.exports = { TYPES, LIMITS, MAX_BYTES, HEAD_BYTES, MAX_PIXELS, claimRefusal, claimedType, mismatch, sniff, picturePixels, structureRefusal, markdownRefusal };

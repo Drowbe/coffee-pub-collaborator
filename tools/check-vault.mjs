@@ -934,6 +934,24 @@ try {
     same(partsUnder(H.vaultDir), [], 'and its part is removed');
     const after = await hsend('POST', 'aaa', `/api/modules/shelf/library?space=${a.space.id}&name=a.pdf`, { cookie: a.host, headers: { 'content-type': 'application/pdf' }, body: pdf2 });
     same(after.status, 201, `then the upload it held up goes: ${after.text}`);
+    // Two environments' uploads at once: neither counts the other's when it starts, and the one that finishes past the
+    // server's real total (10 MB, about 4 MB kept so far) is refused as it finishes.
+    {
+      same((await hjson('PATCH', 'admin', '/api/host/environments/bbb', { plan: { storageBytes: null } }, { headers: { cookie: hostCookie } })).status, 200, 'bbb\'s cap is lifted');
+      const four = pdfSized(4 * 1024 * 1024);
+      const ua = open(H, 'POST', `/api/modules/shelf/library?space=${a.space.id}&name=x.pdf`, { cookie: a.owner, headers: { host: at('aaa'), 'content-type': 'application/pdf', 'content-length': String(four.length) } });
+      const ub = open(H, 'POST', `/api/modules/shelf/library?space=${b.space.id}&name=y.pdf`, { cookie: b.owner, headers: { host: at('bbb'), 'content-type': 'application/pdf', 'content-length': String(four.length) } });
+      ua.req.write(four.subarray(0, 4096));
+      ub.req.write(four.subarray(0, 4096));
+      await quiet(300);
+      ua.req.end(four.subarray(4096));
+      const ra = await ua.answer;
+      ub.req.end(four.subarray(4096));
+      const rb = await ub.answer;
+      same([ra.status, rb.status, rb.json?.error], [201, 413, 'The server\'s file storage is full. Ask the admin.'], 'both start; the second to finish past the real total is refused');
+      await quiet(200);
+      same(partsUnder(H.vaultDir), [], 'and its part is removed');
+    }
     await H.stop();
   }
 

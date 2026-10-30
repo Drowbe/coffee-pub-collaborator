@@ -8067,6 +8067,9 @@ app.post('/api/modules/:id/library', async (req, res) => {
     } else if (type === 'text/markdown') {
       if (vaultTypes.markdownRefusal(await fs.promises.readFile(part))) { dropPart(); return refuse(400, libraryKindSentence); }
     }
+    // Uploads still arriving in other environments were not counted when this one started, so the server's real total is
+    // checked again now that the file is in (Thomas, 2026-10-30: that overshoot is accepted).
+    if (vaultHostBytes() + kept.size > vaultLimits.total) { dropPart(); return refuse(413, 'The server\'s file storage is full. Ask the admin.'); }
     const record = { id: vault.newId(), name: nameForType(name, vaultTypes.TYPES[type].exts), type, group, size: kept.size, sha256: kept.sha256, by: ctx.by, at: new Date().toISOString(), ...(kept.taken ? { taken: kept.taken } : {}), ...(kept.camera ? { camera: kept.camera } : {}), thumb: null };
     try {
       vault.commit(ctx.manifest.id, ctx.spaceId, part, record);

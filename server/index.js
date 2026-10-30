@@ -7972,7 +7972,6 @@ async function cleanPicturePart(part, type, keepPosition) {
   const pixels = vaultTypes.picturePixels(bytes, type);
   if (pixels === null) return { refused: 'That picture is damaged or cut short.' };
   if (pixels > vaultTypes.MAX_PIXELS) return { refused: 'That picture is too large to show.' };
-  if (type === 'image/gif') return { size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), taken: null, camera: '' };
   let clean;
   try {
     clean = cleanImage(bytes, [type], keepPosition);

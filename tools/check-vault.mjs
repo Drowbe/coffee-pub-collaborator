@@ -146,7 +146,20 @@ const jpegOf = (w = 4, h = 3) => Buffer.concat([
   Buffer.from([0xff, 0xd8]), seg(0xe0, Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0')), seg(0xe1, Buffer.concat([Buffer.from('Exif\0\0'), exifTiff()])),
   seg(0xdb, Buffer.alloc(65, 1)), seg(0xc0, Buffer.from([8, h >> 8, h & 255, w >> 8, w & 255, 1, 1, 0x11, 0])), seg(0xda, Buffer.from([1, 1, 0, 0, 63, 0])), Buffer.from([0x12, 0x34, 0xff, 0xd9]),
 ]);
-const gifOf = (w = 2, h = 2) => { const b = Buffer.alloc(32); b.write('GIF89a', 0, 'latin1'); b.writeUInt16LE(w, 6); b.writeUInt16LE(h, 8); return b; };
+// A GIF: its screen with two colours, then `blocks` (extensions) and one frame of picture data, and the end.
+const gifOf = (w = 2, h = 2, blocks = []) => {
+  const screen = Buffer.alloc(13); screen.write('GIF89a', 0, 'latin1'); screen.writeUInt16LE(w, 6); screen.writeUInt16LE(h, 8); screen[10] = 0x80;
+  const frame = Buffer.alloc(10); frame[0] = 0x2c; frame.writeUInt16LE(w, 5); frame.writeUInt16LE(h, 7);
+  return Buffer.concat([screen, Buffer.from([255, 255, 255, 0, 0, 0]), ...blocks, frame, Buffer.from([2, 2, 0x44, 0x01, 0]), Buffer.from([0x3b])]);
+};
+// The blocks a GIF from a phone or an editor carries: the loop count, a frame's timing, a comment, and XMP as Adobe writes it
+// (the packet raw, then the 258-byte trailer that makes it read as sub-blocks).
+const gifLoop = Buffer.concat([Buffer.from([0x21, 0xff, 11]), Buffer.from('NETSCAPE2.0', 'latin1'), Buffer.from([3, 1, 0, 0, 0])]);
+const gifTiming = Buffer.from([0x21, 0xf9, 4, 0, 10, 0, 0, 0]);
+const gifComment = Buffer.concat([Buffer.from([0x21, 0xfe, 14]), Buffer.from('hidden comment', 'latin1'), Buffer.from([0])]);
+const gifXmp = Buffer.concat([Buffer.from([0x21, 0xff, 11]), Buffer.from('XMP DataXMP', 'latin1'),
+  Buffer.from('<?xpacket begin=""?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF><rdf:Description exif:GPSLatitude="52,30.0N" exif:GPSLongitude="13,24.0E"/></rdf:RDF></x:xmpmeta><?xpacket end="w"?>', 'latin1'),
+  Buffer.from([1, ...Array.from({ length: 256 }, (_, k) => 255 - k), 0])]);
 const webpOf = () => { const b = Buffer.alloc(40); b.write('RIFF', 0, 'latin1'); b.writeUInt32LE(32, 4); b.write('WEBPVP8X', 8, 'latin1'); b.writeUInt32LE(10, 16); b.writeUIntLE(9, 24, 3); b.writeUIntLE(9, 27, 3); return b; };
 const riffOf = (kind) => { const b = Buffer.alloc(44); b.write('RIFF', 0, 'latin1'); b.writeUInt32LE(36, 4); b.write(kind, 8, 'latin1'); return b; };
 const ftypOf = (major, compat = []) => { const size = 16 + compat.length * 4; const b = Buffer.alloc(size + 16); b.writeUInt32BE(size, 0); b.write('ftyp', 4, 'latin1'); b.write(major, 8, 'latin1'); compat.forEach((c, i) => b.write(c, 16 + i * 4, 'latin1')); b.write('mdat', size + 4, 'latin1'); return b; };
@@ -416,6 +429,20 @@ try {
   same(keptPos.status, 201, 'keepPosition=1 keeps it');
   ok(fs.readFileSync(path.join(spaceDir, `${keptPos.json.file.id}.bin`)).includes(Buffer.from('Acme')), 'with its EXIF');
   ok(!fs.readFileSync(path.join(spaceDir, `${kept['image/png'].id}.bin`)).includes(Buffer.from('hidden words')), 'a PNG loses its text');
+  // A GIF loses its comment and its XMP (where it was taken) unless the person keeps it; its frame, timing and loop stay.
+  {
+    const sent = gifOf(3, 2, [gifLoop, gifXmp, gifComment, gifTiming]);
+    const g = await add('pat', 'walk.gif', Buffer.concat([sent, Buffer.from('after the end')]), { type: 'image/gif' });
+    same(g.status, 201, `a GIF with XMP is kept: ${g.text}`);
+    const stored = fs.readFileSync(path.join(spaceDir, `${g.json.file.id}.bin`));
+    ok(!stored.includes(Buffer.from('GPSLatitude')) && !stored.includes(Buffer.from('hidden comment')) && !stored.includes(Buffer.from('after the end')), 'a GIF loses its XMP, its comment and what follows its end');
+    same(stored, gifOf(3, 2, [gifLoop, gifTiming]), 'and keeps its screen, colours, loop count, timing and frame as they were');
+    const kp = await add('pat', 'walk2.gif', sent, { type: 'image/gif', q: '&keepPosition=1' });
+    const keptGif = fs.readFileSync(path.join(spaceDir, `${kp.json.file.id}.bin`));
+    ok(keptGif.includes(Buffer.from('GPSLatitude')) && !keptGif.includes(Buffer.from('hidden comment')), 'keepPosition=1 keeps its XMP, never its comment');
+    const cut = await add('pat', 'cut.gif', sent.subarray(0, sent.length - 9), { type: 'image/gif' });
+    same([cut.status, cut.json?.error], [400, 'That picture is damaged or cut short.'], 'a GIF cut short in its frame is refused');
+  }
 
   // Refused, with the sentence that says why, and nothing kept.
   const before = filesUnder(spaceDir);

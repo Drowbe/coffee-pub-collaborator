@@ -6,6 +6,7 @@
 //
 // JPEG: every segment is dropped except the ones that draw the picture, and the orientation is kept as a tiny EXIF of its own so a
 // phone photo does not turn on its side. PNG: only the chunks that draw the picture. WebP: only the chunks that draw the picture.
+// GIF (only for a caller that allows it): its frames, their timing and the loop count.
 'use strict';
 
 const TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -169,13 +170,51 @@ function cleanWebp(b, keepPosition) {
   return { bytes: Buffer.concat([head, body]), facts };
 }
 
+// --- GIF -------------------------------------------------------------------------------------------------------------------
+// Kept: the header, the screen and its colours, every frame (its timing and transparency, its colours, its picture data) and the
+// loop count (the NETSCAPE2.0 or ANIMEXTS1.0 block). Not kept: comments, plain-text blocks, every other application block (XMP,
+// colour profiles, an editor's own) unless it is XMP and the person chose to keep where it was taken, and anything after the end.
+const isGif = (b) => b.length >= 13 && (b.toString('latin1', 0, 6) === 'GIF87a' || b.toString('latin1', 0, 6) === 'GIF89a');
+function cleanGif(b, keepPosition) {
+  const damaged = () => { throw new Error('this is not a whole GIF picture'); };
+  const tableBytes = (packed) => (packed & 0x80 ? 3 * 2 ** ((packed & 7) + 1) : 0);
+  // The end of the sub-blocks that start at `i` (the offset after their 0 terminator).
+  const subBlocksEnd = (i) => { while (i < b.length && b[i] !== 0) i += 1 + b[i]; if (i >= b.length) damaged(); return i + 1; };
+  let i = 13 + tableBytes(b[10]);
+  if (i > b.length) damaged();
+  const out = [b.subarray(0, i)];
+  let frames = 0;
+  while (i < b.length && b[i] !== 0x3b) {
+    const at = i;
+    if (b[i] === 0x2c) { // a frame: its descriptor, its own colours, the code size, then its data
+      if (i + 10 > b.length) damaged();
+      i += 10 + tableBytes(b[i + 9]);
+      if (i + 1 > b.length) damaged();
+      i = subBlocksEnd(i + 1);
+      out.push(b.subarray(at, i));
+      frames += 1;
+    } else if (b[i] === 0x21) {
+      if (i + 2 > b.length) damaged();
+      const label = b[i + 1];
+      i = subBlocksEnd(i + 2);
+      const app = label === 0xff && b[at + 2] === 11 ? b.toString('latin1', at + 3, at + 14) : '';
+      if (label === 0xf9 || app === 'NETSCAPE2.0' || app === 'ANIMEXTS1.0' || (keepPosition && app === 'XMP DataXMP')) out.push(b.subarray(at, i));
+    } else {
+      damaged();
+    }
+  }
+  if (!frames) damaged();
+  out.push(Buffer.from([0x3b]));
+  return { bytes: Buffer.concat(out), facts: {} };
+}
+
 // The cleaned picture and what it carried: { type, bytes, taken, camera, hasPosition, position }. `position` is set only when the
 // person chose to keep it; `hasPosition` says the photo had one (so the person can be offered the choice). Throws an Error with a
 // plain message for anything that is not a whole picture of an allowed type.
 function cleanImage(buf, allowed, keepPosition) {
-  const type = sniff(buf);
+  const type = sniff(buf) || (isGif(buf) ? 'image/gif' : null);
   if (!type || !allowed.includes(type)) throw new Error('that kind of file is not accepted here');
-  const done = type === 'image/jpeg' ? cleanJpeg(buf, keepPosition) : type === 'image/png' ? cleanPng(buf) : cleanWebp(buf, keepPosition);
+  const done = type === 'image/jpeg' ? cleanJpeg(buf, keepPosition) : type === 'image/png' ? cleanPng(buf) : type === 'image/gif' ? cleanGif(buf, keepPosition) : cleanWebp(buf, keepPosition);
   const f = done.facts;
   return { type, bytes: done.bytes, taken: f.taken || null, camera: f.camera || '', hasPosition: !!f.position, position: keepPosition && f.position ? f.position : null };
 }

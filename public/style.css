@@ -936,8 +936,8 @@ body.host-console .grow {
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
-     .sdk-choice-list tick boxes in a list, each label.sdk-choice-row (system.css, Choice rows). One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
-                   .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
+     .sdk-choice-list tick boxes in a list, each label.sdk-choice-row (system.css, Choice rows). One of a few is the segmented switch (.mf-switch, a radio group of
+                   .mf-switch-btn radios, in system.css's Tabs block). .sdk-people people as chips (a tick box or a radio each).
                    .sdk-form-error a refusal that is not one field's (system.css, States). */
 :root {
   --field-gap: 12px;
@@ -2036,8 +2036,8 @@ body.in-space .subnav {
 
 /* The switch's marks: the Discussion's unread count (the Chips count) and the Assistant's news dot (the Chips dot), after the
    word. On the chosen, filled part they take its text colour. */
-#chat-views .mf-switch-btn[aria-pressed="true"] > .chat-view-count { background: color-mix(in srgb, currentColor 22%, transparent); color: inherit; }
-#chat-views .mf-switch-btn[aria-pressed="true"] > .chat-view-dot { background: currentColor; }
+#chat-views .mf-switch-btn[aria-checked="true"] > .chat-view-count { background: color-mix(in srgb, currentColor 22%, transparent); color: inherit; }
+#chat-views .mf-switch-btn[aria-checked="true"] > .chat-view-dot { background: currentColor; }
 
 .module-chooser-list {
   position: absolute;

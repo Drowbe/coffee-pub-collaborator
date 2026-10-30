@@ -1,0 +1,78 @@
+name: Design check
+
+# The Design System page check (tools/check-design-system.mjs) in headless Chromium, one job per scenario (a width and a mode),
+# run in parallel. `npm run check` runs only 1280:light; this runs all four. The job "Design check" is the one status for the set.
+# A failing scenario uploads its log and the screenshots of the Design System page as an artifact.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push supersedes a run still going for the same branch or pull request.
+concurrency:
+  group: design-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PLAYWRIGHT_VERSION: 1.64.1
+
+jobs:
+  scenario:
+    name: design ${{ matrix.scenario }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ['1280:light', '1280:dark', '390:light', '390:dark']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Install Chromium
+        run: npx -y playwright@${{ env.PLAYWRIGHT_VERSION }} install --with-deps chromium
+      - name: Check the design system at ${{ matrix.scenario }}
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          slug="${SCENARIO/:/-}"
+          echo "SLUG=$slug" >> "$GITHUB_ENV"
+          mkdir -p "artifacts/$slug"
+          set -o pipefail
+          SHOTS="artifacts/$slug/shots" node tools/check-design-system.mjs --scenario="$SCENARIO" 2>&1 | tee "artifacts/$slug/check.log"
+      - name: Upload the log and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: design-check-${{ env.SLUG }}
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  design-check:
+    name: Design check
+    needs: scenario
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every scenario passed
+        env:
+          RESULT: ${{ needs.scenario.result }}
+        run: |
+          if [ "$RESULT" != "success" ]; then
+            echo "::error::The design check failed in at least one scenario ($RESULT). Open the failing 'design <scenario>' job for its log; its screenshots are in the run's artifacts."
+            exit 1
+          fi
+          echo "All four scenarios passed."

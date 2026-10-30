@@ -465,13 +465,13 @@
 @font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }
 
 /* ================= Tabs and view switches (design system step 14) =================
-   One component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
-   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Travel's
-   ways to get there). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
-   Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-joined (the view switch: tabs 2px apart, never scrolls, icons only
-   when narrow via .tb-tabs-compact), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's "..."), + .sdk-tabs-small
-   (30px). The product's own wrapper names are the same component: .tb-tabs (joined, small), .layout-tabs (bar, small),
-   .subtabs (a strip; small in a page bar) and .setup-tabs (a strip).
+   Two components. Tabs: a tab strip, a page's tabs and the top bar's layout tabs (the Set up sheet, Manage and Profile). The
+   segmented switch (.mf-switch, at the end of this block): one choice of a few, the view switch (the module frame draws a
+   module's host.ui.viewSwitch with it, and the Destination header's), Chat's Discussion | Assistant and a choice in a form
+   (the Planner's "How you get there"). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
+   Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's
+   "..."), + .sdk-tabs-small (30px). The product's own wrapper names are the same component: .tb-tabs (joined, small: the
+   Design System page's own switches), .layout-tabs (bar, small), .subtabs (a strip; small in a page bar) and .setup-tabs (a strip).
    Tabs: .sdk-tab, or the product's .tb-tab .subtab .setup-tab and, in a wrapper only, .core-link; parts .sdk-tab-glyph, .sdk-tab-word,
    .sdk-tab-badge, .sdk-tab-dot; .sdk-tab-icon is an icon-only square.
    Selected: aria-selected (a tab list), aria-pressed (a switch), aria-current="page" (a place), or .on / .active.
@@ -554,15 +554,15 @@
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)::-webkit-scrollbar { display: none; }
 
-/* The joined switch and the bar's tabs do not scroll: the switch goes to icons, the bar folds into "...". */
-:is(.sdk-tabs-joined, .tb-tabs, .sdk-tabs-bar, .layout-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
+/* The joined .tb-tabs and the bar's tabs do not scroll: the joined one goes to icons, the bar folds into "...". */
+:is(.tb-tabs, .sdk-tabs-bar, .layout-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
   display: inline-flex;
   flex: none;
   overflow: visible;
 }
 
-/* The joined switch is tighter: 2px between tabs and 8px each side of a word, so a switch in a narrow toolbar keeps its words longer. */
-:is(.sdk-tabs-joined, .tb-tabs):is(.sdk-tabs, .tb-tabs) { --tabs-gap: var(--space-0); --tab-pad-x: var(--space-2); }
+/* The joined .tb-tabs is tighter: 2px between tabs and 8px each side of a word, so it keeps its words longer when narrow. */
+.tb-tabs { --tabs-gap: var(--space-0); --tab-pad-x: var(--space-2); }
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)[hidden] { display: none; }
 
@@ -690,11 +690,6 @@
   display: none;
 }
 
-/* The module frame's joined switch (.mf-switch) fitted the same way by hostSwitch (Chat's Discussion | Assistant): a part with
-   an icon drops its word while the row is too narrow for the words. */
-.mf-switch.tb-tabs-compact > .mf-switch-btn:has(> i) > .mf-word {
-  display: none;
-}
 
 /* The count after the label: a small neutral box with the small corner (no pills). */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge) {
@@ -768,12 +763,46 @@
 
 /* On a phone a small tab keeps its 30px look and gets a 44px target: a strip of them is 44px high and the hit area fills it. */
 @media (max-width: 640px) {
-  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-joined, .sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: var(--tab-phone-pad); }
+  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: var(--tab-phone-pad); }
   :is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)::after { content: ""; position: absolute; inset: -8px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) { transition: none; }
+}
+
+/* The segmented switch: one choice of a few, two to six short ones (Thomas, 2026-10-29). One joined, sunk track the field's
+   step; the chosen part filled with the accent; an icon and a word each, or an icon alone with its word as its name and
+   tooltip. The module frame's toolbar draws a module's view switch with it (module-frame.js), and it stands on its own anywhere
+   else: Chat's Discussion | Assistant, the Prototype's switches, a choice in a form (the Planner's "How you get there"). It is a
+   radio group: .mf-switch has role="radiogroup" and a name, each .mf-switch-btn role="radio" and aria-checked; one Tab stop,
+   the arrows move and choose (public/sdk/host.js, hostSwitch). In a form field it is the field's height, a little roomier. Fitted by hostSwitch
+   (.tb-tabs-compact) or folded by the frame (.mf-fold-switch), a part with an icon drops its word. The parts are named twice
+   (.mf-switch > .mf-switch-btn) so they outrank the frame's own "font and colour inherit" rule for its buttons. */
+.mf-switch {
+  display: inline-flex; flex: none; align-items: stretch; box-sizing: border-box;
+  height: var(--mf-ctl-h); margin: 0; padding: var(--space-0);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field);
+}
+.mf-switch[hidden] { display: none; }
+.sdk-field .mf-switch { height: var(--field-h); align-self: flex-start; }
+.sdk-field .mf-switch > .mf-switch-btn { padding: 0 var(--space-3); font-size: var(--text-13); }
+.sdk-field .mf-switch > .mf-switch-btn > :is(i, .ic) { font-size: var(--icon-14); }
+.mf-switch > .mf-switch-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); box-sizing: border-box;
+  margin: 0; padding: 0 var(--space-2);
+  border: 0; border-radius: var(--radius-min); background: transparent; color: var(--text-muted);
+  font: inherit; font-size: var(--text-12); font-weight: var(--weight-medium); line-height: var(--leading-ui); white-space: nowrap; cursor: pointer;
+}
+.mf-switch > .mf-switch-btn > :is(i, .ic) { font-size: var(--icon-12); }
+.mf-switch > .mf-switch-btn > .ic { display: inline-flex; width: 1em; height: 1em; }
+.mf-switch > .mf-switch-btn > .ic svg { display: block; width: 1em; height: 1em; fill: currentColor; }
+.mf-switch > .mf-switch-btn:hover { color: var(--text-primary); }
+.mf-switch > .mf-switch-btn[aria-checked="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
+.mf-switch > .mf-switch-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.mf-switch > .mf-switch-btn:disabled { cursor: default; opacity: 0.5; }
+.mf-switch.tb-tabs-compact > .mf-switch-btn:has(> i) > .mf-word {
+  display: none;
 }
 /* tabs:end */
 
@@ -786,7 +815,8 @@
      Tag           .sdk-chip-tag        24px, 12px   what a thing is; not pressed. A tag that is a link or a button is a.sdk-chip-tag or button.sdk-chip-tag
      Removable     .sdk-chip-removable  24px, 12px   a tag with a trailing x button (.sdk-chip-x)
      Status label  .sdk-status          24px, 12px   a condition, in words, with a tint fill
-     Count         .sdk-badge           18px, 11px   a neutral number after a label or in a chip; data-tone="ok" is green (something to act on)
+     Count         .sdk-badge           18px, 11px   a neutral number after a label or in a chip; data-tone="ok" is green (something to act on);
+                                                     one digit is a circle, two or more a box with the small corner
      Micro count   .sdk-badge-micro     14px, 9px    an accent number on the corner of an icon-only button (the parent is positioned by this block)
      Dot           .sdk-dot             7px          where a number is not useful
    Selected is aria-pressed, aria-selected, aria-checked or .on: the quiet selected fill (--fill-selected) with --text-selected. A category
@@ -1020,7 +1050,11 @@
   color: inherit;
 }
 
-/* The count after a label or inside a chip: neutral, 18px, 11px strong. */
+/* The count after a label or inside a chip: neutral, 18px, 11px strong. One digit is an 18px circle; two or more digits are a
+   box with the small corner (no pills). The shape follows the count's own width, so nothing that writes a number has to mark it:
+   the corner is the small one, and while the box is square (one digit fits the 18px minimum) the clip cuts it to the circle.
+   A circle()'s percentage is of the box's diagonal over the square root of 2 (18px for the 18px square, 19px and more from two
+   digits up, in any font), so max() gives the 50% circle up to 18.5px and, past that, a radius far outside the box (no clip). */
 .sdk-badge {
   display: inline-flex;
   align-items: center;
@@ -1030,9 +1064,10 @@
   min-width: 18px;
   height: 18px;
   margin: 0;
-  padding: 0 calc(var(--space-1) + var(--space-0));
+  padding: 0 var(--space-1);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
+  clip-path: circle(max(50%, (100% - 18.5px) * 100));
   background: color-mix(in srgb, var(--text-primary) 14%, transparent);
   color: var(--text-primary);
   font-size: var(--text-11);
@@ -1228,7 +1263,7 @@
    The surface rules are written in :where() (no weight), so a page or a module can lay a card out (a row of cards, a grid) with its own
    rule and no fight over order; the states have weight.
    Selected: aria-current="true", aria-selected="true" or .on. Disabled: aria-disabled="true". The Calendar's bar and the Planner's
-   day cards come with their own steps (32 to 34). tools/check-design-system-cards.mjs holds the drawing. */
+   day cards come with their own steps (32 to 34). the Design System page holds the drawing. */
 /* cards:start */
 :root {
   /* padding and gaps: --pad-panel, --pad-card, --pad-home, --pad-row-y/-x, --gap-in, --gap-card-rows, --gap-group (Foundations, Padding) */
@@ -1567,7 +1602,7 @@
      that turns a person on or off (.sdk-member-toggle) is on with the selected fill, off at 45% strength.
    Classes: .sdk-table-wrap .sdk-table .sdk-table-group .sdk-table-check .sdk-table-sub .sdk-table-dim .sdk-table-count .sdk-table-empty
    .sdk-sort; .sdk-members .sdk-member .sdk-member-pic .sdk-member-name .sdk-member-dot .sdk-member-toggle.
-   The loading row (the States family's skeleton bars) comes with that family. tools/check-design-system-tables.mjs holds the drawing. */
+   The loading row (the States family's skeleton bars) comes with that family. the Design System page holds the drawing. */
 /* tables:start */
 :root {
   --tbl-surface: var(--surface-panel);
@@ -1779,7 +1814,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
    - The Calendar exception (Thomas, 2026-10-18; end caps 2026-10-21): the agenda's rows and the chips of other calendars and of
      markers keep a 3px bar on the left, .sdk-bar-kept: a straight, square-ended block (::before, a real box, not a border or an inset
      shadow) the full height of the box, in --tint, and the box is square on that side. Nowhere else.
-   tools/check-design-system-calendar.mjs holds the drawing. */
+   the Design System page holds the drawing. */
 /* calendar:start */
 :root {
   --cal-cell-h: 74px;
@@ -2017,7 +2052,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
    The marker's colour is the one value --marker (set on the element from the person's setting; the muted text colour when none); it is on the icon chip and the tint
    fill, never on an edge: no coloured border, hatch or stripe. The words are always the text colour; the glyph is the marker mixed 45%
    into the text. Hover is the marker at 34%, focus the 2px outline inside; on a phone the hit area is 44px.
-   tools/check-design-system-markers.mjs holds the drawing. */
+   the Design System page holds the drawing. */
 /* markers:start */
 :root {
   --mk-tint: 22%;
@@ -2167,7 +2202,7 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
      match); in the trip a 7px dot in the corner (.sdk-daychip-dot) with its words in the label. No lift, shadow or coloured edge.
    - Days between (.sdk-daygap, .sdk-gapcount): a 24px neutral round count with its word. (The drawing's .sdk-gap is the Journey
      bar's empty slice in the product, so the row is .sdk-daygap.)
-   tools/check-design-system-days.mjs holds the drawing. */
+   the Design System page holds the drawing. */
 /* days:start */
 :root {
   --day-date-w: 48px;
@@ -4621,7 +4656,7 @@ button.sdk-toast-body:focus-visible { outline: 2px solid var(--focus-ring); outl
 }
 /* The glyph is a box of its own, 1em square, so the badge centres a box and not a line of text. FA's glyphs do not all sit in the middle of their box
    (the triangle's tip is at the top and its base 32 of 512 units above the bottom), so each badge lets the glyph down by the little that was measured
-   at its size (tools/check-design-system-align.mjs, badgeInk: within 0.5px on both axes). */
+   at its size (the Design System page holds it: within 0.5px on both axes). */
 :is(.sdk-banner-icon, .sdk-toast-icon) > i { display: block; flex: none; width: 1em; height: 1em; line-height: 1; text-align: center; }
 .sdk-banner-icon > i { transform: translateY(0.04em); }
 .sdk-banner-icon > .fa-triangle-exclamation { transform: translateY(0.083em); }
@@ -5101,7 +5136,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
      .sdk-choice-list                 a group of rows, 4px apart
      .sdk-choice-boxed                the boxed row: a card row with a hairline, ONLY where each option has a description
    A switch row is a row whose input is .sdk-switch: the words, then the switch at the right; on or off is the switch, so the row takes no fill.
-   Two to four short options as one control are the Tabs family's joined switch (.sdk-tabs-joined), not a row. */
+   Two to six short options as one control are the segmented switch (.mf-switch, the Tabs block), not a row. */
 /* choices:start */
 :root {
   --cr-pad-x: var(--space-2);
@@ -5408,7 +5443,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
    between. Every size and step is one of the tokens just below: change one there and every panel follows. The toolbar's side
    padding and the content's padding are the same token (--mf-inset); the toolbar's controls sit in the middle of its band
    (--mf-band-h, the band's height over its hairline). Controls look different by kind: a view switch is a joined, sunk track
-   with the chosen part filled; a tab is a plain fill when chosen; a filter chip is a pill; a button is a square-cornered
+   with the chosen part filled; a tab is a plain fill when chosen; a filter chip is a small outlined box; a button is a square-cornered
    block (primary filled, secondary outlined); an icon button is bare. */
 :root {
   --mf-inset: var(--space-3); /* the toolbar's sides, the content's padding, the title and status bars' start */
@@ -5501,19 +5536,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-btn-secondary { border-color: var(--edge-field); background: var(--fill-secondary); color: var(--text-primary); }
 .mf-btn-secondary:hover { background: var(--fill-secondary-hover); }
 
-/* The view switch: one joined, sunk track; the chosen part filled with the accent. Compact: icon and word, no gaps. */
-.mf-switch {
-  display: inline-flex; flex: none; align-items: stretch; box-sizing: border-box;
-  height: var(--mf-ctl-h); padding: var(--space-0);
-  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field);
-}
-.mf-switch-btn {
-  display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2);
-  border: 0; border-radius: var(--radius-min); background: transparent; color: var(--text-muted); font-size: var(--text-12); font-weight: var(--weight-medium);
-}
-.mf-switch-btn > i { font-size: var(--icon-12); }
-.mf-switch-btn:hover { color: var(--text-primary); }
-.mf-switch-btn[aria-pressed="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
+/* The view switch is the segmented switch of the Tabs block (.mf-switch): the frame draws it in its toolbar. */
 
 /* The tab strip: for switching between different pages. A plain fill on the chosen tab, no shape that joins the content;
    the others are words only. */
@@ -5548,12 +5571,12 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-search-input::-webkit-search-cancel-button { appearance: none; }
 .mf-search .mf-search-close { width: calc(var(--mf-ctl-h) - 6px); height: calc(var(--mf-ctl-h) - 6px); }
 
-/* Filter chips: pills, smaller than the buttons; off is an outline with a plus, on is the selected fill with a tick. */
+/* Filter chips: the small corner (no pills), smaller than the buttons; off is an outline with a plus, on is the selected fill with a tick. */
 .mf-chips { display: flex; flex: none; align-items: center; gap: var(--space-1); }
 .mf-chip, .mf-chips-menu {
   display: inline-flex; flex: none; align-items: center; gap: var(--space-1); box-sizing: border-box;
   height: var(--mf-chip-h); padding: 0 var(--space-2);
-  border: 1px solid var(--edge-field); border-radius: var(--radius-round); background: transparent; color: var(--text-muted);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: transparent; color: var(--text-muted);
   font-size: var(--text-12); white-space: nowrap;
 }
 .mf-chip:hover, .mf-chips-menu:hover { color: var(--text-primary); background: var(--fill-hover); }
@@ -5567,7 +5590,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 
 /* The Filters button: its count is the shared .sdk-badge; always shown, only ever moved into More. A control's height, as the
    search beside it and the buttons on the left (QA, 2026-10-25: By day stood taller than Filters). */
-.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; height: var(--mf-ctl-h); line-height: 1; border-radius: var(--radius-small); }
+.mf-toolbar > .mf-chips-menu.mf-filters { display: inline-flex; align-items: center; height: var(--mf-ctl-h); line-height: 1; }
 
 /* Words in the row: a title, never cut; it moves into "More" whole. */
 .mf-tb-title { flex: none; font-size: var(--text-14); font-weight: var(--weight-strong); white-space: nowrap; text-overflow: ellipsis; }

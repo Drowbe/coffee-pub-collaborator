@@ -1,77 +1,71 @@
 #!/usr/bin/env node
 /*
- * check-design-system.mjs -- the design system page (public/design-system/, documentation/plans/plan-design-system.md, first look).
- * The shared runner. Each family of the Proposed page is checked by its own file, tools/check-design-system-<id>.mjs, named in
- * tools/check-design-system-families.json (in the order they run in the browser); a family in public/design-system/legacy/system-v1/proposed-families.json with
- * no check file, or the reverse, fails. A family file exports id, todayOnly (classes of Today's markup it draws as they are), and any of
- * staticChecks(ctx) (files and rules) and browserChecks(b) (in the page, at each width and mode; b has ev, cdp, sessionId, sc, where, problems,
- * inkCentre and edgeColours, the measuring helpers kept here) and ownRules (its stylesheet is not under .ds-proposed and checks itself).
- * Adding a family: README.md in public/design-system/.
+ * check-design-system.mjs -- the Design System page (public/design-system/index.html, what is in production) opened in a real browser, and
+ * System v1 (public/design-system/legacy/system-v1/proposed.html, the frozen drawings the production system was built from) loaded as a smoke test.
+ * What the page's classes, family blocks and the Prototype page's classes hold is checked without a browser by tools/check-design-system-catalog.mjs;
+ * the real screens (bands, padding, tap areas) by tools/check-conformance.mjs. This check holds what only a browser on this page shows.
  *
- * Two pages are checked, each served by the app and as a snapshot folder opened from disk: the Design System (index.html, what is in
- * production) and System v1 (legacy/system-v1/proposed.html, the drawings the production system was built from, kept on Legacy; it must
- * not load sources.js, the components or ds.js, and index.html must not load any proposed-* file).
+ * Static (every run): the page's files exist; the snapshot script (tools/design-system-snapshot.mjs) builds both pages into temp folders, each
+ * with an index.html that loads no script and links nothing from outside or from the server root, with system.css linked, under 12 MB; the
+ * System v1 snapshot carries its manifest inline and every file the manifest names, and none of the Design System's own files; index.html loads
+ * nothing of System v1 and links the Proposed page; proposed.html loads nothing of the Design System and links back to it.
+ * Warns (never fails) on a sources.js older than the module stylesheets.
  *
- * Fails on: a missing file; the snapshot script not producing an index.html in a temp folder for either page, an external script in it, or a size over
- * 12 MB, or a proposed snapshot without proposed.css, proposed.js, proposed-families.json or a file that manifest names; a stylesheet of the proposal
- * (proposed.css and each family's) with a rule that is not under .ds-proposed, a colour on a border, a radius that is not a token, a font url that is
- * not a bundled woff2, or a class used by the proposal's scripts that its stylesheets do not define; a page that logs a console error, does not finish
- * drawing, or draws nothing at 1280 (light and dark) and 390 in headless Chromium (opened from the app, and the snapshot opened from disk); on the
- * proposed page also what each family file lists: see the header of that file (Buttons, Fields and forms, Typography, Tabs and view switches, Colour).
- * Warns (never fails) on: a class in an example that is in none of the stylesheets of that example's context, and a sources.js older than the module stylesheets.
- * Browser: CHROME_PATH, else a Playwright or system Chromium; with none, the browser part says SKIPPED (not a pass).
- * Options: SHOTS=<folder> saves the screenshots.
+ * Browser, per scenario (a width, 1280 or 390, and a mode, light or dark), in one headless Chromium with one tab at a fixed viewport:
+ *   the Design System page, served by the app and as its snapshot opened from disk: no console error, exception or page error; the page
+ *   finishes drawing; every example frame loads; at least 20 families, 40 tokens and 20 icons drawn; no sideways scroll; still at its top
+ *   (a frame that takes focus must not scroll it away); a screenshot that is not empty; the body font Figtree (/sdk/system.css linked); the
+ *   Light and Dark switch sets data-theme-mode.
+ *   System v1, served and as its snapshot: no console error, exception or page error; it finishes drawing; renderAll draws every family and
+ *   every frame loads; it does not load the Design System's inventory; no sideways scroll. Nothing else: it is a frozen record.
+ *
+ * Usage: node tools/check-design-system.mjs [--scenario=1280:light[,390:dark...]]   (default: all four, one after another)
+ *   npm run check runs --scenario=1280:light; npm run check:design (and .github/workflows/design-check.yml, one job per scenario) runs all four.
+ * Browser: CHROME_PATH, else a Playwright Chromium (PLAYWRIGHT_BROWSERS_PATH, ~/.cache/ms-playwright) or a system one. With none it says
+ * SKIPPED (not a pass), and fails when CI is set. SHOTS=<folder> saves a screenshot of each page per scenario.
  */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import vm from 'node:vm';
-import zlib from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildSnapshot, buildSources, proposedManifest } from './design-system-snapshot.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DS = path.join(root, 'public', 'design-system');
-const V1 = path.join(DS, 'legacy', 'system-v1'); // System v1, the drawings (the old Proposed page), kept on Legacy
+const V1 = path.join(DS, 'legacy', 'system-v1');
+const started = Date.now();
 const failures = [];
 const warnings = [];
 const fail = (m) => failures.push(m);
+const say = (m) => console.log('check-design-system: ' + m);
 
-// ---- the families: the page's manifest, and the check file of each (tools/check-design-system-families.json) ----
-const manifestText = fs.readFileSync(path.join(V1, 'proposed-families.json'), 'utf8');
-const manifest = proposedManifest();
-const checkIds = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'check-design-system-families.json'), 'utf8')).families;
-for (const f of manifest.families) if (!checkIds.includes(f.id)) fail(`the family ${f.id} (proposed-families.json) has no check: add it to tools/check-design-system-families.json and write tools/check-design-system-${f.id}.mjs`);
-for (const id of checkIds) if (!manifest.families.some((f) => f.id === id)) fail(`tools/check-design-system-families.json names ${id}, which proposed-families.json does not`);
-const checks = [];
-for (const id of checkIds) {
-  const file = path.join(root, 'tools', `check-design-system-${id}.mjs`);
-  if (!fs.existsSync(file)) { fail(`tools/check-design-system-${id}.mjs is missing`); continue; }
-  const mod = await import(pathToFileURL(file).href);
-  if (mod.id !== id) fail(`tools/check-design-system-${id}.mjs exports id ${JSON.stringify(mod.id)}, not ${id}`);
-  checks.push(mod);
-}
+// ---- the scenarios ----
+const ALL = ['1280:light', '1280:dark', '390:light', '390:dark'];
+const arg = process.argv.find((a) => a.startsWith('--scenario='));
+const wanted = arg ? arg.slice(11).split(',').filter(Boolean) : ALL;
+for (const s of wanted) if (!ALL.includes(s)) { console.error(`check-design-system: --scenario=${s} is not one of ${ALL.join(', ')}`); process.exit(2); }
+const scenarios = wanted.map((s) => { const [w, m] = s.split(':'); return { width: Number(w), mode: m, name: s }; });
 
 // ---- files ----
+const manifest = proposedManifest();
 for (const f of ['index.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js', 'sources.js']) {
   if (!fs.existsSync(path.join(DS, f))) fail(`public/design-system/${f} is missing`);
 }
 for (const f of ['proposed.html', 'ds.css', 'proposed.js', 'proposed.css', 'proposed-families.json', ...manifest.families.flatMap((f) => [f.js, f.css].filter(Boolean))]) {
   if (!fs.existsSync(path.join(V1, f))) fail(`public/design-system/legacy/system-v1/${f} is missing`);
 }
-if (!fs.existsSync(path.join(root, 'tools', 'design-system-snapshot.mjs'))) fail('tools/design-system-snapshot.mjs is missing');
-if (failures.length) { for (const f of failures) console.error('check-design-system: ' + f); process.exit(1); }
+if (failures.length) { for (const f of failures) console.error('check-design-system: FAIL ' + f); process.exit(1); }
 
-
-// ---- the snapshots, into temp folders: Today, and Proposed ----
+// ---- the snapshots, into temp folders: the Design System, and System v1 ----
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-snapshot-check-'));
 const outP = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-snapshot-check-p-'));
 const snap = buildSnapshot(out);
 const snapP = buildSnapshot(outP, 'proposed');
-for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]) {
-  if (!fs.existsSync(path.join(dir, 'index.html'))) fail(`the ${label} snapshot has no index.html`);
+for (const [label, dir, sn] of [['design system', out, snap], ['system v1', outP, snapP]]) {
+  if (!fs.existsSync(path.join(dir, 'index.html'))) { fail(`the ${label} snapshot has no index.html`); continue; }
   if (sn.total > 12 * 1024 * 1024) fail(`the ${label} snapshot is ${(sn.total / 1024 / 1024).toFixed(1)} MB, over 12 MB`);
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
   for (const m of html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
@@ -87,147 +81,49 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
     if (/<script\b[^>]*\bsrc\s*=\s*["'](https?:)?\/\//i.test(t)) fail(`${label}: ${f.file} loads an external script`);
   }
 }
-// The pages stay apart: Proposed is small and loads none of Today; Today carries nothing of the proposal.
+// The pages stay apart: System v1 loads none of the Design System; the Design System carries nothing of System v1.
 {
   const names = new Set(snapP.files.map((f) => f.file));
-  for (const bad of ['sources.js', 'ds.js', 'components.js', 'components-2.js', 'components-3.js']) if (names.has(bad)) fail(`the proposed snapshot holds ${bad}, which is Today's`);
-  for (const need of ['index.html', 'style.css', 'theme.css', 'ds.css', 'proposed.css', 'proposed.js', 'proposed-families.json', 'fa/css/all.min.css', ...manifest.families.flatMap((f) => [f.js, f.css].filter(Boolean))]) if (!names.has(need)) fail(`the proposed snapshot has no ${need}`);
-  const sh = fs.readFileSync(path.join(outP, 'index.html'), 'utf8');
-  if (!sh.includes('DS_PROPOSED_MANIFEST')) fail('the proposed snapshot does not carry the manifest in index.html (a file on disk cannot read proposed-families.json)');
+  for (const bad of ['sources.js', 'ds.js', 'components.js', 'components-2.js', 'components-3.js']) if (names.has(bad)) fail(`the system v1 snapshot holds ${bad}, which is the Design System's`);
+  for (const need of ['index.html', 'style.css', 'theme.css', 'ds.css', 'proposed.css', 'proposed.js', 'proposed-families.json', 'fa/css/all.min.css', ...manifest.families.flatMap((f) => [f.js, f.css].filter(Boolean))]) if (!names.has(need)) fail(`the system v1 snapshot has no ${need}`);
+  if (fs.existsSync(path.join(outP, 'index.html')) && !fs.readFileSync(path.join(outP, 'index.html'), 'utf8').includes('DS_PROPOSED_MANIFEST')) fail('the system v1 snapshot does not carry the manifest in index.html (a file on disk cannot read proposed-families.json)');
   const ph = fs.readFileSync(path.join(V1, 'proposed.html'), 'utf8');
-  if (/sources\.js|components|ds\.js/.test(ph.replace(/<!--[\s\S]*?-->/g, ''))) fail('proposed.html loads something of Today (sources.js, components, ds.js)');
+  if (/sources\.js|components|ds\.js/.test(ph.replace(/<!--[\s\S]*?-->/g, ''))) fail('legacy/system-v1/proposed.html loads something of the Design System (sources.js, components, ds.js)');
   if (!/href="\.\.\/\.\.\/index\.html"/.test(ph)) fail('legacy/system-v1/proposed.html has no link to the Design System page (../../index.html)');
   const th = fs.readFileSync(path.join(DS, 'index.html'), 'utf8');
-  if (/proposed(-[a-z0-9-]+)?\.(js|css|json)\b/.test(th)) fail('index.html loads the proposal (a proposed.* or proposed-* file)');
+  if (/proposed(-[a-z0-9-]+)?\.(js|css|json)\b/.test(th)) fail('index.html loads System v1 (a proposed.* or proposed-* file)');
   if (!/href="proposed\.html"/.test(th)) fail('index.html has no link to proposed.html');
-  if (/data-view|ds-view/.test(th)) fail('index.html still has the Today and Proposed switch');
-  if (snap.files.some((f) => /^proposed[.-]/.test(f.file))) fail('the today snapshot holds a proposed.* or proposed-* file');
+  if (snap.files.some((f) => /^proposed[.-]/.test(f.file))) fail('the design system snapshot holds a proposed.* or proposed-* file');
 }
-
-// ---- the proposal's stylesheets: the shared proposed.css and each family's. Scoped, tokens only, every proposed class defined ----
+// sources.js is generated from the module stylesheets: a warning when it is older than they are.
 {
-  const split = (t) => { const parts = []; let d = 0; let cur = ''; for (const ch of t) { if (ch === '(' || ch === '[') d += 1; if (ch === ')' || ch === ']') d -= 1; if (ch === ',' && d === 0) { parts.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) parts.push(cur.trim()); return parts; };
-  const names = new Set(snapP.files.map((f) => f.file));
-  const todayHtml = fs.readFileSync(path.join(DS, 'index.html'), 'utf8');
-  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
-  const mods = new Map(checks.map((m) => [m.id, m]));
-  // Every stylesheet and script of the proposal: the shared pair, then each family's (a family that checks its own rules, as Colour does, is left out of the shared rules).
-  const sheets = [{ file: 'proposed.css', text: fs.readFileSync(path.join(V1, 'proposed.css'), 'utf8'), id: null }];
-  const scripts = [{ file: 'proposed.js', text: fs.readFileSync(path.join(V1, 'proposed.js'), 'utf8') }];
-  for (const f of manifest.families) {
-    if (mods.get(f.id)?.ownRules) continue;
-    if (f.css) sheets.push({ file: f.css, text: fs.readFileSync(path.join(V1, f.css), 'utf8'), id: f.id });
-    if (f.js) scripts.push({ file: f.js, text: fs.readFileSync(path.join(V1, f.js), 'utf8') });
-  }
-  // Classes defined by any family's stylesheet, including the ones that check their own rules (States, Colour): every frame carries all of them, so a family may use another's (the Tables loading bars use the States skeleton).
-  const defined = new Set();
-  const allSheets = sheets.concat(manifest.families.filter((f) => f.css && mods.get(f.id)?.ownRules).map((f) => ({ text: fs.readFileSync(path.join(V1, f.css), 'utf8') })));
-  for (const s of allSheets) for (const x of strip(s.text).matchAll(/\.([A-Za-z][\w-]*)/g)) defined.add(x[1]);
-  for (const s of sheets) {
-    const css = strip(s.text);
-    // Fonts: a url is a bundled woff2 under fonts/, in the proposed snapshot, with its licence; nothing is fetched from outside.
-    const urls = [...css.matchAll(/url\(\s*["']?([^)"']+)/g)].map((m) => m[1]);
-    for (const u of urls) {
-      if (!/^fonts\/[a-z0-9-]+\/[a-z0-9-]+\.woff2$/.test(u)) fail(`${s.file}: a font url that is not a bundled woff2 under fonts/: ${u}`);
-      else if (!names.has(u)) fail(`the proposed snapshot has no ${u}`);
-    }
-    for (const d of new Set(urls.map((u) => u.split('/')[1]))) if (!names.has(`fonts/${d}/OFL.txt`)) fail(`fonts/${d} has no licence file (OFL.txt) in the proposed snapshot`);
-    if (/@import|https?:\/\//.test(css)) fail(`${s.file} fetches something from outside (@import or an http address)`);
-    for (const m of css.matchAll(/([^{}]+)\{/g)) {
-      const sel = m[1].trim();
-      if (!sel || sel.startsWith('@')) continue;
-      for (const part of split(sel)) if (!/^\.ds-proposed\b/.test(part)) fail(`${s.file}: a rule not under .ds-proposed: ${part.slice(0, 80)}`);
-    }
-    for (const m of css.matchAll(/(border(?:-[a-z]+)*)\s*:\s*([^;}]+)/g)) {
-      const name = m[1]; const v = m[2].trim();
-      if (/radius/.test(name)) { const head = css.slice(0, m.index); const selector = head.slice(head.lastIndexOf('}') + 1, head.lastIndexOf('{')); /* a square corner (0) is allowed only on the end cap of a kept bar and its box (decided 2026-10-21) */ if (v === '0' && /sdk-bar-kept/.test(selector)) continue; if (!/^var\(--radius-(min|small|medium|large|round)\)$/.test(v)) fail(`${s.file}: ${name}: ${v} is not a radius token`); continue; }
-      if (/(#[0-9a-f]{3,8}\b|rgb|hsl|color-mix|--accent|--danger|--ok|--tint)/i.test(v)) {
-        // A field's focus and error are states that colour the whole edge (Thomas, 2026-10-17); a side of an edge (a strip) is never allowed.
-        const before = css.slice(0, m.index); const sel = before.slice(Math.max(before.lastIndexOf('}'), 0), before.lastIndexOf('{'));
-        if (name === 'border-color' && /(:focus|aria-invalid)/.test(sel)) continue;
-        fail(`${s.file}: a coloured border: ${name}: ${v}`);
-      }
-    }
-    if (/\b(box-shadow|outline)\s*:[^;]*(var\(--(accent|danger)|color-mix)/i.test(css.replace(/outline:\s*2px solid (var\(--(accent|danger)\)|color-mix\(in srgb, var\(--accent\) 55%, var\(--t-ink\)\))( !important)?/g, ''))) fail(`${s.file}: a ring or shadow in a colour (only the focus ring is allowed)`);
-  }
-  // Every class a script of the proposal uses is defined by a stylesheet of it (or is Today's own markup, a Font Awesome or page-frame class, or an example-page .pm- class).
-  const own = new Set();
-  for (const s of scripts) for (const m of s.text.matchAll(/\.(pm-[\w-]+)/g)) own.add(m[1]);
-  const NOT_MINE = /^(fa-|pm-|dsf|ds-(?!proposed$)|nav-text)/;
-  // Classes of Today's markup that a family draws as it is and does not style: each family file lists its own (todayOnly).
-  const TODAY_ONLY = new Set(checks.flatMap((m) => m.todayOnly || []));
-  for (const s of scripts) {
-    const used = new Set();
-    for (const m of s.text.matchAll(/class="([^"]*)"/g)) for (const c of m[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/).filter(Boolean)) used.add(c);
-    for (const m of s.text.matchAll(/\bcls: '([^']*)'/g)) for (const c of m[1].split(/\s+/).filter(Boolean)) used.add(c);
-    for (const c of [...used].filter((c) => !NOT_MINE.test(c) && !defined.has(c))) if (!TODAY_ONLY.has(c) && !own.has(c)) fail(`${s.file} uses .${c} and the proposed stylesheets do not define it`);
-  }
-  // Each family's own checks of its files.
-  for (const f of manifest.families) {
-    const m = mods.get(f.id);
-    for (const k of ['js', 'css']) {
-      if (!f[k]) continue;
-      if (!names.has(f[k])) fail(`the proposed snapshot has no ${f[k]}`);
-      if (todayHtml.includes(f[k])) fail(`index.html (Today) loads ${f[k]}`);
-    }
-    if (!m || !m.staticChecks) continue;
-    m.staticChecks({ DS: V1, TODAY: DS, root, fail, snap, snapP, snapNames: names, todayHtml, manifestText, entry: f, css: f.css ? strip(fs.readFileSync(path.join(V1, f.css), 'utf8')) : '', js: f.js ? fs.readFileSync(path.join(V1, f.js), 'utf8') : '', defined });
-  }
+  const src = buildSources({ withFiles: true }).data;
+  const onDisk = JSON.stringify(Object.fromEntries(Object.entries(src.modules).map(([k, v]) => [k, v.files.map((f) => f.text)])));
+  const c = { window: {} }; vm.createContext(c); vm.runInContext(fs.readFileSync(path.join(DS, 'sources.js'), 'utf8'), c);
+  const inPage = JSON.stringify(Object.fromEntries(Object.entries(c.window.DS_SOURCES.modules).map(([k, v]) => [k, v.files.map((f) => f.text)])));
+  if (onDisk !== inPage) warnings.push('public/design-system/sources.js is older than the module stylesheets: run node tools/design-system-snapshot.mjs --sources');
 }
-
-// ---- orphan classes (a warning list) ----
-function loadFamilies() {
-  const ctx = { window: {} };
-  ctx.window.window = ctx.window;
-  vm.createContext(ctx);
-  for (const f of ['components.js', 'components-2.js', 'components-3.js']) vm.runInContext(fs.readFileSync(path.join(DS, f), 'utf8'), ctx, { filename: f });
-  return ctx.window.DS_FAMILIES || [];
-}
-const fams = loadFamilies();
-const src = buildSources({ withFiles: true }).data;
-const cssOf = (c) => {
-  const s = src.files;
-  const m = (id) => (src.modules[id]?.files || []);
-  if (c === 'app') return s['style.css'] + s['theme.css'];
-  if (c === 'host') return s['host.css'] + s['host.js'];
-  if (c.startsWith('widget:')) return s['host.css'] + s['host.js'] + m(c.slice(7)).filter((f) => /-widget\.css$/.test(f.file)).map((f) => f.text).join('');
-  return s['host.css'] + s['host.js'] + m(c.slice(4)).filter((f) => f.page !== false).map((f) => f.text).join('');
-};
-const UTIL = new Set(['fa-solid', 'fa-fw', 'fa-spin', 'dim', 'hint', 'on', 'open', 'off', 'active', 'current', 'selected', 'today', 'sel', 'other', 'inrange', 'danger', 'primary', 'disabled', 'dial', 'ic', 'icon-on', 'icon-off']);
-let nClasses = 0; let nVariants = 0; let nExamples = 0;
-const orphanSet = new Set();
-for (const fam of fams) {
-  for (const v of fam.variants || []) {
-    nVariants += 1; nExamples += 1 + (v.states || []).length;
-    const css = cssOf(v.ctx || 'app');
-    for (const m of v.html.matchAll(/\bclass="([^"]*)"/g)) for (const c of m[1].split(/\s+/).filter(Boolean)) {
-      nClasses += 1;
-      if (UTIL.has(c) || c.startsWith('fa-')) continue;
-      const esc = c.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
-      if (!new RegExp('\\.' + esc + '(?![A-Za-z0-9_-])').test(css)) orphanSet.add(`${fam.id}: .${c} (${v.ctx || 'app'}, "${v.n}")`);
-    }
-  }
-}
-for (const o of orphanSet) warnings.push('class in no stylesheet of its context: ' + o);
-const modsOnDisk = JSON.stringify(Object.fromEntries(Object.entries(src.modules).map(([k, v]) => [k, v.files.map((f) => f.text)])));
-const modsInPage = (() => { const c = { window: {} }; vm.createContext(c); vm.runInContext(fs.readFileSync(path.join(DS, 'sources.js'), 'utf8'), c); const d = c.window.DS_SOURCES; return JSON.stringify(Object.fromEntries(Object.entries(d.modules).map(([k, v]) => [k, v.files.map((f) => f.text)]))); })();
-if (modsOnDisk !== modsInPage) warnings.push('public/design-system/sources.js is older than the module stylesheets: run node tools/design-system-snapshot.mjs --sources');
 
 // ---- the browser ----
 function findBrowser() {
   const cands = [process.env.CHROME_PATH];
-  const pw = path.join(os.homedir(), '.cache', 'ms-playwright');
-  if (fs.existsSync(pw)) for (const d of fs.readdirSync(pw).sort().reverse()) cands.push(path.join(pw, d, 'chrome-linux', 'chrome'), path.join(pw, d, 'chrome-linux', 'headless_shell'), path.join(pw, d, 'chrome-win', 'chrome.exe'), path.join(pw, d, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'));
+  const dirs = [process.env.PLAYWRIGHT_BROWSERS_PATH, path.join(os.homedir(), '.cache', 'ms-playwright')].filter(Boolean);
+  for (const pw of dirs) {
+    if (!fs.existsSync(pw)) continue;
+    for (const d of fs.readdirSync(pw).filter((n) => /^chromium/.test(n)).sort().reverse()) {
+      for (const sub of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell', 'chrome-linux/headless_shell', 'chrome-win/chrome.exe', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) cands.push(path.join(pw, d, sub));
+    }
+  }
   cands.push('/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
-  return cands.find((c) => c && fs.existsSync(c)) || null;
+  return cands.find((c) => c && fs.existsSync(c) && fs.statSync(c).isFile()) || null;
 }
 class Cdp {
-  constructor(ws) { this.ws = ws; this.id = 0; this.pending = new Map(); this.handlers = []; ws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.id && this.pending.has(m.id)) { const { res, rej } = this.pending.get(m.id); this.pending.delete(m.id); m.error ? rej(new Error(m.error.message)) : res(m.result); } else if (m.method) for (const h of this.handlers) h(m); }); }
-  send(method, params = {}, sessionId) { const id = ++this.id; this.ws.send(JSON.stringify({ id, method, params, sessionId })); return new Promise((res, rej) => { this.pending.set(id, { res, rej }); setTimeout(() => { if (this.pending.has(id)) { this.pending.delete(id); rej(new Error('timeout: ' + method)); } }, 60000); }); }
+  constructor(ws) { this.ws = ws; this.id = 0; this.pending = new Map(); this.handlers = []; ws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.id && this.pending.has(m.id)) { const { res, rej, timer } = this.pending.get(m.id); clearTimeout(timer); this.pending.delete(m.id); m.error ? rej(new Error(m.error.message)) : res(m.result); } else if (m.method) for (const h of this.handlers) h(m); }); }
+  send(method, params = {}, sessionId) { const id = ++this.id; this.ws.send(JSON.stringify({ id, method, params, sessionId })); return new Promise((res, rej) => { const timer = setTimeout(() => { if (this.pending.has(id)) { this.pending.delete(id); rej(new Error('timeout: ' + method)); } }, 90000); this.pending.set(id, { res, rej, timer }); }); }
 }
 async function launch(bin) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-chrome-'));
-  const child = spawn(bin, ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--allow-file-access-from-files', '--remote-debugging-port=0', `--user-data-dir=${dir}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+  const child = spawn(bin, ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--hide-scrollbars', '--no-first-run', '--allow-file-access-from-files', '--remote-debugging-port=0', `--user-data-dir=${dir}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
   const url = await new Promise((resolve, reject) => {
     let buf = ''; const t = setTimeout(() => reject(new Error('the browser did not start: ' + buf.slice(-300))), 20000);
     child.stderr.on('data', (d) => { buf += d; const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf); if (m) { clearTimeout(t); resolve(m[1]); } });
@@ -235,7 +131,7 @@ async function launch(bin) {
   });
   const ws = new WebSocket(url);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', () => rej(new Error('cannot reach the browser'))); });
-  return { cdp: new Cdp(ws), child };
+  return { cdp: new Cdp(ws), child, dir };
 }
 function freePort() { return new Promise((res, rej) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); s.on('error', rej); }); }
 async function startServer() {
@@ -245,7 +141,7 @@ async function startServer() {
   let log = ''; child.stdout.on('data', (d) => { log += d; }); child.stderr.on('data', (d) => { log += d; });
   const base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 100; i += 1) {
-    try { const r = await fetch(base + '/healthz'); if (r.ok) return { base, child }; } catch { /* not up yet */ }
+    try { const r = await fetch(base + '/healthz'); if (r.ok) return { base, child, dataDir }; } catch { /* not up yet */ }
     if (child.exitCode !== null) break;
     await new Promise((r) => setTimeout(r, 200));
   }
@@ -253,169 +149,124 @@ async function startServer() {
   throw new Error('the throwaway server did not start: ' + log.slice(-300));
 }
 
-// Development: DS_ONLY=buttons,typography runs only those families' browser checks, on the served Proposed page only, at the scenarios in
-// DS_SCENARIO (for example 390:light,1280:dark; default all four). Not for the real check: a run with DS_ONLY says so and fails.
-const ONLY = process.env.DS_ONLY ? process.env.DS_ONLY.split(',') : null;
-async function browse(cdp, label, url, scenarios, shots) {
+// One tab for the whole run, at the scenario's fixed viewport; each page is a navigation in it.
+async function openTab(cdp) {
   const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
   const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
-  const problems = [];
+  const tab = { targetId, sessionId, problems: null, expected: null };
   cdp.handlers.push((m) => {
-    if (m.sessionId !== sessionId) return;
-    if (m.method === 'Runtime.exceptionThrown') problems.push('exception: ' + (m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
-    if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') problems.push('console.error: ' + m.params.args.map((a) => a.value || a.description).join(' '));
-    if (m.method === 'Page.frameNavigated' && !m.params.frame.parentId && m.params.frame.url !== lastNav) problems.push(`the page navigated itself to ${m.params.frame.url.slice(0, 120)}`);
-    if (m.method === 'Inspector.targetCrashed') problems.push(`${m.method} ${new Date().toISOString()}`);
-    if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') problems.push('log: ' + m.params.entry.text + ' ' + (m.params.entry.url || ''));
+    if (m.sessionId !== sessionId || !tab.problems) return;
+    const p = tab.problems;
+    if (m.method === 'Runtime.exceptionThrown') p.push('exception: ' + (m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
+    if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') p.push('console.error: ' + m.params.args.map((a) => a.value || a.description).join(' '));
+    if (m.method === 'Page.frameNavigated' && !m.params.frame.parentId && m.params.frame.url !== tab.expected) p.push(`the page navigated itself to ${m.params.frame.url.slice(0, 120)}`);
+    if (m.method === 'Inspector.targetCrashed') p.push('the tab crashed');
+    if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') p.push('log: ' + m.params.entry.text + ' ' + (m.params.entry.url || ''));
   });
-  await cdp.send('Inspector.enable', {}, sessionId); await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Log.enable', {}, sessionId); await cdp.send('Page.enable', {}, sessionId);
-  const ev = async (expression) => (await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId)).result.value;
-  let last = null;
-  let lastNav = null;
-  for (const sc of scenarios) {
-    await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: sc.width < 500 }, sessionId);
-    lastNav = `${url}${url.includes('?') ? '&' : '?'}mode=${sc.mode}`;
-    await cdp.send('Page.navigate', { url: lastNav }, sessionId);
-    let ok = false;
-    for (let i = 0; i < 400; i += 1) { await new Promise((r) => setTimeout(r, 150)); if (await ev('!!(window.__dsStats && window.__dsStats.ready)')) { ok = true; break; } }
-    const where = `${label} ${sc.width} ${sc.mode}`;
-    if (!ok) { problems.push(`${where}: the page did not finish drawing`); continue; }
-    // The Proposed page draws a family when it is opened or scrolled near; the checks measure every family, so draw them all first.
-    if (sc.proposed) {
-      if (await ev("typeof window.DS_PROPOSED.renderAll") !== 'function') problems.push(`${where}: the page has no window.DS_PROPOSED.renderAll`);
-      else { const t0 = Date.now(); await ev('window.DS_PROPOSED.renderAll().then(() => true)'); if (process.env.DS_TIMING) console.log(`check-design-system: ${where} renderAll ${Date.now() - t0}ms`); }
+  for (const d of ['Inspector', 'Runtime', 'Log', 'Page']) await cdp.send(`${d}.enable`, {}, sessionId);
+  tab.ev = async (expression) => {
+    const r = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId);
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
+    return r.result.value;
+  };
+  return tab;
+}
+
+// Waits in the page (no polling from here) until the page says it has finished drawing, up to 60 s.
+const WAIT_READY = `new Promise((res) => { const t0 = Date.now(); const tick = () => { if (window.__dsStats && window.__dsStats.ready) res(true); else if (Date.now() - t0 > 60000) res(false); else setTimeout(tick, 50); }; tick(); })`;
+
+async function visit(cdp, tab, sc, label, url, kind, shots) {
+  const where = `${label} ${sc.width} ${sc.mode}`;
+  const problems = [];
+  tab.problems = problems;
+  tab.expected = `${url}${url.includes('?') ? '&' : '?'}mode=${sc.mode}`;
+  const t0 = Date.now();
+  await cdp.send('Page.navigate', { url: tab.expected }, tab.sessionId);
+  const ev = tab.ev;
+  let stats = null;
+  try {
+    if (!(await ev(WAIT_READY))) { problems.push('the page did not finish drawing'); return finish(); }
+    if (kind === 'v1') {
+      if (await ev('typeof (window.DS_PROPOSED && window.DS_PROPOSED.renderAll)') !== 'function') problems.push('the page has no window.DS_PROPOSED.renderAll');
+      else await ev('window.DS_PROPOSED.renderAll().then(() => true)');
     }
-    await new Promise((r) => setTimeout(r, 500));
-    last = await ev('JSON.stringify({ ...window.__dsStats, errors: window.__dsStats.errors.slice(0, 5) })');
-    const s = JSON.parse(last);
-    if (s.errors.length) problems.push(`${where}: page errors: ${s.errors.join('; ')}`);
-    if (s.loaded !== s.frames) problems.push(`${where}: ${s.loaded} of ${s.frames} example frames loaded`);
-    if (sc.proposed) {
-      // Only the proposal is on the page, its rules reach its frames, and a forced state really renders.
-      if (s.families < 1 || s.undecided < 1) problems.push(`${where}: too little drawn (${s.families} decided, ${s.undecided} still to decide)`);
-      const page = JSON.parse(await ev(`JSON.stringify({ today: typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined', undecidedLinks: document.querySelectorAll('.ds-undecided a').length, drawnAlsoUndecided: (window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => window.DS_PROPOSED.families.some((f) => f.name.toLowerCase() === n.toLowerCase() || f.id === n.toLowerCase())) })`));
-      // Each family's own checks, in the order of tools/check-design-system-families.json. They share the page, so each leaves the switches as it found them.
-      const shotAt = (title, elExpr, pre, span) => shotAtWhole(ev, cdp, sessionId, title, elExpr, pre, span);
-      const b = { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours, shotAt };
-      for (const m of checks) {
-        if (!m.browserChecks || (ONLY && !ONLY.includes(m.id))) continue;
-        const t0 = Date.now();
-        try { await m.browserChecks(b); } catch (e) { problems.push(`${where}: the ${m.id} browser check stopped: ${e.message}`); }
-        if (process.env.DS_TIMING) console.log(`check-design-system: ${where} ${m.id} ${Date.now() - t0}ms`);
-      }
-      await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
-      if (page.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
-      if (page.drawnAlsoUndecided.length) problems.push(`${where}: named both as a drawn family and as still to decide: ${page.drawnAlsoUndecided.join(', ')}`);
-      // Every family is decided (2026-10-21): what is still listed must say it is Today only.
-      const notToday = JSON.parse(await ev(`JSON.stringify((window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => !/Today only/.test(n)))`));
-      if (notToday.length) problems.push(`${where}: listed as not decided but not marked Today only: ${notToday.join(', ')}`);
-      const proposedChips = JSON.parse(await ev(`JSON.stringify(document.querySelectorAll('.ds-st-proposed').length)`));
-      const EARLIER = ['buttons', 'typography', 'fields', 'tabs', 'colour', 'chips', 'cards', 'menus']; // approved before 2026-10-21; the other families carry the Decided 2026-10-21 note
-      // Every drawn family is decided (2026-10-21): none still asks Thomas to decide, and each carries its "Decided 2026-10-21" note.
-      const leftovers = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('.ds-block')].filter((b) => !b.classList.contains('ds-undecided')).flatMap((b) => [/Chosen while drawing|For Thomas to decide|What Thomas chooses|Thomas decides each|Chosen for Thomas|Your call|Proposed 2026|Not yet decided/.test(b.textContent) ? b.id + ': wording that asks for a decision' : null, (${JSON.stringify(checkIds.filter((i) => !EARLIER.includes(i)))}.includes(b.id) ? /Decided 2026-10-21/.test(b.textContent) : true) ? null : b.id + ': no Decided 2026-10-21 note']).filter(Boolean))`));
-      for (const x of leftovers) problems.push(`${where}: ${x}`);
-      if (proposedChips) problems.push(`${where}: ${proposedChips} family status chip(s) still say Proposed`);
-      if (page.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
-    } else if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);
+    stats = JSON.parse(await ev('JSON.stringify({ ...window.__dsStats, errors: window.__dsStats.errors.slice(0, 5) })'));
+    if (stats.errors.length) problems.push(`page errors: ${stats.errors.join('; ')}`);
+    if (stats.loaded !== stats.frames) problems.push(`${stats.loaded} of ${stats.frames} example frames loaded`);
     const sideways = await ev('document.documentElement.scrollWidth - document.documentElement.clientWidth');
-    if (sideways > 1) problems.push(`${where}: the page scrolls sideways by ${sideways}px`);
-    // Today's page must still be at its top: a live frame that takes focus once scrolled it away and the screenshot showed only empty page.
-    if (!sc.proposed) { const sy = await ev('window.scrollY'); if (sy > 1) problems.push(`${where}: the page is scrolled to ${sy}px when the screenshot is taken (a frame took focus and scrolled it)`); }
-    const h = await ev('document.documentElement.scrollHeight');
-    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: sc.width, height: Math.min(h, 2400), scale: 1 } }, sessionId);
-    const png = Buffer.from(shot.data, 'base64');
-    if (png.length < 8000) problems.push(`${where}: the screenshot is nearly empty (${png.length} bytes)`);
-    if (shots) { fs.mkdirSync(shots, { recursive: true }); fs.writeFileSync(path.join(shots, `${label}-${sc.width}-${sc.mode}.png`), png); }
-    // The product's fonts load on the page (/sdk/system.css defines --font-ui), and the Light and Dark switches change the page's data-theme-mode (after the screenshot: it clicks).
-    const bodyFont = await ev('getComputedStyle(document.body).fontFamily');
-    if (!/^"?Figtree/.test(bodyFont)) problems.push(`${where}: the body font is ${bodyFont}, not Figtree (is /sdk/system.css linked?)`);
-    if (await ev("!!document.querySelector('#ds-mode')")) {
-      const modeAfter = async (m) => { await ev(`document.querySelector('#ds-mode button[data-mode="${m}"]').click()`); await new Promise((r) => setTimeout(r, 200)); return ev('document.documentElement.dataset.themeMode'); };
-      const lightMode = await modeAfter('light'); const darkMode = await modeAfter('dark');
-      if (lightMode !== 'light' || darkMode !== 'dark') problems.push(`${where}: clicking Light then Dark left data-theme-mode at ${lightMode} then ${darkMode}`);
+    if (sideways > 1) problems.push(`the page scrolls sideways by ${sideways}px`);
+    if (kind === 'v1') {
+      if (stats.families < 1) problems.push(`too little drawn (${stats.families} families)`);
+      if (await ev("typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined'")) problems.push("it loaded the Design System's inventory (DS_FAMILIES or DS_SOURCES is set)");
+    } else {
+      if (stats.families < 20 || stats.tokens < 40 || stats.icons < 20) problems.push(`too little drawn (${stats.families} families, ${stats.tokens} tokens, ${stats.icons} icons)`);
+      const sy = await ev('window.scrollY');
+      if (sy > 1) problems.push(`the page is scrolled to ${sy}px when the screenshot is taken (a frame took focus and scrolled it)`);
+      const h = await ev('document.documentElement.scrollHeight');
+      const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: sc.width, height: Math.min(h, 2400), scale: 1 } }, tab.sessionId);
+      const png = Buffer.from(shot.data, 'base64');
+      if (png.length < 8000) problems.push(`the screenshot is nearly empty (${png.length} bytes)`);
+      if (shots) { fs.mkdirSync(shots, { recursive: true }); fs.writeFileSync(path.join(shots, `${label}-${sc.width}-${sc.mode}.png`), png); }
+      const bodyFont = await ev('getComputedStyle(document.body).fontFamily');
+      if (!/^"?Figtree/.test(bodyFont)) problems.push(`the body font is ${bodyFont}, not Figtree (is /sdk/system.css linked?)`);
+      // The Light and Dark switch (after the screenshot: it clicks). The click sets the mode at once, so no wait.
+      if (await ev("!!document.querySelector('#ds-mode')")) {
+        const after = (m) => ev(`(document.querySelector('#ds-mode button[data-mode="${m}"]').click(), document.documentElement.dataset.themeMode)`);
+        const l = await after('light'); const d = await after('dark');
+        if (l !== 'light' || d !== 'dark') problems.push(`clicking Light then Dark left data-theme-mode at ${l} then ${d}`);
+      } else problems.push('the page has no Light and Dark switch (#ds-mode)');
     }
+  } catch (e) {
+    problems.push('the browser check stopped: ' + e.message);
   }
-  await cdp.send('Target.closeTarget', { targetId });
-  return { problems, last: last && JSON.parse(last) };
+  return finish();
+  function finish() {
+    tab.problems = null;
+    const ms = Date.now() - t0;
+    say(`${where}: ${problems.length ? 'FAIL' : 'ok'} in ${(ms / 1000).toFixed(1)} s${stats ? ` (${stats.families} families, ${stats.frames} frames)` : ''}`);
+    for (const p of problems) fail(`${where}: ${p}`);
+  }
 }
 
-// A 4x screenshot of one element of an example frame, with the element on a whole device pixel first (across and down). The 4x ink moves by up to 0.75px with the
-// sub-pixel position of the element, so a check of where ink sits must not depend on where the page's text happened to wrap. elExpr is an expression that gives the
-// element from `m` (the frame, m.iframe) and `d` (its document); pre is statements to run first (the words changed to ones with no descenders); span is a function (el, rect) => [x0, x1], the part of the element's width to shoot (in the frame's own coordinates). The frame is moved by
-// position only (relative, top and left); the caller clears them when it is done. Returns { rect: { x, y, w, h }, png }.
-async function shotAtWhole(ev, cdp, sessionId, title, elExpr, pre, span) {
-  const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const d = m.iframe.contentDocument; ${pre || ''}
-    const el = ${elExpr}; m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; m.iframe.style.left = '0px';
-    el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 130));
-    const get = () => { const b = el.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return { x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }; };
-    let o = get(); const fy = o.y - Math.floor(o.y); const fx = o.x - Math.floor(o.x);
-    if (fy > 0.01 || fx > 0.01) { m.iframe.style.top = ((1 - fy) % 1) + 'px'; m.iframe.style.left = ((1 - fx) % 1) + 'px'; await new Promise((r) => setTimeout(r, 130)); o = get(); }
-    ${span ? `const sp = (${span})(el, el.getBoundingClientRect()); const fr = m.iframe.getBoundingClientRect(); o.x = fr.left + sp[0] + window.scrollX; o.w = sp[1] - sp[0];` : ''}
-    return JSON.stringify(o); })()`));
-  const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-  return { rect: at, png: Buffer.from(shot.data, 'base64') };
-}
-
-// Ink position: the vertical middle of the pixels that differ from the button's own fill, against the middle of the button (px, positive is low).
-function inkCentre(buf, scale, inset) {
-  let o = 8; let w; let h; let ct; const idat = [];
-  while (o < buf.length) { const l = buf.readUInt32BE(o); const t = buf.toString('ascii', o + 4, o + 8); const d = buf.subarray(o + 8, o + 8 + l); if (t === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; } if (t === 'IDAT') idat.push(d); o += 12 + l; }
-  const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const px = Buffer.alloc(h * st);
-  for (let y = 0; y < h; y += 1) { const f = raw[y * (st + 1)]; for (let x = 0; x < st; x += 1) { const v = raw[y * (st + 1) + 1 + x]; const a = x >= bpp ? px[y * st + x - bpp] : 0; const b = y ? px[(y - 1) * st + x] : 0; const c = x >= bpp && y ? px[(y - 1) * st + x - bpp] : 0; let r = v; if (f === 1) r += a; else if (f === 2) r += b; else if (f === 3) r += (a + b) >> 1; else if (f === 4) { const p = a + b - c; const pa = Math.abs(p - a); const pb = Math.abs(p - b); const pc = Math.abs(p - c); r += (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c; } px[y * st + x] = r & 255; } }
-  const g = (x, y) => [0, 1, 2].map((i) => px[(y * w + x) * bpp + i]);
-  const bg = g(5 * scale > w ? 1 : 5, Math.floor(h / 2)); let top = -1; let bot = -1; const m = inset || 3 * scale / 2;
-  for (let y = Math.ceil(m); y < h - m; y += 1) for (let x = Math.ceil(m * 1.5); x < w - m * 1.5; x += 1) { const p = g(x, y); if (Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) > 90) { if (top < 0) top = y; bot = y; } }
-  return top < 0 ? null : ((top + bot + 1) / 2 - h / 2) / scale;
-}
-
-
-// The edge of a field in a screenshot taken at device pixel ratio dsf: for each side, how far the pixel nearest to the full edge colour is
-// from it (sum of the three channel differences), looking 3px either side of the box edge across the middle of that side.
-function edgeColours(buf, target, dsf, pad, boxW, boxH) {
-  let o = 8; let w; let h; let ct; const idat = [];
-  while (o < buf.length) { const l = buf.readUInt32BE(o); const t = buf.toString('ascii', o + 4, o + 8); const d = buf.subarray(o + 8, o + 8 + l); if (t === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; } if (t === 'IDAT') idat.push(d); o += 12 + l; }
-  const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const px = Buffer.alloc(h * st);
-  for (let y = 0; y < h; y += 1) { const f = raw[y * (st + 1)]; for (let x = 0; x < st; x += 1) { const v = raw[y * (st + 1) + 1 + x]; const a = x >= bpp ? px[y * st + x - bpp] : 0; const b = y ? px[(y - 1) * st + x] : 0; const c = x >= bpp && y ? px[(y - 1) * st + x - bpp] : 0; let r = v; if (f === 1) r += a; else if (f === 2) r += b; else if (f === 3) r += (a + b) >> 1; else if (f === 4) { const p = a + b - c; const pa = Math.abs(p - a); const pb = Math.abs(p - b); const pc = Math.abs(p - c); r += (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c; } px[y * st + x] = r & 255; } }
-  const scale = w / (boxW + pad * 2); // device pixels per CSS pixel actually in the image
-  const dist = (x, y) => { const i = (y * w + x) * bpp; return Math.abs(px[i] - target[0]) + Math.abs(px[i + 1] - target[1]) + Math.abs(px[i + 2] - target[2]); };
-  const cx = Math.round(w / 2); const cy = Math.round(h / 2); const span = Math.ceil(3 * scale);
-  const nearest = (nom, horizontal) => { let best = 1e9; for (let k = -span; k <= span; k += 1) { const v = horizontal ? dist(cx, Math.min(h - 1, Math.max(0, nom + k))) : dist(Math.min(w - 1, Math.max(0, nom + k)), cy); if (v < best) best = v; } return best; };
-  return { top: nearest(Math.round(pad * scale), true), bottom: nearest(Math.round((pad + boxH) * scale), true), left: nearest(Math.round(pad * scale), false), right: nearest(Math.round((pad + boxW) * scale), false) };
-}
-
-let browserNote = ''; let browserNote2 = '';
+let browserNote = '';
 const bin = findBrowser();
 if (!bin) {
-  browserNote = 'browser part SKIPPED (no Chromium found: set CHROME_PATH, or install one with npx playwright install chromium). This is not a pass; the page was not opened.';
+  const msg = 'browser part SKIPPED (no Chromium found: set CHROME_PATH, or install one with npx playwright install chromium). This is not a pass; the pages were not opened.';
+  if (process.env.CI) fail(msg.replace('SKIPPED', 'could not run') + ' CI is set, so this fails.');
+  else browserNote = msg;
 } else {
   let server = null; let br = null;
   try {
     server = await startServer();
     br = await launch(bin);
-    const shots = process.env.SHOTS || null;
-    const scenarios = [{ width: 1280, mode: 'light' }, { width: 1280, mode: 'dark' }, { width: 390, mode: 'dark' }];
-    const P = (w, m) => ({ width: w, mode: m, proposed: true });
-    const sel = process.env.DS_SCENARIO ? process.env.DS_SCENARIO.split(',').map((s) => { const [w, m] = s.split(':'); return P(Number(w), m); }) : [P(1280, 'light'), P(1280, 'dark'), P(390, 'light'), P(390, 'dark')];
-    const none = { problems: [], last: null };
-    const a = ONLY ? none : await browse(br.cdp, 'served', `${server.base}/design-system/index.html`, scenarios, shots);
-    const b = ONLY ? none : await browse(br.cdp, 'snapshot', pathToFileURL(path.join(out, 'index.html')).href, [{ width: 1280, mode: 'light' }, { width: 390, mode: 'dark' }], shots);
-    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/legacy/system-v1/proposed.html`, sel, shots);
-    const d = ONLY ? none : await browse(br.cdp, 'snapshot-proposed', pathToFileURL(path.join(outP, 'index.html')).href, [P(1280, 'dark'), P(390, 'light')], shots);
-    if (ONLY) fail('DS_ONLY is a development switch: this was a partial run, not the check');
-    for (const p of [...a.problems, ...b.problems, ...c.problems, ...d.problems]) fail(p);
-    if (c.last) browserNote2 = `the proposed page opened from the app and from its snapshot on disk at 1280 and 390 (light, dark): ${c.last.families} decided, ${c.last.undecided} still to decide, ${c.last.frames} frames, no console error`;
-    if (a.last) browserNote = `opened from the app and from the snapshot on disk at 1280 (light, dark) and 390: ${a.last.families} families, ${a.last.variants} looks, ${a.last.examples} examples in ${a.last.frames} frames, ${a.last.tokens} tokens, ${a.last.icons} icons, no console error`;
+    const shots = process.env.SHOTS ? path.resolve(process.env.SHOTS) : null;
+    const pages = [
+      ['served', `${server.base}/design-system/index.html`, 'ds'],
+      ['snapshot', pathToFileURL(path.join(out, 'index.html')).href, 'ds'],
+      ['served-v1', `${server.base}/design-system/legacy/system-v1/proposed.html`, 'v1'],
+      ['snapshot-v1', pathToFileURL(path.join(outP, 'index.html')).href, 'v1'],
+    ];
+    for (const sc of scenarios) {
+      const tab = await openTab(br.cdp);
+      await br.cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: sc.width < 500 }, tab.sessionId);
+      for (const [label, url, kind] of pages) await visit(br.cdp, tab, sc, label, url, kind, shots);
+      await br.cdp.send('Target.closeTarget', { targetId: tab.targetId });
+    }
+    browserNote = `${scenarios.map((s) => s.name).join(', ')}: the Design System and System v1, served and from the snapshot on disk`;
   } catch (e) {
     fail('the browser part could not run: ' + e.message);
   } finally {
-    if (br) { try { br.child.kill(); } catch { /* gone */ } }
-    if (server) server.child.kill();
+    if (br) { try { br.cdp.ws.close(); br.child.kill(); } catch { /* gone */ } fs.rmSync(br.dir, { recursive: true, force: true }); }
+    if (server) {
+      if (server.child.exitCode === null) await new Promise((r) => { server.child.once('exit', r); server.child.kill(); setTimeout(r, 5000); });
+      try { fs.rmSync(server.dataDir, { recursive: true, force: true }); } catch { /* a temp folder; the system clears it */ }
+    }
   }
 }
 fs.rmSync(out, { recursive: true, force: true });
 fs.rmSync(outP, { recursive: true, force: true });
 
-for (const w of warnings.slice(0, 40)) console.log('check-design-system: warning: ' + w);
-if (warnings.length > 40) console.log(`check-design-system: ... and ${warnings.length - 40} more warnings`);
-if (failures.length) { for (const f of failures) console.error('check-design-system: FAIL ' + f); process.exit(1); }
-console.log(`check-design-system: ok. ${fams.length} families, ${nVariants} looks, ${nExamples} examples, ${nClasses} classes in markup (${orphanSet.size} warnings); snapshots ${snap.files.length} files, ${(snap.total / 1024 / 1024).toFixed(2)} MB (today) and ${snapP.files.length} files, ${(snapP.total / 1024 / 1024).toFixed(2)} MB (proposed). ${browserNote} ${browserNote2}`);
+for (const w of warnings) say('warning: ' + w);
+const secs = ((Date.now() - started) / 1000).toFixed(1);
+if (failures.length) { for (const f of failures) console.error('check-design-system: FAIL ' + f); console.error(`check-design-system: ${failures.length} problem(s) in ${secs} s`); process.exit(1); }
+say(`ok in ${secs} s. Snapshots ${snap.files.length} files, ${(snap.total / 1024 / 1024).toFixed(2)} MB (design system) and ${snapP.files.length} files, ${(snapP.total / 1024 / 1024).toFixed(2)} MB (system v1). ${browserNote}`);

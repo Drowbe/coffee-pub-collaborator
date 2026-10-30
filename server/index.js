@@ -30,6 +30,10 @@ const { RegionCutJobs, RegionCutError } = require('./region-cut');
 const { pmtilesInfo, pmtilesWhyNot } = require('./pmtiles-header');
 const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
+const { cleanName, nameForType, folderBytes } = require('./vault-store');
+const vaultTypes = require('./vault-types');
+const { createScanner } = require('./vault-scan');
+const { watchArrival, slowSenders } = require('./arrival');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
@@ -154,6 +158,27 @@ const {
   // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
   // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
   TRUST_PROXY_HOPS = '',
+  // A module's library files (documentation/plans/plan-attachments-vault.md, section 2): VAULT_DIR is the folder their
+  // bytes go in, for every environment on the server (VAULT_DIR/<environment slug>/, or VAULT_DIR/_default/ on a
+  // single-environment install); unset, DATA_DIR/vault, which no in-app backup carries. VAULT_MAX_GB is the most the
+  // whole folder may hold (20), VAULT_SPACE_MAX_GB one space's files (5), VAULT_PERSON_MAX_GB what one person has added
+  // across an environment's spaces (2), and VAULT_MB_PER_MINUTE how much one person may send in a minute (500). Not a
+  // number above 0: the default. VAULT_MIN_KB_PER_SECOND is how slowly an upload may arrive (16): after its first
+  // minute, one that sends less than that in any minute is cut off, and what it reserved is free again.
+  // VAULT_SCAN_SECONDS is how long the check of one file that is in may take (5): a picture cleaned, a PDF scanned, a
+  // recording's structure read, each in a worker thread with a memory limit; one that takes longer is stopped and the
+  // file refused as one that could not be checked safely.
+  VAULT_SCAN_SECONDS = '',
+  VAULT_DIR = '',
+  VAULT_MAX_GB = '',
+  VAULT_SPACE_MAX_GB = '',
+  VAULT_PERSON_MAX_GB = '',
+  VAULT_MB_PER_MINUTE = '',
+  VAULT_MIN_KB_PER_SECOND = '',
+  // Someone whose uploads are cut off for arriving too slowly VAULT_SLOW_CUTOFFS times (3) within VAULT_SLOW_MINUTES (10)
+  // can't start another upload until the oldest of those is that long ago.
+  VAULT_SLOW_CUTOFFS = '',
+  VAULT_SLOW_MINUTES = '',
 } = process.env;
 // The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
 // spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
@@ -183,6 +208,12 @@ const aiKeyFromEnv = AI_KEY || TAVERN_AI_KEY;
 // The environment a single-environment install moves into on its first start with BASE_DOMAIN (plan-names decision 15).
 const migrateEnvironmentSlug = MIGRATE_ENVIRONMENT_SLUG;
 const signupEnabled = Boolean(BASE_DOMAIN) && SIGNUP === 'on';
+// Where library files keep their bytes (see VAULT_DIR above), and one environment's folder there.
+const VAULT_ROOT = path.resolve(String(VAULT_DIR).trim() || path.join(DATA_DIR, 'vault'));
+const vaultFolderOf = (slug) => path.join(VAULT_ROOT, slug || '_default');
+// What the whole vault folder holds, measured on the first upload after a start and kept up to date by every change
+// (environmentFor's onVaultBytes); null until then.
+const vaultHost = { bytes: null };
 // The bundled templates, checked now: an invalid one stops the start, naming the file and what is wrong.
 try {
   templates.all();
@@ -296,6 +327,7 @@ const moduleBus = proxyFor('moduleBus');
 const moduleSettings = proxyFor('moduleSettings');
 const ai = proxyFor('ai');
 const moduleUploads = proxyFor('moduleUploads');
+const vault = proxyFor('vault');
 const geocodeCache = proxyFor('geocodeCache');
 const regionCutJobs = proxyFor('regionCutJobs');
 const moduleLimits = proxyFor('moduleLimits');
@@ -410,7 +442,7 @@ function migrateIfNeeded() {
   if (fs.existsSync(dest)) throw new Error(`${dest} already exists; migration already ran`);
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(DATA_DIR)) {
-    if (['host.json', 'fontawesome-pro', 'environments', 'environments-deleted', 'pre-names-host', 'flight-schedule.json'].includes(entry)) continue; // the flight schedule is the host's
+    if (['host.json', 'fontawesome-pro', 'environments', 'environments-deleted', 'pre-names-host', 'flight-schedule.json', 'vault'].includes(entry)) continue; // the flight schedule is the host's; the vault folder holds every environment's files
     fs.renameSync(path.join(DATA_DIR, entry), path.join(dest, entry));
   }
   hostRegistry.addEnvironment({ slug, name: slug, plan: { modules: 'all' } });
@@ -628,6 +660,11 @@ function environmentFor(slug) {
       admin: slug ? null : { login: adminLogin, password: adminPassword },
       managed: managedAi,
       secretsKey: secretsKeyBuf,
+      vaultDir: vaultFolderOf(slug),
+      onVaultBytes: (delta) => {
+        if (vaultHost.bytes !== null) vaultHost.bytes += delta;
+        if (hostRegistry && slug) hostRegistry.addStorageUsage(slug, delta);
+      },
     });
   } catch (err) {
     if (err instanceof MigrationError) { noteRefusal(key, err); err.slug = key; }
@@ -1682,7 +1719,10 @@ app.use((req, res, next) => (WRITE_METHODS.has(req.method) && !CROSS_ORIGIN_EXEM
 // The module file upload (PUT /api/modules/:id/files/:folder) reads its own body and checks its own content type, so a
 // wrong type answers that route's own 415, not this parser's 413: the parser leaves that route's body alone.
 const MODULE_FILE_UPLOAD = /^\/api\/modules\/[^/]+\/files\/[^/]+$/;
-app.use(express.json({ limit: '64kb', type: (req) => !(req.method === 'PUT' && MODULE_FILE_UPLOAD.test(req.path)) && Boolean(req.is('application/json')), verify: (req, _res, buf) => { req.rawBody = buf; } }));
+// A module's library routes (a space's files) decide who may before any of the body is read, so this parser leaves
+// them alone; the one that takes JSON (a rename) parses its own small body after that.
+const LIBRARY_ROUTE = /^\/api\/modules\/[^/]+\/library(?:\/|$)/;
+app.use(express.json({ limit: '64kb', type: (req) => !(req.method === 'PUT' && MODULE_FILE_UPLOAD.test(req.path)) && !LIBRARY_ROUTE.test(req.path) && Boolean(req.is('application/json')), verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 const publicDir = path.join(__dirname, '..', 'public');
 const clientDist = path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist');
@@ -2240,7 +2280,7 @@ const STORAGE_MEASURE_MS = 60000;
 function environmentStorageBytes(slug, dataDir) {
   const cached = hostRegistry.findEnvironment(slug)?.usage;
   if (cached?.measuredAt && Date.now() - new Date(cached.measuredAt).getTime() < STORAGE_MEASURE_MS) return cached.storageBytes;
-  const bytes = dirSize(dataDir);
+  const bytes = dirSize(dataDir) + dirSize(vaultFolderOf(slug)); // a library's files count too, though they are kept outside
   hostRegistry.recordStorageUsage(slug, bytes);
   return bytes;
 }
@@ -4147,6 +4187,11 @@ app.post('/api/modules/:id/rollback', requireOwner, (req, res) => {
   res.json({ module: modules.view(req.params.id) || rolled });
 });
 app.delete('/api/modules/:id', requireOwner, (req, res) => {
+  modules.get(req.params.id); // 404 for a module that is not installed, before anything goes
+  // A library module's uploads still arriving or being checked are stopped and never kept, so nothing comes back after
+  // it goes; its files go with its data: their bytes under VAULT_DIR, and what the server keeps of their records.
+  stopLibraryUploads(req.params.id);
+  if (req.query.keepData === '0') vault.forgetModule(req.params.id);
   modules.uninstall(req.params.id, { keepData: req.query.keepData !== '0' });
   moduleData.forget(req.params.id);
   if (req.query.keepData === '0') {
@@ -7257,7 +7302,7 @@ function overLimit(moduleId, by, kind) {
   if (r.first) noteActivity(moduleId, `was slowed: too many ${kind === 'write' ? 'saves' : kind + 's'} in a minute`, by, null);
   return r;
 }
-const limitMessage = () => `this ${word('module')} is doing that too often; try again in a moment`;
+const limitMessage = () => `This ${word('module')} is doing that too often. Try again in a moment.`;
 app.get('/api/modules/activity', requireOwner, (_req, res) => {
   res.json({
     activity: moduleActivity.slice(-100).reverse().map((a) => ({ ...a, moduleName: store.moduleDisplay(a.module).name || modules.enabled(a.module)?.manifest.name || a.module, byName: store.userByKey(a.by)?.displayName || (a.by === 'guest' ? word('guest', { a: true }) : a.by) })),
@@ -7604,6 +7649,17 @@ app.post('/api/modules/:id/ai', async (req, res) => {
 });
 
 // --- files a module's people upload ---------------------------------------------------------------------------------------
+// A picture held in memory, checked and cleaned in the scan worker (server/vault-scan.js) so the main thread never walks
+// its bytes: { clean, pixels } or { error } (a sentence).
+async function cleanPictureOffThread(bytes, allowed, keepPosition) {
+  // Only the picture's own bytes go to the worker, never the rest of a shared buffer it sits in.
+  const picture = bytes.byteOffset === 0 && bytes.buffer.byteLength === bytes.length ? bytes : new Uint8Array(bytes);
+  const r = await vaultScanner.scan({ picture, allowed, keepPosition });
+  if (r.ok) return { clean: { ...r.clean, bytes: Buffer.from(r.clean.bytes.buffer, r.clean.bytes.byteOffset, r.clean.bytes.byteLength) }, pixels: r.pixels };
+  if (r.refuse.code === 'picture') return { error: r.refuse.message };
+  console.error(`A picture could not be checked: ${r.refuse.reason}`);
+  return { error: 'We could not check that picture safely. Try saving it again from the program that made it.' };
+}
 // A module that declares `uploads` keeps pictures per scope (server, room, person), with the same read and write permissions as
 // its data. The server checks what arrives from the bytes themselves and takes out what rides along (see image-clean.js).
 const rawUpload = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: 10 * 1024 * 1024 + 1024 });
@@ -7619,12 +7675,15 @@ app.get('/api/modules/:id/uploads', (req, res) => {
   if (!ctx) return;
   res.json({ files: moduleUploads.list(ctx.manifest.id, ctx.scopeKey).map(uploadView) });
 });
-app.post('/api/modules/:id/uploads', rawUpload, checkStorageCap, (req, res) => {
+app.post('/api/modules/:id/uploads', rawUpload, checkStorageCap, async (req, res) => {
   const ctx = uploadAccess(req, res, 'write');
   if (!ctx) return;
   if (overLimit(ctx.manifest.id, ctx.by, 'upload')) return res.status(429).json({ error: limitMessage() });
   if (!Buffer.isBuffer(req.body)) return res.status(415).json({ error: 'send the picture itself, as a JPEG, PNG or WebP' });
-  const file = moduleUploads.put(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, { bytes: req.body, name: req.query.name, by: ctx.by, keepPosition: req.query.keepPosition === '1' });
+  const keepPosition = req.query.keepPosition === '1';
+  const cleaned = req.body.length ? await cleanPictureOffThread(req.body, ctx.manifest.uploads.types, keepPosition) : null;
+  if (cleaned && cleaned.error) return res.status(400).json({ error: cleaned.error });
+  const file = moduleUploads.put(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, { bytes: req.body, name: req.query.name, by: ctx.by, keepPosition, cleaned: cleaned && cleaned.clean });
   res.status(201).json({ file: uploadView(file) });
 });
 // What the start of a picture says about itself, for a page that will resize it (a resize loses the picture's own facts): send its
@@ -7636,14 +7695,16 @@ app.post('/api/modules/:id/uploads/inspect', express.raw({ type: ['image/jpeg', 
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(415).json({ error: 'send the start of the picture' });
   res.json(inspectHead(req.body));
 });
-app.put('/api/modules/:id/uploads/:fid/thumb', rawUpload, checkStorageCap, (req, res) => {
+app.put('/api/modules/:id/uploads/:fid/thumb', rawUpload, checkStorageCap, async (req, res) => {
   const ctx = uploadAccess(req, res, 'write');
   if (!ctx) return;
   const meta = moduleUploads.meta(ctx.manifest.id, ctx.scopeKey, req.params.fid);
   if (!meta) return res.status(404).json({ error: 'no such file' });
   if (meta.by !== ctx.by && !hasOwnerRights(ctx.who.user)) return res.status(403).json({ error: 'only the person who added it can do that' });
   if (!Buffer.isBuffer(req.body)) return res.status(415).json({ error: 'send the thumbnail itself, as a JPEG, PNG or WebP' });
-  res.json({ file: uploadView(moduleUploads.putThumb(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, req.params.fid, req.body)) });
+  const cleaned = req.body.length && req.body.length <= 400 * 1024 ? await cleanPictureOffThread(req.body, ctx.manifest.uploads.types, false) : null;
+  if (cleaned && cleaned.error) return res.status(400).json({ error: cleaned.error });
+  res.json({ file: uploadView(moduleUploads.putThumb(ctx.manifest.id, ctx.scopeKey, ctx.manifest.uploads, req.params.fid, req.body, cleaned && cleaned.clean)) });
 });
 function sendUpload(req, res, thumb) {
   const ctx = uploadAccess(req, res, 'read');
@@ -7664,6 +7725,575 @@ app.delete('/api/modules/:id/uploads/:fid', (req, res) => {
   if (meta.by !== ctx.by && !hasOwnerRights(ctx.who.user)) return res.status(403).json({ error: 'only the person who added it can remove it' });
   moduleUploads.remove(ctx.manifest.id, ctx.scopeKey, req.params.fid);
   res.json({ ok: true });
+});
+
+// --- a module's library: a space's files (documentation/plans/plan-attachments-vault.md, step 1) ---------------------------
+// A module that declares `library` (the Vault) keeps a space's files: the bytes under VAULT_DIR, the records beside its data
+// (server/vault-store.js), each file's type decided from its own bytes (server/vault-types.js). The routes belong to that
+// module, so the core names none. Every route decides, before a byte of the body is read: the session (401), that the asker
+// is a person (never a guest pass or the access key), the space and the module on there, membership or owner rights, and
+// the permission. A route about one file answers every refusal but 401 with 404, so a file's existence is not given away.
+// Uploads stream to a part file, counted as they arrive, and reserve their Content-Length against the space's, the
+// person's, the environment's (a hosted plan's storage cap) and the server's totals first; serving streams with ranges.
+const NO_SUCH_FILE = 'There is no such file.';
+// A write that failed on the server's side: the detail goes to the log, never to the person (it can name a path).
+const LIBRARY_NOT_SAVED = 'The file could not be saved. Try again, or ask the admin if it keeps happening.';
+const vaultGb = (value, fallback) => {
+  const gb = Number(value);
+  return Math.floor((Number.isFinite(gb) && gb > 0 ? gb : fallback) * 1024 ** 3);
+};
+const vaultLimits = {
+  total: vaultGb(VAULT_MAX_GB, 20),
+  space: vaultGb(VAULT_SPACE_MAX_GB, 5),
+  person: vaultGb(VAULT_PERSON_MAX_GB, 2),
+  perMinute: megabytes(VAULT_MB_PER_MINUTE, 500),
+};
+// At most two uploads at once for one person and eight for one environment; open file streams (a player's range
+// requests, a download) at most twelve for one person and a hundred for one environment.
+const LIBRARY_UPLOADS = { person: 2, environment: 8 };
+const LIBRARY_STREAMS = { person: 12, environment: 100 };
+// An upload must keep arriving: after its first minute, one that brought less than VAULT_MIN_KB_PER_SECOND (16) in the
+// last minute (or less than what it still had to send) is cut off, so a stalled or trickled one does not keep its place
+// or what it reserved. Looked at every five seconds (server/arrival.js); only a moment the server itself stopped
+// reading is taken out of the minute.
+const libraryMinRate = (() => { const kb = Number(VAULT_MIN_KB_PER_SECOND); return Math.ceil((Number.isFinite(kb) && kb > 0 ? kb : 16) * 1024); })();
+// After VAULT_SLOW_CUTOFFS (3) cut-offs in VAULT_SLOW_MINUTES (10) -- an upload too slow, or a small picture that did
+// not arrive in time -- the same person's new uploads are refused until the oldest of them is that long ago.
+const positive = (value, fallback) => { const v = Number(value); return Number.isFinite(v) && v > 0 ? v : fallback; };
+const librarySlow = slowSenders({ most: Math.floor(positive(VAULT_SLOW_CUTOFFS, 3)), windowMs: positive(VAULT_SLOW_MINUTES, 10) * 60000 });
+setInterval(() => librarySlow.sweep(), 60000).unref();
+const slowRefusal = (keys) => {
+  const wait = librarySlow.wait(keys.person);
+  if (!wait) return null;
+  const minutes = Math.ceil(wait / 60);
+  return { error: `Your last few uploads stalled, so you can add files again in ${minutes === 1 ? 'a minute' : `${minutes} minutes`}.`, retry: wait };
+};
+// What another person's uploads still arriving hold against yours, at each level (the space, the environment's storage,
+// the server's): at most half of what that level has free, so someone whose upload trickles in can never keep everyone
+// else out. Your own count in full. A file is checked against what is really on disk again once it is in.
+const LIBRARY_HOLD_SHARE = 0.5;
+// What one person's, and (with environments) one environment's, uploads still arriving may reserve at once: a person the
+// largest file there is, an environment a quarter of the server's total (never less than that file, never more than the
+// total). Uploads still arriving in another environment are not counted against this one's room.
+const LIBRARY_RESERVE = { person: vaultTypes.MAX_BYTES, environment: Math.min(vaultLimits.total, Math.max(Math.floor(vaultLimits.total / 4), vaultTypes.MAX_BYTES)) };
+const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.';
+const LIBRARY_THUMB_BYTES = 300 * 1024;
+// A small picture is sent at most two at a time by one person and eight in one environment, and must arrive whole within
+// ten seconds and the time the floor (VAULT_MIN_KB_PER_SECOND) gives its size, or it is cut off.
+const LIBRARY_THUMBS = { person: 2, environment: 8 };
+const thumbDeadlineMs = (bytes) => 10000 + Math.ceil((bytes / libraryMinRate) * 1000);
+const sizeText = (bytes) => (bytes >= 1024 ** 3 ? `${gbText(bytes)} GB` : `${Math.round((bytes / 1048576) * 10) / 10} MB`);
+const libraryKindSentence = 'That kind of file can\'t be added here. It takes pictures (JPEG, PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown.';
+const librarySentence = (refusal) => (refusal === 'heic' ? 'HEIC pictures can\'t be added here. Save it as a JPEG.' : libraryKindSentence);
+// Why a PDF is not taken (server/pdf-scan.js), in one sentence.
+const PDF_HOLDS = { scripts: 'scripts', opens: 'links that open programs or files', sends: 'a form that sends what is typed in it', files: 'files of its own' };
+const pdfSentence = (r) => {
+  if (r.refuse === 'damaged') return 'That PDF is damaged or cut short.';
+  if (r.refuse === 'unchecked') return 'That PDF can\'t be checked for scripts, so it can\'t be added.';
+  return `That PDF holds ${PDF_HOLDS[r.what] || 'active content'}, so it can't be added.`;
+};
+// The check of a file that is in (vault-scan-worker.js), its refusal in one sentence.
+const vaultScanner = createScanner({ seconds: (() => { const v = Number(VAULT_SCAN_SECONDS); return Number.isFinite(v) && v > 0 ? v : 5; })() });
+const scanSentence = (r, type) => {
+  if (r.code === 'unsafe') return type === 'application/pdf' ? 'We could not check that PDF safely. Try saving it again from the program that made it.' : 'We could not check that file safely. Try saving it again from the program that made it.';
+  if (r.code === 'picture-damaged') return 'That picture is damaged or cut short.';
+  if (r.code === 'picture-large') return 'That picture is too large to show.';
+  if (r.code === 'pdf-damaged') return pdfSentence({ refuse: 'damaged' });
+  if (r.code === 'pdf-unchecked') return pdfSentence({ refuse: 'unchecked' });
+  if (r.code === 'pdf-active') return pdfSentence({ what: r.what });
+  if (r.code === 'damaged') return 'That file is damaged or cut short.';
+  return libraryKindSentence;
+};
+const overTypeLimit = (type) => { const l = vaultTypes.LIMITS[vaultTypes.TYPES[type].limit]; return `That file is over the ${sizeText(l.bytes)} limit for ${l.words}.`; };
+
+// Who is asking, in which space, with which module: { manifest, entry, name, who, space, spaceId, by, can(key), owner },
+// or null after the refusal is sent. `need` is one of the module's library permissions; `file` makes every refusal but
+// 401 a 404. Signed out is 401 whatever the module, and a space someone is not in answers as one that is not there, so
+// neither which modules are installed nor which space ids exist is given away.
+function libraryAccess(req, res, need, { file = false } = {}) {
+  const refuse = (status, error) => void res.status(file && status !== 401 ? 404 : status).json({ error: file && status !== 401 ? NO_SUCH_FILE : error });
+  const who = moduleViewer(req);
+  if (!who) return refuse(401, 'Sign in first.');
+  const found = modules.enabled(req.params.id);
+  if (!found || !found.manifest.library) return refuse(404, `There is no such ${word('module')}.`);
+  const { manifest, entry } = found;
+  const name = modules.shownName(manifest);
+  if (who.keyed) return refuse(403, `The access key can't open ${name}.`);
+  if (!who.user) return refuse(403, `${word('guest', { many: true, cap: true })} can't use ${name}.`);
+  const space = store.spaceById(String(req.query.space || ''));
+  if (!space) return refuse(404, `There is no such ${word('space')}.`);
+  if (refusedInLobby(manifest, space.id)) return refuse(404, lobbyRefusal(manifest));
+  if (!moduleSpaceAccess(entry, who, space)) return refuse(404, `There is no such ${word('space')}.`);
+  const perms = modulePerms(who, space.id);
+  const can = (key) => Boolean(perms[`module.${manifest.id}.${key}`]);
+  if (need && !can(need)) return refuse(403, `Your role can't do that in ${name}.`);
+  return { manifest, entry, name, who, space, spaceId: space.id, by: who.user.key, can, owner: hasOwnerRights(who.user) };
+}
+const fileRef = (ctx, fid) => ({ module: ctx.manifest.id, kind: 'file', id: fid, scope: 'space', space: ctx.spaceId });
+const fileView = (ctx, r) => ({ id: r.id, name: r.name, type: r.type, group: r.group, size: r.size, by: r.by, at: r.at, ...(r.taken ? { taken: r.taken } : {}), hasThumb: Boolean(r.thumb), uses: moduleLinks.to(fileRef(ctx, r.id)).length });
+// The owner's lower quotas, when the module declares them as `number` settings for the environment: spaceMaxGb and
+// personMaxGb, in GB; 0 or unset leaves the server's.
+function libraryQuotas(manifest) {
+  const values = moduleSettings.values(manifest, 'environment', {});
+  const lower = (key, most) => {
+    const def = (manifest.settings || []).find((d) => d.key === key && d.type === 'number' && d.scope === 'environment');
+    const gb = def ? Number(values[key]) : 0;
+    return Number.isFinite(gb) && gb > 0 ? Math.min(most, Math.floor(gb * 1024 ** 3)) : most;
+  };
+  return { space: lower('spaceMaxGb', vaultLimits.space), person: lower('personMaxGb', vaultLimits.person) };
+}
+
+// What uploads still arriving have reserved: one entry each, { space, person, environment, bytes } ("<slug>|..." keys).
+const vaultArriving = new Map();
+let vaultArrivingSeq = 0;
+function reserveVault(keys, bytes) {
+  vaultArrivingSeq += 1;
+  const id = vaultArrivingSeq;
+  vaultArriving.set(id, { ...keys, bytes });
+  return () => vaultArriving.delete(id);
+}
+// What uploads still arriving whose `field` is `value` hold against `me`: my own in full, each other person's at most
+// `share`.
+function heldAgainst(field, value, me, share) {
+  const byPerson = new Map();
+  for (const r of vaultArriving.values()) if (r[field] === value) byPerson.set(r.person, (byPerson.get(r.person) || 0) + r.bytes);
+  let held = 0;
+  for (const [person, bytes] of byPerson) held += person === me ? bytes : Math.min(bytes, share);
+  return held;
+}
+function vaultHostBytes() {
+  if (vaultHost.bytes === null) vaultHost.bytes = folderBytes(VAULT_ROOT);
+  return vaultHost.bytes;
+}
+// The levels a file must fit: { onDisk, most, sentence, field, value } for the space, the person, the environment's
+// storage (a hosted plan's cap) and the server. Uploads still arriving in another environment are not counted against
+// this one's.
+function vaultLevels(ctx, keys) {
+  const used = vault.usage();
+  const quota = libraryQuotas(ctx.manifest);
+  const cap = planCap('storageBytes');
+  const env = currentEnvironment();
+  return [
+    { onDisk: used.spaces.get(ctx.spaceId) || 0, most: quota.space, field: 'space', value: keys.space, sentence: `This ${word('space')}'s ${ctx.name} is full (${sizeText(quota.space)}). Remove some files to add more.` },
+    { onDisk: used.people.get(ctx.by) || 0, most: quota.person, field: 'person', value: keys.person, sentence: `You have used your ${sizeText(quota.person)} in ${ctx.name}. Remove some of your files to add more.` },
+    ...(cap !== null && cap !== undefined ? [{ onDisk: environmentStorageBytes(env.slug, env.dataDir), most: cap, field: 'environment', value: keys.environment, sentence: `This ${word('environment')} has used its ${gbText(cap)} GB of storage.` }] : []),
+    { onDisk: vaultHostBytes(), most: vaultLimits.total, field: 'environment', value: keys.environment, sentence: 'The server\'s file storage is full. Ask the admin.' },
+  ];
+}
+// Whether `bytes` more fit on disk at every level: null, or { status: 413, error } for the first that is full.
+function vaultFullOnDisk(ctx, keys, bytes) {
+  for (const l of vaultLevels(ctx, keys)) if (l.onDisk + bytes > l.most) return { status: 413, error: l.sentence };
+  return null;
+}
+// Whether `bytes` more fit this space, this person, this environment and the server: null, or { status, error, retry? }.
+// What is on disk first: full is 413 with the sentence for the first that is. Then what uploads still arriving in this
+// environment hold (LIBRARY_HOLD_SHARE): that is 429, since it is free again once they are in or cut off. Then the most
+// one person's or one environment's uploads may reserve at once.
+function vaultFullRefusal(ctx, keys, bytes) {
+  const full = vaultFullOnDisk(ctx, keys, bytes);
+  if (full) return full;
+  const arriving = { status: 429, error: OTHERS_ARRIVING, retry: 60 };
+  for (const l of vaultLevels(ctx, keys)) {
+    const share = Math.floor(Math.max(0, l.most - l.onDisk) * LIBRARY_HOLD_SHARE);
+    if (l.onDisk + heldAgainst(l.field, l.value, keys.person, share) + bytes > l.most) return arriving;
+  }
+  if (heldAgainst('person', keys.person, keys.person, 0) + bytes > LIBRARY_RESERVE.person) return { status: 429, error: 'Another upload is still running. Wait for it to finish.', retry: 5 };
+  if (BASE_DOMAIN && heldAgainst('environment', keys.environment, keys.person, Math.floor(LIBRARY_RESERVE.environment * LIBRARY_HOLD_SHARE)) + bytes > LIBRARY_RESERVE.environment) return arriving;
+  return null;
+}
+
+// How much one person may send in a minute (VAULT_MB_PER_MINUTE): an upload counts its Content-Length when it starts,
+// and one larger than the minute's allowance counts as all of it, so it can still go when nothing else was sent.
+const vaultSent = new Map(); // "<slug>|<person>" -> [[at, bytes], ...] in the last minute
+function vaultMinuteWait(key, bytes) {
+  const now = Date.now();
+  const recent = (vaultSent.get(key) || []).filter(([at]) => now - at < 60000);
+  if (recent.length) vaultSent.set(key, recent); else vaultSent.delete(key);
+  let total = recent.reduce((sum, [, b]) => sum + b, 0) + bytes;
+  if (total <= vaultLimits.perMinute) return 0;
+  for (const [at, b] of recent) {
+    total -= b;
+    if (total <= vaultLimits.perMinute) return Math.max(1, Math.ceil((at + 60000 - now) / 1000));
+  }
+  return 60;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, sent] of vaultSent) if (!sent.some(([at]) => now - at < 60000)) vaultSent.delete(key);
+}, 60000).unref();
+
+// Counts of what is running, across environments: uploads, open file streams and small pictures arriving, per person
+// and per environment.
+const libraryRunning = { uploads: new Map(), streams: new Map(), thumbs: new Map() };
+function takeSlot(map, keys, most) {
+  if ((map.get(keys.person) || 0) >= most.person) return 'person';
+  if ((map.get(keys.environment) || 0) >= most.environment) return 'environment';
+  for (const k of [keys.person, keys.environment]) map.set(k, (map.get(k) || 0) + 1);
+  let freed = false;
+  return () => {
+    if (freed) return;
+    freed = true;
+    for (const k of [keys.person, keys.environment]) { const v = (map.get(k) || 0) - 1; if (v > 0) map.set(k, v); else map.delete(k); }
+  };
+}
+const libraryKeys = (ctx) => {
+  const slug = currentEnvironment().slug || '';
+  return { space: `${slug}|${ctx.spaceId}`, person: `${slug}|${ctx.by}`, environment: slug };
+};
+
+// A library module's uploads in flight, per environment and module ("<slug>|<module id>" -> a Set of { stopped, stop() }),
+// so uninstalling the module stops them (stopLibraryUploads): one still arriving is answered and its part removed, one
+// being checked is refused before it is kept.
+const libraryInFlight = new Map();
+function trackLibraryUpload(moduleId) {
+  const key = `${currentEnvironment().slug || ''}|${moduleId}`;
+  const handle = { stopped: false, onStop: null, stop() { handle.stopped = true; if (handle.onStop) handle.onStop(); } };
+  if (!libraryInFlight.has(key)) libraryInFlight.set(key, new Set());
+  libraryInFlight.get(key).add(handle);
+  handle.done = () => { const set = libraryInFlight.get(key); if (!set) return; set.delete(handle); if (!set.size) libraryInFlight.delete(key); };
+  return handle;
+}
+function stopLibraryUploads(moduleId) {
+  const set = libraryInFlight.get(`${currentEnvironment().slug || ''}|${moduleId}`);
+  if (set) for (const handle of [...set]) handle.stop();
+}
+
+// Throws away what is still arriving after a refusal (so the sender reads the answer rather than a broken connection),
+// and drops the connection if it goes on for more than 20 seconds.
+function dropUploadBody(req) {
+  req.resume();
+  setTimeout(() => { if (!req.complete) req.destroy(); }, 20000).unref();
+}
+
+// Streams the body to `part` with a running count, never holding it: its first 4 KB are looked at as they arrive
+// (`onHead(head)` answers a refusal to stop at, or null), the SHA-256 is taken on the way, and an upload slower than the
+// floor (server/arrival.js) is cut off, and `onSlow()` told. Answers { size, sha256 } or { refused } / { over } / { aborted } / { failed }; the
+// part is closed by then, so the caller removes it.
+function receiveUpload(req, part, declared, onHead, onSlow = () => {}, handle = null) {
+  return new Promise((resolve) => {
+    const out = fs.createWriteStream(part, { mode: 0o600 });
+    const hash = crypto.createHash('sha256');
+    let size = 0;
+    let head = Buffer.alloc(0);
+    let headDone = false;
+    let settled = false;
+    const finish = (r) => {
+      if (settled) return;
+      settled = true;
+      watch.stop();
+      req.removeListener('data', onData);
+      if (r.size !== undefined) return resolve(r);
+      // A write stream opens its file asynchronously: wait for its close, so the caller's removal is the last thing to
+      // touch the part.
+      if (out.closed) return resolve(r);
+      out.once('close', () => resolve(r));
+      out.destroy();
+    };
+    const watch = watchArrival(declared, () => { onSlow(); finish({ aborted: true }); req.destroy(); }, { minRate: libraryMinRate });
+    if (handle) handle.onStop = () => finish({ stopped: true });
+    const look = () => {
+      headDone = true;
+      const refused = onHead(head);
+      if (refused) { finish({ refused }); return false; }
+      return true;
+    };
+    function onData(chunk) {
+      if (settled) return;
+      watch.got(chunk.length);
+      size += chunk.length;
+      if (size > declared) return finish({ over: true });
+      if (!headDone) {
+        head = Buffer.concat([head, chunk.subarray(0, vaultTypes.HEAD_BYTES - head.length)]);
+        if (head.length >= vaultTypes.HEAD_BYTES && !look()) return;
+      }
+      hash.update(chunk);
+      if (!out.write(chunk)) { req.pause(); watch.waiting(true); out.once('drain', () => { watch.waiting(false); req.resume(); }); }
+    }
+    req.on('data', onData);
+    req.on('end', () => {
+      if (settled) return;
+      if (!headDone && !look()) return;
+      if (size !== declared) return finish({ aborted: true });
+      watch.stop();
+      settled = true;
+      req.removeListener('data', onData);
+      out.end(() => resolve({ size, sha256: hash.digest('hex') }));
+    });
+    req.on('error', () => finish({ aborted: true }));
+    req.on('close', () => { if (!req.complete) finish({ aborted: true }); });
+    out.on('error', (err) => finish({ failed: err.message }));
+  });
+}
+
+// GET /api/modules/:id/library?space= -- the space's files, and what they use of the space's quota.
+app.get('/api/modules/:id/library', (req, res) => {
+  const ctx = libraryAccess(req, res, 'view');
+  if (!ctx) return;
+  const files = vault.list(ctx.manifest.id, ctx.spaceId).map((r) => fileView(ctx, r));
+  res.json({ files, usage: { bytes: vault.usage().spaces.get(ctx.spaceId) || 0, maxBytes: libraryQuotas(ctx.manifest).space } });
+});
+
+// POST /api/modules/:id/library?space=&name=[&keepPosition=1] -- add one file, the raw body with its Content-Length.
+// A picture loses where it was taken unless keepPosition=1 (the person's choice, "Remove where it was taken", on by default).
+app.post('/api/modules/:id/library', async (req, res) => {
+  const refuse = (status, error, headers = {}) => { if (!res.headersSent) res.set(headers).status(status).json({ error }); dropUploadBody(req); };
+  const ctx = libraryAccess(req, res, 'add');
+  if (!ctx) return dropUploadBody(req);
+  const name = cleanName(req.query.name);
+  if (!name) return refuse(400, 'Name the file in ?name=.');
+  if (req.headers['transfer-encoding'] || !/^\d{1,15}$/.test(String(req.headers['content-length'] || ''))) return refuse(411, 'Send the file with its size (Content-Length).');
+  const declared = Number(req.headers['content-length']);
+  if (!declared) return refuse(400, 'There is no file in that.');
+  const sentType = req.headers['content-type'];
+  const claimRefused = vaultTypes.claimRefusal(name, sentType);
+  if (claimRefused) return refuse(400, librarySentence(claimRefused));
+  const claimed = vaultTypes.claimedType(name, sentType);
+  if (claimed && declared > vaultTypes.LIMITS[vaultTypes.TYPES[claimed].limit].bytes) return refuse(413, overTypeLimit(claimed));
+  if (declared > vaultTypes.MAX_BYTES) return refuse(413, `That file is over the ${sizeText(vaultTypes.MAX_BYTES)} limit for video.`);
+  const limited = overLimit(ctx.manifest.id, ctx.by, 'upload');
+  if (limited) return refuse(429, limitMessage(), { 'Retry-After': String(limited.retrySeconds) });
+  const keys = libraryKeys(ctx);
+  const slow = slowRefusal(keys);
+  if (slow) return refuse(429, slow.error, { 'Retry-After': String(slow.retry) });
+  const wait = vaultMinuteWait(keys.person, Math.min(declared, vaultLimits.perMinute));
+  if (wait) return refuse(429, `You have sent a lot in the last minute. Wait ${wait} seconds and try again.`, { 'Retry-After': String(wait) });
+  const full = vaultFullRefusal(ctx, keys, declared);
+  if (full) return refuse(full.status, full.error, full.retry ? { 'Retry-After': String(full.retry) } : {});
+  const slot = takeSlot(libraryRunning.uploads, keys, LIBRARY_UPLOADS);
+  if (slot === 'person') return refuse(429, 'Another upload is still running. Wait for it to finish.', { 'Retry-After': '5' });
+  if (slot === 'environment') return refuse(429, 'Other uploads are still running here. Try again in a moment.', { 'Retry-After': '5' });
+  const release = reserveVault(keys, declared);
+  const flight = trackLibraryUpload(ctx.manifest.id);
+  const removedWhileArriving = `${ctx.name} was removed while the file was arriving, so it wasn't added.`;
+  vaultSent.set(keys.person, [...(vaultSent.get(keys.person) || []), [Date.now(), Math.min(declared, vaultLimits.perMinute)]]);
+  let part = null;
+  const dropPart = () => { if (part) fs.rmSync(part, { force: true }); };
+  try {
+    try {
+      part = vault.newPart(ctx.spaceId);
+    } catch (err) {
+      console.error(`A library upload could not start: ${err.message}`);
+      return refuse(500, LIBRARY_NOT_SAVED);
+    }
+    let type = null;
+    const got = await receiveUpload(req, part, declared, (head) => {
+      const found = vaultTypes.sniff(head, name);
+      if (found.refuse) return { status: 400, error: librarySentence(found.refuse) };
+      if (vaultTypes.mismatch(found.type, name, sentType)) return { status: 400, error: 'That file\'s name or type doesn\'t match what is in it.' };
+      if (declared > vaultTypes.LIMITS[vaultTypes.TYPES[found.type].limit].bytes) return { status: 413, error: overTypeLimit(found.type) };
+      type = found.type;
+      return null;
+    }, () => librarySlow.note(keys.person), flight);
+    if (got.stopped || flight.stopped) { dropPart(); return refuse(404, removedWhileArriving); }
+    if (got.refused) { dropPart(); return refuse(got.refused.status, got.refused.error); }
+    if (got.over) { dropPart(); return refuse(413, 'That file is longer than its Content-Length.'); }
+    if (got.aborted) { dropPart(); return; } // the sender went: nobody to answer
+    if (got.failed) { dropPart(); console.error(`A library upload could not be written: ${got.failed}`); return refuse(500, LIBRARY_NOT_SAVED); }
+    const group = vaultTypes.TYPES[type].group;
+    let kept = { size: got.size, sha256: got.sha256, taken: null, camera: '' };
+    // The whole file's check, in a worker (server/vault-scan.js): the main thread only waits for it.
+    if (group === 'image' || ['application/pdf', 'audio/mpeg', 'audio/mp4', 'video/mp4', 'video/quicktime', 'video/webm', 'text/markdown'].includes(type)) {
+      const checked = await vaultScanner.scan({ file: part, type, keepPosition: req.query.keepPosition === '1' });
+      if (checked.refuse) {
+        dropPart();
+        fs.rmSync(`${part}.clean`, { force: true });
+        if (checked.refuse.code === 'unsafe') console.error(`A library file could not be checked: ${checked.refuse.reason}`);
+        return refuse(400, scanSentence(checked.refuse, type));
+      }
+      if (group === 'image') {
+        try {
+          await fs.promises.rename(`${part}.clean`, part);
+        } catch (err) {
+          dropPart();
+          console.error(`A library picture could not be kept: ${err.message}`);
+          return refuse(500, LIBRARY_NOT_SAVED);
+        }
+        kept = { size: checked.size, sha256: checked.sha256, taken: checked.taken || null, camera: checked.camera || '' };
+      }
+    }
+    // What others' uploads still arriving hold counts for only part of a level (LIBRARY_HOLD_SHARE), and uploads still
+    // arriving in other environments not at all, so every level's real use is checked again now that the file is in
+    // (Thomas, 2026-10-30: that overshoot is accepted).
+    const fullNow = vaultFullOnDisk(ctx, keys, kept.size);
+    if (fullNow) { dropPart(); return refuse(413, fullNow.error); }
+    const record = { id: vault.newId(), name: nameForType(name, vaultTypes.TYPES[type].exts), type, group, size: kept.size, sha256: kept.sha256, by: ctx.by, at: new Date().toISOString(), ...(kept.taken ? { taken: kept.taken } : {}), ...(kept.camera ? { camera: kept.camera } : {}), thumb: null };
+    if (flight.stopped) { dropPart(); return refuse(404, removedWhileArriving); }
+    try {
+      vault.commit(ctx.manifest.id, ctx.spaceId, part, record);
+    } catch (err) {
+      dropPart();
+      console.error(`A library file could not be kept: ${err.message}`);
+      return refuse(500, LIBRARY_NOT_SAVED);
+    }
+    part = null;
+    noteActivity(ctx.manifest.id, `added a file to ${ctx.name}`, ctx.by, `space:${ctx.spaceId}`);
+    res.status(201).json({ file: fileView(ctx, record) });
+  } finally {
+    flight.done();
+    release();
+    slot();
+  }
+});
+
+// Content-Disposition for a file's name: a cleaned ASCII filename and the UTF-8 one (RFC 6266).
+function contentDisposition(kind, name) {
+  const ascii = String(name).replace(/[^\x20-\x7e]/g, '_').replace(/["\\%]/g, '_') || 'file';
+  const utf8 = encodeURIComponent(String(name)).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+}
+// The headers every library file is sent with: its stored type only (Markdown as plain text, never HTML), never sniffed,
+// never kept by a shared cache, never run as a page (a PDF is the one exception: a browser shows none in a sandboxed
+// document, so it may be framed by this site only).
+function libraryHeaders(type, name, kind) {
+  return {
+    'Content-Type': type === 'text/markdown' ? 'text/plain; charset=utf-8' : type,
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Disposition': contentDisposition(kind, name),
+    'Cache-Control': 'private, no-store',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': type === 'application/pdf' ? "default-src 'none'; frame-ancestors 'self'" : "sandbox; default-src 'none'",
+  };
+}
+// Streams a file (or its thumbnail) with range requests (206, Content-Range, Accept-Ranges, 416, ETag, Last-Modified,
+// If-Range), from disk through the response with its backpressure: a slow reader is sent only as fast as it reads.
+function sendLibraryFile(req, res, thumb) {
+  const download = !thumb && req.query.download === '1';
+  const ctx = libraryAccess(req, res, 'view', { file: true });
+  if (!ctx) return;
+  const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
+  if (!r || (thumb && !r.thumb) || (download && !ctx.can('download'))) return res.status(404).json({ error: NO_SUCH_FILE });
+  const file = vault.filePath(ctx.spaceId, r.id, thumb);
+  let slot = null;
+  if (!thumb) {
+    slot = takeSlot(libraryRunning.streams, libraryKeys(ctx), LIBRARY_STREAMS);
+    if (typeof slot === 'string') return res.status(429).set('Retry-After', '2').json({ error: 'Too many files are open at once. Close some and try again.' });
+    res.once('close', slot);
+  }
+  const headers = thumb ? libraryHeaders(r.thumb.type, r.name, 'inline') : libraryHeaders(r.type, r.name, download ? 'attachment' : 'inline');
+  res.sendFile(file, { acceptRanges: true, etag: true, lastModified: true, cacheControl: false, dotfiles: 'allow', headers }, (err) => {
+    if (!err || res.headersSent) return; // sent, or the connection broke part way
+    res.removeHeader('Content-Disposition');
+    res.type('application/json');
+    if (err.status === 416) {
+      let size = 0;
+      try { size = fs.statSync(file).size; } catch { /* gone */ }
+      res.removeHeader('Content-Range');
+      return res.status(416).set('Content-Range', `bytes */${size}`).json({ error: 'That part of the file is out of range.' });
+    }
+    if (err.status === 404 || err.code === 'ENOENT') return res.status(404).json({ error: NO_SUCH_FILE });
+    return res.status(err.status >= 400 && err.status < 600 ? err.status : 500).json({ error: 'The file could not be read.' });
+  });
+}
+// GET /api/modules/:id/library/:fid/content?space=[&download=1] -- the bytes, inline, or as a download for someone with
+// `download`. GET .../thumb -- the small picture.
+app.get('/api/modules/:id/library/:fid/content', (req, res) => sendLibraryFile(req, res, false));
+app.get('/api/modules/:id/library/:fid/thumb', (req, res) => sendLibraryFile(req, res, true));
+
+// PUT /api/modules/:id/library/:fid/thumb?space= -- the small picture the page made for a picture or a video it added:
+// a JPEG, PNG or WebP of at most 300 KB, from the person who added the file. Checked and cleaned like a picture.
+app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
+  const refuse = (status, error, headers = {}) => { if (!res.headersSent) res.set(headers).status(status).json({ error }); dropUploadBody(req); };
+  const ctx = libraryAccess(req, res, 'add', { file: true });
+  if (!ctx) return dropUploadBody(req);
+  const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
+  if (!r) return refuse(404, NO_SUCH_FILE);
+  if (r.by !== ctx.by) return refuse(403, 'Only the person who added it can give it a small picture.');
+  if (r.group !== 'image' && r.group !== 'video') return refuse(400, 'Only pictures and videos have a small picture.');
+  if (req.headers['transfer-encoding'] || !/^\d{1,15}$/.test(String(req.headers['content-length'] || ''))) return refuse(411, 'Send the picture with its size (Content-Length).');
+  const declared = Number(req.headers['content-length']);
+  if (!declared) return refuse(400, 'There is no picture in that.');
+  if (declared > LIBRARY_THUMB_BYTES) return refuse(413, 'That small picture is over 300 KB.');
+  const limited = overLimit(ctx.manifest.id, ctx.by, 'upload');
+  if (limited) return refuse(429, limitMessage());
+  const keys = libraryKeys(ctx);
+  const slow = slowRefusal(keys);
+  if (slow) return refuse(429, slow.error, { 'Retry-After': String(slow.retry) });
+  const full = vaultFullRefusal(ctx, keys, declared);
+  if (full) return refuse(full.status, full.error, full.retry ? { 'Retry-After': String(full.retry) } : {});
+  const slot = takeSlot(libraryRunning.thumbs, keys, LIBRARY_THUMBS);
+  if (typeof slot === 'string') return refuse(429, 'Another small picture is still being sent. Wait for it to finish.', { 'Retry-After': '5' });
+  let bytes;
+  try {
+    // Read as it arrives, never past its Content-Length, and cut off when it is too slow.
+    bytes = await new Promise((resolve) => {
+      const chunks = [];
+      let size = 0;
+      let done = false;
+      const end = (value) => { if (done) return; done = true; clearTimeout(deadline); req.removeListener('data', onData); resolve(value); };
+      const deadline = setTimeout(() => { librarySlow.note(keys.person); end(null); req.destroy(); }, thumbDeadlineMs(declared));
+      function onData(c) {
+        size += c.length;
+        if (size > declared) return end('over');
+        chunks.push(c);
+      }
+      req.on('data', onData);
+      req.on('end', () => end(size === declared ? Buffer.concat(chunks) : null));
+      req.on('error', () => end(null));
+      req.on('close', () => { if (!req.complete) end(null); });
+    });
+  } finally {
+    slot();
+  }
+  if (bytes === 'over') return refuse(413, 'That small picture is longer than its Content-Length.');
+  if (!bytes) return;
+  const cleaned = await cleanPictureOffThread(bytes, ['image/jpeg', 'image/png', 'image/webp'], false);
+  if (cleaned.error || cleaned.pixels === null || cleaned.pixels > 4 * 1000 * 1000) return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
+  const { clean } = cleaned;
+  res.json({ file: fileView(ctx, vault.putThumb(ctx.manifest.id, ctx.spaceId, r.id, clean.bytes, clean.type)) });
+});
+
+// The file a route names, for someone who may see it, and whether they may change it (its adder, or someone with
+// remove_any); null after the 404.
+function libraryFile(req, res) {
+  const ctx = libraryAccess(req, res, 'view', { file: true });
+  if (!ctx) return null;
+  const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
+  if (!r) return void res.status(404).json({ error: NO_SUCH_FILE });
+  return { ctx, r, mayChange: r.by === ctx.by || ctx.can('remove_any') };
+}
+// PATCH /api/modules/:id/library/:fid?space= { name } -- rename it (the adder, or remove_any). The name keeps the type's
+// extension. Its small JSON body is read only once that is decided.
+app.patch('/api/modules/:id/library/:fid', (req, res, next) => {
+  const found = libraryFile(req, res);
+  if (!found) return dropUploadBody(req);
+  if (!found.mayChange) { res.status(403).json({ error: `Only the person who added it, or someone who may remove other people's files, can rename it.` }); return dropUploadBody(req); }
+  req.libraryFile = found;
+  next();
+}, express.json({ limit: '4kb' }), (req, res) => {
+  const { ctx, r } = req.libraryFile;
+  const name = cleanName(req.body?.name);
+  if (!name) return res.status(400).json({ error: 'Give the file a name.' });
+  res.json({ file: fileView(ctx, vault.rename(ctx.manifest.id, ctx.spaceId, r.id, nameForType(name, vaultTypes.TYPES[r.type].exts))) });
+});
+// DELETE /api/modules/:id/library/:fid?space= -- remove it: its record, bytes and small picture (the adder, or remove_any).
+// Links to it stay on the objects that hold them, and read "File removed".
+app.delete('/api/modules/:id/library/:fid', (req, res) => {
+  const found = libraryFile(req, res);
+  if (!found) return;
+  const { ctx, r, mayChange } = found;
+  if (!mayChange) return res.status(403).json({ error: 'Only the person who added it, or someone who may remove other people\'s files, can remove it.' });
+  vault.remove(ctx.manifest.id, ctx.spaceId, r.id);
+  noteActivity(ctx.manifest.id, `removed a file from ${ctx.name}`, ctx.by, `space:${ctx.spaceId}`);
+  res.json({ ok: true });
+});
+// GET /api/modules/:id/library/:fid/uses?space= -- where it is linked: the summaries of the objects this person may see,
+// and how many others there are.
+app.get('/api/modules/:id/library/:fid/uses', (req, res) => {
+  const found = libraryFile(req, res);
+  if (!found) return;
+  const { ctx, r } = found;
+  const uses = [];
+  let hidden = 0;
+  for (const from of moduleLinks.to(fileRef(ctx, r.id))) {
+    try {
+      uses.push(resolveRef(ctx.who, from, null, { skipConsumer: true }));
+    } catch (err) {
+      if (!err.status) throw err;
+      hidden += 1;
+    }
+  }
+  res.json({ uses, hidden });
 });
 
 // --- place search, from the server -----------------------------------------------------------------------------------------
@@ -9125,3 +9755,7 @@ const listener = app.listen(Number(PORT), () => {
   console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, ${HAS_CALL_SERVICE ? `LiveKit at ${LIVEKIT_HOST}` : 'no LiveKit'}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at ${CONSOLE_HOST}, product pages at ${PRODUCT_HOST}`);
   for (const env of environments.values()) envContext.run(env, fillTwins);
 });
+// A library file of 2 GB takes longer than Node's own five minutes for a whole request on most connections, so a request
+// may take two hours to arrive. An upload slower than VAULT_MIN_KB_PER_SECOND is cut off by its own route
+// (watchArrival); the headers still have to arrive within Node's own minute.
+listener.requestTimeout = 2 * 60 * 60 * 1000;

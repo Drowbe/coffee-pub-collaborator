@@ -124,8 +124,8 @@ a {
                    .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
-     .sdk-choice-list tick boxes in a list, each label.sdk-choice-row (system.css, Choice rows). One of a few is the joined switch (.sdk-tabs.sdk-tabs-joined of
-                   .sdk-tab buttons with aria-pressed, in system.css). .sdk-people people as chips (a tick box or a radio each).
+     .sdk-choice-list tick boxes in a list, each label.sdk-choice-row (system.css, Choice rows). One of a few is the segmented switch (.mf-switch, a radio group of
+                   .mf-switch-btn radios, in system.css's Tabs block). .sdk-people people as chips (a tick box or a radio each).
                    .sdk-form-error a refusal that is not one field's (system.css, States). */
 :root {
   --field-gap: 12px;

@@ -476,7 +476,7 @@
   }
   // A choice with an icon and a word, in or out of icons only: its word is its accessible name either way, and its
   // tooltip only while the word is hidden (a title the page set itself is left alone). A choice is a tab (.tb-tab) or a
-  // part of the module frame's joined switch (.mf-switch-btn, its word .mf-word: Chat's Discussion | Assistant).
+  // part of the module frame's segmented switch (.mf-switch-btn, its word .mf-word: Chat's Discussion | Assistant).
   function labelChoice(button, compact) {
     const wordEl = button.querySelector(':scope > :is(.tb-tab-word, .mf-word)');
     if (!wordEl || !button.querySelector(':scope > :is(.tb-tab-glyph, i)')) return;
@@ -522,6 +522,81 @@
       fonts.addEventListener('loadingdone', later);
       fonts.ready.then(later, () => {});
     }
+  }
+
+  // The segmented switch's keyboard: the standard radio group. A switch is .mf-switch with role="radiogroup" and a name; its
+  // parts are .mf-switch-btn buttons with role="radio" and aria-checked (the module frame's view switches, Chat's Discussion |
+  // Assistant, the Prototype's switches, the Planner's "How you get there"). One Tab stop: the chosen part, else the first;
+  // Tab leaves the group. Left or Up and Right or Down move to the part before or after (round the ends) and choose it; Home
+  // and End the first and the last; Space and Enter choose (the button's own click). Choosing is the part's click, so the
+  // page's own click handler does it; a part drawn again by that click (the module frame redraws) is found again by its
+  // data-key. One listener per window on the document, reading the event's composed path, so a module in a shadow root has
+  // it too. Whoever draws a switch may call roveSwitch(group); one never roved is roved when focus first comes into it.
+  const SWITCH_PART = '.mf-switch > .mf-switch-btn';
+  const switchParts = (g) => (g ? [...g.children].filter((b) => b.classList.contains('mf-switch-btn') && !b.disabled && !b.hidden) : []);
+  function roveSwitch(g) {
+    const parts = switchParts(g);
+    const stop = parts.find((b) => b.getAttribute('aria-checked') === 'true') || parts[0];
+    for (const b of g ? [...g.children] : []) if (b.classList.contains('mf-switch-btn')) b.tabIndex = b === stop ? 0 : -1;
+  }
+  function switchPartOf(e) {
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
+    return path.find((n) => n && n.nodeType === 1 && typeof n.matches === 'function' && n.matches(SWITCH_PART)) || null;
+  }
+  // The same part after a click that may have drawn the switch again.
+  function switchPartAgain(b, root) {
+    if (b.isConnected) return b;
+    const key = b.dataset && b.dataset.key;
+    if (!key || !root || typeof root.querySelector !== 'function') return null;
+    return [...root.querySelectorAll('.mf-switch-btn')].find((x) => x.dataset.key === key) || null;
+  }
+  function switchKeydown(e) {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    const b = switchPartOf(e);
+    if (!b) return;
+    const parts = switchParts(b.parentElement);
+    const at = parts.indexOf(b);
+    if (at < 0 || !parts.length) return;
+    const view = b.ownerDocument && b.ownerDocument.defaultView;
+    const rtl = Boolean(view && view.getComputedStyle && view.getComputedStyle(b).direction === 'rtl');
+    const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1, ArrowDown: 1, ArrowUp: -1 }[e.key];
+    let to;
+    if (step) to = (at + step + parts.length) % parts.length;
+    else if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = parts.length - 1;
+    else return;
+    e.preventDefault();
+    const next = parts[to];
+    const root = typeof next.getRootNode === 'function' ? next.getRootNode() : next.ownerDocument;
+    next.focus();
+    if (next.getAttribute('aria-checked') !== 'true') next.click();
+    const now = switchPartAgain(next, root);
+    if (!now) return;
+    roveSwitch(now.parentElement);
+    if (root.activeElement !== now) now.focus();
+  }
+  function switchClick(e) {
+    const b = switchPartOf(e);
+    if (!b) return;
+    const root = typeof b.getRootNode === 'function' ? b.getRootNode() : b.ownerDocument;
+    Promise.resolve().then(() => { const now = switchPartAgain(b, root); if (now) roveSwitch(now.parentElement); });
+  }
+  // Focus coming into a switch nobody roved (every part a Tab stop): rove it and put focus on the chosen part.
+  function switchFocusin(e) {
+    const b = switchPartOf(e);
+    if (!b) return;
+    const g = b.parentElement;
+    if ([...g.children].some((x) => x.classList.contains('mf-switch-btn') && x.tabIndex === -1)) return;
+    roveSwitch(g);
+    const stop = switchParts(g).find((x) => x.tabIndex === 0);
+    if (stop && stop !== b) stop.focus();
+  }
+  const switchDoc = global.document;
+  if (switchDoc && typeof switchDoc.addEventListener === 'function' && !global.__hostSwitchKeys) {
+    global.__hostSwitchKeys = true;
+    switchDoc.addEventListener('keydown', switchKeydown);
+    switchDoc.addEventListener('click', switchClick);
+    switchDoc.addEventListener('focusin', switchFocusin);
   }
 
   // The editor window (host.ui.editor): a module's Add or Edit form as a modal <dialog>, drawn in the browser's top layer
@@ -3247,6 +3322,7 @@
     },
   };
   // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),
-  // Chat's Discussion | Assistant (fit only) and a destination's switches draw and fit with these.
-  global.hostSwitch = { fill: fillChoice, fit: fitSwitches, watch: watchSwitches };
+  // Chat's Discussion | Assistant (fit only) and a destination's switches draw and fit with these. rove sets the segmented
+  // switch's one Tab stop (the keyboard itself is the document's listener above); keydown is that listener, for the checks.
+  global.hostSwitch = { fill: fillChoice, fit: fitSwitches, watch: watchSwitches, rove: roveSwitch, keydown: switchKeydown };
 })(window);

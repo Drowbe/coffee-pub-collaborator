@@ -56,16 +56,19 @@ class ModuleUploads {
 
   // Keep an upload. `rule` is the manifest's `uploads` ({ types, maxBytes, maxFiles }). Returns the file's facts; throws a
   // StoreError with a plain message for anything not accepted.
-  put(id, scopeKey, rule, { bytes, name, by, keepPosition }) {
+  // `cleaned` is cleanImage's answer when the caller has already cleaned the bytes (index.js does, off its main thread).
+  put(id, scopeKey, rule, { bytes, name, by, keepPosition, cleaned = null }) {
     if (!bytes || !bytes.length) throw new StoreError('there is no file in that');
     if (bytes.length > rule.maxBytes) throw new StoreError(`that file is over the limit of ${Math.round(rule.maxBytes / 1048576)} MB`);
     const dir = this.scopeDir(id, scopeKey);
     if (this.list(id, scopeKey).length >= rule.maxFiles) throw new StoreError(`this place already keeps ${rule.maxFiles} files; remove some first`);
-    let clean;
-    try {
-      clean = cleanImage(bytes, rule.types, !!keepPosition);
-    } catch (err) {
-      throw new StoreError(err.message);
+    let clean = cleaned;
+    if (!clean) {
+      try {
+        clean = cleanImage(bytes, rule.types, !!keepPosition);
+      } catch (err) {
+        throw new StoreError(err.message);
+      }
     }
     const fid = crypto.randomBytes(12).toString('hex');
     const facts = { id: fid, name: oneLine(name, 100), type: clean.type, size: clean.bytes.length, by, at: new Date().toISOString(), taken: clean.taken, camera: clean.camera, hasPosition: clean.hasPosition, position: clean.position, thumb: false };
@@ -75,16 +78,18 @@ class ModuleUploads {
     return facts;
   }
 
-  // The thumbnail the page made for a file it uploaded: cleaned the same way, and small.
-  putThumb(id, scopeKey, rule, fid, bytes) {
+  // The thumbnail the page made for a file it uploaded: cleaned the same way (or `cleaned`, as for put), and small.
+  putThumb(id, scopeKey, rule, fid, bytes, cleaned = null) {
     const m = this.meta(id, scopeKey, fid);
     if (!m) throw new StoreError('no such file');
     if (!bytes || !bytes.length || bytes.length > MAX_THUMB) throw new StoreError('that thumbnail is too big');
-    let clean;
-    try {
-      clean = cleanImage(bytes, rule.types, false);
-    } catch (err) {
-      throw new StoreError(err.message);
+    let clean = cleaned;
+    if (!clean) {
+      try {
+        clean = cleanImage(bytes, rule.types, false);
+      } catch (err) {
+        throw new StoreError(err.message);
+      }
     }
     const dir = this.scopeDir(id, scopeKey);
     fs.writeFileSync(path.join(dir, `${fid}.thumb`), clean.bytes);

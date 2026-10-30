@@ -1052,7 +1052,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   // --- the views: Discussion | Assistant (GitHub #203) ---
   // #messages carries data-view and each line data-in (frameMessage: viewOf); style.css hides the rest, so changing the
   // view fetches nothing and a message that arrives or changes who sees it follows at once. The module frame's view
-  // switch (.mf-switch): two buttons, the chosen one pressed, each one Tab stop. Remembered per space for the session.
+  // switch (.mf-switch): a radio group of two, the chosen one checked and the one Tab stop; the arrows move and choose
+  // (public/sdk/host.js, hostSwitch). Remembered per space for the session.
   const newIn = { discussion: 0, assistant: 0 };
   function paintNew() {
     const count = $('chat-view-discussion-count');
@@ -1077,8 +1078,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     for (const v of CHAT_VIEWS) {
       const el = $(`chat-view-${v}`);
       if (!el) continue;
-      el.setAttribute('aria-pressed', v === view ? 'true' : 'false');
+      el.setAttribute('aria-checked', v === view ? 'true' : 'false');
     }
+    if (window.hostSwitch) window.hostSwitch.rove($('chat-view-discussion')?.parentElement);
     const list = $('messages');
     if (list) list.dataset.view = view;
     if ($('chat')) $('chat').dataset.view = view;

@@ -11,6 +11,8 @@
 //   modules/settings.json                 module settings for the space
 //   modules/<module>/data/space-<id>.json         every module's records scoped to it
 //   modules/<module>/uploads/space-<id>/          every module's files scoped to it (and their thumbnails)
+//   modules/<module>/library/space-<id>.json      a library module's records of the space's files
+//   <VAULT_DIR>/<environment>/space-<id>/         those files' bytes and thumbnails (server/vault-store.js)
 //   modules/links.json                    links with an end in it
 //   modules/bus.json                      events and "send to..." requests in it
 //   modules/schedules.json, notifications.json    what was scheduled in it, notifications about it
@@ -32,6 +34,7 @@ function eraseSpace(env, id) {
   const steps = [
     [`${mod} data`, () => env.moduleData.forgetSpace(id)],
     [`${mod} files`, () => env.moduleUploads.forgetSpace(id)],
+    ['library files', () => env.vault.forgetSpace(id)],
     [`${mod} links`, () => env.moduleLinks.forgetSpace(id)],
     [`${mod} requests`, () => env.moduleBus.forgetSpace(id)],
     ['schedules and notifications', () => env.moduleHooks.forgetSpace(id)],

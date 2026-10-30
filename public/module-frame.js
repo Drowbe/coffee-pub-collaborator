@@ -289,9 +289,11 @@ export function createModuleFrame(opts = {}) {
   // ---- 2. the toolbar ----
   const fire = (data) => onAction({ area: 'toolbar', ...data });
   function drawSwitch(it) {
-    const seg = el('div', 'mf-switch', { role: 'group', 'aria-label': it.label || 'View' });
+    // A radio group (the keyboard is the SDK's: public/sdk/host.js, hostSwitch): one Tab stop, the arrows move and choose.
+    const seg = el('div', 'mf-switch', { role: 'radiogroup', 'aria-label': it.label || 'View' });
+    const stop = it.options.some((o) => o.id === it.value) ? it.value : it.options[0]?.id;
     for (const o of it.options) {
-      const b = el('button', 'mf-switch-btn', { type: 'button', 'aria-pressed': String(o.id === it.value), 'aria-label': o.label || o.icon });
+      const b = el('button', 'mf-switch-btn', { type: 'button', role: 'radio', 'aria-checked': String(o.id === it.value), tabindex: o.id === stop ? '0' : '-1', 'aria-label': o.label || o.icon });
       b.dataset.key = `switch:${it.id}:${o.id}`;
       if (o.icon) b.append(icon(o.icon, '', o.regular));
       if (o.label && !(o.iconOnly && o.icon)) b.append(word(o.label));

@@ -14,7 +14,9 @@
  *     the fit changes what is selected, or the words do not come back once they fit again;
  *   - a bundled module, or a host stylesheet outside the shared rules, sizes the switch itself;
  *   - the host's toolbar, Chat or the destination page stop drawing or fitting their switches the shared way;
- *   - a bundled module's view switch has a choice without an icon.
+ *   - a bundled module's view switch has a choice without an icon;
+ *   - the segmented switch (.mf-switch) is not a radio group with one Tab stop whose arrow keys, Home and End move and choose
+ *     with focus kept in the group (hostSwitch.keydown and rove, on a stand-in DOM), also when its click draws it again.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -378,6 +380,91 @@ await test('host.ui.viewSwitch is always in the toolbar: an `element` is not dra
   s.destroy();
 });
 
+// The segmented switch's keyboard (hostSwitch.keydown, the document's listener; hostSwitch.rove): a radio group. A small
+// stand-in DOM of its own: a document with activeElement, a group, its parts (focus, click, tabIndex, data-key).
+const keyDoc = () => {
+  const d = { activeElement: null, groups: [], defaultView: { getComputedStyle: () => ({ direction: 'ltr' }) } };
+  d.querySelectorAll = (s) => (s === '.mf-switch-btn' ? d.groups.flatMap((g) => (g.isConnected ? g.children : [])) : []);
+  d.querySelector = (s) => d.querySelectorAll(s)[0] || null;
+  return d;
+};
+const keyGroup = (d, words, chosen, onPick) => {
+  const g = { isConnected: true, children: [], classList: { contains: (c) => c === 'mf-switch' } };
+  for (const w of words) {
+    const b = {
+      nodeType: 1, ownerDocument: d, parentElement: g, disabled: false, hidden: false, tabIndex: 0, dataset: { key: `switch:view:${w}` }, attrs: { 'aria-checked': String(w === chosen) },
+      classList: { contains: (c) => c === 'mf-switch-btn' },
+      get isConnected() { return g.isConnected; },
+      matches: (s) => s === '.mf-switch > .mf-switch-btn',
+      getAttribute(k) { return this.attrs[k] ?? null; },
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      getRootNode: () => d,
+      focus() { d.activeElement = this; },
+      click() { onPick(w, g); },
+      word: w,
+    };
+    g.children.push(b);
+  }
+  d.groups.push(g);
+  return g;
+};
+const press = (b, key, extra = {}) => { const e = { key, defaultPrevented: false, altKey: false, ctrlKey: false, metaKey: false, ...extra, composedPath: () => [b], preventDefault() { this.defaultPrevented = true; } }; sw.keydown(e); return e; };
+const stops = (g) => g.children.filter((b) => b.tabIndex === 0).map((b) => b.word);
+
+await test('the segmented switch is a radio group: arrows move and choose, Home and End, focus stays in it, one Tab stop (Tab leaves)', () => {
+  assert.equal(typeof sw.keydown, 'function', 'hostSwitch.keydown');
+  assert.equal(typeof sw.rove, 'function', 'hostSwitch.rove');
+  const d = keyDoc();
+  const pick = (w, g) => { for (const b of g.children) b.setAttribute('aria-checked', String(b.word === w)); };
+  const g = keyGroup(d, ['list', 'month', 'map'], 'month', pick);
+  sw.rove(g);
+  assert.deepEqual(stops(g), ['month'], 'the chosen part is the one Tab stop, so Tab leaves the group');
+  const [list, month, map] = g.children;
+  month.focus();
+  const chosen = () => g.children.find((b) => b.getAttribute('aria-checked') === 'true').word;
+  assert.ok(press(month, 'ArrowRight').defaultPrevented, 'an arrow is the switch\'s, not the page\'s');
+  assert.equal(chosen(), 'map', 'Right chooses the next');
+  assert.equal(d.activeElement, map, 'and focus moves with it');
+  assert.deepEqual(stops(g), ['map'], 'the Tab stop follows the choice');
+  press(map, 'ArrowDown');
+  assert.equal(chosen(), 'list', 'Down past the end goes round to the first');
+  assert.equal(d.activeElement, list);
+  press(list, 'ArrowLeft');
+  assert.equal(chosen(), 'map', 'Left before the first goes round to the last');
+  press(map, 'ArrowUp');
+  assert.equal(chosen(), 'month', 'Up chooses the one before');
+  press(month, 'Home');
+  assert.equal(chosen(), 'list', 'Home: the first');
+  press(list, 'End');
+  assert.equal(chosen(), 'map', 'End: the last');
+  assert.ok(g.children.includes(d.activeElement), 'focus never left the group');
+  const tab = press(map, 'Tab');
+  assert.equal(tab.defaultPrevented, false, 'Tab is left to the browser: with one Tab stop it leaves the group');
+  assert.equal(press(map, 'ArrowRight', { altKey: true }).defaultPrevented, false, 'a key with a modifier is not the switch\'s');
+  // A disabled or hidden part is passed over.
+  month.disabled = true;
+  press(list, 'ArrowRight');
+  assert.equal(chosen(), 'map', 'a disabled part is skipped');
+  month.disabled = false;
+  // Nothing chosen (the Planner's "How you get there" before a way is set): the first part is the Tab stop.
+  const none = keyGroup(keyDoc(), ['walk', 'drive'], null, pick);
+  sw.rove(none);
+  assert.deepEqual(stops(none), ['walk'], 'with none chosen, the first part is the Tab stop');
+});
+
+await test('a switch drawn again by its own click (the module frame) keeps the focus on the same part, found by its key', () => {
+  const d = keyDoc();
+  let g = null;
+  const redraw = (w, old) => { old.isConnected = false; g = keyGroup(d, ['day', 'week', 'month'], w, redraw); };
+  g = keyGroup(d, ['day', 'week', 'month'], 'day', redraw);
+  sw.rove(g);
+  g.children[0].focus();
+  press(g.children[0], 'ArrowRight');
+  assert.equal(d.activeElement && d.activeElement.word, 'week', 'focus is on the new week part');
+  assert.ok(g.children.includes(d.activeElement), 'in the switch drawn again');
+  assert.deepEqual(stops(g), ['week'], 'which is the Tab stop');
+});
+
 // --- 3. Every switch draws and fits the shared way, and every bundled one has its icons ------------------------------
 // A module's switch is drawn by the module frame (public/module-frame.js, drawSwitch): each choice its icon and its word,
 // and the row is fitted as one (fit: the switches show only their icons while the row is too narrow, the words their
@@ -385,7 +472,7 @@ await test('host.ui.viewSwitch is always in the toolbar: an `element` is not dra
 const frameJs = read('public/module-frame.js');
 const switchDraw = frameJs.slice(frameJs.indexOf('  function drawSwitch(it) {'), frameJs.indexOf('  function tabsMenu('));
 if (!/if \(o\.icon\) b\.append\(icon\(o\.icon, '', o\.regular\)\);/.test(switchDraw) || !/b\.append\(word\(o\.label\)\)/.test(switchDraw)) fail('public/module-frame.js: a switch\'s choice is its icon and its word');
-if (!/'aria-pressed': String\(o\.id === it\.value\)/.test(switchDraw)) fail('public/module-frame.js: a switch\'s choice says whether it is pressed');
+if (!/role: 'radiogroup'/.test(switchDraw) || !/role: 'radio', 'aria-checked': String\(o\.id === it\.value\)/.test(switchDraw)) fail('public/module-frame.js: a switch is a radio group and each choice a radio that says whether it is chosen');
 if (!/const FOLDS = \['chips', 'switch',/.test(frameJs) || !/\.mf-fold-switch \.mf-switch-btn:has\(> i\) > \.mf-word \{ display: none; \}/.test(read('public/sdk/system.css'))) fail('public/module-frame.js: the switch shows only its icons while the row is too narrow');
 if (!/if \(iconic\(b\)\) b\.dataset\.tip = name;/.test(frameJs)) fail('public/module-frame.js: a folded choice\'s word is its tooltip');
 if (!/observer = new win\.ResizeObserver\(later\);/.test(frameJs)) fail('public/module-frame.js: the row is fitted again as it changes size');
@@ -399,7 +486,7 @@ const destViews = /calendar:\s*\{\s*views:\s*\[([^\]]*)\]/.exec(destination);
 if (!destViews || (destViews[1].match(/\{[^}]*\}/g) || []).some((o) => !/icon:/.test(o))) fail('public/destination.js: every view of the Calendar destination needs an icon');
 function fnBodyOf(src, head) { const at = src.indexOf(head); if (at < 0) return ''; let d = 0; for (let i = src.indexOf('{', at); i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}' && --d === 0) return src.slice(at, i + 1); } return src.slice(at); }
 // Chat's two views, Discussion | Assistant (GitHub #203), in place of the All | Private | Public filter: the module frame's
-// view switch (.mf-switch, joined, the chosen part filled; Thomas, 2026-10-29), two buttons, the chosen one pressed, each its
+// view switch (.mf-switch, joined, the chosen part filled; Thomas, 2026-10-29), a radio group of two, the chosen one checked, each its
 // own icon and word, the word its aria-label, the Discussion chosen to start; fitted to icons only by hostSwitch when narrow.
 // Start call is a button of its own after the switch, never a part of it.
 const chatInputJs = read('public/chat-input.js');
@@ -409,7 +496,7 @@ if (!/container\.querySelectorAll\('\.tb-tabs, \.mf-switch'\)/.test(hostJs) || !
 if (!/\.mf-switch\.tb-tabs-compact > \.mf-switch-btn:has\(> i\) > \.mf-word \{\s*display: none;/.test(read('public/sdk/system.css'))) fail('public/sdk/system.css: a fitted .mf-switch drops its words, keeping its icons');
 const spaceHtml = read('public/space.html');
 if (/chat-ai-share|chat-ai-private|chat-ai-shared|chat-filter/.test(spaceHtml + chatInputJs)) fail('public/space.html: the old switches (#chat-ai-share, the #chat-filter filter) are gone');
-if (!/<div class="mf-toolbar chat-views" id="chat-views" hidden>\s*<span class="mf-switch" role="group" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views holds the frame\'s view switch (.mf-switch, a group) in the chat\'s toolbar (the frame\'s band), hidden until a space');
+if (!/<div class="mf-toolbar chat-views" id="chat-views" hidden>\s*<span class="mf-switch" role="radiogroup" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views holds the frame\'s view switch (.mf-switch, a named radio group) in the chat\'s toolbar (the frame\'s band), hidden until a space');
 const chatRow = /<div class="mf-toolbar chat-views" id="chat-views" hidden>([\s\S]*?)<\/div>/.exec(spaceHtml)?.[1] || '';
 if (/tb-tab|role="tab/.test(chatRow)) fail('public/space.html: Chat\'s views are not tabs any more (no .tb-tab, no tablist)');
 for (const [id, icon, word, on] of [['chat-view-discussion', 'comments', 'Discussion', true], ['chat-view-assistant', 'wand-magic-sparkles', 'Assistant', false]]) {
@@ -420,14 +507,14 @@ for (const [id, icon, word, on] of [['chat-view-discussion', 'comments', 'Discus
   if (!new RegExp(`<span class="mf-word">${word}</span>`).test(m[1])) fail(`public/space.html: #${id} needs its word, ${word} (.mf-word)`);
   if (!new RegExp(`aria-label="${word}"`).test(m[0])) fail(`public/space.html: #${id} needs its word as aria-label`);
   if (!/aria-controls="messages"/.test(m[0])) fail(`public/space.html: #${id} controls #messages`);
-  if (!new RegExp(`aria-pressed="${on}"`).test(m[0])) fail(`public/space.html: #${id} starts ${on ? 'chosen' : 'not chosen'}`);
+  if (!new RegExp(`role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}"`).test(m[0])) fail(`public/space.html: #${id} is a radio that starts ${on ? 'chosen, the Tab stop' : 'not chosen, out of the Tab order'}`);
 }
 if (!/<p class="visually-hidden" id="chat-view-news" role="status" aria-live="polite"><\/p>/.test(spaceHtml)) fail('public/space.html: the Assistant\'s news is read out from a polite live region');
 // Remembered per space for the browser session; the old filter's key is not read.
 if (!/export const viewKey = \(spaceId\) => `chat-view:\$\{spaceId\}`;/.test(chatInputJs) || /chat-ai-share:|filterKey/.test(chatInputJs)) fail('public/chat-input.js: the view is kept as chat-view:<spaceId>, and the old keys are not read');
 if (!/sessionStorage\.setItem\(viewKey\(id\), view\)/.test(chatInputJs) || !/readView\(sessionStorage\.getItem\(viewKey\(id\)\)\)/.test(chatInputJs)) fail('public/chat-input.js: the view is remembered in sessionStorage');
-// The chosen part is pressed; the tablist's keys and roving focus are gone with the tabs.
-if (!/el\.setAttribute\('aria-pressed', v === view \? 'true' : 'false'\);/.test(chatInputJs)) fail('public/chat-input.js: the chosen view\'s button is pressed');
+// The chosen part is checked and the Tab stop; the keys are the SDK's (no tablist of its own).
+if (!/el\.setAttribute\('aria-checked', v === view \? 'true' : 'false'\);/.test(chatInputJs) || !/window\.hostSwitch\.rove\(/.test(chatInputJs)) fail('public/chat-input.js: the chosen view\'s button is checked and the switch roved');
 if (/aria-selected|focusTab|ArrowRight: at \+ 1/.test(fnBodyOf(chatInputJs, 'function setView(') + chatInputJs.slice(chatInputJs.indexOf("for (const v of CHAT_VIEWS) {\n    $(`chat-view-${v}`)"), chatInputJs.indexOf("$('chat-command').addEventListener"))) ) fail('public/chat-input.js: no tab selection or tablist keys on Chat\'s switch');
 // Start call: the shared primary button, put at the end of the row (after the switch, not in it).
 if (!/\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/.test(read('public/space.js'))) fail('public/space.js: Start call goes at the end of the chat\'s view row, after the switch');

@@ -2140,8 +2140,15 @@
     }) : null;
     return kindField;
   }
-  const setModeOn = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); };
-  const chosenMode = () => { const on = $('f-travelMode') && $('f-travelMode').querySelector('.mode.on'); return on ? on.dataset.mode : null; };
+  // How you get there: the segmented switch (a radio group; the arrows move and choose, the SDK's keyboard). The chosen one is
+  // the one Tab stop, the first while none is; pressing the chosen one again clears it (the leg has no way set).
+  const setModeOn = (b, on) => { b.setAttribute('aria-checked', String(on)); };
+  const roveModes = () => {
+    const all = [...$('f-travelMode').querySelectorAll('.mode')];
+    const stop = all.find((m) => m.getAttribute('aria-checked') === 'true') || all[0];
+    for (const m of all) m.tabIndex = m === stop ? 0 : -1;
+  };
+  const chosenMode = () => { const on = $('f-travelMode') && $('f-travelMode').querySelector('.mode[aria-checked="true"]'); return on ? on.dataset.mode : null; };
 
   // The form opens as the SDK's editor window (host.ui.editor): over everything, sized to the form (large for an item, medium
   // for the plan), a sheet on a phone. What the form held when it opened, as text, so Escape, Close and Cancel ask "Discard
@@ -2241,6 +2248,7 @@
       paidByOptions(item ? item.paidBy : info.user.key);
       ownerBoxes(v.owners || []);
       for (const b of $('f-travelMode').querySelectorAll('.mode')) setModeOn(b, b.dataset.mode === v.travelMode);
+      roveModes();
       setLength('f-travelHours', 'f-travelMinutes', v.travelMinutes);
       openReturn(item);
       showLookups();
@@ -2812,9 +2820,10 @@
     if (!b) return;
     if (b.id === 'f-cancel') return cancelEditor();
     if (b.classList.contains('mode')) {
-      const was = b.classList.contains('on');
+      const was = b.getAttribute('aria-checked') === 'true';
       for (const m of $('f-travelMode').querySelectorAll('.mode')) setModeOn(m, false);
       if (!was) setModeOn(b, true);
+      roveModes();
       return;
     }
     if (b.id === 'f-extra-delete') {

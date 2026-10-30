@@ -22,14 +22,15 @@
   <header class="pp-top">
     <h1 class="pp-title">Prototype <span class="pp-sub">the panel we are building, in four states</span></h1>
     <div class="pp-tools">
-      <div class="mf-switch" role="group" aria-label="Theme" id="pp-theme"></div>
-      <div class="mf-switch" role="group" aria-label="Light or dark" id="pp-mode"></div>
-      <div class="mf-switch" role="group" aria-label="Panel width" id="pp-width"></div>
+      <div class="mf-switch" role="radiogroup" aria-label="Theme" id="pp-theme"></div>
+      <div class="mf-switch" role="radiogroup" aria-label="Light or dark" id="pp-mode"></div>
+      <div class="mf-switch" role="radiogroup" aria-label="Panel width" id="pp-width"></div>
     </div>
   </header>
   <main class="pp-main" id="pp-main">
     <noscript>This page needs JavaScript: the panels are drawn by the product's own code.</noscript>
   </main>
+  <script src="/sdk/host.js" data-host-sdk></script>
   <script type="module" src="prototype.js"></script>
 </body>
 </html>

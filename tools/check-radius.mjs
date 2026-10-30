@@ -80,7 +80,8 @@ console.log(`check-radius: ${seen} radii in ${files.length} files, all tokens`);
 
 // ---- --radius-round is for true circles only (Thomas, 2026-10-29: no pills) ----
 // A circle: an avatar or portrait, a status dot, a round icon button that is a square box, the toggle switch, a progress
-// bar (and the range track) and the microphone's fill, and the single-digit count (.sdk-badge, kept as decided). Every
+// bar (and the range track) and the microphone's fill. The count (.sdk-badge) is the one circle drawn another way: its corner
+// is --radius-small and a clip cuts it to a circle only while it is one digit (asserted below). Every
 // rectangle with words in it (a chip, tag, filter chip, status label, phase chip, marker, day chip, nav badge, search
 // field, button) takes --radius-small. So var(--radius-round) may stand only in the rules listed here, each by its file and
 // selector with the reason it is a circle, and only as many times as listed: a new use fails, and an entry no longer used
@@ -94,7 +95,6 @@ const ROUND_OK = [
   // public/sdk/system.css
   { file: 'public/sdk/system.css', sel: ':is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-dot, .setup-tab-dot)', why: 'a 7px dot on a tab' },
   { file: 'public/sdk/system.css', sel: '.sdk-chip-dot', why: 'a 7px dot in a chip' },
-  { file: 'public/sdk/system.css', sel: '.sdk-badge', why: 'the count: an 18px circle round one digit (Thomas, kept as decided)' },
   { file: 'public/sdk/system.css', sel: '.sdk-badge-micro', why: 'the corner count: the count\'s 14px circle on an icon' },
   { file: 'public/sdk/system.css', sel: '.sdk-dot', why: 'a 7px dot' },
   { file: 'public/sdk/system.css', sel: '.sdk-avatar', why: 'an avatar' },
@@ -126,7 +126,6 @@ const ROUND_OK = [
   { file: 'public/sdk/system.css', sel: 'progress.sdk-progress::-moz-progress-bar', why: 'the progress bar\'s fill' },
   { file: 'public/sdk/system.css', sel: '.sdk-mic', why: 'the microphone\'s 40px circle and its level fill' },
   { file: 'public/sdk/system.css', sel: '.mf-empty-icon', why: 'the empty state\'s icon disc' },
-  { file: 'public/sdk/system.css', sel: '.mf-chip, .mf-chips-menu', why: 'NOT a circle: the filter chip is a pill still to change. The moduleframe block was another builder\'s on 2026-10-29; set it to --radius-small and delete this line' },
   // public/style.css
   { file: 'public/style.css', sel: '.sdk-member .call-mark', why: 'the 15px on-the-call mark on a member tile' },
   { file: 'public/style.css', sel: '.whoami img', why: 'your picture in the top bar' },
@@ -235,4 +234,15 @@ export function roundProblems(uses, ok) {
   const bad = roundProblems(uses, ROUND_OK);
   assert.deepEqual(bad, [], `--radius-round is for true circles only:\n  ${bad.join('\n  ')}`);
   console.log(`check-radius: ${uses.length} uses of --radius-round, every one a listed circle (${ROUND_OK.length} rules)`);
+}
+
+// The count (.sdk-badge): a circle for one digit only (Thomas, 2026-10-30). Its rule takes the small corner, and a clip that
+// is the 50% circle while the box is the 18px square (one digit) and lets go of it from two digits up; see system.css.
+{
+  const sys = fs.readFileSync(path.join(root, 'public/sdk/system.css'), 'utf8');
+  const rule = (sys.match(/\n\.sdk-badge \{[^}]*\}/) || [''])[0];
+  assert.match(rule, /border-radius: var\(--radius-small\);/, 'the count (.sdk-badge) has the small corner: two or more digits are a box, never a pill');
+  assert.match(rule, /min-width: 18px;[\s\S]*height: 18px;/, 'the count is 18px high and at least 18px wide: one digit is the square the circle is cut from');
+  assert.match(rule, /clip-path: circle\(max\(50%, \(100% - 18\.5px\) \* 100\)\);/, 'the count is cut to a circle while it is one digit, and only then');
+  console.log('check-radius: the count is a circle for one digit and a small-cornered box for two or more');
 }

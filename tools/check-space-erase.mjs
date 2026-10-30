@@ -55,6 +55,10 @@ function leftovers(dir, id) {
     fs.writeFileSync(path.join(up, `${fid}.bin`), Buffer.from('file bytes'));
     fs.writeFileSync(path.join(up, `${fid}.thumb`), Buffer.from('thumb'));
     fs.writeFileSync(path.join(up, `${fid}.json`), JSON.stringify({ id: fid, name: 'x.png', type: 'image/png', at: new Date().toISOString() }));
+    // A library module's file: its bytes in the vault folder, its record beside the module's data (server/vault-store.js).
+    const part = env.vault.newPart(id);
+    fs.writeFileSync(part, Buffer.from('%PDF-1.4 ticket'));
+    env.vault.commit(MOD, id, part, { id: env.vault.newId(), name: 'ticket.pdf', type: 'application/pdf', group: 'document', size: 15, by: ann.key, at: new Date().toISOString(), thumb: null });
     env.moduleLinks.set({ module: MOD, kind: 'note', id: '1', scope: 'space', space: id }, [{ module: 'other', kind: 'note', id: '2', scope: 'space', space: id }], ann.key);
     env.moduleBus.publish({ module: MOD, name: 'changed', ref: null, data: null, scopeKey: `space:${id}`, by: ann.key });
     env.moduleBus.request({ from: MOD, provider: 'other', action: 'add', input: {}, scopeKey: `space:${id}`, by: ann.key, space: id });
@@ -94,12 +98,14 @@ function leftovers(dir, id) {
   assert.throws(() => eraseSpace(env, 'nosuch1'), (e) => e.status === 404, 'a space that is not there is a 404');
 
   const done = eraseSpace(env, gone);
-  assert.ok(done['module files'] === 1 && done['module links'] >= 1 && done['module requests'] >= 2, JSON.stringify(done));
+  assert.ok(done['module files'] === 1 && done['library files'] === 1 && done['module links'] >= 1 && done['module requests'] >= 2, JSON.stringify(done));
   flushEnvironment(env);
   assert.equal(store.spaceById(gone), null, 'the space is gone');
   assert.deepEqual(leftovers(dir, gone), [], 'nothing under the data folder names the deleted space');
   assert.ok(env.moduleData.get(MOD, `space:${kept}`, 'a'), 'the other space keeps its module data');
   assert.equal(env.moduleUploads.list(MOD, `space:${kept}`).length, 1, 'and its files');
+  assert.equal(env.vault.list(MOD, kept).length, 1, 'and its library file');
+  assert.ok(fs.existsSync(env.vault.filePath(kept, env.vault.list(MOD, kept)[0].id)), 'with its bytes');
   assert.ok(env.facts.list(kept).length && env.attention.list(kept, bo.key), 'and its facts and attention');
   assert.ok(env.chatHistory.list(kept, ann.key).length, 'and its chat');
   assert.equal(eraseSpace.length, 2);

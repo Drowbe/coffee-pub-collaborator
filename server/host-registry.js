@@ -490,6 +490,14 @@ class HostRegistry {
     this.save();
   }
 
+  // A change in what an environment keeps between two measurements (a library file added or removed), so the cached
+  // figure stays true until the next one. Kept in memory; the next measurement writes it.
+  addStorageUsage(slug, delta) {
+    const environment = this.data.environments.find((t) => t.slug === slug);
+    if (!environment || !environment.usage.measuredAt) return;
+    environment.usage.storageBytes = Math.max(0, Math.round(environment.usage.storageBytes + delta));
+  }
+
   recordAiCall(slug) {
     const environment = this.data.environments.find((t) => t.slug === slug);
     if (!environment) return;

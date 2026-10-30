@@ -5,9 +5,12 @@ server-development builds the file store, the routes, the quotas, the share link
 builds the Vault module, its viewers, the share page, the SDK calls and the first module that links to a file;
 quality-assurance reviews the store and the share links as security changes; content-manager documents.
 
-**Status:** approved 2026-10-30 (decisions 1 to 7 of 2026-10-29, GitHub #380, and decisions 8 to 15 of 2026-10-30);
-nothing built. Thomas calls it critical for post-trip sharing. One question is still his, the default for metadata
-removal, and it blocks only that part of step 1. This plan replaces the attachments plan of
+**Status:** approved 2026-10-30 (decisions 1 to 7 of 2026-10-29, GitHub #380, and decisions 8 to 15 of 2026-10-30).
+Step 1 is built (commits `bde9358` to `154819d`, on `claude/magical-feynman-xupgiq`); security QA round 1 failed and
+was fixed, round 2 is pending. Steps 2 to 8 are not built. Thomas decided the PDF rule (decision 16) and the hosted
+total (decision 17) on 2026-10-31, and changed the PDF safety rule and the PDF viewer on 2026-11-01 (decision 18).
+Thomas calls it critical for post-trip sharing. One question is still his, the default for metadata removal; the
+details of the PDF viewer are listed under What is not decided. This plan replaces the attachments plan of
 2026-10-15, which proposed a host attachments service with no module of its own; what stays of its four decisions is
 under Decisions.
 
@@ -82,7 +85,7 @@ folder in memory, and a restore is read into memory with a 500 MB limit (`rawHos
 
 A module runs in an iframe with `sandbox="allow-scripts allow-forms"`, an opaque origin and no `allow` attribute
 (`public/module-host.js`). Two things follow for viewers: an element inside the frame cannot go full screen, and
-browsers refuse their built-in PDF viewer inside a sandboxed frame. The SDK already has a safe Markdown renderer,
+browsers refuse their built-in PDF viewer inside a sandboxed frame (which is one reason decision 18 does not use it). The SDK already has a safe Markdown renderer,
 `host.util.markdown` (`public/sdk/host.js`): everything is escaped first, links are `http` and `https` only, no
 pictures, no HTML.
 
@@ -103,9 +106,9 @@ Thomas decided these on 2026-10-29 (#380, the decisions comment).
    else in the space reachable from it.
 4. **Storage.** Environment settings `VAULT_DIR` (the folder) and `VAULT_MAX_GB`, plus per-person and per-space quotas.
    A cloud service (Google Drive) can plug in later behind the same setting.
-5. **Viewers.** The browser's own players for images, audio and video, the browser's built-in PDF viewer, and a small
-   sanitised Markdown renderer, all in the shared module frame. Thomas's condition: every player has real controls
-   (play, pause, seek, volume, full screen).
+5. **Viewers.** The browser's own players for images, audio and video, a PDF viewer shipped with the app (decision 18;
+   the browser's built-in PDF viewer is not used), and a small sanitised Markdown renderer. Thomas's condition: every
+   player has real controls (play, pause, seek, volume, full screen).
 6. **Existing pictures.** Research's uploads and Chat's pictures move into the Vault later, as their own decision.
 7. **Name: Vault.** Templates can show their own word (Documents for trips, Handouts for game groups).
 
@@ -132,8 +135,8 @@ Written to the decisions below. The one open question (metadata, decision 10) is
 
 ### 1. Types and limits
 
-The type is decided from the bytes, never from the name or the header. The extension shown is set from that type
-("ticket.exe" that is a PDF is kept as "ticket.pdf"). The limits are decision 9.
+The type is decided from the bytes, never from the name or the header. A name or header that doesn't match the bytes
+is refused, not renamed. The limits are decision 9.
 
 | Group | Type | Extensions | Sniffed by | Per file |
 |---|---|---|---|---|
@@ -156,9 +159,21 @@ The type is decided from the bytes, never from the name or the header. The exten
   PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown."
 - **Pictures too large to draw:** a picture whose header says more than 100 million pixels is refused ("That picture is
   too large to show."), so a viewer is never handed a decompression bomb. The server reads the header only.
-- **PDF active content (decision 9):** refuse a PDF whose bytes hold `/JavaScript`, `/JS`, `/Launch`,
-  `/EmbeddedFile`, `/RichMedia` or `/XFA`, read as a stream in 1 MB windows with an overlap. A name hidden in a
-  compressed object stream passes, so this is a filter; the headers below are the guard.
+- **PDF active content (decisions 9 and 16):** web links (`http`, `https`), email links (`mailto:`) and fillable forms
+  are allowed. Refused, in `server/vault-types.js`: scripts (`/JavaScript`, `/JS`, `/AA`, `/XFA`), launches and links
+  out (`/Launch`, `/GoToR`, `/GoToE`), form submission (`/SubmitForm`), embedded files (`/EmbeddedFile`,
+  `/EmbeddedFiles`, `/RichMedia`), and any `/URI` that is not a web or email address (`file:`, `javascript:` and the
+  like). An action that runs on open (`/OpenAction`) is refused when it holds a script or a launch, because those names
+  are refused wherever they stand. Names are read as PDF names (`#xx` escapes decoded). The file is read in 1 MB windows
+  with an overlap, and each Flate-compressed object stream (`/ObjStm`) is inflated and read the same way: at most 16 MB
+  out of one stream, 64 MB out of all, and 200 streams. The scan runs in a worker with a time budget
+  (`VAULT_SCAN_SECONDS`, 5), so it can never freeze the server. **A PDF the scanner cannot judge** (encrypted, a filter
+  chain it cannot decode, over its budget or its time) is no longer refused for that reason alone (decision 18): it is
+  stored as **download only**. The record carries `viewable: false`; the file is served only as an attachment, never
+  inline, never in the viewer, and its row and viewer frame say "This PDF can't be opened here. Download it." A PDF in
+  which the scanner positively finds a refused name or link is still refused. A PDF the scanner reads as damaged (no
+  end marker, no objects) stays refused as today; whether that should also become download only is open. The headers
+  below and the sandboxed viewer (section 10) are the second guard for the PDFs that are taken and viewable.
 - **Names:** kept in the record, one line, at most 120 characters, path separators and control characters removed. On
   disk a file is only its random id.
 
@@ -171,14 +186,20 @@ The type is decided from the bytes, never from the name or the header. The exten
 | `VAULT_SPACE_MAX_GB` | the most one space's Vault may hold | 5 |
 | `VAULT_PERSON_MAX_GB` | the most one person may have added, across the environment's spaces | 2 |
 | `VAULT_MB_PER_MINUTE` | how much one person may send in a minute | 500 |
+| `VAULT_MIN_KB_PER_SECOND` | the slowest an upload may arrive; after its first minute a slower one is cut off | 16 |
 
 - **Layout:** `VAULT_DIR/<environment slug>/space-<id>/<fid>.bin` and `<fid>.thumb`. On a single-environment install
   the slug is the environment's own. The **records** (name, type, size, `sha256`, `by`, `at`, taken time, thumbnail
-  flag) live in `DATA_DIR`, in the Vault module's space data, so a backup carries them.
+  flag) live in `DATA_DIR/modules/<id>/library/space-<space id>.json`, not in the module's data, so a backup carries
+  them. The store is `server/vault-store.js`, the types are `server/vault-types.js`, and the check is
+  `tools/check-vault.mjs`.
 - **An owner may set lower quotas** for the environment on the Vault's settings (two `number` settings in GB, a space and
   a person), never higher than the variables. A hosted plan's storage cap counts the Vault's bytes too.
 - **Counting:** bytes on disk, thumbnails included, per space and per person (the person who added the file). Each upload
   reserves its `Content-Length` against all four totals before a byte is read, so two uploads at once cannot both pass.
+  On a hosted server, uploads still arriving in other environments don't count against an environment's room, so the
+  server-wide total may be passed briefly; it is checked again as each file finishes, and a file that no longer fits is
+  refused with 413 (decision 17).
 - **A file that does not fit** is refused with its own sentence and 413: "That file is over the 2 GB limit for video.",
   "This trip's Vault is full (5 GB). Remove some files to add more.", "You have used your 2 GB in the Vault. Remove some
   of your files to add more.", "The server's file storage is full. Ask the admin." The space and limit words come from
@@ -189,7 +210,7 @@ The type is decided from the bytes, never from the name or the header. The exten
 
 ### 3. Server routes
 
-The Vault declares `library` in its manifest (contract section 6); the routes belong to that module, so the core names
+The Vault declares `library: true` in its manifest (contract section 6); the routes belong to that module, so the core names
 no module. `:id` is the module's id. Every route checks, **before the body is read**: the session or pass, the
 environment, membership of the space (or owner rights), that the module is on there, and the permission named.
 
@@ -212,6 +233,8 @@ environment, membership of the space (or owner rights), that the module is on th
   picture map's upload does: refused on `Content-Length` before reading, cut off when the count passes it, sniffed from
   the part file's first 4 KB, checked, then renamed into place. A part left by a restart goes after an hour. At most two
   uploads at once per person and eight per environment; a third waits with 429 "Another upload is still running."
+  An upload that trickles in below `VAULT_MIN_KB_PER_SECOND` is cut off and holds no one's place. The server's request
+  timeout is raised to 2 hours so a 2 GB video on a slow link can finish.
 - **Pictures are cleaned without holding them twice:** `cleanImage` runs on the part file (at most 25 MB, one at a time
   per environment). Audio, video, PDF and Markdown are kept as sent. Pictures lose where they were taken only when the person chose that
   (decision 10).
@@ -220,9 +243,10 @@ environment, membership of the space (or owner rights), that the module is on th
 - **Headers on every file sent:** the stored type only (Markdown as `text/plain; charset=utf-8`, never HTML),
   `X-Content-Type-Options: nosniff`, `Content-Disposition: inline` (or `attachment` with a cleaned ASCII `filename` and
   `filename*=UTF-8''`), `Cache-Control: private, no-store`, `Cross-Origin-Resource-Policy: same-origin`,
-  `Referrer-Policy: no-referrer`, and `Content-Security-Policy: sandbox; default-src 'none'` on everything except a PDF,
-  which gets `default-src 'none'; frame-ancestors 'self'` because browsers will not show a PDF in a sandboxed document.
-  That one exception is checked in a real browser (Verify).
+  `Referrer-Policy: no-referrer`, and `Content-Security-Policy: sandbox; default-src 'none'` on every type, PDF
+  included: the browser's own PDF viewer is not used (decision 18), so the earlier PDF exception is gone. A PDF is sent
+  inline only to the app's viewer, which fetches it as bytes; a download-only PDF is always sent as `attachment`, and
+  the content route answers it inline with 404.
 - **A refused read is 404**, never 403, so a file's existence is not given away.
 - **Activity lines**, without the file's name: "added 3 files to the Vault", "removed a file from the Vault", "made a
   share link", "turned off a share link".
@@ -269,7 +293,8 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 ### 6. The Vault module
 
 - **Manifest:** id `vault`, name "Vault", icon `vault`, `scope: ["space"]`, a `canvas` surface (dock and float) and a
-  `page`, `library: true`, `refs.produces` the `file` kind, `access: { read: "view", write: "add" }`.
+  `page`, `library: true`, `refs.produces` the `file` kind, `access: { read: "view", write: "add" }`. Step 1 reads the
+  permissions `view`, `add`, `download` and `remove_any`; `share` comes with step 5.
 - **Permissions** (owners always have all):
 
 | Key | Label | Member | Moderator | Guest |
@@ -325,7 +350,8 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 
 - **A file:** the Remove confirmation lists where it is used first ("Used in 2: Hotel Roma (Itinerary), Packing note
   (Research). The links will show File removed."), then removes the bytes, the thumbnail and the record. Links stay.
-- **With the space:** `server/space-erase.js` gains a step that removes `VAULT_DIR/<slug>/space-<id>/` and the space's
+- **With the space:** erasing a space deletes its Vault files (built in step 1, `server/space-erase.js`); step 6 adds
+  the share links and the check. It removes `VAULT_DIR/<slug>/space-<id>/` and the space's
   share links; `tools/check-space-erase.mjs` covers it (#337).
 - **The Vault turned off in a space** keeps its files (turned on again, they return); share links stop answering while it
   is off. Uninstalling the module from the environment asks first and removes every space's files.
@@ -357,13 +383,25 @@ The in-app backups cannot carry gigabytes: they zip in memory and a restore take
   - audio: the `audio` element with `controls` (play, pause, seek, volume, speed);
   - video: the `video` element with `controls` and `playsinline` (play, pause, seek, volume, full screen,
     picture-in-picture where the browser has it);
-  - PDF: the browser's own viewer;
+  - PDF: the app's own viewer (pdf.js), described below, with page, zoom, search if it is cheap, and full screen from
+    the host; a download-only PDF shows "This PDF can't be opened here. Download it." with **Download** and no viewer;
   - Markdown: the text through `host.util.markdown`, read only, in the reading width.
-- **Full screen and PDF need the host** (contract section 5 and "The module frame and its sandbox" above): the module's
-  frame gains `allow="fullscreen"` (it adds no reach outside the frame), and the PDF viewer is a host-drawn layer laid
-  exactly over the module's content area, the way the editor window is lifted, with a session-checked address. If a
-  browser still will not show a PDF there (iOS Safari shows only the first page in a frame), the viewer shows **Open**,
-  which opens the PDF in a new tab.
+- **Full screen needs the host** ("The module frame and its sandbox" above): the module's frame gains
+  `allow="fullscreen"` (it adds no reach outside the frame), and the host provides the Full screen control for the
+  PDF viewer.
+- **The PDF viewer and its sandbox (decision 18).** The viewer is pdf.js, vendored under `public/sdk/` with its licence
+  file, with its scripting turned off, so a PDF's own scripts never run. It is drawn by the host as a layer laid exactly
+  over the module's content area, the way the editor window is lifted, and it lives in an `iframe` with
+  `sandbox="allow-scripts"` and no `allow-same-origin`: the frame has a null origin, so it has no access to the app's
+  cookies, storage or session, and it cannot reach the parent's page. The frame's document comes from its own route,
+  which answers with `Content-Security-Policy: default-src 'none'; script-src 'self'` (plus only what the viewer's own
+  styles and worker need) and the other headers above. The frame cannot fetch anything with the person's session, so the
+  host page fetches the PDF with the session, after the permission check, and hands the bytes to the frame as an
+  `ArrayBuffer` by `postMessage`; the frame has no network access (`connect-src 'none'`). The frame returns only
+  page, zoom and search state. Controls: previous and next page, a page number, zoom in and out and fit, search if it
+  is cheap, and Full screen from the host. Links inside a PDF are not followed from the viewer except web and email
+  links, which the host opens in a new tab with `rel="noopener noreferrer"`. Whether this is a null-origin sandboxed
+  frame (as written) or a separate origin is one of the open details.
 - **Adding:** **Add files** opens the device's chooser (several at once; on a phone, the photo library and camera), and
   dropping files on the module adds them. Each shows a progress row; a refusal shows its sentence on that row. Under
   it, one line: "Everyone in this {space} can see what you add." (decision 13). Beside it, an option for the person
@@ -406,8 +444,17 @@ How a trip's photos and tickets are shared afterwards, as the plan expects it to
 - **Never in memory whole:** uploads stream to disk; files stream out with ranges; the only whole read is a picture
   of at most 25 MB in `cleanImage`, one at a time per environment.
 - **Content safety:** types from bytes; no SVG or HTML; Markdown sent as plain text and drawn escaped; `nosniff` and the
-  sandbox CSP everywhere but PDF; no archives, so no zip bombs; pictures over 100 million pixels refused.
-- **Malware:** the server never opens, decodes or runs a file. The risk is to a person who downloads one. No scanner is
+  sandbox CSP on every type; no archives, so no zip bombs; pictures over 100 million pixels refused.
+- **PDF safety (decision 18): the scanner as a first filter, plus a sandboxed viewer.** The bounded scanner
+  (`server/pdf-scan.js`, run by `server/vault-scan.js` in `server/vault-scan-worker.js`) refuses a PDF in which it
+  finds a script, a launch, an embedded file, a `file:` or `javascript:` link, `SubmitForm` or an `AA`/`OpenAction`
+  script, also in decodable object streams. It is not trusted to be complete: a PDF it cannot judge is stored as
+  download only and is never opened in the app. A PDF it passes is opened only by the vendored pdf.js with scripting
+  off, in a sandboxed frame with a null origin, a CSP of `default-src 'none'` and no cookies, with the bytes passed in.
+  The browser's built-in PDF viewer is never used. The vendored pdf.js is a file the app trusts, so its hash is pinned
+  by a check (step 3). A person who downloads a PDF opens it in their own reader, as with any file.
+- **Malware:** apart from the PDF scan above, the server never opens, decodes or runs a file. The risk is to a person
+  who downloads one. No scanner is
   bundled; a ClamAV socket variable is a later idea, not planned.
 - **Filenames:** never used on disk; cleaned for display; sent in `Content-Disposition` in both ASCII and UTF-8 forms.
 - **Metadata:** the person adding files chooses (decision 10, section 10 "Adding"). Taken time and camera are read into
@@ -426,10 +473,10 @@ Each step can be built and checked on its own. A new or changed module gets a ve
 
 | # | Step | Size | Agent | Kind |
 |---|---|---|---|---|
-| 1 | **Store, routes, quotas.** (Nothing here waits on a question except the metadata default: build the Remove-where-it-was-taken option and the video notice, and set the default once Thomas answers.) `server/library.js`: `VAULT_DIR` and the variables, the type sniffing, the streamed upload, the streamed serving with ranges, the headers, the quotas and reservation, rate limits, the `library` manifest field and its routes, the `file` kind's records, activity lines. `tools/check-library.mjs` in `npm run check` | L | server-development | feedback build with a QA security review |
+| 1 | **Store, routes, quotas. Built** (commits `bde9358` to `154819d`; security QA round 1 failed and fixed, round 2 pending). `server/vault-store.js`, `server/vault-types.js`, the routes on `/api/modules/:id/library?space=`, the variables, the PDF rule (its "cannot judge" case changes in step 3, decision 18), the minimum upload speed, the 2 hour request timeout, space erase deleting files, `tools/check-vault.mjs` in `npm run check`. The Remove-where-it-was-taken option and its default wait for Thomas's answer | L | server-development | feedback build with a QA security review |
 | 2 | **The Vault module and its list.** `modules/vault` at 0.1.0: manifest and permissions, List and Grid, search, Filters, Add files with progress, Rename, Remove with "where it is used", Select, the status line, empty states, phone | M | experience-design | try build |
-| 3 | **Viewers.** Pictures, audio, video with real controls, Markdown; the frame's `allow="fullscreen"`; the host-drawn PDF layer with the Open fallback; previous and next; thumbnails made in the page | M | experience-design (S of it for server-development: the PDF headers) | try build, then a browser pass by Thomas |
-| 4 | **Linking SDK and one module.** `host.files.pick`, `.link`, `.resolve`, `.open`, `host.ui.fileChips`; "File removed"; the Planner links its stays and journeys to files (decision 2 of 2026-10-15's order) | M | experience-design | try build |
+| 3 | **Viewers.** Pictures, audio, video with real controls, Markdown; the frame's `allow="fullscreen"`; previous and next; thumbnails made in the page. **The pdf.js viewer and the download-only state:** pdf.js vendored in `public/sdk/` with its licence file and a check (in `npm run check`) that the vendored file's hash is pinned; the sandboxed viewer frame and its route with its own CSP; page, zoom, search if cheap, Full screen from the host; server-side, the `unchecked` and `unsafe` scan answers for a PDF store it with `viewable: false` instead of refusing it, serve it only as an attachment, and show "This PDF can't be opened here. Download it." | L | experience-design (the viewer, the layer, the notes); server-development (the download-only state, the viewer route and its headers, the hash check) | try build for the viewers, a feedback build with a QA security review for the PDF viewer, then a browser pass by Thomas |
+| 4 | **Linking SDK and one module.** `host.files.pick`, `.link`, `.resolve`, `.open`, `host.ui.fileChips` (resolving a file link must read the library records in `DATA_DIR/modules/<id>/library/`); "File removed"; the Planner links its stays and journeys to files (decision 2 of 2026-10-15's order) | M | experience-design | try build |
 | 5 | **External sharing.** Share records, the public routes, the password and its cookie, ends and Turn off, the `/shared/<token>` page and its viewers, the share sheet and list in the Vault | L | server-development (routes), experience-design (the page and sheet) | feedback build with a QA security review |
 | 6 | **Delete with the space, and backup.** The `space-erase.js` step and its check; uninstall removes files; "File missing"; the orphan sweep; `docker-compose.yml` and the guide's `VAULT_DIR` volume | S | server-development (content-manager for the guide) | try build |
 | 7 | **Templates' words.** `moduleNames` Documents (travel) and Handouts (games), and the Vault in both templates' module lists | S | experience-design | try build |
@@ -441,15 +488,21 @@ the environment-wide library, Google Drive, the Journal (#40).
 
 ## Verify
 
-- **Checked by a tool** (`tools/check-library.mjs`, a throwaway server with `DATA_DIR` and `VAULT_DIR` under `/tmp`):
+- **Checked by a tool** (`tools/check-vault.mjs`, a throwaway server with `DATA_DIR` and `VAULT_DIR` under `/tmp`):
   - step 1: each accepted type kept from its bytes, and refused under a false name or header; SVG, HTML, a zip, a `.mov`
-    refused; a huge-pixel PNG header refused; a PDF with each active-content name refused; each limit from its variable
+    refused; a huge-pixel PNG header refused; a PDF with each refused name refused, also inside a compressed object
+    stream, and a PDF with web links, email links and a fillable form taken; a stream over 16 MB refused; a trickled
+    upload cut off; the server-wide total checked again as a file finishes (413); each limit from its variable
     and its default; a `Content-Length` over a limit refused before any byte is written (the folder holds no part
     file); a body longer than its `Content-Length` cut off; two uploads at once reserving against one quota; the
     server's memory stays flat while a 1 GB body streams in (measured with `process.memoryUsage`); a range request
     answers 206 with the right bytes, a bad one 416; every header present on every type; the permission matrix (guest
     pass, access key, non-member, member without `view`, member, adder, moderator, owner, admin) on every route, a
     refusal always 404 with no name in the answer.
+  - step 3 (server half): a PDF the scanner cannot judge (encrypted, an undecodable filter chain, over its budget or its
+    time) is stored with `viewable: false`, its inline content route answers 404 and its download route sends an
+    attachment; a PDF with a script is still refused; the vendored pdf.js file's hash matches the pinned one and the
+    check fails when it does not; the viewer route's CSP is exactly the written one.
   - step 4: a pointer to a removed file resolves `gone`; a guest's resolve is hidden; `uses` lists the linking object.
   - step 5: a share answers only its own files; an ended, turned-off or wrong token reads "ended"; the password tries
     limit; the cookie works only on its own path; download refused when off; the token is not in the data file.
@@ -457,11 +510,12 @@ the environment-wide library, Google Drive, the Journal (#40).
   - steps 2, 3, 4 and 7: `check-modules`, `check-module-versions`, `check-module-layout`, `check-switches`,
     `check-templates`.
 - **Verified live in a browser on a local server** (no LiveKit needed; the module's own page): adding several files,
-  the list and grid, filters, search, each viewer's controls, seeking a video, full screen, the PDF layer, Markdown with
+  the list and grid, filters, search, each viewer's controls, seeking a video, full screen, the PDF viewer (page, zoom, search, full screen, a PDF with a script in it showing nothing run, the frame unable to
+  read the app's cookies), a download-only PDF with its note, Markdown with
   planted HTML showing as text, removing a linked file and the Planner showing "File removed", a share link opened in a
   private window with and without a password, the phone layout at 390 pixels.
 - **Read as code only:** the Vault on a space's canvas, which needs the call page; say so in the reports.
-- **Only Thomas can verify:** photos and videos from his phone (iOS and Android), what iOS does with a PDF in the layer,
+- **Only Thomas can verify:** photos and videos from his phone (iOS and Android), what iOS does with the PDF viewer (pdf.js in a sandboxed frame, full screen),
   playback of each type in Safari, Chrome and Firefox, a share opened on a relative's phone, the backup of `VAULT_DIR` on
   his host, and the bumped modules installing in his environment.
 
@@ -471,7 +525,10 @@ the environment-wide library, Google Drive, the Journal (#40).
   converts photos to JPEG, but not always videos. A `.mov` is accepted and may not play outside Safari (decision 9); HEIC is refused with "Save it as a JPEG."
 - **Codecs are not types.** An MP4 can hold a codec a browser cannot play (HEVC outside Safari). The viewer says "This
   browser can't play this file." with **Download**; the server does not transcode.
-- **PDF in a frame** varies by browser; the Open fallback covers the worst case.
+- **pdf.js is third-party code the app ships.** It needs updating when it has a security fix; its version is pinned and
+  checked by hash (step 3), and scripting is off.
+- **A download-only PDF is a PDF the app could not judge.** It reaches only people who choose to download it, and it is
+  never opened by the app; the person's own reader then opens it.
 - **View-only is not copy protection**, and the share sheet says so.
 - **Backups:** the bytes are outside the in-app backup by design; an admin who does not back up `VAULT_DIR` loses files.
 - **Metadata in video** can carry a position the Vault does not strip.
@@ -485,7 +542,7 @@ Thomas decided these on 2026-10-30, answering the open questions. Numbers contin
 8. **Files are the Vault's objects.** A `file` kind: links, backlinks, open, search and drag reuse what exists. File
    names reach summaries only for people who can read the Vault. One kind of link everywhere.
 9. **Types and limits as in section 1.** 25 MB pictures, 200 MB audio, 2 GB video, 100 MB PDF, 1 MB Markdown. The PDF
-   active-content refusal is on. `.mov` is accepted as `video/quicktime`, with a note that some browsers can't play it.
+   active-content refusal is on, as decision 16 sets it and decision 18 refines it. `.mov` is accepted as `video/quicktime`, with a note that some browsers can't play it.
    HEIC is refused with "Save it as a JPEG."
 10. **Metadata is the choice of the person adding files**, not a fixed rule. Under Add files, an option **Remove where it
     was taken** for pictures and a plain notice for video (section 10, "Adding").
@@ -497,12 +554,41 @@ Thomas decided these on 2026-10-30, answering the open questions. Numbers contin
 14. **Storage default.** `VAULT_DIR` unset means `DATA_DIR/vault`, outside the in-app backup zips. A backup that carries
     the bytes is a later piece.
 15. **Share link ends:** 1, 7 or 30 days, 7 by default, never without an end.
+16. **The PDF rule (2026-10-31).** Allow web links, email links and fillable forms. Refuse scripts (JavaScript),
+    launches, embedded files, `file:` and `javascript:` links, form submission to outside sites (`SubmitForm`) and
+    actions that run on open (`AA`, `OpenAction` with a script or launch), also inside compressed object streams. The
+    builder reads `/ObjStm` with a limit of 16 MB per stream and a cap on the number of streams; a file whose stream
+    can't be read within the limit is refused in plain words. This replaces the earlier list of refused names.
+    Decision 18 changes the last part: a file the scanner cannot judge is kept as download only, not refused.
+17. **Hosted servers (2026-10-31).** A brief overshoot of the server-wide total is accepted. Uploads still arriving in
+    other environments don't count against it, and the total is checked again as each file finishes (413).
+
+18. **PDF safety and viewing (2026-11-01).** PDF safety is "the scanner as a first filter, plus a sandboxed viewer".
+    The bounded scanner stays as decision 16 and the code have it: it refuses obvious scripts, launches, embedded files,
+    `file:` and `javascript:` links, `SubmitForm` and `AA`/`OpenAction` scripts, also in decodable object streams, with a
+    time budget (`VAULT_SCAN_SECONDS`, 5) in a worker, so it can never freeze the server. What changes is a PDF the
+    scanner cannot judge (encrypted, unusual filter chains, over the budget): it is no longer refused for that reason
+    alone. It is stored as download only: served as an attachment, never opened inline, never shown in the viewer, with
+    the note "This PDF can't be opened here. Download it." A PDF the scanner positively finds a script in is still
+    refused. In the app, a PDF is shown by a viewer shipped with the app (pdf.js in `public/sdk/`, scripting disabled)
+    in a sandboxed frame with no access to the app's cookies (section 10), with real controls (page, zoom, search if
+    cheap, full screen provided by the host). The browser's built-in PDF viewer is not used. This replaces the
+    browser-viewer part of decision 5 and the host-drawn layer with an Open fallback.
 
 Kept from the earlier decisions: viewers have real controls (play, pause, seek, volume, full screen). The host provides
-full screen and the PDF viewer because they don't work in the sandboxed module frame (section 10).
+full screen because it doesn't work in the sandboxed module frame (section 10).
 
 ## What is not decided
 
 1. **The default for Remove where it was taken** (decision 10). Thomas said it is the user's choice; the default is
    still open. Suggestion: on for pictures, so a position is dropped unless the person keeps it, as Research does; for
    video, an obvious notice, because the Vault does not strip video. Blocks only the metadata part of step 1.
+2. **The pdf.js version and how it is loaded** (decision 18). Which release, its build (the legacy build runs in more
+   browsers), whether it runs its parsing in a worker or on the viewer frame's thread (a worker from a null-origin
+   frame needs the CSP to allow it), and whether its files are served from the viewer route or inlined. Blocks step 3.
+3. **The shape of the sandbox** (decision 18). The plan writes a sandboxed frame with a null origin and its own route
+   and CSP, fed the bytes by `postMessage`. Whether the viewer instead gets a separate origin (a second host name, which
+   a single-environment install does not have), and the exact CSP the viewer needs, are to settle with
+   security QA. Blocks step 3.
+4. **A damaged PDF** (no end marker, no objects). It stays refused; whether it too becomes download only is for Thomas.
+5. **Whether search ships in the first viewer** (decision 18: "if cheap"). To be answered when the viewer is sized.

@@ -154,6 +154,9 @@ const ebmlOf = (doc) => Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f
 const mp3Of = () => Buffer.concat([Buffer.from('ID3\x04\0\0\0\0\0\0', 'latin1'), Buffer.from([0xff, 0xfb, 0x90, 0x64]), Buffer.alloc(200)]);
 const oggOf = () => Buffer.concat([Buffer.from('OggS\0\x02', 'latin1'), Buffer.alloc(60)]);
 const pdfOf = (body = '') => Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R ${body} >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n`, 'latin1');
+// A plain PDF of `bytes` bytes: its header, spaces, then its object and trailer.
+const pdfSized = (bytes) => { const p = pdfOf(); return Buffer.concat([p.subarray(0, 9), Buffer.alloc(bytes - p.length, 0x20), p.subarray(9)]); };
+const OTHERS_ARRIVING = 'Other files are still arriving; try again in a minute.';
 
 // --- part 2: types ------------------------------------------------------------------------------------------------------
 {
@@ -500,10 +503,11 @@ try {
     first.req.write(body.subarray(0, MB));
     await quiet(200);
     const second = await add('sam', 'second.mp4', mp4Of(12 * MB), { type: 'video/mp4' });
-    same([second.status, second.json?.error], [413, 'You have used your 30 MB in Shelf. Remove some of your files to add more.'], 'a second upload that would pass the person\'s quota with the first: 413');
+    same([second.status, second.json?.error, second.headers['retry-after']], [429, OTHERS_ARRIVING, '60'], 'a second upload that would pass the person\'s quota only with the first still arriving: 429, try again in a minute');
     first.req.end(body.subarray(MB));
     same((await first.answer).status, 201, 'the first is kept');
-    same((await add('sam', 'third.mp4', mp4Of(12 * MB), { type: 'video/mp4' })).status, 413, 'and then counts on disk');
+    const third = await add('sam', 'third.mp4', mp4Of(12 * MB), { type: 'video/mp4' });
+    same([third.status, third.json?.error], [413, 'You have used your 30 MB in Shelf. Remove some of your files to add more.'], 'and then counts on disk: 413');
   }
   // Two uploads at once for one person; a third waits.
   {
@@ -733,7 +737,8 @@ try {
   // --- a server with environments (BASE_DOMAIN): each environment's files are its own -------------------------------
   {
     const BASE = 'vault.test';
-    const H = await startServer('h', { BASE_DOMAIN: BASE, ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234' });
+    // The server's total is 10 MB here, so one environment's upload still arriving could fill it.
+    const H = await startServer('h', { BASE_DOMAIN: BASE, ADMIN_LOGIN: 'host', ADMIN_PASSWORD: 'hostpass1234', VAULT_MAX_GB: String(10 / 1024) });
     servers.push(H);
     const at = (sub) => `${sub ? `${sub}.` : ''}${BASE}:${H.port}`;
     const hsend = (method, sub, urlPath, o = {}) => send(H, method, urlPath, { ...o, host: at(sub) });
@@ -749,7 +754,7 @@ try {
       same((await hjson('PATCH', slug, '/api/modules/shelf', { enabled: true, allSpaces: true }, { cookie: asHost })).status, 200, 'and turns on');
       const owner = (await hjson('POST', slug, '/api/login', { login: `own${slug}`, password: 'ownerpass1234' })).json.token;
       const space = (await hjson('POST', slug, '/api/spaces', { name: 'Trip' }, { cookie: owner })).json.space;
-      envs[slug] = { owner, space };
+      envs[slug] = { owner, host: asHost, space };
     }
     const a = envs.aaa;
     const b = envs.bbb;
@@ -757,6 +762,22 @@ try {
     same(upA.status, 201, `a file in aaa: ${upA.text}`);
     const fid = upA.json.file.id;
     ok(fs.existsSync(path.join(H.vaultDir, 'aaa', `space-${a.space.id}`, `${fid}.bin`)) && !fs.existsSync(path.join(H.vaultDir, 'bbb')), 'its bytes are under VAULT_DIR/aaa/, and bbb has none');
+    // A trickle: aaa's owner says 9 MB, sends 4 KB, then a byte every five seconds. It holds no one's place for long.
+    const trickle = (() => {
+      const o = open(H, 'POST', `/api/modules/shelf/library?space=${a.space.id}&name=slow.pdf`, { cookie: a.owner, headers: { host: at('aaa'), 'content-type': 'application/pdf', 'content-length': String(9 * 1024 * 1024) } });
+      const started = Date.now();
+      let closedAt = null;
+      o.req.on('close', () => { closedAt = Date.now(); });
+      o.req.write(pdfSized(9 * 1024 * 1024).subarray(0, 4096));
+      const drip = setInterval(() => { if (closedAt === null) o.req.write(' '); }, 5000);
+      return { o, started, drip, closed: () => closedAt };
+    })();
+    await quiet(500);
+    const pdf2 = pdfSized(2 * 1024 * 1024);
+    const otherEnv = await hsend('POST', 'bbb', `/api/modules/shelf/library?space=${b.space.id}&name=b.pdf`, { cookie: b.owner, headers: { 'content-type': 'application/pdf' }, body: pdf2 });
+    same(otherEnv.status, 201, `another environment is not held up by it, though the server's 10 MB would be full with it: ${otherEnv.text}`);
+    const sameEnv = await hsend('POST', 'aaa', `/api/modules/shelf/library?space=${a.space.id}&name=a.pdf`, { cookie: a.host, headers: { 'content-type': 'application/pdf' }, body: pdf2 });
+    same([sameEnv.status, sameEnv.json?.error, sameEnv.headers['retry-after']], [429, OTHERS_ARRIVING, '60'], 'in its own environment, someone else is asked to try again in a minute');
     const path1 = `/api/modules/shelf/library/${fid}/content?space=${a.space.id}`;
     same((await hsend('GET', 'aaa', path1, { cookie: a.owner })).status, 200, 'aaa\'s owner reads it');
     same((await hsend('GET', 'bbb', path1, { cookie: a.owner })).status, 401, 'aaa\'s session at bbb is no session: 401');
@@ -772,6 +793,16 @@ try {
     same((await hjson('PATCH', 'admin', '/api/host/environments/bbb', { plan: { storageBytes: 1024 } }, { headers: { cookie: hostCookie } })).status, 200, 'bbb gets a tiny storage cap');
     const capped = await hsend('POST', 'bbb', `/api/modules/shelf/library?space=${b.space.id}&name=a.pdf`, { cookie: b.owner, headers: { 'content-type': 'application/pdf' }, body: pdfOf() });
     same([capped.status, capped.json?.error], [413, 'This environment has used its 0 GB of storage.'], 'the plan\'s cap: 413');
+    // The trickle is cut off once a minute brought less than the floor (16 KB a second), and what it reserved is free.
+    while (trickle.closed() === null && Date.now() - trickle.started < 90000) await quiet(250);
+    clearInterval(trickle.drip);
+    const cutAfter = trickle.closed() === null ? null : (trickle.closed() - trickle.started) / 1000;
+    ok(cutAfter !== null && cutAfter >= 55 && cutAfter <= 75, `a trickled upload is cut off after its first minute (${cutAfter} s)`);
+    memoryLines.push(`a trickle of a byte every 5 s on a 9 MB upload was cut off after ${cutAfter} s`);
+    await quiet(300);
+    same(partsUnder(H.vaultDir), [], 'and its part is removed');
+    const after = await hsend('POST', 'aaa', `/api/modules/shelf/library?space=${a.space.id}&name=a.pdf`, { cookie: a.host, headers: { 'content-type': 'application/pdf' }, body: pdf2 });
+    same(after.status, 201, `then the upload it held up goes: ${after.text}`);
     await H.stop();
   }
 

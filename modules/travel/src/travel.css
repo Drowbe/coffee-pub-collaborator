@@ -13,7 +13,7 @@
 
 .phase-head { margin: 16px 0 2px; }
 .phase-head h2 { margin: 0; font-size: var(--text-13); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-muted); }
-.undated { margin: 0 0 8px; }
+.undated { max-width: 900px; margin: 0 auto 8px; } /* the same column as the days: one left edge */
 .undated > h2 { margin: 0 0 8px; font-size: var(--text-16); }
 .undated-group h3 { margin: 10px 0 4px; font-size: var(--text-13); font-weight: var(--weight-strong); color: var(--text-muted); }
 

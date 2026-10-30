@@ -46,7 +46,7 @@
 /* A marker is the Markers block of system.css: a line chip (.sdk-mk-line) on the line between the days, a day row (.sdk-mk-row) in a
    day and a day tag (.sdk-mk-tag) in the day's head. Its one colour (--marker) is set by the script from the settings. */
 /* the plan-wide markers sit between the day blocks, on the line */
-.timeline.ends { margin: 0 0 12px; padding: 0 14px 0 9px; }
+.timeline.ends { --tl-pl: 9px; --tl-pr: 14px; margin: 0 0 12px; padding: 0 var(--tl-pr) 0 var(--tl-pl); }
 .timeline.ends .rail::before { display: none; }
 .row.marker { align-items: center; }
 .row.marker .when { padding-top: 0; }
@@ -57,7 +57,7 @@
 .days::before { content: ""; position: absolute; left: var(--spine-x); top: 0; bottom: 0; width: 2px; margin-left: -1px; background: color-mix(in srgb, var(--text-primary) 18%, transparent); }
 .days > * { position: relative; z-index: 1; }
 .app.narrow .days { --spine-x: 14px; }
-.app.narrow .timeline.ends { padding-left: 6px; }
+.app.narrow .timeline.ends, .app.narrow .timeline.between { --tl-pl: 6px; --tl-pr: 10px; }
 /* the days that are the trip itself: a green badge */
 /* the days between (the Day cards block's count, on the line: its middle is the line), its words, and a + that opens what can be added there */
 .gap { margin: 0 0 14px; padding-left: calc(var(--spine-x) - 12px); }
@@ -256,7 +256,7 @@
 .app.narrow .row.leg-row { grid-template-areas: "rail slot"; }
 .app.narrow .row.leg-row .when { display: none; }
 .app.narrow .rail .dot { top: 12px; }
-.app.narrow .timeline { padding: 6px 10px 6px 6px; }
+.app.narrow .timeline { padding: 6px var(--tl-pr, 10px) 6px var(--tl-pl, 6px); }
 
 /* ---- states of a row (the same the old items had) ---- */
 .entry.done :is(.sdk-card-title, .sdk-row-title) { color: var(--text-muted); text-decoration: line-through; }
@@ -300,7 +300,7 @@
 
 /* items at a joint on the line between the day blocks: a marker as its pill, anything else as the card it would be in a day, with
    no time. The head of the line (data-after="") is before the first day. A list being dropped on is .drop-target. */
-.timeline.between { margin: 0 0 12px; padding: 0 14px 0 9px; border-radius: var(--radius-large); }
+.timeline.between { --tl-pl: 9px; --tl-pr: 14px; margin: 0 0 12px; padding: 0 var(--tl-pr) 0 var(--tl-pl); border-radius: var(--radius-large); }
 .timeline.between .rail::before { display: none; }
 .timeline.between .when { visibility: hidden; }
 .timeline.between.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: 2px; }
@@ -336,7 +336,7 @@
 .row.marker.phase .sdk-mk-line { --marker: var(--ph); }
 .row.marker.phase .rail .dot { background: var(--ph); }
 /* each phase marker is one full-width bar of one fixed height: its flag, the phase's name, its date at the end; the whole bar is the marker */
-.row.marker.phase { --phase-bar-h: 32px; grid-template-columns: minmax(0, 1fr); }
+.row.marker.phase { --phase-bar-h: 32px; grid-template-columns: minmax(0, 1fr); margin-inline: calc(-1 * var(--tl-pl, 0px)) calc(-1 * var(--tl-pr, 0px)); } /* the bar spans the day cards' edges: it takes back its timeline's side padding */
 .app.narrow .row.marker.phase { grid-template-columns: minmax(0, 1fr); grid-template-areas: "slot"; }
 .row.marker.phase :is(.when, .rail) { display: none; }
 .row.marker.phase .slot { padding: var(--space-1) 0; display: block; }

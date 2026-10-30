@@ -64,10 +64,12 @@ const PARTS = {
   lane: '.row.marker.lane .sdk-mk-line', joint: '.joint', jointadd: '.jointadd', suggestions: '.sdk-day .suggestions:not([hidden]) .suggestion',
   empty: '.sdk-day-empty',
 };
-const MEASURE = `(() => {
+const HOST_PAGE = `(document.querySelector('#module-frame') || document.querySelector('.pp-planner'))`;
+const HOST_DOCKED = `([...document.querySelectorAll('.module-root')].find((e) => e.shadowRoot && e.shadowRoot.getElementById('daystrip') && e.getClientRects().length))`;
+const MEASURE = (hostExpr) => `(() => {
   const PARTS = ${JSON.stringify(PARTS)};
   const MORE = '.sdk-day-head [data-action="day-more"], .sdk-day .menu-btn';
-  const host = document.querySelector('#module-frame') || document.querySelector('.pp-planner');
+  const host = HOSTEXPR;
   const root = host && host.shadowRoot; if (!root) return null;
   const body = root.getElementById('body'); const br = body.getBoundingClientRect();
   const vis = (e) => e.getClientRects().length > 0;
@@ -79,8 +81,8 @@ const MEASURE = `(() => {
     const c = j.querySelector('.jointadd'); const p = j.previousElementSibling; const n = j.nextElementSibling;
     if (!c || !vis(c) || !p || !n || !vis(p) || !vis(n)) continue;
     const cb = c.getBoundingClientRect();
-    // A timeline of markers has its own padding around its pill: measure from the pill, which is what a person sees.
-    const edge = (el, last) => { if (!el.classList.contains('timeline')) return el.getBoundingClientRect(); const rows = [...el.querySelectorAll('.sdk-mk-line')].filter(vis); const x = last ? rows[rows.length - 1] : rows[0]; return (x || el).getBoundingClientRect(); };
+    // A timeline of markers and cards has its own padding around its pill or card: measure from the pill or the card's border, which is what a person sees.
+    const edge = (el, last) => { if (!el.classList.contains('timeline')) return el.getBoundingClientRect(); const rows = [...el.querySelectorAll('.sdk-mk-line, article.card')].filter(vis); const x = last ? rows[rows.length - 1] : rows[0]; return (x || el).getBoundingClientRect(); };
     out.joints.push({ prev: p.className.toString().slice(0, 30), next: n.className.toString().slice(0, 30), above: cb.top - edge(p, true).bottom, below: edge(n, false).top - cb.bottom });
   }
   for (const e of root.querySelectorAll('button, summary, a[href], [role="button"]')) {
@@ -92,7 +94,64 @@ const MEASURE = `(() => {
   const d = root.querySelector('.sdk-day > .sdk-day-head');
   out.dayHead = d ? { h: d.getBoundingClientRect().height, addWord: (() => { const w = d.querySelector('.sdk-day-add-word'); return w ? w.getClientRects().length > 0 : false; })() } : null;
   return out;
-})()`;
+})()`.replace('HOSTEXPR', hostExpr);
+
+// The things a person can press and the words they read, measured in the page (4, the docked column, and the card heads).
+// A control's hit area is what answers a press: elementFromPoint probes along both axes through its centre, every half pixel, as
+// far as the control itself is the thing found. Whatever covers the control (a joint, a sticky head) ends the area there.
+const PROBE = (hostExpr) => `(() => {
+  const host = HOSTEXPR; const root = host && host.shadowRoot; if (!root) return null;
+  const vis = (e) => e.getClientRects().length > 0;
+  const out = { taps: [], heads: [], truncated: [], cardHeads: [] };
+  const name = (e) => (e.getAttribute('aria-label') || e.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 24);
+  const cls = (e) => e.className.toString().trim().split(/\\s+/).slice(0, 3).join('.');
+  const around = (e) => { const c = e.closest('.row, .suggestion, .joint, .sdk-day-head, .stripbar, #undated, .sdk-card-head'); return c ? c.className.toString().trim().split(/\\s+/)[0] : ''; };
+  const controls = [...root.querySelectorAll('button, summary, a[href], [role="button"], .leg, .sdk-mk-tag')].filter((e) => vis(e) && !e.disabled);
+  for (const e of controls) {
+    e.scrollIntoView({ block: 'center', inline: 'center' });
+    const b = e.getBoundingClientRect(); const cx = (b.left + b.right) / 2; const cy = (b.top + b.bottom) / 2;
+    const own = (x, y) => { const t = root.elementFromPoint(x, y); return Boolean(t) && (t === e || e.contains(t)); };
+    const t = { leg: e.classList.contains('leg'), what: (e.dataset.action || cls(e) || e.tagName.toLowerCase()) + (name(e) ? ' "' + name(e) + '"' : ''), where: around(e), w: b.width, h: b.height, hitW: 0, hitH: 0, covered: '' };
+    if (!own(cx, cy)) { const c = root.elementFromPoint(cx, cy); t.covered = c ? c.tagName.toLowerCase() + '.' + cls(c) : 'nothing'; out.taps.push(t); continue; }
+    let up = 0; let dn = 0; let lf = 0; let rt = 0;
+    while (up < 40 && own(cx, cy - up - 0.5)) up += 0.5;
+    while (dn < 40 && own(cx, cy + dn + 0.5)) dn += 0.5;
+    while (lf < 80 && own(cx - lf - 0.5, cy)) lf += 0.5;
+    while (rt < 80 && own(cx + rt + 0.5, cy)) rt += 0.5;
+    t.hitH = up + dn + 0.5; t.hitW = lf + rt + 0.5;
+    // What stopped it: a box the control sits in (it clips), another control (a neighbour's area starts there) or its own row are
+    // fine; anything else painted over it (a joint, a sticky head, another card) covers it.
+    const fam = e.closest('.row, .suggestion, .sdk-card-head, .sdk-day-head, .stripbar, .joint');
+    const against = (x, y) => { const c = root.elementFromPoint(x, y); return Boolean(c) && !c.contains(e) && !c.closest('button, summary, a[href], [role="button"]') && !(fam && fam.contains(c)); };
+    t.coverH = (up < 40 && against(cx, cy - up - 1)) || (dn < 40 && against(cx, cy + dn + 1));
+    t.coverW = (lf < 80 && against(cx - lf - 1, cy)) || (rt < 80 && against(cx + rt + 1, cy));
+    // The size the stylesheet gives its area (the control plus its ::before and ::after), however much is clipped or shared.
+    t.css = b.height;
+    for (const which of ['::before', '::after']) { const ps = getComputedStyle(e, which); if (ps.content !== 'none' && ps.position === 'absolute') t.css = Math.max(t.css, parseFloat(ps.height) || 0); }
+    out.taps.push(t);
+  }
+  out.heads = [...root.querySelectorAll('.sdk-day > .sdk-day-head')].filter(vis).map((e) => e.getBoundingClientRect().height);
+  for (const e of root.querySelectorAll('.sdk-mk-tag, .sdk-mk-tag *, .sdk-chip-tag, .sdk-chip-tag *, .sdk-chip, .sdk-chip *')) {
+    if (vis(e) && e.scrollWidth > e.clientWidth + 0.5) out.truncated.push({ what: cls(e) + ' "' + name(e) + '"', scroll: e.scrollWidth, client: e.clientWidth });
+  }
+  for (const head of root.querySelectorAll('.sdk-card-head')) {
+    if (!vis(head)) continue;
+    const main = head.querySelector(':scope > .sdk-card-main'); if (!main) continue;
+    const m = main.getBoundingClientRect(); const parts = [];
+    for (const e of main.querySelectorAll(':scope > .sdk-card-icon, :scope > .sdk-card-title, :scope > .sdk-card-sub')) parts.push([cls(e), e.getBoundingClientRect()]);
+    for (const e of head.querySelectorAll(':scope > button, :scope > a')) if (vis(e)) parts.push([cls(e) + ' (button)', e.getBoundingClientRect()]);
+    const title = (head.querySelector('.sdk-card-title') || {}).textContent || '';
+    const sub = head.querySelector('.sdk-card-sub'); const problems = [];
+    if (sub && vis(sub)) { const s = sub.getBoundingClientRect(); if (s.right > m.right + 0.5 || s.left < m.left - 0.5) problems.push('the kicker goes ' + Math.round(Math.max(s.right - m.right, m.left - s.left)) + 'px outside the card head\\'s main part'); }
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const a = parts[i][1]; const c = parts[j][1];
+      if (Math.min(a.right, c.right) - Math.max(a.left, c.left) > 1 && Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top) > 1) problems.push(parts[i][0] + ' overlaps ' + parts[j][0]);
+    }
+    for (const [n, r] of parts) if (n.includes('(button)') && m.right > r.left + 0.5) problems.push('the main part reaches ' + Math.round(m.right - r.left) + 'px under ' + n);
+    if (problems.length) out.cardHeads.push({ title: title.trim().slice(0, 24), problems: [...new Set(problems)] });
+  }
+  return out;
+})()`.replace('HOSTEXPR', hostExpr);
 
 const round = (n) => Math.round(n * 10) / 10;
 const EXTRA = (trip) => {
@@ -105,6 +164,7 @@ const EXTRA = (trip) => {
     ['x4', { kind: 'link', title: 'Farewell dinner', date: day(18), time: '20:00', ref: ref('e5'), order: 1 }],
     ['x5', { kind: 'link', title: 'Pack the suitcases', date: day(9), ref: ref('e2'), order: 1 }],
     ['x6', { kind: 'note', title: 'Packing', date: day(0), notes: 'Passports, chargers, two jackets.', order: 1 }],
+    ['x8', { kind: 'note', title: 'On the line', after: day(11), notes: 'A card at a joint, not a marker', order: 1 }],
     ['x7', { kind: 'block', type: 'meet-up', title: 'Meet-up', date: day(8), time: '18:30', notes: 'In the hotel lobby', order: 1 }],
   ];
 };
@@ -133,7 +193,7 @@ async function main() {
     }
     browser = await launch(bin);
 
-    const measure = async (which, size, mode, protoW, phoneWindow = 0) => {
+    const measure = async (which, size, mode, protoW, phoneWindow = 0, probe = false) => {
       const tab = new Tab(browser.cdp, S.ctx);
       // The Prototype sits in a wide window so its own width setting is what is measured, not the window.
       await tab.open(which === 'real' ? size : phoneWindow ? size : Math.max(size + 200, 1400), mode);
@@ -147,8 +207,9 @@ async function main() {
           await sleep(300);
         }
         await sleep(500);
-        const m = await tab.eval(MEASURE);
+        const m = await tab.eval(MEASURE(HOST_PAGE));
         if (!m) throw new Error(`${which} Planner has no shadow root with #body`);
+        if (probe) m.probe = await tab.eval(PROBE(HOST_PAGE));
         return m;
       } finally { await tab.close(); }
     };
@@ -156,16 +217,33 @@ async function main() {
     const real = {}; const protos = {};
     for (const [size, mode] of [[1280, 'light'], [1280, 'dark'], [700, 'light'], [390, 'light']]) {
       const key = `${size} ${mode}`;
-      real[key] = await measure('real', size, mode);
+      real[key] = await measure('real', size, mode, undefined, 0, size === 390 || key === '1280 light');
       // The border of the Prototype's frame is 2 px of its width: widen it so its #body matches the real one's.
       // At 390 the Prototype is in a window of 390 too (so the window's own rules apply as on the phone); wider ones sit in a wide window.
       const phone = size === 390;
-      let p = await measure('proto', size, mode, { id: String(size), px: Math.round(real[key].body) + 2 }, phone ? 1 : 0);
-      if (Math.abs(p.body - real[key].body) > 0.5) p = await measure('proto', size, mode, { id: String(size), px: Math.round(real[key].body) + 2 + Math.round(real[key].body - p.body) }, phone ? 1 : 0);
+      let p = await measure('proto', size, mode, { id: String(size), px: Math.round(real[key].body) + 2 }, phone ? 1 : 0, phone);
+      if (Math.abs(p.body - real[key].body) > 0.5) p = await measure('proto', size, mode, { id: String(size), px: Math.round(real[key].body) + 2 + Math.round(real[key].body - p.body) }, phone ? 1 : 0, phone);
       protos[key] = p;
       if (DEBUG) console.log(key, JSON.stringify({ real: real[key], proto: p }));
       say(`${key}: real body ${round(real[key].body)}px, Prototype body ${round(p.body)}px`);
     }
+    // The docked Workspace column (256 px): the whole page, the call stood in for, the Planner in its column beside the call.
+    const docked = await (async () => {
+      const tab = new Tab(browser.cdp, S.ctx);
+      await tab.open(1280, 'light', true);
+      const settle = tab.settle.bind(tab); tab.settle = () => Promise.race([settle(), sleep(3000)]);
+      try {
+        await driveScreen(tab, { id: 'workspace', as: 'mia', url: '/#join={trip}', wait: 'button.sdk-strip-fact[data-module=budget]', call: true, space: true }, S.base, S.cookies, S.ctx);
+        await tab.eval(`document.querySelectorAll('.module-floating').forEach((f) => { f.style.display = 'none'; })`);
+        await sleep(800);
+        const m = await tab.eval(MEASURE(HOST_DOCKED));
+        if (!m) throw new Error('the docked Planner (a .module-root with #daystrip) was not found in the Workspace');
+        m.probe = await tab.eval(PROBE(HOST_DOCKED));
+        return m;
+      } finally { await tab.close(); }
+    })();
+    if (DEBUG) console.log('docked', JSON.stringify(docked));
+    say(`docked column: body ${round(docked.body)}px`);
     const wide390 = await measure('proto', 390, 'light', { id: '390' }); // ?w=390 in a window 1400 wide
 
     // ---- 1. parity ----
@@ -186,7 +264,7 @@ async function main() {
 
     // ---- 2. columns and 3. joints and 4. taps ----
     const spread = (list, f) => (list.length ? Math.max(...list.map((e) => e[f])) - Math.min(...list.map((e) => e[f])) : 0);
-    for (const [which, set] of [['real Planner', real], ['Prototype', protos]]) {
+    for (const [which, set] of [['real Planner', real], ['Prototype', protos], ['docked Planner', { docked }]]) {
       for (const key of Object.keys(set)) {
         const m = set[key]; const tag = `${which} ${key}`;
         const col = (name, list, sides = ['l', 'r']) => { for (const f of sides) { const what = f === 'l' ? 'left edge' : 'right edge'; if (spread(list, f) > 1) fail(`Column ${tag}: ${name} do not share one ${what}: they range over ${round(spread(list, f))}px (${[...new Set(list.map((e) => round(e[f])))].join(', ')}px from #body)`); } };
@@ -197,17 +275,39 @@ async function main() {
         col('the suggestions and the empty box inside the days', [...m.parts.suggestions, ...m.parts.empty], ['l']);
         col('the cards inside the days', m.parts.rowcard, ['l']);
         if (spread(m.more, 'cx') > 1) fail(`Column ${tag}: the more buttons do not share one centre: ${round(spread(m.more, 'cx'))}px apart (${[...new Set(m.more.map((e) => round(e.cx)))].join(', ')}px from #body)`);
-        const bad = m.joints.filter((j) => Math.abs(j.above - j.below) > 2);
-        if (bad.length) fail(`Joint ${tag}: the + circle is not centred between its two days in ${bad.length} of ${m.joints.length} joints: ${[...new Set(bad.map((j) => `${round(j.above)}px above and ${round(j.below)}px below, between .${j.prev.trim().replace(/\\s+/g, '.')} and .${j.next.trim().replace(/\\s+/g, '.')}`))].join('; ')}`);
+        const bad = m.joints.filter((j) => Math.abs(j.above - j.below) > 1);
+        if (bad.length) fail(`Joint ${tag}: the + circle is not centred (drawn edge above and below differ by more than 1px) between its two days in ${bad.length} of ${m.joints.length} joints: ${[...new Set(bad.map((j) => `${round(j.above)}px above and ${round(j.below)}px below, between .${j.prev.trim().replace(/\\s+/g, '.')} and .${j.next.trim().replace(/\\s+/g, '.')}`))].join('; ')}`);
         if (!m.joints.length) fail(`Joint ${tag}: no joint with a + circle between two days was found`);
       }
     }
-    for (const [which, set] of [['real Planner', real]]) { // the Prototype's rules follow the window, so only the real page is a phone here
-      const m = set['390 light'];
-      const small = m.taps.filter((t) => t.hit < 43.5);
+    // A press is answered by whatever is topmost at the point: probes along both axes through each control's centre. On a phone and in the
+    // docked column a control needs 44 px each way, and nothing (a joint, a head, another control's area) may cover it. A way-between chip
+    // (.leg) is a target as wide as its chip, no wider: a press beside it is not its press.
+    for (const [which, m] of [['real Planner 390', real['390 light']], ['Prototype 390', protos['390 light']], ['docked Planner', docked], ['real Planner 1280', real['1280 light']]]) {
+      const need = which.endsWith('1280') ? 0 : 43.5; // a wide pane: the control as drawn, whole (nothing covers any of it)
       const seen = new Set();
-      for (const t of small) { const k = `${t.cls}|${t.action}`; if (seen.has(k)) continue; seen.add(k); fail(`Tap target ${which} 390 light: button "${t.text}" (.${t.cls.trim().split(/\s+/).join('.')}${t.action ? `, ${t.action}` : ''}) is ${round(t.hit)}px tall counting its hit area (${round(t.h)}px drawn); a phone needs 44px`); }
+      for (const t of m.probe.taps) {
+        const k = `${t.what}|${t.where}`; if (seen.has(k)) continue;
+        if (t.covered) { seen.add(k); fail(`Tap target ${which}: ${t.what} (in .${t.where}) is covered at its centre by ${t.covered}`); continue; }
+        const lack = need
+          ? (t.css < need ? `its area is ${round(t.css)}px tall by the stylesheet` : t.coverH && t.hitH < need ? `something covers it: it answers a press over ${round(t.hitH)}px of height` : t.coverW && t.hitW < need ? `something covers it: it answers a press over ${round(t.hitW)}px of width` : '')
+          : (t.coverH && t.hitH < Math.min(t.h, 80) - 0.5 ? `something covers it: only ${round(t.hitH)}px of its ${round(t.h)}px height answers a press` : t.coverW && t.hitW < Math.min(t.w, 160) - 0.5 ? `something covers it: only ${round(t.hitW)}px of its ${round(t.w)}px width answers a press` : '');
+        if (lack) { seen.add(k); fail(`Tap target ${which}: ${t.what} (in .${t.where}), drawn ${round(t.w)} x ${round(t.h)}px, ${need ? 'needs 44px each way and ' : 'must answer over all of its drawn size and '}${lack}`); }
+        else if (t.leg && t.hitW > t.w + 1.5) { seen.add(k); fail(`Tap target ${which}: ${t.what} answers a press ${round(t.hitW)}px wide but is drawn ${round(t.w)}px wide: a press beside the chip must not open it`); }
+      }
+      if (!m.probe.taps.length) fail(`Tap target ${which}: no controls were probed`);
     }
+
+    // ---- 7. the docked column: the day head, words that are not cut, the card heads ----
+    const heads = docked.probe.heads;
+    if (!heads.length) fail('Docked: no day head was found in the docked Planner');
+    else if (Math.max(...heads) > 106) fail(`Docked: a day head in the ${round(docked.body)}px column is ${round(Math.max(...heads))}px tall (the tallest of ${heads.length}; all ${heads.map(round).join(', ')}); it should stay at or under about 106px, the words wrapping and the tag keeping its width`);
+    for (const t of docked.probe.truncated) fail(`Docked: ${t.what} is cut: its text is ${round(t.scroll)}px wide in a box ${round(t.client)}px wide`);
+    for (const [which, m] of [['docked Planner', docked], ['real Planner 390', real['390 light']]]) {
+      const ch = (m.probe || { cardHeads: [] }).cardHeads;
+      for (const c of ch) fail(`Card head ${which}: "${c.title}": ${c.problems.join('; ')}`);
+    }
+    if (!docked.probe.cardHeads || !heads.length) fail('Docked: the card heads were not probed');
 
     // ---- 5. container, not viewport ----
     const phone = real['390 light'].dayHead; const wide = wide390.dayHead;

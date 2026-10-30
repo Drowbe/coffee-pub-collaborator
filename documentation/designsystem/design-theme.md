@@ -77,7 +77,7 @@ working. The rest are derived with `color-mix`.
 A fixed dark background under theme-colored text is the classic failure: it looks correct on the
 default theme and unreadable on a light one.
 
-**The top bar's three areas.** The branding area, the left zone and the right zone each have a background and a text colour; each area sets `--header-text` to its own text token for what is inside it, so names, carets and icons that fall back on the header text follow. Until a theme sets them, the branding area and the right zone are `--nav-primary-edge-bg` with the header text, which is how the bar always looked. On a phone only the branding area keeps its colour. How the bar is built is in [architecture-navigation](../architecture/architecture-navigation.md).
+**The top bar's three areas.** The branding area, the left zone and the right zone each have a background and a text colour; each area sets `--header-text` to its own text token for what is inside it, so names, carets and icons that fall back on the header text follow. Until a theme sets them, the branding area and the right zone are `--nav-primary-edge-bg` with the header text, which is how the bar always looked. In the narrow layout only the branding area keeps its colour. How the bar is built is in [architecture-navigation](../architecture/architecture-navigation.md).
 
 ## Corner radii
 
@@ -146,15 +146,15 @@ Sizes and type that are not colours; no theme sets them, and they live in `:root
 
 | Token | Use |
 |---|---|
-| `--status-strip-h` | the space's status strip, the header's second row wider than a phone: 44px. The strip is one fixed line, so its words arriving never change the header's height |
-| `--status-strip-slim-h` | the same strip on a phone, a slim line of the header under the top row: 28px |
+| `--status-strip-h` | the space's status strip, the header's second row wider than the narrow layout: 44px. The strip is one fixed line, so its words arriving never change the header's height |
+| `--status-strip-slim-h` | the same strip in the narrow layout, a slim line of the header under the top row: 28px |
 | `--mf-status-h` | the status bar at the foot of a module's window (`host.status.set`): 24px. It is not the status strip. The module frame's other sizes are below |
 | `--nav-font-size` | the size of the nav text: 13px |
 | `--nav-font-weight` | the weight of the nav text: 600 |
 | `--nav-letter-spacing` | the nav text's letter spacing: `normal` |
 | `--nav-line-height` | the nav text's line height: `normal` |
 
-**The nav text.** One type for every word in the top bar and the status strip (Thomas, 2026-10-14: "the correct one is the Workspace, Calendar, etc."). The layout tabs and links (`.core-link`) are the reference, and every other element in the bars that carries words wears the class `.nav-text` (the space switcher, Who is here, your name, **Join the call**, the phase chip, a band's name, a page bar's name and tabs, a labelled button the registry draws). `.nav-text` and `.core-link` read the four tokens above, with the page's own font family, and take the bar's link colour at rest (`--icon`, else the header text softened); what is current, such as the tab shown, the phase chip, today's band and the page's name, says `--header-text` in its own rule. `.btn.nav-text` outweighs the button's own type and keeps the button's colours. No element restates a size or weight of its own. The exceptions are the environment's name (the wordmark, larger), the "days to <phase>" caption under the countdown (a small caption) and the phone's menu rows and tab bar. The class is for the app's own bars, not for a module.
+**The nav text.** One type for every word in the top bar and the status strip (Thomas, 2026-10-14: "the correct one is the Workspace, Calendar, etc."). The layout tabs and links (`.core-link`) are the reference, and every other element in the bars that carries words wears the class `.nav-text` (the space switcher, Who is here, your name, **Join the call**, the phase chip, a band's name, a page bar's name and tabs, a labelled button the registry draws). `.nav-text` and `.core-link` read the four tokens above, with the page's own font family, and take the bar's link colour at rest (`--icon`, else the header text softened); what is current, such as the tab shown, the phase chip, today's band and the page's name, says `--header-text` in its own rule. `.btn.nav-text` outweighs the button's own type and keeps the button's colours. No element restates a size or weight of its own. The exceptions are the environment's name (the wordmark, larger), the "days to <phase>" caption under the countdown (a small caption) and the narrow layout's menu rows and tab bar. The class is for the app's own bars, not for a module.
 
 ## The module frame
 
@@ -200,7 +200,7 @@ The text colours are checked against their surfaces by `tools/check-theme-contra
 
 | Token | Use |
 |---|---|
-| `--action-btn-h` | the button's width and height: `--bar-control-h` (38px) on the app's pages, 38px on a module's page; a compact call toolbar and the phone's sizes set it smaller (40, 34 or 30px) |
+| `--action-btn-h` | the button's width and height: `--bar-control-h` (38px) on the app's pages, 38px on a module's page; a compact call toolbar and the narrow layout's sizes set it smaller (40, 34 or 30px) |
 | `--action-icon-ratio` | the icon's size as a share of the button, `calc(20 / 38)`: a 20px icon in a 38px button, the same share at every size |
 
 A smaller button sets `--action-btn-h` only, never the icon's size. The rules are written once in `public/style.css` and once, word for word, in `public/sdk/host.css` (between `action-btn:start` and `action-btn:end`); `tools/check-buttons.mjs` holds the two copies equal, the call controls and Send on `.action-btn`, and the bundled modules from sizing it or setting the tokens.
@@ -215,7 +215,7 @@ A view or filter switch (**Month | Week | Day | Agenda**, **Open | Done | All**,
 
 ## The editor window
 
-A module's Add or Edit form opens as a window over the whole page: a modal `<dialog class="sdk-editor">` drawn by the SDK (`host.ui.editor`, [api-module-sdk](../api/api-module-sdk.md), "An editor window"). It is 560 px wide (`.sdk-editor-large`, 880 px, for the Planner's object form), at most the window less 48 px tall, centered, and a full-screen sheet at 640 px and below. It takes `--bg-section`, `--text` and `--border`, a `--radius-large` radius and a shadow; its backdrop is `color-mix(in srgb, var(--bg) 70%, transparent)`, the tint the modules' own overlays used before, and plain `--bg` on a phone. The close button in the corner (`.sdk-editor-close`) is `--text-dim`, `--text` on hover with a 10% text tint behind it, and an `--accent` focus ring; the button row a module marks `.sdk-editor-actions` and the "Discard your changes?" row (`.sdk-editor-discard`) stick to the bottom on `--bg-section` with a `--border` line above. On a phone the close button and the row's buttons are 44 px tall (the row sets `--action-btn-h`). No theme sets any of this, and the rules use no colour of their own (`tools/check-module-window.mjs` fails a fixed colour there). A module's form inside it sets only the layout of its fields, never a box, a width or a background of its own. The rules are in `public/sdk/host.css` between `editor:start` and `editor:end`.
+A module's Add or Edit form opens as a window over the whole page: a modal `<dialog class="sdk-editor">` drawn by the SDK (`host.ui.editor`, [api-module-sdk](../api/api-module-sdk.md), "An editor window"). It is 560 px wide (`.sdk-editor-large`, 880 px, for the Planner's object form), at most the window less 48 px tall, centered, and a full-screen sheet at 640 px and below. It takes `--bg-section`, `--text` and `--border`, a `--radius-large` radius and a shadow; its backdrop is `color-mix(in srgb, var(--bg) 70%, transparent)`, the tint the modules' own overlays used before, and plain `--bg` in the narrow layout. The close button in the corner (`.sdk-editor-close`) is `--text-dim`, `--text` on hover with a 10% text tint behind it, and an `--accent` focus ring; the button row a module marks `.sdk-editor-actions` and the "Discard your changes?" row (`.sdk-editor-discard`) stick to the bottom on `--bg-section` with a `--border` line above. In the narrow layout the close button and the row's buttons are 44 px tall (the row sets `--action-btn-h`). No theme sets any of this, and the rules use no colour of their own (`tools/check-module-window.mjs` fails a fixed colour there). A module's form inside it sets only the layout of its fields, never a box, a width or a background of its own. The rules are in `public/sdk/host.css` between `editor:start` and `editor:end`.
 
 ## The kind picker
 

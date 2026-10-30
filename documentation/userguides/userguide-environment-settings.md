@@ -3,7 +3,7 @@
 **Audience:** an owner or the admin running a Collaborator environment, working through the Manage page.
 
 Open the Manage page from the menu under your picture in the top bar: choose **Manage**. It has seven tabs, in this order: **Environment**,
-**Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. On a phone the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) Manage's tabs are in the bar under the top bar. The pages reached from here (a person's profile, a module's configuration, the AI configuration) have **Manage** at the start of that bar, to come back. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
+**Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. In the narrow layout the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) Manage's tabs are in the bar under the top bar. The pages reached from here (a person's profile, a module's configuration, the AI configuration) have **Manage** at the start of that bar, to come back. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
 
 ## Environment
 
@@ -26,7 +26,7 @@ Open the Manage page from the menu under your picture in the top bar: choose **M
 
 ## Top bar
 
-Owners and the admin can add two pages of their own for the whole environment: **Global Calendar**, the Calendar and the To-do together, and **Global Map**, the map and Places together. They are separate from the **Calendar** and **Map** tabs inside a single space. Both are off unless you turn them on; an environment made from the Travel template starts with both on. Where they show: in the profile menu under each person's picture (wider than a phone), or in the top bar's menu after the spaces (on a phone), under their module's name and icon after the word Global. The setting is still called **Show in the top bar**.
+Owners and the admin can add two pages of their own for the whole environment: **Global Calendar**, the Calendar and the To-do together, and **Global Map**, the map and Places together. They are separate from the **Calendar** and **Map** tabs inside a single space. Both are off unless you turn them on; an environment made from the Travel template starts with both on. Where they show: in the profile menu under each person's picture (wider than the narrow layout), or in the top bar's menu after the spaces (in the narrow layout), under their module's name and icon after the word Global. The setting is still called **Show in the top bar**.
 
 1. Open Manage on the **Modules** tab.
 2. Choose **Module Configuration** on the Calendar's card (for Global Calendar) or on Maps' card (for Global Map).

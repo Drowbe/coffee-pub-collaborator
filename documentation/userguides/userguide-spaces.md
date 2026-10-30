@@ -40,7 +40,7 @@ When the window is too narrow for everything, Who is here shrinks first (the nam
 go); then the layout tabs go into a **…** after them, one at a time from the right; then the tools on the right fold
 into a **…** (Pop out first, then Full screen).
 
-A guest sees the logo, the environment's name and the space's name, and nothing else; on a phone there is no menu
+A guest sees the logo, the environment's name and the space's name, and nothing else; in the narrow layout there is no menu
 button either. An aside's bar is the switcher, **Rejoin call** and your picture. Guests always see the environment's
 default light or dark look.
 
@@ -122,13 +122,13 @@ Two things can pop up in a corner of the page for a few seconds, and they differ
 
 What is lasting for a space, such as how far along it is, is in the status strip instead.
 
-### On a phone
+### In the narrow layout
 
 The top bar is the logo, where you are, the bell and the menu button (**Menu**, three lines). Everything else is in
 the menu: the environment's name, the home page and your spaces, **Global Calendar** and **Global Map** when they are
 shown, **New space** for owners and the admin, then your picture and the profile menu's entries. In a space the
 layout tabs are not drawn; the tab bar at the foot of the page has a tab for each module open, with the Calendar and
-Map as tabs of their own (see [The call](userguide-call.md), "On a phone").
+Map as tabs of their own (see [The call](userguide-call.md), "In the narrow layout").
 
 ## The status strip
 
@@ -154,8 +154,7 @@ nothing but the sheet and the list.
 
 As the strip runs short of room, things go in this order: the line of facts, the names in the bands (their icons stay),
 the words after the number of days, the bar (down to a small least width, then out of sight), and last the end of the
-sentence. On a
-phone the strip is a thin line under the top row: the sentence, with the bar as a thin line along its foot.
+sentence. In the narrow layout the strip is a thin line under the top row: the sentence, with the bar as a thin line along its foot.
 
 The strip is not shown to a guest, in an aside, or while Home shows over the space. A space without phases has no
 strip until something needs action; from then it stays for the visit. For a screen reader the strip is a region named
@@ -194,7 +193,7 @@ on the **Phases** tab of Set up (see below), where they are saved with everythin
 
 ## Home
 
-Home is the page you land on after signing in, and what the logo, **Spaces** and the phone menu's home entry show.
+Home is the page you land on after signing in, and what the logo, **Spaces** and the narrow-layout 's home entry show.
 Wider than 1200 pixels it has three columns, using the page's width:
 
 - **Chat**, on the left: the environment's chat for everyone, with the **Discussion | Assistant** tabs a space's chat
@@ -213,7 +212,7 @@ then the chat at a height of its own, then the Modules.
 The Lobby is no longer a card or a place you enter. Everyone is still in it, behind the scenes: it is what Home's chat
 belongs to, and it is still listed first on Manage's **Spaces** tab.
 
-Going Home from inside a space, with the logo, **Spaces** or the phone menu, does not leave the space or the call. You
+Going Home from inside a space, with the logo, **Spaces** or the narrow-layout , does not leave the space or the call. You
 stay in the call, set to Away, and the space's card reads **Back to <space>**. Home's chat shows while you are there,
 and a number on the logo counts what was said in it while you were in a space. **Back to <space>** brings the space's
 chat back, with whatever was said in it meanwhile.
@@ -229,7 +228,7 @@ card the launch link moves to a line of its own under **Enter**. A space you are
 **Enter** is the default word. The template or the owner can change it, for example to "Board" (see "The word on
 the button for entering a space" in [Manage](userguide-environment-settings.md)).
 
-An aside you are part of also shows on the list while it lasts, as a card with **Join** (a phone) and a pop-out
+An aside you are part of also shows on the list while it lasts, as a card with **Join** (the narrow layout) and a pop-out
 button, "Join in a pop-out window". An aside is a call, so its button always reads Join, whatever the word for
 entering a space.
 
@@ -253,7 +252,7 @@ space and the people in it.
 
 ### The Modules column
 
-Home's right-hand column holds a card for each module that offers one, across all of your spaces. On a phone it is
+Home's right-hand column holds a card for each module that offers one, across all of your spaces. In the narrow layout it is
 below the spaces. The Calendar's **Coming up** is a small month with a dot on each day that has something (click a day
 to open it in the full calendar), over the next few events; the To-do's **Due soon** the tasks due within a week or
 overdue, and Polls' **Need your vote** the open polls you have not voted in; each draws from every space you are in and
@@ -287,8 +286,7 @@ layout. When the owner has chosen nothing, it is what the environment sets for a
 module on in the space. A guest with nothing set gets the chat and the call's tiles. The call is always out of the
 call, showing **Start call** (or **Join call**): entering never joins it, for anyone (see [The call](userguide-call.md)).
 
-After that, each person's own arrangement is remembered for each space: the modules open, how, and how big. On a
-phone, the first tab shown is the first thing opened.
+After that, each person's own arrangement is remembered for each space: the modules open, how, and how big. In the narrow layout, the first tab shown is the first thing opened.
 
 If you reload the page while you are in a space, you are put back in that space rather than on Home. It is remembered
 for that browser tab only; leaving the space, being removed from it, or a space that cannot be joined clears it, and a
@@ -306,8 +304,7 @@ To open it:
 
 1. In the space, press **Set up** in the top bar (it shows pressed while the panel is open). Home's **Add space**
    opens it for the space it makes. Manage's **Edit** button on a space (with your environment's word for it, such as **Edit trip**) does the same.
-2. The space's name in the top bar becomes a box you can type in. The panel opens at the side (the whole screen on a
-   phone) with the tabs along its head.
+2. The space's name in the top bar becomes a box you can type in. The panel opens at the side (the whole screen in the narrow layout) with the tabs along its head.
 3. Change what you need, on any tabs. A small dot on a tab means it has changes not yet saved.
 4. Choose **Save** in the bar locked to the foot of the panel. It sends everything at once and closes the panel, with
    a line saying what was saved. **Cancel** drops every change. Escape does the same, and asks "Discard your changes?"
@@ -360,7 +357,7 @@ Click the door icon on each tile to pick who, which toggles a selection and does
 yet, then confirm with **Step aside with N**. Everyone picked moves together at once, with nobody
 clicking anything on their own end.
 
-Each pulled player, and the owner, gets a **Rejoin call** button in the top bar (on a phone, in the tab bar). Clicking
+Each pulled player, and the owner, gets a **Rejoin call** button in the top bar (in the narrow layout, in the tab bar). Clicking
 it on any one of their screens brings the rest back too, to whichever space they were pulled out of. Everyone who was on
 the call stays on it, into the aside and back again; anyone who was not arrives out of the call. The aside shows on
 Home only for the people in it and owners, with **Join** (see "The space list"), and it disappears on its own once

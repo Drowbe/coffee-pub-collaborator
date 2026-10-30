@@ -87,7 +87,7 @@ What the places look like:
 - **An AI answer with several objects:** one entry per module with how many it takes, such as **Planner (3)**, and a hint like "2 flights, 1 stay; 1 left out" for what that module can't take. Polls opens one form at a time, so for several polls its entry opens the first ("Opens the first of 3") and the note adds "The other 2: use each one's own Keep."
 - The place you last used for that kind of message (a picture, a link, words, an AI answer's objects) comes first, marked **Last used**, in this browser.
 - On a private message, each entry's hint says "Everyone in this <space> will see it": sending puts what it says where the space can see it.
-- A module that opens a form (Polls) must be open: its entry says "Open Polls first", and choosing it sends nothing ("Polls isn't open."). When the form opens, Polls is brought forward, and on a phone it replaces Chat in view. Nothing is saved until you choose **Start poll**.
+- A module that opens a form (Polls) must be open: its entry says "Open Polls first", and choosing it sends nothing ("Polls isn't open."). When the form opens, Polls is brought forward, and in the narrow layout it replaces Chat in view. Nothing is saved until you choose **Start poll**.
 
 What the line under the box says:
 

@@ -137,7 +137,7 @@ guest has no picture there and no profile menu.
 
 The menu also works from the keyboard: the arrow keys move, Enter picks, and Escape closes it.
 
-On a phone your picture is not in the top bar. It is in the top bar's menu instead:
+In the narrow layout your picture is not in the top bar. It is in the top bar's menu instead:
 
 1. Tap the menu button (**Menu**, three lines) at the right of the top bar.
 2. Near the end of the menu, after a line, are your picture and name. They are only a label; tapping them does
@@ -222,7 +222,7 @@ calendars keep their rows, and the button you were on keeps its place, while it 
 
 ## Light or dark
 
-**Dark mode** in the menu under your picture (on a phone, the sun and moon switch in the top bar's menu) changes
+**Dark mode** in the menu under your picture (in the narrow layout, the sun and moon switch in the top bar's menu) changes
 between light and dark at once, with no refresh. Your choice is kept on your account and follows you to your other
 devices. Once you have used it, you keep your choice even when the owner changes the environment's default. A guest
 has no switch and always sees the environment's default.

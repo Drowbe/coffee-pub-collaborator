@@ -36,7 +36,7 @@ reactions, **L** change the tiles, **F** full screen, **1** to **6** send a reac
 
 ## The column: the call and the chat, always on
 
-Wider than a phone (more than 640 pixels), the call and the chat are not modules you switch on. They are in a column
+Wider than the narrow layout (more than 640 pixels), the call and the chat are not modules you switch on. They are in a column
 beside the Workspace in every layout tab, whichever one is shown. From top to bottom:
 
 - **The call**, once you have joined: its titlebar, the tiles, and the toolbar. Out of the call there is no call area;
@@ -58,7 +58,7 @@ column never closes, and it is remembered for each space.
 taller or shorter. The video can take at most a little over half the column, so the chat always keeps at least 45 percent of it; in a
 short window the tiles scale down. The height is remembered.
 
-In an aside the column is the whole screen. At 640 pixels wide and below there is no column: see "On a phone".
+In an aside the column is the whole screen. At 640 pixels wide and below there is no column: see "In the narrow layout".
 
 ## The call
 
@@ -198,8 +198,7 @@ chat box is hidden.
   layout** at the end (see "Saved layouts" below).
 
 The menu stays open while you flip switches; press Escape, click the button again or click elsewhere to close it. With
-the keyboard, Tab and the arrow keys move through it, and Space or Enter flips a switch or presses a button. On a
-phone there is no **Layout** button: the modules are tabs along the bottom.
+the keyboard, Tab and the arrow keys move through it, and Space or Enter flips a switch or presses a button. In the narrow layout there is no **Layout** button: the modules are tabs along the bottom.
 
 ## Modules on the Workspace
 
@@ -239,7 +238,7 @@ below). On a layout you may change it also offers **Replace with this layout** (
 now), **Rename**, **Change icon** and **Delete**, which asks first. Anyone may save their own layouts, up to 10 in a
 space; owners, the admin and the space's moderators may save, change and delete the shared ones, up to 10; guests may
 only load shared ones. Names are up to 40 characters. With none saved, the section reads "No saved layouts yet." There
-are no layouts on a phone or in an aside.
+are no layouts in the narrow layout or in an aside.
 
 **The space's first visit.** Owners and the admin can choose **Make default** in a shared layout's **⋮**, and **Stop
 using as default** to stop. The default is marked "Default". Someone entering the space for the first time gets it,
@@ -264,7 +263,7 @@ says "<name> is no longer a favorite." Deleting a layout takes it out of everyon
 
 The tabs are in the order you made them favorites. When the bar has no room for all of them, the ones that don't fit go
 into a **…** after the last tab, from the right; the tab you are on and the Workspace stay. The layouts in the **…** are
-still in the **Layout** menu, marked by their hearts. Tabs are not shown on a phone, in an aside, or to a guest.
+still in the **Layout** menu, marked by their hearts. Tabs are not shown in the narrow layout, in an aside, or to a guest.
 
 ## When the Workspace is too narrow for another column
 
@@ -281,9 +280,9 @@ more. Installed modules give way from the right.
   floating until the window is wide enough." The note goes after a few seconds, or when you close the menu.
 - Drag or resize a waiting module and it stays floating for good.
 
-## On a phone
+## In the narrow layout
 
-At 640 pixels wide and below, on a phone or in a narrow pop-out, there is no column and no layout tabs. One module
+At 640 pixels wide and below, in the narrow layout or in a narrow pop-out, there is no column and no layout tabs. One module
 fills the screen at a time, and the bar at the bottom of the page is a row of tabs. Left to right:
 
 - the module tabs that fit, each at least 56 pixels wide; the tab you are looking at always stays; the Conference and
@@ -297,7 +296,7 @@ fills the screen at a time, and the bar at the bottom of the page is a row of ta
   you are on the call, **…** shows the green dot, red while your microphone is live;
 - **Leave space**, always inside the window.
 
-On a phone, opening the Conference tab shows **Not in a call**, with who is on the call now under **Currently on the
+In the narrow layout, opening the Conference tab shows **Not in a call**, with who is on the call now under **Currently on the
 call** ("No one is on the call yet. Be the first to join." when nobody is) and **Join the call**. In a narrow pop-out
 the bar is part of the header and slides away with it when you are idle.
 
@@ -391,13 +390,12 @@ you go on from your profile to Manage, or from Manage to your profile.
 
 To run Collaborator without browser bars, install it as an app:
 
-- **Chrome and Edge.** Click your picture at the right end of the top bar and choose **Install as an app**. On a
-  phone it is in the top bar's menu, with the other entries under your picture. It is there only while the browser offers to install,
+- **Chrome and Edge.** Click your picture at the right end of the top bar and choose **Install as an app**. In the narrow layout it is in the top bar's menu, with the other entries under your picture. It is there only while the browser offers to install,
   so it is gone once Collaborator is installed.
 - **Safari on macOS.** **File, Add to Dock**.
 - **iPhones and iPads.** **Share, Add to Home Screen**.
 
-A hint under **Join the call** on a phone says which applies to your browser.
+A hint under **Join the call** in the narrow layout says which applies to your browser.
 
 Guests can't install Collaborator. On a guest link (and the windows popped out from it) there is no install hint and
 no install line in the settings, and the browser itself does not offer to install.

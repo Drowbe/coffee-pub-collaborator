@@ -11,7 +11,9 @@ checks in `tools/`, the phone emulation in `tools/shots.mjs`), quality-assurance
 relayed by the project manager: what we have been calling the "phone layout" is only a width breakpoint, and "a phone
 experience is not just a smaller, repurposed desktop experience". He expects phone use to be a large share of use. The
 same day he decided, in [plan-object-window](plan-object-window.md) (decision 5), "Phone experiences are designed for
-the phone, not a shrunk desktop", and that plan's question 16 suggested this plan with a scope this one follows. Every
+the phone, not a shrunk desktop", and that plan's question 16 suggested this plan with a scope this one follows. Added
+the same day, from Thomas: "We will need to understand how common each layout is and ensure we target the core
+experience to the expected size" (the section "How common each layout is", step 0, questions 18 to 23). Every
 section below except "What it is today" is the planner's proposal and waits on the open questions at the end.
 
 ## Why
@@ -162,6 +164,74 @@ The plan uses four separate ideas, and the code should too.
 - **Orientation**: portrait or landscape, from `(orientation: ...)` and the height, not from a device's name.
 - **The installed app**: the page opened from the home screen, `(display-mode: standalone)` (and `navigator.standalone`
   on iOS). It has no address bar and no browser back button, so the page's own Back is the only one on an iPhone.
+
+## How common each layout is (proposed, questions 18 to 23)
+
+Nothing today records what screens people use: there is no analytics, no database and no count of anything of the
+kind in `server/`. The audience is small groups (a trip's family and friends, testers), so the numbers will be small
+and every count is close to a person.
+
+### What counts as a layout
+
+A layout is one combination of:
+
+- **The window's width class:** compact, medium or wide (see "Definitions").
+- **Each shown module's own width**, in buckets that match the rules modules already have: under 300 px (the card's
+  stacked head), 300 to 479, 480 to 719 (the Planner's `.tiny` and `.narrow` lines), 720 to 1099, 1100 px and over.
+  This is independent of the device: on a desktop a docked column can be 240 px (`DOCK_MIN`) while the canvas beside
+  it is 1200; on a phone every module is the whole width.
+- **How the module is shown:** docked, floating, the only view (a phone, or the full canvas), its own page, a
+  pop-out, a destination's part.
+- **Input:** coarse, fine, or both (`any-pointer`).
+- **Orientation:** portrait or landscape.
+- **Display mode:** a browser tab or the installed app.
+- **The person's role** (question 21): `admin`, `owner`, `moderator`, `member` or `guest`.
+
+### How we learn it
+
+Four ways, which can be combined (question 19):
+
+- **Layout counters in the product.** The page reports its layout when it has been stable for 10 seconds and again
+  when it changes class (not on every resize): `POST /api/layout-counts` with the classes above, never a pixel width,
+  a user agent, a name, a space or a time. The server adds one to that combination's count in a per-environment
+  `DATA_DIR/layout-counts.json`, by week, keeping 12 weeks; it stores no IP and no user key. Manage gains a
+  **Layouts** section for the admin and the environment's owner: shares per width class, per input, per display mode,
+  and per module by its width bucket and how it is shown, with any count under 5 shown as "fewer than 5", so a family
+  of six cannot read one person's phone from it. Turned on by an environment variable (question 20), so an install
+  that does not set it behaves exactly as before. Cost: one route, one JSON file with batched writes, a small script
+  in the pages, the Manage section, and a check; about a feedback build.
+- **A tester device list.** Thomas asks each tester which phone, browser and orientation they use, and whether they
+  install it. One message, no code, known before anything ships; it misses how each module is shown.
+- **An outside benchmark.** Public web statistics say what share of browsing is on phones. They fit this audience
+  poorly: they measure browsing in general, not a planning tool used at home before a trip and on a phone during it,
+  and they say nothing about module widths. Useful only as a sanity check.
+- **The audit's own screens**, which say what breaks but not how often anyone sees it.
+
+### How the data decides the core experience
+
+A target per width class, each module's primary task (from the audit table) placed where it is expected:
+
+| Width | What must work | Expected modules |
+|---|---|---|
+| 360 and 390 px, touch | Every module's primary phone task, by taps only; the call, Chat, sign in, Home | Every module, one at a time |
+| About 720 px (a tablet, a phone sideways, a narrow window) | Everything a phone does, with two things side by side where it helps (a list and its object) | The Planner, the Calendar, the Map |
+| 1100 px and over | Planning: the canvas, several modules at once, Set up, Manage | Every module, docked or floating |
+| A module under 480 px of its own on a wide window | Its primary task, as on a phone, without the phone's navigation | Chat, the call, To-do, Polls, docked |
+
+The counts then order the work: the audit's rows and steps 11 to 14 go in order of each module's share of compact use,
+and a module seen mostly wide and by owners goes later. A module often shown under 480 px on a desktop gets its narrow
+layout checked at that width too. **Until there is data**, the order is: Chat, the call, the Planner (today), Polls,
+To-do, Calendar, Places with Maps, Budget, Research, Assistant; then Home, Set up and Profile; sign in; Manage and the
+host console last. After four weeks of counts (or sooner if Thomas asks), product-planner proposes a new order for
+Thomas to confirm.
+
+### The assumption until data exists (question 23)
+
+**Phone first for members and guests; desktop first for planning and admin work.** A member or a guest is most likely
+in a space on a phone during the trip: the call, Chat, today's plan, a vote, a photo, a cost. An owner, a moderator or
+the admin plans at a desk: the Planner's whole trip, Set up's heavier tabs, Manage, the host console, module
+configuration. Desktop first still means usable at 390 px (nothing cut, nothing sideways), just not designed for it.
+Thomas can overrule this.
 
 ## Principles (proposed)
 
@@ -451,8 +521,9 @@ feedback builds for the module steps.
 
 | # | Step | Who | Blocked by questions |
 |---|---|---|---|
+| 0 | **Learn how common each layout is.** The tester device list (Thomas, no code), and, if chosen, the layout counters: `POST /api/layout-counts`, `DATA_DIR/layout-counts.json` by week, the environment variable, the pages' report, Manage's **Layouts** section with the "fewer than 5" rule, and a check. Shipped first so counts gather while the audit runs; the audit does not wait for them. | Thomas (the list), server-development (the route, the store, the check), experience-design (the report, the Manage section) | 18 to 21 |
 | 1 | **The phone emulation and the audit.** The `phone` option in `tools/shots.mjs` (touch, `mobile: true`, 390 and 360, landscape, the inset tokens' override, the keyboard approximation); a run that screenshots every row of the audit; the findings filled into this plan's table. No product change. | server-development (the tool), quality-assurance (the run), product-planner (the table) | 8 |
-| 2 | **The phone decisions.** Thomas decides questions 1 to 7 on the audit's results; product-planner records them here and in [plan-phone-space-bar](plan-phone-space-bar.md)'s status. No build. | Thomas, product-planner | 1 to 7 |
+| 2 | **The phone decisions.** Thomas decides questions 1 to 7, 22 and 23 on the audit's results and the tester list; product-planner records them here and in [plan-phone-space-bar](plan-phone-space-bar.md)'s status, and orders steps 11 to 14. No build. | Thomas, product-planner | 1 to 7, 22, 23 |
 | 3 | **Foundations.** The width-class and input rules in `system.css` (the safe-area tokens, the coarse-pointer tap areas everywhere, not only in the frame); one SDK answer a module can ask (`host.screen`, proposed: `{ width, touch, hover, installed, orientation }` with a `change` event); `check-breakpoints` extended; `check-touch` (static). | experience-design, server-development (the check) | 1, 2 |
 | 4 | **History: one entry per sheet.** The host's sheet stack; the editor window, the kind picker, the menus' drill-in, Set up and the phases sheet open through it; back closes; entering a space pushes once. | experience-design | 6 |
 | 5 | **The shared phone pieces**, drawn for Thomas in the design system first, then built in the SDK: the full-screen sheet (top bar with Back, title, menu; the keyboard rule), the bottom sheet (menus, pickers, the Modules list), the bottom action bar (one primary action), the offline banner, the "Not sent" state. The object window's phone sheet uses the full-screen sheet. | experience-design | 2 |
@@ -469,11 +540,17 @@ feedback builds for the module steps.
 | 16 | **The budget**, measured and, once set, checked. | server-development | 14 |
 | 17 | **Documentation:** [architecture-canvas](../architecture/architecture-canvas.md) "Phones", [architecture-navigation](../architecture/architecture-navigation.md), [api-module-sdk](../api/api-module-sdk.md) (`host.screen`, the sheets), the user guides, the changelog. | content-manager | each step as it lands |
 
-Steps 8 to 10 depend only on step 3 and can go in any order. Steps 11 to 14 need steps 4 to 6. Step 15 waits on the
+Step 0 runs beside step 1 and blocks nothing. Steps 8 to 10 depend only on step 3 and can go in any order. Steps 11
+to 14 need steps 4 to 6, and their order (and the modules inside step 13) follows question 22: the default order until
+the counts say otherwise. Step 15 waits on the
 Vault.
 
 ## Verify
 
+- **Step 0.** The check posts layouts to a throwaway server (`DATA_DIR=/tmp/<name>`) and reads the store: only the
+  classes are kept, no IP, user key, user agent or pixel width; counts under 5 show as "fewer than 5"; without the
+  environment variable the route answers 404 and the pages send nothing. Checked by a tool. Real counts from real
+  phones only on Thomas's host.
 - **Step 1.** The run's screenshots at 390 and 360, portrait and landscape, light and dark, reviewed by Thomas; the
   emulation itself checked by a page that prints what it sees (`/diag.html`: the width, `pointer: coarse`,
   `hover: none`, the inset tokens). Checked by a tool.
@@ -572,3 +649,26 @@ Each has options and the planner's suggestion, marked as such. The table above s
 17. **Where this goes in the queue.** (a) Steps 1 and 2 now, the rest after the object window's steps 1 to 4. (b) Now,
     ahead of the object window, so the window is built on the shared sheet. (c) After unified layout slices 10 to 13.
     *Suggestion: (a),* since the audit changes nothing and informs both plans. Blocks the start.
+18. **What a layout is, for counting.** (a) The window's width class only. (b) The window's class, each shown
+    module's width bucket and how it is shown, input, orientation and display mode. (c) (b) plus exact pixel widths.
+    (a) misses a narrow docked module on a wide window; (c) is more identifying and the buckets already decide
+    everything. *Suggestion: (b).* Blocks step 0.
+19. **How we learn how common each layout is.** (a) Layout counters in the product. (b) A tester device list only.
+    (c) An outside benchmark only. (d) The tester list now and the counters, with a benchmark as a sanity check.
+    (b) misses module widths and anyone who is not a tester; (c) does not fit a small trip group. *Suggestion: (d).*
+    Blocks step 0, and the order of steps 11 to 14.
+20. **Counters on or off, and who sees them.** (a) Off unless an environment variable turns them on (proposed
+    `LAYOUT_COUNTS=on`), shown in Manage to the admin and the owner, with one line in Profile: "This site counts
+    screen sizes, not people." (b) On by default, with an owner switch to turn them off. (c) On by default, no switch.
+    (b) and (c) change how an install that sets nothing behaves, against the single-environment rule.
+    *Suggestion: (a),* turned on for Thomas's own host. Blocks step 0.
+21. **The role in the counts.** (a) Counted, with the "fewer than 5" rule. (b) Not counted. In a group of six a role
+    and a phone can name a person, but the assumption in question 23 is by role, so without it the data cannot test
+    it. *Suggestion: (a).* Blocks step 0.
+22. **The width targets and the default order.** (a) Take the targets table and the order in "How the data decides
+    the core experience", reviewed after four weeks of counts. (b) Change them. *Suggestion: (a).* Blocks the order of
+    steps 11 to 14.
+23. **The assumption until data exists.** (a) Phone first for members and guests, desktop first for planning and
+    admin work (still usable at 390 px). (b) Phone first for everyone. (c) Desktop first until the counts say
+    otherwise. (c) is how the phone became a shrunk desktop; (b) makes Manage and the Planner's whole-trip planning
+    wait on phone designs few will use. *Suggestion: (a).* Blocks step 2.

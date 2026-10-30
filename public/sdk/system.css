@@ -1351,8 +1351,8 @@
    not a nesting level: window > banded card > card. Its head holds a portrait or icon, the title, the meta, and the "..."
    at the right. Aliases: .message (Chat). */
 :where(.sdk-card-banded, .message) {
-  --s: var(--surface-card);
-  --card-head-fill: color-mix(in srgb, var(--card-head-tint) var(--card-head-step), var(--s));
+  --s: var(--card-fill, var(--surface-card)); /* --card-fill: a box that sits on a different surface */
+  --card-head-fill: color-mix(in srgb, var(--card-head-tint) var(--card-head-step), var(--card-head-base, var(--s))); /* --card-head-base: a surface the band is shaded from when it is not the box's own */
   position: relative;
   display: flex;
   flex-direction: column;

@@ -303,12 +303,16 @@
 .timeline.between.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: 2px; }
 .row.marker.lane .when b { font-size: var(--text-12); font-weight: var(--weight-medium); color: var(--text-muted); }
 /* the joint: a small + on the line where two days meet, so a marker can be added anywhere between them */
-.joint { position: relative; height: 0; z-index: 2; }
-.jointadd { position: absolute; left: var(--spine-x); top: -22px; width: 24px; height: 24px; margin-left: -12px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-11); cursor: pointer; opacity: 0; transform: scale(0.85); transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease; }
+.joint { position: relative; height: var(--joint-h); z-index: 2; --joint-h: 40px; --joint-btn: 28px; }
+/* the joint holds its own room between two boxes, with a short line above and below the +; the line is the plan's, drawn here too so it reads as joined */
+.joint::before { content: ""; position: absolute; left: var(--spine-x); top: 0; bottom: 0; width: 2px; margin-left: -1px; background: color-mix(in srgb, var(--text-primary) 18%, transparent); }
+.jointadd { position: absolute; left: var(--spine-x); top: 50%; width: var(--joint-btn); height: var(--joint-btn); margin: calc(var(--joint-btn) / -2) 0 0 calc(var(--joint-btn) / -2); display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-12); cursor: pointer; opacity: 0.7; transition: opacity 0.12s ease, background 0.12s ease; }
+.jointadd::after { content: ""; position: absolute; inset: -8px; } /* a bigger tap area than the circle */
 .jointadd .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.days:hover .jointadd, .jointadd:focus-visible { opacity: 0.7; transform: none; }
-.jointadd:hover, .jointadd:focus-visible { opacity: 1; transform: scale(1.1); border-color: var(--accent-fill); color: var(--accent); background: color-mix(in srgb, var(--accent-fill) 14%, var(--surface-panel)); outline: none; }
-@media (hover: none) { .jointadd { opacity: 0.6; transform: none; } }
+.jointadd:hover, .jointadd:focus-visible { opacity: 1; border-color: var(--accent-fill); color: var(--accent); background: color-mix(in srgb, var(--accent-fill) 14%, var(--surface-panel)); outline: none; }
+.jointadd:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.app.narrow .joint { --joint-h: 48px; }
+.app.narrow .jointadd::after { inset: -8px; } /* 28 + 16 = 44 */
 @media (prefers-reduced-motion: reduce) { .jointadd { transition: none; } }
 
 /* Dragging over the plan: one of its own items (press its body, or a marker's chip, and move) or another module's item. While anything
@@ -319,16 +323,28 @@
 .row.marker.lane.dragging .sdk-mk-line { box-shadow: var(--shadow-1); }
 .row.marker.lane[data-drop="before"] { box-shadow: 0 -3px 0 var(--accent-fill); }
 .row.marker.lane[data-drop="after"] { box-shadow: 0 3px 0 var(--accent-fill); }
-.days.dragging-line .joint { height: 30px; margin: -4px 0 4px; }
 .days.dragging-line .joint::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 0; border-top: 2px dashed color-mix(in srgb, var(--text-muted) 60%, transparent); }
-.days.dragging-line .jointadd { top: 3px; opacity: 1; transform: none; pointer-events: none; }
+.days.dragging-line .jointadd { opacity: 1; pointer-events: none; }
 .days.dragging-line .joint.drop-target::before { border-top-color: var(--accent-fill); border-top-style: solid; border-top-width: 3px; }
-.days.dragging-line .joint.drop-target .jointadd { border-color: var(--accent-fill); color: var(--text-on-accent); background: var(--accent-fill); transform: scale(1.15); }
+.days.dragging-line .joint.drop-target .jointadd { border-color: var(--accent-fill); color: var(--text-on-accent); background: var(--accent-fill); }
 
 /* a phase's start or end on the line (drawn from the bar's dates): filled in the phase's tint, no coloured border; every start and every
    end is a marker of its own, never blended with a neighbour's */
 .row.marker.phase .sdk-mk-line { --marker: var(--ph); }
 .row.marker.phase .rail .dot { background: var(--ph); }
+/* each phase marker is one full-width bar of one fixed height: its flag, the phase's name, its date at the end; the whole bar is the marker */
+.row.marker.phase { --phase-bar-h: 32px; grid-template-columns: minmax(0, 1fr); }
+.app.narrow .row.marker.phase { grid-template-columns: minmax(0, 1fr); grid-template-areas: "slot"; }
+.row.marker.phase :is(.when, .rail) { display: none; }
+.row.marker.phase .slot { padding: var(--space-1) 0; display: block; }
+.app.narrow .row.marker.phase .sdk-mk-line { margin-left: 0; }
+.row.marker.phase .sdk-mk-line { display: flex; width: 100%; height: var(--phase-bar-h); margin: 0; padding: 0 var(--space-2) 0 var(--space-1); border-radius: var(--radius-small); background: color-mix(in srgb, var(--ph) 28%, var(--surface-panel)); }
+.row.marker.phase .sdk-mk-line > .sdk-mk-label { flex: 1 1 auto; order: 1; }
+.row.marker.phase .sdk-mk-line > .sdk-mk-when { order: 2; display: inline; margin-left: auto; }
+.row.marker.phase .sdk-mk-line > .sdk-mk-when:empty { display: none; }
+.row.marker.phase .sdk-mk-line > .sdk-mk-note { display: none; }
+/* a card: its band is a stronger surface than its body, which is the lighter one (the banded card reads --card-fill and --card-head-base) */
+.card { --card-fill: color-mix(in srgb, var(--surface-panel) 75%, var(--surface-field)); --card-head-base: color-mix(in srgb, var(--card-head-tint) 10%, var(--surface-card)); }
 
 /* phases: a day in a dated phase takes a soft wash of the phase's tint (header and strip chip), with its name beside the
    date in a tag filled in the tint; borders stay the neutral ones. The tint names are the theme's (Phases.tintOf). */

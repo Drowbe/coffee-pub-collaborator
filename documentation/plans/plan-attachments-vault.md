@@ -5,8 +5,9 @@ server-development builds the file store, the routes, the quotas, the share link
 builds the Vault module, its viewers, the share page, the SDK calls and the first module that links to a file;
 quality-assurance reviews the store and the share links as security changes; content-manager documents.
 
-**Status:** decided 2026-10-29 (decisions 1 to 7 below, GitHub #380); nothing built. Thomas calls it critical for
-post-trip sharing. The open questions at the end are the ones still his. This plan replaces the attachments plan of
+**Status:** approved 2026-10-30 (decisions 1 to 7 of 2026-10-29, GitHub #380, and decisions 8 to 15 of 2026-10-30);
+nothing built. Thomas calls it critical for post-trip sharing. One question is still his, the default for metadata
+removal, and it blocks only that part of step 1. This plan replaces the attachments plan of
 2026-10-15, which proposed a host attachments service with no module of its own; what stays of its four decisions is
 under Decisions.
 
@@ -115,7 +116,7 @@ From the 2026-10-15 attachments plan:
 - Its decision 2 (the Planner and Research notes take files first, then To-do, Calendar and Budget) is kept as the
   order in which modules learn to link.
 - Its decisions 3 and 4 (a file can be "Only me", and an owner may not open someone's "Only me" file) were made for
-  attachments on objects. Whether a space's Vault keeps "Only me" files is open question 6.
+  attachments on objects. Whether a space's Vault keeps "Only me" files is decision 13.
 
 ## The target
 
@@ -127,12 +128,12 @@ The bytes live in `VAULT_DIR`, stream in and out, and never sit whole in the ser
 
 ## The contract
 
-Written for the leanings in the open questions where one applies; each such place says so.
+Written to the decisions below. The one open question (metadata, decision 10) is marked where it applies.
 
 ### 1. Types and limits
 
 The type is decided from the bytes, never from the name or the header. The extension shown is set from that type
-("ticket.exe" that is a PDF is kept as "ticket.pdf"). Per-file limits are proposals (open question 2).
+("ticket.exe" that is a PDF is kept as "ticket.pdf"). The limits are decision 9.
 
 | Group | Type | Extensions | Sniffed by | Per file |
 |---|---|---|---|---|
@@ -146,15 +147,16 @@ The type is decided from the bytes, never from the name or the header. The exten
 | | `audio/mp4` | m4a | `ftyp` at 4 with brand `M4A ` or `M4B ` | 200 MB |
 | Video | `video/mp4` | mp4 | `ftyp` at 4 with an ISO brand (`isom`, `iso2`, `mp41`, `mp42`, `avc1`, `dash`) | 2 GB |
 | | `video/webm` | webm | EBML `1A 45 DF A3` with DocType `webm` in the first 4 KB | 2 GB |
+| | `video/quicktime` | mov | `ftyp` at 4 with brand `qt  ` | 2 GB |
 | Documents | `application/pdf` | pdf | `%PDF-` at the start | 100 MB |
 | | `text/markdown` | md | valid UTF-8 with no NUL byte, and a `.md` name | 1 MB |
 
 - **Refused, always:** SVG, HTML, XML, scripts, executables, archives of any kind (zip, so no zip bombs), Office files,
-  `.mkv`, and HEIC and `.mov` unless open question 2 takes them. A refusal names what is taken: "That kind of file can't go in the Vault. It takes pictures (JPEG,
-  PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM), PDF and Markdown."
+  `.mkv` and HEIC. HEIC is refused with "Save it as a JPEG." Any other refusal names what is taken: "That kind of file can't go in the Vault. It takes pictures (JPEG,
+  PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown."
 - **Pictures too large to draw:** a picture whose header says more than 100 million pixels is refused ("That picture is
   too large to show."), so a viewer is never handed a decompression bomb. The server reads the header only.
-- **PDF active content (proposed, open question 2):** refuse a PDF whose bytes hold `/JavaScript`, `/JS`, `/Launch`,
+- **PDF active content (decision 9):** refuse a PDF whose bytes hold `/JavaScript`, `/JS`, `/Launch`,
   `/EmbeddedFile`, `/RichMedia` or `/XFA`, read as a stream in 1 MB windows with an overlap. A name hidden in a
   compressed object stream passes, so this is a filter; the headers below are the guard.
 - **Names:** kept in the record, one line, at most 120 characters, path separators and control characters removed. On
@@ -164,7 +166,7 @@ The type is decided from the bytes, never from the name or the header. The exten
 
 | Variable | Meaning | When unset or not a number above 0 |
 |---|---|---|
-| `VAULT_DIR` | the folder that holds the Vault's bytes, for every environment on the host | `DATA_DIR/vault` (open question 7) |
+| `VAULT_DIR` | the folder that holds the Vault's bytes, for every environment on the host | `DATA_DIR/vault`, outside the in-app backup zips (decision 14) |
 | `VAULT_MAX_GB` | the most the whole folder may hold | 20 |
 | `VAULT_SPACE_MAX_GB` | the most one space's Vault may hold | 5 |
 | `VAULT_PERSON_MAX_GB` | the most one person may have added, across the environment's spaces | 2 |
@@ -211,7 +213,8 @@ environment, membership of the space (or owner rights), that the module is on th
   the part file's first 4 KB, checked, then renamed into place. A part left by a restart goes after an hour. At most two
   uploads at once per person and eight per environment; a third waits with 429 "Another upload is still running."
 - **Pictures are cleaned without holding them twice:** `cleanImage` runs on the part file (at most 25 MB, one at a time
-  per environment). Audio, video, PDF and Markdown are kept as sent (open question 3).
+  per environment). Audio, video, PDF and Markdown are kept as sent. Pictures lose where they were taken only when the person chose that
+  (decision 10).
 - **Serving streams.** `res.sendFile` with `acceptRanges`, never a read into memory, so a player can seek. A range it
   cannot meet answers 416 with the size, as the module files route does.
 - **Headers on every file sent:** the stored type only (Markdown as `text/plain; charset=utf-8`, never HTML),
@@ -226,7 +229,7 @@ environment, membership of the space (or owner rights), that the module is on th
 
 ### 4. Links: how a module points at a file
 
-Leaning on open question 1 (files as the Vault's objects):
+Files are the Vault's objects (decision 8):
 
 - **A file is an object** of the Vault, kind `file`, declared in `refs.produces` with `open: true` and `backlinks: true`.
   Its summary is `title` (the name) and `category` (the group). So a link is an ordinary pointer
@@ -278,7 +281,7 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 | `share` | Make share links | off | on | off, and cannot be turned on |
 
   The server refuses every library route to a guest pass, the OBS access key and any keyed page, whatever Roles says.
-  The `share` row's member default follows decision 3; open question 5 asks whether an owner may turn it on for members.
+  The `share` row's member default is off (decision 3); an owner can turn it on for the member role in Roles (decision 12).
 - **The frame:** a view switch in the toolbar (`host.ui.viewSwitch`: **List** `list`, **Grid** `grip`); the search on
   the right ("Search files"); **Filters** with a **Type** group (Pictures, Audio, Video, Documents, each with its count),
   an **Added by** group (Everyone, Mine) and a **Linked** group (Linked, Not linked). The **+** is **Add files**. The
@@ -292,7 +295,7 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 
 - **Made by** someone with `share` (owners and moderators by default) from the Vault's Share, for one file or a chosen
   set. The set is fixed when made; its maker or an owner can add or take out files later.
-- **Choices on the sheet:** a name ("Rome photos"), an end (1 day, 7 days, 30 days; 7 by default; open question 8), an
+- **Choices on the sheet:** a name ("Rome photos"), an end (1 day, 7 days or 30 days; 7 by default; never without an end, decision 15), an
   optional password, and **Allow download** (off by default, decision 3). **Make link** shows the address once with
   **Copy**.
 - **Stored** in the Vault's space data as `{ id, name, files, by, at, ends, download, passwordHash?, tokenHash, opened }`.
@@ -331,9 +334,10 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 
 ### 9. Backups
 
-The in-app backups cannot carry gigabytes: they zip in memory and a restore takes at most 500 MB. So (open question 7):
+The in-app backups cannot carry gigabytes: they zip in memory and a restore takes at most 500 MB. So (decision 14):
 
 - The records are in `DATA_DIR` and travel with every backup; the bytes in `VAULT_DIR` do not.
+- A backup that carries the bytes is a later piece of work, its own plan.
 - The getting-started guide and `docker-compose.yml` give `VAULT_DIR` its own volume, and the admin backs it up with the
   data folder.
 - A restore whose bytes are missing shows those files as "File missing" with **Remove**, never an error page.
@@ -348,7 +352,8 @@ The in-app backups cannot carry gigabytes: they zip in memory and a restore take
   and documents, the name under each. Three across on a phone, as many as fit elsewhere.
 - **Viewer**, inside the module's content area, one file at a time: a top row with **Back**, the name, previous and
   next, **Download** where allowed, **Share** where allowed, and the more button. Below it:
-  - pictures: the `img`, fitted, with **Full screen**;
+  - pictures: the `img`, fitted, with **Full screen**; a video or picture thumbnail is made in the page (decision 11), a
+    PDF has none, only its type tile;
   - audio: the `audio` element with `controls` (play, pause, seek, volume, speed);
   - video: the `video` element with `controls` and `playsinline` (play, pause, seek, volume, full screen,
     picture-in-picture where the browser has it);
@@ -360,7 +365,11 @@ The in-app backups cannot carry gigabytes: they zip in memory and a restore take
   browser still will not show a PDF there (iOS Safari shows only the first page in a frame), the viewer shows **Open**,
   which opens the PDF in a new tab.
 - **Adding:** **Add files** opens the device's chooser (several at once; on a phone, the photo library and camera), and
-  dropping files on the module adds them. Each shows a progress row; a refusal shows its sentence on that row.
+  dropping files on the module adds them. Each shows a progress row; a refusal shows its sentence on that row. Under
+  it, one line: "Everyone in this {space} can see what you add." (decision 13). Beside it, an option for the person
+  adding (decision 10): **Remove where it was taken**, for pictures, with its state remembered per person. For video
+  there is no option, only a notice: "Videos keep their details, which can include where they were taken." The default
+  of the option is the one open question.
 - **Empty states:** no files ("No files yet. Add tickets, photos and documents for this {space}." with **Add files**);
   nothing matches ("No files match." with **Clear filters**); no permission ("You can't see the files in this
   {space}."); a link chip whose file is gone ("File removed").
@@ -391,7 +400,7 @@ How a trip's photos and tickets are shared afterwards, as the plan expects it to
 - **Who sees what:** members and moderators of the space with `view`, and owners and the admin. Guests, the OBS access
   key, keyed pages, published views (#211), calendar feeds and the published calendar never see a file, a name or a
   count; the only way in from outside is a share link. A file's name reaches summaries, search, links and the AI only for
-  people who can read the Vault (open question 1).
+  people who can read the Vault (decision 8).
 - **Checks before the body:** every write route decides access, quota and rate before reading a byte; a refusal ends the
   request and throws away what is still arriving, as the picture map's upload does.
 - **Never in memory whole:** uploads stream to disk; files stream out with ranges; the only whole read is a picture
@@ -401,8 +410,9 @@ How a trip's photos and tickets are shared afterwards, as the plan expects it to
 - **Malware:** the server never opens, decodes or runs a file. The risk is to a person who downloads one. No scanner is
   bundled; a ClamAV socket variable is a later idea, not planned.
 - **Filenames:** never used on disk; cleaned for display; sent in `Content-Disposition` in both ASCII and UTF-8 forms.
-- **Metadata:** pictures as Research's (taken time and camera read into the record; position dropped unless the person
-  keeps it); audio and video kept as sent, which can include where a video was taken (open question 3).
+- **Metadata:** the person adding files chooses (decision 10, section 10 "Adding"). Taken time and camera are read into
+  the record for pictures either way. Audio and video are kept as sent, which can include where a video was taken, and
+  the notice under Add files says so.
 - **Rate limits:** the module `upload` limit, `VAULT_MB_PER_MINUTE`, two uploads at once per person, five password tries
   per link and address in fifteen minutes, and the existing request limits on share routes.
 - **SSRF: none.** The server never fetches an address for the Vault: there is no "add from a link". The Drive store is its
@@ -416,7 +426,7 @@ Each step can be built and checked on its own. A new or changed module gets a ve
 
 | # | Step | Size | Agent | Kind |
 |---|---|---|---|---|
-| 1 | **Store, routes, quotas.** `server/library.js`: `VAULT_DIR` and the variables, the type sniffing, the streamed upload, the streamed serving with ranges, the headers, the quotas and reservation, rate limits, the `library` manifest field and its routes, the `file` kind's records, activity lines. `tools/check-library.mjs` in `npm run check` | L | server-development | feedback build with a QA security review |
+| 1 | **Store, routes, quotas.** (Nothing here waits on a question except the metadata default: build the Remove-where-it-was-taken option and the video notice, and set the default once Thomas answers.) `server/library.js`: `VAULT_DIR` and the variables, the type sniffing, the streamed upload, the streamed serving with ranges, the headers, the quotas and reservation, rate limits, the `library` manifest field and its routes, the `file` kind's records, activity lines. `tools/check-library.mjs` in `npm run check` | L | server-development | feedback build with a QA security review |
 | 2 | **The Vault module and its list.** `modules/vault` at 0.1.0: manifest and permissions, List and Grid, search, Filters, Add files with progress, Rename, Remove with "where it is used", Select, the status line, empty states, phone | M | experience-design | try build |
 | 3 | **Viewers.** Pictures, audio, video with real controls, Markdown; the frame's `allow="fullscreen"`; the host-drawn PDF layer with the Open fallback; previous and next; thumbnails made in the page | M | experience-design (S of it for server-development: the PDF headers) | try build, then a browser pass by Thomas |
 | 4 | **Linking SDK and one module.** `host.files.pick`, `.link`, `.resolve`, `.open`, `host.ui.fileChips`; "File removed"; the Planner links its stays and journeys to files (decision 2 of 2026-10-15's order) | M | experience-design | try build |
@@ -458,40 +468,41 @@ the environment-wide library, Google Drive, the Journal (#40).
 ## Risks
 
 - **Phones record what the Vault refuses.** iPhones record `.mov` (HEVC) and take HEIC photos. Safari's chooser often
-  converts photos to JPEG, but not always videos. Open question 2.
+  converts photos to JPEG, but not always videos. A `.mov` is accepted and may not play outside Safari (decision 9); HEIC is refused with "Save it as a JPEG."
 - **Codecs are not types.** An MP4 can hold a codec a browser cannot play (HEVC outside Safari). The viewer says "This
   browser can't play this file." with **Download**; the server does not transcode.
 - **PDF in a frame** varies by browser; the Open fallback covers the worst case.
 - **View-only is not copy protection**, and the share sheet says so.
 - **Backups:** the bytes are outside the in-app backup by design; an admin who does not back up `VAULT_DIR` loses files.
 - **Metadata in video** can carry a position the Vault does not strip.
-- **Summaries carry names** under the lean of open question 1; a passport scan's name is seen by every member who can
+- **Summaries carry names** (decision 8); a passport scan's name is seen by every member who can
   read the Vault.
+
+## Decided
+
+Thomas decided these on 2026-10-30, answering the open questions. Numbers continue the list above.
+
+8. **Files are the Vault's objects.** A `file` kind: links, backlinks, open, search and drag reuse what exists. File
+   names reach summaries only for people who can read the Vault. One kind of link everywhere.
+9. **Types and limits as in section 1.** 25 MB pictures, 200 MB audio, 2 GB video, 100 MB PDF, 1 MB Markdown. The PDF
+   active-content refusal is on. `.mov` is accepted as `video/quicktime`, with a note that some browsers can't play it.
+   HEIC is refused with "Save it as a JPEG."
+10. **Metadata is the choice of the person adding files**, not a fixed rule. Under Add files, an option **Remove where it
+    was taken** for pictures and a plain notice for video (section 10, "Adding").
+11. **Thumbnails** for pictures and video, made in the page; none for PDF.
+12. **Share links** are made by owners and moderators. An owner can switch `share` on for the member role in Roles; it is
+    off by default.
+13. **No "Only me" files** in a space's Vault. Everything belongs to the space; the text under Add files reads "Everyone
+    in this {space} can see what you add." Personal documents wait for the environment-wide library.
+14. **Storage default.** `VAULT_DIR` unset means `DATA_DIR/vault`, outside the in-app backup zips. A backup that carries
+    the bytes is a later piece.
+15. **Share link ends:** 1, 7 or 30 days, 7 by default, never without an end.
+
+Kept from the earlier decisions: viewers have real controls (play, pause, seek, volume, full screen). The host provides
+full screen and the PDF viewer because they don't work in the sandboxed module frame (section 10).
 
 ## What is not decided
 
-Numbered, each with its options and a suggestion. The step each blocks is named.
-
-1. **Files as the Vault's objects, or a host file service.** (a) Each file is an object of the Vault (`file` kind):
-   links, backlinks, open, search and drag reuse what exists, and names reach summaries for those who can read the
-   Vault. (b) A separate host file pointer with its own resolve and links, names never in summaries: more to build, two
-   kinds of link. Suggestion: (a). Blocks: steps 1 and 4.
-2. **Exact types and limits.** The table in section 1 (25 MB pictures, 200 MB audio, 2 GB video, 100 MB PDF, 1 MB
-   Markdown), the PDF active-content refusal, and whether to take `.mov` (H.264 only plays everywhere) and HEIC (shown
-   only in Safari). Suggestion: the table as written, the PDF refusal on, `.mov` accepted as `video/quicktime` with a
-   note that some browsers can't play it, HEIC refused with "Save it as a JPEG". Blocks: step 1.
-3. **Metadata.** (a) Pictures as Research's (position dropped unless kept), audio and video as sent; (b) also refuse or
-   warn on video with a position; (c) keep everything. Suggestion: (a), with a line under Add files: "Videos keep their
-   details, which can include where they were taken." Blocks: step 1.
-4. **Thumbnails.** (a) Made in the page for pictures and video (a frame drawn from the video), none for PDF; (b) also a
-   PDF's first page, which needs a PDF library in `public/sdk/`; (c) none. Suggestion: (a). Blocks: steps 2 and 3.
-5. **Who makes share links.** Decision 3 says owners and moderators. Should an owner be able to turn `share` on for
-   members in Roles? Suggestion: yes, off by default. Blocks: step 5.
-6. **"Only me" files in a space's Vault** (the 2026-10-15 decisions 3 and 4). (a) Not in the per-space Vault: everything
-   in it is the space's, and personal documents wait for the environment-wide library; (b) an Only me choice per file
-   now. Suggestion: (a), with "Everyone in this {space} can see what you add." under Add files. Blocks: steps 1 and 2.
-7. **Where the bytes go by default, and backup.** (a) `VAULT_DIR` unset means `DATA_DIR/vault`, outside the in-app
-   zips; (b) unset means the Vault is off until the admin sets it; (c) a streamed backup that carries the bytes (its own
-   work). Suggestion: (a) now, (c) later if Thomas wants one-click backups with files. Blocks: step 1.
-8. **Share link ends.** (a) 1, 7 or 30 days, 7 by default, no link without an end; (b) also 90 days; (c) a date chosen
-   freely up to a year. Suggestion: (a). Blocks: step 5.
+1. **The default for Remove where it was taken** (decision 10). Thomas said it is the user's choice; the default is
+   still open. Suggestion: on for pictures, so a position is dropped unless the person keeps it, as Research does; for
+   video, an obvious notice, because the Vault does not strip video. Blocks only the metadata part of step 1.

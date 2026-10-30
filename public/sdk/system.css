@@ -786,7 +786,8 @@
      Tag           .sdk-chip-tag        24px, 12px   what a thing is; not pressed. A tag that is a link or a button is a.sdk-chip-tag or button.sdk-chip-tag
      Removable     .sdk-chip-removable  24px, 12px   a tag with a trailing x button (.sdk-chip-x)
      Status label  .sdk-status          24px, 12px   a condition, in words, with a tint fill
-     Count         .sdk-badge           18px, 11px   a neutral number after a label or in a chip; data-tone="ok" is green (something to act on)
+     Count         .sdk-badge           18px, 11px   a neutral number after a label or in a chip; data-tone="ok" is green (something to act on);
+                                                     one digit is a circle, two or more a box with the small corner
      Micro count   .sdk-badge-micro     14px, 9px    an accent number on the corner of an icon-only button (the parent is positioned by this block)
      Dot           .sdk-dot             7px          where a number is not useful
    Selected is aria-pressed, aria-selected, aria-checked or .on: the quiet selected fill (--fill-selected) with --text-selected. A category
@@ -1020,7 +1021,11 @@
   color: inherit;
 }
 
-/* The count after a label or inside a chip: neutral, 18px, 11px strong. */
+/* The count after a label or inside a chip: neutral, 18px, 11px strong. One digit is an 18px circle; two or more digits are a
+   box with the small corner (no pills). The shape follows the count's own width, so nothing that writes a number has to mark it:
+   the corner is the small one, and while the box is square (one digit fits the 18px minimum) the clip cuts it to the circle.
+   A circle()'s percentage is of the box's diagonal over the square root of 2 (18px for the 18px square, 19px and more from two
+   digits up, in any font), so max() gives the 50% circle up to 18.5px and, past that, a radius far outside the box (no clip). */
 .sdk-badge {
   display: inline-flex;
   align-items: center;
@@ -1030,9 +1035,10 @@
   min-width: 18px;
   height: 18px;
   margin: 0;
-  padding: 0 calc(var(--space-1) + var(--space-0));
+  padding: 0 var(--space-1);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
+  clip-path: circle(max(50%, (100% - 18.5px) * 100));
   background: color-mix(in srgb, var(--text-primary) 14%, transparent);
   color: var(--text-primary);
   font-size: var(--text-11);

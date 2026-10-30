@@ -63,33 +63,7 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 .pp-pcard > .sdk-card-head .sdk-card-title { font-size: var(--text-13); font-weight: var(--weight-strong); }
 .pp-pcard > .sdk-card-head .sdk-card-sub { color: var(--text-muted); }
 
-/* A: no tile; the icon alone, about 1.5 times larger (12px to 18px), in the kind's colour. The colour is the tint at a lightness that holds
-   3:1 on the card (0.52 on a light card, 0.78 on a dark one). To system.css: the .sdk-card-icon rule. */
-:root { --pp-icon-l: 0.78; }
-:root[data-theme-mode="light"] { --pp-icon-l: 0.5; }
-html[data-pp-icon="open"] .pp-pcard > .sdk-card-head .sdk-card-icon {
-  --card-icon: 28px;
-  background: none;
-  color: color-mix(in srgb, var(--tint) 70%, var(--text-primary));
-  font-size: 18px;
-}
-@supports (color: oklch(from red l c h)) {
-  html[data-pp-icon="open"] .pp-pcard > .sdk-card-head .sdk-card-icon { color: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h); }
-}
-
-/* B: a tile filled with the kind's colour, the same colour option A draws its icon in, and the icon in the card title's own colour
-   (--text-primary, the token .sdk-card-title takes), so it follows every theme and mode. The contrast of the pair is measured on the
-   Prototype and reported, not forced. To system.css: the .sdk-card-icon rule. */
-html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon {
-  --card-icon: 28px;
-  background: color-mix(in srgb, var(--tint) 75%, var(--text-primary));
-  color: var(--text-primary);
-  font-size: var(--text-14);
-}
-@supports (color: oklch(from red l c h)) {
-  html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon { background: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h); }
-}
-html[data-pp-icon="today"] .pp-pcard > .sdk-card-head .sdk-card-icon { --card-icon: 24px; }
+/* The card's leading icon is the real .sdk-card-icon rule in system.css (option A: no tile, 18px, the kind's colour, 3:1 on the card). */
 
 /* The proposed light mode of Strong Coffee (the other two themes are untouched, and dark never changes). A surface ladder, from the
    page to the card: page one warm tone, the panel a step lighter, the card white; the title and status bars a distinct, darker tone;
@@ -99,7 +73,7 @@ html[data-pp-icon="today"] .pp-pcard > .sdk-card-head .sdk-card-icon { --card-ic
 html[data-theme-mode="light"][data-pp-theme="strong-coffee"][data-pp-light="proposed"] {
   --surface-page: #e9e0d3;
   --surface-panel: #f7f2ea;
-  --surface-card: #ffffff;
+  --surface-card:#ffffff;
   --surface-field: #ffffff;
   --surface-menu: #ffffff;
   --edge-hairline: #a89580;

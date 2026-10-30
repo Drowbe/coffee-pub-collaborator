@@ -12,8 +12,7 @@ const THEMES = [
 const MODES = [{ id: 'dark', label: 'Dark', icon: 'moon' }, { id: 'light', label: 'Light', icon: 'sun' }];
 const WIDTHS = [390, 500, 700, 1280].map((w) => ({ id: String(w), label: `${w}` }));
 
-// Design-process switches (Thomas, 2026-10-30; nothing here ships): the leading icon on a Planner card, and a reworked light mode of Strong Coffee.
-const ICONS = [{ id: 'open', label: 'A: Open icon' }, { id: 'tile', label: 'B: Tile' }, { id: 'today', label: 'Today' }];
+// Design-process switches (Thomas, 2026-10-30; nothing here ships): a reworked light mode of Strong Coffee.
 const LOOKS = [{ id: 'current', label: 'Light: current' }, { id: 'proposed', label: 'Light: proposed' }];
 
 const q = new URLSearchParams(location.search);
@@ -21,7 +20,6 @@ const state = {
   theme: THEMES.some((t) => t.id === q.get('theme')) ? q.get('theme') : 'strong-coffee',
   mode: q.get('mode') === 'light' ? 'light' : 'dark',
   w: WIDTHS.some((w) => w.id === q.get('w')) ? q.get('w') : '700',
-  icon: ICONS.some((i) => i.id === q.get('icon')) ? q.get('icon') : 'open',
   look: q.get('look') === 'proposed' ? 'proposed' : 'current',
 };
 
@@ -30,13 +28,11 @@ function apply() {
   D.documentElement.dataset.themeMode = state.mode;
   D.documentElement.style.setProperty('--pp-w', `${state.w}px`);
   D.documentElement.dataset.ppTheme = state.theme;
-  D.documentElement.dataset.ppIcon = state.icon;
   D.documentElement.dataset.ppLight = state.look;
   const u = new URL(location.href);
   u.searchParams.set('theme', state.theme);
   u.searchParams.set('mode', state.mode);
   u.searchParams.set('w', state.w);
-  u.searchParams.set('icon', state.icon);
   u.searchParams.set('look', state.look);
   history.replaceState(null, '', u);
 }
@@ -328,10 +324,9 @@ for (const s of TITLEBAR_STATES) {
 }
 
 
-// ---- the Planner's cards: the leading icon, two ways (Thomas, 2026-10-30) ----
+// ---- the Planner's cards: the leading icon (Thomas chose option A, 2026-10-30) ----
 // Five cards as the Planner draws them (the banded card of system.css: a head with the icon, the title and the kind, a body under it),
-// inside the real module frame. The switch at the top picks the icon: A, no tile, a larger icon in the kind's colour; B, a dark tile
-// with a light icon; Today, the tinted tile now in system.css. The kind's colour is the theme's accent turned round the wheel, as the Planner does.
+// inside the real module frame. The icon is the real .sdk-card-icon of system.css: no tile, a larger icon in the kind's colour. The kind's colour is the theme's accent turned round the wheel, as the Planner does.
 const PLAN_CARDS = [
   { kind: 'flight', icon: 'plane', title: 'Toronto to Lisbon', sub: 'Flight', lines: ['AC 1952 \u00b7 8:40 AM to 8:15 PM', 'Seat 14A \u00b7 Checked bag'] },
   { kind: 'stay', icon: 'bed', title: 'Hotel Avenida Palace', sub: 'Stay', lines: ['Check in 9:30 PM \u00b7 2 nights', 'Confirmation 48X2QP'] },
@@ -378,14 +373,14 @@ function planContent() {
 }
 const planSec = D.createElement('section');
 planSec.className = 'pp-group';
-planSec.setAttribute('aria-labelledby', 'pp-plan-cards');
+planSec.setAttribute('aria-labelledby', 'pp-plan-icons');
 const planName = D.createElement('h2');
 planName.className = 'pp-group-name';
-planName.id = 'pp-plan-cards';
+planName.id = 'pp-plan-icons';
 planName.textContent = 'Planner cards: the leading icon';
 const planNote = D.createElement('p');
 planNote.className = 'pp-state-note';
-planNote.textContent = 'Flight, stay, sight, meal and rental car. Use the Card icon switch at the top: A is the icon alone, larger, in the kind\'s colour; B is a tile in the kind\'s colour, with the icon in the card title\'s colour; Today is the tinted tile now in the product. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
+planNote.textContent = 'Flight, stay, sight, meal and rental car. The icon is the real one: no tile, 18px, in the kind\'s colour. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
 planSec.append(planName, planNote);
 main.prepend(planSec);
 drawState({
@@ -401,6 +396,5 @@ drawState({
 pageSwitch('pp-theme', 'theme', THEMES);
 pageSwitch('pp-mode', 'mode', MODES);
 pageSwitch('pp-width', 'w', WIDTHS);
-pageSwitch('pp-icon', 'icon', ICONS);
 pageSwitch('pp-look', 'look', LOOKS);
 apply();

@@ -1394,7 +1394,7 @@
 .sdk-card-banded > .sdk-card-head > .sdk-card-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .sdk-card-banded > .sdk-card-head .sdk-card-title { overflow: hidden; font-size: var(--text-12); line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .sdk-card-banded > .sdk-card-head .sdk-card-sub { flex: none; font-size: var(--text-11); }
-.sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 24px; font-size: var(--text-12); }
+.sdk-card-banded > .sdk-card-head .sdk-card-icon { --card-icon: 28px; }
 /* A button in the band (the "..." or one small action) is the band's 30px and sits on its line. */
 .sdk-card-banded > .sdk-card-head > :is(.sdk-icon-btn, .btn-small) { flex: none; }
 /* The banded card's states: the same fills as a card, made on the box's own surface (--s), so the band, a step of it, follows. */
@@ -1528,7 +1528,11 @@
 .sdk-card:has(> .sdk-card-menu) > :is(.sdk-card-head, .sdk-card-title, .sdk-card-sub) { padding-right: var(--btn-h-small); }
 .sdk-card-home:has(> .sdk-card-menu) { padding-right: var(--pad-home); }
 
-/* The icon chip: category colour on the icon, a quiet tint behind it. No tint, no colour: neutral. */
+/* The card's leading icon: no tile, the icon alone in the kind's colour (--tint; none, and it is neutral), 1.5 times the old size
+   (18px, was 12px in a banded head and 14px elsewhere). The colour is the tint at a lightness that holds 3:1 on the card: --card-icon-l, 0.78 on a
+   dark card, 0.5 on a light one. The box (--card-icon) only keeps the title and the icon lined up and the tap area; it draws nothing. */
+:root { --card-icon-l: 0.78; }
+:root[data-theme-mode="light"] { --card-icon-l: 0.5; }
 .sdk-card-icon {
   flex: none;
   display: inline-flex;
@@ -1536,11 +1540,13 @@
   justify-content: center;
   width: var(--card-icon);
   height: var(--card-icon);
-  border-radius: var(--radius-small);
-  background: color-mix(in srgb, var(--tint, var(--text-muted)) 18%, var(--s, var(--surface-card)));
-  color: color-mix(in srgb, var(--tint, var(--text-muted)) 62%, var(--text-primary));
-  font-size: var(--text-14);
+  background: none;
+  color: color-mix(in srgb, var(--tint, var(--text-muted)) 70%, var(--text-primary));
+  font-size: var(--text-18);
   line-height: 1;
+}
+@supports (color: oklch(from red l c h)) {
+  .sdk-card-icon { color: oklch(from var(--tint, var(--text-muted)) var(--card-icon-l) max(c, 0.12) h); }
 }
 .sdk-tint-text { color: color-mix(in srgb, var(--tint, var(--text-muted)) 62%, var(--text-primary)); font-weight: var(--weight-strong); }
 

@@ -47,7 +47,7 @@ const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const ch of css) { if (ch === '{') depth += 1; if (ch === '}') depth -= 1; if (depth < 0) break; }
   if (depth !== 0) fail('system.css: unbalanced braces');
   if (/#[0-9a-fA-F]{3,8}\b/.test(css.replace(/url\([^)]*\)/g, ''))) fail(`system.css: a hex colour (${css.match(/#[0-9a-fA-F]{3,8}\b/)[0]}); colours come from the tokens`);
-  if (/\b(hsla?|hwb|lab|lch|oklab|oklch)\(/i.test(css)) fail('system.css: a colour function other than color-mix and the approved rgba defaults');
+  if (/\b(hsla?|hwb|lab|lch|oklab|oklch)\(/i.test(css.replace(/oklch\(from /g, ''))) fail('system.css: a colour function other than color-mix, relative oklch(from ...) and the approved rgba defaults');
   const rgbas = [...css.matchAll(/rgba?\([^)]*\)/g)].map((m) => m[0].replace(/\s+/g, ''));
   const approved = new Set(['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.55)']); // the three shadows (dark, 2026-10-21) and the scrim
   for (const r of rgbas) if (!approved.has(r)) fail(`system.css: ${r} is not an approved palette default`);

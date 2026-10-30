@@ -50,7 +50,7 @@
 /* another module's item: the same frame, a source line, a read-only body, an open action */
 
 /* dated items other modules hold on this day, offered to the plan */
-.suggestions { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; }
+.suggestions { display: flex; flex-direction: column; gap: 6px; padding: 0 var(--day-pr) 8px var(--day-pl); } /* the same side insets as the day's timeline: its boxes share one left and one right edge */
 .suggestions-title { color: var(--text-muted); font-size: var(--text-11); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .suggestion { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px dashed var(--edge-hairline); border-radius: var(--radius-medium); color: var(--text-muted); font-size: var(--text-12); }
 .suggestion .suggestion-main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -62,7 +62,9 @@
 .sdk-banner[data-bar] { grid-column: 1 / -1; margin: var(--space-2) var(--space-1) 0; }
 
 /* the open decisions list */
-.decisions { display: flex; flex-direction: column; gap: var(--space-2); max-width: 720px; margin: 0; padding: 0; list-style: none; }
+.decisions { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; } /* inside Unscheduled it fills the column */
+/* the Decisions and Bookings views: their groups sit in the same centred column as the days */
+.body > :is(.sdk-group-head, .decisions) { max-width: 900px; margin-inline: auto; }
 .decision .ic { color: var(--accent); font-size: var(--text-16); }
 .decision-main { flex: 1; min-width: 0; }
 .decision-title { font-weight: var(--weight-strong); overflow-wrap: anywhere; }
@@ -80,3 +82,21 @@
 .sdk-empty { max-width: 420px; margin: 8vh auto; }
 .sdk-skel-block { --h: 54px; }
 
+
+/* ---- narrow: the phone treatment keyed on the module's own width (.app.narrow, set from the pane in travel.js), not the browser window ----
+   System.css gives a phone these rules by window width (max-width: 640px). A pane docked beside other modules, or the Design page's
+   Planner at a phone width on a wide screen, is as narrow as a phone, so the same rules are repeated here on .app.narrow. */
+.app.narrow { --btn-h: 44px; }
+.app.narrow .daystrip .sdk-daychip { min-height: 44px; }
+:where(.app.narrow .btn-small) { position: relative; }
+.app.narrow .btn-small::after { content: ""; position: absolute; inset: var(--btn-hit) 0; }
+.app.narrow .sdk-icon-btn.btn-small::after, .app.narrow .btn.btn-small.sdk-day-add::after { inset: var(--btn-hit); }
+.app.narrow :is(.decision, .block, .mid) { min-height: 44px; }
+.app.narrow .sdk-day-add .sdk-day-add-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } /* the Add button keeps its plus */
+.app.narrow .sdk-day-head { align-items: flex-start; }
+.app.tiny .sdk-day-head { flex-wrap: nowrap; } /* a docked column: the date, the words and the actions stay on one row (the words wrap), as on a phone */
+.app.narrow .block [data-slot="title"] { white-space: normal; }
+.app.narrow :is(button, a).sdk-mk-line:not(:disabled)::before, .app.narrow .sdk-mk-tag:not(:disabled)::before { content: ""; position: absolute; inset: calc((var(--mk-h) - 2px - 44px) / 2) 0; }
+.app.narrow .sdk-mk-tag { overflow: visible; }
+.app.narrow .card-more summary { min-height: 44px; }
+.app.narrow .leg::after { content: ""; position: absolute; inset: calc((26px - 2px - 44px) / 2) 0; } /* the way between two stops: a 44px target */

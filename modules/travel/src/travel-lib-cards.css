@@ -35,12 +35,14 @@
 /* The day card is the Day cards block of system.css (.sdk-card.sdk-day, its head, date block, labels and actions). Here: the Planner's own layout.
    It stays on the panel step, so the item cards inside it (the card step) still stand out from it. Its head and its timeline have their own
    padding, so the in-day rails stay on the plan's line (--spine-x). The head sticks to the top while the day scrolls, on the card's own fill. */
-.sdk-day { --day-step: var(--surface-panel); gap: 0; padding: 0; margin-bottom: 14px; }
-.sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--pad-card) var(--pad-card) var(--space-1); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; }
+.sdk-day { --day-step: var(--surface-panel); --day-pl: 8px; --day-pr: 14px; gap: 0; padding: 0; margin-bottom: 14px; } /* --day-pl and --day-pr: the side insets every box in the day shares */
+.app.narrow .sdk-day { --day-pl: 6px; --day-pr: 10px; }
+.sdk-day > .sdk-day-head { position: sticky; top: 0; z-index: 3; padding: var(--pad-card) calc(var(--day-pr) + 3px) var(--space-1) var(--pad-card); border-radius: var(--radius-large) var(--radius-large) 0 0; background: inherit; } /* right: the day's menu button centres where a card's does (a card's band keeps its button 3px inside the card) */
+.sdk-day :is(.block, .mid) > .menu-btn { margin-right: calc(-1 * var(--space-1) - 2px); } /* a time block's and a stay's middle nights' menu button: the same centre */
 .sdk-day-labels > .sdk-chip-tag[data-tone="custom"] { --chip-tone: var(--ph); max-width: 100%; }
 .sdk-day .suggestions { margin: 0; }
 .sdk-day.drop-target { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
-.timeline > .day-empty, .timeline > .day-empty-slot { margin: 4px 0 8px 12px; }
+.timeline > .day-empty, .timeline > .day-empty-slot { margin: 4px 0 8px; } /* on the timeline's left edge, as the 'Other modules have' box is */
 .day-empty-slot { list-style: none; }
 /* ---- markers, the line that joins the boxes, the days-between badge ---- */
 /* A marker is the Markers block of system.css: a line chip (.sdk-mk-line) on the line between the days, a day row (.sdk-mk-row) in a
@@ -113,10 +115,6 @@
 .card-roundtrip .roundtrip-warn { color: var(--danger); font-weight: var(--weight-strong); }
 .card-more summary { display: flex; align-items: center; gap: 6px; padding: 5px 0; color: var(--text-muted); font-size: var(--text-11); font-weight: var(--weight-strong); text-transform: uppercase; letter-spacing: var(--tracking-caps); cursor: pointer; list-style: none; }
 .card-more summary::-webkit-details-marker { display: none; }
-@media (max-width: 640px) { /* tap targets on a phone */
-  .card-more summary { min-height: 44px; }
-  .btn.btn-small.sdk-day-add::after { inset: var(--btn-hit); } /* the day's Add, its word hidden: 44px each way */
-}
 .card-more summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 0.12s ease; }
 .card-more[open] summary::before { transform: rotate(-135deg); }
 .card-more .more-close, .card-more[open] .more-open { display: none; }
@@ -257,6 +255,7 @@
 .app.narrow .row.leg-row .when { display: none; }
 .app.narrow .rail .dot { top: 12px; }
 .app.narrow .timeline { padding: 6px var(--tl-pr, 10px) 6px var(--tl-pl, 6px); }
+.app.narrow .timeline:is(.ends, .between) { padding-block: 0; } /* no extra room above or below, as on a wide pane: the + between two boxes stays midway */
 
 /* ---- states of a row (the same the old items had) ---- */
 .entry.done :is(.sdk-card-title, .sdk-row-title) { color: var(--text-muted); text-decoration: line-through; }
@@ -286,7 +285,7 @@
 .row.marker .slot { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) 0; }
 .row.marker .sdk-mk-line { margin-left: -32px; }
 .app.narrow .row.marker .sdk-mk-line { margin-left: -28px; } /* the narrow rail is 14px, 8px from the slot: 15px */
-.row.marker .slot > .menu-btn { flex: none; }
+.row.marker .slot > .menu-btn { flex: none; margin-block: calc((24px - var(--btn-h-small)) / 2); } /* the pill's height, so a bar or pill sits the same distance in from the row's edge */
 /* A time block in a day is a day row (the Markers block): it sits in the slot as a card does, and its dot on the rail is neutral. */
 .row[data-kind="block"] .rail .dot { background: var(--text-muted); }
 .sdk-mk-row { --tint: var(--marker); }
@@ -306,7 +305,11 @@
 .timeline.between.drop-target { outline: 2px dashed var(--accent-fill); outline-offset: 2px; }
 .row.marker.lane .when b { font-size: var(--text-12); font-weight: var(--weight-medium); color: var(--text-muted); }
 /* the joint: a small + on the line where two days meet, so a marker can be added anywhere between them */
-.joint { position: relative; height: var(--joint-h); z-index: 2; --joint-h: 40px; --joint-btn: 28px; }
+.joint { position: relative; height: var(--joint-h); z-index: 2; --joint-h: 54px; --joint-btn: 28px; }
+/* the + sits midway between what is above and below it: the joint takes the space the box above would have kept, and a bar or pill's own 4px is taken off the joint */
+.days > :is(.sdk-day, .timeline):has(+ .joint) { margin-bottom: 0; }
+.timeline + .joint { margin-top: calc(-1 * var(--space-1)); }
+.joint:has(+ .timeline) { margin-bottom: calc(-1 * var(--space-1)); }
 /* the joint holds its own room between two boxes, with a short line above and below the +; the line is the plan's, drawn here too so it reads as joined */
 .joint::before { content: ""; position: absolute; left: var(--spine-x); top: 0; bottom: 0; width: 2px; margin-left: -1px; background: color-mix(in srgb, var(--text-primary) 18%, transparent); }
 .jointadd { position: absolute; left: var(--spine-x); top: 50%; width: var(--joint-btn); height: var(--joint-btn); margin: calc(var(--joint-btn) / -2) 0 0 calc(var(--joint-btn) / -2); display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--text-muted); border-radius: var(--radius-round); background: var(--surface-panel); color: var(--text-muted); font-size: var(--text-12); cursor: pointer; opacity: 0.7; transition: opacity 0.12s ease, background 0.12s ease; }
@@ -314,8 +317,8 @@
 .jointadd .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .jointadd:hover, .jointadd:focus-visible { opacity: 1; border-color: var(--accent-fill); color: var(--accent); background: color-mix(in srgb, var(--accent-fill) 14%, var(--surface-panel)); outline: none; }
 .jointadd:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.app.narrow .joint { --joint-h: 48px; }
-.app.narrow .jointadd::after { inset: -8px; } /* 28 + 16 = 44 */
+.app.narrow .joint { --joint-h: 62px; }
+.app.narrow .jointadd::after { inset: calc((26px - 44px) / 2); } /* 26 inside its border + 18 = 44 */
 @media (prefers-reduced-motion: reduce) { .jointadd { transition: none; } }
 
 /* Dragging over the plan: one of its own items (press its body, or a marker's chip, and move) or another module's item. While anything

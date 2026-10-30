@@ -487,7 +487,7 @@ export function createPlanner(host) {
   app.innerHTML = '<div id="stripbar" class="stripbar"><button class="strip-arrow" type="button" data-action="strip-prev" data-tip="Earlier days" aria-label="Earlier days"><span class="ic" data-icon="chevron-left"></span></button><nav id="daystrip" class="daystrip" aria-label="Jump to a day"></nav><button class="strip-arrow" type="button" data-action="strip-next" data-tip="Later days" aria-label="Later days"><span class="ic" data-icon="chevron-right"></span></button></div><main id="body" class="body"></main>';
   root.append(style, app);
   const $ = (id) => root.getElementById(id);
-  const api = { el: app, root, view: 'days', hideEmpty: false, current: DAYS[0] };
+  const api = { el: app, root, view: 'days', hideEmpty: false, current: TODAY }; // today, as the real Planner marks it
 
   function renderStrip() {
     const strip = $('daystrip');

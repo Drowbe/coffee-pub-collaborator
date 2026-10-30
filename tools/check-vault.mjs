@@ -36,6 +36,7 @@ const { VaultStore, cleanName, nameForType, extensionOf } = require('../server/v
 const types = require('../server/vault-types.js');
 const { pdfScan } = require('../server/pdf-scan.js');
 const { createScanner } = require('../server/vault-scan.js');
+const { watchArrival, slowSenders } = require('../server/arrival.js');
 
 let n = 0;
 const ok = (cond, msg) => { assert.ok(cond, msg); n += 1; };
@@ -351,6 +352,51 @@ const memoryLines = [];
   same(types.structureRefusal(file(Buffer.concat([id3(300), Buffer.alloc(300), Buffer.from('<html><script>alert(1)</script>'), Buffer.alloc(70000, 0x41)])), 'audio/mpeg'), 'kind', 'a tag followed by no frames is refused');
   fs.rmSync(dir, { recursive: true, force: true });
 
+  // How an upload must keep arriving (server/arrival.js), run on a clock of its own: `send(t)` is what the sender sends in
+  // the 100 ms from t (ms), `paused(t)` whether the server has stopped reading then (what it would have sent waits).
+  {
+    const KB = 1024;
+    const arrive = ({ declared, send, paused = () => false, until }) => {
+      let now = 0;
+      let cut = null;
+      let waiting = false;
+      let queued = 0;
+      let sent = 0;
+      const w = watchArrival(declared, () => { cut = now; }, { minRate: 16 * KB, clock: () => now, timer: false });
+      for (; now <= until && cut === null && sent < declared; now += 100) {
+        const p = paused(now);
+        if (p !== waiting) { w.waiting(p); waiting = p; }
+        queued += send(now);
+        if (!p && queued) { const n = Math.min(queued, declared - sent); w.got(n); sent += n; queued = 0; }
+        if (now % 5000 === 0 && now) w.tick();
+      }
+      w.stop();
+      return { cut: cut === null ? null : cut / 1000, sent };
+    };
+    const per = (rate) => (t) => (rate * 100) / 1000;
+    const burst = arrive({ declared: 9 * 1024 * KB, send: (t) => (t % 50000 === 0 ? 64 * KB : 0), until: 300000 });
+    ok(burst.cut !== null && burst.cut <= 65, `64 KB every 50 s (security QA round 2) is cut off after its first minute: at ${burst.cut} s`);
+    const excused = arrive({ declared: 9 * 1024 * KB, send: (t) => (t % 50000 === 0 ? 64 * KB : 0), paused: (t) => t % 50000 === 0, until: 300000 });
+    ok(excused.cut !== null && excused.cut <= 65, `and still when every burst makes the server wait on its disk a moment: at ${excused.cut} s`);
+    const drip = arrive({ declared: 9 * 1024 * KB, send: (t) => (t === 0 ? 4 * KB : t % 5000 === 0 ? 1 : 0), until: 300000 });
+    same(drip.cut, 60, 'a byte every five seconds is cut off at one minute');
+    same(arrive({ declared: 3 * 1024 * KB, send: per(20 * KB), until: 300000 }).cut, null, 'a steady 20 KB a second is never cut off');
+    for (const pause of [20, 45]) same(arrive({ declared: 12 * 1024 * KB, send: (t) => (t >= 30000 && t < 30000 + pause * 1000 ? 0 : 10 * KB), until: 300000 }).cut, null, `100 KB a second with a ${pause} s pause is not cut off`);
+    const long = arrive({ declared: 12 * 1024 * KB, send: (t) => (t >= 30000 && t < 86000 ? 0 : 10 * KB), until: 300000 });
+    ok(long.cut !== null && long.cut > 60 && long.cut <= 90, `with a 56 s pause it is (at ${long.cut} s)`);
+    same(arrive({ declared: 12 * 1024 * KB, send: per(100 * KB), paused: (t) => t >= 30000 && t < 200000, until: 300000 }).cut, null, 'nor is a sender the server itself stopped reading for nearly three minutes');
+    const end = arrive({ declared: 600 * 1700 + 10, send: (t) => (t < 60000 ? 1700 : t === 61000 ? 10 : 0), until: 300000 });
+    same([end.cut, end.sent], [null, 600 * 1700 + 10], 'one that has only a little left to send, and sends it, is not cut off');
+    let now = 0;
+    const slow = slowSenders({ most: 3, windowMs: 10 * 60000, clock: () => now });
+    slow.note('x'); now += 60000; slow.note('x');
+    same(slow.wait('x'), 0, 'two cut-offs in ten minutes: still free to upload');
+    now += 60000; slow.note('x');
+    same([slow.wait('x'), slow.wait('y')], [480, 0], 'a third: the next upload waits until the first is ten minutes old (8 minutes), and only that person\'s');
+    now += 480000;
+    same(slow.wait('x'), 0, 'then it may go again');
+  }
+
   // Markdown's text.
   same([types.markdownRefusal(Buffer.from('# Day one\n*sun*')), types.markdownRefusal(Buffer.from([0x23, 0x20, 0xc3, 0x28])), types.markdownRefusal(Buffer.from('a\0b')), types.markdownRefusal(Buffer.from('  <!DOCTYPE html><p>x')), types.markdownRefusal(Buffer.from('<svg onload=1>'))], [null, 'kind', 'kind', 'kind', 'kind'], 'Markdown: UTF-8, no NUL, not a page or a drawing');
 }
@@ -480,7 +526,7 @@ let failed = false;
 const servers = [];
 try {
   // Server A: small quotas, so they can be filled; a minute's allowance of 4 MB.
-  const A = await startServer('a', { VAULT_SPACE_MAX_GB: String(40 / 1024), VAULT_PERSON_MAX_GB: String(30 / 1024), VAULT_MAX_GB: String(60 / 1024), VAULT_MB_PER_MINUTE: '40' });
+  const A = await startServer('a', { VAULT_SPACE_MAX_GB: String(40 / 1024), VAULT_PERSON_MAX_GB: String(30 / 1024), VAULT_MAX_GB: String(60 / 1024), VAULT_MB_PER_MINUTE: '40', VAULT_SLOW_MINUTES: '0.25' });
   servers.push(A);
   const login = async (who, password) => { const r = await send(A, 'POST', '/api/login', { headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify({ login: who, password })) }); assert.equal(r.status, 200, `${who} signs in: ${r.text}`); return r.json.token; };
   const json = (method, urlPath, cookie, value) => send(A, method, urlPath, { cookie, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(value)) });
@@ -807,6 +853,31 @@ try {
       ok(closedAt.length === 2 && Math.max(...closedAt) < 12000, `a stalled small picture is cut off (after ${closedAt.map((t) => Math.round(t / 100) / 10).join(' and ')} s)`);
       same((await thumbOf(kept['image/png'], 'pat', pngOf(4, 4))).status, 200, 'then the next one goes');
     }
+    // Three cut-offs within VAULT_SLOW_MINUTES (a quarter of a minute here), as lou in Oslo: lou's next upload waits,
+    // with a Retry-After, until the first of them is that long ago; someone else's does not.
+    {
+      const inOslo = (who, name, body, type) => send(A, 'POST', `/api/modules/shelf/library?space=${other.id}&name=${name}`, { cookie: people[who]?.token || who, headers: { 'content-type': type }, body });
+      const own = await inOslo('lou', 'own.png', pngOf(4, 4), 'image/png');
+      same(own.status, 201, `lou adds a picture: ${own.text}`);
+      const thumbUrl = `/api/modules/shelf/library/${own.json.file.id}/thumb?space=${other.id}`;
+      const stall = async (count) => {
+        const reqs = Array.from({ length: count }, () => open(A, 'PUT', thumbUrl, { cookie: people.lou.token, headers: { 'content-type': 'image/png', 'content-length': '1000' } }));
+        await Promise.all(reqs.map((o) => new Promise((resolve) => { o.req.on('close', resolve); o.req.write(Buffer.alloc(10)); })));
+      };
+      await stall(2);
+      await stall(1);
+      const blocked = await inOslo('lou', 'after.pdf', pdfOf(), 'application/pdf');
+      const retry = Number(blocked.headers['retry-after']);
+      ok(blocked.status === 429 && blocked.json?.error === 'Your last few uploads stalled, so you can add files again in a minute.' && retry > 0 && retry <= 15, `three cut-offs in a row: the next upload is refused (${blocked.status} ${blocked.json?.error} Retry-After ${retry})`);
+      const thumbNow = await send(A, 'PUT', thumbUrl, { cookie: people.lou.token, headers: { 'content-type': 'image/png' }, body: pngOf(4, 4) });
+      same(thumbNow.status, 429, 'and so is a small picture');
+      const others = await inOslo(admin, 'other.pdf', pdfOf(), 'application/pdf');
+      same(others.status, 201, `someone else's is not: ${others.text}`);
+      await quiet(retry * 1000 + 500);
+      const later = await inOslo('lou', 'after.pdf', pdfOf(), 'application/pdf');
+      same(later.status, 201, `after the Retry-After it goes: ${later.text}`);
+      for (const [r, token] of [[others, admin], [later, people.lou.token], [own, people.lou.token]]) same((await send(A, 'DELETE', `/api/modules/shelf/library/${r.json.file.id}?space=${other.id}`, { cookie: token })).status, 200, 'and they are removed again');
+    }
 
     // Open file streams: twelve at once for one person; the thirteenth waits.
     const held = [];
@@ -974,7 +1045,11 @@ try {
     const otherEnv = await hsend('POST', 'bbb', `/api/modules/shelf/library?space=${b.space.id}&name=b.pdf`, { cookie: b.owner, headers: { 'content-type': 'application/pdf' }, body: pdf2 });
     same(otherEnv.status, 201, `another environment is not held up by it, though the server's 10 MB would be full with it: ${otherEnv.text}`);
     const sameEnv = await hsend('POST', 'aaa', `/api/modules/shelf/library?space=${a.space.id}&name=a.pdf`, { cookie: a.host, headers: { 'content-type': 'application/pdf' }, body: pdf2 });
-    same([sameEnv.status, sameEnv.json?.error, sameEnv.headers['retry-after']], [429, OTHERS_ARRIVING, '60'], 'in its own environment, someone else is asked to try again in a minute');
+    // It holds at most half of what is free against anyone else (security QA round 2: a trickler kept everyone out).
+    same(sameEnv.status, 201, `in its own environment, someone else's upload still fits beside it: ${sameEnv.text}`);
+    same((await hsend('DELETE', 'aaa', `/api/modules/shelf/library/${sameEnv.json?.file?.id}?space=${a.space.id}`, { cookie: a.host })).status, 200, 'and is removed again');
+    const bigOther = await hsend('POST', 'aaa', `/api/modules/shelf/library?space=${a.space.id}&name=big.pdf`, { cookie: a.host, headers: { 'content-type': 'application/pdf' }, body: pdfSized(6 * 1024 * 1024) });
+    same([bigOther.status, bigOther.json?.error, bigOther.headers['retry-after']], [429, OTHERS_ARRIVING, '60'], 'one that needs more than the half left free is asked to try again in a minute');
     const path1 = `/api/modules/shelf/library/${fid}/content?space=${a.space.id}`;
     same((await hsend('GET', 'aaa', path1, { cookie: a.owner })).status, 200, 'aaa\'s owner reads it');
     same((await hsend('GET', 'bbb', path1, { cookie: a.owner })).status, 401, 'aaa\'s session at bbb is no session: 401');

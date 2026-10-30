@@ -33,6 +33,7 @@ const { inspectHead, cleanImage } = require('./image-clean');
 const { cleanName, nameForType, folderBytes } = require('./vault-store');
 const vaultTypes = require('./vault-types');
 const { createScanner } = require('./vault-scan');
+const { watchArrival, slowSenders } = require('./arrival');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
@@ -174,6 +175,10 @@ const {
   VAULT_PERSON_MAX_GB = '',
   VAULT_MB_PER_MINUTE = '',
   VAULT_MIN_KB_PER_SECOND = '',
+  // Someone whose uploads are cut off for arriving too slowly VAULT_SLOW_CUTOFFS times (3) within VAULT_SLOW_MINUTES (10)
+  // can't start another upload until the oldest of those is that long ago.
+  VAULT_SLOW_CUTOFFS = '',
+  VAULT_SLOW_MINUTES = '',
 } = process.env;
 // The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
 // spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
@@ -7729,12 +7734,26 @@ const vaultLimits = {
 // requests, a download) at most twelve for one person and a hundred for one environment.
 const LIBRARY_UPLOADS = { person: 2, environment: 8 };
 const LIBRARY_STREAMS = { person: 12, environment: 100 };
-// An upload must keep arriving: after its first minute, one that sent less than VAULT_MIN_KB_PER_SECOND (16) in the last
-// minute (or less than what it still had to send) is cut off, so a stalled or trickled one does not keep its place or
-// what it reserved. Looked at every five seconds; a moment the server itself waited on the disk does not count.
-const LIBRARY_RATE_WINDOW_MS = 60000;
-const LIBRARY_RATE_TICK_MS = 5000;
+// An upload must keep arriving: after its first minute, one that brought less than VAULT_MIN_KB_PER_SECOND (16) in the
+// last minute (or less than what it still had to send) is cut off, so a stalled or trickled one does not keep its place
+// or what it reserved. Looked at every five seconds (server/arrival.js); only a moment the server itself stopped
+// reading is taken out of the minute.
 const libraryMinRate = (() => { const kb = Number(VAULT_MIN_KB_PER_SECOND); return Math.ceil((Number.isFinite(kb) && kb > 0 ? kb : 16) * 1024); })();
+// After VAULT_SLOW_CUTOFFS (3) cut-offs in VAULT_SLOW_MINUTES (10) -- an upload too slow, or a small picture that did
+// not arrive in time -- the same person's new uploads are refused until the oldest of them is that long ago.
+const positive = (value, fallback) => { const v = Number(value); return Number.isFinite(v) && v > 0 ? v : fallback; };
+const librarySlow = slowSenders({ most: Math.floor(positive(VAULT_SLOW_CUTOFFS, 3)), windowMs: positive(VAULT_SLOW_MINUTES, 10) * 60000 });
+setInterval(() => librarySlow.sweep(), 60000).unref();
+const slowRefusal = (keys) => {
+  const wait = librarySlow.wait(keys.person);
+  if (!wait) return null;
+  const minutes = Math.ceil(wait / 60);
+  return { error: `Your last few uploads stalled, so you can add files again in ${minutes === 1 ? 'a minute' : `${minutes} minutes`}.`, retry: wait };
+};
+// What another person's uploads still arriving hold against yours, at each level (the space, the environment's storage,
+// the server's): at most half of what that level has free, so someone whose upload trickles in can never keep everyone
+// else out. Your own count in full. A file is checked against what is really on disk again once it is in.
+const LIBRARY_HOLD_SHARE = 0.5;
 // What one person's, and (with environments) one environment's, uploads still arriving may reserve at once: a person the
 // largest file there is, an environment a quarter of the server's total (never less than that file, never more than the
 // total). Uploads still arriving in another environment are not counted against this one's room.
@@ -7806,47 +7825,62 @@ function libraryQuotas(manifest) {
   return { space: lower('spaceMaxGb', vaultLimits.space), person: lower('personMaxGb', vaultLimits.person) };
 }
 
-// What is reserved by uploads still arriving: per space, person and environment ("<slug>|...").
-const vaultReserved = { space: new Map(), person: new Map(), environment: new Map() };
+// What uploads still arriving have reserved: one entry each, { space, person, environment, bytes } ("<slug>|..." keys).
+const vaultArriving = new Map();
+let vaultArrivingSeq = 0;
 function reserveVault(keys, bytes) {
-  const add = (map, k, n) => { const v = (map.get(k) || 0) + n; if (v > 0) map.set(k, v); else map.delete(k); };
-  add(vaultReserved.space, keys.space, bytes);
-  add(vaultReserved.person, keys.person, bytes);
-  add(vaultReserved.environment, keys.environment, bytes);
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    add(vaultReserved.space, keys.space, -bytes);
-    add(vaultReserved.person, keys.person, -bytes);
-    add(vaultReserved.environment, keys.environment, -bytes);
-  };
+  vaultArrivingSeq += 1;
+  const id = vaultArrivingSeq;
+  vaultArriving.set(id, { ...keys, bytes });
+  return () => vaultArriving.delete(id);
+}
+// What uploads still arriving whose `field` is `value` hold against `me`: my own in full, each other person's at most
+// `share`.
+function heldAgainst(field, value, me, share) {
+  const byPerson = new Map();
+  for (const r of vaultArriving.values()) if (r[field] === value) byPerson.set(r.person, (byPerson.get(r.person) || 0) + r.bytes);
+  let held = 0;
+  for (const [person, bytes] of byPerson) held += person === me ? bytes : Math.min(bytes, share);
+  return held;
 }
 function vaultHostBytes() {
   if (vaultHost.bytes === null) vaultHost.bytes = folderBytes(VAULT_ROOT);
   return vaultHost.bytes;
 }
-// Whether `bytes` more fit this space, this person, this environment and the server: null, or { status, error, retry? }.
-// What is on disk first: full is 413 with the sentence for the first that is. Then what uploads still arriving in this
-// environment have reserved: that is 429, since it is free again once they are in or cut off. Then the most one
-// person's or one environment's uploads may reserve at once.
-function vaultFullRefusal(ctx, keys, bytes) {
+// The levels a file must fit: { onDisk, most, sentence, field, value } for the space, the person, the environment's
+// storage (a hosted plan's cap) and the server. Uploads still arriving in another environment are not counted against
+// this one's.
+function vaultLevels(ctx, keys) {
   const used = vault.usage();
   const quota = libraryQuotas(ctx.manifest);
   const cap = planCap('storageBytes');
   const env = currentEnvironment();
-  const reserved = (map, k) => map.get(k) || 0;
-  const levels = [
-    [used.spaces.get(ctx.spaceId) || 0, reserved(vaultReserved.space, keys.space), quota.space, `This ${word('space')}'s ${ctx.name} is full (${sizeText(quota.space)}). Remove some files to add more.`],
-    [used.people.get(ctx.by) || 0, reserved(vaultReserved.person, keys.person), quota.person, `You have used your ${sizeText(quota.person)} in ${ctx.name}. Remove some of your files to add more.`],
-    ...(cap !== null && cap !== undefined ? [[environmentStorageBytes(env.slug, env.dataDir), reserved(vaultReserved.environment, keys.environment), cap, `This ${word('environment')} has used its ${gbText(cap)} GB of storage.`]] : []),
-    [vaultHostBytes(), reserved(vaultReserved.environment, keys.environment), vaultLimits.total, 'The server\'s file storage is full. Ask the admin.'],
+  return [
+    { onDisk: used.spaces.get(ctx.spaceId) || 0, most: quota.space, field: 'space', value: keys.space, sentence: `This ${word('space')}'s ${ctx.name} is full (${sizeText(quota.space)}). Remove some files to add more.` },
+    { onDisk: used.people.get(ctx.by) || 0, most: quota.person, field: 'person', value: keys.person, sentence: `You have used your ${sizeText(quota.person)} in ${ctx.name}. Remove some of your files to add more.` },
+    ...(cap !== null && cap !== undefined ? [{ onDisk: environmentStorageBytes(env.slug, env.dataDir), most: cap, field: 'environment', value: keys.environment, sentence: `This ${word('environment')} has used its ${gbText(cap)} GB of storage.` }] : []),
+    { onDisk: vaultHostBytes(), most: vaultLimits.total, field: 'environment', value: keys.environment, sentence: 'The server\'s file storage is full. Ask the admin.' },
   ];
-  for (const [onDisk, , most, sentence] of levels) if (onDisk + bytes > most) return { status: 413, error: sentence };
+}
+// Whether `bytes` more fit on disk at every level: null, or { status: 413, error } for the first that is full.
+function vaultFullOnDisk(ctx, keys, bytes) {
+  for (const l of vaultLevels(ctx, keys)) if (l.onDisk + bytes > l.most) return { status: 413, error: l.sentence };
+  return null;
+}
+// Whether `bytes` more fit this space, this person, this environment and the server: null, or { status, error, retry? }.
+// What is on disk first: full is 413 with the sentence for the first that is. Then what uploads still arriving in this
+// environment hold (LIBRARY_HOLD_SHARE): that is 429, since it is free again once they are in or cut off. Then the most
+// one person's or one environment's uploads may reserve at once.
+function vaultFullRefusal(ctx, keys, bytes) {
+  const full = vaultFullOnDisk(ctx, keys, bytes);
+  if (full) return full;
   const arriving = { status: 429, error: OTHERS_ARRIVING, retry: 60 };
-  for (const [onDisk, held, most] of levels) if (onDisk + held + bytes > most) return arriving;
-  if (reserved(vaultReserved.person, keys.person) + bytes > LIBRARY_RESERVE.person) return { status: 429, error: 'Another upload is still running. Wait for it to finish.', retry: 5 };
-  if (BASE_DOMAIN && reserved(vaultReserved.environment, keys.environment) + bytes > LIBRARY_RESERVE.environment) return arriving;
+  for (const l of vaultLevels(ctx, keys)) {
+    const share = Math.floor(Math.max(0, l.most - l.onDisk) * LIBRARY_HOLD_SHARE);
+    if (l.onDisk + heldAgainst(l.field, l.value, keys.person, share) + bytes > l.most) return arriving;
+  }
+  if (heldAgainst('person', keys.person, keys.person, 0) + bytes > LIBRARY_RESERVE.person) return { status: 429, error: 'Another upload is still running. Wait for it to finish.', retry: 5 };
+  if (BASE_DOMAIN && heldAgainst('environment', keys.environment, keys.person, Math.floor(LIBRARY_RESERVE.environment * LIBRARY_HOLD_SHARE)) + bytes > LIBRARY_RESERVE.environment) return arriving;
   return null;
 }
 
@@ -7896,38 +7930,11 @@ function dropUploadBody(req) {
   setTimeout(() => { if (!req.complete) req.destroy(); }, 20000).unref();
 }
 
-// Watches a body arrive at the floor (LIBRARY_RATE_*): after the first minute, `onSlow()` once the last minute brought
-// less than the floor's minute, or less than what is still to come. `got(n)` counts bytes, `waiting(on)` says the server
-// itself has paused the body (a moment it waits on the disk is never held against the sender), `stop()` ends it.
-function watchArrival(declared, onSlow) {
-  const perWindow = libraryMinRate * (LIBRARY_RATE_WINDOW_MS / 1000);
-  const ticks = [];
-  let size = 0;
-  let tick = 0;
-  let waitingNow = false;
-  let excused = false;
-  const timer = setInterval(() => {
-    ticks.push(excused ? Infinity : tick);
-    tick = 0;
-    excused = waitingNow;
-    if (ticks.length > LIBRARY_RATE_WINDOW_MS / LIBRARY_RATE_TICK_MS) ticks.shift();
-    if (ticks.length === LIBRARY_RATE_WINDOW_MS / LIBRARY_RATE_TICK_MS && ticks.reduce((a, b) => a + b, 0) < Math.min(perWindow, declared - size)) {
-      clearInterval(timer);
-      onSlow();
-    }
-  }, LIBRARY_RATE_TICK_MS);
-  return {
-    got(n) { size += n; tick += n; },
-    waiting(on) { waitingNow = on; if (on) excused = true; },
-    stop() { clearInterval(timer); },
-  };
-}
-
 // Streams the body to `part` with a running count, never holding it: its first 4 KB are looked at as they arrive
 // (`onHead(head)` answers a refusal to stop at, or null), the SHA-256 is taken on the way, and an upload slower than the
-// floor (watchArrival) is cut off. Answers { size, sha256 } or { refused } / { over } / { aborted } / { failed }; the
+// floor (server/arrival.js) is cut off, and `onSlow()` told. Answers { size, sha256 } or { refused } / { over } / { aborted } / { failed }; the
 // part is closed by then, so the caller removes it.
-function receiveUpload(req, part, declared, onHead) {
+function receiveUpload(req, part, declared, onHead, onSlow = () => {}) {
   return new Promise((resolve) => {
     const out = fs.createWriteStream(part, { mode: 0o600 });
     const hash = crypto.createHash('sha256');
@@ -7947,7 +7954,7 @@ function receiveUpload(req, part, declared, onHead) {
       out.once('close', () => resolve(r));
       out.destroy();
     };
-    const watch = watchArrival(declared, () => { finish({ aborted: true }); req.destroy(); });
+    const watch = watchArrival(declared, () => { onSlow(); finish({ aborted: true }); req.destroy(); }, { minRate: libraryMinRate });
     const look = () => {
       headDone = true;
       const refused = onHead(head);
@@ -8010,6 +8017,8 @@ app.post('/api/modules/:id/library', async (req, res) => {
   const limited = overLimit(ctx.manifest.id, ctx.by, 'upload');
   if (limited) return refuse(429, limitMessage(), { 'Retry-After': String(limited.retrySeconds) });
   const keys = libraryKeys(ctx);
+  const slow = slowRefusal(keys);
+  if (slow) return refuse(429, slow.error, { 'Retry-After': String(slow.retry) });
   const wait = vaultMinuteWait(keys.person, Math.min(declared, vaultLimits.perMinute));
   if (wait) return refuse(429, `You have sent a lot in the last minute. Wait ${wait} seconds and try again.`, { 'Retry-After': String(wait) });
   const full = vaultFullRefusal(ctx, keys, declared);
@@ -8036,7 +8045,7 @@ app.post('/api/modules/:id/library', async (req, res) => {
       if (declared > vaultTypes.LIMITS[vaultTypes.TYPES[found.type].limit].bytes) return { status: 413, error: overTypeLimit(found.type) };
       type = found.type;
       return null;
-    });
+    }, () => librarySlow.note(keys.person));
     if (got.refused) { dropPart(); return refuse(got.refused.status, got.refused.error); }
     if (got.over) { dropPart(); return refuse(413, 'That file is longer than its Content-Length.'); }
     if (got.aborted) { dropPart(); return; } // the sender went: nobody to answer
@@ -8058,9 +8067,11 @@ app.post('/api/modules/:id/library', async (req, res) => {
         kept = { size: checked.size, sha256: checked.sha256, taken: checked.taken || null, camera: checked.camera || '' };
       }
     }
-    // Uploads still arriving in other environments were not counted when this one started, so the server's real total is
-    // checked again now that the file is in (Thomas, 2026-10-30: that overshoot is accepted).
-    if (vaultHostBytes() + kept.size > vaultLimits.total) { dropPart(); return refuse(413, 'The server\'s file storage is full. Ask the admin.'); }
+    // What others' uploads still arriving hold counts for only part of a level (LIBRARY_HOLD_SHARE), and uploads still
+    // arriving in other environments not at all, so every level's real use is checked again now that the file is in
+    // (Thomas, 2026-10-30: that overshoot is accepted).
+    const fullNow = vaultFullOnDisk(ctx, keys, kept.size);
+    if (fullNow) { dropPart(); return refuse(413, fullNow.error); }
     const record = { id: vault.newId(), name: nameForType(name, vaultTypes.TYPES[type].exts), type, group, size: kept.size, sha256: kept.sha256, by: ctx.by, at: new Date().toISOString(), ...(kept.taken ? { taken: kept.taken } : {}), ...(kept.camera ? { camera: kept.camera } : {}), thumb: null };
     try {
       vault.commit(ctx.manifest.id, ctx.spaceId, part, record);
@@ -8150,6 +8161,8 @@ app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
   const limited = overLimit(ctx.manifest.id, ctx.by, 'upload');
   if (limited) return refuse(429, limitMessage());
   const keys = libraryKeys(ctx);
+  const slow = slowRefusal(keys);
+  if (slow) return refuse(429, slow.error, { 'Retry-After': String(slow.retry) });
   const full = vaultFullRefusal(ctx, keys, declared);
   if (full) return refuse(full.status, full.error, full.retry ? { 'Retry-After': String(full.retry) } : {});
   const slot = takeSlot(libraryRunning.thumbs, keys, LIBRARY_THUMBS);
@@ -8162,7 +8175,7 @@ app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
       let size = 0;
       let done = false;
       const end = (value) => { if (done) return; done = true; clearTimeout(deadline); req.removeListener('data', onData); resolve(value); };
-      const deadline = setTimeout(() => { end(null); req.destroy(); }, thumbDeadlineMs(declared));
+      const deadline = setTimeout(() => { librarySlow.note(keys.person); end(null); req.destroy(); }, thumbDeadlineMs(declared));
       function onData(c) {
         size += c.length;
         if (size > declared) return end('over');

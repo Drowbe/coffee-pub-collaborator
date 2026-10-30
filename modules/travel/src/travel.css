@@ -94,7 +94,21 @@
 .app.narrow :is(.decision, .block, .mid) { min-height: 44px; }
 .app.narrow .sdk-day-add .sdk-day-add-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } /* the Add button keeps its plus */
 .app.narrow .sdk-day-head { align-items: flex-start; }
-.app.tiny .sdk-day-head { flex-wrap: nowrap; } /* a docked column: the date, the words and the actions stay on one row (the words wrap), as on a phone */
+.app.tiny .sdk-day-head { flex-wrap: nowrap; } /* a phone: the date, the words and the actions stay on one row (the words wrap) */
+/* A docked column (a day card under 300px wide): the date, the title and the actions are the first row; the summary and the tag go under the title, over the full width,
+   so the words may wrap and the tag keeps its width. */
+.sdk-day { container-type: inline-size; }
+@container (max-width: 299px) {
+  .app.tiny .sdk-day-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-2); row-gap: 0; align-items: start; }
+  .app.tiny .sdk-day-head > .sdk-day-date { grid-column: 1; grid-row: 1 / span 2; }
+  .app.tiny .sdk-day-head > .sdk-day-date { padding-inline: var(--space-1); }
+  .app.tiny .sdk-day-main { display: contents; }
+  .app.tiny .sdk-day-main > h2 { grid-column: 2; grid-row: 1; align-self: center; min-width: 0; }
+  .app.tiny .sdk-day-main > p { grid-column: 2 / -1; grid-row: 2; min-width: 0; }
+  .app.tiny .sdk-day-main > .sdk-day-labels { grid-column: 2 / -1; grid-row: 3; margin-top: var(--space-0); }
+  .app.tiny .sdk-day-actions { grid-column: 3; grid-row: 1; }
+  .app.tiny .sdk-day-add { width: var(--btn-h-small); padding: 0; justify-content: center; } /* the plus alone: a square, so the title keeps its width */
+}
 .app.narrow .block [data-slot="title"] { white-space: normal; }
 .app.narrow :is(button, a).sdk-mk-line:not(:disabled)::before, .app.narrow .sdk-mk-tag:not(:disabled)::before { content: ""; position: absolute; inset: calc((var(--mk-h) - 2px - 44px) / 2) 0; }
 .app.narrow .sdk-mk-tag { overflow: visible; }

@@ -222,18 +222,6 @@
       "selector": ".stay.mid .sdk-row-title",
       "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 10)",
       "count": 2
-    },
-    {
-      "module": "travel",
-      "selector": "markup: class sdk-tabs",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 13)",
-      "count": 1
-    },
-    {
-      "module": "travel",
-      "selector": "markup: class sdk-tabs-joined",
-      "reason": "not yet moved to the host-drawn component (plan-unified-layout.md slice 13)",
-      "count": 1
     }
   ]
 }

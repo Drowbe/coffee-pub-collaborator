@@ -393,7 +393,7 @@ test('a toolbar redraw puts focus back on the same control', () => {
   for (const key of ["b.dataset.key = `switch:${it.id}:${o.id}`;", "b.dataset.key = `btn:${it.id}`;", "c.dataset.key = `chip:${it.id}:${o.id}`;", "input.dataset.key = key;", "b.dataset.key = 'filters';", "moreBtn.dataset.key = 'more';"]) {
     assert.ok(frameJs.includes(key), `every control carries its key (${key})`);
   }
-  assert.match(frameJs, /b = el\('button', 'mf-switch-btn', \{ type: 'button', 'aria-pressed': String\(o\.id === it\.value\)/, 'a switch choice says whether it is pressed');
+  assert.match(frameJs, /b = el\('button', 'mf-switch-btn', \{ type: 'button', role: 'radio', 'aria-checked': String\(o\.id === it\.value\), tabindex: o\.id === stop \? '0' : '-1'/, 'a switch choice is a radio that says whether it is chosen, the chosen one the Tab stop');
   // The search and the Filters button live on between draws: typing, focus and an open menu survive the module drawing again.
   assert.match(frameJs, /const kept = new Map\(\);/);
   assert.match(frameJs, /let k = kept\.get\(key\);\s*\n\s*if \(!k\) \{\s*\n\s*const form = el\('form', 'mf-search'/, 'the search is made once');

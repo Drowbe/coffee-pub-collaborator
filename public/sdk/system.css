@@ -465,13 +465,13 @@
 @font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }
 
 /* ================= Tabs and view switches (design system step 14) =================
-   One component for a tab strip, a page's tabs, the top bar's layout tabs and the toolbar view switch
-   (host.ui.viewSwitch, the Set up sheet, Manage and Profile, the Destination header, Travel's
-   ways to get there). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
-   Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-joined (the view switch: tabs 2px apart, never scrolls, icons only
-   when narrow via .tb-tabs-compact), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's "..."), + .sdk-tabs-small
-   (30px). The product's own wrapper names are the same component: .tb-tabs (joined, small), .layout-tabs (bar, small),
-   .subtabs (a strip; small in a page bar) and .setup-tabs (a strip).
+   Two components. Tabs: a tab strip, a page's tabs and the top bar's layout tabs (the Set up sheet, Manage and Profile). The
+   segmented switch (.mf-switch, at the end of this block): one choice of a few, the view switch (the module frame draws a
+   module's host.ui.viewSwitch with it, and the Destination header's), Chat's Discussion | Assistant and a choice in a form
+   (the Planner's "How you get there"). Source: public/design-system/proposed-tabs.css, without the .ds-proposed prefix.
+   Wrappers: .sdk-tabs (a strip; scrolls sideways), + .sdk-tabs-bar (on the header bar: never scrolls, folds into the bar's
+   "..."), + .sdk-tabs-small (30px). The product's own wrapper names are the same component: .tb-tabs (joined, small: the
+   Design System page's own switches), .layout-tabs (bar, small), .subtabs (a strip; small in a page bar) and .setup-tabs (a strip).
    Tabs: .sdk-tab, or the product's .tb-tab .subtab .setup-tab and, in a wrapper only, .core-link; parts .sdk-tab-glyph, .sdk-tab-word,
    .sdk-tab-badge, .sdk-tab-dot; .sdk-tab-icon is an icon-only square.
    Selected: aria-selected (a tab list), aria-pressed (a switch), aria-current="page" (a place), or .on / .active.
@@ -554,15 +554,15 @@
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)::-webkit-scrollbar { display: none; }
 
-/* The joined switch and the bar's tabs do not scroll: the switch goes to icons, the bar folds into "...". */
-:is(.sdk-tabs-joined, .tb-tabs, .sdk-tabs-bar, .layout-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
+/* The joined .tb-tabs and the bar's tabs do not scroll: the joined one goes to icons, the bar folds into "...". */
+:is(.tb-tabs, .sdk-tabs-bar, .layout-tabs):is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
   display: inline-flex;
   flex: none;
   overflow: visible;
 }
 
-/* The joined switch is tighter: 2px between tabs and 8px each side of a word, so a switch in a narrow toolbar keeps its words longer. */
-:is(.sdk-tabs-joined, .tb-tabs):is(.sdk-tabs, .tb-tabs) { --tabs-gap: var(--space-0); --tab-pad-x: var(--space-2); }
+/* The joined .tb-tabs is tighter: 2px between tabs and 8px each side of a word, so it keeps its words longer when narrow. */
+.tb-tabs { --tabs-gap: var(--space-0); --tab-pad-x: var(--space-2); }
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs)[hidden] { display: none; }
 
@@ -690,11 +690,6 @@
   display: none;
 }
 
-/* The module frame's joined switch (.mf-switch) fitted the same way by hostSwitch (Chat's Discussion | Assistant): a part with
-   an icon drops its word while the row is too narrow for the words. */
-.mf-switch.tb-tabs-compact > .mf-switch-btn:has(> i) > .mf-word {
-  display: none;
-}
 
 /* The count after the label: a small neutral box with the small corner (no pills). */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) > :is(.sdk-tab-badge, .badge) {
@@ -768,12 +763,46 @@
 
 /* On a phone a small tab keeps its 30px look and gets a 44px target: a strip of them is 44px high and the hit area fills it. */
 @media (max-width: 640px) {
-  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-joined, .sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: var(--tab-phone-pad); }
+  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: var(--tab-phone-pad); }
   :is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)::after { content: ""; position: absolute; inset: -8px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link) { transition: none; }
+}
+
+/* The segmented switch: one choice of a few, two to six short ones (Thomas, 2026-10-29). One joined, sunk track the field's
+   step; the chosen part filled with the accent; an icon and a word each, or an icon alone with its word as its name and
+   tooltip. The module frame's toolbar draws a module's view switch with it (module-frame.js), and it stands on its own anywhere
+   else: Chat's Discussion | Assistant, the Prototype's switches, a choice in a form (the Planner's "How you get there"). It is a
+   radio group: .mf-switch has role="radiogroup" and a name, each .mf-switch-btn role="radio" and aria-checked; one Tab stop,
+   the arrows move and choose (public/sdk/host.js, hostSwitch). In a form field it is the field's height, a little roomier. Fitted by hostSwitch
+   (.tb-tabs-compact) or folded by the frame (.mf-fold-switch), a part with an icon drops its word. The parts are named twice
+   (.mf-switch > .mf-switch-btn) so they outrank the frame's own "font and colour inherit" rule for its buttons. */
+.mf-switch {
+  display: inline-flex; flex: none; align-items: stretch; box-sizing: border-box;
+  height: var(--mf-ctl-h); margin: 0; padding: var(--space-0);
+  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field);
+}
+.mf-switch[hidden] { display: none; }
+.sdk-field .mf-switch { height: var(--field-h); align-self: flex-start; }
+.sdk-field .mf-switch > .mf-switch-btn { padding: 0 var(--space-3); font-size: var(--text-13); }
+.sdk-field .mf-switch > .mf-switch-btn > :is(i, .ic) { font-size: var(--icon-14); }
+.mf-switch > .mf-switch-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); box-sizing: border-box;
+  margin: 0; padding: 0 var(--space-2);
+  border: 0; border-radius: var(--radius-min); background: transparent; color: var(--text-muted);
+  font: inherit; font-size: var(--text-12); font-weight: var(--weight-medium); line-height: var(--leading-ui); white-space: nowrap; cursor: pointer;
+}
+.mf-switch > .mf-switch-btn > :is(i, .ic) { font-size: var(--icon-12); }
+.mf-switch > .mf-switch-btn > .ic { display: inline-flex; width: 1em; height: 1em; }
+.mf-switch > .mf-switch-btn > .ic svg { display: block; width: 1em; height: 1em; fill: currentColor; }
+.mf-switch > .mf-switch-btn:hover { color: var(--text-primary); }
+.mf-switch > .mf-switch-btn[aria-checked="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
+.mf-switch > .mf-switch-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.mf-switch > .mf-switch-btn:disabled { cursor: default; opacity: 0.5; }
+.mf-switch.tb-tabs-compact > .mf-switch-btn:has(> i) > .mf-word {
+  display: none;
 }
 /* tabs:end */
 
@@ -5107,7 +5136,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
      .sdk-choice-list                 a group of rows, 4px apart
      .sdk-choice-boxed                the boxed row: a card row with a hairline, ONLY where each option has a description
    A switch row is a row whose input is .sdk-switch: the words, then the switch at the right; on or off is the switch, so the row takes no fill.
-   Two to four short options as one control are the Tabs family's joined switch (.sdk-tabs-joined), not a row. */
+   Two to six short options as one control are the segmented switch (.mf-switch, the Tabs block), not a row. */
 /* choices:start */
 :root {
   --cr-pad-x: var(--space-2);
@@ -5507,19 +5536,7 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-btn-secondary { border-color: var(--edge-field); background: var(--fill-secondary); color: var(--text-primary); }
 .mf-btn-secondary:hover { background: var(--fill-secondary-hover); }
 
-/* The view switch: one joined, sunk track; the chosen part filled with the accent. Compact: icon and word, no gaps. */
-.mf-switch {
-  display: inline-flex; flex: none; align-items: stretch; box-sizing: border-box;
-  height: var(--mf-ctl-h); padding: var(--space-0);
-  border: 1px solid var(--edge-field); border-radius: var(--radius-small); background: var(--surface-field);
-}
-.mf-switch-btn {
-  display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2);
-  border: 0; border-radius: var(--radius-min); background: transparent; color: var(--text-muted); font-size: var(--text-12); font-weight: var(--weight-medium);
-}
-.mf-switch-btn > i { font-size: var(--icon-12); }
-.mf-switch-btn:hover { color: var(--text-primary); }
-.mf-switch-btn[aria-pressed="true"] { background: var(--accent-fill); color: var(--text-on-accent); }
+/* The view switch is the segmented switch of the Tabs block (.mf-switch): the frame draws it in its toolbar. */
 
 /* The tab strip: for switching between different pages. A plain fill on the chosen tab, no shape that joins the content;
    the others are words only. */

@@ -297,7 +297,7 @@
    "steps": [
     {
      "click": "button.mf-switch-btn[data-key=\"switch:dest-view:week\"]",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"][data-key=\"switch:dest-view:week\"]",
+     "until": "button.mf-switch-btn[aria-checked=\"true\"][data-key=\"switch:dest-view:week\"]",
      "untilText": ""
     },
     {
@@ -315,7 +315,7 @@
    "steps": [
     {
      "click": "button.mf-switch-btn[data-key=\"switch:dest-view:day\"]",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"][data-key=\"switch:dest-view:day\"]",
+     "until": "button.mf-switch-btn[aria-checked=\"true\"][data-key=\"switch:dest-view:day\"]",
      "untilText": ""
     },
     {
@@ -334,7 +334,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Agenda",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     },
     {
      "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
@@ -352,7 +352,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "To-do",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     },
     {
      "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
@@ -406,7 +406,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Agenda",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     },
     {
      "click": "div.module-root.dest-part-root >>> button.sdk-row",
@@ -431,7 +431,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "To-do",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     },
     {
      "click": ".mf-add-btn"
@@ -472,7 +472,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Decisions",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -487,7 +487,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Bookings",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -979,7 +979,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Mine",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -993,7 +993,7 @@
    "steps": [
     {
      "click": "button.mf-switch-btn:nth-of-type(3)",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]:nth-of-type(3)",
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]:nth-of-type(3)",
      "untilText": ""
     }
    ],
@@ -1116,7 +1116,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Costs",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1185,7 +1185,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Settle up",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1258,7 +1258,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Closed",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1273,7 +1273,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "All",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1333,7 +1333,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "List",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"
@@ -1348,7 +1348,7 @@
     {
      "click": "button.mf-switch-btn",
      "text": "Mine",
-     "until": "button.mf-switch-btn[aria-pressed=\"true\"]"
+     "until": "button.mf-switch-btn[aria-checked=\"true\"]"
     }
    ],
    "tier": "core"

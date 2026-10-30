@@ -1828,7 +1828,10 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   // Money is the amount with the currency as its unit; Paid by and Whose is it are chips.
   assert.ok(html.includes('<span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal"') && html.includes('<span class="sdk-unit" data-slot="currency">'), 'the amounts are text with the currency as their unit');
   assert.ok(html.includes('<div class="sdk-people" id="f-paidBy">') && html.includes('<div class="sdk-people" id="f-owners">'), 'Paid by and Whose is it are people chips');
-  assert.ok(html.includes('<span class="sdk-tabs sdk-tabs-joined" id="f-travelMode"'), 'the ways to get there are a choice');
+  assert.ok(html.includes('<span class="mf-switch" id="f-travelMode" role="radiogroup" aria-labelledby="f-travelMode-label">'), 'the ways to get there are the segmented switch, a radio group named by its label');
+  assert.equal((html.match(/<button class="mf-switch-btn mode" type="button" role="radio" aria-checked="false" tabindex="-?[01]" data-mode="[a-z]+" aria-label="[A-Za-z ]+" data-tip="[A-Za-z ]+"><span class="ic" data-icon="[a-z-]+" aria-hidden="true"><\/span><\/button>/g) || []).length, 6, 'six ways, each a radio with its word as its name and tooltip');
+  assert.ok(!/sdk-tabs-joined/.test(html + js), 'the old joined switch is gone');
+  assert.ok(js.includes("const setModeOn = (b, on) => { b.setAttribute('aria-checked', String(on)); };") && (js.match(/roveModes\(\);/g) || []).length >= 2, 'the chosen way is checked and is the one Tab stop');
   assert.ok(js.includes("fieldError('f-title', 'Give it a title.')") && html.includes('<span class="sdk-error" id="f-title-error"></span>'), 'a missing title is said under the field');
 });
 

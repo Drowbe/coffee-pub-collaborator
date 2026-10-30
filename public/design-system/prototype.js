@@ -30,7 +30,7 @@ function apply() {
   history.replaceState(null, '', u);
 }
 
-// The page's own switches, in the panel's switch look.
+// The page's own switches: the segmented switch (a radio group; the arrows move and choose: /sdk/host.js).
 function pageSwitch(id, key, options) {
   const box = D.getElementById(id);
   const draw = () => {
@@ -39,12 +39,15 @@ function pageSwitch(id, key, options) {
       const b = D.createElement('button');
       b.type = 'button';
       b.className = 'mf-switch-btn';
-      b.setAttribute('aria-pressed', String(state[key] === o.id));
+      b.dataset.key = `${key}:${o.id}`;
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(state[key] === o.id));
+      b.tabIndex = state[key] === o.id ? 0 : -1;
       if (o.icon) { const i = D.createElement('i'); i.className = `fa-solid fa-${o.icon} fa-fw`; i.setAttribute('aria-hidden', 'true'); b.append(i); }
       const w = D.createElement('span');
       w.textContent = o.label;
       b.append(w);
-      b.addEventListener('click', () => { state[key] = o.id; apply(); draw(); box.querySelector('[aria-pressed="true"]').focus(); });
+      b.addEventListener('click', () => { state[key] = o.id; apply(); draw(); box.querySelector('[aria-checked="true"]').focus(); });
       box.append(b);
     }
   };

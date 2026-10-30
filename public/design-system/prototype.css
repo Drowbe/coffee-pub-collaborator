@@ -6,8 +6,6 @@ body.pp-page { margin: 0; min-height: 100vh; background: var(--surface-page); co
 .pp-title { margin: 0; font-size: var(--text-18); font-weight: var(--weight-strong); }
 .pp-sub { margin-left: var(--space-2); color: var(--text-muted); font-size: var(--text-13); font-weight: var(--weight-regular); }
 .pp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-left: auto; }
-.pp-tools .mf-switch-btn { font-family: inherit; cursor: pointer; }
-.pp-tools .mf-switch-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 .pp-main { display: flex; flex-direction: column; gap: var(--space-7); padding: var(--space-5) var(--space-4) var(--space-9); }
 .pp-state { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }

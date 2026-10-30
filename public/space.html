@@ -335,9 +335,9 @@
            call, where there is a call service, is its own button at the row's end (space.js). chat-input.js keeps the view;
            the Discussion word follows the template. -->
       <div class="mf-toolbar chat-views" id="chat-views" hidden>
-        <span class="mf-switch" role="group" aria-label="Chat views">
-          <button class="mf-switch-btn" id="chat-view-discussion" type="button" aria-pressed="true" aria-controls="messages" aria-describedby="chat-view-discussion-new" aria-label="Discussion"><i class="fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="mf-word">Discussion</span><span class="sdk-badge chat-view-count" id="chat-view-discussion-count" aria-hidden="true" hidden></span></button>
-          <button class="mf-switch-btn" id="chat-view-assistant" type="button" aria-pressed="false" aria-controls="messages" aria-describedby="chat-view-assistant-new" aria-label="Assistant"><i class="fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i><span class="mf-word">Assistant</span><span class="sdk-dot chat-view-dot" id="chat-view-assistant-dot" aria-hidden="true" hidden></span></button>
+        <span class="mf-switch" role="radiogroup" aria-label="Chat views">
+          <button class="mf-switch-btn" id="chat-view-discussion" type="button" role="radio" aria-checked="true" tabindex="0" aria-controls="messages" aria-describedby="chat-view-discussion-new" aria-label="Discussion"><i class="fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="mf-word">Discussion</span><span class="sdk-badge chat-view-count" id="chat-view-discussion-count" aria-hidden="true" hidden></span></button>
+          <button class="mf-switch-btn" id="chat-view-assistant" type="button" role="radio" aria-checked="false" tabindex="-1" aria-controls="messages" aria-describedby="chat-view-assistant-new" aria-label="Assistant"><i class="fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i><span class="mf-word">Assistant</span><span class="sdk-dot chat-view-dot" id="chat-view-assistant-dot" aria-hidden="true" hidden></span></button>
         </span>
         <span id="chat-view-discussion-new" hidden></span>
         <span id="chat-view-assistant-new" hidden></span>

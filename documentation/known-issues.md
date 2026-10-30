@@ -170,3 +170,39 @@ Workaround: edit each place and set its **Position** on the picture with the tar
 restricts them, cannot show it (see the entry above for what is left on the page).
 
 Workaround: allow pop-ups for Collaborator.
+
+## A Calendar or Map editor in a narrow window is a phone sheet
+
+When the window is narrower than the editor, the editor of a Calendar or Map part opens as the phone-layout sheet at that width, not as a window the editor's own size. The page behind it keeps its layout.
+
+Workaround: widen the window.
+
+## Floating windows can draw over a lifted editor
+
+While an editor from the Calendar or the Map is open, a floating module window can still be drawn over it.
+
+Workaround: close or move the floating window first.
+
+## "Unscheduled" appears twice in the Planner
+
+In a space with phases, the Unscheduled area is headed **Unscheduled**, and its first group is also headed **Unscheduled**. Thomas has decided to leave it as it is for now.
+
+Workaround: none.
+
+## The Planner's day heading wraps in a docked column
+
+In a Planner docked in a column about 256 pixels wide, the heading of a day wraps: "Day 1 of 10" can break over three lines at 220 pixels.
+
+Workaround: make the column wider.
+
+## Some muted text on tinted surfaces is under 4.5:1 in light mode
+
+Muted text on a plain surface now meets 4.5:1 in Strong Coffee's light mode, but three cases on tinted surfaces do not: the dates on phase-tinted chips (3.85:1), the counts on a poll's voted bar (3.78:1) and the struck-through titles of done objects (3.81:1).
+
+Workaround: none; use a dark theme if the text is hard to read.
+
+## check-call-bars fails on "mousemove that does not move"
+
+`tools/check-call-bars.mjs` fails its "mousemove that does not move" case. It fails on main too, so it is not caused by the latest changes. The cause has not been found, so it is not known whether the call or the check is at fault.
+
+Workaround: none.

@@ -16,7 +16,7 @@
 
 1. **Every space has exactly one plan from the start**, named after the space, with no "create a plan" step. People can rename it and set dates.
 2. **No dates are required.** Planning starts on the day the space was created. Objects with no date go into a list for objects with no day. Days appear once the trip has a start date, or once any object has a date.
-3. **Phases come from the template**: an ordered list, each with an id and a label. Every date is optional. The Planner shows the current phase, and new objects go into it. A space with no template, or a template with no phases, still works.
+3. **Phases come from the template**: an ordered list, each with an id and a label. Every date is optional. The Planner shows the current phase. An object with no phase of its own is **Unscheduled**, a default phase that is not part of the template (Changed 2026-10-30 (Thomas); Planner 0.15.55). A space with no template, or a template with no phases, still works.
 4. **Existing plans** keep their dates as the trip's start and end. Planning starts on the space's created date. A storage migration and a version bump carry this.
 5. **#75's automatic growing** applies only to the trip's own dates, and only once they are set.
 6. **The template sets what opens by default** on entering a space: modules and whether the call starts. For Travel the conference is not open.
@@ -41,7 +41,7 @@
 ### The Planner's stored shape (`travel` 0.8.0)
 
 - `trip:main` keeps every field it has. `start` and `end` are the main phase's dates (or the plan's own dates with no phases). `title` empty means "show the space's name". New: `phases: { <phaseId>: { start?, end? } }` (dates as `YYYY-MM-DD`, `end` never before `start`) and `v: 2`.
-- `plan:<id>` gains `phase` (a phase id, optional). An object with a date shows on its day; `phase` places an object with no date. An unknown or missing `phase` falls into the current phase in the list.
+- `plan:<id>` gains `phase` (a phase id, optional). An object with a date shows on its day; `phase` places an object with no date. A missing or unknown `phase` means **Unscheduled**: `phaseOf` returns the object's own phase when it is listed, else null, and never falls back to the current phase (Changed 2026-10-30 (Thomas)).
 - **No `trip:main`** reads as `{ title: '', v: 2, phases: {} }`. Nothing is written until someone who can edit changes something.
 - **A phase's effective start** is its own `start`; else the day after the previous phase's end; else, for the first phase, the space's `createdAt` day. **The current phase** is the last phase, in order, whose effective start is today or earlier; the first phase when none is.
 - **Days** run from the earliest to the latest of the trip's `start` and `end` and every object's date. With neither, there are no days.
@@ -54,7 +54,7 @@
 - **The plan form** (`edit-trip`) becomes Name (placeholder: the space's name), then one row per phase with optional Start and End; the main phase's row writes `start` and `end`. The other fields stay.
 - **The empty state** `#state-empty-trip` and its create button go. With no days and no objects: "Nothing on the plan yet. Add something below."
 - **"Not on a day yet"**: a section above the days with every object that has no date and is not on the line, grouped under each phase's label in phase order (empty groups hidden), ungrouped with no phases.
-- **The object editor** gains `f-phase` (a select of the phase labels), shown when the object has no date; a new object starts in the current phase.
+- **The object editor** gains `f-phase` (a select of the phase labels), shown when the object has no date; a new object starts as **Unscheduled** (saved with no phase), which the chooser lists first (Changed 2026-10-30 (Thomas)).
 - **Phase starts** show as a `div.phase-head[data-phase]` band before the first day of each dated phase. The four fixed markers keep their ids and settings (see Open questions).
 - **What opens on entering** (`restore()`): the remembered layout, then the space's `opensWith` (plan-entering), then the environment's `spaceDefaults.opensWith`, then the product default. This is the same order as plan-entering's step 3, with one fallback added.
 
@@ -77,7 +77,7 @@
 ## Acceptance
 
 - A new space in a Travel environment has a plan named after it, with no create step, showing "Planning".
-- An object added with no date lands under the current phase in "Not on a day yet".
+- An object added with no date lands in the **Unscheduled** group, listed first, in the Unscheduled area (Changed 2026-10-30 (Thomas); it was the current phase).
 - Setting only the trip's start shows days and "Planning · N days to go".
 - A pre-trip object dated before the trip does not move the trip's start.
 - An existing plan keeps its dates and objects, and its planning starts on the space's created date.

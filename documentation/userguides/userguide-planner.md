@@ -22,6 +22,14 @@ The plan takes its name from the space.
 
 The days appear once the trip has a first day or anything on it has a date: one list from top to bottom, from the earliest date to the latest, with a strip of days at the top to jump to one and each day's heading staying in view as you scroll.
 
+## How a day reads
+
+- **The time column.** An object with a time shows it at the left of its card as three lines: when it starts, when it ends and, in brackets, how long it is (for example `9:00`, `→ 10:30` and `(1h 30m)`). Where there is no end or no length, those lines are left out. In a narrow Planner the same words run on one line above the card.
+- **The + between days.** The small **+** that adds something between two days sits midway between them.
+- **Phase bars.** In a space with phases, each phase starts and ends with a bar the full width of the days, with a flag icon, the phase's name and its date.
+- **From the Calendar.** An object that came from the Calendar shows a small line above its title that says so.
+- **A narrow Planner.** Any Planner pane narrower than 720 pixels, a phone or a pane docked beside other modules, uses the narrow layout: each day's **Add** button shows only its **+**, and buttons and taps are 44 pixels tall. In a docked column about 256 pixels wide the day's heading puts its title and its buttons on the first row, with the summary under the title.
+
 ## Phases
 
 When the environment's template has phases, the dates live on the space and every module reads the same ones: the Planner, the Calendar and the status strip (see "The status strip" and "Phases" in [Spaces](userguide-spaces.md)). The line under the plan's name says which phase the trip is in:
@@ -38,7 +46,7 @@ A plan made before the dates moved to the space keeps its objects. The dates it 
 
 ## Unscheduled
 
-Something added with no date goes under **Unscheduled**, above the days. With phases, it is grouped by phase in phase order, and a new object starts in the current phase; in the form, **When** has an **Unscheduled** button, and **Phase** (shown only then) moves it to another phase. Give it a date and it moves to that day. Opening its form and saving leaves it here; it does not move to "Before the first day".
+Something added with no date goes under **Unscheduled**, above the days. With phases, **Unscheduled** is a default phase of its own: an **Unscheduled** group comes first, for an object with no phase, one whose phase is no longer in the list, and one dated outside the plan, and the real phases follow in order. Without phases the list is flat. A new object starts in the **Unscheduled** group: in the form, **When** has an **Unscheduled** button, and **Phase** (shown only then) lists **Unscheduled** first and starts on it; choose a phase there to move the object into it. **Unscheduled** is not a bar of the status strip, not in the date strip and not in the phase settings. Give it a date and it moves to that day. Opening its form and saving leaves it here; it does not move to "Before the first day".
 
 A plan can be at most 60 days long, so an object dated further than that from the rest of the plan can't go on its day. When one arrives from somewhere else (kept from Chat, or added by another module), it goes here instead, with "Dated <day>, outside the plan" at the top of its notes, and the Planner says so: "<title> is dated <day>, outside the plan's 60 days, so it is under Unscheduled." Its row reads "Dated <day>, outside the plan", and in its form **When** keeps that day as a choice of its own ("<day>, outside the plan"), so saving doesn't lose it. To put it on the plan, give it a day within the 60, or change the trip's dates under **Edit trip**.
 
@@ -107,7 +115,7 @@ The Planner can fill in a flight from its number when someone on this server has
 
 ## Move things
 
-- On a computer, drag an object by the line beside its card, or by the card itself, to another place in its day or to another day. An object with no time goes where you drop it among the day's untimed objects. An object with a time keeps it when it moves to another day, and dropped between two others on the same day it takes the end of the object before it as its time (nothing changes if that one has no time).
+- On a computer, drag an object by the line beside its card, or by the card itself, to another place in its day or to another day. While you drag, the list scrolls by itself when the pointer is near its top or bottom edge, faster the nearer you are to the edge; it does not scroll anywhere else, and it scrolls more slowly if your system asks for reduced motion. An object with no time goes where you drop it among the day's untimed objects. An object with a time keeps it when it moves to another day, and dropped between two others on the same day it takes the end of the object before it as its time (nothing changes if that one has no time).
 - Anywhere, including a phone, open the object's menu (the three dots): **Edit**, **Move up** and **Move down**, **Move to another day…**, **Move to unscheduled** and **Delete**.
   - **Move up** and **Move down** swap an object with its neighbour on the same day, for an object with no time. For an object with a time they read **30 minutes earlier** and **30 minutes later**, and change the time by half an hour. Either way the object stays on its day.
   - **Move to another day…** opens the list of days, grouped by phase, with an **Unscheduled** group ("Unscheduled", "Before the first day", "Between Oct 16 and Oct 17", "After the last day") and, last, **Pick a date…**, which opens a date field under the button; choose **Move** or press Enter to move it.

@@ -177,10 +177,10 @@ function cleanWebp(b, keepPosition) {
 const isGif = (b) => b.length >= 13 && (b.toString('latin1', 0, 6) === 'GIF87a' || b.toString('latin1', 0, 6) === 'GIF89a');
 function cleanGif(b, keepPosition) {
   const damaged = () => { throw new Error('this is not a whole GIF picture'); };
-  const tableBytes = (packed) => (packed & 0x80 ? 3 * 2 ** ((packed & 7) + 1) : 0);
+  const paletteBytes = (packed) => (packed & 0x80 ? 3 * 2 ** ((packed & 7) + 1) : 0);
   // The end of the sub-blocks that start at `i` (the offset after their 0 terminator).
   const subBlocksEnd = (i) => { while (i < b.length && b[i] !== 0) i += 1 + b[i]; if (i >= b.length) damaged(); return i + 1; };
-  let i = 13 + tableBytes(b[10]);
+  let i = 13 + paletteBytes(b[10]);
   if (i > b.length) damaged();
   const out = [b.subarray(0, i)];
   let frames = 0;
@@ -188,7 +188,7 @@ function cleanGif(b, keepPosition) {
     const at = i;
     if (b[i] === 0x2c) { // a frame: its descriptor, its own colours, the code size, then its data
       if (i + 10 > b.length) damaged();
-      i += 10 + tableBytes(b[i + 9]);
+      i += 10 + paletteBytes(b[i + 9]);
       if (i + 1 > b.length) damaged();
       i = subBlocksEnd(i + 1);
       out.push(b.subarray(at, i));

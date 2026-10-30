@@ -12,21 +12,32 @@ const THEMES = [
 const MODES = [{ id: 'dark', label: 'Dark', icon: 'moon' }, { id: 'light', label: 'Light', icon: 'sun' }];
 const WIDTHS = [390, 500, 700, 1280].map((w) => ({ id: String(w), label: `${w}` }));
 
+// Design-process switches (Thomas, 2026-10-30; nothing here ships): the leading icon on a Planner card, and a reworked light mode of Strong Coffee.
+const ICONS = [{ id: 'open', label: 'A: Open icon' }, { id: 'tile', label: 'B: Dark tile' }, { id: 'today', label: 'Today' }];
+const LOOKS = [{ id: 'current', label: 'Light: current' }, { id: 'proposed', label: 'Light: proposed' }];
+
 const q = new URLSearchParams(location.search);
 const state = {
   theme: THEMES.some((t) => t.id === q.get('theme')) ? q.get('theme') : 'strong-coffee',
   mode: q.get('mode') === 'light' ? 'light' : 'dark',
   w: WIDTHS.some((w) => w.id === q.get('w')) ? q.get('w') : '700',
+  icon: ICONS.some((i) => i.id === q.get('icon')) ? q.get('icon') : 'open',
+  look: q.get('look') === 'proposed' ? 'proposed' : 'current',
 };
 
 function apply() {
   D.getElementById('pp-theme-css').href = `themes/${state.theme}.css`;
   D.documentElement.dataset.themeMode = state.mode;
   D.documentElement.style.setProperty('--pp-w', `${state.w}px`);
+  D.documentElement.dataset.ppTheme = state.theme;
+  D.documentElement.dataset.ppIcon = state.icon;
+  D.documentElement.dataset.ppLight = state.look;
   const u = new URL(location.href);
   u.searchParams.set('theme', state.theme);
   u.searchParams.set('mode', state.mode);
   u.searchParams.set('w', state.w);
+  u.searchParams.set('icon', state.icon);
+  u.searchParams.set('look', state.look);
   history.replaceState(null, '', u);
 }
 
@@ -152,7 +163,7 @@ function drawState(s, into, level = 'h2') {
   p.className = 'pp-state-note';
   p.textContent = s.note;
   const box = D.createElement('div');
-  box.className = `pp-frame${s.narrow ? ' pp-narrow' : ''}${s.phone ? ' pp-phone' : ''}${s.open ? ' pp-open' : ''}`;
+  box.className = `pp-frame${s.narrow ? ' pp-narrow' : ''}${s.phone ? ' pp-phone' : ''}${s.tall ? ' pp-tall' : ''}${s.open ? ' pp-open' : ''}`;
   const log = D.createElement('p');
   log.className = 'pp-log';
   log.setAttribute('aria-live', 'polite');
@@ -316,7 +327,80 @@ for (const s of TITLEBAR_STATES) {
   place();
 }
 
+
+// ---- the Planner's cards: the leading icon, two ways (Thomas, 2026-10-30) ----
+// Five cards as the Planner draws them (the banded card of system.css: a head with the icon, the title and the kind, a body under it),
+// inside the real module frame. The switch at the top picks the icon: A, no tile, a larger icon in the kind's colour; B, a dark tile
+// with a light icon; Today, the tinted tile now in system.css. The kind's colour is the theme's accent turned round the wheel, as the Planner does.
+const PLAN_CARDS = [
+  { kind: 'flight', icon: 'plane', title: 'Toronto to Lisbon', sub: 'Flight', lines: ['AC 1952 \u00b7 8:40 AM to 8:15 PM', 'Seat 14A \u00b7 Checked bag'] },
+  { kind: 'stay', icon: 'bed', title: 'Hotel Avenida Palace', sub: 'Stay', lines: ['Check in 9:30 PM \u00b7 2 nights', 'Confirmation 48X2QP'] },
+  { kind: 'sight', icon: 'landmark', title: 'Belem Tower', sub: 'Sight', lines: ['10:00 AM \u00b7 1 hour', 'Tickets booked'] },
+  { kind: 'meal', icon: 'utensils', title: 'Lunch at Time Out Market', sub: 'Meal', lines: ['1:00 PM \u00b7 Table for 4'] },
+  { kind: 'car', icon: 'car', title: 'Pick up the rental car', sub: 'Rental car', lines: ['4:30 PM \u00b7 Compact, automatic', 'Airport, desk 3'] },
+];
+function planContent() {
+  const wrap = D.createElement('div');
+  wrap.className = 'pp-plan';
+  const head = D.createElement('h3');
+  head.className = 'pp-plan-day';
+  head.textContent = 'Friday 14 June';
+  wrap.append(head);
+  for (const c of PLAN_CARDS) {
+    const card = D.createElement('article');
+    card.className = 'sdk-card-banded pp-pcard';
+    card.dataset.kind = c.kind;
+    const hd = D.createElement('div');
+    hd.className = 'sdk-card-head';
+    const main = D.createElement('div');
+    main.className = 'sdk-card-main';
+    const ic = D.createElement('span');
+    ic.className = 'sdk-card-icon';
+    const i = D.createElement('i');
+    i.className = `fa-solid fa-${c.icon}`;
+    i.setAttribute('aria-hidden', 'true');
+    ic.append(i);
+    const t = D.createElement('span');
+    t.className = 'sdk-card-title';
+    t.textContent = c.title;
+    main.append(ic, t);
+    const sub = D.createElement('span');
+    sub.className = 'sdk-card-sub';
+    sub.textContent = c.sub;
+    hd.append(main, sub);
+    const body = D.createElement('div');
+    body.className = 'sdk-card-body';
+    for (const l of c.lines) { const p = D.createElement('p'); p.className = 'pp-pcard-line'; p.textContent = l; body.append(p); }
+    card.append(hd, body);
+    wrap.append(card);
+  }
+  return wrap;
+}
+const planSec = D.createElement('section');
+planSec.className = 'pp-group';
+planSec.setAttribute('aria-labelledby', 'pp-plan-cards');
+const planName = D.createElement('h2');
+planName.className = 'pp-group-name';
+planName.id = 'pp-plan-cards';
+planName.textContent = 'Planner cards: the leading icon';
+const planNote = D.createElement('p');
+planNote.className = 'pp-state-note';
+planNote.textContent = 'Flight, stay, sight, meal and rental car. Use the Card icon switch at the top: A is the icon alone, larger, in the kind\'s colour; B is a dark tile with a light icon; Today is the tinted tile now in the product. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
+planSec.append(planName, planNote);
+main.prepend(planSec);
+drawState({
+  name: 'Planner', note: 'The day\'s cards in the module frame, in the chosen theme and mode.', tall: true,
+  frame: () => ({
+    title: 'Planner', icon: 'map-location-dot', titlebar: titlebar(),
+    toolbar: [viewSwitch()],
+    content: planContent(),
+    status: { text: '5 things on this day' },
+  }),
+}, planSec, 'h3');
+
 pageSwitch('pp-theme', 'theme', THEMES);
 pageSwitch('pp-mode', 'mode', MODES);
 pageSwitch('pp-width', 'w', WIDTHS);
+pageSwitch('pp-icon', 'icon', ICONS);
+pageSwitch('pp-look', 'look', LOOKS);
 apply();

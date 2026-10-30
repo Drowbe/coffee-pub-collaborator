@@ -5,9 +5,11 @@ server-development builds the file store, the routes, the quotas, the share link
 builds the Vault module, its viewers, the share page, the SDK calls and the first module that links to a file;
 quality-assurance reviews the store and the share links as security changes; content-manager documents.
 
-**Status:** approved 2026-10-30 (decisions 1 to 7 of 2026-10-29, GitHub #380, and decisions 8 to 15 of 2026-10-30);
-nothing built. Thomas calls it critical for post-trip sharing. One question is still his, the default for metadata
-removal, and it blocks only that part of step 1. This plan replaces the attachments plan of
+**Status:** approved 2026-10-30 (decisions 1 to 7 of 2026-10-29, GitHub #380, and decisions 8 to 15 of 2026-10-30).
+Step 1 is built (commits `bde9358` to `154819d`, on `claude/magical-feynman-xupgiq`); security QA round 1 failed and
+was fixed, round 2 is pending. Steps 2 to 8 are not built. Thomas decided the PDF rule (decision 16) and the hosted
+total (decision 17) on 2026-10-31. Thomas calls it critical for post-trip sharing. One question is still his, the
+default for metadata removal. This plan replaces the attachments plan of
 2026-10-15, which proposed a host attachments service with no module of its own; what stays of its four decisions is
 under Decisions.
 
@@ -132,8 +134,8 @@ Written to the decisions below. The one open question (metadata, decision 10) is
 
 ### 1. Types and limits
 
-The type is decided from the bytes, never from the name or the header. The extension shown is set from that type
-("ticket.exe" that is a PDF is kept as "ticket.pdf"). The limits are decision 9.
+The type is decided from the bytes, never from the name or the header. A name or header that doesn't match the bytes
+is refused, not renamed. The limits are decision 9.
 
 | Group | Type | Extensions | Sniffed by | Per file |
 |---|---|---|---|---|
@@ -156,9 +158,15 @@ The type is decided from the bytes, never from the name or the header. The exten
   PNG, WebP, GIF), audio (MP3, OGG, WAV, M4A), video (MP4, WebM, MOV), PDF and Markdown."
 - **Pictures too large to draw:** a picture whose header says more than 100 million pixels is refused ("That picture is
   too large to show."), so a viewer is never handed a decompression bomb. The server reads the header only.
-- **PDF active content (decision 9):** refuse a PDF whose bytes hold `/JavaScript`, `/JS`, `/Launch`,
-  `/EmbeddedFile`, `/RichMedia` or `/XFA`, read as a stream in 1 MB windows with an overlap. A name hidden in a
-  compressed object stream passes, so this is a filter; the headers below are the guard.
+- **PDF active content (decisions 9 and 16):** web links (`http`, `https`), email links (`mailto:`) and fillable forms
+  are allowed. Refused, in `server/vault-types.js`: scripts (`/JavaScript`, `/JS`, `/AA`, `/XFA`), launches and links
+  out (`/Launch`, `/GoToR`, `/GoToE`), form submission (`/SubmitForm`), embedded files (`/EmbeddedFile`,
+  `/EmbeddedFiles`, `/RichMedia`), and any `/URI` that is not a web or email address (`file:`, `javascript:` and the
+  like). An action that runs on open (`/OpenAction`) is refused when it holds a script or a launch, because those names
+  are refused wherever they stand. Names are read as PDF names (`#xx` escapes decoded). The file is read in 1 MB windows
+  with an overlap, and each Flate-compressed object stream (`/ObjStm`) is inflated and read the same way: at most 16 MB
+  out of one stream, 64 MB out of all, and 200 streams. A PDF that is over any of that, or whose stream can't be read,
+  is refused in plain words, never let through unchecked. The headers below are the second guard.
 - **Names:** kept in the record, one line, at most 120 characters, path separators and control characters removed. On
   disk a file is only its random id.
 
@@ -171,14 +179,20 @@ The type is decided from the bytes, never from the name or the header. The exten
 | `VAULT_SPACE_MAX_GB` | the most one space's Vault may hold | 5 |
 | `VAULT_PERSON_MAX_GB` | the most one person may have added, across the environment's spaces | 2 |
 | `VAULT_MB_PER_MINUTE` | how much one person may send in a minute | 500 |
+| `VAULT_MIN_KB_PER_SECOND` | the slowest an upload may arrive; after its first minute a slower one is cut off | 16 |
 
 - **Layout:** `VAULT_DIR/<environment slug>/space-<id>/<fid>.bin` and `<fid>.thumb`. On a single-environment install
   the slug is the environment's own. The **records** (name, type, size, `sha256`, `by`, `at`, taken time, thumbnail
-  flag) live in `DATA_DIR`, in the Vault module's space data, so a backup carries them.
+  flag) live in `DATA_DIR/modules/<id>/library/space-<space id>.json`, not in the module's data, so a backup carries
+  them. The store is `server/vault-store.js`, the types are `server/vault-types.js`, and the check is
+  `tools/check-vault.mjs`.
 - **An owner may set lower quotas** for the environment on the Vault's settings (two `number` settings in GB, a space and
   a person), never higher than the variables. A hosted plan's storage cap counts the Vault's bytes too.
 - **Counting:** bytes on disk, thumbnails included, per space and per person (the person who added the file). Each upload
   reserves its `Content-Length` against all four totals before a byte is read, so two uploads at once cannot both pass.
+  On a hosted server, uploads still arriving in other environments don't count against an environment's room, so the
+  server-wide total may be passed briefly; it is checked again as each file finishes, and a file that no longer fits is
+  refused with 413 (decision 17).
 - **A file that does not fit** is refused with its own sentence and 413: "That file is over the 2 GB limit for video.",
   "This trip's Vault is full (5 GB). Remove some files to add more.", "You have used your 2 GB in the Vault. Remove some
   of your files to add more.", "The server's file storage is full. Ask the admin." The space and limit words come from
@@ -189,7 +203,7 @@ The type is decided from the bytes, never from the name or the header. The exten
 
 ### 3. Server routes
 
-The Vault declares `library` in its manifest (contract section 6); the routes belong to that module, so the core names
+The Vault declares `library: true` in its manifest (contract section 6); the routes belong to that module, so the core names
 no module. `:id` is the module's id. Every route checks, **before the body is read**: the session or pass, the
 environment, membership of the space (or owner rights), that the module is on there, and the permission named.
 
@@ -212,6 +226,8 @@ environment, membership of the space (or owner rights), that the module is on th
   picture map's upload does: refused on `Content-Length` before reading, cut off when the count passes it, sniffed from
   the part file's first 4 KB, checked, then renamed into place. A part left by a restart goes after an hour. At most two
   uploads at once per person and eight per environment; a third waits with 429 "Another upload is still running."
+  An upload that trickles in below `VAULT_MIN_KB_PER_SECOND` is cut off and holds no one's place. The server's request
+  timeout is raised to 2 hours so a 2 GB video on a slow link can finish.
 - **Pictures are cleaned without holding them twice:** `cleanImage` runs on the part file (at most 25 MB, one at a time
   per environment). Audio, video, PDF and Markdown are kept as sent. Pictures lose where they were taken only when the person chose that
   (decision 10).
@@ -269,7 +285,8 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 ### 6. The Vault module
 
 - **Manifest:** id `vault`, name "Vault", icon `vault`, `scope: ["space"]`, a `canvas` surface (dock and float) and a
-  `page`, `library: true`, `refs.produces` the `file` kind, `access: { read: "view", write: "add" }`.
+  `page`, `library: true`, `refs.produces` the `file` kind, `access: { read: "view", write: "add" }`. Step 1 reads the
+  permissions `view`, `add`, `download` and `remove_any`; `share` comes with step 5.
 - **Permissions** (owners always have all):
 
 | Key | Label | Member | Moderator | Guest |
@@ -325,7 +342,8 @@ same access from the sandboxed frame, as `host.uploads.url` does for pictures).
 
 - **A file:** the Remove confirmation lists where it is used first ("Used in 2: Hotel Roma (Itinerary), Packing note
   (Research). The links will show File removed."), then removes the bytes, the thumbnail and the record. Links stay.
-- **With the space:** `server/space-erase.js` gains a step that removes `VAULT_DIR/<slug>/space-<id>/` and the space's
+- **With the space:** erasing a space deletes its Vault files (built in step 1, `server/space-erase.js`); step 6 adds
+  the share links and the check. It removes `VAULT_DIR/<slug>/space-<id>/` and the space's
   share links; `tools/check-space-erase.mjs` covers it (#337).
 - **The Vault turned off in a space** keeps its files (turned on again, they return); share links stop answering while it
   is off. Uninstalling the module from the environment asks first and removes every space's files.
@@ -426,10 +444,10 @@ Each step can be built and checked on its own. A new or changed module gets a ve
 
 | # | Step | Size | Agent | Kind |
 |---|---|---|---|---|
-| 1 | **Store, routes, quotas.** (Nothing here waits on a question except the metadata default: build the Remove-where-it-was-taken option and the video notice, and set the default once Thomas answers.) `server/library.js`: `VAULT_DIR` and the variables, the type sniffing, the streamed upload, the streamed serving with ranges, the headers, the quotas and reservation, rate limits, the `library` manifest field and its routes, the `file` kind's records, activity lines. `tools/check-library.mjs` in `npm run check` | L | server-development | feedback build with a QA security review |
+| 1 | **Store, routes, quotas. Built** (commits `bde9358` to `154819d`; security QA round 1 failed and fixed, round 2 pending). `server/vault-store.js`, `server/vault-types.js`, the routes on `/api/modules/:id/library?space=`, the variables, the PDF rule, the minimum upload speed, the 2 hour request timeout, space erase deleting files, `tools/check-vault.mjs` in `npm run check`. The Remove-where-it-was-taken option and its default wait for Thomas's answer | L | server-development | feedback build with a QA security review |
 | 2 | **The Vault module and its list.** `modules/vault` at 0.1.0: manifest and permissions, List and Grid, search, Filters, Add files with progress, Rename, Remove with "where it is used", Select, the status line, empty states, phone | M | experience-design | try build |
 | 3 | **Viewers.** Pictures, audio, video with real controls, Markdown; the frame's `allow="fullscreen"`; the host-drawn PDF layer with the Open fallback; previous and next; thumbnails made in the page | M | experience-design (S of it for server-development: the PDF headers) | try build, then a browser pass by Thomas |
-| 4 | **Linking SDK and one module.** `host.files.pick`, `.link`, `.resolve`, `.open`, `host.ui.fileChips`; "File removed"; the Planner links its stays and journeys to files (decision 2 of 2026-10-15's order) | M | experience-design | try build |
+| 4 | **Linking SDK and one module.** `host.files.pick`, `.link`, `.resolve`, `.open`, `host.ui.fileChips` (resolving a file link must read the library records in `DATA_DIR/modules/<id>/library/`); "File removed"; the Planner links its stays and journeys to files (decision 2 of 2026-10-15's order) | M | experience-design | try build |
 | 5 | **External sharing.** Share records, the public routes, the password and its cookie, ends and Turn off, the `/shared/<token>` page and its viewers, the share sheet and list in the Vault | L | server-development (routes), experience-design (the page and sheet) | feedback build with a QA security review |
 | 6 | **Delete with the space, and backup.** The `space-erase.js` step and its check; uninstall removes files; "File missing"; the orphan sweep; `docker-compose.yml` and the guide's `VAULT_DIR` volume | S | server-development (content-manager for the guide) | try build |
 | 7 | **Templates' words.** `moduleNames` Documents (travel) and Handouts (games), and the Vault in both templates' module lists | S | experience-design | try build |
@@ -441,9 +459,11 @@ the environment-wide library, Google Drive, the Journal (#40).
 
 ## Verify
 
-- **Checked by a tool** (`tools/check-library.mjs`, a throwaway server with `DATA_DIR` and `VAULT_DIR` under `/tmp`):
+- **Checked by a tool** (`tools/check-vault.mjs`, a throwaway server with `DATA_DIR` and `VAULT_DIR` under `/tmp`):
   - step 1: each accepted type kept from its bytes, and refused under a false name or header; SVG, HTML, a zip, a `.mov`
-    refused; a huge-pixel PNG header refused; a PDF with each active-content name refused; each limit from its variable
+    refused; a huge-pixel PNG header refused; a PDF with each refused name refused, also inside a compressed object
+    stream, and a PDF with web links, email links and a fillable form taken; a stream over 16 MB refused; a trickled
+    upload cut off; the server-wide total checked again as a file finishes (413); each limit from its variable
     and its default; a `Content-Length` over a limit refused before any byte is written (the folder holds no part
     file); a body longer than its `Content-Length` cut off; two uploads at once reserving against one quota; the
     server's memory stays flat while a 1 GB body streams in (measured with `process.memoryUsage`); a range request
@@ -485,7 +505,7 @@ Thomas decided these on 2026-10-30, answering the open questions. Numbers contin
 8. **Files are the Vault's objects.** A `file` kind: links, backlinks, open, search and drag reuse what exists. File
    names reach summaries only for people who can read the Vault. One kind of link everywhere.
 9. **Types and limits as in section 1.** 25 MB pictures, 200 MB audio, 2 GB video, 100 MB PDF, 1 MB Markdown. The PDF
-   active-content refusal is on. `.mov` is accepted as `video/quicktime`, with a note that some browsers can't play it.
+   active-content refusal is on, as decision 16 sets it. `.mov` is accepted as `video/quicktime`, with a note that some browsers can't play it.
    HEIC is refused with "Save it as a JPEG."
 10. **Metadata is the choice of the person adding files**, not a fixed rule. Under Add files, an option **Remove where it
     was taken** for pictures and a plain notice for video (section 10, "Adding").
@@ -497,6 +517,13 @@ Thomas decided these on 2026-10-30, answering the open questions. Numbers contin
 14. **Storage default.** `VAULT_DIR` unset means `DATA_DIR/vault`, outside the in-app backup zips. A backup that carries
     the bytes is a later piece.
 15. **Share link ends:** 1, 7 or 30 days, 7 by default, never without an end.
+16. **The PDF rule (2026-10-31).** Allow web links, email links and fillable forms. Refuse scripts (JavaScript),
+    launches, embedded files, `file:` and `javascript:` links, form submission to outside sites (`SubmitForm`) and
+    actions that run on open (`AA`, `OpenAction` with a script or launch), also inside compressed object streams. The
+    builder reads `/ObjStm` with a limit of 16 MB per stream and a cap on the number of streams; a file whose stream
+    can't be read within the limit is refused in plain words. This replaces the earlier list of refused names.
+17. **Hosted servers (2026-10-31).** A brief overshoot of the server-wide total is accepted. Uploads still arriving in
+    other environments don't count against it, and the total is checked again as each file finishes (413).
 
 Kept from the earlier decisions: viewers have real controls (play, pause, seek, volume, full screen). The host provides
 full screen and the PDF viewer because they don't work in the sandboxed module frame (section 10).

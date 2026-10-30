@@ -6,6 +6,19 @@
  * a deleted space's files gone. Part 2, types (server/vault-types.js): each type from its own bytes; SVG, HTML, XML, zip,
  * programs, scripts, Matroska and HEIC refused; names and types sent checked before the body and against the bytes;
  * picture sizes from the header; a PDF's active content found as a stream; Markdown's text.
+ * Then throwaway servers (DATA_DIR and VAULT_DIR under the temp folder, no LiveKit, no outside service). Server A, with
+ * small quotas: every accepted type kept from its bytes and refused under a false name or type; SVG, HTML, a zip, HEIC,
+ * Matroska, active PDFs, a huge-pixel PNG, cut pictures refused; where a picture was taken removed unless kept; each
+ * limit from Content-Length before a byte is written; a body longer than its Content-Length cut off; an aborted upload's
+ * part removed; two uploads at once reserving against one quota; the space, person, owner and server quotas; the minute's
+ * allowance, the module upload limit and two uploads at once; access before the body. Serving: every header on every
+ * type, ranges (206, 416, If-Range), downloads with both names, thumbnails, twelve open streams. The permission matrix
+ * (signed out, guest pass, access key, outsider, member, adder, moderator, owner, admin) on every route, a refusal of a
+ * file always 404 naming nothing; path tricks; rename and remove; activity lines without names. A server with
+ * BASE_DOMAIN: another environment's session 401, its owner 404, the product and console hosts 404, the export without
+ * the bytes, a plan's storage cap. Server B, at the defaults: the server's memory (VmRSS) stays flat while 1 GB streams
+ * in, and with ten stalled readers and a slow one; a range deep in it; a 1 GB upload cut off leaves nothing.
+ * What can't be checked here: a browser's players seeking, and the PDF policy in a real browser (step 3, Verify).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -304,6 +317,21 @@ function open(server, method, urlPath, { cookie, headers = {} } = {}) {
   return { req, answer };
 }
 const quiet = (ms) => new Promise((r) => setTimeout(r, ms));
+// Writes `size` bytes of `block` to an open request as the socket takes them; stops early when an answer comes or the
+// request fails, so a refusal can never leave the check waiting.
+async function writeAll(o, size, block) {
+  let stop = false;
+  let wake = null;
+  const end = () => { stop = true; if (wake) wake(); };
+  o.answer.then(end);
+  o.req.once('error', end);
+  o.req.once('close', end);
+  o.req.on('drain', () => { if (wake) wake(); });
+  for (let sent = 0; sent < size && !stop; sent += block.length) {
+    if (!o.req.write(block)) await new Promise((r) => { wake = r; });
+    wake = null;
+  }
+}
 // Every file under a folder (relative names), for "nothing was written" and "no part was left".
 function filesUnder(dir) {
   const out = [];
@@ -315,6 +343,7 @@ const partsUnder = (dir) => filesUnder(dir).filter((f) => path.basename(f).start
 
 let failed = false;
 const servers = [];
+const memoryLines = [];
 try {
   // Server A: small quotas, so they can be filled; a minute's allowance of 4 MB.
   const A = await startServer('a', { VAULT_SPACE_MAX_GB: String(40 / 1024), VAULT_PERSON_MAX_GB: String(30 / 1024), VAULT_MAX_GB: String(60 / 1024), VAULT_MB_PER_MINUTE: '40' });
@@ -744,6 +773,91 @@ try {
     same([capped.status, capped.json?.error], [413, 'This environment has used its 0 GB of storage.'], 'the plan\'s cap: 413');
     await H.stop();
   }
+
+  // --- piece 7: the server's memory while 1 GB streams in, and while slow and stalled readers take it out --------------
+  {
+    const B = await startServer('b', {});
+    servers.push(B);
+    if (!fs.existsSync(`/proc/${B.pid}/status`)) {
+      console.log('check-vault: no /proc here, so the memory checks are skipped');
+    } else {
+      const loginB = async (who, password) => (await send(B, 'POST', '/api/login', { headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify({ login: who, password })) })).json.token;
+      const jsonB = (method, urlPath, cookie, value) => send(B, method, urlPath, { cookie, headers: { 'content-type': 'application/json' }, body: Buffer.from(JSON.stringify(value)) });
+      const adminB = await loginB('admin', 'testpass1234');
+      same((await send(B, 'POST', '/api/modules', { cookie: adminB, headers: { 'content-type': 'application/zip' }, body: shelfZip() })).status, 201, 'the module on a second server');
+      await jsonB('PATCH', '/api/modules/shelf', adminB, { enabled: true, allSpaces: true });
+      const sp = (await jsonB('POST', '/api/spaces', adminB, { name: 'Big' })).json.space;
+      // A 1 GB video, written a block at a time as the socket takes it: byte i is BLOCK[i % 1 MB].
+      const SIZE = 1024 * 1024 * 1024;
+      const BLOCK = Buffer.alloc(1024 * 1024);
+      for (let i = 0; i < BLOCK.length; i += 1) BLOCK[i] = (i * 7 + 3) % 251;
+      ftypOf('isom', ['mp42']).copy(BLOCK, 0);
+      const byteAt = (i) => BLOCK[i % BLOCK.length];
+      let peak = 0;
+      const sample = () => { peak = Math.max(peak, B.rss()); };
+      await quiet(300);
+      const before = B.rss();
+      const timer = setInterval(sample, 25);
+      const big = open(B, 'POST', `/api/modules/shelf/library?space=${sp.id}&name=long.mp4`, { cookie: adminB, headers: { 'content-type': 'video/mp4', 'content-length': String(SIZE) } });
+      await writeAll(big, SIZE, BLOCK);
+      big.req.end();
+      const kept = await big.answer;
+      clearInterval(timer);
+      sample();
+      same([kept.status, kept.json?.file?.size], [201, SIZE], `a 1 GB video is kept: ${JSON.stringify(kept.json)}`);
+      memoryLines.push(`1 GB upload: ${Math.round(before)} MB before, ${Math.round(peak)} MB at most`);
+      ok(peak - before < 150, `the server's memory stays flat while 1 GB streams in: ${Math.round(before)} MB before, ${Math.round(peak)} MB at most`);
+      const fidB = kept.json.file.id;
+      const url = `/api/modules/shelf/library/${fidB}/content?space=${sp.id}`;
+      // A range deep in it.
+      const deep = await send(B, 'GET', url, { cookie: adminB, headers: { range: 'bytes=700000000-700000099' } });
+      same([deep.status, deep.bytes.equals(Buffer.from(Array.from({ length: 100 }, (_, k) => byteAt(700000000 + k))))], [206, true], 'a range 700 MB in: the right bytes');
+      // Ten readers that never read, and one that reads about 0.6 MB a second: the server sends only as fast as each reads.
+      peak = 0;
+      const before2 = B.rss();
+      const timer2 = setInterval(sample, 25);
+      const stalled = [];
+      for (let i = 0; i < 10; i += 1) {
+        const req = http.request({ host: '127.0.0.1', port: B.port, path: url, headers: { cookie: `app_session=${adminB}` } });
+        stalled.push(new Promise((resolve) => req.on('response', (res) => { res.pause(); resolve({ req, res }); })));
+        req.end();
+      }
+      const held = await Promise.all(stalled);
+      let slowBytes = 0;
+      let slowOk = true;
+      const slowReq = http.request({ host: '127.0.0.1', port: B.port, path: url, headers: { cookie: `app_session=${adminB}` } });
+      const slowDone = new Promise((resolve) => {
+        slowReq.on('response', (res) => {
+          res.on('data', (c) => {
+            for (let k = 0; k < c.length; k += 4099) if (c[k] !== byteAt(slowBytes + k)) slowOk = false;
+            slowBytes += c.length;
+            res.pause();
+            setTimeout(() => res.resume(), 100 * Math.max(1, c.length / 65536));
+          });
+          res.on('close', resolve);
+        });
+      });
+      slowReq.end();
+      await quiet(4000);
+      clearInterval(timer2);
+      sample();
+      ok(held.every((x) => x.res.statusCode === 200) && slowBytes > 0 && slowBytes < 64 * 1024 * 1024 && slowOk, `a slow reader gets the right bytes at its own pace (${Math.round(slowBytes / 1048576)} MB in 4 seconds)`);
+      memoryLines.push(`10 stalled readers and a slow one: ${Math.round(before2)} MB before, ${Math.round(peak)} MB at most, the slow one read ${Math.round(slowBytes / 1048576)} MB in 4 s`);
+      ok(peak - before2 < 100, `ten stalled readers and a slow one keep the server's memory flat: ${Math.round(before2)} MB before, ${Math.round(peak)} MB at most`);
+      for (const x of held) x.req.destroy();
+      slowReq.destroy();
+      await slowDone;
+      // Cut off half way through 1 GB: the part goes.
+      const cut = open(B, 'POST', `/api/modules/shelf/library?space=${sp.id}&name=cut.mp4`, { cookie: adminB, headers: { 'content-type': 'video/mp4', 'content-length': String(SIZE) } });
+      await writeAll(cut, 64 * BLOCK.length, BLOCK);
+      cut.req.destroy();
+      await cut.answer;
+      await quiet(500);
+      same(partsUnder(B.vaultDir), [], 'a 1 GB upload cut off part way leaves no part');
+      same((await send(B, 'GET', `/api/modules/shelf/library?space=${sp.id}`, { cookie: adminB })).json.files.map((f) => f.name), ['long.mp4'], 'and no file');
+    }
+    await B.stop();
+  }
 } catch (err) {
   failed = true;
   console.error(err);
@@ -754,4 +868,5 @@ try {
 }
 if (failed) process.exit(1);
 
+for (const line of memoryLines) console.log(`check-vault: ${line}`);
 console.log(`check-vault: ${n} checks OK`);

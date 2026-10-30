@@ -1825,6 +1825,8 @@ test('the form standard (the Planner pilot): the forms are .sdk-form, every day 
   assert.ok(html.includes('id="f-end-field" data-types="block car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show"') && html.includes('id="f-length-field" role="group" aria-labelledby="f-minutes-label" data-types="block flight'), 'an end time for a stop, a car, a ride or a marker; the flight time field stays for the length');
   assert.ok(js.includes('len.hidden = !tick || none;') && js.includes('end.hidden = tick || none;'), 'a flight, train, ferry or bus keeps its flight time and its ticket\'s arrival; the others show the end');
   assert.ok(js.includes("[lengthText(len), laterNote(e ? e.days : 0)].filter(Boolean).join(' · ')"), 'the length is said under the end time');
+  // The time column reads from, to, (length): the end on its own line with an arrow, the length last in brackets.
+  assert.ok(js.includes("sub = [endText(item).replace(/^– /, '→ '), item.minutes ? `(${lengthText(item.minutes)})` : ''].filter(Boolean).join('\\n')"), 'a stop\'s time column reads from, to, (length)');
   // Money is the amount with the currency as its unit; Paid by and Whose is it are chips.
   assert.ok(html.includes('<span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal"') && html.includes('<span class="sdk-unit" data-slot="currency">'), 'the amounts are text with the currency as their unit');
   assert.ok(html.includes('<div class="sdk-people" id="f-paidBy">') && html.includes('<div class="sdk-people" id="f-owners">'), 'Paid by and Whose is it are people chips');

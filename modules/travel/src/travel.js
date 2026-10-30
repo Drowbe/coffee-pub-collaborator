@@ -312,7 +312,7 @@
     if (item.kind === 'link') { time = tt(timeOf(summary)); sub = ''; }
     else if (item.kind === 'stay') { time = span === 'end' ? tt(item.checkOutTime) : span === 'middle' ? '' : tt(item.time); sub = span === 'end' ? 'check out' : span === 'middle' ? '' : 'check in'; }
     else if (item.kind === 'journey') sub = arrivalOf(item) ? `→ ${arriveText(item, '\n')}` : '';
-    else sub = [lengthText(item.minutes), endText(item)].filter(Boolean).join('\n'); // the end on a line of its own: the time column is narrow
+    else sub = [endText(item).replace(/^– /, '→ '), item.minutes ? `(${lengthText(item.minutes)})` : ''].filter(Boolean).join('\n'); // from, to, (length): each on a line in the wide column, one line when narrow
     if (line) { time = ''; sub = ''; }
     fill(row, { time, sub });
     row.querySelector('.slot').append(buildCard(entry, item.kind, summary));

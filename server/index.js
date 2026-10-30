@@ -4188,7 +4188,9 @@ app.post('/api/modules/:id/rollback', requireOwner, (req, res) => {
 });
 app.delete('/api/modules/:id', requireOwner, (req, res) => {
   modules.get(req.params.id); // 404 for a module that is not installed, before anything goes
-  // A library module's files go with its data: their bytes under VAULT_DIR, and what the server keeps of their records.
+  // A library module's uploads still arriving or being checked are stopped and never kept, so nothing comes back after
+  // it goes; its files go with its data: their bytes under VAULT_DIR, and what the server keeps of their records.
+  stopLibraryUploads(req.params.id);
   if (req.query.keepData === '0') vault.forgetModule(req.params.id);
   modules.uninstall(req.params.id, { keepData: req.query.keepData !== '0' });
   moduleData.forget(req.params.id);
@@ -7923,6 +7925,23 @@ const libraryKeys = (ctx) => {
   return { space: `${slug}|${ctx.spaceId}`, person: `${slug}|${ctx.by}`, environment: slug };
 };
 
+// A library module's uploads in flight, per environment and module ("<slug>|<module id>" -> a Set of { stopped, stop() }),
+// so uninstalling the module stops them (stopLibraryUploads): one still arriving is answered and its part removed, one
+// being checked is refused before it is kept.
+const libraryInFlight = new Map();
+function trackLibraryUpload(moduleId) {
+  const key = `${currentEnvironment().slug || ''}|${moduleId}`;
+  const handle = { stopped: false, onStop: null, stop() { handle.stopped = true; if (handle.onStop) handle.onStop(); } };
+  if (!libraryInFlight.has(key)) libraryInFlight.set(key, new Set());
+  libraryInFlight.get(key).add(handle);
+  handle.done = () => { const set = libraryInFlight.get(key); if (!set) return; set.delete(handle); if (!set.size) libraryInFlight.delete(key); };
+  return handle;
+}
+function stopLibraryUploads(moduleId) {
+  const set = libraryInFlight.get(`${currentEnvironment().slug || ''}|${moduleId}`);
+  if (set) for (const handle of [...set]) handle.stop();
+}
+
 // Throws away what is still arriving after a refusal (so the sender reads the answer rather than a broken connection),
 // and drops the connection if it goes on for more than 20 seconds.
 function dropUploadBody(req) {
@@ -7934,7 +7953,7 @@ function dropUploadBody(req) {
 // (`onHead(head)` answers a refusal to stop at, or null), the SHA-256 is taken on the way, and an upload slower than the
 // floor (server/arrival.js) is cut off, and `onSlow()` told. Answers { size, sha256 } or { refused } / { over } / { aborted } / { failed }; the
 // part is closed by then, so the caller removes it.
-function receiveUpload(req, part, declared, onHead, onSlow = () => {}) {
+function receiveUpload(req, part, declared, onHead, onSlow = () => {}, handle = null) {
   return new Promise((resolve) => {
     const out = fs.createWriteStream(part, { mode: 0o600 });
     const hash = crypto.createHash('sha256');
@@ -7955,6 +7974,7 @@ function receiveUpload(req, part, declared, onHead, onSlow = () => {}) {
       out.destroy();
     };
     const watch = watchArrival(declared, () => { onSlow(); finish({ aborted: true }); req.destroy(); }, { minRate: libraryMinRate });
+    if (handle) handle.onStop = () => finish({ stopped: true });
     const look = () => {
       headDone = true;
       const refused = onHead(head);
@@ -8027,6 +8047,8 @@ app.post('/api/modules/:id/library', async (req, res) => {
   if (slot === 'person') return refuse(429, 'Another upload is still running. Wait for it to finish.', { 'Retry-After': '5' });
   if (slot === 'environment') return refuse(429, 'Other uploads are still running here. Try again in a moment.', { 'Retry-After': '5' });
   const release = reserveVault(keys, declared);
+  const flight = trackLibraryUpload(ctx.manifest.id);
+  const removedWhileArriving = `${ctx.name} was removed while the file was arriving, so it wasn't added.`;
   vaultSent.set(keys.person, [...(vaultSent.get(keys.person) || []), [Date.now(), Math.min(declared, vaultLimits.perMinute)]]);
   let part = null;
   const dropPart = () => { if (part) fs.rmSync(part, { force: true }); };
@@ -8045,7 +8067,8 @@ app.post('/api/modules/:id/library', async (req, res) => {
       if (declared > vaultTypes.LIMITS[vaultTypes.TYPES[found.type].limit].bytes) return { status: 413, error: overTypeLimit(found.type) };
       type = found.type;
       return null;
-    }, () => librarySlow.note(keys.person));
+    }, () => librarySlow.note(keys.person), flight);
+    if (got.stopped || flight.stopped) { dropPart(); return refuse(404, removedWhileArriving); }
     if (got.refused) { dropPart(); return refuse(got.refused.status, got.refused.error); }
     if (got.over) { dropPart(); return refuse(413, 'That file is longer than its Content-Length.'); }
     if (got.aborted) { dropPart(); return; } // the sender went: nobody to answer
@@ -8073,6 +8096,7 @@ app.post('/api/modules/:id/library', async (req, res) => {
     const fullNow = vaultFullOnDisk(ctx, keys, kept.size);
     if (fullNow) { dropPart(); return refuse(413, fullNow.error); }
     const record = { id: vault.newId(), name: nameForType(name, vaultTypes.TYPES[type].exts), type, group, size: kept.size, sha256: kept.sha256, by: ctx.by, at: new Date().toISOString(), ...(kept.taken ? { taken: kept.taken } : {}), ...(kept.camera ? { camera: kept.camera } : {}), thumb: null };
+    if (flight.stopped) { dropPart(); return refuse(404, removedWhileArriving); }
     try {
       vault.commit(ctx.manifest.id, ctx.spaceId, part, record);
     } catch (err) {
@@ -8084,6 +8108,7 @@ app.post('/api/modules/:id/library', async (req, res) => {
     noteActivity(ctx.manifest.id, `added a file to ${ctx.name}`, ctx.by, `space:${ctx.spaceId}`);
     res.status(201).json({ file: fileView(ctx, record) });
   } finally {
+    flight.done();
     release();
     slot();
   }

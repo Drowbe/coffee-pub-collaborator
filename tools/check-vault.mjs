@@ -998,6 +998,21 @@ try {
     same([after.files, after.usage.bytes], [[], 0], 'installed again, it has no files and uses nothing');
     same((await send(A, 'GET', `/api/modules/shelf/library/${one.id}/content?space=${trip.id}`, { cookie: people.sam.token })).status, 404, 'an old file answers 404');
     same((await send(A, 'DELETE', '/api/modules/nosuch?keepData=0', { cookie: admin })).status, 404, 'uninstalling a module that is not there: 404');
+    // An upload still arriving when the module is uninstalled with its data is stopped (security QA round 2: it was kept
+    // and came back after a reinstall): answered, its part removed, no records written.
+    const three = pdfSized(3 * 1024 * 1024);
+    const flying = open(A, 'POST', lib('&name=fly.pdf'), { cookie: people.sam.token, headers: { 'content-type': 'application/pdf', 'content-length': String(three.length) } });
+    flying.req.on('error', () => {});
+    flying.req.write(three.subarray(0, 1024 * 1024));
+    await quiet(400);
+    same((await send(A, 'DELETE', '/api/modules/shelf?keepData=0', { cookie: admin })).status, 200, 'uninstalled with its data while a file is arriving');
+    flying.req.end(three.subarray(1024 * 1024));
+    const flew = await flying.answer;
+    same([flew.status, flew.json?.error], [404, 'Shelf was removed while the file was arriving, so it wasn\'t added.'], 'the upload is refused');
+    await quiet(300);
+    ok(!fs.existsSync(path.join(A.dataDir, 'modules', 'shelf', 'library')) && partsUnder(A.vaultDir).length === 0, 'no records are written and its part is removed');
+    await reinstall();
+    same((await listOf()).files, [], 'installed again, the file is not there');
   }
   // --- end of server A ---
   await A.stop();

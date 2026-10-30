@@ -14,7 +14,7 @@ const MODES = [{ id: 'dark', label: 'Dark', icon: 'moon' }, { id: 'light', label
 const WIDTHS = [390, 500, 700, 1280].map((w) => ({ id: String(w), label: `${w}` }));
 
 // Design-process switches (Thomas, 2026-10-30; nothing here ships): a reworked light mode of Strong Coffee.
-const LOOKS = [{ id: 'current', label: 'Light: current' }, { id: 'proposed', label: 'Light: proposed' }];
+const LOOKS = [{ id: 'current', label: 'Current' }, { id: 'paper', label: 'Paper' }, { id: 'mist', label: 'Cool mist' }, { id: 'cream', label: 'Cream' }, { id: 'contrast', label: 'Contrast' }];
 let planner = null;
 
 const q = new URLSearchParams(location.search);
@@ -22,7 +22,7 @@ const state = {
   theme: THEMES.some((t) => t.id === q.get('theme')) ? q.get('theme') : 'strong-coffee',
   mode: q.get('mode') === 'light' ? 'light' : 'dark',
   w: WIDTHS.some((w) => w.id === q.get('w')) ? q.get('w') : '700',
-  look: q.get('look') === 'proposed' ? 'proposed' : 'current',
+  look: LOOKS.some((l) => l.id === q.get('look')) ? q.get('look') : 'current',
 };
 
 function apply() {
@@ -339,7 +339,7 @@ planName.id = 'pp-plan-icons';
 planName.textContent = 'Planner: the whole page, as the Planner draws it';
 const planNote = D.createElement('p');
 planNote.className = 'pp-state-note';
-planNote.textContent = 'The Planner\'s own markup and styles, with a week in Lisbon as the sample. Use the views in the toolbar, the date strip and Hide empty days as in the Planner, or jump to a part below. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
+planNote.textContent = 'The Planner\'s own markup and styles, with a week in Lisbon as the sample. Use the views in the toolbar, the date strip and Hide empty days as in the Planner, or jump to a part below. The Light switch (Strong Coffee, light only) tries four candidate light modes on the same screen: Paper, Cool mist, Cream and Contrast.';
 planSec.append(planName, planNote);
 main.prepend(planSec);
 const planHost = D.createElement('div');

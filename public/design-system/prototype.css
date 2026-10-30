@@ -77,21 +77,17 @@ html[data-pp-icon="open"] .pp-pcard > .sdk-card-head .sdk-card-icon {
   html[data-pp-icon="open"] .pp-pcard > .sdk-card-head .sdk-card-icon { color: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h); }
 }
 
-/* B: a tile filled with the kind's colour, the same colour option A draws its icon in, and a light or dark icon on it, whichever holds more
-   contrast: white when the tile's lightness is under 0.6 (the light mode's tiles), near-black above it (the dark mode's lighter tiles).
-   Measured on the Prototype; the numbers are in the report. To system.css: the .sdk-card-icon rule. */
+/* B: a tile filled with the kind's colour, the same colour option A draws its icon in, and the icon in the card title's own colour
+   (--text-primary, the token .sdk-card-title takes), so it follows every theme and mode. The contrast of the pair is measured on the
+   Prototype and reported, not forced. To system.css: the .sdk-card-icon rule. */
 html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon {
   --card-icon: 28px;
   background: color-mix(in srgb, var(--tint) 75%, var(--text-primary));
-  color: #fff;
+  color: var(--text-primary);
   font-size: var(--text-14);
 }
 @supports (color: oklch(from red l c h)) {
-  html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon {
-    --pp-tile: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h);
-    background: var(--pp-tile);
-    color: oklch(from var(--pp-tile) clamp(0.16, calc((0.6 - l) * 1000), 0.99) 0 0);
-  }
+  html[data-pp-icon="tile"] .pp-pcard > .sdk-card-head .sdk-card-icon { background: oklch(from var(--tint) var(--pp-icon-l) max(c, 0.12) h); }
 }
 html[data-pp-icon="today"] .pp-pcard > .sdk-card-head .sdk-card-icon { --card-icon: 24px; }
 

@@ -385,7 +385,7 @@ planName.id = 'pp-plan-cards';
 planName.textContent = 'Planner cards: the leading icon';
 const planNote = D.createElement('p');
 planNote.className = 'pp-state-note';
-planNote.textContent = 'Flight, stay, sight, meal and rental car. Use the Card icon switch at the top: A is the icon alone, larger, in the kind\'s colour; B is a tile in the kind\'s colour with a light or dark icon, whichever holds more contrast; Today is the tinted tile now in the product. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
+planNote.textContent = 'Flight, stay, sight, meal and rental car. Use the Card icon switch at the top: A is the icon alone, larger, in the kind\'s colour; B is a tile in the kind\'s colour, with the icon in the card title\'s colour; Today is the tinted tile now in the product. Light: proposed (Strong Coffee, light only) shows the reworked light mode on the same screen.';
 planSec.append(planName, planNote);
 main.prepend(planSec);
 drawState({

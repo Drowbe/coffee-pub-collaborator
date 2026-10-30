@@ -521,13 +521,12 @@
     return null;
   }
 
-  // Which phase an object is in: its own, when that phase is still listed, else the current phase. Null without bands.
-  function phaseOf(item, bands, today) {
+  // Which phase an object is in: its own, when that phase is still listed. Else null: it is "Unscheduled", the default phase of
+  // an object with none (it never follows the calendar into today's phase).
+  function phaseOf(item, bands) {
     const list = Array.isArray(bands) ? bands.filter(Boolean) : [];
-    if (!list.length) return null;
     if (item && item.phase && list.some((b) => b.id === item.phase)) return item.phase;
-    const cur = currentBand(list, today);
-    return cur ? cur.id : null;
+    return null;
   }
 
 

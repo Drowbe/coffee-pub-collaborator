@@ -169,6 +169,28 @@ const EXTRA = (trip) => {
   ];
 };
 
+
+// Auto-scroll while dragging (Thomas, 2026-10-30): synthetic dragover events on the real Planner. Nothing moves in the middle of the
+// list or on dragstart; near the bottom edge it scrolls down, near the top edge up; it stops at dragend.
+const SCROLL_PROBE = (hostExpr) => `(async () => {
+  const host = ${hostExpr}; const root = host && host.shadowRoot; if (!root) return null;
+  const body = root.getElementById('body'); const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const row = root.querySelector('.row.entry'); if (!row) return { error: 'no entry row' };
+  const range = body.scrollHeight - body.clientHeight; if (range < 400) return { error: 'the list does not scroll: ' + range };
+  body.scrollTop = Math.round(range / 2);
+  const r = body.getBoundingClientRect(); const out = { range, start: body.scrollTop };
+  const fire = (type, y, el = row) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, composed: true, clientX: r.left + r.width / 2, clientY: y, dataTransfer: new DataTransfer() }));
+  const hold = async (y, ms) => { const end = performance.now() + ms; while (performance.now() < end) { fire('dragover', y, body); await wait(40); } };
+  row.draggable = true; fire('dragstart', r.top + r.height / 2);
+  await wait(300); out.afterStart = body.scrollTop;
+  await hold(r.top + r.height / 2, 500); out.middle = body.scrollTop;
+  await hold(r.bottom - 4, 500); out.bottom = body.scrollTop;
+  await hold(r.top + r.height / 2, 100); const rest = body.scrollTop; await wait(300); out.stoppedLeaving = body.scrollTop - rest;
+  await hold(r.top + 4, 500); out.top = body.scrollTop;
+  fire('dragend', r.top + 4); const after = body.scrollTop; await wait(400); out.afterEnd = body.scrollTop - after;
+  return out;
+})()`;
+
 async function main() {
   checkCopies();
   const bin = findBrowser();
@@ -316,6 +338,28 @@ async function main() {
       if (Math.abs(phone.h - wide.h) > 1) fail(`Container: the day head is ${round(wide.h)}px tall in the Prototype at ?w=390 in a wide window and ${round(phone.h)}px in a real 390px window`);
       if (phone.addWord !== wide.addWord) fail(`Container: the day's Add word is ${wide.addWord ? 'shown' : 'hidden'} in the Prototype at ?w=390 in a wide window and ${phone.addWord ? 'shown' : 'hidden'} in a real 390px window`);
     }
+    // ---- 8. auto-scroll while dragging ----
+    {
+      const tab = new Tab(browser.cdp, S.ctx);
+      await tab.open(1280, 'light');
+      const settle = tab.settle.bind(tab); tab.settle = () => Promise.race([settle(), sleep(3000)]);
+      try {
+        await driveScreen(tab, { id: 'planner', as: 'mia', url: '/modules/travel?space={trip}', wait: '#module-frame >>> .day-add' }, S.base, S.cookies, S.ctx);
+        await sleep(500);
+        const sc = await tab.eval(SCROLL_PROBE(HOST_PAGE));
+        say('auto-scroll: ' + JSON.stringify(sc));
+        if (!sc || sc.error) fail('Auto-scroll: ' + (sc ? sc.error : 'no Planner'));
+        else {
+          if (sc.afterStart !== sc.start) fail(`Auto-scroll: dragstart scrolled the list (${sc.start} to ${sc.afterStart})`);
+          if (sc.middle !== sc.start) fail(`Auto-scroll: a drag in the middle scrolled the list (${sc.start} to ${sc.middle})`);
+          if (!(sc.bottom > sc.middle)) fail(`Auto-scroll: near the bottom edge the list did not scroll down (${sc.middle} to ${sc.bottom})`);
+          if (sc.stoppedLeaving !== 0) fail(`Auto-scroll: it kept scrolling ${sc.stoppedLeaving}px after the pointer left the edge`);
+          if (!(sc.top < sc.bottom)) fail(`Auto-scroll: near the top edge the list did not scroll up (${sc.bottom} to ${sc.top})`);
+          if (sc.afterEnd !== 0) fail(`Auto-scroll: it kept scrolling ${sc.afterEnd}px after dragend`);
+        }
+      } finally { await tab.close(); }
+    }
+
     return finish(failures.length ? 1 : 0);
   } finally {
     if (browser) { try { browser.child.kill(); await sleep(300); fs.rmSync(browser.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* a temp folder left behind */ } }

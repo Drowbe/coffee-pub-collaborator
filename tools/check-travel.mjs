@@ -50,6 +50,22 @@ test('a drag does not change the plan\'s height: the joint keeps one height, and
   assert.ok(!/dragstart[\s\S]{0,400}(scrollTop|scrollIntoView|scrollTo\()/.test(main.slice(main.indexOf("addEventListener('dragstart'"), main.indexOf("addEventListener('dragend'"))), 'dragstart does not scroll');
 });
 
+test('dragging near the top or bottom of the list scrolls it, nowhere else, and stops when the drag ends', () => {
+  const main = read('travel.js');
+  const a = main.indexOf('function edgeStep');
+  const block = main.slice(a, main.indexOf("addEventListener('pointerdown'", a));
+  assert.ok(a > 0 && /requestAnimationFrame\(edgeStep\)/.test(block), 'a frame loop scrolls');
+  assert.ok(/Math\.min\(56, r\.height \* 0\.15\)/.test(block) && /if \(!depth\) return;/.test(block), 'only inside an edge zone (56 px, or 15% of a short list)');
+  assert.ok(/max = slow \? 6 : 20/.test(block) && /prefers-reduced-motion/.test(block), 'capped, lower with reduced motion');
+  assert.ok(!/scrollTop\s*=\s*\d/.test(block) && /body\.scrollTop = before \+/.test(block), 'scrolls by a step, never to a fixed place');
+  assert.match(main, /addEventListener\('dragover', \(e\) => \{\s*if \(!dragId\) return;\s*edgeScroll\(e\.clientY\);/, 'driven by dragover, only while dragging');
+  assert.match(main, /addEventListener\('dragend', \(\) => \{\s*edgeStop\(\);/, 'stops at dragend');
+  assert.match(main, /addEventListener\('drop', \(e\) => \{[^}]*edgeStop\(\);/, 'stops at drop');
+  assert.ok(/e\.key === 'Escape'\) edgeStop/.test(main) && /'dragleave'/.test(main), 'stops on Escape and when the pointer leaves');
+  const start = main.slice(main.indexOf("addEventListener('dragstart'"), main.indexOf("addEventListener('dragend'"));
+  assert.ok(!/edgeScroll|edgeStep|scrollTop/.test(start), 'dragstart does not scroll');
+});
+
 test('cleanItem needs a title, keeps good fields and drops bad ones', () => {
   assert.equal(lib.cleanItem({ kind: 'stop', title: '' }), null);
   const i = lib.cleanItem({ id: 'a', kind: 'stop', title: ' Museum ', date: '2026-10-03', time: '09:30', minutes: 90, category: 'nope', order: 5 });
@@ -1104,8 +1120,9 @@ test('the current phase is the last band that has started, else the first; an ob
   assert.equal(lib.currentBand(bandsFor(between, '2026-09-20', created), '2026-09-20').id, 'booking');
   const bands = bandsFor(dates, '2026-10-03', created);
   assert.equal(lib.phaseOf({ phase: 'planning' }, bands, '2026-10-03'), 'planning');
-  assert.equal(lib.phaseOf({ phase: 'gone' }, bands, '2026-10-03'), 'trip');
-  assert.equal(lib.phaseOf({}, bands, '2026-10-03'), 'trip');
+  assert.equal(lib.phaseOf({ phase: 'gone' }, bands, '2026-10-03'), null, 'a phase no longer listed: Unscheduled');
+  assert.equal(lib.phaseOf({}, bands, '2026-10-03'), null, 'no phase of its own: Unscheduled, not the current phase');
+  assert.equal(lib.phaseOf({}, bands, '2026-10-15'), null, 'and it does not move as the calendar does');
   assert.equal(lib.currentBand([], '2026-10-03'), null);
   assert.equal(lib.phaseOf({}, [], '2026-10-03'), null);
 });
@@ -1684,6 +1701,13 @@ const handedIn = async () => {
   n += 1;
 };
 await handedIn();
+
+test('Unscheduled is the default phase: the first group of the list, and the editor\'s default Phase (Thomas)', () => {
+  const js = fs.readFileSync(new URL('../modules/travel/src/travel.js', import.meta.url), 'utf8');
+  assert.ok(js.includes("[{ id: null, label: 'Unscheduled' }, ...bands]"), 'the Unscheduled group comes before the phases');
+  assert.ok(!/phaseOf\([^)]*today/.test(js), 'the list does not read today\'s phase');
+  assert.ok(js.includes("[{ id: '', label: 'Unscheduled' }, ...phases]") && js.includes("select.value = item && item.phase && phases.some((p) => p.id === item.phase) ? item.phase : '';"), 'the editor\'s Phase starts on Unscheduled');
+});
 
 test('the page: the ticket\'s arrival field, and objects dated outside the plan under Unscheduled', () => {
   const html = read('travel.html');

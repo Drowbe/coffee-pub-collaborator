@@ -173,7 +173,7 @@ const SAMPLE = {
 };
 // A marker between two days (the Planner's own "lane"): after which day, and which marker.
 const LANES = { '2026-10-23': [{ id: 'k1', type: 'travel-day', body: 'Overnight flight' }] };
-const UNDATED = { booking: [{ icon: 'train', title: 'Book the Sintra train' }], 'pre-trip': [{ icon: 'coins', title: 'Exchange some euros' }], trip: [{ icon: 'location-dot', title: 'Find a pharmacy near the hotel' }] };
+const UNDATED = { none: [{ icon: 'note-sticky', title: 'Look for a rainy-day plan' }, { icon: 'list-check', title: 'Charge the camera' }], booking: [{ icon: 'train', title: 'Book the Sintra train' }], 'pre-trip': [{ icon: 'coins', title: 'Exchange some euros' }], trip: [{ icon: 'location-dot', title: 'Find a pharmacy near the hotel' }] };
 const DECISIONS = [
   { group: 'Polls', icon: 'square-poll-vertical', title: 'Which day for the Sintra trip?', sub: 'Oct 27 · 3 of 4 have voted' },
   { group: 'Polls', icon: 'square-poll-vertical', title: 'Dinner on the last night', sub: 'Oct 28 · 1 of 4 has voted' },
@@ -415,7 +415,7 @@ function renderDays(hiding) {
 // ---- the other parts of the Days view and the other views ----
 function buildUndated() {
   const box = clone('undated');
-  for (const p of BANDS) {
+  for (const p of [{ id: 'none', label: 'Unscheduled' }, ...BANDS]) {
     const mine = UNDATED[p.id];
     if (!mine) continue;
     const group = clone('undated-group');

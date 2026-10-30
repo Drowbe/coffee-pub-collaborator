@@ -547,6 +547,75 @@ try {
     same((await send(A, 'POST', '/api/modules/nosuch/library?space=x&name=a.pdf', { cookie: people.pat.token, body: pdfOf() })).status, 404, 'no such module: 404');
     same(partsUnder(A.vaultDir), [], 'nothing written for any refusal');
   }
+  // --- piece 4: serving, with ranges and the headers every file is sent with ----------------------------------------
+  {
+    const listed = (await send(A, 'GET', lib(), { cookie: people.sam.token })).json;
+    ok(Array.isArray(listed.files) && listed.files.length > 20 && listed.usage.maxBytes === 40 * MB && listed.usage.bytes > 30 * MB, 'the list: every file, and what the space uses of its quota');
+    const content = (f, q = '', o = {}) => send(A, 'GET', `/api/modules/shelf/library/${f.id}/content?space=${trip.id}${q}`, { cookie: people.sam.token, ...o });
+    for (const f of Object.values(kept)) {
+      const r = await content(f);
+      const h = r.headers;
+      same([r.status, h['content-type'], h['x-content-type-options'], h['cache-control'], h['cross-origin-resource-policy'], h['referrer-policy'], h['accept-ranges']],
+        [200, f.type === 'text/markdown' ? 'text/plain; charset=utf-8' : f.type, 'nosniff', 'private, no-store', 'same-origin', 'no-referrer', 'bytes'], `${f.name}: its stored type and every header`);
+      same(h['content-security-policy'], f.type === 'application/pdf' ? "default-src 'none'; frame-ancestors 'self'" : "sandbox; default-src 'none'", `${f.name}: the sandbox, or the PDF's own policy`);
+      ok(h['content-disposition'] === `inline; filename="${f.name}"; filename*=UTF-8''${encodeURIComponent(f.name)}` && h.etag && h['last-modified'], `${f.name}: inline, with its name, an ETag and Last-Modified`);
+      same(r.bytes.length, f.size, `${f.name}: whole`);
+    }
+    const md = await content(kept['text/markdown']);
+    same(md.bytes.toString(), '# Day one\n<script>alert(1)</script>\n', 'Markdown is sent as the text it is, never as a page');
+    // Ranges, on a 20 MB video.
+    const film = listed.files.find((f) => f.name === 'first.mp4');
+    const whole = fs.readFileSync(path.join(spaceDir, `${film.id}.bin`));
+    const part = await content(film, '', { headers: { range: 'bytes=100-199' } });
+    same([part.status, part.headers['content-range'], part.bytes.equals(whole.subarray(100, 200))], [206, `bytes 100-199/${whole.length}`, true], 'a range: 206 with those bytes');
+    const tail = await content(film, '', { headers: { range: 'bytes=-10' } });
+    same([tail.status, tail.bytes.equals(whole.subarray(-10))], [206, true], 'the last ten bytes');
+    const open1 = await content(film, '', { headers: { range: `bytes=${whole.length - 5}-` } });
+    same([open1.status, open1.headers['content-range']], [206, `bytes ${whole.length - 5}-${whole.length - 1}/${whole.length}`], 'from a place to the end');
+    const bad = await content(film, '', { headers: { range: `bytes=${whole.length + 10}-` } });
+    same([bad.status, bad.headers['content-range'], bad.json?.error, bad.headers['content-type']], [416, `bytes */${whole.length}`, 'That part of the file is out of range.', 'application/json; charset=utf-8'], 'a range it can\'t meet: 416 with the size');
+    const etag = part.headers.etag;
+    same((await content(film, '', { headers: { range: 'bytes=0-9', 'if-range': etag } })).status, 206, 'If-Range with its ETag: the range');
+    const stale = await content(kept['application/pdf'], '', { headers: { range: 'bytes=0-9', 'if-range': '"not-it"' } });
+    same([stale.status, stale.bytes.length], [200, kept['application/pdf'].size], 'If-Range with another: the whole file');
+    // A download: attachment, with the name in both forms.
+    const named = await add('pat', 'Résumé été.pdf', pdfOf(), { type: 'application/pdf' });
+    const dl = await send(A, 'GET', `/api/modules/shelf/library/${named.json.file.id}/content?space=${trip.id}&download=1`, { cookie: people.sam.token });
+    same([dl.status, dl.headers['content-disposition']], [200, 'attachment; filename="R_sum_ _t_.pdf"; filename*=UTF-8\'\'R%C3%A9sum%C3%A9%20%C3%A9t%C3%A9.pdf'], 'download=1: attachment, a cleaned ASCII name and the UTF-8 one');
+    await json('PATCH', '/api/roles/member', admin, { 'module.shelf.download': false });
+    const noDl = await send(A, 'GET', `/api/modules/shelf/library/${named.json.file.id}/content?space=${trip.id}&download=1`, { cookie: people.sam.token });
+    same([noDl.status, noDl.json?.error], [404, 'There is no such file.'], 'without download: 404');
+    same((await content(named.json.file)).status, 200, 'it is still shown inline');
+    await json('PATCH', '/api/roles/member', admin, { 'module.shelf.download': true });
+
+    // Thumbnails: from the person who added a picture or a video, small, cleaned.
+    const thumbOf = (f, who, body, type = 'image/png') => send(A, 'PUT', `/api/modules/shelf/library/${f.id}/thumb?space=${trip.id}`, { cookie: people[who].token, headers: { 'content-type': type }, body });
+    same((await send(A, 'GET', `/api/modules/shelf/library/${kept['image/jpeg'].id}/thumb?space=${trip.id}`, { cookie: people.sam.token })).status, 404, 'no thumbnail yet: 404');
+    const t = await thumbOf(kept['image/jpeg'], 'pat', pngOf(4, 4));
+    same([t.status, t.json?.file?.hasThumb], [200, true], 'the adder gives it a small picture');
+    const tg = await send(A, 'GET', `/api/modules/shelf/library/${kept['image/jpeg'].id}/thumb?space=${trip.id}`, { cookie: people.sam.token });
+    same([tg.status, tg.headers['content-type'], tg.headers['x-content-type-options'], tg.bytes.includes(Buffer.from('hidden words'))], [200, 'image/png', 'nosniff', false], 'and it is served cleaned, with its own type');
+    same((await thumbOf(kept['image/jpeg'], 'sam', pngOf(4, 4))).status, 403, 'someone else may not');
+    same((await thumbOf(kept['application/pdf'], 'pat', pngOf(4, 4))).status, 400, 'a PDF has none');
+    same((await thumbOf(kept['image/png'], 'pat', Buffer.from('<svg/>'), 'image/svg+xml')).status, 400, 'an SVG is not one');
+    same((await thumbOf(kept['image/png'], 'pat', pngOf(4, 4, Buffer.alloc(310 * 1024)))).status, 413, 'over 300 KB: 413');
+
+    // Open file streams: twelve at once for one person; the thirteenth waits.
+    const held = [];
+    for (let i = 0; i < 12; i += 1) {
+      const req = http.request({ host: '127.0.0.1', port: A.port, path: `/api/modules/shelf/library/${film.id}/content?space=${trip.id}`, headers: { cookie: `app_session=${people.kit.token}` } });
+      held.push(new Promise((resolve) => req.on('response', (res) => { res.pause(); resolve({ req, res }); })));
+      req.end();
+    }
+    const streams = await Promise.all(held);
+    ok(streams.every((x) => x.res.statusCode === 200), 'twelve readers that do not read are open');
+    const thirteenth = await send(A, 'GET', `/api/modules/shelf/library/${kept['application/pdf'].id}/content?space=${trip.id}`, { cookie: people.kit.token });
+    same([thirteenth.status, thirteenth.json?.error], [429, 'Too many files are open at once. Close some and try again.'], 'the thirteenth: 429');
+    same((await content(kept['application/pdf'])).status, 200, 'someone else is not held up');
+    for (const x of streams) x.req.destroy();
+    await quiet(300);
+    same((await send(A, 'GET', `/api/modules/shelf/library/${kept['application/pdf'].id}/content?space=${trip.id}`, { cookie: people.kit.token })).status, 200, 'closed, they free their places');
+  }
   // --- end of server A ---
   await A.stop();
 } catch (err) {

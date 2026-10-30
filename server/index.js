@@ -8017,6 +8017,99 @@ app.post('/api/modules/:id/library', async (req, res) => {
   }
 });
 
+// Content-Disposition for a file's name: a cleaned ASCII filename and the UTF-8 one (RFC 6266).
+function contentDisposition(kind, name) {
+  const ascii = String(name).replace(/[^\x20-\x7e]/g, '_').replace(/["\\%]/g, '_') || 'file';
+  const utf8 = encodeURIComponent(String(name)).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+}
+// The headers every library file is sent with: its stored type only (Markdown as plain text, never HTML), never sniffed,
+// never kept by a shared cache, never run as a page (a PDF is the one exception: a browser shows none in a sandboxed
+// document, so it may be framed by this site only).
+function libraryHeaders(type, name, kind) {
+  return {
+    'Content-Type': type === 'text/markdown' ? 'text/plain; charset=utf-8' : type,
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Disposition': contentDisposition(kind, name),
+    'Cache-Control': 'private, no-store',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': type === 'application/pdf' ? "default-src 'none'; frame-ancestors 'self'" : "sandbox; default-src 'none'",
+  };
+}
+// Streams a file (or its thumbnail) with range requests (206, Content-Range, Accept-Ranges, 416, ETag, Last-Modified,
+// If-Range), from disk through the response with its backpressure: a slow reader is sent only as fast as it reads.
+function sendLibraryFile(req, res, thumb) {
+  const download = !thumb && req.query.download === '1';
+  const ctx = libraryAccess(req, res, 'view', { file: true });
+  if (!ctx) return;
+  const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
+  if (!r || (thumb && !r.thumb) || (download && !ctx.can('download'))) return res.status(404).json({ error: NO_SUCH_FILE });
+  const file = vault.filePath(ctx.spaceId, r.id, thumb);
+  let slot = null;
+  if (!thumb) {
+    slot = takeSlot(libraryRunning.streams, libraryKeys(ctx), LIBRARY_STREAMS);
+    if (typeof slot === 'string') return res.status(429).set('Retry-After', '2').json({ error: 'Too many files are open at once. Close some and try again.' });
+    res.once('close', slot);
+  }
+  const headers = thumb ? libraryHeaders(r.thumb.type, r.name, 'inline') : libraryHeaders(r.type, r.name, download ? 'attachment' : 'inline');
+  res.sendFile(file, { acceptRanges: true, etag: true, lastModified: true, cacheControl: false, dotfiles: 'allow', headers }, (err) => {
+    if (!err || res.headersSent) return; // sent, or the connection broke part way
+    res.removeHeader('Content-Disposition');
+    res.type('application/json');
+    if (err.status === 416) {
+      let size = 0;
+      try { size = fs.statSync(file).size; } catch { /* gone */ }
+      res.removeHeader('Content-Range');
+      return res.status(416).set('Content-Range', `bytes */${size}`).json({ error: 'That part of the file is out of range.' });
+    }
+    if (err.status === 404 || err.code === 'ENOENT') return res.status(404).json({ error: NO_SUCH_FILE });
+    return res.status(err.status >= 400 && err.status < 600 ? err.status : 500).json({ error: 'The file could not be read.' });
+  });
+}
+// GET /api/modules/:id/library/:fid/content?space=[&download=1] -- the bytes, inline, or as a download for someone with
+// `download`. GET .../thumb -- the small picture.
+app.get('/api/modules/:id/library/:fid/content', (req, res) => sendLibraryFile(req, res, false));
+app.get('/api/modules/:id/library/:fid/thumb', (req, res) => sendLibraryFile(req, res, true));
+
+// PUT /api/modules/:id/library/:fid/thumb?space= -- the small picture the page made for a picture or a video it added:
+// a JPEG, PNG or WebP of at most 300 KB, from the person who added the file. Checked and cleaned like a picture.
+app.put('/api/modules/:id/library/:fid/thumb', async (req, res) => {
+  const refuse = (status, error) => { if (!res.headersSent) res.status(status).json({ error }); dropUploadBody(req); };
+  const ctx = libraryAccess(req, res, 'add', { file: true });
+  if (!ctx) return dropUploadBody(req);
+  const r = vault.get(ctx.manifest.id, ctx.spaceId, req.params.fid);
+  if (!r) return refuse(404, NO_SUCH_FILE);
+  if (r.by !== ctx.by) return refuse(403, 'Only the person who added it can give it a small picture.');
+  if (r.group !== 'image' && r.group !== 'video') return refuse(400, 'Only pictures and videos have a small picture.');
+  if (req.headers['transfer-encoding'] || !/^\d{1,15}$/.test(String(req.headers['content-length'] || ''))) return refuse(411, 'Send the picture with its size (Content-Length).');
+  const declared = Number(req.headers['content-length']);
+  if (!declared) return refuse(400, 'There is no picture in that.');
+  if (declared > LIBRARY_THUMB_BYTES) return refuse(413, 'That small picture is over 300 KB.');
+  const limited = overLimit(ctx.manifest.id, ctx.by, 'upload');
+  if (limited) return refuse(429, limitMessage());
+  const full = vaultFullRefusal(ctx, libraryKeys(ctx), declared);
+  if (full) return refuse(413, full);
+  const bytes = await new Promise((resolve) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => { size += c.length; if (size <= declared) chunks.push(c); });
+    req.on('end', () => resolve(size === declared ? Buffer.concat(chunks) : null));
+    req.on('error', () => resolve(null));
+    req.on('close', () => { if (!req.complete) resolve(null); });
+  });
+  if (!bytes) return;
+  let clean;
+  try {
+    clean = cleanImage(bytes, ['image/jpeg', 'image/png', 'image/webp'], false);
+  } catch {
+    return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
+  }
+  const pixels = vaultTypes.picturePixels(clean.bytes, clean.type);
+  if (pixels === null || pixels > 4 * 1000 * 1000) return res.status(400).json({ error: 'A small picture must be a whole JPEG, PNG or WebP.' });
+  res.json({ file: fileView(ctx, vault.putThumb(ctx.manifest.id, ctx.spaceId, r.id, clean.bytes, clean.type)) });
+});
+
 // --- place search, from the server -----------------------------------------------------------------------------------------
 // A module that declares `geocoder` in its manifest has its searches for places answered here: from the saved places first, then
 // (when there are too few) from the service its settings name, keeping what comes back if the admin allows it. See geocode.js.

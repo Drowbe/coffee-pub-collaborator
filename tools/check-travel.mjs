@@ -39,6 +39,17 @@ test('the Planner redraws on host.on(\'phases\'), keeps a slow fallback and does
   assert.ok(!/host\.spaces/.test(part), 'refreshPhases does not use host.spaces()');
 });
 
+test('a drag does not change the plan\'s height: the joint keeps one height, and .dragging-line only restyles it', () => {
+  // On 0.15.48 the joint was 0 high and .dragging-line grew every joint to 30px at once, so the rows below the first joint jumped
+  // down (up to 300px measured) when a drag began. Measured live on the seed: scrollHeight and scrollTop unchanged with the class on.
+  const css = read('travel-lib-cards.css');
+  assert.match(css, /^\.joint \{[^}]*\bheight: var\(--joint-h\)/m, 'the joint has its own constant height');
+  const rules = [...css.matchAll(/^([^\n{]*\.dragging-line[^\n{]*)\{([^}]*)\}/gm)].filter((m) => /\.joint\b/.test(m[1]) && !/::(before|after)/.test(m[1]) && !/\.jointadd/.test(m[1]));
+  for (const m of rules) assert.ok(!/(^|[;\s])(height|min-height|max-height|margin|margin-top|margin-bottom|padding|padding-top|padding-bottom|display|position)\s*:/.test(m[2]), `".dragging-line" must not resize the joint: ${m[1].trim()} { ${m[2].trim()} }`);
+  const main = read('travel.js');
+  assert.ok(!/dragstart[\s\S]{0,400}(scrollTop|scrollIntoView|scrollTo\()/.test(main.slice(main.indexOf("addEventListener('dragstart'"), main.indexOf("addEventListener('dragend'"))), 'dragstart does not scroll');
+});
+
 test('cleanItem needs a title, keeps good fields and drops bad ones', () => {
   assert.equal(lib.cleanItem({ kind: 'stop', title: '' }), null);
   const i = lib.cleanItem({ id: 'a', kind: 'stop', title: ' Museum ', date: '2026-10-03', time: '09:30', minutes: 90, category: 'nope', order: 5 });

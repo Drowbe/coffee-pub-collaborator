@@ -7,7 +7,9 @@ modules and pages are made for it first; and the sessions that build it: experie
 checks in `tools/`, the phone emulation in `tools/shots.mjs`), quality-assurance (the audit and each step), content-manager
 (the architecture and API documents, the user guides, the changelog).
 
-**Status:** draft, 2026-10-30, by product-planner. Proposes; Thomas decides. Nothing built. From Thomas, 2026-10-30, as
+**Status:** draft, 2026-10-30, by product-planner; still a draft. Proposes; Thomas decides. Nothing in the product
+built. Step 1, the audit, was run by quality-assurance on 2026-10-31 with Playwright's emulation outside the
+repository, and its findings are in "The audit (step 1)". From Thomas, 2026-10-30, as
 relayed by the project manager: what we have been calling the "phone layout" is only a width breakpoint, and "a phone
 experience is not just a smaller, repurposed desktop experience". He expects phone use to be a large share of use. The
 same day he decided, in [plan-object-window](plan-object-window.md) (decision 5), "Phone experiences are designed for
@@ -137,6 +139,7 @@ Nothing measures what a phone downloads or how long a space takes to become usab
   `check-confirm.mjs` and `check-design-system.mjs` set `mobile: true` at their phone width. Nothing turns on touch
   emulation, nothing runs at 360 px, nothing sets safe-area insets, landscape or a keyboard.
 - `/diag.html` (linked from Manage, About) reports a real device's viewport, `visualViewport` and insets.
+- The phone audit of 2026-10-31 (step 1) ran outside the repository; see "The audit (step 1)".
 
 ### Known issues on phones
 
@@ -261,52 +264,116 @@ Decided once, then every page and module is held to them.
 
 ## The audit (step 1)
 
-Every page and every module, measured at **390 by 844** and **360 by 780**, portrait, touch emulated
-(`mobile: true`, `hasTouch`, device scale 3), light and dark, as an owner and as a member; then the same pages at
-**844 by 390** landscape for the call, Chat and the Planner. Screenshots go under `tools/.shots/` (outside git) for review.
-quality-assurance runs it and reports; product-planner copies the findings into the table below. The **primary phone
-task** column is the planner's proposal, for Thomas to correct (question 4).
+**Run by quality-assurance on 2026-10-31**, on a seeded local server with no LiveKit and no map files, in headless
+Chromium 1243 driven by Playwright 1.63 (installed globally in the container, not a repository dependency) with
+`hasTouch`, `isMobile` and a device scale of 3. Every page and every module at **390 by 844** and **360 by 780**
+portrait, as the admin, an owner and a member; then **844 by 390** landscape for the Workspace, Chat, the call and the
+Planner; then single probes for back, long press, touch drag, the keyboard (approximated by shrinking the viewport by
+336 px portrait and 200 px landscape) and safe areas (47 and 34 px). 230 screenshots.
 
-Severity: **blocks** (the primary task cannot be done), **hurts** (it can, badly: hidden, cut, tiny, drag or hover
-only), **polish** (looks wrong, works).
+**Where the run lives.** The scripts (`audit.mjs`, `measure.js`, `lib.mjs`, `boot.mjs` and the probes), the results
+(`results-*.json`) and the screenshots are in the session's scratchpad,
+`/tmp/claude-0/-home-user-coffee-pub-collaborator/6f8aa10b-87a1-566e-90d9-3b338cb5bd45/scratchpad/phone-audit/`, not in
+the repository, and will not survive the container. This section is the record. The planner suggests turning
+`measure.js` (it runs in the page, so it works under any runner) and the audit's list of screens into `tools/` as the
+start of `check-phone` (step 7).
 
-| Page or module | Primary phone task (proposed) | What breaks at 390 / 360 | What is desktop-only (hover, drag, right click, small targets, keys) | Severity |
+**Tags:** **M** measured by the scripts, **L** looked at in the screenshots, **C** read as code only. Severity:
+**blocks** (the primary task cannot be done), **hurts** (it can, badly: hidden, cut, tiny, drag or hover only),
+**polish** (looks wrong, works). "One thumb" says whether the primary task can be done with one thumb in portrait.
+
+| Page or module | Primary phone task (proposed); one thumb | What breaks at 390 / 360 | What is desktop-only (hover, drag, right click, small targets, keys) | Severity |
 |---|---|---|---|---|
-| Landing (`landing.html`) | Sign in or read what it is | | | |
-| Sign in, the sign-in step, register, the second factor (`login*`, `register`, `mfa-enrol`) | Sign in with one hand, a password manager filling | | | |
-| Home (`space.html`, no space entered) | Find the space and enter it; see what changed | | | |
-| Home's Chat | Read and reply | | | |
-| A space: the Workspace and the tab bar | Switch between the call, Chat and one module | | | |
-| A space: the conference | Hear, be heard, mute, see who is talking | | | |
-| A space: Chat | Read and reply; send a picture | | | |
-| A space: Join, Online, the **…**, Leave | Join, see who is here, leave | | | |
-| An aside | Talk to one or two people, rejoin the call | | | |
-| Set up (the space's sheet: Space, Members, Phases, Modules, Opens with) | Change a date or a member; mostly read | | | |
-| The phases sheet and the journey strip | See where we are; move a date | | | |
-| Profile (`profile.html`) | Change my picture and name; the microphone | | | |
-| Manage (`admin.html`) | Read the state; small fixes | | | |
-| The host console (`host.html`) | Read the state | | known: the Maps tab runs past the edge | |
-| Module configuration (`module-config.html`) | Rarely on a phone | | | |
-| A module's own page (`module.html`) | As the module | | | |
-| A destination's page (`destination.html`) | As the destination's parts | | | |
-| A pop-out (`popout.html`) | Not on a phone | | | |
-| The keyed view (`keyed.html`, OBS) | Not on a phone | | | |
-| Planner (`travel`) | What is next today, and where; add a stop | | `.narrow` and `.tiny` are module-width rules; cards drag by a handle | |
-| Calendar | Today and the next days; add an event | | known: the Day view scrolls by itself at 390 px | |
-| To-do | My tasks; tick one; add one | | | |
-| Places | Find a place near me; open it in the phone's map | | | |
-| Maps | Where am I, where is the next stop | | known: an editor in a narrow window is a phone sheet | |
-| Polls | Vote | | | |
-| Research | Save a link or a photo from the phone; read a note | | | |
-| Budget | Add a cost on the spot (a receipt) | | | |
-| Assistant | Ask a question | | | |
-| Stream | Not on a phone (OBS) | | | |
-| Vault (not built) | Add photos from the phone; show one | | | |
+| Landing (`landing.html`) | Sign in or read what it is; yes | Nothing sideways (M). | The brand link 28 px tall, the theme switch and Sign in 38 px (M). No manifest link (M). | polish |
+| Sign in, the sign-in step, register (`login*`, `register`) | Sign in with one hand; yes | Nothing: fields 16 px, the field and **Sign in** stay above the keyboard (M). The sign-in step has 3 targets under 44 px, register 1 (M). The second factor's enrolment was not reached. | No manifest link on sign in (M). | polish |
+| Home (`space.html`, no space entered) | Find the space and enter it; yes | Nothing sideways (M). Invite buttons 28 by 28 px; the bell 30 by 30; the top bar's menu 36 px tall (M). | Small targets only. | hurts |
+| Home's Chat | Read and reply; partly | The formatting row's buttons 32 by 34 px; 19 targets under 44 px at 390, 40 at 360 (M). No visible Send: Enter only (M, L). | Enter to send. | hurts |
+| A space: the Workspace and the tab bar | Switch between the call, Chat and one module; partly | No Call tab: the call is reached under **Online** (L). The tab bar shifts when the call starts; at 360 only Chat and the **…** fit before the module tabs, and six modules go into the **…** (M). The phase chip's tap area is 14 px tall (M). | Small targets in the top bar (bell 30 px, menu 36 px). | blocks |
+| A space: the conference | Hear, be heard, mute, see who is talking; no | The call bar's buttons are 34 by 34 px and their settings chevrons 12 by 12 (M). **Share your screen** is offered on a phone (M). The microphone cannot be reached from another view (L). | Each tile's volume, aside, kick and picture-in-picture controls are `opacity: 0` until `:hover` (`public/style.css`, about lines 4114 to 4224) yet can be tapped unseen; a first tap shows them (M). | blocks |
+| A space: Chat | Read and reply; send a picture; partly | No visible Send (M). The field is 16 px portrait, 14 px landscape (M). Some message buttons measured under the top bar (M). Long press on a message opens nothing; its menu (Copy, Reply, Send to..., Delete) is a 30 by 30 px button (M). | Enter to send; a 30 px menu button. | hurts |
+| A space: Join, Online, the **…**, Leave | Join, see who is here, leave; yes, too easily | **Leave** is one tap, with no confirm, beside the call's way in, and drops the call (M, L). | None. | blocks |
+| An aside | Talk to one or two people, rejoin the call | Not checked: one participant, no LiveKit. | Not checked. | not checked |
+| Set up (the space's sheet: Space, Members, Phases, Modules, Opens with) | Change a date or a member; yes | Nothing sideways (M). Opening a sheet focuses a field, so the keyboard covers half the sheet at once (M). Opens with has 11 targets under 44 px (M). Phases' date fields are the phone's own (M). | None found. | hurts |
+| The phases sheet and the journey strip | See where we are; move a date; yes | The chip that opens it is 14 px tall (M). | None found. | hurts |
+| Profile (`profile.html`) | Change my picture and name; yes | **Paste into Profile picture** is 22 by 22 px (M). | Paste is a desktop habit; the picture slot itself works. | polish |
+| Manage (`admin.html`) | Read the state; small fixes; mostly | Nothing sideways (M). The Users tab's switches report 2 by 2 px checkboxes under their drawn switch (M); the Template tab has 485 fields in one page (M). | Small targets. | polish |
+| The host console (`host.html`) | Read the state; no | The Host tab scrolls the page sideways by 134 px at 390 and 164 px at 360: the billing webhook sentence in `dl#host-facts` does not wrap (M). The tab strip scrolls inside itself (M). | None. | hurts |
+| Module configuration (`module-config.html`) | Rarely on a phone | The icon grid runs past the right edge (to 429 px at 360) and its buttons sit under the list rows (M). | Small targets. | hurts |
+| A module's own page (`module.html`) | As the module | See each module. `/modules/todo` opens the Calendar destination's Day view, not the to-do list (M). | | see rows |
+| A destination's page (`destination.html`) | As the destination's parts | The Calendar destination as the Calendar row (M). | | see Calendar |
+| A pop-out (`popout.html`) | Not on a phone | Opens empty with no controls (M). | | none |
+| The keyed view (`keyed.html`, OBS) | Not on a phone | Not run. | | not checked |
+| Planner (`travel`) | What is next today, and where; add a stop; yes | The add form is a full-screen sheet 2,061 px tall; with the keyboard up the field and **Save** stay visible (M). The date buttons beside fields are 32 px wide (M). | Card drag is mouse only: a touch press-and-move fires no `dragstart` and the order does not change (M); but the card's menu has **30 minutes earlier**, **30 minutes later**, **Move to another day…** and **Move to unscheduled** (M). The menu button is 30 by 30 px (M). | hurts |
+| Calendar | Today and the next days; add an event; no | In Month, events are 7 to 8 px dots and the dots are the buttons; tapping a day shows no list of its events (M, L). 42 targets under 44 px (M). Week has 29 (M). | Drag to move an event has no tap path (C, M). | blocks |
+| To-do | My tasks; tick one; add one; no | Its own page opens the Calendar's Day view (M), so the list is not reached from `/modules/todo`. | Drag to reorder or link has no tap path (C). | blocks |
+| Places | Find a place near me; open it in the phone's map; mostly | The search field's text is 13 px (`.mf-search-input`), so iOS zooms on focus (M); the search row is 26 px tall (M). | None found. | hurts |
+| Maps | Where am I, where is the next stop | Not checked: no map files in the seed. The search field is 13 px (M). | Long press on the map not checked. | not checked |
+| Polls | Vote; yes | Nothing sideways; the form's date fields are the phone's own (M). 9 to 13 targets under 44 px (M). | None found. | polish |
+| Research | Save a link or a photo; read a note; mostly | The search field is 13 px at 390 (M). | None found. | hurts |
+| Budget | Add a cost on the spot; yes | The add form's fields are 16 px, costs use `inputmode="decimal"`, the date is the phone's own (M). | None found. | polish |
+| Assistant | Ask a question | Not checked: no AI service configured. | | not checked |
+| Stream | Not on a phone (OBS) | 3 small targets (M). | | none |
+| Vault (not built) | Add photos from the phone; show one | Not built. | | not checked |
+| **Landscape, 844 by 390** (the Workspace, Chat, the call, the Planner) | The call and Chat sideways; no | The desktop layout: about 190 px of the 390 px is chrome (the top bar is 101 px), three docked columns, and with the keyboard up (190 px left) every message is hidden; Chat's field is 14 px and the map search 13 px, so iOS zooms (M, L). 34 to 43 targets under 44 px (M). | Hover and drag as on a desktop. | blocks |
 
-The audit also records, for each row: whether it scrolls sideways at either width (the page or a part of it), every
-control under 44 px, every field under 16 px, every hover-only control, every drag-only control, whether the
-keyboard hides the focused field or Save (approximated; see "Real devices"), and how many requests and bytes the first
-screen takes.
+Not measured in this run: requests and bytes for the first screen (the budget, step 16), 200% text, and a screen
+reader.
+
+### Audit result (2026-10-31)
+
+The 15 worst problems, worst first. Each reproduces at 390 by 844 with touch on, signed in as a member of a seeded
+space, unless it says otherwise.
+
+1. **The microphone cannot be reached from another view.** There is no Call tab; the call is reached under
+   **Online**. Enter a space, join the call, tap Chat: nothing on screen mutes. (M, L)
+2. **Leave drops the call in one tap.** In the call, tap **Leave** in the tab bar beside the way into the call: the
+   space and the call are left with no question. (M, L)
+3. **Back leaves the app.** Enter a space, open the phases sheet, press back: the browser goes to the previous site
+   (here `about:blank`), not Home and not the space. On a module's own page (Polls), back goes to Home.
+   `history.length` does not change on entering, switching tabs or opening a sheet. (M)
+4. **A phone held sideways gets the desktop.** At 844 by 390: three docked columns, about 190 px of chrome, and with the
+   keyboard up Chat shows no message at all. (M, L)
+5. **The Calendar's Month view cannot be used by touch.** Open the Calendar, Month: events are 7 to 8 px dots and the
+   dots are the buttons; tap a day: no list opens. (M, L)
+6. **`/modules/todo` opens the Calendar.** Open `/modules/todo?space=<id>`: the Calendar destination's Day view shows,
+   not the to-do list. (M)
+7. **Invisible call controls can be tapped.** In the call, each tile's volume, aside, **Kick** (for the admin) and
+   picture-in-picture controls are `opacity: 0` until hover; a tap on the tile where they sit acts on them unseen.
+   (M; the rules in `public/style.css`, about lines 4114 to 4224, C)
+8. **The call bar is small and desktop-shaped.** Buttons 34 by 34 px, the settings chevrons 12 by 12, and **Share your
+   screen** offered on a phone. (M)
+9. **Search fields make iOS zoom.** `.mf-search-input` is 13 px in Places, Research and Maps; Chat's field is 14 px in
+   landscape. Any field under 16 px zooms the page on focus in Safari (the zoom itself needs a real iPhone). (M)
+10. **Chat has no Send button.** Type a message: only Enter sends. (M, L)
+11. **The tab bar moves when the call starts.** Join the call at 360: the tabs shift and only Chat and the **…** fit
+    before the module tabs, six modules in the **…**. (M)
+12. **Sheets open the keyboard at once.** Open Set up or an editor: a field takes focus on open and the keyboard
+    covers half the sheet before the person chose to type. (M)
+13. **Calendar and To-do moves need a drag.** Neither has a menu path to move an event or reorder a task; a touch
+    press-and-move fires no `dragstart`. The Planner does have one (its card menu). (M, C)
+14. **The host console's Host tab scrolls sideways.** 134 px at 390, 164 px at 360: the billing webhook sentence in
+    `dl#host-facts` does not wrap. Sign in to the host console, open Host. (M)
+15. **The phase chip is 14 px tall.** The chip in the top bar ("Trip · day 7 of 10") that opens the phases sheet has a
+    14 px tap area; the bell is 30 by 30 px and the menu 36 px tall. (M)
+
+### Facts the audit settled
+
+- **Touch emulation.** Playwright's `hasTouch` and `isMobile` make Chromium 1243 answer `(pointer: coarse)` and
+  `(hover: none)` true, and `(any-pointer: fine)` and `(any-hover: hover)` false. (M)
+- **Safe areas can be emulated.** The DevTools protocol's `Emulation.setSafeAreaInsetsOverride` works in this build:
+  `env(safe-area-inset-top)` read 47 px and `env(safe-area-inset-bottom)` 34 px. This replaces the plan's earlier
+  statement that safe areas have no stable emulation; the `--safe-*` tokens are no longer needed for testing (whether
+  they are wanted for one place to change the insets is question 24).
+- **Long press and drag.** A 900 ms touch long press fires no `contextmenu`; a touch press-and-move fires no
+  `dragstart`. So every `draggable` and every right-click menu is unreachable by touch today. (M)
+- **History.** No `pushState` and no `popstate` listener anywhere; `history.length` is unchanged when switching tabs
+  or opening sheets. The space page calls `replaceState` once on entering; module pages listen for `hashchange`. (M)
+- **The manifest.** One icon, 1024 px, `purpose: any`; no `maskable`, no `id`; a fixed `#1a1410` theme colour; linked
+  only from `space.html` (and `/diag.html`): not from the landing page, sign in, Profile, Manage or a module's page.
+  The landing page's `theme-color` is `#FBF6EC`. (M)
+- **What worked.** No page but the host console and module configuration runs past the screen's edge at 390 or 360;
+  sign in, the Planner's form and Budget's form keep 16 px fields and keep **Save** above the keyboard; the date
+  fields are the phone's own. (M)
 
 ## Navigation on a phone (proposed, question 3)
 
@@ -477,22 +544,39 @@ LiveKit server here. Everything emulated is "checked by a tool" at best, never "
 | A Samsung Galaxy A-series (360 px wide) | Samsung Internet and Chrome | The 360 px width, a mid-range CPU for the budget |
 | An iPad | Safari | Wide and coarse: hover-only and drag-only controls |
 
-Each pass: sign in, enter a space, join the call, switch to each view, open and close an object with back, edit and
-save with the keyboard up, add a photo, lose the network and come back, rotate, install and reopen.
+**The device script**, the same on each phone, about 20 minutes, with a second person in the call:
 
-**The emulation layer for the checks (question 8).** The checks today drive Chromium over the DevTools protocol in
+1. Open the site in the browser; sign in with the phone's password manager. Note any zoom on focus.
+2. Home: enter a space with one thumb. Press back: where does it go?
+3. Join the call. Speak and hear. Switch to Chat, then a module: can you mute from there? Lock the screen for 30
+   seconds: does the call keep its audio? Come back.
+4. Tap Leave: does it ask? Rejoin.
+5. Turn the phone sideways in the call and in Chat; type a message with the keyboard up.
+6. Chat: send a message, send a picture from the camera and from the library.
+7. Planner: open today, open a stop, move it with its menu; add a stop with the keyboard up: does Save stay in reach?
+8. Calendar Month: open a day's events. To-do: tick a task, add one, move one.
+9. Places, Research, Maps: focus each search field: does the page zoom?
+10. Open Set up and the phases sheet; press back in each.
+11. Turn on flight mode for 30 seconds while editing; turn it off: what was lost?
+12. Install to the home screen; reopen from the icon; repeat 2, 3 and 10 in the installed app (safe areas, no
+    browser back on iOS).
+
+Each finding is filed as a GitHub issue with its area (`Call: ...`, `Calendar: ...`), the device and the browser.
+
+**The emulation layer for the checks (question 8).** The audit (step 1) has answered what the layer can do: Playwright
+1.63's mobile emulation worked directly in this container (a global install, not a repository dependency), and
+`Emulation.setSafeAreaInsetsOverride` set the insets (see "Facts the audit settled"). The checks today drive Chromium over the DevTools protocol in
 `tools/shots.mjs`. The planner suggests extending it rather than adding Playwright: a `phone` option on a tab that sets
 `Emulation.setDeviceMetricsOverride` with `mobile: true`, the width, height and a device scale of 3,
-`Emulation.setTouchEmulationEnabled` (with which Chromium should answer `pointer: coarse` and `hover: none`; the builder
-confirms it in the Chromium the checks find), `Emulation.setEmulatedMedia` for `prefers-reduced-motion`, and taps and
+`Emulation.setTouchEmulationEnabled` (Playwright's `hasTouch` uses the same protocol, and with it Chromium 1243
+answered `pointer: coarse` and `hover: none`), `Emulation.setSafeAreaInsetsOverride` for the insets,
+`Emulation.setEmulatedMedia` for `prefers-reduced-motion`, and taps and
 long presses through `Input.dispatchTouchEvent`. Playwright's `hasTouch` and `isMobile` do the same
-things in Chromium; its gain would be a WebKit build, which is still not iOS Safari. Safe-area insets have no stable
-emulation in either; the plan proposes one token per inset in `system.css` (`--safe-top`, `--safe-bottom`,
-`--safe-left`, `--safe-right`, each `env(safe-area-inset-*, 0px)`), used everywhere instead of `env()` directly, so a
-check can set them to the measured iPhone's 47 and 34 px. The keyboard is approximated by shrinking the visual
-viewport.
+things in Chromium; its gain would be a WebKit build, which is still not iOS Safari. The audit's in-page measuring
+script (`measure.js`) does not depend on the runner, so it can move into `tools/` either way. The keyboard is
+approximated by shrinking the viewport (336 px portrait, 200 px landscape in the audit).
 
-**What emulation cannot prove:** the real keyboard and how iOS scrolls the page under it, `100dvh` while the address
+**What emulation cannot prove** (unchanged by the audit): whether iOS really zooms a 13 or 14 px field, the real keyboard and how iOS scrolls the page under it, `100dvh` while the address
 bar moves, the edge-swipe and the back button, installation and the standalone window, the share target, real touch
 accuracy and scrolling against long press, the speed of a real CPU and radio, audio in the background or with the
 screen locked, the camera and photo pickers, and HEIC and `.mov` handling.
@@ -501,12 +585,28 @@ screen locked, the camera and photo pickers, and HEIC and `.mov` handling.
 
 - **`tools/check-phone.mjs`** (new, Chromium, skips without it): every page and every module's view at 390 and 360 px
   with touch on: no sideways scroll of the page; every visible control's tap area at least 44 by 44 px; every field's
-  text at least 16 px; nothing under the bottom bar or past the safe-area tokens; back closes the open sheet (one
+  text at least 16 px; nothing under the bottom bar or inside the safe areas (set by `Emulation.setSafeAreaInsetsOverride`); back closes the open sheet (one
   entry per sheet); the keyboard approximation keeps the focused field and Save visible.
+- **Cases from the audit** (quality-assurance's proposals, for `check-phone` unless marked):
+  - every surface keeps a way to the microphone while in the call (the call's tab or strip is on screen on every view);
+  - **Leave** while in the call asks first;
+  - at 844 by 390 with touch, the space draws the compact shape (question 2);
+  - back from an open sheet closes it, and from a space returns to Home; `history.length` grows by one per sheet;
+  - no control is `opacity: 0` while tappable on a coarse pointer (the call tiles' controls); static in `check-touch`;
+  - the call bar's buttons and chevrons at least 44 by 44 px, and **Share your screen** not drawn on a phone;
+  - every text field, `.mf-search-input` and Chat's box included, at least 16 px in portrait and landscape;
+  - Chat shows a Send button on a coarse pointer;
+  - the tab bar does not change its tabs' order or count when the call starts;
+  - no sheet focuses a field on open on a coarse pointer;
+  - a Calendar Month event or day cell is at least 44 px and a tap on a day lists its events;
+  - `/modules/todo` shows the to-do list;
+  - every module that registers a drag also offers a menu path (static, in `check-touch`);
+  - the host console and module configuration do not scroll the page sideways at 360;
+  - the manifest is linked from every page meant to install (in `check-manifest`).
 - **`tools/check-touch.mjs`** (static, no browser): no `:hover` rule hides or shows a control or text unless the same
   rule has a `:focus-visible` or `(hover: none)` counterpart; every `draggable` or drag handler in a module has a
   menu entry the module registers for the same action (a list the module declares, checked by name); no raw
-  `env(safe-area-inset-*)` outside the tokens.
+  `env(safe-area-inset-*)` outside the tokens, if question 24 keeps them.
 - **`tools/check-breakpoints.mjs`**: unchanged lines; gains `(pointer: coarse)`, `(hover: none)` and
   `(orientation: landscape)` with a height as allowed forms.
 - **`tools/check-manifest.mjs`**: the manifest's fields, its icons' sizes and that every page meant to install links it.
@@ -522,13 +622,13 @@ feedback builds for the module steps.
 | # | Step | Who | Blocked by questions |
 |---|---|---|---|
 | 0 | **Learn how common each layout is.** The tester device list (Thomas, no code), and, if chosen, the layout counters: `POST /api/layout-counts`, `DATA_DIR/layout-counts.json` by week, the environment variable, the pages' report, Manage's **Layouts** section with the "fewer than 5" rule, and a check. Shipped first so counts gather while the audit runs; the audit does not wait for them. | Thomas (the list), server-development (the route, the store, the check), experience-design (the report, the Manage section) | 18 to 21 |
-| 1 | **The phone emulation and the audit.** The `phone` option in `tools/shots.mjs` (touch, `mobile: true`, 390 and 360, landscape, the inset tokens' override, the keyboard approximation); a run that screenshots every row of the audit; the findings filled into this plan's table. No product change. | server-development (the tool), quality-assurance (the run), product-planner (the table) | 8 |
+| 1 | **The audit.** Done 2026-10-31 by quality-assurance with Playwright 1.63's emulation (`hasTouch`, `isMobile`, safe areas through the DevTools protocol), at 390, 360 and 844 by 390; the scripts are in the session's scratchpad, not in the repository; the findings filled into this plan's table by product-planner. The `phone` option in `tools/shots.mjs` was not built; it moves to step 7. No product change. | quality-assurance (the run), product-planner (the table) | done |
 | 2 | **The phone decisions.** Thomas decides questions 1 to 7, 22 and 23 on the audit's results and the tester list; product-planner records them here and in [plan-phone-space-bar](plan-phone-space-bar.md)'s status, and orders steps 11 to 14. No build. | Thomas, product-planner | 1 to 7, 22, 23 |
-| 3 | **Foundations.** The width-class and input rules in `system.css` (the safe-area tokens, the coarse-pointer tap areas everywhere, not only in the frame); one SDK answer a module can ask (`host.screen`, proposed: `{ width, touch, hover, installed, orientation }` with a `change` event); `check-breakpoints` extended; `check-touch` (static). | experience-design, server-development (the check) | 1, 2 |
+| 3 | **Foundations.** The width-class and input rules in `system.css` (the safe-area tokens if question 24 keeps them, the coarse-pointer tap areas everywhere, not only in the frame); one SDK answer a module can ask (`host.screen`, proposed: `{ width, touch, hover, installed, orientation }` with a `change` event); `check-breakpoints` extended; `check-touch` (static). | experience-design, server-development (the check) | 1, 2, 24 |
 | 4 | **History: one entry per sheet.** The host's sheet stack; the editor window, the kind picker, the menus' drill-in, Set up and the phases sheet open through it; back closes; entering a space pushes once. | experience-design | 6 |
 | 5 | **The shared phone pieces**, drawn for Thomas in the design system first, then built in the SDK: the full-screen sheet (top bar with Back, title, menu; the keyboard rule), the bottom sheet (menus, pickers, the Modules list), the bottom action bar (one primary action), the offline banner, the "Not sent" state. The object window's phone sheet uses the full-screen sheet. | experience-design | 2 |
 | 6 | **The navigation model** as decided: the bottom bar, the Modules list, the top bar's Online and Leave, the call strip, the phone's own last view per space. Replaces the parts of the phone space bar it changes, cleanly. | experience-design | 3, 5, 15 |
-| 7 | **`tools/check-phone.mjs`** at 390 and 360 for what steps 3 to 6 built; added to `npm run check`. | server-development | none beyond 6 |
+| 7 | **`tools/check-phone.mjs`**: the audit's `measure.js` and its list of screens moved into `tools/` on the layer question 8 chooses (touch, `mobile: true`, 390, 360 and 844 by 390, the safe-area override, the keyboard approximation), with the audit's cases ("The checks to add"); added to `npm run check`. The cases for what is not built yet start as reports and become failures as steps 3 to 6 land. | server-development | 8 |
 | 8 | **The keyboard and fields:** the 16 px fields, `inputmode` and `enterkeyhint` everywhere, the phone's date and time pickers on touch, Chat's box above the keyboard. | experience-design | 9 |
 | 9 | **Offline and reconnect:** the banner, failed saves kept with **Try again**, Chat's **Send again**, refresh on `online` and on waking. | experience-design | 11 |
 | 10 | **Installability:** the manifest's fields and icons from the theme and the environment, linked from every page meant to install; `apple-touch-icon`; the install line in Profile; `check-manifest`. | server-development (the manifest), experience-design (the pages) | 10 |
@@ -551,11 +651,12 @@ Vault.
   classes are kept, no IP, user key, user agent or pixel width; counts under 5 show as "fewer than 5"; without the
   environment variable the route answers 404 and the pages send nothing. Checked by a tool. Real counts from real
   phones only on Thomas's host.
-- **Step 1.** The run's screenshots at 390 and 360, portrait and landscape, light and dark, reviewed by Thomas; the
-  emulation itself checked by a page that prints what it sees (`/diag.html`: the width, `pointer: coarse`,
-  `hover: none`, the inset tokens). Checked by a tool.
-- **Step 3.** `check-touch` and `check-breakpoints` pass, and fail on a copy with a hover-only control and with a raw
-  inset. `host.screen` answers correctly under emulation at 390 touch, 390 mouse, 1280 touch and 1280 mouse.
+- **Step 1 (done).** Checked by a tool: Playwright's emulation in headless Chromium 1243, 230 screenshots and the
+  measured results, with the media queries and insets confirmed in the page. Nothing of it is verified live on a phone;
+  the device script in "Real devices and emulation" is how the findings are confirmed. The screenshots are for Thomas
+  to review while the scratchpad exists.
+- **Step 3.** `check-touch` and `check-breakpoints` pass, and fail on a copy with a hover-only control (and with a raw
+  inset, if question 24 keeps the tokens). `host.screen` answers correctly under emulation at 390 touch, 390 mouse, 1280 touch and 1280 mouse.
 - **Step 4.** In headless Chromium: open a sheet, back closes it; open a sheet over a sheet, two backs close both; an
   edited sheet asks first; switching views adds no entry; back from a space's base goes to Home. The iPhone's edge
   swipe and Android's back button only on the devices.
@@ -623,8 +724,11 @@ Each has options and the planner's suggestion, marked as such. The table above s
    drag. (c) Menu entries first, long press later where a list is reordered often. (b) fights scrolling and is
    invisible. *Suggestion: (c).* Blocks steps 12 and 13.
 8. **The emulation layer.** (a) Extend `tools/shots.mjs` over the DevTools protocol; no new dependency. (b) Add
-   Playwright as a dev dependency, for `hasTouch`, `isMobile` and a WebKit build. (b) adds a large dependency and a
-   second browser download to every check run; its WebKit is still not iOS Safari. *Suggestion: (a).* Blocks step 1.
+   Playwright as a dev dependency, for `hasTouch`, `isMobile` and a WebKit build. Evidence from the audit: Playwright's
+   mobile emulation worked directly in this container (a global install of 1.63, not a repository dependency), and
+   the DevTools commands it uses, the safe-area override included, are the ones (a) would send. (b) adds a large
+   dependency and a second browser download to every check run; its WebKit is still not iOS Safari. *Suggestion: (a),*
+   porting the audit's `measure.js` as it is. Blocks step 7 (step 1 is done).
 9. **Date and time on a phone.** (a) The phone's own pickers (`type="date"` and `"time"`) on a coarse pointer. (b)
    The SDK's own picker everywhere. (a) is what a phone person knows, and the fastest; (b) keeps one look.
    *Suggestion: (a).* Blocks step 8.
@@ -672,3 +776,14 @@ Each has options and the planner's suggestion, marked as such. The table above s
     admin work (still usable at 390 px). (b) Phone first for everyone. (c) Desktop first until the counts say
     otherwise. (c) is how the phone became a shrunk desktop; (b) makes Manage and the Planner's whole-trip planning
     wait on phone designs few will use. *Suggestion: (a).* Blocks step 2.
+24. **The safe-area tokens.** The audit showed the insets can be emulated directly, so the `--safe-*` tokens are not
+    needed for testing. (a) Keep them anyway, as the one place the insets are read (a check can then forbid raw
+    `env()`). (b) Drop them; use `env(safe-area-inset-*, 0px)` where needed, as today. *Suggestion: (b),* since one
+    more layer buys nothing a check needs now. Blocks step 3.
+25. **What to fix first from the audit.** (a) Fix the five worst (the microphone from another view, Leave's confirm,
+    back, landscape, the Calendar's Month) as their own small builds now, before steps 3 to 6. (b) Fold each into the
+    step that owns it (back into step 4, the call's way and Leave into step 6, landscape into step 3, the Month view
+    into step 13). (c) Fix the plain defects now (`/modules/todo` opening the Calendar, the host console's sideways
+    scroll, the invisible call controls, the 13 px search field) and fold the rest. (a) builds pieces steps 4 and 6
+    would replace; the defects in (c) are wrong under any design. *Suggestion: (c).* Blocks nothing; the defects can go
+    to bug-fixes at once.

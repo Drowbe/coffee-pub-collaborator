@@ -103,11 +103,20 @@
   .app.tiny .sdk-day-head > .sdk-day-date { grid-column: 1; grid-row: 1 / span 2; }
   .app.tiny .sdk-day-head > .sdk-day-date { padding-inline: var(--space-1); }
   .app.tiny .sdk-day-main { display: contents; }
-  .app.tiny .sdk-day-main > h2 { grid-column: 2; grid-row: 1; align-self: center; min-width: 0; }
+  .app.tiny .sdk-day-main > h2 { grid-column: 2; grid-row: 1; align-self: center; min-width: 0; white-space: nowrap; } /* "Day 1 of 10" stays one piece */
   .app.tiny .sdk-day-main > p { grid-column: 2 / -1; grid-row: 2; min-width: 0; }
   .app.tiny .sdk-day-main > .sdk-day-labels { grid-column: 2 / -1; grid-row: 3; margin-top: var(--space-0); }
   .app.tiny .sdk-day-actions { grid-column: 3; grid-row: 1; }
   .app.tiny .sdk-day-add { width: var(--btn-h-small); padding: 0; justify-content: center; } /* the plus alone: a square, so the title keeps its width */
+}
+/* A narrower column (under 240px) has no room beside the date and the two buttons for "Day 1 of 10": the title, the summary and the tag take the full width
+   under the date and the buttons, the summary wrapping as a whole phrase. */
+@container (max-width: 239px) {
+  .app.tiny .sdk-day-head > .sdk-day-date { grid-row: 1; }
+  .app.tiny .sdk-day-main > h2 { grid-column: 1 / -1; grid-row: 2; margin-top: var(--space-1); }
+  .app.tiny .sdk-day-main > p { grid-column: 1 / -1; grid-row: 3; }
+  .app.tiny .sdk-day-main > .sdk-day-labels { grid-column: 1 / -1; grid-row: 4; }
+  .app.tiny .sdk-day-actions { grid-column: 3; grid-row: 1; }
 }
 .app.narrow .block [data-slot="title"] { white-space: normal; }
 .app.narrow :is(button, a).sdk-mk-line:not(:disabled)::before, .app.narrow .sdk-mk-tag:not(:disabled)::before { content: ""; position: absolute; inset: calc((var(--mk-h) - 2px - 44px) / 2) 0; }

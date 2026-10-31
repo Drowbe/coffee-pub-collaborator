@@ -1572,10 +1572,10 @@
 
 /* The card's leading icon: a solid circle in the kind's colour (--tint; none, and it is neutral), the icon on it in the page colour (dark in
    dark mode, light in light mode). The disc is the tint at a lightness that holds the icon against it, 4.5:1: --card-disc-l, 0.74 in dark
-   mode, 0.5 in light. The kind label beside it uses --card-kind-l, 0.88 in dark mode and 0.4 in light (11px text needs 4.5:1 on the card).
+   mode, 0.5 in light. The kind label beside it uses --card-kind-l, 0.88 in dark mode and 0.38 in light (11px text needs 4.5:1 on the card).
    The box (--card-icon) is the circle: 36px in a banded head, 28px in a row. */
 :root { --card-kind-l: 0.88; --card-disc-l: 0.74; }
-:root[data-theme-mode="light"] { --card-kind-l: 0.4; --card-disc-l: 0.5; }
+:root[data-theme-mode="light"] { --card-kind-l: 0.38; --card-disc-l: 0.5; }
 .sdk-card-icon {
   flex: none;
   display: inline-flex;
@@ -2444,6 +2444,12 @@ th[aria-sort="ascending"] .sdk-sort > i, th[aria-sort="descending"] .sdk-sort > 
 
 @media (max-width: 640px) {
   :root { --field-h: 44px; --field-font: var(--text-16); --check-h: 44px; }
+}
+
+/* A touch screen (not a narrow one): a field with text under 16px makes iOS Safari zoom the page when it takes focus, in
+   landscape too. Every field takes the 16px step; the heights stay (check-touch). */
+@media (pointer: coarse) {
+  :root { --field-font: var(--text-16); }
 }
 
 /* A lifted editor window on a phone takes the phone height at any page width. */
@@ -5558,6 +5564,8 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-titlebar-title { flex: 1 1 auto; min-width: var(--mf-title-min); margin: 0; overflow: hidden; font-size: var(--text-14); font-weight: var(--weight-strong); line-height: var(--leading-title); white-space: nowrap; text-overflow: ellipsis; }
 .mf-titlebar-tools { display: flex; flex: none; align-items: center; gap: var(--space-0); }
 .mf-titlebar-tools > [hidden] { display: none; }
+/* No visible action (a page that has no "+" yet, or none): the group takes no room, so the gap before it does not push the title 8 px in from the end. */
+.mf-titlebar-tools:not(:has(> :not([hidden]))) { display: none; }
 /* The title bar's buttons, start to end: the module's bar actions, the "+", the menu (More, the host's menu: module-frame.js)
    and the close button. A button whose menu is open keeps the hover fill while it is open. */
 .mf-titlebar-tools > [aria-expanded="true"] { background: var(--fill-hover); color: var(--text-primary); }
@@ -5618,6 +5626,8 @@ progress.sdk-progress::-moz-progress-bar { background: var(--pg-fill); border-ra
 .mf-search-glyph { flex: none; color: var(--text-muted); font-size: var(--icon-12); }
 .mf-search-input { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; }
 .mf-search-input::placeholder { color: var(--text-muted); }
+/* On a touch screen the search takes the 16px step too (iOS zooms under it); the field keeps its height, the line fills it. */
+@media (pointer: coarse) { .mf-search-input { font-size: var(--text-16); line-height: normal; } }
 .mf-search-input::-webkit-search-cancel-button { appearance: none; }
 .mf-search .mf-search-close { width: calc(var(--mf-ctl-h) - 6px); height: calc(var(--mf-ctl-h) - 6px); }
 

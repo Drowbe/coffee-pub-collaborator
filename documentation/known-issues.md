@@ -183,12 +183,6 @@ While an editor from the Calendar or the Map is open, a floating module window c
 
 Workaround: close or move the floating window first.
 
-## "Unscheduled" appears twice in the Planner
-
-In a space with phases, the Unscheduled area is headed **Unscheduled**, and its first group is also headed **Unscheduled**. Thomas has decided to leave it as it is for now.
-
-Workaround: none.
-
 ## The Planner's day heading wraps in a docked column
 
 In a Planner docked in a column about 256 pixels wide, the heading of a day wraps: "Day 1 of 10" can break over three lines at 220 pixels.
@@ -201,8 +195,8 @@ Muted text on a plain surface now meets 4.5:1 in Strong Coffee's light mode, but
 
 Workaround: none; use a dark theme if the text is hard to read.
 
-## check-call-bars fails on "mousemove that does not move"
+## check-conformance fails now and then in the cloud container
 
-`tools/check-call-bars.mjs` fails its "mousemove that does not move" case. It fails on main too, so it is not caused by the latest changes. The cause has not been found, so it is not known whether the call or the check is at fault.
+`tools/check-conformance.mjs` fails on some runs in the cloud container: the end inset of the title bar is 12 pixels instead of 4 in one or two of its windows. Most runs pass. The cause is under investigation, so it is not known whether the page or the check is at fault.
 
-Workaround: none.
+Workaround: run the check again.

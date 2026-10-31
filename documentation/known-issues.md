@@ -183,12 +183,6 @@ While an editor from the Calendar or the Map is open, a floating module window c
 
 Workaround: close or move the floating window first.
 
-## The Planner's day heading wraps in a docked column
-
-In a Planner docked in a column about 256 pixels wide, the heading of a day wraps: "Day 1 of 10" can break over three lines at 220 pixels.
-
-Workaround: make the column wider.
-
 ## Some muted text on tinted surfaces is under 4.5:1 in light mode
 
 Muted text on a plain surface now meets 4.5:1 in Strong Coffee's light mode, but three cases on tinted surfaces do not: the dates on phase-tinted chips (3.85:1), the counts on a poll's voted bar (3.78:1) and the struck-through titles of done objects (3.81:1).

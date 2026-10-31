@@ -1572,9 +1572,9 @@
 
 /* The card's leading icon: a solid circle in the kind's colour (--tint; none, and it is neutral), the icon on it in the page colour (dark in
    dark mode, light in light mode). The disc is the tint at a lightness that holds the icon against it, 4.5:1: --card-disc-l, 0.74 in dark
-   mode, 0.5 in light. The kind label beside it uses --card-kind-l, 0.78 in dark mode and 0.4 in light (11px text needs 4.5:1 on the card).
+   mode, 0.5 in light. The kind label beside it uses --card-kind-l, 0.88 in dark mode and 0.4 in light (11px text needs 4.5:1 on the card).
    The box (--card-icon) is the circle: 36px in a banded head, 28px in a row. */
-:root { --card-kind-l: 0.78; --card-disc-l: 0.74; }
+:root { --card-kind-l: 0.88; --card-disc-l: 0.74; }
 :root[data-theme-mode="light"] { --card-kind-l: 0.4; --card-disc-l: 0.5; }
 .sdk-card-icon {
   flex: none;

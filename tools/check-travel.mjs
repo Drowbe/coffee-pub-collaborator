@@ -1707,6 +1707,7 @@ test('Unscheduled is the default phase: the first group of the list, and the edi
   const js = fs.readFileSync(new URL('../modules/travel/src/travel.js', import.meta.url), 'utf8');
   assert.ok(js.includes("[{ id: null, label: 'Unscheduled' }, ...bands]"), 'the Unscheduled group comes before the phases');
   assert.ok(!/phaseOf\([^)]*today/.test(js), 'the list does not read today\'s phase');
+  assert.ok(js.includes("const groups = [{ id: null, label: 'Unscheduled' }, ...bands].map(") && js.includes("if (groups.length === 1 && p.id === null) group.querySelector('h3').hidden = true;"), 'Unscheduled alone: its group heading is hidden (the area already says it); with phases beside it, every group keeps its heading');
   assert.ok(js.includes("[{ id: '', label: 'Unscheduled' }, ...phases]") && js.includes("select.value = item && item.phase && phases.some((p) => p.id === item.phase) ? item.phase : '';"), 'the editor\'s Phase starts on Unscheduled');
 });
 

@@ -732,6 +732,8 @@ body.host-console #host-facts dt {
 
 body.host-console #host-facts dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere; /* a web address has no spaces: it wraps instead of scrolling the page sideways on a phone */
   line-height: var(--leading-body);
 }
 

@@ -117,7 +117,7 @@ with write(out) as writer:
 
 In a space, the **Map** tab in the top bar shows the map and Places together for that space. It fills the Workspace, loads as saved each time you press its tab, and does not set you Away on the call. The filter at its left chooses whose places show: this space's, **Mine**, and the environment's own. Maps is also a module in the **Layout** menu, as **Maps**, with Places inside it.
 
-When an owner turns on **Show in the top bar** on Maps' configuration page (see [Manage](userguide-environment-settings.md), "Top bar"), **Global Map** is in the profile menu under your picture, with the Maps icon and the name your environment gives it after the word Global. It puts the map and the list of [Places](userguide-places.md) on one page, across the whole environment and every space you are in. On a phone it is in the top bar's menu, after your spaces. It shows only while Maps is on, a map file or a picture map is set (see "Set it up" above), and you may see Maps for the whole environment. Guests never see it.
+When an owner turns on **Show in the top bar** on Maps' configuration page (see [Manage](userguide-environment-settings.md), "Top bar"), **Global Map** is in the profile menu under your picture, with the Maps icon and the name your environment gives it after the word Global. It puts the map and the list of [Places](userguide-places.md) on one page, across the whole environment and every space you are in. In the narrow layout it is in the top bar's menu, after your spaces. It shows only while Maps is on, a map file or a picture map is set (see "Set it up" above), and you may see Maps for the whole environment. Guests never see it.
 
 1. Choose **Global Map** in the profile menu. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you.
 2. Click **Trips** (your environment's word for spaces) on the left of the bar under the top bar to choose whose places show: **Mine**, then the environment's own places by the environment's name, then each of your spaces. The button says how many are on, such as "Trips (3 of 5)".
@@ -125,7 +125,7 @@ When an owner turns on **Show in the top bar** on Maps' configuration page (see 
 4. Click a pin to select it: the map shows its callout and the list marks the place. Click a place in the list to fly the map to it.
 5. To add a place, choose **+** at the top left of the map ("Add a place: click the map") and click the map, or **Add a place** at the top of the list. Places' dialog opens and asks **Where** it goes (see [Places](userguide-places.md)).
 
-This browser remembers what **Trips** shows, where the map was and, on a phone, the tab. On a phone the page has two tabs at the bottom, **Maps** and **Places**. On a device that can't draw the map, the list takes the whole page.
+This browser remembers what **Trips** shows, where the map was and, in the narrow layout, the tab. In the narrow layout the page has two tabs at the bottom, **Maps** and **Places**. On a device that can't draw the map, the list takes the whole page.
 
 While Global Map is on, the Maps and Places pages (`/modules/maps`, `/modules/places`) lead to it. Without it, `/modules/maps` shows a map of all your places, from every space you are in, your own and the environment's, with no list beside it; its field takes coordinates or a map link to go there, and places are added from Places or in a space.
 

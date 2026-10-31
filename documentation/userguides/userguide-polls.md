@@ -35,7 +35,7 @@ Or choose the **+** in Polls' titlebar (**New poll**). Give the question and at 
 - **Closes**, to have the poll close itself at a set time.
 - **Tell people about it**, to send everyone who can see the poll a notification.
 
-The form opens in a window over the whole page (the whole screen on a phone), with **Start poll** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". See [Modules](userguide-modules.md), "Add and edit forms".
+The form opens in a window over the whole page (the whole screen in the narrow layout), with **Start poll** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". See [Modules](userguide-modules.md), "Add and edit forms".
 
 ## Vote
 

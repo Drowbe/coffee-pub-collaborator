@@ -12,7 +12,7 @@ needs to know whether it is docked, floating, popped out or on its own page. The
 frame's band classes for their own title bars, Chat's view row and status bar, so they look the same.
 
 The frame has a variant for where it sits: `window` (edge, corner and shadow; a floating or popped-out window),
-`docked` (a column of the canvas: its left edge only, no divider on a phone) and `page` (it fills a page: no edge).
+`docked` (a column of the canvas: its left edge only, no divider in the narrow layout) and `page` (it fills a page: no edge).
 
 ## The four levels
 
@@ -32,7 +32,7 @@ The frame has a variant for where it sits: `window` (edge, corner and shadow; a 
 
 - **Title bar** (36px). The module's icon and name, then its own actions (`host.header.set`) as icon buttons, the
   **+** (`host.add.set`: exactly one action runs at once, more open the host's menu with a category's leaves in a
-  flyout, a drill-in on a phone), the menu button and **Close** where the window closes. The menu holds the module's
+  flyout, a drill-in in the narrow layout), the menu button and **Close** where the window closes. The menu holds the module's
   own actions marked for it, then the standard actions that apply -- **Dock as a panel**, **Open as a window**,
   **Open in its own window**, **Settings**, **Share**, **Print** -- then the destructive ones last, red (the module's
   own, then the host's **Clear**). The host owns the standard actions; a module cannot add one. When the bar is
@@ -93,7 +93,7 @@ and the button carries `aria-expanded`. From the keyboard: the first entry takes
 or Space picks; Escape closes and puts focus back on the button; Tab closes. An entry is
 `{ label, icon?, regular?, hint?, danger?, disabled?, checked?, badge?, onPick }`: `checked` (true or false) makes it
 a checkbox entry that shows a tick while on (a toggle folded into the top bar's "..."), and `badge` is a count
-shown after its label (the real number, no cap). An entry with `items` (a list of plain entries) is a category: a caret at its end and its entries in a flyout beside its row (a drill-in with **Back** on a phone), which is how the titlebar's **+** shows a category. The "..." is drawn by
+shown after its label (the real number, no cap). An entry with `items` (a list of plain entries) is a category: a caret at its end and its entries in a flyout beside its row (a drill-in with **Back** in the narrow layout), which is how the titlebar's **+** shows a category. The "..." is drawn by
 `drawMoreButton`, the same look as `host.ui.moreButton` (`.sdk-more`) inside a module. In every zone it sits
 on the **left**, and leftover items come off the left, so the rightmost item stays. An item marked
 `overflow: true` always goes into the "...", for something you always want tucked away (a destructive
@@ -169,9 +169,8 @@ first, kept in `localStorage` under `app:kind:<moduleId>:<key>` as `host.actions
 under `app:pick:...`. It is in the SDK rather than the Planner because the plan names two more users (Research's
 note type, Places' category), and because the Planner's day "..." already lists the same kinds through
 `host.menu.show`. The pure parts (`kindMatches`, `kindPickerGroups`, `kindRecentAdd`) are written so
-`tools/check-module-window.mjs` can slice them out of `host.js` and run them, as it does the editor's sizes. On a
-phone the picker's sheet is a stylesheet rule on `.sdk-kind.open .sdk-kind-sheet`, not a second element, so the
-script only decides where the list is appended (the sheet on a phone, the open editor or the root otherwise).
+`tools/check-module-window.mjs` can slice them out of `host.js` and run them, as it does the editor's sizes. In the narrow layout the picker's sheet is a stylesheet rule on `.sdk-kind.open .sdk-kind-sheet`, not a second element, so the
+script only decides where the list is appended (the sheet in the narrow layout, the open editor or the root otherwise).
 The contract is in [api-module-sdk](../api/api-module-sdk.md), "Choosing a kind"; the Planner's use of it, and
 how one **Markers** group maps to the stored `block` and `lane` kinds through **Where** (`kindOf` and `tileAt` in
 `modules/travel/src/travel-lib.js`), is in [plan-editor-window](../plans/plan-editor-window.md), Part 2.
@@ -214,12 +213,14 @@ at 640 px and below the frame is a full-screen sheet (`top: 0` with `height: 100
 solid `--bg`; a short fade unless `prefers-reduced-motion`. The frame is exactly the editor's size, not wider
 with the module showing behind, so nothing of the module is drawn at the lifted size but the form.
 
+**A composite's editor (the Calendar, the Map) is the exception.** The frame of a composite holds the whole page of the Calendar or the Map, so shrinking it to the editor's size would blank the window the person was working in, and would change the page's layout behind the editor. `createFrameLift` takes `cover: true` for a composite (`public/canvas.js`). The lifted frame then keeps its own width and left edge and is the screen's full height, the rest of the screen dimmed. It answers the page with the box it had (`cover: { top, right, bottom, left }`), and `coverPage()` in `public/destination.js` keeps the page drawn in that box (`body.dest-covered`, `--cover-top`, `--cover-bottom`, on a clear ground) while the part's editor opens as an ordinary modal dialog over the screen, so the list stays visible behind it. The page's layout does not change while the editor is open. The editor window itself is the size of any editor; when the window is narrower than the editor, it is the narrow-layout sheet at that width. This replaces step 11's "the frame is the window, exactly the editor's size" for a composite; an uploaded module's frame is still lifted to the editor's size. Closing or dismissing the editor puts the page back (`editordismiss`).
+
 `tools/check-module-window.mjs` holds the six migrated modules to the shape (a `<dialog id="editor" class="sdk-editor">`,
 no `.editor { position: absolute; inset: 0 }` overlay, Cancel through `editor.cancel()`, nothing reading
 `$('editor').hidden`, icons waited for together), and runs the SDK's `EDITOR_SIZES`, its handle and its thrown
 sentence sliced out of `host.js`, with `/sdk/host.css`'s widths held to the same numbers and its colours to the
 tokens. It also holds the lift: the frame boot's `lift`, the asks around `showModal()` and `close`, `sdk-editor-lifted`
-filling the frame, and `style.css`'s lift block (the two widths equal to `EDITOR_SIZES`, the backdrop, the phone
+filling the frame, and `style.css`'s lift block (the two widths equal to `EDITOR_SIZES`, the backdrop, the narrow layout
 sheet without `inset: 0`, no fixed colours). `tools/check-module-host.mjs` runs `liftFrame()` and `releaseLift()`
 sliced out of `module-host.js` on a stand-in page: the classes, one backdrop, exactly the right elements inert and
 un-inert again, what was inert before staying so, and `canvas.js` and `module.js` doing their parts.

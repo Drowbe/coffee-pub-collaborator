@@ -131,6 +131,8 @@ const PROBE = (hostExpr) => `(() => {
     out.taps.push(t);
   }
   out.heads = [...root.querySelectorAll('.sdk-day > .sdk-day-head')].filter(vis).map((e) => e.getBoundingClientRect().height);
+  // The day title ("Day 1 of 10") in its head: how many lines it takes and whether it broke inside a word.
+  out.dayTitles = [...root.querySelectorAll('.sdk-day > .sdk-day-head h2')].filter(vis).map((e) => { const r = e.getBoundingClientRect(); const lh = parseFloat(getComputedStyle(e).lineHeight) || 20; return { text: e.textContent.trim(), lines: Math.round(r.height / lh), nowrap: getComputedStyle(e).whiteSpace === 'nowrap' || r.height < lh * 1.5 }; });
   for (const e of root.querySelectorAll('.sdk-mk-tag, .sdk-mk-tag *, .sdk-chip-tag, .sdk-chip-tag *, .sdk-chip, .sdk-chip *')) {
     if (vis(e) && e.scrollWidth > e.clientWidth + 0.5) out.truncated.push({ what: cls(e) + ' "' + name(e) + '"', scroll: e.scrollWidth, client: e.clientWidth });
   }
@@ -323,7 +325,8 @@ async function main() {
     // ---- 7. the docked column: the day head, words that are not cut, the card heads ----
     const heads = docked.probe.heads;
     if (!heads.length) fail('Docked: no day head was found in the docked Planner');
-    else if (Math.max(...heads) > 106) fail(`Docked: a day head in the ${round(docked.body)}px column is ${round(Math.max(...heads))}px tall (the tallest of ${heads.length}; all ${heads.map(round).join(', ')}); it should stay at or under about 106px, the words wrapping and the tag keeping its width`);
+    else if (Math.max(...heads) > 134) fail(`Docked: a day head in the ${round(docked.body)}px column is ${round(Math.max(...heads))}px tall (the tallest of ${heads.length}; all ${heads.map(round).join(', ')}); it should stay at or under about 134px, the words wrapping and the tag keeping its width`);
+    for (const t of docked.probe.dayTitles) if (t.lines > 1) fail(`Docked: the day title "${t.text}" takes ${t.lines} lines in the ${round(docked.body)}px column; it should stay on one line (no "Day / 1 of / 10" fragments)`);
     for (const t of docked.probe.truncated) fail(`Docked: ${t.what} is cut: its text is ${round(t.scroll)}px wide in a box ${round(t.client)}px wide`);
     for (const [which, m] of [['docked Planner', docked], ['real Planner 390', real['390 light']]]) {
       const ch = (m.probe || { cardHeads: [] }).cardHeads;

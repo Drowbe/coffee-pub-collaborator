@@ -27,7 +27,9 @@ const MEASURE = `(() => { const w = ${POPOUT}; const d = w.document;
     shown: { head: shown(head), bar: shown(bar) } }; })()`;
 // Events dispatched in the popped-out window, as a person's would arrive there.
 const ev = (js) => `(() => { const w = ${POPOUT}; const d = w.document; ${js}; return true; })()`;
-const MOVE = (x, y) => ev(`d.dispatchEvent(new w.MouseEvent('mousemove', { bubbles: true, clientX: ${x}, clientY: ${y}, screenX: ${x}, screenY: ${y} }))`);
+// A mousemove at the screen position of the last real one (the window sits at an offset on the screen, so screen is not client).
+const WATCH = ev(`d.addEventListener('mousemove', (e) => { w.__lastReal = { cx: e.clientX, cy: e.clientY, sx: e.screenX, sy: e.screenY }; }, true)`);
+const REPEAT = ev(`const r = w.__lastReal; if (!r) throw new Error('no real mousemove seen'); d.dispatchEvent(new w.MouseEvent('mousemove', { bubbles: true, clientX: r.cx, clientY: r.cy, screenX: r.sx, screenY: r.sy }))`);
 
 async function run(browser, S, people) {
   const tab = new Tab(browser.cdp, S.ctx);
@@ -54,10 +56,11 @@ async function run(browser, S, people) {
     const key = async (k, code) => { await input('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code: k, windowsVirtualKeyCode: code }); await input('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: k, windowsVirtualKeyCode: code }); };
     const record = async (name) => { const m = await tab.eval(MEASURE); states.push({ name, ...m }); return m; };
     const barAt = async () => tab.eval(`(() => { const r = ${POPOUT}.document.querySelector('.video-bar').getBoundingClientRect(); return { x: Math.round(r.x + 6), y: Math.round(r.y + r.height / 2) }; })()`);
+    await tab.eval(WATCH);
     await move(200, 150); await sleep(500); await record('pointer moved');
     await sleep(IDLE_WAIT_MS); await record('idle');
     // A mousemove at the same place, as Chromium sends after a layout change under a resting pointer: not a movement.
-    await tab.eval(MOVE(200, 150)); await sleep(500); await record('mousemove that does not move');
+    await tab.eval(REPEAT); await sleep(500); await record('mousemove that does not move');
     await move(240, 160); await sleep(500); await record('pointer moved again');
     await tab.eval(ev(`w.dispatchEvent(new w.FocusEvent('blur'))`)); await sleep(500); await record('window blur');
     await tab.eval(ev(`w.dispatchEvent(new w.FocusEvent('focus'))`)); await sleep(500); await record('window focus');

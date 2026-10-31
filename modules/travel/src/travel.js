@@ -1301,11 +1301,12 @@
       box.append(ul);
     } else {
       // "Unscheduled" is the default phase: first, for an object with no phase of its own. Not a phase of the plan.
-      for (const p of [{ id: null, label: 'Unscheduled' }, ...bands]) {
-        const mine = items.filter((item) => phaseOf(item, bands) === p.id);
-        if (!mine.length) continue;
+      // Alone, that group's heading would only repeat the area's own "Unscheduled", so it has none; with phases beside it, every group has one.
+      const groups = [{ id: null, label: 'Unscheduled' }, ...bands].map((p) => ({ p, mine: items.filter((item) => phaseOf(item, bands) === p.id) })).filter((g) => g.mine.length);
+      for (const { p, mine } of groups) {
         const group = clone('tpl-undated-group');
         fill(group, { label: p.label });
+        if (groups.length === 1 && p.id === null) group.querySelector('h3').hidden = true;
         const ul = group.querySelector('ul');
         for (const item of mine) undatedRow(ul, item);
         box.append(group);

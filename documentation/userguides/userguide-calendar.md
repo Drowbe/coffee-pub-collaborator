@@ -41,15 +41,15 @@ It holds the environment's own events and the events of every space where the Ca
 
 ## Global Calendar
 
-When an owner turns on **Show in the top bar** on the Calendar's configuration page (see [Manage](userguide-environment-settings.md), "Top bar"), **Global Calendar** is in the profile menu under your picture, with the Calendar's icon and the name your environment gives it after the word Global. It puts the Calendar and the To-do on one page: your events and tasks from the whole environment and every space you are in. On a phone it is in the top bar's menu, after your spaces. It is separate from the **Calendar** tab of a single space (see "A space's calendar" below).
+When an owner turns on **Show in the top bar** on the Calendar's configuration page (see [Manage](userguide-environment-settings.md), "Top bar"), **Global Calendar** is in the profile menu under your picture, with the Calendar's icon and the name your environment gives it after the word Global. It puts the Calendar and the To-do on one page: your events and tasks from the whole environment and every space you are in. In the narrow layout it is in the top bar's menu, after your spaces. It is separate from the **Calendar** tab of a single space (see "A space's calendar" below).
 
 1. Open your profile menu and choose **Global Calendar**. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you. Otherwise it is a page of its own.
 2. In the bar under the top bar, choose **Month**, **Week** or **Day**. **Day** is one column of hours with the all-day events above.
 3. Click **Trips** (your environment's word for spaces) to choose whose events and tasks show: first the environment's own calendar, by the environment's name, then each of your spaces with its icon. The button says how many are on, such as "Trips (3 of 5)". With nothing on, the page says "Pick at least one in Trips." After the spaces come switches for tasks and polls, such as **Tasks due** and **Polls closing**; see "Tasks due and polls closing" below.
 4. Use the arrows and **Today** above the calendar to move around. Click a day to select it.
-5. On the right, choose **Agenda** for the events from the selected day onward, grouped by day, or **To-do** for the open tasks (see [To-do](userguide-todo.md)). With the To-do off, or not yours to see, only the Agenda shows. Here nothing is listed under the grid: the Agenda is the list, and on a phone it is the **Agenda** tab.
+5. On the right, choose **Agenda** for the events from the selected day onward, grouped by day, or **To-do** for the open tasks (see [To-do](userguide-todo.md)). With the To-do off, or not yours to see, only the Agenda shows. Here nothing is listed under the grid: the Agenda is the list, and in the narrow layout it is the **Agenda** tab.
 
-This browser remembers the view, what **Trips** shows and the tab on the right. On a phone the page has three tabs at the bottom, **Calendar**, **Agenda** and **To-do**, and opens on **Day** until you pick another view.
+This browser remembers the view, what **Trips** shows and the tab on the right. In the narrow layout the page has three tabs at the bottom, **Calendar**, **Agenda** and **To-do**, and opens on **Day** until you pick another view.
 
 Click an event, in the calendar or the Agenda, to open it in place. **Add event** works as below, and you can change any event in a space where you may add events. A task dragged onto a day sets its due date there, and an event dragged onto the To-do makes a task linked to it.
 
@@ -83,7 +83,7 @@ On Home, the Modules column's **Coming up** card lists the next seven days of ev
 
 If you can edit, choose **Add event** (the **+** in the Calendar's titlebar; at the top of the page in Global Calendar), or click a day in the month. Outside a space, choose **Where** first: the environment's own calendar (if you may add events there) or one of the spaces where you may add events. It starts empty every time, and **Save** says "Pick a space first." until you choose (in your environment's word for space). An event already saved stays where it is; **Where** shows it and can't be changed. In a space the event goes in that space. Give it a title, a date, and a start and end time (or tick **All day**), and add details if you like. Choose **Save**. Click an event to change or delete it; the delete button asks you to click a second time. When something else points at the event (a task, or an object on a plan), it says so first, for example "Used by 1. Really delete?". If two people change the same event at once, the second person is told and can reopen it to see the other change.
 
-The form opens in a window over the whole page (the whole screen on a phone), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". The date pickers open inside it. See [Modules](userguide-modules.md), "Add and edit forms". An event you may only read (the environment's, in a space) opens with no buttons and its fields greyed; **Close** or Escape just closes it.
+The form opens in a window over the whole page (the whole screen in the narrow layout), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". The date pickers open inside it. See [Modules](userguide-modules.md), "Add and edit forms". An event you may only read (the environment's, in a space) opens with no buttons and its fields greyed; **Close** or Escape just closes it.
 
 To type an event, use `/c` in Chat while the Calendar is open, and the New event form opens filled in: `/c meet with bob sep 29 at 7pm` gives the title "meet with bob", the day Sep 29 and the time 7:00 PM. Days can be typed as "tomorrow", "fri", "next mon", "sep 29", "29 sep" or "9/29"; times as "7pm", "7:30pm", "19:00", "at 7", "noon" or "midnight". Whatever it does not understand stays in the title, and you can change anything before saving. See [Chat](userguide-chat.md), "Commands".
 
@@ -131,7 +131,7 @@ Outlook through a private address made on your profile's **Calendars** tab: an *
 
 While the owner has **Other calendars and busy times** on, events from your own other calendars (added on your profile; see "Your other calendars in Collaborator" in
 [Accounts, roles and permissions](userguide-accounts.md)) show on the Calendar's own page and on Calendar in the top
-bar, for you alone. They look muted and italic, with a coloured edge and a tag naming the calendar; on a phone's month
+bar, for you alone. They look muted and italic, with a coloured edge and a tag naming the calendar; in the narrow layout's month
 they are hollow dots. Opening one says "From your <name> calendar. Only you see this." and it can't be changed. Each
 calendar has its own entry in the filter, marked "(only you)"; while one is off, the filter's label adds
 "· Other calendars (1 of 2)". They never show inside a space (on its canvas, in a window popped out of it, or on

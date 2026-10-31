@@ -30,9 +30,9 @@ cover every case. GitHub #69.
 
 Workaround: keep the data folder itself readable only by the user the server runs as.
 
-## The console's Maps tab is too wide on a phone
+## The console's Maps tab is too wide in the narrow layout
 
-On the host console at phone width, the Maps tab runs past the right edge of the screen.
+On the host console at narrow width, the Maps tab runs past the right edge of the screen.
 
 Workaround: use a wider window or turn the phone sideways.
 
@@ -104,7 +104,7 @@ phase-change event for modules).
 
 Workaround: reload the page.
 
-## The Calendar's Day view can scroll by itself at phone width
+## The Calendar's Day view can scroll by itself at narrow width
 
 At 390 pixels wide, the Calendar's Day view can scroll by itself, away from where you were. The phase bar now stays
 in sight as you scroll (Calendar 1.24.9). Related: GitHub #287.
@@ -170,3 +170,21 @@ Workaround: edit each place and set its **Position** on the picture with the tar
 restricts them, cannot show it (see the entry above for what is left on the page).
 
 Workaround: allow pop-ups for Collaborator.
+
+## A Calendar or Map editor in a narrow window is a narrow-layout sheet
+
+When the window is narrower than the editor, the editor of a Calendar or Map part opens as the narrow-layout sheet at that width, not as a window the editor's own size. The page behind it keeps its layout.
+
+Workaround: widen the window.
+
+## Floating windows can draw over a lifted editor
+
+While an editor from the Calendar or the Map is open, a floating module window can still be drawn over it.
+
+Workaround: close or move the floating window first.
+
+## Some muted text on tinted surfaces is under 4.5:1 in light mode
+
+Muted text on a plain surface now meets 4.5:1 in Strong Coffee's light mode, but three cases on tinted surfaces do not: the dates on phase-tinted chips (3.85:1), the counts on a poll's voted bar (3.78:1) and the struck-through titles of done objects (3.81:1).
+
+Workaround: none; use a dark theme if the text is hard to read.

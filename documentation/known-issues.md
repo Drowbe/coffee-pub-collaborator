@@ -194,9 +194,3 @@ Workaround: make the column wider.
 Muted text on a plain surface now meets 4.5:1 in Strong Coffee's light mode, but three cases on tinted surfaces do not: the dates on phase-tinted chips (3.85:1), the counts on a poll's voted bar (3.78:1) and the struck-through titles of done objects (3.81:1).
 
 Workaround: none; use a dark theme if the text is hard to read.
-
-## check-conformance fails now and then in the cloud container
-
-`tools/check-conformance.mjs` fails on some runs in the cloud container: the end inset of the title bar is 12 pixels instead of 4 in one or two of its windows. Most runs pass. The cause is under investigation, so it is not known whether the page or the check is at fault.
-
-Workaround: run the check again.

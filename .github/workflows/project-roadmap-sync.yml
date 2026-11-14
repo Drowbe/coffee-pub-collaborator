@@ -1,0 +1,70 @@
+name: Project roadmap from the CSV
+
+# Keeps the roadmap columns on the project board in step with .github/roadmap-board.csv, so nobody updates
+# them by hand. The CSV (Issue, URL, Area, Title, Release status, Phase) is the data; tools/roadmap-board-sync.mjs
+# reads it. Each run:
+#   - makes sure the single-select fields Area, Release status and Phase exist on the board, with the options in
+#     the CSV (a missing field is created; a field that exists but lacks an option is NOT recreated: the run fails
+#     and names the field and the options, so they can be added by hand), and the Date field "Target date" (empty);
+#   - adds every open issue of this repository that is in the CSV to the board, if it is not on it yet;
+#   - sets Area, Release status and Phase on those cards, only where the value differs.
+# Closed issues, pull requests, numbers that don't exist and other repositories' rows are skipped. It never
+# deletes anything, never touches Status or any other field, and never changes the `priority: ...` labels.
+# The step summary and the log list one line per issue and the totals (added, changed, unchanged, skipped,
+# failed). Nothing secret is printed.
+#
+# "Gating (proposed ...)" in the Release status column is the project manager's PROPOSAL, not a decision, until
+# Thomas confirms the gating table (documentation/plans/plan-release.md). The sync copies the CSV as it is.
+#
+# Runs on: a push to main that changes .github/roadmap-board.csv, once a day, and by hand from the Actions tab
+# (or POST repos/{owner}/{repo}/actions/workflows/project-roadmap-sync.yml/dispatches with ref=main). To see what
+# would change without changing anything, run `node tools/roadmap-board-sync.mjs --dry-run` with the same
+# environment variables on your own machine.
+#
+# One-time setup, the same as project-priority.yml (nothing new if that is already set up), in the repository's
+# Settings > Secrets and variables > Actions:
+#   - secret   PROJECT_TOKEN   a personal access token (classic) with the `project` scope (and `repo` if this
+#                              repository is private); fine-grained tokens can't reach projects owned by a user.
+#   - variable PROJECT_OWNER   the user who owns the project, e.g. Drowbe
+#   - variable PROJECT_NUMBER  the project's number, from its URL, e.g. 8
+# Without the secret or the owner and number the run ends green with a notice. PROJECT_FIELD (the Status field)
+# is not used here.
+# What you do NOT have to do: create the fields or their options on the board, add the issues to the board, set
+# any column by hand, or touch Status, the labels or the other workflows. To change the roadmap, edit the CSV and
+# push; the next run (or "Run workflow") does the rest. Only a missing option on a field that already exists is
+# yours to add.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/roadmap-board.csv'
+
+permissions:
+  contents: read
+  issues: read
+
+# One sync at a time; a run started while another is going waits for it.
+concurrency:
+  group: project-roadmap-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Sync the roadmap columns
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: node tools/roadmap-board-sync.mjs

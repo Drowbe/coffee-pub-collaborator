@@ -8,8 +8,8 @@ the CHANGELOG once fixed.
 
 ## Whiteboard: limits that are known
 
-These are recorded for the Whiteboard 0.1.49 ([userguide-whiteboard](userguides/userguide-whiteboard.md),
-[architecture-whiteboard](architecture/architecture-whiteboard.md)).
+These are recorded for the Whiteboard up to 0.1.64 ([userguide-whiteboard](userguides/userguide-whiteboard.md),
+[architecture-whiteboard](architecture/architecture-whiteboard.md)); the list was written for 0.1.49 and read again against the code of 0.1.64 on 2026-11-14 (read as code, not by using the board). The open issues are numbered.
 
 - **Same block, same moment.** Two people changing one block at the same moment: the last save wins. There is no conflict check yet.
 - **Undo and copied blocks are per page.** They are in the page's memory, so they are gone on reload and are not shared between tabs.
@@ -17,7 +17,7 @@ These are recorded for the Whiteboard 0.1.49 ([userguide-whiteboard](userguides/
 - **Sandboxed run.** When an owner runs the module sandboxed, not in the page, a picture shows "Picture not found", because the frame's origin is `null` and the picture's address does not load there. Pasting a picture in that frame was not tried. The bundled module runs in the page.
 - **Removed members and pictures.** A member who is removed may still load a picture for up to an hour, from the upload cache.
 - **Print and Save as image are not verified in a real browser's print dialog.** Neither was run against the real print dialog, and neither was tried in Safari or Firefox. The export's sums (which blocks, the part of the board, the size, the file name) are checked by a tool; the picture and the printed page are not. **Ctrl+P** (**Cmd+P**) is the browser's own print and does not use the board's Print.
-- **Save as image in a sandboxed run.** The SDK has no call to hand over a file a module made, so the page uses a download link. When an owner runs the module sandboxed, a download is blocked and the page says it cannot save.
+- **Save as image in a sandboxed run.** The SDK has no call to hand over a file a module made yet (the page calls `host.files.save` once it exists, #469), so the page uses a download link. When an owner runs the module sandboxed, a download is blocked and the page says it cannot save.
 - **Save as image has one format and one place.** PNG only (no SVG), saved to the computer, not to the Vault.
 - **A table cell and Escape.** Escape in a cell being edited puts back only that cell's unfinished words. Cells you already kept stay, and **Undo** takes them back one step at a time. This is by design.
 - **Two people in one table.** Two people changing the same cell, or the same table at once outside an edited cell, still lose one change (the last save wins). A cell you edit is written into the newest table, so cells others changed meanwhile stay.
@@ -35,6 +35,10 @@ These are recorded for the Whiteboard 0.1.49 ([userguide-whiteboard](userguides/
 - **Charcoal on a fixed fill.** Words in **Ink**-coloured or Charcoal choices on a fixed (Light or Dark) fill do not follow the theme, so a dark colour on a dark fill can be hard to read. Pick a different words colour.
 - **The Present notes box was checked as code only.** Dragging the speaker notes box and keeping it inside the board, and its layout under 640 pixels, were read from the code and not tried in a browser. Shared presenting, Restart and Jump to Frame were checked by tool, not by hand.
 - **Pointers and the resync were not tried with several people** or a real dropped connection.
+- **Zoomed out, shapes and lines come out wrong** (#445). Drawing a rectangle or a line at a low zoom (20 percent) can give a size past the 4,000 unit limit, which is then replaced by the default or dropped, so a line stops following the pointer. Zoom in before drawing a large shape. The code still has no clamp in the shape tool's `sized()`; read as code.
+- **Stacking and far blocks** (#445). A block whose `z` is at the limit sends every new block and **Bring to front** to the bottom. One block placed very far away makes the board look empty after **Show everything**, because it cannot zoom out past 20 percent. There is no cap on the number of blocks a board holds: a board with tens of thousands of small notes loads and then pans slowly. All four are found by QA and not seen by a person in normal use.
+- **The storage limit is shared.** The module's 5 MB of storage is shared by every space's whiteboards in an environment. One editor can fill it with large strokes, after which nobody can save more than a small note. There is no per-block ownership: any editor may change or delete any block, and the host's **Clear** lets any editor wipe the board (with a 30-second undo). Editors can store values that are not blocks; the page ignores them but they count against the limit (#445).
+- **Not built, open as issues:** speaker notes feedback (#569) and the Present batch (#561) are partly built (0.1.43 to 0.1.45) and stay open for their rest, Present full screen (#542, needs a core piece), Send to Assistant (#543), fixed colours and a colour chooser for blocks (#544), export and import of a board and copying blocks between boards (#554), a grid button with style, size, colour and opacity (#541), other modules' objects on the board (#501), comments on blocks (#499) and the ideas list (#503). See [TODO](TODO.md).
 - **Align, guides and lock keys** were checked by tool (`check-whiteboard-arrange.mjs`), not by hand in a browser.
 - **The clipboard.** Copy and cut by key replace what is on the computer's clipboard (with the board's mark). Thomas accepted this.
 - **Find and Overview: not verified.** Find was not tried with the formatting bar's link field or a frame's title being edited (the `/` key is meant to type a slash there; this was read as code and checked by a tool on its sums, not by hand). Neither Find nor the overview was tried on a real phone, and neither in a real call.
@@ -42,8 +46,9 @@ These are recorded for the Whiteboard 0.1.49 ([userguide-whiteboard](userguides/
 
 ## Whiteboard: boards, the Eraser and unsent changes
 
-Whiteboard 0.1.50 to 0.1.59 ([userguide-whiteboard](userguides/userguide-whiteboard.md), "Boards" and "Eraser"; [architecture-whiteboard](architecture/architecture-whiteboard.md)). Read from the code and the build reports; Safari, an iPad and a phone were not tried.
+Whiteboard 0.1.50 to 0.1.63 ([userguide-whiteboard](userguides/userguide-whiteboard.md), "Boards" and "Eraser"; [architecture-whiteboard](architecture/architecture-whiteboard.md)). Read from the code and the build reports; Safari, an iPad and a phone were not tried.
 
+- **The board dropdown lists ten boards at most.** It is the host's menu (0.1.60, 0.1.63). It was seen only as code and by tool, not in a real browser, on a phone or in a real call; a drill-in with a Back row is what a phone gets for **Manage boards…**.
 - **The board rules are the page's, not the server's.** The limit of 10 boards, the rule that a name is unique and the 40-character name cap are checked by the page. The server takes any key an editor writes, so an editor with a modified page can overwrite or delete any board, forge the time a board went to the trash, or write thousands of records. Anyone who may change the board can already change any block on it.
 - **A space whose only record is a trashed `main` board shows it as live.** The first board, `main`, is read as "Board 1" when it has no record; if its only record is a trashed one, the page still shows it.
 - **Two people renaming different boards to the same name at once** can leave two boards with one name. The page checks the name when it is typed, not when both saves land.
@@ -57,17 +62,25 @@ Whiteboard 0.1.50 to 0.1.59 ([userguide-whiteboard](userguides/userguide-whitebo
 The access bundle, steps 1 to 7 ([architecture-access](architecture/architecture-access.md)). Read from the code; checked by tools; not tried by a person in a browser, on a phone, or on a hosted server with several environments.
 
 - **The bell labels a request notice "Modules".** A request to enter a space, and its answer, show under the wrong label.
-- **An owner can make a member whose name ends in "(guest)"** (#709), who then reads as a guest in the chat.
+- **Raw requests do not follow an agreement answer** (#684). Only the shared `api()` call sends a 403 with `agreementRequired` to **/agree**; about 47 raw `fetch()` calls in the pages, and the guest page, do not, so a person who has not agreed sees plain errors there.
+- **A few routes answer 403 for a space the person may not enter** (#685), where the main routes answer 404. They confirm only that the id exists; the independent reads found no data leak.
 - **No module open in a guest's canvas was tested.** A guest from the door sees a space; what a module does for that guest was checked for the guest link only.
 - **The guest door's count is in memory.** A restart forgets who is here; a session still in date is counted again when it next asks.
 - **The Trips step is not built** (step 8 of the plan): a person who joined a space cannot yet remove it themselves from their profile.
 
-## Documents: Paper and the rich editor
+## Documents: Paper, the rich editor and writing together
 
-Documents 0.7 to 0.11.12 ([userguide-documents](userguides/userguide-documents.md), [architecture-documents](architecture/architecture-documents.md)). Read from the code and the build reports; Safari, an iPad and a phone were not tried.
+Documents 0.7 to 0.11.31 ([userguide-documents](userguides/userguide-documents.md), [architecture-documents](architecture/architecture-documents.md)). Read from the code and the build reports; Safari, an iPad and a phone were not tried.
 
 - **The Markdown box is not paged.** In Paper it shows one sheet; the pages appear in reading and in the rich editor.
 - **The editor and the reading view can count pages differently** for a very large grid: the editor does not split a grid between pages, reading does.
+- **Writing together is early and off** (#665, Documents 0.11.21 to 0.11.27, setting `coediting`). It was read from the code and has module tests; it was not tried by two people at once, nor on Safari, an iPad or a phone. Other people's cursors are not drawn. The document lock is kept by the editing pages only: a hostile editor can bypass it.
+- **A paste over the size limit is lost without a word** (#752, from its title; not checked against the code here). Paste it in pieces.
+- **A teal rectangle** can show in the reading sheet where a focus outline is drawn (#778, from its title).
+- **Text that does not make the round trip in Rich text.** A run of four or more `$` signs is not kept exactly (#611). A link made at a caret, with no words selected, to a `mailto:` address with square brackets is not kept exactly: the "cannot keep exactly" note shows (#632).
+- **The Tags button stays after the edit lock is lost** (#634); the formats and the editor switch go, and whether Tags should go too is undecided.
+- **Paste from Word keeps only the words** (#800): its formatting is never read, by design (see the guide); the issue asks for more.
+- **Print and Save as Markdown file** were read from the code and not tried in a real print dialog or in Safari or Firefox (0.11.18).
 
 ## Checks
 

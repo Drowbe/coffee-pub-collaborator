@@ -124,7 +124,7 @@ admin, how many module updates are waiting.
 3. With nothing waiting, the list says "Nothing new."
 
 Opening the list marks every notice read. A notice that arrives while it is open appears at the top, already read.
-Press Escape or click elsewhere to close it. A notice does not yet take you to what it is about.
+Press Escape or click elsewhere to close it. A notice that opens something (Manage, or a space's Set up, such as "Request to enter <space>") shows a pointer and a highlight when you hover over it or reach it with the keyboard; a notice that does nothing has neither. Most notices do not yet take you to what they are about.
 
 ### Toasts and notices
 

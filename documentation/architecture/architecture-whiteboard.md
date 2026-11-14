@@ -5,7 +5,7 @@
 What a person does with the board is [userguide-whiteboard](../userguides/userguide-whiteboard.md). The module's
 permissions and storage rules are those of every module ([api-modules](../api/api-modules.md)); the SDK it calls is
 [api-module-sdk](../api/api-module-sdk.md). This document is the shape of the module and the reasons for it. The code is
-in `modules/whiteboard/`, version 0.1.59 (the sections written for earlier versions are read as before; "Boards" and "The Eraser" below are 0.1.50 to 0.1.59).
+in `modules/whiteboard/`, version 0.1.64 (the sections written for earlier versions are read as before; "Boards" and "The Eraser" below are 0.1.50 to 0.1.63).
 
 ## Shape
 
@@ -306,15 +306,15 @@ A frame is a block type with `container: true` (`lib-e-block-frame.js`; its tool
 
 ## Boards
 
-Written from `whiteboard-lib-s-boards.js` and [plan-whiteboard-boards](../plans/plan-whiteboard-boards.md) (0.1.54 to 0.1.59).
+Written from `whiteboard-lib-s-boards.js` and [plan-whiteboard-boards](../plans/plan-whiteboard-boards.md) (0.1.54 to 0.1.63).
 
 - **Keys.** A board is a record `board:<id>` = `{ id, type: 'board-record', name, order, by, at, deleted, trashedAt }`. Its blocks are `block:<id>:<block id>`, its settings `_board:<id>:settings` and its presentation `_present:<id>:state`. Today's one board keeps the id `main` and its keys; a space with no `board:main` record reads as one board named "Board 1" (opening a space writes nothing). A new board gets an id of 1 to 16 lower-case letters and digits, never `main`.
 - **Trash.** Delete sets `deleted` and `trashedAt`; the blocks stay where they are. A board is kept 7 days, then purged: a claim in `_purge:lock` (stale after 2 minutes), at most 25 deletes every 15 seconds, the board's blocks first and its record last, so a purge that stops half way is found again. The page of anyone who can edit does the purge. The `main` board is rewritten as a live, empty board instead of removed.
 - **The page's rules, not the server's.** The 10-board limit, the name rules (1 to 40 characters, control and direction characters removed, unique) and the trash time are enforced by the page (`wbCanCreateBoard`, `wbBoardNameProblem`), and the server takes any key an editor writes, so an editor can overwrite or delete any board, forge a trash time or write many records.
 - **One session.** `createBoardSession` owns the syncs of the board shown and switches them; the board list is read and heard through a sync with the prefix `board:`. A switch sends what waits first, under the old board's keys.
-- **Live pointers** use one topic for each board, `pointer.<board id>`.
+- **Live pointers** use one topic for each board, `pointer.<board id>`. A guest's name already ends in the guest mark ("Gil (Guest)", see [architecture-access](architecture-access.md)), so the pointer's tag shows it as it is and adds the role word only to a name that lacks it (`wbLiveLabel`, 0.1.64).
 - **Unsent changes** are kept in `localStorage` as `wb-pending:<space>:<prefix>` (the prefix has the board id in it), so they survive a reload or a closed tab. A board switch and a trash keep them; they are removed only when a board's keys are purged, or when the entry's board is neither listed nor in the trash. After the list is read, `replayOthers()` replays every other listed or trashed board's entries, each by its own short-lived writer, without switching the page. An entry's 10 minutes count from its first replay. A network error or a 5xx keeps the write and retries after 2, 5 and 15 seconds, then every 60.
-- **The toolbar and the menu.** The tabs are a `host.ui.viewSwitch`, the first entry of the toolbar. **Boards…** is a title-bar menu entry (`host.menu.show`); New and Rename ask with `host.ui.prompt`, Delete with `host.ui.confirm`. On a narrow board the strip is the current tab only and the others are rows at the top of the menu. The last board shown is kept in the browser as `wb-board:<space>`.
+- **The board select** (0.1.60 and 0.1.63). The boards are chosen from a `host.header` item of `kind: 'select'` (`id: 'boards-select'`, set in `setHeader`; [api-module-sdk](../api/api-module-sdk.md), "The title bar"), not from tabs in the toolbar (the tab strip and the **Boards…** entry of the title bar's menu are gone). `wbBoardsSelect` decides whether it shows (`wbShowSelect`: a person who may edit, or more than one board) and its label (the current board's name); `wbBoardsSelectItems` gives the menu as data: one row for each board (`b.<board id>`, the current one `current`), at most `WB_BOARD_MAX` (the current board takes the last place if it is past them), a disabled "n more boards exist" line, then for an editor a divider and **Manage boards…** (`manage`) whose children are `new`, `rename`, `delete` and `deleted`, with the enable rules of `wbBoardsMenu` (New off at the limit, Delete off on the last board, the trash count as the `hint`). A pick arrives as the `header` event `{ id: 'boards-select', value }` and goes to `boardsPick`; the menu itself is the host's (0.1.63), so the module no longer draws one. New and Rename ask with `host.ui.prompt`, Delete with `host.ui.confirm`, and the list of deleted boards is a `host.menu.show` menu opened from the select's `deleted` row. The last board shown is kept in the browser as `wb-board:<space>`. Escape from the toolbar or the title bar returns to Select (0.1.62, `whiteboard-lib-t-escape-key.js`, `wbEscapeRoute`), and the Eraser shows its icon beside its ring (0.1.61, `whiteboard-lib-t-cursor-icon.js`).
 
 ## The Eraser
 

@@ -49,7 +49,7 @@ The frame has a variant for where it sits: `window` (edge, corner and shadow; a 
 - **Content.** The module's frame or in-page root. This is the section that scrolls, and the drop target for a
   dragged ref, either as a whole or onto specific objects within it. A docked module's content fills the whole
   column: there is no bar in the canvas's shared bottom row for a module. `"content": "flush"` in the manifest
-  removes the content's padding (Maps, Stream).
+  removes the content's padding (Maps, Stream, Documents). A docked module has one 12 px gutter, `--mf-inset`: a flush module's own view supplies it, so the slot's padding and the view's do not stack (Documents had 24 px before 0.11.28, #777; `check-conformance.mjs` measures the docked gutter).
 - **Status bar** (24px). Words with a dot between, read-only, cut with an ellipsis when narrow; the `end` item is
   never cut. It is a labelled region, and the non-quiet words are read out politely once they have been still for
   1.5 seconds. It is not the space's status strip, which is the header's

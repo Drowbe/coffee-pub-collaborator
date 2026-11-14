@@ -93,7 +93,7 @@ These settings are the server's, not an environment's. A value that is not a who
 |---|---|---|
 | `TERMS_FILE` | unset | The path of a text file (plain or Markdown, UTF-8, at most 256 KB) with the terms of service. Everyone, in every environment, must agree to it before entering, once for each version of the text. Changing the file asks everyone again. A file that is missing, empty or too big, or a setting left blank, stops the server from starting. A commented example is in the file. |
 | `NDA_FILE` | unset | The same for a beta NDA. With neither file set, nobody is asked. |
-| `ENABLE_GUEST_DOOR` | `false` | On a single-environment install, whether the guest door is offered. The owner then turns it on in Manage. On a server with environments this is the host console's checkbox for each environment. |
+| `ENABLE_GUEST_DOOR` | `false` | On a single-environment install, whether the guest door is offered. Owners then open individual spaces to guests (**Visiting guests** in a space's Set up); there is no owner switch for the door. On a server with environments this is the host console's checkbox for each environment. |
 | `GUEST_SESSION_HOURS` | `24` | How long a guest from the door stays in. |
 | `GUEST_DOOR_PER_ADDRESS` | `5` | New guest sessions one address may open in 15 minutes. |
 | `GUESTS_PER_SPACE` | `10` | Guests from the door who may be in one space at once. |

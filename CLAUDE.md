@@ -18,7 +18,10 @@ decide those.
 
 ## Commands
 
-- `npm run check`: every check. Run it before calling anything done.
+- Testing scope (Thomas, 2026-11-15): run only the checks that cover what you changed and their direct
+  neighbours (`npm run check:module -- <id>` for a module). Never run the whole suite for a single change, and
+  never run it in a loop or on a schedule. `npm run check` (every check) runs only at release prep, run by the
+  project manager. A check that also fails on a clean `main` is not yours: name it and move on.
 - In a cloud container running as root, `check-names` fails two `--migration` cases (a read-only parent
   folder, the `tavern.json` rename) because root ignores read-only permissions. That isn't a defect; don't
   change the check. Run the checks after `check-names` in the `check` script one by one to see them.

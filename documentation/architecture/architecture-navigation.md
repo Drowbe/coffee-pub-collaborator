@@ -142,7 +142,7 @@ Manage, **New <space word>** and the bell's updates line go through `openPage()`
 
 A guest link's page (`isGuestPage()`, which covers its pop-outs) gets the logo and the environment's name as plain text, not links, and the anchor with the space's name. There is no Spaces slot, no bell, no picture and no profile menu. With nothing in its menu, the menu button is hidden (`wireNavMenu()` hides `#nav-toggle` while every entry is), so a guest's narrow-layout phoneFold has no menu button; the same holds on the host console. The page shows the environment's default mode only: `public/theme-head.js` does not read the remembered mode on a `/guest/` path or with `?guest=`, and `useDefaultMode()` in `public/theme-mode.js` keeps it that way (no switch, no `storage` events followed). A guest's page has no notification stream; it asks after the theme now and then (`watchThemeWithoutStream()`).
 
-A guest from the guest door ([architecture-access](architecture-access.md)) has no link: `/guest` is its landing (the spaces open to it, what a guest cannot do, **Leave**), and inside a space a banner (`#guest-banner`, drawn by `public/space.js`) reads "You are in as <name> (guest)." with **Leave**.
+A guest from the guest door ([architecture-access](architecture-access.md)) has no link: `/guest` is its landing (what a guest cannot do, **Continue** to the spaces open to it at `/guest#home`, a small **Leave**), and inside a space a banner (`#guest-banner`, drawn by `public/space.js`) reads "You are in as <name>." with **Leave**; the name already ends in the guest mark, "(Guest)" in the usual words.
 
 ## The second row: the status strip, and the narrow layout's tab bar
 

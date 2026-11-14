@@ -81,22 +81,25 @@ offer to install; see "Install it as an app, and pop it out" in
 
 ### Guests without a link: the guest door
 
-A guest can also come in from the sign-in page, with no link. This is off until two people turn it on: the server's host (`ENABLE_GUEST_DOOR`, or the checkbox for the environment in the host console) and then the owner.
+A guest can also come in from the sign-in page, with no link. One switch makes it available, and each space then decides for itself. There is no switch for it in Manage.
 
-**To turn it on (owner):**
+**To make the door available (the host):** set `ENABLE_GUEST_DOOR` on a single-environment install, or tick **Allow guest sign-in on this environment** in the host console for the environment (the words follow the template). With it off, **Continue as guest** is not shown, and a guest already in is signed out.
 
-1. In **Manage**, open the **Users** tab and find the section named for guests, with the word **door** (**Guest door** in the usual words).
-2. Switch on **Let anyone come in as a guest from the sign-in page** and choose **Save**. If the section is not there, the host has not offered the door.
-3. In each space you want to open to guests, choose **Anyone, including guests** under **Who can enter** (see [Spaces](userguide-spaces.md), "Who can enter").
+**To let guests into a space (owner):** open that space's Set up, and on the **Members** tab, under **Who can enter**, turn on **Visiting guests** (see [Spaces](userguide-spaces.md), "Who can enter"). A guest can enter only the spaces that allow it, never Home's Lobby. With the door available and no space open to guests, **Continue as guest** still shows, and the guest lands on a Home that says "No spaces are open to guests at this time."
 
-**To come in as a guest:** on the sign-in page choose **Continue as guest**, read and agree to the terms if the server has any, type a name, and choose the button. A guest lands on a page that lists the spaces open to them, what a guest cannot do, and **Leave**. Inside a space a banner says "You are in as <name> (guest)." with **Leave**, and the name shows as "(guest)" on every chat message.
+**In Manage:** the **Users** tab has its own **Guests** section (the word follows the template), separate from **Sign-up** and from the invite link. With the door available it says that guests come in from the sign-in page with a name and no account, for 24 hours (the server's setting), and only into spaces set to **Anyone, including guests**, and it tells you the next step: open a space and set **Who can enter** to that. **End all guest sessions now** is in it. With the door not available, the section says guests cannot come in from the sign-in page here and that the host turns that on.
 
+**To come in as a guest:** on the sign-in page choose **Continue as guest**, read and agree to the terms if the server has any, type a name, and choose the button. A guest lands on a page that says "You are in as <name>.", lists what a guest cannot do, and has a primary **Continue** and a small **Leave**. **Continue** goes to a Home that lists the spaces the guest may enter, each with **Open**, and the spaces they may only ask for. This page reads again about every 12 seconds while it is on screen, so an approval or a refusal shows without a reload. Inside a space a banner says "You are in as <name>." with **Leave**.
+
+- **The name carries the word for guest, once.** Whatever is typed, it is stored and shown as "Thomas (Guest)" in the chat, the banner, who is here and the pointer labels, so a guest can't pass as a member. A name typed with the mark on it is not given a second one. The word follows the environment's template. Names are the same for a guest link and for the door.
 - A guest session lasts 24 hours by default, then they come in again.
-- A name is at most 40 characters, cannot mix alphabets (Latin letters with Cyrillic ones, say), and cannot look like a member's name.
-- A guest can ask to enter a space that allows requests (see [Spaces](userguide-spaces.md), "Ask to come in"). If an owner approves, the guest can enter it until their session ends.
-- A guest has the rights of the guest role on the **Roles** tab.
-- **End all guest sessions now** (beside the switch) signs every guest out at once, the door's and the links'.
+- A name is at most 40 characters (the mark does not count) and cannot mix alphabets (Latin letters with Cyrillic ones, say). It may match a member's name; the mark tells them apart. A member's display name may not end in the mark, so nobody can pass as a guest either.
+- A guest can ask to enter a space that allows requests (see [Spaces](userguide-spaces.md), "Ask to come in"). It shows as **Requested** with **Withdraw**, or **Not this time** for a day after a refusal. If an owner approves, the space shows with **Open**, and the guest can enter it until their session ends.
+- A guest has the rights of the guest role on the **Roles** tab. A guest has no bell, status line, profile or layouts, no Assistant, and no Calendar or Map page that gathers every space.
+- **End all guest sessions now** (in the **Guests** section) signs every guest out at once, the door's and the links'.
 - A person who is signed in must sign out first.
+
+Read from the code and its checks; not tried by a person in a browser, on a phone or on a server with several environments.
 
 The limits (how many guests at once, how many new sessions from one address) are the server's, in the [Settings reference](userguide-settings-reference.md), "Agreements, guests and entering".
 

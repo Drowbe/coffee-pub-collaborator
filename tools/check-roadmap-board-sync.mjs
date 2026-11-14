@@ -57,7 +57,7 @@ function makeState({ withFields = false, phaseMissing = null } = {}) {
     const area = addSelect('Area', ['Home', 'Planner', 'Server']);
     const rel = addSelect('Release status', ['Gating (proposed)', 'Not gating (proposed)']);
     const phase = addSelect('Phase', ['1 Before', '2 After'].filter((p) => p !== phaseMissing));
-    st.fields.push({ id: 'F_target', name: 'Target date', dataType: 'DATE' });
+    st.fields.push({ id: 'F_start', name: 'Start date', dataType: 'DATE' }, { id: 'F_target', name: 'Target date', dataType: 'DATE' });
     const opt = (f, name) => f.options.find((o) => o.name === name)?.id;
     // issue 1 is on the board and already matches; issue 2 is on it with a different Area.
     st.items.push({ id: 'I1', number: 1 }, { id: 'I2', number: 2 });
@@ -88,9 +88,14 @@ function handle(st, query, v) {
     return { addProjectV2ItemById: { item: { id: item.id } } };
   }
   if (q.includes('updateProjectV2ItemFieldValue')) {
-    st.mutations.push({ op: 'setValue', item: v.item, field: v.field, option: v.option });
     st.values[v.item] ||= {};
-    st.values[v.item][v.field] = v.option;
+    if (v.date !== undefined) {
+      st.mutations.push({ op: 'setDate', item: v.item, field: v.field, date: v.date });
+      st.values[v.item][v.field] = v.date;
+    } else {
+      st.mutations.push({ op: 'setValue', item: v.item, field: v.field, option: v.option });
+      st.values[v.item][v.field] = v.option;
+    }
     return { updateProjectV2ItemFieldValue: { projectV2Item: { id: v.item } } };
   }
   if (q.includes('projectV2(number')) {
@@ -100,8 +105,9 @@ function handle(st, query, v) {
   if (q.includes('items(first')) {
     const nodes = st.items.map((it) => {
       const val = st.values[it.id] || {};
+      const dateBy = (name) => { const f = st.fields.find((x) => x.name === name); return f && val[f.id] ? { date: val[f.id] } : null; };
       const by = (name) => { const f = st.fields.find((x) => x.name === name); return f && val[f.id] ? { optionId: val[f.id] } : null; };
-      return { id: it.id, content: { number: it.number, repository: { nameWithOwner: REPO } }, area: by(v.f1), release: by(v.f2), phase: by(v.f3) };
+      return { id: it.id, content: { number: it.number, repository: { nameWithOwner: REPO } }, area: by(v.f1), release: by(v.f2), phase: by(v.f3), start: dateBy(v.f4), target: dateBy(v.f5) };
     });
     // another repository's issue 1 on the same board must not be mistaken for ours
     nodes.push({ id: 'IX', content: { number: 3, repository: { nameWithOwner: 'x/y' } }, area: null, release: null, phase: null });
@@ -161,19 +167,20 @@ function runSync(url, { args = [], env = {}, csv } ) {
   });
 }
 
-const HEAD = 'Issue,URL,Area,Title,Release status,Phase\n';
+const HEAD = 'Issue,URL,Area,Title,Release status,Phase,Start date,Target date\n';
 const url = (i) => `https://github.com/${REPO}/issues/${i}`;
 const GOOD = HEAD + [
-  `1,${url(1)},Home,one,Gating (proposed),1 Before`,
-  `2,${url(2)},Planner,"two, with ""quotes"" and\na line break",Gating (proposed),1 Before`,
-  `3,${url(3)},Server,"three"") { delete } mutation { x",Not gating (proposed),2 After`,
-  `4,${url(4)},Home,closed,Gating (proposed),1 Before`,
-  `5,${url(5)},Home,a pull request,Gating (proposed),1 Before`,
-  `6,${url(6)},Home,does not exist,Gating (proposed),1 Before`,
+  `1,${url(1)},Home,one,Gating (proposed),1 Before,,`,
+  `2,${url(2)},Planner,"two, with ""quotes"" and\na line break",Gating (proposed),1 Before,,`,
+  `3,${url(3)},Server,"three"") { delete } mutation { x",Not gating (proposed),2 After,,`,
+  `4,${url(4)},Home,closed,Gating (proposed),1 Before,,`,
+  `5,${url(5)},Home,a pull request,Gating (proposed),1 Before,,`,
+  `6,${url(6)},Home,does not exist,Gating (proposed),1 Before,,`,
 ].join('\n') + '\n';
 const csvFile = (name, text) => { const f = path.join(TMP, name); fs.writeFileSync(f, text); return f; };
 const good = csvFile('good.csv', GOOD);
 const writes = (st) => st.mutations.filter((m) => m.op === 'setValue');
+const dateWrites = (st) => st.mutations.filter((m) => m.op === 'setDate');
 const fid = (st, name) => st.fields.find((f) => f.name === name)?.id;
 
 // ---- the cases -------------------------------------------------------------------------------------------
@@ -188,7 +195,7 @@ await test('missing fields are created with the CSV options, issues added, value
     const r = await runSync(u, { csv: good });
     assert.equal(r.code, 0, r.out);
     const made = st.mutations.filter((m) => m.op === 'createField').map((m) => `${m.kind}:${m.name}`).sort();
-    assert.deepEqual(made, ['date:Target date', 'select:Area', 'select:Phase', 'select:Release status']);
+    assert.deepEqual(made, ['date:Start date', 'date:Target date', 'select:Area', 'select:Phase', 'select:Release status']);
     assert.deepEqual(st.fields.find((f) => f.name === 'Area').options.map((o) => o.name), ['Home', 'Planner', 'Server']);
     assert.deepEqual(st.fields.find((f) => f.name === 'Phase').options.map((o) => o.name), ['1 Before', '2 After']);
     assert.deepEqual(st.mutations.filter((m) => m.op === 'addItem').map((m) => m.content).sort(), ['N_1', 'N_2', 'N_3']);
@@ -284,13 +291,13 @@ await test('a missing token, owner or number ends green with a notice and sends 
 
 await test('a CSV with a bad row is refused with one plain sentence and nothing is sent', async () => {
   const cases = [
-    [`${HEAD}x1,${url(1)},Home,t,Gating (proposed),1 Before\n`, /Row 2 of the roadmap CSV: Issue must be a whole number/],
-    [`${HEAD}1,${url(1)},Home,t,Gating (proposed)\n`, /Row 2 of the roadmap CSV has 5 columns, but it needs 6/],
-    [`${HEAD}1,${url(2)},Home,t,Gating (proposed),1 Before\n`, /Row 2 of the roadmap CSV: URL must be the link of issue #1/],
-    [`${HEAD}1,${url(1)},,t,Gating (proposed),1 Before\n`, /Row 2 of the roadmap CSV: Area is empty/],
-    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before\n1,${url(1)},Home,t,Gating (proposed),1 Before\n`, /Row 3 of the roadmap CSV: issue #1 is listed twice/],
+    [`${HEAD}x1,${url(1)},Home,t,Gating (proposed),1 Before,,\n`, /Row 2 of the roadmap CSV: Issue must be a whole number/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,\n`, /Row 2 of the roadmap CSV has 7 columns, but it needs 8/],
+    [`${HEAD}1,${url(2)},Home,t,Gating (proposed),1 Before,,\n`, /Row 2 of the roadmap CSV: URL must be the link of issue #1/],
+    [`${HEAD}1,${url(1)},,t,Gating (proposed),1 Before,,\n`, /Row 2 of the roadmap CSV: Area is empty/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,,\n1,${url(1)},Home,t,Gating (proposed),1 Before,,\n`, /Row 3 of the roadmap CSV: issue #1 is listed twice/],
     [`Issue,URL,Area\n1,${url(1)},Home\n`, /must start with the columns/],
-    [`${HEAD}1,${url(1)},"Home,t,Gating (proposed),1 Before\n`, /quote that is never closed/],
+    [`${HEAD}1,${url(1)},"Home,t,Gating (proposed),1 Before,,\n`, /quote that is never closed/],
     [`${HEAD}`, /has no rows/],
   ];
   for (const [text, re] of cases) {
@@ -312,7 +319,7 @@ await test('hostile: CSV text never reaches a query, nothing is deleted, the tok
     assert.equal(r.code, 0, r.out);
     assert.equal(st.titleLeaks, 0);
     for (const req of st.requests) {
-      assert.ok(!req.query.includes('delete }') && !/\bdelete[A-Z]/.test(req.query), 'a delete mutation was sent');
+      assert.ok(!req.query.includes('delete }') && !/\b(delete|clear)[A-Z]/.test(req.query), 'a delete or clear mutation was sent');
       assert.ok(!JSON.stringify(req.variables).includes('delete }'), 'the title was sent');
     }
     assert.deepEqual([...st.tokens], [`Bearer ${TOKEN}`]);
@@ -328,7 +335,7 @@ await test('hostile: CSV text never reaches a query, nothing is deleted, the tok
     assert.match(r.out, /Project 8 of user nobody was not found/);
   });
   const src = fs.readFileSync(SCRIPT, 'utf8');
-  assert.ok(!/\bdelete[A-Z]\w*\s*\(/.test(src.replace(/\/\*[\s\S]*?\*\//g, '')), 'the script holds a delete mutation');
+  assert.ok(!/\b(delete|clear)[A-Z]\w*\s*\(/.test(src.replace(/\/\*[\s\S]*?\*\//g, '')), 'the script holds a delete mutation');
   const wf = fs.readFileSync(path.join(ROOT, '.github/workflows/project-roadmap-sync.yml'), 'utf8');
   assert.match(wf, /permissions:\n {2}contents: read\n {2}issues: read\n/);
   assert.ok(!/echo .*PROJECT_TOKEN/.test(wf));
@@ -336,7 +343,7 @@ await test('hostile: CSV text never reaches a query, nothing is deleted, the tok
 });
 
 await test('every row of another repository is an error, not a green run, and nothing is created', async () => {
-  const other = HEAD + `1,https://github.com/z/q/issues/1,Home,t,Gating (proposed),1 Before\n2,https://github.com/z/q/issues/2,Home,t,Gating (proposed),1 Before\n`;
+  const other = HEAD + `1,https://github.com/z/q/issues/1,Home,t,Gating (proposed),1 Before,,\n2,https://github.com/z/q/issues/2,Home,t,Gating (proposed),1 Before,,\n`;
   const st = makeState();
   await withStub(st, async (u) => {
     const r = await runSync(u, { csv: csvFile('other.csv', other) });
@@ -359,7 +366,7 @@ await test('a 403 with no errors body stops the run early with one plain sentenc
 });
 
 await test('options are deduplicated without regard to case, and the CSV is told', async () => {
-  const text = HEAD + `1,${url(1)},Home,t,Gating (proposed),1 Before\n2,${url(2)},home,t,Gating (proposed),1 Before\n`;
+  const text = HEAD + `1,${url(1)},Home,t,Gating (proposed),1 Before,,\n2,${url(2)},home,t,Gating (proposed),1 Before,,\n`;
   const st = makeState();
   await withStub(st, async (u) => {
     const r = await runSync(u, { csv: csvFile('case.csv', text) });
@@ -370,7 +377,7 @@ await test('options are deduplicated without regard to case, and the CSV is told
 });
 
 await test('the CSV is capped in size and rows', () => {
-  const row = (i) => `${i},https://github.com/o/r/issues/${i},Home,t,G,P\n`;
+  const row = (i) => `${i},https://github.com/o/r/issues/${i},Home,t,G,P,,\n`;
   const many = HEAD + Array.from({ length: 2001 }, (_, i) => row(i + 1)).join('');
   assert.throws(() => readRows(many, 'o/r'), /more than 2000 rows/);
   assert.throws(() => readRows(HEAD + 'x'.repeat(1024 * 1024 + 1), 'o/r'), /larger than 1 MB/);
@@ -388,6 +395,94 @@ await test('the workflow uses the same action versions as the other workflows', 
     assert.ok(majors[m[1]], `${m[1]} is used by no other workflow`);
     assert.ok(majors[m[1]].has(m[2]), `${m[1]}@${m[2]} differs from ${[...majors[m[1]]]}`);
   }
+});
+
+const DATED = HEAD + [
+  `1,${url(1)},Home,one,Gating (proposed),1 Before,2026-11-16,2026-12-06`,
+  `2,${url(2)},Planner,two,Gating (proposed),1 Before,,`,
+  `3,${url(3)},Server,three,Not gating (proposed),2 After,2027-01-11,`,
+].join('\n') + '\n';
+
+await test('date fields are created when missing; dates set only where the CSV has one', async () => {
+  const st = makeState();
+  await withStub(st, async (u) => {
+    const r = await runSync(u, { csv: csvFile('dated.csv', DATED) });
+    assert.equal(r.code, 0, r.out);
+    const made = st.mutations.filter((m) => m.op === 'createField' && m.kind === 'date').map((m) => m.name).sort();
+    assert.deepEqual(made, ['Start date', 'Target date']);
+    const d = dateWrites(st).map((m) => `${m.item}:${st.fields.find((f) => f.id === m.field).name}=${m.date}`);
+    assert.equal(d.length, 3, d.join(' '));
+    assert.ok(d.some((x) => x.endsWith('Start date=2026-11-16')) && d.some((x) => x.endsWith('Target date=2026-12-06')) && d.some((x) => x.endsWith('Start date=2027-01-11')));
+    assert.match(r.out, /Dates set: 3\./);
+    // second run: nothing changes
+    st.mutations.length = 0;
+    const again = await runSync(u, { csv: csvFile('dated.csv', DATED) });
+    assert.equal(again.code, 0, again.out);
+    assert.equal(st.mutations.length, 0, JSON.stringify(st.mutations));
+    assert.match(again.out, /Dates set: 0\./);
+  });
+});
+
+await test('a date is written only when it differs; an empty cell never clears a date on the board', async () => {
+  const st = makeState({ withFields: true });
+  const start = fid(st, 'Start date');
+  const target = fid(st, 'Target date');
+  st.values.I1[start] = '2026-11-16';          // same as the CSV: no write
+  st.values.I1[target] = '2026-11-30';         // differs: written
+  st.values.I2[start] = '2026-10-01';          // CSV cell is empty: left alone
+  await withStub(st, async (u) => {
+    const r = await runSync(u, { csv: csvFile('dated.csv', DATED) });
+    assert.equal(r.code, 0, r.out);
+    const w = dateWrites(st);
+    assert.deepEqual(w.filter((m) => m.item === 'I1').map((m) => [m.field, m.date]), [[target, '2026-12-06']]);
+    assert.equal(w.filter((m) => m.item === 'I2').length, 0);
+    assert.equal(st.values.I2[start], '2026-10-01');
+    assert.ok(w.every((m) => /^\d{4}-\d{2}-\d{2}$/.test(m.date)));
+    assert.ok(st.requests.every((q) => !/clear/i.test(q.query)));
+  });
+});
+
+await test('a date field of another type is reported and left alone', async () => {
+  const st = makeState();
+  st.fields.push({ id: 'F_t', name: 'Target date', dataType: 'TEXT' });
+  await withStub(st, async (u) => {
+    const r = await runSync(u, { csv: csvFile('dated.csv', DATED) });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /Field "Target date" exists but is not a date field/);
+    assert.ok(!st.mutations.some((m) => m.op === 'createField' && m.name === 'Target date'));
+    assert.ok(!dateWrites(st).some((m) => m.field === 'F_t'));
+  });
+});
+
+await test('a bad date, an impossible date and a Target before Start are refused, nothing is sent', async () => {
+  const cases = [
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,16/11/2026,\n`, /Row 2 of the roadmap CSV: Start date must be a date like 2026-12-31 \(year 2000 to 2100\), but it is "16\/11\/2026"/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,,2026-02-30\n`, /Row 2 of the roadmap CSV: Target date must be a date like 2026-12-31 \(year 2000 to 2100\)/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,0050-01-01,\n`, /Start date must be a date like 2026-12-31 \(year 2000 to 2100\)/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,,2101-01-01\n`, /Target date must be a date like 2026-12-31 \(year 2000 to 2100\)/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,,\n# a comment in the middle\n`, /Row 3 of the roadmap CSV/],
+    [`${HEAD}1,${url(1)},Home,t,Gating (proposed),1 Before,2026-12-06,2026-11-16\n`, /Row 2 of the roadmap CSV: Target date is before Start date\./],
+  ];
+  for (const [text, re] of cases) {
+    const st = makeState();
+    await withStub(st, async (u) => {
+      const r = await runSync(u, { csv: csvFile('bad-date.csv', text) });
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.out, re);
+      assert.equal(st.requests.length, 0);
+    });
+  }
+});
+
+await test('--dry-run counts dates and writes none', async () => {
+  const st = makeState({ withFields: true });
+  await withStub(st, async (u) => {
+    const r = await runSync(u, { csv: csvFile('dated.csv', DATED), args: ['--dry-run'] });
+    assert.equal(r.code, 0, r.out);
+    assert.equal(st.mutations.length, 0);
+    assert.match(r.out, /would set Start date to 2026-11-16/);
+    assert.match(r.out, /Dates would be set: 3\./);
+  });
 });
 
 fs.rmSync(TMP, { recursive: true, force: true });

@@ -6,21 +6,27 @@
  * NOTE: "Gating (proposed...)" in the Release status column is the project manager's PROPOSAL, not a decision,
  * until Thomas confirms the gating table (documentation/plans/plan-release.md). The sync copies the CSV as it is.
  *
+ * The Start date and Target date columns hold an ESTIMATE, set by Phase: estimated by the project manager at a fast
+ * pace (several builders in parallel, checks only for what changed), not a commitment. They are optional per row; an empty cell writes nothing, and a date
+ * on the board is never cleared.
+ *
  * What it does, in order:
- *   1. Reads and checks the CSV (columns Issue, URL, Area, Title, Release status, Phase). A bad row refuses the
+ *   1. Reads and checks the CSV (columns Issue, URL, Area, Title, Release status, Phase, Start date, Target date; dates YYYY-MM-DD, may be empty; Target not before Start). A bad row refuses the
  *      whole file with one plain sentence, before anything is sent anywhere.
  *   2. Finds the project (a user's project: PROJECT_OWNER, PROJECT_NUMBER, like the other project workflows).
  *   3. Makes sure the single-select fields Area, Release status and Phase exist. A missing field is created with
  *      the options found in the CSV. A field that exists but lacks an option is NOT recreated: it is reported as a
  *      failure naming the field and the options, so they can be added by hand. A field of another type is also a
- *      failure. Makes sure the Date field "Target date" exists (its values are never set).
+ *      failure. Makes sure the Date fields "Start date" and "Target date" exist (a same-named field of another type
+ *      is a failure and is left alone).
  *   4. Adds every open issue of this repository (GITHUB_REPOSITORY) that is in the CSV to the project, if it is
  *      not already on it.
- *   5. Sets Area, Release status and Phase on those issues, only where the value differs.
+ *   5. Sets Area, Release status, Phase, Start date and Target date on those issues, only where the value differs
+ *      (a date only when the CSV has one).
  *   6. Prints one line per issue and a summary: added, changed, unchanged, skipped, failed.
  * Skipped: closed issues, pull requests, numbers that do not exist, rows of another repository.
  *
- * Safety: the only writes are createProjectV2Field (for the four fields above, when missing),
+ * Safety: the only writes are createProjectV2Field (for the fields above, when missing),
  * addProjectV2ItemById and updateProjectV2ItemFieldValue on those field ids. Nothing is ever deleted or cleared,
  * and no other field (Status and the rest) is touched. CSV text only ever travels as GraphQL variables, never in
  * query text. The token goes only in the Authorization header, is never printed, and redirects are refused.
@@ -35,13 +41,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HEADER = ['Issue', 'URL', 'Area', 'Title', 'Release status', 'Phase'];
+const HEADER = ['Issue', 'URL', 'Area', 'Title', 'Release status', 'Phase', 'Start date', 'Target date'];
 const SELECT_FIELDS = [
   { name: 'Area', column: 'Area', alias: 'area' },
   { name: 'Release status', column: 'Release status', alias: 'release' },
   { name: 'Phase', column: 'Phase', alias: 'phase', sort: true },
 ];
-const DATE_FIELD = 'Target date';
+const DATE_FIELDS = [
+  { name: 'Start date', alias: 'start' },
+  { name: 'Target date', alias: 'target' },
+];
 const MAX_TEXT = 200;
 const MAX_BYTES = 1024 * 1024;
 const MAX_ROWS = 2000;
@@ -88,7 +97,8 @@ export function parseCsv(text) {
 /** Checks the CSV and returns its rows as objects. Throws Refusal with one plain sentence. */
 export function readRows(text, repo) {
   if (String(text).length > MAX_BYTES) throw new Refusal('The roadmap CSV is larger than 1 MB.');
-  const grid = parseCsv(text);
+  // Leading lines starting with # are comments (the file's header comment); the header row follows them.
+  const grid = parseCsv(String(text).replace(/^(?:#[^\n]*\n)+/, ''));
   if (!grid.length || grid[0].map((h) => h.trim()).join('|') !== HEADER.join('|')) {
     throw new Refusal(`The roadmap CSV must start with the columns ${HEADER.join(', ')}.`);
   }
@@ -98,7 +108,7 @@ export function readRows(text, repo) {
     const cells = grid[i];
     const where = `Row ${i + 1} of the roadmap CSV`;
     if (cells.length !== HEADER.length) throw new Refusal(`${where} has ${cells.length} columns, but it needs ${HEADER.length}.`);
-    const [issueText, url, area, title, release, phase] = cells.map((c) => c.trim());
+    const [issueText, url, area, title, release, phase, start, target] = cells.map((c) => c.trim());
     if (!/^[1-9][0-9]{0,8}$/.test(issueText)) throw new Refusal(`${where}: Issue must be a whole number, but it is "${clean(issueText).slice(0, 40)}".`);
     const issue = Number(issueText);
     if (seen.has(issue)) throw new Refusal(`${where}: issue #${issue} is listed twice.`);
@@ -110,11 +120,23 @@ export function readRows(text, repo) {
       if (value.length > MAX_TEXT) throw new Refusal(`${where}: ${label} is longer than ${MAX_TEXT} characters.`);
       if (/[\u0000-\u001f\u007f]/.test(value)) throw new Refusal(`${where}: ${label} has a line break or control character.`);
     }
-    rows.push({ issue, repo: m[1], area, title, release, phase });
+    for (const [label, value] of [['Start date', start], ['Target date', target]]) {
+      if (value && !isDate(value)) throw new Refusal(`${where}: ${label} must be a date like 2026-12-31 (year 2000 to 2100), but it is "${clean(value).slice(0, 40)}".`);
+    }
+    if (start && target && target < start) throw new Refusal(`${where}: Target date is before Start date.`);
+    rows.push({ issue, repo: m[1], area, title, release, phase, start, target });
   }
   if (!rows.length) throw new Refusal('The roadmap CSV has no rows.');
   if (rows.length > MAX_ROWS) throw new Refusal(`The roadmap CSV has more than ${MAX_ROWS} rows.`);
   return rows;
+}
+
+/** True for a real calendar date written YYYY-MM-DD, in the years 2000 to 2100. */
+function isDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m || Number(m[1]) < 2000 || Number(m[1]) > 2100) return false;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.toISOString().slice(0, 10) === v;
 }
 
 /** Text from the CSV or the API, made safe to print: one line, no control characters. */
@@ -187,7 +209,7 @@ const M_CREATE_DATE = `mutation($project: ID!, $name: String!) {
     projectV2Field { ... on ProjectV2Field { id name dataType } }
   }
 }`;
-const Q_ITEMS = `query($project: ID!, $after: String, $f1: String!, $f2: String!, $f3: String!) {
+const Q_ITEMS = `query($project: ID!, $after: String, $f1: String!, $f2: String!, $f3: String!, $f4: String!, $f5: String!) {
   node(id: $project) {
     ... on ProjectV2 {
       items(first: 100, after: $after) {
@@ -198,6 +220,8 @@ const Q_ITEMS = `query($project: ID!, $after: String, $f1: String!, $f2: String!
           area: fieldValueByName(name: $f1) { ... on ProjectV2ItemFieldSingleSelectValue { optionId } }
           release: fieldValueByName(name: $f2) { ... on ProjectV2ItemFieldSingleSelectValue { optionId } }
           phase: fieldValueByName(name: $f3) { ... on ProjectV2ItemFieldSingleSelectValue { optionId } }
+          start: fieldValueByName(name: $f4) { ... on ProjectV2ItemFieldDateValue { date } }
+          target: fieldValueByName(name: $f5) { ... on ProjectV2ItemFieldDateValue { date } }
         }
       }
     }
@@ -222,6 +246,12 @@ const M_ADD = `mutation($project: ID!, $content: ID!) {
 const M_SET = `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   updateProjectV2ItemFieldValue(
     input: { projectId: $project, itemId: $item, fieldId: $field, value: { singleSelectOptionId: $option } }
+  ) { projectV2Item { id } }
+}`;
+
+const M_SET_DATE = `mutation($project: ID!, $item: ID!, $field: ID!, $date: Date!) {
+  updateProjectV2ItemFieldValue(
+    input: { projectId: $project, itemId: $item, fieldId: $field, value: { date: $date } }
   ) { projectV2Item { id } }
 }`;
 
@@ -349,16 +379,30 @@ async function sync({ env, argv, out }, lines) {
       fields[def.alias] = null;
     }
   }
-  const dateHave = existing.find((f) => norm(f.name) === norm(DATE_FIELD));
-  if (dateHave) {
-    if (dateHave.dataType !== 'DATE') setupFailures.push(`Field "${DATE_FIELD}" exists but is not a date field; it was not touched.`);
-  } else if (dry) {
-    lines.push(`${prefix}Would create date field "${DATE_FIELD}".`);
-  } else {
-    try {
-      await mutate(M_CREATE_DATE, { project: project.id, name: DATE_FIELD });
-      lines.push(`Created date field "${DATE_FIELD}".`);
-    } catch (err) { if (err.rateLimited) throw err; setupFailures.push(`Could not create field "${DATE_FIELD}": ${err.message}`); }
+  const dateFields = {};
+  for (const def of DATE_FIELDS) {
+    const have = existing.find((f) => norm(f.name) === norm(def.name));
+    if (have) {
+      if (have.dataType !== 'DATE') {
+        setupFailures.push(`Field "${def.name}" exists but is not a date field; it was not touched and its values were not set.`);
+        dateFields[def.alias] = null;
+      } else dateFields[def.alias] = { id: have.id, name: def.name };
+    } else if (dry) {
+      lines.push(`${prefix}Would create date field "${def.name}".`);
+      dateFields[def.alias] = { id: null, name: def.name, virtual: true };
+    } else {
+      try {
+        const made = await mutate(M_CREATE_DATE, { project: project.id, name: def.name });
+        const f = made?.createProjectV2Field?.projectV2Field;
+        if (!f?.id) throw new Error('GitHub did not return the new field.');
+        lines.push(`Created date field "${def.name}".`);
+        dateFields[def.alias] = { id: f.id, name: def.name };
+      } catch (err) {
+        if (err.rateLimited) throw err;
+        setupFailures.push(`Could not create field "${def.name}": ${err.message}`);
+        dateFields[def.alias] = null;
+      }
+    }
   }
 
   // 3. What is on the board, and which issues are open.
@@ -368,14 +412,14 @@ async function sync({ env, argv, out }, lines) {
     for (;;) {
       const page = await gql(Q_ITEMS, {
         project: project.id, after,
-        f1: SELECT_FIELDS[0].name, f2: SELECT_FIELDS[1].name, f3: SELECT_FIELDS[2].name,
+        f1: SELECT_FIELDS[0].name, f2: SELECT_FIELDS[1].name, f3: SELECT_FIELDS[2].name, f4: DATE_FIELDS[0].name, f5: DATE_FIELDS[1].name,
       });
       const items = page?.node?.items;
       if (!items) throw new Error('The board items could not be read.');
       for (const it of items.nodes || []) {
         const c = it?.content;
         if (!c || typeof c.number !== 'number' || norm(c.repository?.nameWithOwner) !== norm(repoText)) continue;
-        onBoard.set(c.number, { id: it.id, area: it.area?.optionId || null, release: it.release?.optionId || null, phase: it.phase?.optionId || null });
+        onBoard.set(c.number, { id: it.id, area: it.area?.optionId || null, release: it.release?.optionId || null, phase: it.phase?.optionId || null, start: it.start?.date || null, target: it.target?.date || null });
       }
       if (!items.pageInfo?.hasNextPage) break;
       after = items.pageInfo.endCursor;
@@ -396,6 +440,7 @@ async function sync({ env, argv, out }, lines) {
   } catch (err) { if (err.rateLimited) throw err; log(`::error::Could not read the issues of ${repoText}: ${err.message}`); return 1; }
 
   // 4. Each row.
+  let dateWrites = 0;
   const counts = { added: 0, changed: 0, unchanged: 0, skipped: 0, failed: 0 };
   for (const row of rows) {
     const tag = `#${row.issue}`;
@@ -419,13 +464,13 @@ async function sync({ env, argv, out }, lines) {
     let item = onBoard.get(row.issue);
     let wasAdded = false;
     if (!item) {
-      if (dry) { item = { id: null, area: null, release: null, phase: null }; wasAdded = true; notes.push('would be added to the board'); }
+      if (dry) { item = { id: null, area: null, release: null, phase: null, start: null, target: null }; wasAdded = true; notes.push('would be added to the board'); }
       else {
         try {
           const added = await mutate(M_ADD, { project: project.id, content: open.get(row.issue) });
           const id = added?.addProjectV2ItemById?.item?.id;
           if (!id) throw new Error('GitHub did not return the card.');
-          item = { id, area: null, release: null, phase: null };
+          item = { id, area: null, release: null, phase: null, start: null, target: null };
           wasAdded = true;
           notes.push('added to the board');
         } catch (err) {
@@ -451,6 +496,21 @@ async function sync({ env, argv, out }, lines) {
         notes.push(`${def.name} set to "${clean(value)}"`);
       } catch (err) { if (err.rateLimited) throw err; failed = true; notes.push(`${def.name} failed: ${err.message}`); }
     }
+    // Dates: only where the CSV has one and it differs; an empty cell writes nothing and nothing is ever cleared.
+    for (const def of DATE_FIELDS) {
+      const value = row[def.alias];
+      if (!value) continue;
+      const f = dateFields[def.alias];
+      if (!f) { failed = true; notes.push(`${def.name} not set (field problem)`); continue; }
+      if (!f.virtual && item[def.alias] === value) continue;
+      if (dry || f.virtual) { wrote += 1; dateWrites += 1; notes.push(`would set ${def.name} to ${value}`); continue; }
+      try {
+        await mutate(M_SET_DATE, { project: project.id, item: item.id, field: f.id, date: value });
+        wrote += 1;
+        dateWrites += 1;
+        notes.push(`${def.name} set to ${value}`);
+      } catch (err) { if (err.rateLimited) throw err; failed = true; notes.push(`${def.name} failed: ${err.message}`); }
+    }
     if (wasAdded) counts.added += 1;
     if (wrote) counts.changed += 1;
     if (failed) counts.failed += 1;
@@ -464,7 +524,8 @@ async function sync({ env, argv, out }, lines) {
   for (const f of setupFailures) log(`::error::${clean(f)}`);
   const verb = dry ? 'would be ' : '';
   const summary = `${prefix}Roadmap sync of "${clean(project.title)}": ${counts.added} ${verb}added, ${counts.changed} ${verb}changed, ${counts.unchanged} unchanged, ${counts.skipped} skipped, ${failedTotal} failed` +
-    (setupFailures.length ? ` (${setupFailures.length} field problem(s), ${counts.failed} issue(s)).` : '.');
+    (setupFailures.length ? ` (${setupFailures.length} field problem(s), ${counts.failed} issue(s)).` : '.') +
+    ` Dates ${verb}set: ${dateWrites}.`;
   log(summary);
   if (env.GITHUB_STEP_SUMMARY) {
     const esc = (s) => clean(s).replace(/[&<>|`*_\[\]]/g, (c) => `&#${c.charCodeAt(0)};`);

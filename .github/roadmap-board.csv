@@ -1,147 +1,151 @@
-Issue,URL,Area,Title,Release status,Phase
-2,https://github.com/Drowbe/coffee-pub-chameleon/issues/2,Home,first-time experience [next],Not gating (proposed),5 Later / ideas
-12,https://github.com/Drowbe/coffee-pub-chameleon/issues/12,Planner,mark objects action required,Not gating (proposed),5 Later / ideas
-23,https://github.com/Drowbe/coffee-pub-chameleon/issues/23,Server,each page holds three long-lived connections,Not gating (proposed),5 Later / ideas
-25,https://github.com/Drowbe/coffee-pub-chameleon/issues/25,Forms,check patterns compile with v flag,Not gating (proposed),5 Later / ideas
-27,https://github.com/Drowbe/coffee-pub-chameleon/issues/27,Server,"host console shared top bar requests answer 404 [bug, next]","Gating (proposed, high confidence)",1 Before the freeze
-28,https://github.com/Drowbe/coffee-pub-chameleon/issues/28,Server,two-step sign-in phase 2 passkeys,Not gating (proposed),5 Later / ideas
-29,https://github.com/Drowbe/coffee-pub-chameleon/issues/29,Verify,canvas and layout in a real call [next],"Gating (proposed, high confidence)",4 Real-call tests
-30,https://github.com/Drowbe/coffee-pub-chameleon/issues/30,Verify,modules with two people on a real server [next],"Gating (proposed, high confidence)",4 Real-call tests
-33,https://github.com/Drowbe/coffee-pub-chameleon/issues/33,Ideas,WhatsApp/SMS,Not gating (proposed),5 Later / ideas
-34,https://github.com/Drowbe/coffee-pub-chameleon/issues/34,Settings,update uploaded modules from address,Not gating (proposed),5 Later / ideas
-35,https://github.com/Drowbe/coffee-pub-chameleon/issues/35,Design,module activity on card,Not gating (proposed),5 Later / ideas
-36,https://github.com/Drowbe/coffee-pub-chameleon/issues/36,Server,"decide and document how private data is stored, retrieved, transported (encryption) [question, later]","Gating (proposed, high confidence)",3 Before the first customer
-40,https://github.com/Drowbe/coffee-pub-chameleon/issues/40,Ideas,Journal,Not gating (proposed),5 Later / ideas
-41,https://github.com/Drowbe/coffee-pub-chameleon/issues/41,Budget,conversion,Not gating (proposed),5 Later / ideas
-43,https://github.com/Drowbe/coffee-pub-chameleon/issues/43,Server,Font Awesome Pro on server,Not gating (proposed),5 Later / ideas
-44,https://github.com/Drowbe/coffee-pub-chameleon/issues/44,Planner,map of places,Not gating (proposed),5 Later / ideas
-45,https://github.com/Drowbe/coffee-pub-chameleon/issues/45,Planner,confirmation emails,Not gating (proposed),5 Later / ideas
-46,https://github.com/Drowbe/coffee-pub-chameleon/issues/46,Docs,hello-world example module [later],Not gating (proposed),5 Later / ideas
-47,https://github.com/Drowbe/coffee-pub-chameleon/issues/47,Ideas,Reminders,Not gating (proposed),5 Later / ideas
-48,https://github.com/Drowbe/coffee-pub-chameleon/issues/48,Server,One-container install,Not gating (proposed),5 Later / ideas
-49,https://github.com/Drowbe/coffee-pub-chameleon/issues/49,Server,Billing relay,Not gating (proposed),5 Later / ideas
-50,https://github.com/Drowbe/coffee-pub-chameleon/issues/50,Server,Environments own domain,Not gating (proposed),5 Later / ideas
-52,https://github.com/Drowbe/coffee-pub-chameleon/issues/52,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas
-53,https://github.com/Drowbe/coffee-pub-chameleon/issues/53,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas
-54,https://github.com/Drowbe/coffee-pub-chameleon/issues/54,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas
-55,https://github.com/Drowbe/coffee-pub-chameleon/issues/55,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas
-56,https://github.com/Drowbe/coffee-pub-chameleon/issues/56,Docs,run on Windows and Mac,Not gating (proposed),5 Later / ideas
-64,https://github.com/Drowbe/coffee-pub-chameleon/issues/64,Server,integration tokens for services like Studio,Not gating (proposed),5 Later / ideas
-65,https://github.com/Drowbe/coffee-pub-chameleon/issues/65,Planner,audit of plan,Not gating (proposed),5 Later / ideas
-70,https://github.com/Drowbe/coffee-pub-chameleon/issues/70,Server,"audit GET requests that change state, sign-in forced by another site [next]","Gating (proposed, high confidence)",1 Before the freeze
-72,https://github.com/Drowbe/coffee-pub-chameleon/issues/72,Server,"licensing, lock server until purchased key unlocks","Gating (proposed, high confidence)",3 Before the first customer
-73,https://github.com/Drowbe/coffee-pub-chameleon/issues/73,Research,from any AI direct connection,Not gating (proposed),5 Later / ideas
-132,https://github.com/Drowbe/coffee-pub-chameleon/issues/132,Forms,document editor for prose fields,Not gating (proposed),5 Later / ideas
-179,https://github.com/Drowbe/coffee-pub-chameleon/issues/179,Settings,calendar for spaces [next],Not gating (proposed),5 Later / ideas
-202,https://github.com/Drowbe/coffee-pub-chameleon/issues/202,Settings,"workflow point of view, module on/off confusion [next]",Not gating (proposed),5 Later / ideas
-204,https://github.com/Drowbe/coffee-pub-chameleon/issues/204,Ideas,"""Boss"" per space",Not gating (proposed),5 Later / ideas
-205,https://github.com/Drowbe/coffee-pub-chameleon/issues/205,Chat,rethink flows [next],Not gating (proposed),5 Later / ideas
-209,https://github.com/Drowbe/coffee-pub-chameleon/issues/209,Chat,manage AI context,Not gating (proposed),5 Later / ideas
-211,https://github.com/Drowbe/coffee-pub-chameleon/issues/211,Ideas,published view of a space,Not gating (proposed),5 Later / ideas
-214,https://github.com/Drowbe/coffee-pub-chameleon/issues/214,Settings,admin themes set default views,Not gating (proposed),5 Later / ideas
-215,https://github.com/Drowbe/coffee-pub-chameleon/issues/215,Planner,rigour,Not gating (proposed),5 Later / ideas
-218,https://github.com/Drowbe/coffee-pub-chameleon/issues/218,Forms,edit title in place,Not gating (proposed),5 Later / ideas
-223,https://github.com/Drowbe/coffee-pub-chameleon/issues/223,Settings,Link Icon not clear,Not gating (proposed),5 Later / ideas
-232,https://github.com/Drowbe/coffee-pub-chameleon/issues/232,Ideas,Chrome extension [next],Not gating (proposed),5 Later / ideas
-236,https://github.com/Drowbe/coffee-pub-chameleon/issues/236,Settings,Launch Link not clear,Not gating (proposed),5 Later / ideas
-238,https://github.com/Drowbe/coffee-pub-chameleon/issues/238,Home,"new space has no ""back to"" and no next step",Not gating (proposed),5 Later / ideas
-243,https://github.com/Drowbe/coffee-pub-chameleon/issues/243,Planner,flight clipboard parser,Not gating (proposed),5 Later / ideas
-249,https://github.com/Drowbe/coffee-pub-chameleon/issues/249,Design,other themes,Not gating (proposed),5 Later / ideas
-250,https://github.com/Drowbe/coffee-pub-chameleon/issues/250,Ideas,notifications outside app,Not gating (proposed),5 Later / ideas
-252,https://github.com/Drowbe/coffee-pub-chameleon/issues/252,Ideas,attachments on objects [next],Not gating (proposed),5 Later / ideas
-266,https://github.com/Drowbe/coffee-pub-chameleon/issues/266,Settings,Layouts: reorder tabs,Not gating (proposed),5 Later / ideas
-267,https://github.com/Drowbe/coffee-pub-chameleon/issues/267,Settings,Layouts: reorder tabs,Not gating (proposed),5 Later / ideas
-286,https://github.com/Drowbe/coffee-pub-chameleon/issues/286,Settings,/api/bus/actions should tell each action's may [next],Not gating (proposed),5 Later / ideas
-290,https://github.com/Drowbe/coffee-pub-chameleon/issues/290,Home,finish Lobby wording and phone tabs [next],Thomas decides,? Decide
-291,https://github.com/Drowbe/coffee-pub-chameleon/issues/291,Settings,Templates seed module settings,Not gating (proposed),5 Later / ideas
-294,https://github.com/Drowbe/coffee-pub-chameleon/issues/294,Maps,picture map,Not gating (proposed),5 Later / ideas
-297,https://github.com/Drowbe/coffee-pub-chameleon/issues/297,Home,"bell notices don't open their object, no @mentions",Not gating (proposed),5 Later / ideas
-298,https://github.com/Drowbe/coffee-pub-chameleon/issues/298,Settings,saving bundled template reorders module list [bug],Not gating (proposed),5 Later / ideas
-307,https://github.com/Drowbe/coffee-pub-chameleon/issues/307,Planner,modes,Not gating (proposed),5 Later / ideas
-325,https://github.com/Drowbe/coffee-pub-chameleon/issues/325,Planner,phases rail,Not gating (proposed),5 Later / ideas
-328,https://github.com/Drowbe/coffee-pub-chameleon/issues/328,Chat,labels become icons,Not gating (proposed),5 Later / ideas
-331,https://github.com/Drowbe/coffee-pub-chameleon/issues/331,Planner,+ buttons overlap,Not gating (proposed),5 Later / ideas
-332,https://github.com/Drowbe/coffee-pub-chameleon/issues/332,Chat,AI suggestion card toolbar,Not gating (proposed),5 Later / ideas
-333,https://github.com/Drowbe/coffee-pub-chameleon/issues/333,Settings,list every overridable word and setting,Not gating (proposed),5 Later / ideas
-335,https://github.com/Drowbe/coffee-pub-chameleon/issues/335,Home,space cards hold nested controls inside role=button (accessibility),Thomas decides,? Decide
-336,https://github.com/Drowbe/coffee-pub-chameleon/issues/336,Calendar,Day view scrolls at 390 px,Not gating (proposed),5 Later / ideas
-338,https://github.com/Drowbe/coffee-pub-chameleon/issues/338,Calendar,rows full width,Not gating (proposed),5 Later / ideas
-339,https://github.com/Drowbe/coffee-pub-chameleon/issues/339,Planner,print,Not gating (proposed),5 Later / ideas
-351,https://github.com/Drowbe/coffee-pub-chameleon/issues/351,Ideas,project and mentoring template,Not gating (proposed),5 Later / ideas
-357,https://github.com/Drowbe/coffee-pub-chameleon/issues/357,Home,categories for spaces,Not gating (proposed),5 Later / ideas
-358,https://github.com/Drowbe/coffee-pub-chameleon/issues/358,Home,categories for spaces,Not gating (proposed),5 Later / ideas
-371,https://github.com/Drowbe/coffee-pub-chameleon/issues/371,Design,Prototype backlog,Not gating (proposed),5 Later / ideas
-374,https://github.com/Drowbe/coffee-pub-chameleon/issues/374,Places,should Places and Maps be one module?,Thomas decides,? Decide
-376,https://github.com/Drowbe/coffee-pub-chameleon/issues/376,Server,LiveKit must be optional,"After first release (Thomas, 2026-11-15)",6 After release
-377,https://github.com/Drowbe/coffee-pub-chameleon/issues/377,Server,"the call as a true module [critical, next]",Not gating (proposed),5 Later / ideas
-380,https://github.com/Drowbe/coffee-pub-chameleon/issues/380,Ideas,Vault module for files [later],Not gating (proposed),5 Later / ideas
-382,https://github.com/Drowbe/coffee-pub-chameleon/issues/382,Server,better way for AI to work with app [next],Not gating (proposed),5 Later / ideas
-388,https://github.com/Drowbe/coffee-pub-chameleon/issues/388,Maps,map themes and options [next],Not gating (proposed),5 Later / ideas
-393,https://github.com/Drowbe/coffee-pub-chameleon/issues/393,Chat,AI real-provider test of look-ups and proposals [next],"Gating (proposed, body read)",1 Before the freeze
-396,https://github.com/Drowbe/coffee-pub-chameleon/issues/396,Ideas,Vault stores Word and Excel,Not gating (proposed),5 Later / ideas
-402,https://github.com/Drowbe/coffee-pub-chameleon/issues/402,Verify,"check-design-system ENOTEMPTY [bug, later]","Gating (proposed, high confidence)",1 Before the freeze
-406,https://github.com/Drowbe/coffee-pub-chameleon/issues/406,Server,"audit environment isolation beyond #295 (stream event ids, notification and presence streams, shared state) [bug, next]","Gating (proposed, high confidence)",1 Before the freeze
-422,https://github.com/Drowbe/coffee-pub-chameleon/issues/422,Server,host admin password alone opens every environment [next],"Gating (proposed, high confidence)",3 Before the first customer
-426,https://github.com/Drowbe/coffee-pub-chameleon/issues/426,Design,rename product to Coffee Pub Chameleon [now],"Gating (proposed, high confidence)",1 Before the freeze
-427,https://github.com/Drowbe/coffee-pub-chameleon/issues/427,Server,"one full backup of whole server on a schedule [enhancement, next]","Gating (proposed, high confidence)",3 Before the first customer
-441,https://github.com/Drowbe/coffee-pub-chameleon/issues/441,Server,"host console pages send no framing headers [bug, next]","Gating (proposed, high confidence)",1 Before the freeze
-442,https://github.com/Drowbe/coffee-pub-chameleon/issues/442,Server,"console create route adopts leftover environment folder [bug, later]",Thomas decides,? Decide
-445,https://github.com/Drowbe/coffee-pub-chameleon/issues/445,Whiteboard,follow-ups from independent QA [priority: next],"Gating (proposed, body read)",1 Before the freeze
-451,https://github.com/Drowbe/coffee-pub-chameleon/issues/451,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas
-458,https://github.com/Drowbe/coffee-pub-chameleon/issues/458,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas
-464,https://github.com/Drowbe/coffee-pub-chameleon/issues/464,Layout,at 760 px first docked column 0 px wide (modules vanish),"Gating (proposed, high confidence)",1 Before the freeze
-469,https://github.com/Drowbe/coffee-pub-chameleon/issues/469,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas
-471,https://github.com/Drowbe/coffee-pub-chameleon/issues/471,Server,module event stream has no replay/reconnected signal (stale after reconnect),"Gating (proposed, high confidence)",1 Before the freeze
-477,https://github.com/Drowbe/coffee-pub-chameleon/issues/477,Docs,in-app help for each module,Not gating (proposed),5 Later / ideas
-480,https://github.com/Drowbe/coffee-pub-chameleon/issues/480,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas
-492,https://github.com/Drowbe/coffee-pub-chameleon/issues/492,Design,contextual strip under toolbar,Not gating (proposed),5 Later / ideas
-499,https://github.com/Drowbe/coffee-pub-chameleon/issues/499,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-501,https://github.com/Drowbe/coffee-pub-chameleon/issues/501,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-503,https://github.com/Drowbe/coffee-pub-chameleon/issues/503,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-505,https://github.com/Drowbe/coffee-pub-chameleon/issues/505,Chat,host.chat.ask counts emoji as two characters,Not gating (proposed),5 Later / ideas
-542,https://github.com/Drowbe/coffee-pub-chameleon/issues/542,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-543,https://github.com/Drowbe/coffee-pub-chameleon/issues/543,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-544,https://github.com/Drowbe/coffee-pub-chameleon/issues/544,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-554,https://github.com/Drowbe/coffee-pub-chameleon/issues/554,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-561,https://github.com/Drowbe/coffee-pub-chameleon/issues/561,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-566,https://github.com/Drowbe/coffee-pub-chameleon/issues/566,Ideas,Documents connect to Google Drive,Not gating (proposed),5 Later / ideas
-569,https://github.com/Drowbe/coffee-pub-chameleon/issues/569,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas
-603,https://github.com/Drowbe/coffee-pub-chameleon/issues/603,Docs,"Maps vendored libraries need LICENSE files, THIRD-PARTY table, pinned hashes","Gating (proposed, body read)",1 Before the freeze
-611,https://github.com/Drowbe/coffee-pub-chameleon/issues/611,Documents,run of four or more $ not stable round trip,"Gating (proposed, body read)",1 Before the freeze
-612,https://github.com/Drowbe/coffee-pub-chameleon/issues/612,Design,host.ui.toolbarButton keep editor focus,Not gating (proposed),5 Later / ideas
-618,https://github.com/Drowbe/coffee-pub-chameleon/issues/618,Design,native window.prompt still used for copy-link fallbacks,Not gating (proposed),5 Later / ideas
-631,https://github.com/Drowbe/coffee-pub-chameleon/issues/631,Design,host.menu.show heading in capitals,Not gating (proposed),5 Later / ideas
-632,https://github.com/Drowbe/coffee-pub-chameleon/issues/632,Documents,mailto with square brackets,Not gating (proposed),5 Later / ideas
-634,https://github.com/Drowbe/coffee-pub-chameleon/issues/634,Documents,Tags button stays after lock lost,Not gating (proposed),5 Later / ideas
-641,https://github.com/Drowbe/coffee-pub-chameleon/issues/641,Design,title bar one magnifier icon,Not gating (proposed),5 Later / ideas
-665,https://github.com/Drowbe/coffee-pub-chameleon/issues/665,Documents,co-editing,"Gating (proposed, high confidence)",4 Real-call tests
-666,https://github.com/Drowbe/coffee-pub-chameleon/issues/666,Documents,font and base size per document,Not gating (proposed),5 Later / ideas
-679,https://github.com/Drowbe/coffee-pub-chameleon/issues/679,Home,"access step 8, Trips add and leave",Thomas decides,? Decide
-680,https://github.com/Drowbe/coffee-pub-chameleon/issues/680,Settings,report a problem button files private GitHub issue,"After first release (Thomas, 2026-11-15)",6 After release
-682,https://github.com/Drowbe/coffee-pub-chameleon/issues/682,Layout,second phone pass,"Gating (proposed, high confidence)",1 Before the freeze
-683,https://github.com/Drowbe/coffee-pub-chameleon/issues/683,Design,restyle with the product website's design system (plan first),Not gating (proposed),5 Later / ideas
-684,https://github.com/Drowbe/coffee-pub-chameleon/issues/684,Server,raw fetch() calls and guest page do not send agreementRequired 403s to /agree,"Gating (proposed, body read)",1 Before the freeze
-685,https://github.com/Drowbe/coffee-pub-chameleon/issues/685,Server,a few routes answer 403 instead of 404 for a space the person may not enter,"Gating (proposed, body read)",1 Before the freeze
-686,https://github.com/Drowbe/coffee-pub-chameleon/issues/686,Verify,check-module-guards live chat test fails on main,"Gating (proposed, high confidence)",1 Before the freeze
-687,https://github.com/Drowbe/coffee-pub-chameleon/issues/687,Documents,"Rich text becomes default after hand tests on Safari, iPad, phone","Not changing default at release (Thomas, 2026-11-15)",6 After release
-688,https://github.com/Drowbe/coffee-pub-chameleon/issues/688,Ideas,"Documents custom Paper margins, ruler",Not gating (proposed),5 Later / ideas
-690,https://github.com/Drowbe/coffee-pub-chameleon/issues/690,Documents,typeset maths with temml,Not gating (proposed),5 Later / ideas
-709,https://github.com/Drowbe/coffee-pub-chameleon/issues/709,Server,"refuse a member display name ending in ""(guest)""","Gating (proposed, high confidence)",1 Before the freeze
-717,https://github.com/Drowbe/coffee-pub-chameleon/issues/717,Docs,follow-ups from batch 6,Not gating (proposed),5 Later / ideas
-718,https://github.com/Drowbe/coffee-pub-chameleon/issues/718,Home,"bell labels request-access notice source ""Modules""",Not gating (proposed),5 Later / ideas
-730,https://github.com/Drowbe/coffee-pub-chameleon/issues/730,To-do,dedicated list again with show-in-calendar,Not gating (proposed),5 Later / ideas
-731,https://github.com/Drowbe/coffee-pub-chameleon/issues/731,Settings,combine Assistant and AI service into one AI Assistant module,"Gating (proposed, body read)",1 Before the freeze
-744,https://github.com/Drowbe/coffee-pub-chameleon/issues/744,Layout,workspaces and the Conference tab (build),"Gating (proposed, body read)",1 Before the freeze
-750,https://github.com/Drowbe/coffee-pub-chameleon/issues/750,Settings,each space can use its own template (server step 1 merged,"Gating (proposed, body read)",1 Before the freeze
-752,https://github.com/Drowbe/coffee-pub-chameleon/issues/752,Documents,paste over the size limit lost silently,"Gating (proposed, body read)",1 Before the freeze
-764,https://github.com/Drowbe/coffee-pub-chameleon/issues/764,Verify,check-setup-tabs fails when machine busy,"Gating (proposed, high confidence)",1 Before the freeze
-770,https://github.com/Drowbe/coffee-pub-chameleon/issues/770,Chat,on a phone you can't see what you type,"Gating (proposed, high confidence)",1 Before the freeze
-774,https://github.com/Drowbe/coffee-pub-chameleon/issues/774,Settings,Opens with vs Modules tab Show look like the same list,Not gating (proposed),5 Later / ideas
-778,https://github.com/Drowbe/coffee-pub-chameleon/issues/778,Documents,teal rectangle in the reading sheet (focus outline),Not gating (proposed),5 Later / ideas
-780,https://github.com/Drowbe/coffee-pub-chameleon/issues/780,Docs,before a public release re-check every licence and attribution in the About list,"Gating (proposed, high confidence)",3 Before the first customer
-786,https://github.com/Drowbe/coffee-pub-chameleon/issues/786,Server,"small hardening notes from the secret-setting read (seal key beside file, keepData, default on a secret, module id constructor)","Gating (proposed, body read)",1 Before the freeze
-789,https://github.com/Drowbe/coffee-pub-chameleon/issues/789,Ideas,Sync with Obsidian,Not gating (proposed),5 Later / ideas
-795,https://github.com/Drowbe/coffee-pub-chameleon/issues/795,Server,"owner-set search address accepts loopback, follows redirects (SSRF, owner only)","Gating (proposed, high confidence)",1 Before the freeze
-798,https://github.com/Drowbe/coffee-pub-chameleon/issues/798,Layout,About open-source section padding uneven at 390 px dark (check-conformance),"Gating (proposed, body read)",1 Before the freeze
-800,https://github.com/Drowbe/coffee-pub-chameleon/issues/800,Documents,paste from Word keeps formatting (idea),Not gating (proposed),5 Later / ideas
-803,https://github.com/Drowbe/coffee-pub-chameleon/issues/803,Documents,right-click menu (idea),Not gating (proposed),5 Later / ideas
+# Start date and Target date are an ESTIMATE, set by Phase: estimated by the project manager at a fast pace
+# (several builders in parallel, checks only for what changed), not a commitment. An empty date means none is set.
+# "Gating (proposed...)" in Release status is the project manager's PROPOSAL until Thomas confirms the gating
+# table (plan-release.md).
+Issue,URL,Area,Title,Release status,Phase,Start date,Target date
+2,https://github.com/Drowbe/coffee-pub-chameleon/issues/2,Home,first-time experience [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+12,https://github.com/Drowbe/coffee-pub-chameleon/issues/12,Planner,mark objects action required,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+23,https://github.com/Drowbe/coffee-pub-chameleon/issues/23,Server,each page holds three long-lived connections,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+25,https://github.com/Drowbe/coffee-pub-chameleon/issues/25,Forms,check patterns compile with v flag,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+27,https://github.com/Drowbe/coffee-pub-chameleon/issues/27,Server,"host console shared top bar requests answer 404 [bug, next]","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+28,https://github.com/Drowbe/coffee-pub-chameleon/issues/28,Server,two-step sign-in phase 2 passkeys,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+29,https://github.com/Drowbe/coffee-pub-chameleon/issues/29,Verify,canvas and layout in a real call [next],"Gating (proposed, high confidence)",4 Real-call tests,2026-11-26,2026-11-30
+30,https://github.com/Drowbe/coffee-pub-chameleon/issues/30,Verify,modules with two people on a real server [next],"Gating (proposed, high confidence)",4 Real-call tests,2026-11-26,2026-11-30
+33,https://github.com/Drowbe/coffee-pub-chameleon/issues/33,Ideas,WhatsApp/SMS,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+34,https://github.com/Drowbe/coffee-pub-chameleon/issues/34,Settings,update uploaded modules from address,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+35,https://github.com/Drowbe/coffee-pub-chameleon/issues/35,Design,module activity on card,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+36,https://github.com/Drowbe/coffee-pub-chameleon/issues/36,Server,"decide and document how private data is stored, retrieved, transported (encryption) [question, later]","Gating (proposed, high confidence)",3 Before the first customer,2026-11-26,2026-12-24
+40,https://github.com/Drowbe/coffee-pub-chameleon/issues/40,Ideas,Journal,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+41,https://github.com/Drowbe/coffee-pub-chameleon/issues/41,Budget,conversion,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+43,https://github.com/Drowbe/coffee-pub-chameleon/issues/43,Server,Font Awesome Pro on server,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+44,https://github.com/Drowbe/coffee-pub-chameleon/issues/44,Planner,map of places,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+45,https://github.com/Drowbe/coffee-pub-chameleon/issues/45,Planner,confirmation emails,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+46,https://github.com/Drowbe/coffee-pub-chameleon/issues/46,Docs,hello-world example module [later],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+47,https://github.com/Drowbe/coffee-pub-chameleon/issues/47,Ideas,Reminders,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+48,https://github.com/Drowbe/coffee-pub-chameleon/issues/48,Server,One-container install,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+49,https://github.com/Drowbe/coffee-pub-chameleon/issues/49,Server,Billing relay,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+50,https://github.com/Drowbe/coffee-pub-chameleon/issues/50,Server,Environments own domain,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+52,https://github.com/Drowbe/coffee-pub-chameleon/issues/52,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+53,https://github.com/Drowbe/coffee-pub-chameleon/issues/53,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+54,https://github.com/Drowbe/coffee-pub-chameleon/issues/54,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+55,https://github.com/Drowbe/coffee-pub-chameleon/issues/55,Call,"several asides, streamsFrom, OBS sources for guests, screen sharing OBS source",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+56,https://github.com/Drowbe/coffee-pub-chameleon/issues/56,Docs,run on Windows and Mac,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+64,https://github.com/Drowbe/coffee-pub-chameleon/issues/64,Server,integration tokens for services like Studio,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+65,https://github.com/Drowbe/coffee-pub-chameleon/issues/65,Planner,audit of plan,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+70,https://github.com/Drowbe/coffee-pub-chameleon/issues/70,Server,"audit GET requests that change state, sign-in forced by another site [next]","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+72,https://github.com/Drowbe/coffee-pub-chameleon/issues/72,Server,"licensing, lock server until purchased key unlocks","Gating (proposed, high confidence)",3 Before the first customer,2026-11-26,2026-12-24
+73,https://github.com/Drowbe/coffee-pub-chameleon/issues/73,Research,from any AI direct connection,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+132,https://github.com/Drowbe/coffee-pub-chameleon/issues/132,Forms,document editor for prose fields,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+179,https://github.com/Drowbe/coffee-pub-chameleon/issues/179,Settings,calendar for spaces [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+202,https://github.com/Drowbe/coffee-pub-chameleon/issues/202,Settings,"workflow point of view, module on/off confusion [next]",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+204,https://github.com/Drowbe/coffee-pub-chameleon/issues/204,Ideas,"""Boss"" per space",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+205,https://github.com/Drowbe/coffee-pub-chameleon/issues/205,Chat,rethink flows [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+209,https://github.com/Drowbe/coffee-pub-chameleon/issues/209,Chat,manage AI context,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+211,https://github.com/Drowbe/coffee-pub-chameleon/issues/211,Ideas,published view of a space,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+214,https://github.com/Drowbe/coffee-pub-chameleon/issues/214,Settings,admin themes set default views,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+215,https://github.com/Drowbe/coffee-pub-chameleon/issues/215,Planner,rigour,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+218,https://github.com/Drowbe/coffee-pub-chameleon/issues/218,Forms,edit title in place,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+223,https://github.com/Drowbe/coffee-pub-chameleon/issues/223,Settings,Link Icon not clear,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+232,https://github.com/Drowbe/coffee-pub-chameleon/issues/232,Ideas,Chrome extension [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+236,https://github.com/Drowbe/coffee-pub-chameleon/issues/236,Settings,Launch Link not clear,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+238,https://github.com/Drowbe/coffee-pub-chameleon/issues/238,Home,"new space has no ""back to"" and no next step",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+243,https://github.com/Drowbe/coffee-pub-chameleon/issues/243,Planner,flight clipboard parser,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+249,https://github.com/Drowbe/coffee-pub-chameleon/issues/249,Design,other themes,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+250,https://github.com/Drowbe/coffee-pub-chameleon/issues/250,Ideas,notifications outside app,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+252,https://github.com/Drowbe/coffee-pub-chameleon/issues/252,Ideas,attachments on objects [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+266,https://github.com/Drowbe/coffee-pub-chameleon/issues/266,Settings,Layouts: reorder tabs,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+267,https://github.com/Drowbe/coffee-pub-chameleon/issues/267,Settings,Layouts: reorder tabs,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+286,https://github.com/Drowbe/coffee-pub-chameleon/issues/286,Settings,/api/bus/actions should tell each action's may [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+290,https://github.com/Drowbe/coffee-pub-chameleon/issues/290,Home,finish Lobby wording and phone tabs [next],Thomas decides,? Decide,,
+291,https://github.com/Drowbe/coffee-pub-chameleon/issues/291,Settings,Templates seed module settings,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+294,https://github.com/Drowbe/coffee-pub-chameleon/issues/294,Maps,picture map,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+297,https://github.com/Drowbe/coffee-pub-chameleon/issues/297,Home,"bell notices don't open their object, no @mentions",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+298,https://github.com/Drowbe/coffee-pub-chameleon/issues/298,Settings,saving bundled template reorders module list [bug],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+307,https://github.com/Drowbe/coffee-pub-chameleon/issues/307,Planner,modes,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+325,https://github.com/Drowbe/coffee-pub-chameleon/issues/325,Planner,phases rail,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+328,https://github.com/Drowbe/coffee-pub-chameleon/issues/328,Chat,labels become icons,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+331,https://github.com/Drowbe/coffee-pub-chameleon/issues/331,Planner,+ buttons overlap,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+332,https://github.com/Drowbe/coffee-pub-chameleon/issues/332,Chat,AI suggestion card toolbar,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+333,https://github.com/Drowbe/coffee-pub-chameleon/issues/333,Settings,list every overridable word and setting,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+335,https://github.com/Drowbe/coffee-pub-chameleon/issues/335,Home,space cards hold nested controls inside role=button (accessibility),Thomas decides,? Decide,,
+336,https://github.com/Drowbe/coffee-pub-chameleon/issues/336,Calendar,Day view scrolls at 390 px,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+338,https://github.com/Drowbe/coffee-pub-chameleon/issues/338,Calendar,rows full width,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+339,https://github.com/Drowbe/coffee-pub-chameleon/issues/339,Planner,print,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+351,https://github.com/Drowbe/coffee-pub-chameleon/issues/351,Ideas,project and mentoring template,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+357,https://github.com/Drowbe/coffee-pub-chameleon/issues/357,Home,categories for spaces,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+358,https://github.com/Drowbe/coffee-pub-chameleon/issues/358,Home,categories for spaces,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+371,https://github.com/Drowbe/coffee-pub-chameleon/issues/371,Design,Prototype backlog,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+374,https://github.com/Drowbe/coffee-pub-chameleon/issues/374,Places,should Places and Maps be one module?,Thomas decides,? Decide,,
+376,https://github.com/Drowbe/coffee-pub-chameleon/issues/376,Server,LiveKit must be optional,"After first release (Thomas, 2026-11-15)",6 After release,2027-01-04,2027-02-12
+377,https://github.com/Drowbe/coffee-pub-chameleon/issues/377,Server,"the call as a true module [critical, next]",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+380,https://github.com/Drowbe/coffee-pub-chameleon/issues/380,Ideas,Vault module for files [later],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+382,https://github.com/Drowbe/coffee-pub-chameleon/issues/382,Server,better way for AI to work with app [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+388,https://github.com/Drowbe/coffee-pub-chameleon/issues/388,Maps,map themes and options [next],Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+393,https://github.com/Drowbe/coffee-pub-chameleon/issues/393,Chat,AI real-provider test of look-ups and proposals [next],"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+396,https://github.com/Drowbe/coffee-pub-chameleon/issues/396,Ideas,Vault stores Word and Excel,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+402,https://github.com/Drowbe/coffee-pub-chameleon/issues/402,Verify,"check-design-system ENOTEMPTY [bug, later]","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+406,https://github.com/Drowbe/coffee-pub-chameleon/issues/406,Server,"audit environment isolation beyond #295 (stream event ids, notification and presence streams, shared state) [bug, next]","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+422,https://github.com/Drowbe/coffee-pub-chameleon/issues/422,Server,host admin password alone opens every environment [next],"Gating (proposed, high confidence)",3 Before the first customer,2026-11-26,2026-12-24
+426,https://github.com/Drowbe/coffee-pub-chameleon/issues/426,Design,rename product to Coffee Pub Chameleon [now],"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+427,https://github.com/Drowbe/coffee-pub-chameleon/issues/427,Server,"one full backup of whole server on a schedule [enhancement, next]","Gating (proposed, high confidence)",3 Before the first customer,2026-11-26,2026-12-24
+441,https://github.com/Drowbe/coffee-pub-chameleon/issues/441,Server,"host console pages send no framing headers [bug, next]","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+442,https://github.com/Drowbe/coffee-pub-chameleon/issues/442,Server,"console create route adopts leftover environment folder [bug, later]",Thomas decides,? Decide,,
+445,https://github.com/Drowbe/coffee-pub-chameleon/issues/445,Whiteboard,follow-ups from independent QA [priority: next],"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+451,https://github.com/Drowbe/coffee-pub-chameleon/issues/451,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+458,https://github.com/Drowbe/coffee-pub-chameleon/issues/458,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+464,https://github.com/Drowbe/coffee-pub-chameleon/issues/464,Layout,at 760 px first docked column 0 px wide (modules vanish),"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+469,https://github.com/Drowbe/coffee-pub-chameleon/issues/469,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+471,https://github.com/Drowbe/coffee-pub-chameleon/issues/471,Server,module event stream has no replay/reconnected signal (stale after reconnect),"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+477,https://github.com/Drowbe/coffee-pub-chameleon/issues/477,Docs,in-app help for each module,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+480,https://github.com/Drowbe/coffee-pub-chameleon/issues/480,Ideas,"toolbar additions, host additions for whiteboard, drag Vault file to Whiteboard, Music player",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+492,https://github.com/Drowbe/coffee-pub-chameleon/issues/492,Design,contextual strip under toolbar,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+499,https://github.com/Drowbe/coffee-pub-chameleon/issues/499,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+501,https://github.com/Drowbe/coffee-pub-chameleon/issues/501,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+503,https://github.com/Drowbe/coffee-pub-chameleon/issues/503,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+505,https://github.com/Drowbe/coffee-pub-chameleon/issues/505,Chat,host.chat.ask counts emoji as two characters,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+542,https://github.com/Drowbe/coffee-pub-chameleon/issues/542,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+543,https://github.com/Drowbe/coffee-pub-chameleon/issues/543,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+544,https://github.com/Drowbe/coffee-pub-chameleon/issues/544,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+554,https://github.com/Drowbe/coffee-pub-chameleon/issues/554,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+561,https://github.com/Drowbe/coffee-pub-chameleon/issues/561,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+566,https://github.com/Drowbe/coffee-pub-chameleon/issues/566,Ideas,Documents connect to Google Drive,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+569,https://github.com/Drowbe/coffee-pub-chameleon/issues/569,Whiteboard,"speaker notes, Present, export/import, colours, send to Assistant, full screen, ideas, other modules' objects, comments",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+603,https://github.com/Drowbe/coffee-pub-chameleon/issues/603,Docs,"Maps vendored libraries need LICENSE files, THIRD-PARTY table, pinned hashes","Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+611,https://github.com/Drowbe/coffee-pub-chameleon/issues/611,Documents,run of four or more $ not stable round trip,"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+612,https://github.com/Drowbe/coffee-pub-chameleon/issues/612,Design,host.ui.toolbarButton keep editor focus,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+618,https://github.com/Drowbe/coffee-pub-chameleon/issues/618,Design,native window.prompt still used for copy-link fallbacks,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+631,https://github.com/Drowbe/coffee-pub-chameleon/issues/631,Design,host.menu.show heading in capitals,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+632,https://github.com/Drowbe/coffee-pub-chameleon/issues/632,Documents,mailto with square brackets,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+634,https://github.com/Drowbe/coffee-pub-chameleon/issues/634,Documents,Tags button stays after lock lost,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+641,https://github.com/Drowbe/coffee-pub-chameleon/issues/641,Design,title bar one magnifier icon,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+665,https://github.com/Drowbe/coffee-pub-chameleon/issues/665,Documents,co-editing,"Gating (proposed, high confidence)",4 Real-call tests,2026-11-26,2026-11-30
+666,https://github.com/Drowbe/coffee-pub-chameleon/issues/666,Documents,font and base size per document,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+679,https://github.com/Drowbe/coffee-pub-chameleon/issues/679,Home,"access step 8, Trips add and leave",Thomas decides,? Decide,,
+680,https://github.com/Drowbe/coffee-pub-chameleon/issues/680,Settings,report a problem button files private GitHub issue,"After first release (Thomas, 2026-11-15)",6 After release,2027-01-04,2027-02-12
+682,https://github.com/Drowbe/coffee-pub-chameleon/issues/682,Layout,second phone pass,"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+683,https://github.com/Drowbe/coffee-pub-chameleon/issues/683,Design,restyle with the product website's design system (plan first),Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+684,https://github.com/Drowbe/coffee-pub-chameleon/issues/684,Server,raw fetch() calls and guest page do not send agreementRequired 403s to /agree,"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+685,https://github.com/Drowbe/coffee-pub-chameleon/issues/685,Server,a few routes answer 403 instead of 404 for a space the person may not enter,"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+686,https://github.com/Drowbe/coffee-pub-chameleon/issues/686,Verify,check-module-guards live chat test fails on main,"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+687,https://github.com/Drowbe/coffee-pub-chameleon/issues/687,Documents,"Rich text becomes default after hand tests on Safari, iPad, phone","Not changing default at release (Thomas, 2026-11-15)",6 After release,2027-01-04,2027-02-12
+688,https://github.com/Drowbe/coffee-pub-chameleon/issues/688,Ideas,"Documents custom Paper margins, ruler",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+690,https://github.com/Drowbe/coffee-pub-chameleon/issues/690,Documents,typeset maths with temml,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+709,https://github.com/Drowbe/coffee-pub-chameleon/issues/709,Server,"refuse a member display name ending in ""(guest)""","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+717,https://github.com/Drowbe/coffee-pub-chameleon/issues/717,Docs,follow-ups from batch 6,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+718,https://github.com/Drowbe/coffee-pub-chameleon/issues/718,Home,"bell labels request-access notice source ""Modules""",Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+730,https://github.com/Drowbe/coffee-pub-chameleon/issues/730,To-do,dedicated list again with show-in-calendar,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+731,https://github.com/Drowbe/coffee-pub-chameleon/issues/731,Settings,combine Assistant and AI service into one AI Assistant module,"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+744,https://github.com/Drowbe/coffee-pub-chameleon/issues/744,Layout,workspaces and the Conference tab (build),"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+750,https://github.com/Drowbe/coffee-pub-chameleon/issues/750,Settings,each space can use its own template (server step 1 merged,"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+752,https://github.com/Drowbe/coffee-pub-chameleon/issues/752,Documents,paste over the size limit lost silently,"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+764,https://github.com/Drowbe/coffee-pub-chameleon/issues/764,Verify,check-setup-tabs fails when machine busy,"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+770,https://github.com/Drowbe/coffee-pub-chameleon/issues/770,Chat,on a phone you can't see what you type,"Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+774,https://github.com/Drowbe/coffee-pub-chameleon/issues/774,Settings,Opens with vs Modules tab Show look like the same list,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+778,https://github.com/Drowbe/coffee-pub-chameleon/issues/778,Documents,teal rectangle in the reading sheet (focus outline),Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+780,https://github.com/Drowbe/coffee-pub-chameleon/issues/780,Docs,before a public release re-check every licence and attribution in the About list,"Gating (proposed, high confidence)",3 Before the first customer,2026-11-26,2026-12-24
+786,https://github.com/Drowbe/coffee-pub-chameleon/issues/786,Server,"small hardening notes from the secret-setting read (seal key beside file, keepData, default on a secret, module id constructor)","Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+789,https://github.com/Drowbe/coffee-pub-chameleon/issues/789,Ideas,Sync with Obsidian,Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+795,https://github.com/Drowbe/coffee-pub-chameleon/issues/795,Server,"owner-set search address accepts loopback, follows redirects (SSRF, owner only)","Gating (proposed, high confidence)",1 Before the freeze,2026-11-16,2026-11-25
+798,https://github.com/Drowbe/coffee-pub-chameleon/issues/798,Layout,About open-source section padding uneven at 390 px dark (check-conformance),"Gating (proposed, body read)",1 Before the freeze,2026-11-16,2026-11-25
+800,https://github.com/Drowbe/coffee-pub-chameleon/issues/800,Documents,paste from Word keeps formatting (idea),Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31
+803,https://github.com/Drowbe/coffee-pub-chameleon/issues/803,Documents,right-click menu (idea),Not gating (proposed),5 Later / ideas,2027-01-04,2027-03-31

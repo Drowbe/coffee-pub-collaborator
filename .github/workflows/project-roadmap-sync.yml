@@ -5,9 +5,11 @@ name: Project roadmap from the CSV
 # reads it. Each run:
 #   - makes sure the single-select fields Area, Release status and Phase exist on the board, with the options in
 #     the CSV (a missing field is created; a field that exists but lacks an option is NOT recreated: the run fails
-#     and names the field and the options, so they can be added by hand), and the Date field "Target date" (empty);
+#     and names the field and the options, so they can be added by hand), and the Date fields "Start date" and "Target date";
 #   - adds every open issue of this repository that is in the CSV to the board, if it is not on it yet;
-#   - sets Area, Release status and Phase on those cards, only where the value differs.
+#   - sets Area, Release status and Phase on those cards, only where the value differs, and the two dates only
+#     where the CSV has one (an empty cell writes nothing; a date is never cleared). The dates are an ESTIMATE
+#     by Phase, estimated by the project manager at a fast pace, not a commitment.
 # Closed issues, pull requests, numbers that don't exist and other repositories' rows are skipped. It never
 # deletes anything, never touches Status or any other field, and never changes the `priority: ...` labels.
 # The step summary and the log list one line per issue and the totals (added, changed, unchanged, skipped,

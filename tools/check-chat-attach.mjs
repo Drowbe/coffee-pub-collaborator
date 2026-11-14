@@ -192,7 +192,7 @@ await test('SDK: attach goes to chat.attach only; ask goes to chat.ask only; the
 // --- the server ---------------------------------------------------------------------------------------------------------------
 const fake = await startFakeModel();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-chat-attach-'));
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: `${fake.url}/v1`, model: 'fake-1', key: '', enabled: true }));
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: `${fake.url}/v1`, model: 'fake-1', key: '', enabled: true }));
 const out = { text: '' };
 const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, ADMIN_PASSWORD: 'testpass1234', TZ: 'UTC' }, stdio: ['ignore', 'pipe', 'pipe'] });
 child.stdout.on('data', (d) => { out.text += d; });
@@ -416,7 +416,7 @@ try {
     assert.ok(after.tokens > before.tokens, 'its tokens count against the month');
     assert.equal(after.byPerson[people.a8.key] > (before.byPerson[people.a8.key] || 0), true);
     // The call's record keeps counts and no words.
-    const log = fs.readFileSync(path.join(dataDir, 'ai-log.jsonl'), 'utf8');
+    const log = fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai-log.jsonl'), 'utf8');
     assert.ok(!log.includes('2x + 3') && !log.includes('Words from Whiteboard') && !log.includes('words"'), 'the record keeps no content');
   });
 

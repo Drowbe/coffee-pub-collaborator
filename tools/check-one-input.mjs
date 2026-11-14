@@ -69,7 +69,7 @@ await new Promise((r) => aiServer.listen(0, '127.0.0.1', r));
 const aiAddress = `http://127.0.0.1:${aiServer.address().port}`;
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-one-input-'));
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({
   source: 'custom', provider: 'compatible', address: aiAddress, model: 'stand-in-model', key: 'sk-test', enabled: true,
 }));
 

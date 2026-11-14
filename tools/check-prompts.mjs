@@ -30,7 +30,13 @@ const GOLDEN = path.join(ROOT, 'tools', 'golden', 'prompts');
 const require = createRequire(import.meta.url);
 const prompts = require('../server/prompts');
 const { KINDS, TRAVEL_KINDS } = require('../server/object-format.js');
-const { Ai } = require('../server/ai.js');
+const { Ai: RealAi } = require('../server/ai.js');
+// A test's Ai is given a secrets key, as the server gives one: without it no key can be kept (the key is the AI Assistant's sealed secret).
+const TEST_SECRETS_KEY = require('node:crypto').randomBytes(32);
+class Ai extends RealAi {
+  constructor(dir, env, hosts, managed, secretsKey = () => TEST_SECRETS_KEY, secrets) { super(dir, env, hosts, managed, secretsKey, secrets); }
+}
+
 const policyLib = require('../server/ai-policy.js');
 const { createContextBuilder, todayIn } = require('../server/ai-context.js');
 const phaseRule = require('../public/phases.js');
@@ -606,7 +612,7 @@ await test('AI_LOG_PROMPTS writes the prompt (never the key) only off a host', a
 const fakeA = await startFakeModel();
 const fakeB = await startFakeModel();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-prompts-'));
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: `${fakeA.url}/v1`, model: 'fake-1', key: '', enabled: true }));
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: `${fakeA.url}/v1`, model: 'fake-1', key: '', enabled: true }));
 const out = { text: '' };
 const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, ADMIN_PASSWORD: 'testpass1234', TZ: 'UTC' }, stdio: ['ignore', 'pipe', 'pipe'] });
 child.stdout.on('data', (d) => { out.text += d; });
@@ -756,7 +762,7 @@ try {
     r = await ask('eve', 'Where is a good dinner?', { refs: [R('n1')] });
     assert.deepEqual(r.json.sent.notSent, [{ why: 'setting', module: 'research', count: 1 }], 'Research left out here: attaching one says so');
     assert.ok(!JSON.stringify(fakeA.last().body).includes('TOPMATERIAL'));
-    const rec = fs.readFileSync(path.join(dataDir, 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+    const rec = fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
     assert.deepEqual(rec.leftOut, [{ part: 'attached', why: 'setting', count: 1 }], 'the record shows it left out');
     r = await call('PATCH', `/api/spaces/${space.id}`, { cookie: owner, body: { aiSees: null } });
     assert.ok(!('aiSees' in r.json.space));
@@ -871,7 +877,7 @@ try {
       assert.deepEqual([r.status, r.json.error], [502, 'The AI service gave no answer.'], JSON.stringify(json));
     }
     assert.equal((await call('GET', `/api/spaces/${space.id}/chat`, { cookie: tok.jon })).json.messages.length, before, 'nothing kept, not even the question');
-    const rec = fs.readFileSync(path.join(dataDir, 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+    const rec = fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
     assert.deepEqual([rec.outcome, rec.error], ['error', 'empty']);
   });
 
@@ -890,7 +896,7 @@ try {
     await call('PUT', '/api/ai', { cookie: owner, body: { key: 'sk-seeded-KEY-0987654321' } });
     await ask('rita', 'QUESTIONWORD here?', { refs: [R('n1')] });
     await new Promise((r) => setTimeout(r, 3300)); // the usage file is written a few seconds after a change
-    const files = ['ai-log.jsonl', 'ai-usage.json'].map((f) => fs.readFileSync(path.join(dataDir, f), 'utf8'));
+    const files = ['ai-log.jsonl', 'ai-usage.json'].map((f) => fs.readFileSync(path.join(dataDir, 'modules', 'assistant', f), 'utf8'));
     for (const f of files) for (const bad of ['sk-seeded-KEY', 'QUESTIONWORD', 'TOPMATERIAL', 'A short answer']) assert.ok(!f.includes(bad), bad);
     const log = files[0].trim().split('\n').map((l) => JSON.parse(l));
     const last = log.at(-1);
@@ -925,14 +931,14 @@ try {
     await ask('nora', 'again please?');
     assert.equal(fakeB.last().body.response_format, undefined, 'remembered');
     assert.ok(!fakeB.last().body.messages[0].content.includes('JSON shape you are given'), 'the prompt-then-parse rendering');
-    const rec = fs.readFileSync(path.join(dataDir, 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+    const rec = fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
     assert.equal(rec.mode, 'text', 'the record says which was used');
     await call('PUT', '/api/ai', { cookie: owner, body: { model: 'fake-2' } });
     fakeB.refuseSchema = false;
     fakeB.clear();
     await ask('nora', 'new model?');
     assert.ok(fakeB.last().body.response_format, 'a changed setting tries the schema again');
-    assert.ok(!('schemaRefused' in JSON.parse(fs.readFileSync(path.join(dataDir, 'ai.json'), 'utf8'))), 'a structured answer forgets the refusal');
+    assert.ok(!('schemaRefused' in JSON.parse(fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), 'utf8'))), 'a structured answer forgets the refusal');
   });
 } finally {
   child.kill('SIGTERM');

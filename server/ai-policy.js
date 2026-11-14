@@ -10,7 +10,7 @@
 // module's write access (importRefusal).
 //
 // What is sent is the narrowest of three: the person's own read rights now, the current space (never another, decision 4),
-// and the owner's setting What AI may see (`sees` in DATA_DIR/ai.json, `aiSees` on a space), which can only narrow.
+// and the owner's setting What AI may see (`sees` in DATA_DIR/modules/assistant/ai.json, `aiSees` on a space), which can only narrow.
 //
 // The pure parts (the setting's keys, defaults and cleaning, the redaction list, the sentences) need nothing else; the
 // rest is made per server by createAiPolicy with the services it reads through.

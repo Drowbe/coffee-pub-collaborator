@@ -69,8 +69,8 @@ function moduleCan(manifest, perms, need) {
 // AI service (documentation/plans/plan-environments.md, "Managed AI") -- index.js's own, closing over the host
 // registry and the AI_* environment variables. Defaults to offering none, for a caller (a test) that does not
 // need it. `secretsKey`, when given, returns the key (a 32-byte Buffer) the environment's own AI key is encrypted
-// with at rest in ai.json -- index.js's secretsKeyBuf, the same key as every two-step secret. Without it (a test
-// that does not need it) the AI key is kept as it was given. `vaultDir` is the folder this environment's library files
+// with at rest in modules/secrets.json -- index.js's secretsKeyBuf, the same key as every two-step secret. Without it (a test
+// that does not need it) no key can be kept. `vaultDir` is the folder this environment's library files
 // (server/vault-store.js) keep their bytes in: index.js names it under VAULT_DIR; without it (a test), <dataDir>/vault.
 // `onVaultBytes(delta)` is told every change in what they keep (index.js's total for VAULT_MAX_GB).
 function buildEnvironment(dataDir, { slug = null, admin = null, log = console.log, managed = () => null, secretsKey = null, vaultDir = null, onVaultBytes = () => {}, vaultSweepMs = 10000 } = {}) {
@@ -198,7 +198,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   const moduleBus = new ModuleBus(modules.dir);
   const moduleSettings = new ModuleSettings(modules.dir, secretsKey);
 
-  const ai = new Ai(dataDir, process.env, undefined, managed, secretsKey);
+  const ai = new Ai(dataDir, process.env, undefined, managed, secretsKey, moduleSettings.secrets); // its key is the AI Assistant module's sealed secret
   modules.aiReady = () => ai.ready(); // a module declaring hooks.ai depends on the AI service the way one module depends on another
 
   // A person's other calendars (plan-google-calendar.md, Part 2): read through the private-address guard, kept in

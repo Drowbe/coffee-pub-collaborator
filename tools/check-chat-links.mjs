@@ -203,7 +203,7 @@ async function listenLive(urlPath, cookie) {
 }
 
 const dataDir = tmp('server');
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({
   source: 'custom', provider: 'compatible', address: `http://127.0.0.1:${aiServer.address().port}`, model: 'stand-in-model', key: 'sk-test', enabled: true,
 }));
 

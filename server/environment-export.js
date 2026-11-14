@@ -13,7 +13,9 @@
 //              link: the hash of a one-time token and its end) and agreed (what they agreed to and when: everyone
 //              is asked again after a restore of the copy); on each space guestToken (guest link: a new one
 //              is made when asked for); settings.publishedCalendarFeed (the published calendar's address).
-//   ai.json    key (sealed with the same key): emptied, so the AI service has to be given its key again.
+//   modules/assistant/ai.json   the AI setting; the key is not kept in it (it is the AI Assistant's sealed secret, in
+//              modules/secrets.json, which is never copied), and a `key` field a file carries anyway is dropped, so the AI
+//              service has to be given its key again.
 //   files      everything not on FILE_RULES: among them secrets.key (the key a single install sealed with), pre-names/
 //              (copies of the data from before the Names migration, which hold the same secrets), agreements.json
 //              (guests' agreements: the host's backup carries them, never an owner's copy), access.json (requests to enter
@@ -30,7 +32,7 @@ const { DEFAULT_SETTINGS } = require('./store');
 const { ENVIRONMENT_COPY_DIR, LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 
 const APP_FILE = 'app.json';
-const AI_FILE = 'ai.json';
+const AI_FILE = 'modules/assistant/ai.json';
 const LAYOUTS_FILE = 'layouts.json';
 
 // --- app.json ------------------------------------------------------------------------------------------------------
@@ -103,14 +105,14 @@ function unclassifiedFields(data) {
   return [...new Set(out)];
 }
 
-// --- ai.json -------------------------------------------------------------------------------------------------------
+// --- modules/assistant/ai.json -------------------------------------------------------------------------------------------------------
 
-// ai.json for the copy: the same settings with the key emptied. A file that cannot be read is left out.
+// The AI setting for the copy: the same settings without any `key`. A file that cannot be read is left out.
 function exportAi(buffer) {
   let ai;
   try { ai = JSON.parse(Buffer.from(buffer).toString('utf8')); } catch { return null; }
   if (!isObject(ai)) return null;
-  if ('key' in ai) ai.key = '';
+  delete ai.key;
   return ai;
 }
 
@@ -131,11 +133,12 @@ function exportLayouts(buffer) {
 
 const MODULE_ID = '[a-z][a-z0-9-]{1,31}';
 const SPACE_ID = '[a-z0-9]{4,16}';
-// The files an environment's folder holds that go in the copy, by their path in it. app.json and ai.json are made
+// The files an environment's folder holds that go in the copy, by their path in it. app.json and the AI setting are made
 // above. `declared`: a module's own folders for the files an owner places (its manifest's file settings).
 const FILE_RULES = [
-  /^(chat|layouts|attention|facts|tags|ai-usage)\.json$/,
-  /^ai-log\.jsonl$/,
+  /^(chat|layouts|attention|facts|tags)\.json$/,
+  /^modules\/assistant\/ai-usage\.json$/,
+  /^modules\/assistant\/ai-log\.jsonl$/,
   /^images\/.+$/,
   /^modules\/(registry|settings|activity|announced|links|schedules|notifications|bus)\.json$/,
   new RegExp(`^modules/${MODULE_ID}/(data|trash)/[^/]+\\.json$`),

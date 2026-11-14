@@ -34,7 +34,13 @@ const require = createRequire(import.meta.url);
 const prompts = require('../server/prompts');
 const toolRegistry = require('../server/prompts/tools');
 const { TRAVEL_KINDS } = require('../server/object-format.js');
-const { Ai } = require('../server/ai.js');
+const { Ai: RealAi } = require('../server/ai.js');
+// A test's Ai is given a secrets key, as the server gives one: without it no key can be kept (the key is the AI Assistant's sealed secret).
+const TEST_SECRETS_KEY = require('node:crypto').randomBytes(32);
+class Ai extends RealAi {
+  constructor(dir, env, hosts, managed, secretsKey = () => TEST_SECRETS_KEY, secrets) { super(dir, env, hosts, managed, secretsKey, secrets); }
+}
+
 const policyLib = require('../server/ai-policy.js');
 const { createContextBuilder } = require('../server/ai-context.js');
 const aiTools = require('../server/ai-tools.js');
@@ -613,7 +619,7 @@ try {
     await askIn(ai, world({ sees: QUIET }), 'pat', 'When does the ferry leave?');
     assert.ok(fake.seen[0].body.tools, 'a stale refusal does not stop the tools');
     assert.equal(ai.config.toolsRefused, undefined);
-    assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(ai.logFile), 'ai.json'), 'utf8')).toolsRefused, undefined, 'and not kept');
+    assert.equal(JSON.parse(fs.readFileSync(ai.file, 'utf8')).toolsRefused, undefined, 'and not kept');
   });
 
   for (const shape of ['openai', 'anthropic']) {
@@ -646,7 +652,7 @@ try {
 
   // --- through a throwaway server --------------------------------------------------------------------------------------
   const dataDir = tmp('server');
-  fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: `${fake.url}/v1`, model: 'fake-1', key: '', enabled: true }));
+  fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: `${fake.url}/v1`, model: 'fake-1', key: '', enabled: true }));
   const out = { text: '' };
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, ADMIN_PASSWORD: 'testpass1234', TZ: 'UTC' }, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', (d) => { out.text += d; });
@@ -694,7 +700,7 @@ try {
     const A = `/api/spaces/${space.id}/ai`;
     const ask = (who, question, extra = {}) => call('POST', A, { cookie: tok[who], body: { question, ...extra } });
     const searchTitles = (k = 1) => lastResults(fake.seen[k].body, 1)[0].objects.map((o) => o.title);
-    const record = () => fs.readFileSync(path.join(dataDir, 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+    const record = () => fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai-log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).at(-1);
 
     await test('server: What AI may see has lookup, on by default; Manage and a space set it, owners and the admin only', async () => {
       const g = await call('GET', '/api/ai', { cookie: owner });
@@ -765,7 +771,7 @@ try {
       const rec = record();
       assert.deepEqual([rec.rounds, rec.stop, rec.tools, rec.toolCalls, rec.looked], [3, 'answer', 'on', { search_objects: 1, read_object: 1 }, rec.looked]);
       assert.ok(rec.looked.read === 1 && rec.looked.found >= 1);
-      const log = fs.readFileSync(path.join(dataDir, 'ai-log.jsonl'), 'utf8');
+      const log = fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai-log.jsonl'), 'utf8');
       for (const bad of ['SEARCHWORDZ', 'FERRYTEXT', 'Ferry to Naxos', 'When does']) assert.ok(!log.includes(bad), bad);
     });
 
@@ -854,7 +860,7 @@ try {
       assert.equal(r.status, 200, r.text);
       assert.deepEqual(fake.seen.map((s) => Boolean(s.body.tools)), [true, false]);
       assert.equal(record().tools, 'refused');
-      assert.ok(JSON.parse(fs.readFileSync(path.join(dataDir, 'ai.json'), 'utf8')).toolsRefused, 'remembered for the saved setting');
+      assert.ok(JSON.parse(fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), 'utf8')).toolsRefused, 'remembered for the saved setting');
       fake.clear();
       await ask('mo', 'Tools again?');
       assert.deepEqual(fake.seen.map((s) => Boolean(s.body.tools)), [false]);

@@ -12,7 +12,13 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { Ai, AiError, applyManagedFields } = require('../server/ai.js');
+const { Ai: RealAi, AiError, applyManagedFields } = require('../server/ai.js');
+// A test's Ai is given a secrets key, as the server gives one: without it no key can be kept (the key is the AI Assistant's sealed secret).
+const TEST_SECRETS_KEY = require('node:crypto').randomBytes(32);
+class Ai extends RealAi {
+  constructor(dir, env, hosts, managed, secretsKey = () => TEST_SECRETS_KEY, secrets) { super(dir, env, hosts, managed, secretsKey, secrets); }
+}
+
 const { ICONS, KINDS, TRAVEL_KINDS } = require('../server/object-format.js');
 const { parseSummaries, cleanSummary, parseTags, citedItems, MAX_SUMMARIES } = require('../server/prompts/parse.js');
 const prompts = require('../server/prompts');
@@ -84,7 +90,7 @@ await test('the setting: the key is kept and never shown', () => {
   assert.ok(!('keyFromEnvironment' in ai.view()), 'the key comes from what is saved, never from the server\'s environment');
   // A setting saved before the managed/custom choice existed is custom, even with a provider and model but no key.
   const old = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-'));
-  fs.writeFileSync(path.join(old, 'ai.json'), JSON.stringify({ provider: 'anthropic', model: 'claude', key: '' }));
+  fs.mkdirSync(path.join(old, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(old, 'modules', 'assistant', 'ai.json'), JSON.stringify({ provider: 'anthropic', model: 'claude', key: '' }));
   assert.equal(new Ai(old, {}, undefined, () => [{ provider: 'openai', address: '', model: 'm', key: 'k' }]).view().source, 'custom');
 });
 
@@ -199,9 +205,9 @@ await test('companies, migration and the model lists', async () => {
   await assert.rejects(c.listModels({ provider: 'none' }), /choose a service/);
   // Before there were companies, "openai" with an address was any compatible service.
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-'));
-  fs.writeFileSync(path.join(d, 'ai.json'), JSON.stringify({ provider: 'openai', address: 'http://localhost:11434', model: 'llama', key: '' }));
+  fs.mkdirSync(path.join(d, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(d, 'modules', 'assistant', 'ai.json'), JSON.stringify({ provider: 'openai', address: 'http://localhost:11434', model: 'llama', key: '' }));
   assert.equal(new Ai(d, {}).view().provider, 'compatible');
-  fs.writeFileSync(path.join(d, 'ai.json'), JSON.stringify({ provider: 'openai', address: 'https://api.openai.com/v1', model: 'gpt-4o', key: 'k' }));
+  fs.mkdirSync(path.join(d, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(d, 'modules', 'assistant', 'ai.json'), JSON.stringify({ provider: 'openai', address: 'https://api.openai.com/v1', model: 'gpt-4o', key: 'k' }));
   const m = new Ai(d, {}).view();
   assert.deepEqual([m.provider, m.address], ['openai', '']);
 });
@@ -231,9 +237,9 @@ await test('the enable step', () => {
   assert.equal(a.set({ provider: 'openai', key: 'k', model: 'gpt-4o' }).enabled, true); // another company, ready at once (key and model given together): stays on
   assert.equal(a.set({ enabled: false }).enabled, false);
   // A setting from before the step, with a service chosen, counts as enabled.
-  fs.writeFileSync(path.join(d, 'ai.json'), JSON.stringify({ provider: 'compatible', address, model: 'm', key: '' }));
+  fs.mkdirSync(path.join(d, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(d, 'modules', 'assistant', 'ai.json'), JSON.stringify({ provider: 'compatible', address, model: 'm', key: '' }));
   assert.equal(new Ai(d, {}).view().enabled, true);
-  fs.writeFileSync(path.join(d, 'ai.json'), JSON.stringify({ provider: 'none' }));
+  fs.mkdirSync(path.join(d, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(d, 'modules', 'assistant', 'ai.json'), JSON.stringify({ provider: 'none' }));
   assert.equal(new Ai(d, {}).view().enabled, false);
 });
 
@@ -429,27 +435,33 @@ await test('a non-ok answer: a plain sentence reaches the caller; the service\'s
   }
 });
 
-await test('the key is encrypted at rest: a plain one is sealed on load, a typed one on save, a foreign one is a plain sentence', async () => {
+await test('the key is the module\'s sealed secret: never in ai.json, sealed in secrets.json, a typed one on save, a foreign one is a plain sentence', async () => {
   const crypto = await import('node:crypto');
   const keyA = crypto.randomBytes(32);
   const keyB = crypto.randomBytes(32);
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-'));
-  const file = path.join(d, 'ai.json');
-  const stored = () => JSON.parse(fs.readFileSync(file, 'utf8')).key;
-  // A key saved in the clear before this change: sealed on the first load, and it still answers.
+  const file = path.join(d, 'modules', 'assistant', 'ai.json');
+  const secretsFile = path.join(d, 'modules', 'secrets.json');
+  const stored = () => JSON.parse(fs.readFileSync(secretsFile, 'utf8')).assistant.key;
+  // A key in the setting file (a hand-made or restored one) is dropped and never used.
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify({ source: 'custom', provider: 'compatible', address, model: 'local', key: 'sk-plain', enabled: true }));
   const a = new Ai(d, {}, undefined, () => null, () => keyA);
-  assert.match(stored(), /^aesgcm\$/);
-  assert.ok(!fs.readFileSync(file, 'utf8').includes('sk-plain'), 'ai.json never holds the plain key after load');
+  assert.ok(!('key' in JSON.parse(fs.readFileSync(file, 'utf8'))), 'ai.json holds no key field after load');
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('sk-plain'));
+  assert.equal(a.view().keySet, false);
   assert.equal((fs.statSync(file).mode & 0o777), 0o600);
   sent.length = 0;
   reply = 'fine';
   await ask(a, 'ask', items, 'what now?');
-  assert.equal(sent.at(-1).auth, 'Bearer sk-plain');
+  assert.equal(sent.at(-1).auth, undefined, 'the dropped key is not sent');
   // A key typed in is sealed before it is saved, and still reaches the service.
   a.set({ key: 'sk-typed' });
   assert.match(stored(), /^aesgcm\$/);
-  assert.ok(!fs.readFileSync(file, 'utf8').includes('sk-typed'));
+  assert.equal(fs.statSync(secretsFile).mode & 0o777, 0o600);
+  for (const f of [file, secretsFile]) assert.ok(!fs.readFileSync(f, 'utf8').includes('sk-typed'), `${path.basename(f)} never holds the plain key`);
+  assert.ok(!('key' in JSON.parse(fs.readFileSync(file, 'utf8'))));
+  for (const text of [JSON.stringify(a.view()), JSON.stringify(a.usageView()), JSON.stringify(a.usageReport())]) assert.ok(!text.includes('sk-typed'), 'no answer holds the key');
   await ask(a, 'ask', items, 'again?');
   assert.equal(sent.at(-1).auth, 'Bearer sk-typed');
   // A later save of something else keeps the sealed key sealed (never sealed twice, never lost).
@@ -457,7 +469,11 @@ await test('the key is encrypted at rest: a plain one is sealed on load, a typed
   assert.equal(new Ai(d, {}, undefined, () => null, keyA).effective().key, 'sk-typed');
   await a.listModels({ provider: 'compatible', address }); // the saved key, decrypted, lists the models
   assert.equal(sent.at(-1).auth, 'Bearer sk-typed');
-  // The same file on a host with a different secrets key: no crash, a plain sentence, not ready, and no key sent.
+  // Without a secrets key no key can be kept: a plain sentence (503), and nothing is written.
+  const none = new Ai(fs.mkdtempSync(path.join(os.tmpdir(), 'ai-')), {}, undefined, () => null, null);
+  assert.throws(() => none.set({ provider: 'compatible', address, model: 'm', key: 'sk-nowhere' }), (e) => e instanceof AiError && e.status === 503 && e.message === 'A key cannot be kept on this server.' && !e.message.includes('sk-nowhere'));
+  assert.equal(none.view().provider, 'none');
+  // The same files on a host with a different secrets key: no crash, a plain sentence, not ready, and no key sent.
   const b = new Ai(d, {}, undefined, () => null, () => keyB);
   const v = b.view();
   assert.equal(v.keySet, false);
@@ -468,6 +484,7 @@ await test('the key is encrypted at rest: a plain one is sealed on load, a typed
   assert.equal(b.previewEnabled({ model: 'other' }), true);
   assert.equal(b.set({ model: 'other' }).enabled, true);
   assert.equal(b.view().keyProblem, "the saved AI key can't be read on this server; enter the key again");
+  assert.equal(JSON.parse(fs.readFileSync(secretsFile, 'utf8')).assistant.key, stored(), 'saving another field leaves the unreadable key as it is');
   b.set({ model: 'local' });
   await assert.rejects(ask(b, 'ask', items, 'hello?'), (e) => e instanceof AiError && e.status === 503 && /can't be read/.test(e.message));
   await assert.rejects(b.listModels({ provider: 'compatible', address }), /can't be read/);
@@ -477,6 +494,21 @@ await test('the key is encrypted at rest: a plain one is sealed on load, a typed
   assert.equal(b.ready(), true);
   await ask(b, 'ask', items, 'better?');
   assert.equal(sent.at(-1).auth, 'Bearer sk-again');
+  // Changing the address drops the saved key (never sent somewhere new); clearing it removes the sealed value.
+  b.set({ address: `${address}/other` });
+  assert.equal(b.view().keySet, false);
+  assert.ok(!(JSON.parse(fs.readFileSync(secretsFile, 'utf8')).assistant || {}).key, 'a dropped key is gone from secrets.json');
+  // The module's data going away takes the setting, the usage, the records and the key with it.
+  b.set({ key: 'sk-last' });
+  b.record('ask', 10);
+  b.flush();
+  b.log({ outcome: 'ok' });
+  b.forget();
+  assert.equal(b.view().keySet, false);
+  assert.equal(b.view().provider, 'none');
+  assert.equal(b.ready(), false);
+  for (const f of [file, path.join(d, 'modules', 'assistant', 'ai-usage.json'), path.join(d, 'modules', 'assistant', 'ai-log.jsonl')]) assert.ok(!fs.existsSync(f), `${path.basename(f)} is gone`);
+  assert.ok(!JSON.parse(fs.readFileSync(secretsFile, 'utf8')).assistant, 'and its key');
   fs.rmSync(d, { recursive: true, force: true });
 });
 

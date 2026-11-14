@@ -206,7 +206,7 @@ await test('a description takes the environment\'s words, as a label does', () =
 // --- GET /api/ai/catalog, through a throwaway server ----------------------------------------------------------------------
 const fake = await startFakeModel();
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-catalog-'));
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: fake.url, model: 'fake-1', key: '', enabled: true }));
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: fake.url, model: 'fake-1', key: '', enabled: true }));
 const out = { text: '' };
 const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, ADMIN_PASSWORD: 'testpass1234' }, stdio: ['ignore', 'pipe', 'pipe'] });
 child.stdout.on('data', (d) => { out.text += d; });

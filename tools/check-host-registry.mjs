@@ -763,6 +763,27 @@ try {
     const ownerCookie = cookieOf(enabled);
     const aiSet = await call(server, 'beta', 'PUT', '/api/ai', { cookie: ownerCookie, body: { source: 'custom', provider: 'anthropic', model: 'claude-x', key: 'sk-ant-export-check-key', enabled: true } });
     assert.equal(aiSet.status, 200, aiSet.text);
+    // The environment's own key and the host's managed key (set on the host console) stay out of every answer an owner can get;
+    // choosing the managed service and going back to the environment's own leaves both exactly where they were.
+    const MANAGED_KEY = 'sk-host-managed-check-key';
+    const OWN_KEY = 'sk-ant-export-check-key';
+    const hostAi = await call(server, 'admin', 'PUT', '/api/host/ai', { cookie, body: { provider: 'openai', model: 'gpt-x', key: MANAGED_KEY } });
+    assert.equal(hostAi.status, 200, hostAi.text);
+    const aiAnswers = [aiSet, hostAi, await call(server, 'admin', 'GET', '/api/host/ai', { cookie })];
+    const chosen = await call(server, 'beta', 'PUT', '/api/ai', { cookie: ownerCookie, body: { source: 'managed', managedProvider: 'openai' } });
+    assert.equal(chosen.status, 200, chosen.text);
+    assert.deepEqual([chosen.json.ai.source, chosen.json.ai.active, chosen.json.ai.keySet], ['managed', { provider: 'openai', model: 'gpt-x' }, true]);
+    aiAnswers.push(chosen);
+    for (const route of ['/api/ai', '/api/ai/usage', '/api/settings', '/api/status', '/api/modules', '/api/me']) aiAnswers.push(await call(server, 'beta', 'GET', route, { cookie: ownerCookie }));
+    const back = await call(server, 'beta', 'PUT', '/api/ai', { cookie: ownerCookie, body: { source: 'custom' } });
+    assert.equal(back.status, 200, back.text);
+    assert.deepEqual([back.json.ai.source, back.json.ai.provider, back.json.ai.keySet], ['custom', 'anthropic', true], 'the own key is still there');
+    aiAnswers.push(back);
+    for (const r of aiAnswers) assert.ok(!r.text.includes(MANAGED_KEY) && !r.text.includes(OWN_KEY) && !r.text.includes('aesgcm$'), 'no AI key in any answer');
+    const member = await call(server, 'beta', 'GET', '/api/ai', { cookie: (await signIn('beta', 'robin', 'robin-password-1')).cookie });
+    assert.equal(member.status, 403, 'a member does not read the AI setting');
+    assert.ok(!member.text.includes(OWN_KEY) && !member.text.includes(MANAGED_KEY));
+    assert.equal((await call(server, 'beta', 'GET', '/api/ai')).status, 401, 'nor does anyone signed out');
     // Files only a migrated or interrupted environment has: a single install's key, the Names migration's copies, a
     // library module's share links, a half-written file.
     const fileSecret = crypto.randomBytes(32).toString('hex');
@@ -815,7 +836,7 @@ try {
       invite: fullApp.invites[0]?.token,
       mfaSecret: byLogin(fullApp, 'owner').mfa?.secret,
       recovery: byLogin(fullApp, 'owner').mfa?.recovery?.[0],
-      aiKey: JSON.parse(inBackup.get('ai.json').toString('utf8')).key,
+      aiKey: JSON.parse(inBackup.get('modules/secrets.json').toString('utf8')).assistant.key,
       feedHash,
       publishedHash,
       fileSecret,
@@ -852,7 +873,7 @@ try {
         .filter((d) => d.type === 'file' || d.type === 'files').map((d) => d.folder);
     };
     for (const name of onDisk.keys()) {
-      if (name === 'app.json' || name === 'ai.json') continue;
+      if (name === 'app.json' || name === 'modules/assistant/ai.json') continue;
       assert.ok(exportLists.fileAllowed(name, declaredFolders) || exportLists.fileLeftOut(name), `${name} is on neither of server/environment-export.js's file lists`);
     }
 
@@ -866,7 +887,7 @@ try {
     assert.match(exported.headers['cache-control'] || '', /\bno-store\b/, 'the export is never kept by a browser or proxy');
     const inExport = await unzipEntries(exported.raw);
     for (const name of [...Object.keys(privateFiles), ...linked]) assert.ok(!inExport.has(name), `the export leaves out ${name}`);
-    for (const name of inExport.keys()) assert.ok(name === 'app.json' || name === 'ai.json' || exportLists.fileAllowed(name, declaredFolders), `the export carries ${name}, which is not allowed`);
+    for (const name of inExport.keys()) assert.ok(name === 'app.json' || name === 'modules/assistant/ai.json' || exportLists.fileAllowed(name, declaredFolders), `the export carries ${name}, which is not allowed`);
     for (const name of onDisk.keys()) if (exportLists.fileAllowed(name, declaredFolders)) assert.ok(onDisk.get(name).equals(inExport.get(name)), `the export carries ${name} as it is`);
     for (const name of ['secrets.key', 'pre-names/a-part/app.json', 'modules/vault/library/space-lobby.shares.json', 'app.json.tmp']) assert.ok(!inExport.has(name), `the export leaves out ${name}`);
     for (const [name, bytes] of inExport) {
@@ -880,7 +901,9 @@ try {
     assert.equal('publishedCalendarFeed' in app.settings, false, "no published calendar's address");
     assert.deepEqual(exportLists.unclassifiedFields(app), []);
     for (const s of app.spaces) assert.equal('guestToken' in s, false, `${s.id}: no guestToken`);
-    assert.equal(JSON.parse(inExport.get('ai.json').toString('utf8')).key, '', 'ai.json without its key');
+    assert.equal('key' in JSON.parse(inExport.get('modules/assistant/ai.json').toString('utf8')), false, 'the AI setting without any key');
+    assert.ok(!inExport.has('modules/secrets.json'), 'the sealed secrets are not in the export');
+    assert.ok(inBackup.get('modules/assistant/ai.json') && !('key' in JSON.parse(inBackup.get('modules/assistant/ai.json').toString('utf8'))), 'the backup keeps the key only in modules/secrets.json');
     assert.deepEqual(app.users.map((u) => [u.login, u.displayName]), fullApp.users.map((u) => [u.login, u.displayName]), 'every person stays');
     assert.deepEqual(app.spaces.map((s) => s.id), fullApp.spaces.map((s) => s.id), 'every space stays');
     assert.deepEqual(app.migrations, fullApp.migrations, 'the migration record stays, so a restore reads it');
@@ -909,6 +932,11 @@ try {
     assert.equal(opened.status, 302, 'the new personal link signs the owner in');
     const me = (await call(server, 'gamma', 'GET', '/api/me', { cookie: cookieOf(opened) })).json;
     assert.deepEqual([me.user.login, me.user.role], ['owner', 'owner']);
+    // The copy's environment has no AI key (the owner's key was never in it), and the first one's stays its own.
+    const gammaAi = await call(server, 'gamma', 'GET', '/api/ai', { cookie: boss.cookie });
+    assert.equal(gammaAi.status, 200, gammaAi.text);
+    assert.deepEqual([gammaAi.json.ai.keySet, gammaAi.json.ai.keyUnreadable], [false, false], 'a restored copy has to be given its key');
+    assert.ok(!fs.existsSync(path.join(data, 'environments', 'gamma', 'modules', 'secrets.json')) || !JSON.parse(fs.readFileSync(path.join(data, 'environments', 'gamma', 'modules', 'secrets.json'), 'utf8')).assistant, 'no sealed AI key in the copy');
     const robinKey = users.find((u) => u.login === 'robin').key;
     assert.equal((await call(server, 'gamma', 'PATCH', `/api/users/${robinKey}`, { cookie: boss.cookie, body: { password: 'robin-new-password-1' } })).status, 200);
     await signIn('gamma', 'robin', 'robin-new-password-1');
@@ -1512,7 +1540,9 @@ try {
     const installKey = crypto.randomBytes(32);
     const otherKey = crypto.randomBytes(32);
     fs.writeFileSync(path.join(single, 'secrets.key'), installKey.toString('hex'), { mode: 0o644 });
-    fs.writeFileSync(path.join(single, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: 'http://127.0.0.1:9', model: 'm', key: auth.encryptSecret('sk-moved', installKey), enabled: true }), { mode: 0o644 });
+    fs.mkdirSync(path.join(single, 'modules', 'assistant'), { recursive: true });
+    fs.writeFileSync(path.join(single, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: 'http://127.0.0.1:9', model: 'm', enabled: true }), { mode: 0o644 });
+    fs.writeFileSync(path.join(single, 'modules', 'secrets.json'), JSON.stringify({ assistant: { key: auth.encryptSecret('sk-moved', installKey) } }), { mode: 0o644 });
     const appFile = path.join(single, 'app.json');
     const app = readJson(appFile);
     const unreadable = auth.encryptSecret('pending-elsewhere', otherKey);
@@ -1524,12 +1554,12 @@ try {
     assert.ok(server.output().includes('1 encrypted secret of "keep" could not be read with the install\'s key and was left as it was: the AI key has to be entered again, and anyone affected has to set up two-step sign-in again.'), server.output());
     const envDir = path.join(single, 'environments', 'keep');
     const hostKey = Buffer.from(readJson(path.join(single, 'host.json')).secrets.key, 'hex');
-    assert.equal(auth.decryptSecret(readJson(path.join(envDir, 'ai.json')).key, hostKey), 'sk-moved', 'the AI key reads with the host\'s key');
+    assert.equal(auth.decryptSecret(readJson(path.join(envDir, 'modules', 'secrets.json')).assistant.key, hostKey), 'sk-moved', 'the AI key reads with the host\'s key');
     const gm = readJson(path.join(envDir, 'app.json')).users.find((u) => u.login === 'gm');
     assert.equal(auth.decryptSecret(gm.mfa.secret, hostKey), 'TOTPSECRETLIVE', 'the two-step secret reads with the host\'s key');
     assert.equal(gm.mfa.pending.secret, unreadable, 'one the install\'s key could not read is left exactly as it was');
     assert.equal(gm.role, 'owner', 'and the admin still becomes the owner');
-    for (const file of [path.join(single, 'host.json'), path.join(envDir, 'app.json'), path.join(envDir, 'ai.json'), path.join(envDir, 'secrets.key')]) {
+    for (const file of [path.join(single, 'host.json'), path.join(envDir, 'app.json'), path.join(envDir, 'modules', 'secrets.json'), path.join(envDir, 'secrets.key')]) {
       assert.equal(fs.statSync(file).mode & 0o777, 0o600, `${path.relative(single, file)} is private`);
     }
     await server.stop();
@@ -2086,7 +2116,7 @@ try {
 
   await liveTest('live: a start without BASE_DOMAIN on a hosted data folder refuses and writes nothing', async () => {
     const message = 'This data folder belongs to a server with environments: set BASE_DOMAIN.';
-    const stray = ['app.json', 'chat.json', 'ai.json', 'ai-usage.json', 'ai-threads.json', 'secrets.key'];
+    const stray = ['app.json', 'chat.json', 'modules/assistant/ai.json', 'modules/assistant/ai-usage.json', 'ai-threads.json', 'secrets.key'];
     const expectRefuse = async (name, setup) => {
       const dir = path.join(liveDir, name);
       fs.mkdirSync(dir);

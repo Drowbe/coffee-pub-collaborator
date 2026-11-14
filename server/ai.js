@@ -1,4 +1,6 @@
-// The AI service of an environment: one setting an owner makes (its own service, or one the host offers), never a module's.
+// The AI service of an environment: one setting an owner makes (its own service, or one the host offers). It belongs to the
+// AI Assistant module (id `assistant`, plan-ai-assistant.md): its files live in that module's folder, and its key is that
+// module's sealed `secret` (server/module-secrets.js), never a field of the setting file.
 // The server holds the key and the address; a page never sees either. What is said to a model lives in the prompt registry
 // (server/prompts/), who may ask and what may be sent in the policy layer (server/ai-policy.js), the context in
 // server/ai-context.js, and the request shapes in the provider adapters (server/ai-providers.js). This file keeps the
@@ -9,14 +11,16 @@
 // slice 2): it may ask the server to look this space's objects up, as the person asking and through the policy; it can
 // write nothing. Its answer is only text or JSON.
 //
-// Files: DATA_DIR/ai.json (the setting, kept private to the server's user), DATA_DIR/ai-usage.json (this month's tokens and
-// calls, by task, template version, person and space) and DATA_DIR/ai-log.jsonl (a record per call, no content, kept 30 days).
+// Files, in DATA_DIR/modules/assistant/: ai.json (the setting, kept private to the server's user; it never holds the key),
+// ai-usage.json (this month's tokens and calls, by task, template version, person and space) and ai-log.jsonl (a record per
+// call, no content, kept 30 days). The key is in DATA_DIR/modules/secrets.json, sealed (AES-256-GCM) by ModuleSecrets.
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { encryptSecret, decryptSecret } = require('./auth');
+const { ModuleSecrets } = require('./module-secrets');
 const { assertAddressAllowed, guardFrom, AiNetError } = require('./ai-http');
 const { AiError, HOSTS, DEFAULT_MODELS, ADDRESS_UNUSABLE, checkTypedKey, listModelsFor, complete } = require('./ai-providers');
 const prompts = require('./prompts');
@@ -29,6 +33,11 @@ const { runToolLoop } = require('./ai-tools');
 // different secrets key: the key has to be set again, the way a two-step sign-in has to be enrolled again.
 const ENCRYPTED = 'aesgcm$';
 const isEncrypted = (v) => typeof v === 'string' && v.startsWith(ENCRYPTED);
+// The module this service belongs to, and the name its key is kept under in that module's secrets.
+const MODULE_ID = 'assistant';
+const KEY_NAME = 'key';
+// Stands for a saved key this server cannot open while a patch is checked: still "a key" (the service stays chosen), never a value.
+const UNREADABLE_KEY = '\u0000unreadable';
 const KEY_UNREADABLE = "the saved AI key can't be read on this server; enter the key again";
 // The stored form of a key: encrypted with `buf` when there is one and it is not already; '' stays ''.
 function sealKey(value, buf) {
@@ -171,20 +180,24 @@ function managedOffer(provider, slot) {
 class Ai {
   // `managed` is a function returning the host's offered companies -- [{ provider, address, model, key }]
   // (real keys, for making calls; never exposed by view()), in offer order, or null when the host offers none.
-  // `secretsKey`: a function returning (or a Buffer that is) the 32-byte key this environment's own AI key is
-  // encrypted with in ai.json (server/index.js's secretsKeyBuf). Without one (a test) the key is kept as given.
-  constructor(dataDir, env = process.env, hosts = HOSTS, managed = () => null, secretsKey = null) {
+  // `dataDir`: the environment's folder; the files are in its modules/assistant/. `secretsKey`: a function returning (or a Buffer
+  // that is) the 32-byte key this environment's own AI key is sealed with (server/index.js's secretsKeyBuf). `secrets`: the
+  // environment's ModuleSecrets (moduleSettings.secrets), where the key is kept as the module's `secret`; one is made over the
+  // same folder when none is given (a test). Without a secrets key no key can be kept: saving one is a 503.
+  constructor(dataDir, env = process.env, hosts = HOSTS, managed = () => null, secretsKey = null, secrets = null) {
     this.hosts = { ...HOSTS, ...hosts };
     this.managed = managed;
     this.secretsKey = secretsKey;
-    this.file = path.join(dataDir, 'ai.json');
-    this.usageFile = path.join(dataDir, 'ai-usage.json');
-    this.logFile = path.join(dataDir, 'ai-log.jsonl');
+    this.dir = path.join(dataDir, 'modules', MODULE_ID);
+    this.secrets = secrets || new ModuleSecrets(path.join(dataDir, 'modules'), secretsKey ? () => this.keyBuf() : null);
+    this.file = path.join(this.dir, 'ai.json');
+    this.usageFile = path.join(this.dir, 'ai-usage.json');
+    this.logFile = path.join(this.dir, 'ai-log.jsonl');
     this.env = env;
     // On a host with environments an owner types this environment's address, so requests to it are guarded (server/ai-http.js);
     // a single-environment install's admin is trusted with their own network. The host's managed services are never guarded.
     this.hosted = Boolean(env && env.BASE_DOMAIN);
-    this.config = { source: undefined, managedProvider: '', provider: 'none', address: '', model: '', key: '', workspace: '', monthlyTokens: 0 };
+    this.config = { source: undefined, managedProvider: '', provider: 'none', address: '', model: '', workspace: '', monthlyTokens: 0 };
     this.usage = emptyUsage();
     let loaded = false;
     try { Object.assign(this.config, JSON.parse(fs.readFileSync(this.file, 'utf8'))); loaded = true; } catch { /* not set up */ }
@@ -209,13 +222,9 @@ class Ai {
       this.saveConfig();
     }
     if (this.config.source === 'custom' && this.config.provider === 'none') this.config.enabled = false;
-    // A key saved in the clear (before keys were encrypted at rest) is encrypted now and saved straight away, so
-    // ai.json never holds a plain key once this server has loaded it.
-    if (typeof this.config.key !== 'string') this.config.key = '';
-    if (this.config.key && !isEncrypted(this.config.key) && this.keyBuf()) {
-      this.config.key = sealKey(this.config.key, this.keyBuf());
-      this.saveConfig();
-    }
+    // The setting file never holds a key (it is the module's sealed secret): one that is there, from a hand-made or restored
+    // file, is dropped and never used.
+    if ('key' in this.config) { delete this.config.key; this.saveConfig(); }
     // What AI may see (`sees`): only the keys that clean are kept; absent means the defaults (server/ai-policy.js).
     this.config.sees = readSees(this.config.sees);
     this.timer = null;
@@ -223,6 +232,39 @@ class Ai {
     this.reserved = 0;
     this.pending = 0;
     this.pruneLog();
+  }
+
+  // The saved key of this environment's own custom slot: { key, unreadable }. `key` is '' when none is kept or it cannot be opened
+  // here (a copy restored onto another host), and then `unreadable` says it has to be entered again. Used only inside this class.
+  keyInfo() {
+    const st = this.secrets.state(MODULE_ID, KEY_NAME);
+    if (st.set) return { key: this.secrets.get(MODULE_ID, KEY_NAME) || '', unreadable: false };
+    return { key: '', unreadable: Boolean(st.unreadable) };
+  }
+
+  // What a patch's key field stands for while it is checked: the plain value, or UNREADABLE_KEY for a saved one that cannot be opened.
+  keyForPatch() {
+    const { key, unreadable } = this.keyInfo();
+    return key || (unreadable ? UNREADABLE_KEY : '');
+  }
+
+  // Keeps what a checked patch decided about the key: nothing changed, a new value sealed, or none. Throws (503, one sentence,
+  // never the value) where no key can be kept.
+  commitKey(next) {
+    if (next === UNREADABLE_KEY) return;
+    if (next === this.keyForPatch()) return;
+    if (next && !this.secrets.canKeep()) throw new AiError('A key cannot be kept on this server.', 503);
+    this.secrets.put(MODULE_ID, KEY_NAME, next);
+  }
+
+  // The key and the setting of the module are gone (it was removed with its data): nothing stays in memory or on disk.
+  forget() {
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    this.config = { source: 'custom', managedProvider: '', provider: 'none', address: '', model: '', workspace: '', monthlyTokens: 0, enabled: false, sees: readSees(undefined) };
+    this.usage = emptyUsage();
+    this.reserved = 0;
+    this.secrets.forgetModule(MODULE_ID);
+    for (const f of [this.file, this.usageFile, this.logFile]) { try { fs.rmSync(f, { force: true }); } catch { /* gone anyway */ } }
   }
 
   // The secrets key as a Buffer, or null when this instance was given none.
@@ -242,12 +284,12 @@ class Ai {
   // environment's own custom slot otherwise. { provider: 'none', ... } when managed is chosen but the host no
   // longer offers that company (an admin turned it off, or removed its key, after this environment chose it).
   // Takes a candidate config instead of this.config's own for the same reason managedOffer does.
-  effective(config = this.config) {
+  effective(config = this.config, keyInfo = null) {
     if (config.source === 'managed') {
       const o = this.managedOffer(config.managedProvider);
       return o ? { provider: o.provider, address: o.address || '', model: o.model, key: o.key || '', workspace: o.workspace || '' } : { provider: 'none', address: '', model: '', key: '', workspace: '' };
     }
-    const { key, unreadable } = openKey(config.key, this.keyBuf());
+    const { key, unreadable } = keyInfo || this.keyInfo();
     return { provider: config.provider, address: config.address, model: config.model, key, workspace: config.workspace || '', ...(unreadable ? { keyUnreadable: true } : {}) };
   }
 
@@ -255,8 +297,8 @@ class Ai {
   // since set() needs to know this about a candidate config before deciding what its own enabled should
   // become (see set()'s own comment: a source/company/provider change only turns AI off when the result
   // would not be ready, not on every change).
-  hasActiveService(config = this.config) {
-    const c = this.effective(config);
+  hasActiveService(config = this.config, keyInfo = null) {
+    const c = this.effective(config, keyInfo);
     if (c.provider === 'none') return false;
     // A saved key this server can't read is still a key: the service stays chosen (and AI stays on) while an owner
     // saves other fields; only ready() refuses to use it, and the one complaint is the key sentence.
@@ -279,7 +321,7 @@ class Ai {
     const c = this.config;
     const offers = this.managed() || [];
     const active = this.effective();
-    const unreadable = openKey(c.key, this.keyBuf()).unreadable;
+    const { key: saved, unreadable } = this.keyInfo();
     return {
       source: c.source,
       active: { provider: active.provider, model: active.model },
@@ -290,7 +332,7 @@ class Ai {
       model: c.model,
       workspace: c.workspace || '', // an id, not a secret -- fine to show
       monthlyTokens: c.monthlyTokens,
-      keySet: !!c.key && !unreadable, // a saved key this server can't read counts as none: it has to be entered again
+      keySet: !!saved, // a saved key this server can't read counts as none: it has to be entered again
       keyUnreadable: unreadable,
       keyProblem: unreadable ? KEY_UNREADABLE : null, // one plain sentence for the AI settings to show, or null
       enabled: c.enabled,
@@ -325,8 +367,12 @@ class Ai {
     if (next.source === 'managed' && (p.source !== undefined || p.managedProvider !== undefined) && !(this.managed() || []).some((o) => o.provider === next.managedProvider)) {
       throw new AiError('the host does not offer that company');
     }
-    Object.assign(next, applyAiFields(next, p));
-    next.key = sealKey(next.key, this.keyBuf()); // a key just typed is kept encrypted, never in the clear
+    // The key is checked as a plain value that lives only in this call, then sealed into the module's secrets (never in `config`).
+    const fields = applyAiFields({ ...next, key: this.keyForPatch() }, p);
+    const newKey = fields.key;
+    delete fields.key;
+    Object.assign(next, fields);
+    const candidateKey = newKey === UNREADABLE_KEY ? { key: '', unreadable: true } : { key: newKey, unreadable: false };
     // What AI may see: the keys sent replace those saved; null goes back to the defaults. A bad key or value is a 400.
     if (p.sees !== undefined) {
       if (p.sees === null) next.sees = {};
@@ -343,14 +389,15 @@ class Ai {
     // (a managed company the host offers, or a custom provider with its key); it only turns `enabled` off when
     // the result is not ready (provider none, an unoffered managed company, a keyless custom provider).
     // "Setting a service up does not turn AI on" still holds: an environment that has never enabled stays off.
-    if (sourceOrProviderChanged && !this.hasActiveService(next)) next.enabled = false;
+    if (sourceOrProviderChanged && !this.hasActiveService(next, candidateKey)) next.enabled = false;
     if (p.enabled !== undefined) {
-      if (p.enabled === true && !this.config.enabled && this.effective(next).keyUnreadable) throw new AiError(KEY_UNREADABLE); // turning on with a key it can't use
-      if (p.enabled === true && !this.hasActiveService(next)) throw new AiError('choose a service and save it before enabling AI');
+      if (p.enabled === true && !this.config.enabled && this.effective(next, candidateKey).keyUnreadable) throw new AiError(KEY_UNREADABLE); // turning on with a key it can't use
+      if (p.enabled === true && !this.hasActiveService(next, candidateKey)) throw new AiError('choose a service and save it before enabling AI');
       next.enabled = p.enabled === true;
     }
     if (next.source === 'custom' && next.provider === 'none') next.enabled = false;
     if (next.source === 'managed' && !(this.managed() || []).some((o) => o.provider === next.managedProvider)) next.enabled = false;
+    this.commitKey(newKey);
     this.config = next;
     this.saveConfig();
     return this.view();
@@ -358,7 +405,7 @@ class Ai {
 
   saveConfig() {
     try {
-      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.mkdirSync(this.dir, { recursive: true });
       fs.writeFileSync(`${this.file}.tmp`, JSON.stringify(this.config), { mode: 0o600 });
       fs.renameSync(`${this.file}.tmp`, this.file);
     } catch (err) {
@@ -376,16 +423,20 @@ class Ai {
     const sourceOrProviderChanged = (p.source !== undefined && p.source !== next.source) || (p.managedProvider !== undefined && p.managedProvider !== next.managedProvider) || (p.provider !== undefined && p.provider !== next.provider);
     if (p.source !== undefined && SOURCES.includes(p.source)) next.source = p.source;
     if (p.managedProvider !== undefined && MANAGED_PROVIDERS.includes(p.managedProvider)) next.managedProvider = p.managedProvider;
+    let candidateKey;
     try {
-      Object.assign(next, applyAiFields(next, p));
+      const fields = applyAiFields({ ...next, key: this.keyForPatch() }, p);
+      candidateKey = fields.key === UNREADABLE_KEY ? { key: '', unreadable: true } : { key: fields.key, unreadable: false };
+      delete fields.key;
+      Object.assign(next, fields);
     } catch {
       // A patch set() would actually refuse (openai with no key, say) never saves at all -- conservatively
       // not ready, rather than judging readiness by whatever the untouched, pre-patch fields still say.
       return false;
     }
-    if (sourceOrProviderChanged && !this.hasActiveService(next)) next.enabled = false;
+    if (sourceOrProviderChanged && !this.hasActiveService(next, candidateKey)) next.enabled = false;
     if (p.enabled !== undefined) next.enabled = p.enabled === true;
-    if (!this.hasActiveService(next)) next.enabled = false;
+    if (!this.hasActiveService(next, candidateKey)) next.enabled = false;
     return next.enabled;
   }
 
@@ -454,7 +505,7 @@ class Ai {
 
   flush() {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
-    try { fs.writeFileSync(this.usageFile, JSON.stringify(this.usage)); } catch { /* a convenience */ }
+    try { fs.mkdirSync(this.dir, { recursive: true }); fs.writeFileSync(this.usageFile, JSON.stringify(this.usage)); } catch { /* a convenience */ }
   }
 
   // --- the call records (plan-ai-integration.md, "Observability") --------------------------------------------------------
@@ -464,7 +515,7 @@ class Ai {
   log(record) {
     const line = { at: new Date().toISOString() };
     for (const k of LOG_FIELDS) if (record[k] !== undefined && record[k] !== null && record[k] !== '') line[k] = record[k];
-    try { fs.appendFileSync(this.logFile, `${JSON.stringify(line)}\n`, { mode: 0o600 }); } catch { /* a convenience */ }
+    try { fs.mkdirSync(this.dir, { recursive: true }); fs.appendFileSync(this.logFile, `${JSON.stringify(line)}\n`, { mode: 0o600 }); } catch { /* a convenience */ }
   }
 
   // The records of the last 30 days, oldest first.
@@ -638,7 +689,7 @@ class Ai {
     const asked = String(address || '').trim() || this.config.address;
     const sameAddress = (a) => { try { return new URL(a).href.replace(/\/$/, '') === this.config.address; } catch { return false; } };
     const sameService = provider === this.config.provider && (provider !== 'compatible' || sameAddress(asked));
-    const saved = typed || !sameService ? { key: '' } : openKey(this.config.key, this.keyBuf());
+    const saved = typed || !sameService ? { key: '' } : this.keyInfo();
     if (!typed && sameService && saved.unreadable) throw new AiError(KEY_UNREADABLE);
     const useKey = typed || saved.key;
     const useWorkspace = (typeof workspace === 'string' && workspace.trim()) || (provider === this.config.provider ? this.config.workspace : '') || '';

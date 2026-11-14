@@ -523,7 +523,7 @@ function migrateIfNeeded() {
   secretsToHostKey(dest);
   ownersFromServerAdmin(dest);
 }
-// A single-environment install encrypts its secrets (the AI key in ai.json, every two-step secret in app.json, live
+// A single-environment install encrypts its secrets (the AI key in modules/secrets.json, every two-step secret in app.json, live
 // and pending, and each person's other calendars' addresses) with DATA_DIR/secrets.key; a hosted environment's are read with host.json's secretsKey. So the move
 // decrypts each one with the install's key and encrypts it again with the host's, and says what it did. A value the
 // install's key can't decrypt is left exactly as it is, and said so; a plain (never encrypted) AI key is left for
@@ -561,7 +561,10 @@ function secretsToHostKey(dir) {
     fs.chmodSync(`${file}.tmp`, 0o600);
     fs.renameSync(`${file}.tmp`, file);
   };
-  rewrite(path.join(dir, 'ai.json'), (ai) => { if (ai.key) ai.key = swap(ai.key); });
+  // The sealed values of modules' `secret` settings (the AI Assistant's key among them): { moduleId: { key: sealed } }.
+  rewrite(path.join(dir, 'modules', 'secrets.json'), (secrets) => {
+    for (const held of Object.values(secrets)) if (held && typeof held === 'object') for (const k of Object.keys(held)) held[k] = swap(held[k]);
+  });
   const appFile = ['app.json', LEGACY_ENVIRONMENT_RECORD].map((f) => path.join(dir, f)).find((f) => fs.existsSync(f));
   if (appFile) {
     rewrite(appFile, (app) => {
@@ -5160,6 +5163,7 @@ app.delete('/api/modules/:id', requireOwner, (req, res) => {
     moduleLinks.dropModule(req.params.id);
     moduleBus.dropModule(req.params.id);
     moduleSettings.forgetModule(req.params.id);
+    if (req.params.id === 'assistant') ai.forget(); // the AI Assistant owns the AI service: its setting, usage, records and key go with its data
     attention.forgetModule(req.params.id);
     facts.forgetModule(req.params.id);
     store.applyModuleDisplay(req.params.id, { name: null, icon: null }); // its display name and icon go with its data

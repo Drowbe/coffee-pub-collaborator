@@ -18,7 +18,13 @@ import { startFakeModel } from './fake-model.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
-const { Ai, AiError, applyManagedFields } = require('../server/ai.js');
+const { Ai: RealAi, AiError, applyManagedFields } = require('../server/ai.js');
+// A test's Ai is given a secrets key, as the server gives one: without it no key can be kept (the key is the AI Assistant's sealed secret).
+const TEST_SECRETS_KEY = require('node:crypto').randomBytes(32);
+class Ai extends RealAi {
+  constructor(dir, env, hosts, managed, secretsKey = () => TEST_SECRETS_KEY, secrets) { super(dir, env, hosts, managed, secretsKey, secrets); }
+}
+
 const { isPrivateAddress, assertAddressAllowed, request } = require('../server/ai-http.js');
 const { readObjects, TRAVEL_KINDS } = require('../server/object-format.js');
 const { parseSummaries } = require('../server/prompts/parse.js');
@@ -209,7 +215,7 @@ await test('a key with a line break is refused when typed, never saved', async (
 
 // ---- through a throwaway server ----
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-ai-prompts-'));
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address, model: 'fake-1', key: '', enabled: true }));
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true }); fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address, model: 'fake-1', key: '', enabled: true }));
 let child = null;
 let port = 0;
 const out = { text: '' };

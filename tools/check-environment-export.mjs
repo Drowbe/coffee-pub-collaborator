@@ -253,7 +253,7 @@ test("a restore turns every admin that is not the host admin's stand-in into an 
 // What the server keeps in an environment's folder, one of each kind (and the copy's verdict).
 const FILES = {
   allowed: [
-    'chat.json', 'layouts.json', 'attention.json', 'facts.json', 'tags.json', 'ai-usage.json', 'ai-log.jsonl',
+    'chat.json', 'layouts.json', 'attention.json', 'facts.json', 'tags.json', 'modules/assistant/ai-usage.json', 'modules/assistant/ai-log.jsonl',
     'images/ownerkey/player.png', 'images/site/icon.png', 'images/spaces/trip01.webp',
     'modules/registry.json', 'modules/settings.json', 'modules/activity.json', 'modules/announced.json', 'modules/links.json', 'modules/schedules.json', 'modules/notifications.json', 'modules/bus.json',
     'modules/todo/data/environment.json', 'modules/todo/data/space-trip01.json', 'modules/todo/trash/space-trip01.json',
@@ -279,12 +279,14 @@ test("every file the server keeps in an environment's folder is allowed in the c
   assert.equal(ex.fileAllowed('images/../secrets.key', declared), false, 'a path that climbs out');
 });
 
-test('the copy carries exactly the allowed files, app.json made from the data and ai.json without its key', () => {
+test('the copy carries exactly the allowed files, app.json made from the data and the AI setting without any key', () => {
   const files = [...FILES.allowed, ...FILES.leftOut, 'new-thing.json'].map((name) => [name, Buffer.from(name)]);
-  files.push(['app.json', Buffer.from('{"secrets":{"session":"s"}}')], ['ai.json', Buffer.from(JSON.stringify({ provider: 'anthropic', key: 'aesgcm$sealed' }))]);
+  files.push(['app.json', Buffer.from('{"secrets":{"session":"s"}}')], ['modules/assistant/ai.json', Buffer.from(JSON.stringify({ provider: 'anthropic', key: 'aesgcm$sealed' }))]);
   const out = ex.exportEntries(files, seededApp(), { declared });
-  assert.deepEqual(out.map(([name]) => name).sort(), ['ai.json', 'app.json', ...FILES.allowed].sort());
-  assert.deepEqual(JSON.parse(out.find(([name]) => name === 'ai.json')[1].toString()), { provider: 'anthropic', key: '' });
+  assert.deepEqual(out.map(([name]) => name).sort(), ['app.json', 'modules/assistant/ai.json', ...FILES.allowed].sort());
+  assert.deepEqual(JSON.parse(out.find(([name]) => name === 'modules/assistant/ai.json')[1].toString()), { provider: 'anthropic' }, 'no key field, sealed or empty');
+  assert.ok(!out.some(([name]) => name === 'modules/secrets.json'), 'the sealed values of secret settings (the AI key) are never in the copy');
+  assert.ok(!out.some(([, data]) => data.toString().includes('aesgcm$')), 'no sealed value anywhere in the copy');
   assert.equal('secrets' in JSON.parse(out[0][1].toString()), false);
   for (const [name, data] of out) if (FILES.allowed.includes(name)) assert.equal(data.toString(), name, `${name} as it is`);
 });

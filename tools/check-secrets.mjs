@@ -59,8 +59,10 @@ await new Promise((r) => calendarServer.listen(0, '127.0.0.1', r));
 const CALENDAR_SECRET = crypto.randomBytes(18).toString('hex');
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-secrets-'));
-// An AI key saved in the clear, as every install had it before keys were encrypted: sealed when the server loads it.
-fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: aiAddress, model: 'stand-in-model', key: 'sk-plain-before', enabled: true }), { mode: 0o644 });
+// The AI setting, as the AI Assistant keeps it; a key in this file is never used (the key is the module's sealed secret, set below
+// through the route), and the file is made private when the server loads it.
+fs.mkdirSync(path.join(dataDir, 'modules', 'assistant'), { recursive: true });
+fs.writeFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: aiAddress, model: 'stand-in-model', key: 'sk-plain-before', enabled: true }), { mode: 0o644 });
 
 let child = null;
 let port = 0;
@@ -289,25 +291,27 @@ try {
     assert.deepEqual(answers[9].json, { calendars: [], events: [] }, 'the access key gets none');
   });
 
-  await test('app.json, ai.json and secrets.key are private to the server\'s user', () => {
-    for (const name of ['app.json', 'ai.json', 'secrets.key']) assert.equal(fs.statSync(path.join(dataDir, name)).mode & 0o777, 0o600, name);
+  await test('app.json, the AI setting and secrets.key are private to the server\'s user', () => {
+    for (const name of ['app.json', 'modules/assistant/ai.json', 'secrets.key']) assert.equal(fs.statSync(path.join(dataDir, name)).mode & 0o777, 0o600, name);
   });
 
-  await test('ai.json never holds a plain key once loaded, and the encrypted key still reaches the service', async () => {
-    const text = () => fs.readFileSync(path.join(dataDir, 'ai.json'), 'utf8');
-    assert.ok(!text().includes('sk-plain-before'), 'the plain key saved before is sealed on load');
-    assert.match(JSON.parse(text()).key, /^aesgcm\$/);
-    // Listing models with no key typed uses the saved one: the stand-in sees the real key.
+  await test('the AI key is the AI Assistant\'s sealed secret: never in the setting file, a key in that file is dropped, a typed one is sealed and still reaches the service', async () => {
+    const text = () => fs.readFileSync(path.join(dataDir, 'modules', 'assistant', 'ai.json'), 'utf8');
+    const sealed = () => fs.readFileSync(path.join(dataDir, 'modules', 'secrets.json'), 'utf8');
+    assert.ok(!text().includes('sk-plain-before') && !('key' in JSON.parse(text())), 'a key left in the setting file is dropped on load');
     seen.length = 0;
-    const listed = await call('POST', '/api/ai/models', { cookie: owner, body: { provider: 'compatible', address: aiAddress } });
-    assert.equal(listed.status, 200, listed.text);
-    assert.equal(seen.at(-1), 'Bearer sk-plain-before');
-    // A key typed in the AI settings is sealed before it is saved.
+    const none = await call('POST', '/api/ai/models', { cookie: owner, body: { provider: 'compatible', address: aiAddress } });
+    assert.equal(none.status, 200, none.text);
+    assert.ok(!seen.at(-1), 'and never sent');
+    // A key typed in the AI settings is sealed before it is saved, in modules/secrets.json.
     const put = await call('PUT', '/api/ai', { cookie: owner, body: { key: 'sk-typed-now' } });
     assert.equal(put.status, 200, put.text);
     assert.equal(put.json.ai.keySet, true);
     assert.equal(put.json.ai.keyUnreadable, false);
-    assert.ok(!text().includes('sk-typed-now'));
+    assert.ok(!text().includes('sk-typed-now') && !sealed().includes('sk-typed-now'));
+    assert.match(JSON.parse(sealed()).assistant.key, /^aesgcm\$/);
+    assert.equal(fs.statSync(path.join(dataDir, 'modules', 'secrets.json')).mode & 0o777, 0o600);
+    assert.ok(!put.text.includes('sk-typed-now'), 'not in the answer');
     seen.length = 0;
     await call('POST', '/api/ai/models', { cookie: owner, body: { provider: 'compatible', address: aiAddress } });
     assert.equal(seen.at(-1), 'Bearer sk-typed-now');
@@ -322,11 +326,11 @@ try {
     await stopServer();
     // An install from before files were kept private, and a secrets key that isn't the one the AI key was saved with
     // (data restored onto a different host).
-    for (const name of ['app.json', 'ai.json', 'secrets.key']) fs.chmodSync(path.join(dataDir, name), 0o644);
+    for (const name of ['app.json', 'modules/assistant/ai.json', 'secrets.key']) fs.chmodSync(path.join(dataDir, name), 0o644);
     fs.writeFileSync(path.join(dataDir, 'secrets.key'), (await import('node:crypto')).randomBytes(32).toString('hex'));
     fs.chmodSync(path.join(dataDir, 'secrets.key'), 0o644);
     await startServer();
-    for (const name of ['app.json', 'ai.json', 'secrets.key']) assert.equal(fs.statSync(path.join(dataDir, name)).mode & 0o777, 0o600, `${name} is private after the upgrade`);
+    for (const name of ['app.json', 'modules/assistant/ai.json', 'secrets.key']) assert.equal(fs.statSync(path.join(dataDir, name)).mode & 0o777, 0o600, `${name} is private after the upgrade`);
     const owner2 = await signIn('admin', 'testpass1234');
     const sentence = "the saved AI key can't be read on this server; enter the key again";
     const view = (await call('GET', '/api/ai', { cookie: owner2 })).json.ai;
@@ -355,6 +359,28 @@ try {
       if (mine?.error !== sealedAway) await new Promise((r) => setTimeout(r, 100));
     }
     assert.deepEqual([mine.host, mine.error], [null, sealedAway]);
+  });
+
+  await test('removing the AI Assistant: with its data kept the setting and the sealed key stay; with its data removed they are gone, in memory and on disk', async () => {
+    const owner3 = await signIn('admin', 'testpass1234');
+    const setting = path.join(dataDir, 'modules', 'assistant', 'ai.json');
+    const sealedFile = path.join(dataDir, 'modules', 'secrets.json');
+    const sealedKey = () => JSON.parse(fs.readFileSync(sealedFile, 'utf8')).assistant?.key;
+    assert.match(sealedKey(), /^aesgcm\$/, 'a key is kept before');
+    const kept = await call('DELETE', '/api/modules/assistant', { cookie: owner3 });
+    assert.equal(kept.status, 200, kept.text);
+    assert.ok(fs.existsSync(setting) && sealedKey(), 'its data kept: the setting and the key stay');
+    assert.equal((await call('POST', '/api/modules/bundled/assistant/install', { cookie: owner3, body: {} })).status, 201);
+    const gone = await call('DELETE', '/api/modules/assistant?keepData=0', { cookie: owner3 });
+    assert.equal(gone.status, 200, gone.text);
+    assert.ok(!fs.existsSync(setting) && !sealedKey(), 'its data removed: the setting and the key are gone from the disk');
+    for (const f of ['ai-usage.json', 'ai-log.jsonl']) assert.ok(!fs.existsSync(path.join(dataDir, 'modules', 'assistant', f)), `${f} is gone`);
+    const view = await call('GET', '/api/ai', { cookie: owner3 });
+    assert.deepEqual([view.json.ai.keySet, view.json.ai.provider, view.json.ai.enabled], [false, 'none', false], 'and from memory: nothing to use');
+    assert.ok(!view.text.includes('sk-entered-again'));
+    await stopServer();
+    assert.ok(!fs.readFileSync(sealedFile, 'utf8').includes('aesgcm$') || !sealedKey(), 'a stop writes nothing back');
+    await startServer();
   });
 } finally {
   await stopServer();
